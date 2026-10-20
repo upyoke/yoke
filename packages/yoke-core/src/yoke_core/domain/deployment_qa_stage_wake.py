@@ -99,6 +99,7 @@ def stage_wait_message(
     route: str,
     names_cases: bool,
     discharge: str | None = None,
+    shared_plans: tuple[str, ...] = (),
 ) -> str:
     """Name the run, stage, target/revision, item, and who this reaches.
 
@@ -124,6 +125,14 @@ def stage_wait_message(
             f"{discharge} Check 'yoke deployment-runs get {run_id}' for "
             "the current state."
         )
+    shared = (
+        f" Shared group evidence comes from {', '.join(shared_plans)}; one owning "
+        "session executes each group for all attaching members. A waiting result "
+        "names that execution and owner; keep your claim and park until settlement "
+        "credits you or wakes you to retry your own member command."
+        if shared_plans
+        else ""
+    )
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
@@ -131,7 +140,7 @@ def stage_wait_message(
         "naming BOTH the stage and the member, which is what this stage "
         f"credits: 'yoke qa plan run --deployment-run-id {run_id} --stage "
         f"{stage_name} --member {item_ref}{_plan_selection(names_cases)} "
-        "--project PROJECT'. "
+        f"--project PROJECT'.{shared} "
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
@@ -203,6 +212,11 @@ def notify_item_scoped_qa_wait(
 
     item_ref = render_item_ref(conn, int(item_id))
     discharge = member_discharge_statement(conn, int(item_id))
+    from yoke_core.domain.deployment_qa_shared_wait import shared_plan_names
+
+    shared_plans = (
+        () if discharge else shared_plan_names(conn, run_id, stage_name, item_id)
+    )
     return push_notice(
         conn,
         item_id=item_id,
@@ -217,6 +231,7 @@ def notify_item_scoped_qa_wait(
             route=route,
             names_cases=names_cases,
             discharge=discharge,
+            shared_plans=shared_plans,
         ),
         idempotency_key=stage_wait_idempotency_key(
             run_id, stage_name, item_id, target_digest

@@ -1,7 +1,8 @@
 {
  "id": "stage-and-member-binding",
  "title": "Stage and member binding",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Shared QA contention waits for its owner; settlement credits members or wakes their stage commands.",
  "page": "qa-plans",
  "position": 4
 }

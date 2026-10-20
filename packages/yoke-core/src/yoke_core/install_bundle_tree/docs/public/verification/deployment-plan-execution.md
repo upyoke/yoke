@@ -52,10 +52,15 @@ reviews. Completing that private roster ends this invocation; it does not
 start an attached shared campaign. Private evidence alone does not accept a
 member that still owes shared evidence. Once private acceptance is complete,
 the same command selects the next unfinished shared group and reuses
-completed group evidence. Another
-session's live execution remains owned by that session; continue its watcher
-and retry afterward. `shared_plan_execution_busy` names a different group
-already using the stage's ordered cursor. Refresh and declared corrections
+completed group evidence. A shared execution owned by another session, or a
+different group using the stage's cursor, returns `state=waiting` with
+`shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
+and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
+The deployment's member stage
+line retains the wait. Passing shared evidence credits every attaching member;
+completion, abort or error wakes members still owing QA to retry their own
+stage/member command. The owner resumes its existing execution as usual.
+Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
 For a correction, name its plan and failed requirement:
 

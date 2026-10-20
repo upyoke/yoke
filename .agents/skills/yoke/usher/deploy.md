@@ -64,6 +64,11 @@ yoke claims steering list --project PROJECT --active-only
 
 A live seat: report the landing and wait; do not create or take over a run.
 
+Item QA shared cursor contention returns waiting with its execution id and
+owner. Keep the claim and park; settlement credits the member or wakes its own
+stage/member command. [Shared plan credit](../../../../.yoke/docs/verification/deployment-plan-execution.md#shared-plan-credit)
+owns the recipe.
+
 ```text
 printf %s "LANDED PREFIX-N MERGE_SHA" | yoke say --stdin --steering
 ```

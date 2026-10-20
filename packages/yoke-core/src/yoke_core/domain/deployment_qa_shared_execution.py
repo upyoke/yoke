@@ -119,7 +119,7 @@ def route_shared_plan_execution(begin):
             from yoke_core.domain.qa_plan_execution_store import (
                 live_plan_execution_id,
                 select_plan_execution,
-                QaPlanExecutionStateError,
+                same_owner,
             )
 
             desired = target_digest(deployment_qa_execution_target(conn, pending[0]))
@@ -130,11 +130,17 @@ def route_shared_plan_execution(begin):
             )
             if live_id:
                 live = select_plan_execution(conn, live_id, lock=False)
-                if live["execution_target_digest"] != desired:
-                    raise QaPlanExecutionStateError(
-                        f"shared_plan_execution_busy: execution {live_id} is running a different "
-                        "plan group at this stage; continue that execution through its owner, then retry "
-                        "this member. If its owner is gone, inspect and abort that execution before retrying."
+                if live["execution_target_digest"] != desired or not same_owner(
+                    live,
+                    actor_id=kwargs.get("actor_id"),
+                    session_id=kwargs.get("session_id"),
+                ):
+                    from yoke_core.domain.deployment_qa_shared_wait import (
+                        shared_execution_wait,
+                    )
+
+                    return shared_execution_wait(
+                        live, member=member, desired_target_digest=desired
                     )
 
             result = begin(

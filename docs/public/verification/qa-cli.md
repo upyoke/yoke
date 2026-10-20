@@ -22,7 +22,7 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 
 - `yoke qa requirement add|add-batch|list|get|update|waive|transfer ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
-- `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` — `--plan` only for a stage that names no cases; one already naming its own refuses it
+- `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` — `--plan` only for a stage that names no cases; one already naming its own refuses it. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the execution and owner; keep the claim and park for settlement credit or a wake.
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
 - `yoke qa run add|complete|record-verdict|list|get ...`
 - `yoke qa artifact presign|add ...`

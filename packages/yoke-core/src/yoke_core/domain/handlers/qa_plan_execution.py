@@ -122,6 +122,8 @@ def handle_plan_execution_begin(
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )
+        if execution.get("shared_execution_wait"):
+            return HandlerOutcome(primary_success=True, result_payload=execution)
         result = plan_execution_view(conn, execution)
         if execution.get("settled_review"):
             result["settled_review"] = execution["settled_review"]

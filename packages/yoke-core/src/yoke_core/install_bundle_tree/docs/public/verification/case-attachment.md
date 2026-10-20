@@ -155,6 +155,10 @@ yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
   --member <PREFIX-N> --project <project>
 ```
 
+[Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the
+execution and owner. Keep the claim and park; settlement credits shared
+evidence or wakes members still owing QA to retry their own member command.
+
 `--plan <plan-slug>` joins that line only for a stage that names no cases. One
 already naming its own — pinned, frozen, attached, admitted, directly
 authored, or materialized by an earlier selection — refuses `--plan`, because

@@ -1,0 +1,12 @@
+{
+ "id": "shared-cursor-wait",
+ "title": "A release member waits for shared QA custody",
+ "status": "observed",
+ "audience": "agent",
+ "when": "An item QA command reaches another session's shared execution or another group's live stage cursor.",
+ "need": "Read the waiting result's execution id and owner, retain the work claim and park. Passing shared evidence credits attaching members. Completion, abort or error wakes members still owing QA through the existing member stage line; retry the same stage/member command on that wake. The owner resumes its own execution as usual.",
+ "disclosure": "current cue",
+ "surface": "Plan run result and help; deployment item QA stage notice",
+ "review": "Source and regression coverage; live delivery remains unverified until release.",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_shared_wait.py", "runtime/api/domain/test_deployment_qa_shared_wait.py"]
+}
