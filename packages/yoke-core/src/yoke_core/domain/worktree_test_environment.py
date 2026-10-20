@@ -80,8 +80,19 @@ class TestEnvironmentReport:
         return not self.error
 
 
+#: Variables that point uv at an environment other than the project's own.
+#: A caller already inside another checkout's environment carries them, and
+#: inheriting them would sync this project's lock into that environment.
+FOREIGN_ENVIRONMENT_VARIABLES = ("UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV")
+
+
 def _run(cmd: Sequence[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
     """Run *cmd*, turning a launch failure into a captured failing result."""
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in FOREIGN_ENVIRONMENT_VARIABLES
+    }
     try:
         return subprocess.run(
             list(cmd),
@@ -89,7 +100,7 @@ def _run(cmd: Sequence[str], cwd: Path, timeout: int) -> subprocess.CompletedPro
             text=True,
             timeout=timeout,
             cwd=str(cwd),
-            env=_tree_binding.with_binding_evaluated(os.environ),
+            env=_tree_binding.with_binding_evaluated(env),
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return subprocess.CompletedProcess(
@@ -130,9 +141,7 @@ def uv_projects(worktree_path: Path) -> List[Path]:
 
 def runs_pytest(project_dir: Path) -> bool:
     """True when *project_dir* carries a pytest surface worth proving."""
-    return (project_dir / "conftest.py").is_file() or (
-        project_dir / "tests"
-    ).is_dir()
+    return (project_dir / "conftest.py").is_file() or (project_dir / "tests").is_dir()
 
 
 def provision_test_environment(
@@ -271,7 +280,9 @@ def _sync_failure_narrative(
     argv = " ".join(declaration.sync_argv())
     inspect = ""
     if declaration.selection_flags():
-        inspect = f" Inspect the declaration with {declaration.capability_get_recipe()}."
+        inspect = (
+            f" Inspect the declaration with {declaration.capability_get_recipe()}."
+        )
     return (
         f"Lane test environment could not be installed in {project}:\n"
         f"{_detail(completed)}\n"

@@ -156,6 +156,25 @@ def test_a_ready_lane_records_its_sync_and_its_collection(
     assert not (project / env.PROOF_DIRECTORY_NAME).exists()
 
 
+def test_a_sync_ignores_the_callers_own_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A caller inside another checkout's environment cannot redirect the sync."""
+    project = _uv_project(tmp_path / "lane")
+    seen = tmp_path / "bin" / "environment.log"
+    _fake_uv(
+        tmp_path / "bin",
+        body=f'  echo "${{UV_PROJECT_ENVIRONMENT-}}|${{VIRTUAL_ENV-}}" > "{seen}"\n',
+    )
+    monkeypatch.setenv("PATH", str(tmp_path / "bin") + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "caller" / ".venv"))
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "caller" / ".venv"))
+
+    env.provision_test_environment(str(project))
+
+    assert seen.read_text() == "|\n"
+
+
 def test_a_conftest_that_cannot_import_blocks_the_lane(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -188,7 +207,9 @@ def test_the_proof_runs_inside_the_project_it_is_proving(
 
     def _record(cmd, cwd, _timeout):
         seen.append((tuple(cmd), cwd))
-        return subprocess.CompletedProcess(list(cmd), returncode=0, stdout="", stderr="")
+        return subprocess.CompletedProcess(
+            list(cmd), returncode=0, stdout="", stderr=""
+        )
 
     monkeypatch.setattr(env.shutil, "which", lambda _name: "/usr/bin/uv")
     monkeypatch.setattr(env, "_run", _record)
@@ -236,9 +257,7 @@ def test_an_unprovable_lane_blocks_worktree_creation(
     monkeypatch.setattr(
         env,
         "provision_test_environment",
-        lambda _path, **_kw: env.TestEnvironmentReport(
-            (), "lane cannot run pytest"
-        ),
+        lambda _path, **_kw: env.TestEnvironmentReport((), "lane cannot run pytest"),
     )
 
     result = create_worktree(
@@ -289,9 +308,7 @@ def test_declared_extras_are_synced_and_named_on_the_receipt(
     report = env.provision_test_environment(str(lane), project="platform")
 
     assert report.ready is True, report.error
-    assert report.actions[0] == (
-        "selection:uv_project=. extras=engine groups="
-    )
+    assert report.actions[0] == ("selection:uv_project=. extras=engine groups=")
     assert "run:yoke watch pytest --" in report.actions
     assert "--extra engine" in (bin_dir / "sync.log").read_text()
     assert "--extra engine" in (bin_dir / "run.log").read_text()

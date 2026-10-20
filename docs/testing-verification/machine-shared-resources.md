@@ -5,8 +5,20 @@ structural guards work. Companion to
 [`docs/testing-verification.md`](../testing-verification.md).
 
 A test runs on a real workstation, and a few of its resources are shared with
-everything else on that machine. Two are guarded structurally, because
-per-test discipline had already failed for both.
+everything else on that machine. Three are guarded structurally, because
+per-test discipline had already failed for each.
+
+**The home folder.** The repo-wide pytest plugin
+`runtime/real_home_isolation.py` sets `HOME` to an empty per-test folder and
+clears `CODEX_HOME` and `XDG_CONFIG_HOME`, so `Path.home()`, `expanduser`, a
+harness config path imported by name into another module, and every
+subprocess resolve inside the test's `tmp_path`. A test that needs a file a
+real home would hold writes it into that folder itself; never point a test
+back at the real home. The session also fingerprints the real-home files the
+machine-wide harness setup writes (hook configs, posture configs, the Claude
+desktop config and the harness-settings record) before the first test and
+after the last; a changed file fails the run with `real_home_written` and
+names it.
 
 **Browsers.** Every test path that could open one is required to inject a
 fake opener; the repo-wide conftest fails the test rather than letting the
