@@ -15,7 +15,7 @@ from yoke_core.domain.coordination_claims import (
 )
 
 
-def lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
+def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
     if not db_backend.connection_is_postgres(conn):
         if not bool(getattr(conn, "in_transaction", False)):
             conn.execute("BEGIN IMMEDIATE")

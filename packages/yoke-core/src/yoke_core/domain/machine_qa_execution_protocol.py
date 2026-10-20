@@ -11,7 +11,7 @@ from yoke_core.domain.machine_qa_lease_messages import (
 import hmac
 from typing import Any, Sequence
 
-from yoke_core.domain.machine_qa_submission_lease import lock_submission_claim
+from yoke_core.domain.machine_qa_submission_lease import _lock_submission_claim
 from yoke_core.domain.coordination_claim_record import (
     CoordinationClaim,
 )
@@ -215,7 +215,7 @@ def _validate_lease_owner(
     allow_released: bool,
 ) -> tuple[CoordinationClaim, TestMachineContract]:
     try:
-        lease = lock_submission_claim(conn, int(lease_id))
+        lease = _lock_submission_claim(conn, int(lease_id))
     except CoordinationClaimNotFoundError as exc:
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "no lease was issued with that id")
