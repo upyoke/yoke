@@ -14,7 +14,7 @@ license = "FSL-1.1-ALv2"
 license-files = ["LICENSE.md"]
 requires-python = ">=3.11"
 dependencies = [
-    "filelock>=3.13,<4",
+    "filelock>=3.29.4,<4",
     "pydantic==2.13.4",
     "packaging>=24,<27",
     # board-art ASCII variant generation (FIGlet banners) — pure, client-safe.

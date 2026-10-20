@@ -205,3 +205,36 @@ def test_busy_alias_names_resolved_target_and_retry(tmp_path, monkeypatch):
     assert str(config) in message and "busy" in message
     assert "Recovery" in message and "retry" in message
     assert config.read_text() == 'model = "keep"\n'
+
+
+def test_update_removes_its_lock_sidecar(tmp_path, monkeypatch):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    config = tmp_path / "config.toml"
+    storage.mutate(config, lambda text, document: ('model = "set"\n', None))
+    assert config.read_text() == 'model = "set"\n'
+    assert not (tmp_path / ".config.toml.yoke.lock").exists()
+    assert not (tmp_path / "machine").exists()
+
+
+def test_unremovable_lock_sidecar_is_recorded_for_uninstall(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from yoke_contracts import harness_settings_ledger
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    config = tmp_path / "config.toml"
+    lock_path = tmp_path.resolve() / ".config.toml.yoke.lock"
+    original_unlink = Path.unlink
+
+    def keep_lock(self, *args, **kwargs):
+        if self.name == lock_path.name:
+            raise PermissionError("simulated unremovable lock")
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", keep_lock)
+    storage.mutate(config, lambda text, document: ('model = "set"\n', None))
+    monkeypatch.setattr(Path, "unlink", original_unlink)
+    assert lock_path.exists()
+    assert harness_settings_ledger.read() == [
+        harness_settings_ledger.created_file_entry(lock_path)
+    ]

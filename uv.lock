@@ -2489,7 +2489,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = "==0.128.8" },
-    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.13,<4" },
+    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.29.4,<4" },
     { name = "httpx", marker = "extra == 'test'", specifier = "==0.28.1" },
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6,<7" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.26,<5" },
@@ -2518,7 +2518,7 @@ provides-extras = ["test", "images"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "filelock", specifier = ">=3.13,<4" },
+    { name = "filelock", specifier = ">=3.29.4,<4" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "hypothesis", specifier = ">=6,<7" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
@@ -2571,7 +2571,7 @@ images = [
 
 [package.metadata]
 requires-dist = [
-    { name = "filelock", specifier = ">=3.13,<4" },
+    { name = "filelock", specifier = ">=3.29.4,<4" },
     { name = "packaging", specifier = ">=24,<27" },
     { name = "pillow", specifier = ">=10.0,<12" },
     { name = "pillow", marker = "extra == 'images'", specifier = ">=10.0,<12" },
@@ -2618,7 +2618,7 @@ test = [
 requires-dist = [
     { name = "boto3", specifier = ">=1.35,<2" },
     { name = "fastapi", specifier = "==0.128.8" },
-    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.13,<4" },
+    { name = "filelock", marker = "extra == 'test'", specifier = ">=3.29.4,<4" },
     { name = "httpx", marker = "extra == 'test'", specifier = "==0.28.1" },
     { name = "markdown-it-py", specifier = ">=4,<5" },
     { name = "opentelemetry-api", specifier = ">=1.30,<2" },
