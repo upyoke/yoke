@@ -9,9 +9,13 @@ from uuid import uuid4
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.qa_plan_execution_authority import (
-    lock_member_admission,
-    plan_execution_is_abandoned,
+from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
+from yoke_core.domain.qa_plan_execution_begin_admission import (
+    BeginInputsChanged,
+    PreparedRoster,
+    admit_member,
+    begin_inputs,
+    prepare_roster,
 )
 from yoke_core.domain.qa_plan_execution_continuation import (
     resolve_continuation_source,
@@ -23,28 +27,21 @@ from yoke_core.domain.qa_plan_execution_lifecycle import (
 
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
-    build_execution_roster,
     canonical,
     converge_plan_execution_insert_race,
     live_plan_execution_id,
     lock_plan_execution,
     marker,
     resume_owned_plan_execution,
-    roster_digest,
     same_owner,
     select_plan_execution,
 )
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
-    execution_target_for_roster,
     require_execution_target,
-)
-from yoke_core.domain.qa_plan_execution_roster import (
-    validate_roster_machine,
 )
 from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
-from yoke_core.domain.qa_plan_item_target_partition import item_target_partition
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -73,6 +70,7 @@ def begin_plan_execution(
     session_id: str,
     _deployment_subject: dict | None = None,
     _requesting_member_item_id: int | None = None,
+    _run_inputs: str | None = None,
     plan: str | None = None,
 ) -> dict[str, Any]:
     """Create or resume the one live execution for a QA subject.
@@ -83,6 +81,11 @@ def begin_plan_execution(
     and reaches no host baseline, so the machine keeps the state the settled
     walk built. :mod:`yoke_core.domain.qa_plan_execution_continuation` owns
     which prior executions qualify.
+
+    A member-scoped begin reads its roster before the run lock. ``_run_inputs``
+    is the :func:`begin_inputs` digest its router took before reading; when it
+    no longer holds under the lock, :class:`BeginInputsChanged` sends the
+    router back to read again under that lock.
     """
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(
@@ -105,7 +108,6 @@ def begin_plan_execution(
     expected_deployment_target = None
     expected_deployment_target_digest = None
     if deployment_stage is not None:
-        lock_member_admission(conn, deployment_run_id, deployment_member_item_id)
         from yoke_core.domain.deployment_qa_execution_target import (
             deployment_qa_execution_target,
         )
@@ -133,73 +135,40 @@ def begin_plan_execution(
         conn,
         session_id=session_id,
     )
-    from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
+    # The member the run lock admits; a shared group walks for its requester.
+    admitted = (
+        deployment_member_item_id
+        if deployment_member_item_id is not None
+        else _requesting_member_item_id
+    )
+    locks_run = deployment_run_id is not None and admitted is not None
 
-    def settle(source: list[dict[str, Any]]) -> tuple[Any, list[dict[str, Any]]]:
-        return open_unsettled_roster(
+    def prepare() -> PreparedRoster | dict[str, Any]:
+        return prepare_roster(
             conn,
-            source,
             item_id=item_id,
             transition_id=transition_id,
             deployment_run_id=deployment_run_id,
             deployment_stage=deployment_stage,
             deployment_member_item_id=deployment_member_item_id,
+            expected_target=expected_deployment_target,
+            expected_target_digest=expected_deployment_target_digest,
+            plan=plan,
+            host_capability_kinds=host_capabilities,
+            checkout_path=checkout_path,
+            expected_branch=expected_branch,
+            session_id=session_id,
+            machine=machine,
         )
 
-    item_remaining: list[int | None] = [None]
-
-    def without_settled(source: list[dict[str, Any]]) -> dict[str, Any] | None:
-        if item_id is None:
-            reprint, kept = settle(source)
-        else:
-            reprint, kept, item_remaining[0] = item_target_partition(
-                conn,
-                source,
-                item_id=int(item_id),
-                transition_id=str(transition_id),
-                settle=settle,
-            )
-        source[:] = kept
-        return reprint
-
-    roster = build_execution_roster(
-        conn,
-        item_id=item_id,
-        transition_id=transition_id,
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        deployment_member_item_id=deployment_member_item_id,
-        execution_target_digest=expected_deployment_target_digest,
-        plan=plan,
-        host_capability_kinds=host_capabilities,
-        checkout_path=checkout_path,
-        expected_branch=expected_branch,
-        session_id=session_id,
-    )
-    if reprint := without_settled(roster):
-        return reprint
-    from yoke_core.domain.qa_member_machine_partitions import member_machine_partition
-
-    roster, remaining, completed = member_machine_partition(
-        conn,
-        roster,
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        deployment_member_item_id=deployment_member_item_id,
-        machine=machine,
-    )
-    if completed is not None:
-        return {**completed, "remaining_requirement_count": remaining}
-    remaining = item_remaining[0] if remaining is None else remaining
-    validate_roster_machine(conn, roster, machine)
-    digest = roster_digest(roster)
-    execution_target, execution_target_digest = execution_target_for_roster(roster)
-    if expected_deployment_target is not None and canonical(
-        execution_target
-    ) != canonical(expected_deployment_target):
-        raise QaPlanExecutionStateError(
-            "materialized QA roster does not match the active deployment target"
-        )
+    # Every roster read runs before the run lock; it covers the re-check and write.
+    prepared = prepare()
+    if not isinstance(prepared, PreparedRoster):
+        return prepared
+    if locks_run and not admit_member(
+        conn, str(deployment_run_id), deployment_stage, int(admitted), _run_inputs
+    ):
+        raise BeginInputsChanged(deployment_run_id)
     existing_id = live_plan_execution_id(
         conn,
         item_id=item_id,
@@ -230,10 +199,14 @@ def begin_plan_execution(
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 require_execution_target(existing)
-                if not retire_unstarted_changed_roster(conn, existing, digest=digest):
+                if not retire_unstarted_changed_roster(
+                    conn, existing, digest=prepared.digest
+                ):
                     return {
-                        **resume_owned_plan_execution(conn, existing, digest=digest),
-                        "remaining_requirement_count": remaining,
+                        **resume_owned_plan_execution(
+                            conn, existing, digest=prepared.digest
+                        ),
+                        "remaining_requirement_count": prepared.remaining,
                     }
             elif plan_execution_is_abandoned(conn, existing):
                 finish_plan_execution(
@@ -248,42 +221,28 @@ def begin_plan_execution(
                     "another actor or session owns the active QA plan execution"
                 )
 
+            # Retiring the live execution committed; read the roster again first.
             if item_id is not None:
                 lock_item_workflow_bindings(conn, (int(item_id),))
-            lock_member_admission(conn, deployment_run_id, deployment_member_item_id)
-            roster = build_execution_roster(
-                conn,
-                item_id=item_id,
-                transition_id=transition_id,
-                deployment_run_id=deployment_run_id,
-                deployment_stage=deployment_stage,
-                deployment_member_item_id=deployment_member_item_id,
-                execution_target_digest=expected_deployment_target_digest,
-                plan=plan,
-                host_capability_kinds=host_capabilities,
-                checkout_path=checkout_path,
-                expected_branch=expected_branch,
-                session_id=session_id,
+            inputs = (
+                begin_inputs(conn, str(deployment_run_id), deployment_stage)
+                if locks_run
+                else None
             )
-            if reprint := without_settled(roster):
-                return reprint
-            roster, remaining, completed = member_machine_partition(
-                conn,
-                roster,
-                deployment_run_id=deployment_run_id,
-                deployment_stage=deployment_stage,
-                deployment_member_item_id=deployment_member_item_id,
-                machine=machine,
-            )
-            if completed is not None:
-                return {**completed, "remaining_requirement_count": remaining}
-            remaining = item_remaining[0] if remaining is None else remaining
-            validate_roster_machine(conn, roster, machine)
-            digest = roster_digest(roster)
-            execution_target, execution_target_digest = execution_target_for_roster(
-                roster
-            )
+            prepared = prepare()
+            if not isinstance(prepared, PreparedRoster):
+                return prepared
+            if locks_run and not admit_member(
+                conn, str(deployment_run_id), deployment_stage, int(admitted), inputs
+            ):
+                prepared = prepare()
+                if not isinstance(prepared, PreparedRoster):
+                    conn.rollback()
+                    return prepared
 
+    roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
+    execution_target = prepared.execution_target
+    execution_target_digest = prepared.execution_target_digest
     execution_id = str(uuid4())
     now = utc_now()
     placeholder = marker(conn)

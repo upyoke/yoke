@@ -46,8 +46,10 @@ from yoke_core.domain.deployment_runs_lineage import (  # noqa: F401
 )
 
 # Composition / batch validation
-from yoke_core.domain.deployment_runs_validation import (  # noqa: F401
+from yoke_core.domain.deployment_runs_batch_compatibility import (  # noqa: F401
     cmd_check_batch_compatibility,
+)
+from yoke_core.domain.deployment_runs_validation import (  # noqa: F401
     cmd_validate_composition,
 )
 

@@ -2,7 +2,8 @@
 
 The caller holds item workflow bindings and the run row. Requirements and
 plans are locked here in ID order, using the same projections as individual
-admission. These values never enter the immutable repository-read cache or
+admission. A caller reading before the run lock reads them unlocked, then
+locks the same rows under the run lock before proving them unchanged. These values never enter the immutable repository-read cache or
 the unlocked Shipping presentation cache.
 """
 
@@ -55,15 +56,21 @@ class AdmissionReads:
         return self.projects[item_id]
 
 
-def read_snapshot_inputs(conn, *, item_ids, requirement_ids, plan_ids=()):
-    """Read mutable facts once inside the caller's current transaction."""
+def read_snapshot_inputs(conn, *, item_ids, requirement_ids, plan_ids=(), lock=True):
+    """Read mutable facts once inside the caller's current transaction.
+
+    ``lock=False`` reads the same facts without holding the requirement and
+    plan rows, for a read taken before the run lock; its caller locks them
+    under the run lock and proves them unchanged before writing.
+    """
     items = tuple(sorted(set(int(value) for value in item_ids)))
     selected = tuple(sorted(set(int(value) for value in requirement_ids)))
     if not items:
         return AdmissionReads({}, {}, {}, {})
     postgres = db_backend.connection_is_postgres(conn)
     marker = "%s" if postgres else "?"
-    lock = " FOR UPDATE" if postgres else ""
+    lock_rows = lock and postgres
+    suffix = " FOR UPDATE" if lock_rows else ""
     requirements = {}
     if selected:
         if not _table_exists(conn, "qa_requirements"):
@@ -72,7 +79,7 @@ def read_snapshot_inputs(conn, *, item_ids, requirement_ids, plan_ids=()):
             conn,
             f"SELECT {','.join(REQUIREMENT_FIELDS)},"
             f"waived_at,{requirement_retracted_at_select(conn)} FROM qa_requirements "
-            f"WHERE id IN ({','.join(marker for _ in selected)}) ORDER BY id{lock}",
+            f"WHERE id IN ({','.join(marker for _ in selected)}) ORDER BY id{suffix}",
             selected,
         )
         requirements = {int(row["id"]): row for row in rows}
@@ -110,5 +117,5 @@ def read_snapshot_inputs(conn, *, item_ids, requirement_ids, plan_ids=()):
             and row.get("retracted_at") is None
             and int(row["plan_id"]) not in withdrawn
         )
-    facts.plans = read_plan_rows(conn, plans, lock_plan=True)
+    facts.plans = read_plan_rows(conn, plans, lock_plan=lock_rows)
     return facts

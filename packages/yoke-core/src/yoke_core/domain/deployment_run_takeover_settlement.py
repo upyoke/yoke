@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import instant_parameter, query_rows, utc_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 SETTLEMENT_REFUSED_CODE = "takeover_settlement_refused"
 
@@ -32,25 +32,25 @@ def _remaining_stages(conn: Any, old_id: str, stages: list[dict]) -> list[str]:
 def _advance_to_complete(
     conn: Any, old_id: str, stages: list[dict], delivered_to: str
 ) -> None:
-    """Walk the cursor and member stamps to ``complete``, as a driver would."""
-    from yoke_core.domain.backlog_item_db_writes import _update_item_multi
+    """Walk the cursor and member stamps to ``complete``, as a driver would.
+
+    Every member is stamped in one statement, so the older run's lock covers
+    the same work however many members it closed.
+    """
     from yoke_core.domain.deployment_run_stage_entry import set_current_stage
 
-    members = [
-        int(row["item_id"])
-        for row in query_rows(
-            conn,
-            "SELECT item_id FROM deployment_run_items WHERE run_id=%s",
-            (old_id,),
-        )
-    ]
     for stage in _remaining_stages(conn, old_id, stages):
         set_current_stage(conn, old_id, stage, only_executing=True)
-    for item_id in members:
-        fields = {"deploy_stage": "complete"}
-        if delivered_to:
-            fields["deployed_to"] = delivered_to
-        _update_item_multi(conn, item_id, fields, commit=False)
+    deployed_to = ", deployed_to=%(to)s" if delivered_to else ""
+    conn.execute(
+        f"UPDATE items SET deploy_stage='complete'{deployed_to}, updated_at=%(at)s "
+        "WHERE id IN (SELECT item_id FROM deployment_run_items WHERE run_id=%(run)s)",
+        {
+            "to": delivered_to,
+            "at": instant_parameter(conn, utc_now()),
+            "run": old_id,
+        },
+    )
     set_current_stage(conn, old_id, "complete", only_executing=True)
 
 
@@ -73,8 +73,8 @@ def succeed_taken_over_run(
     memberless obligations nobody passed. A refusal here is the run's own
     succeeded gate, raised as a takeover refusal so nothing is created.
     """
-    from yoke_core.domain.completed_item_delivery import (
-        record_completed_run_delivery,
+    from yoke_core.domain.deployment_run_settle_success import (
+        record_run_deliveries_on,
     )
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
@@ -103,7 +103,7 @@ def succeed_taken_over_run(
         (instant_parameter(conn, completed_at), old_id),
     )
     stamp_run_environment(conn, old_id, when=completed_at)
-    record_completed_run_delivery(conn, run_id=old_id)
+    record_run_deliveries_on(conn, old_id)
     withdraw_deployment_qa_wait_wakes(
         conn,
         run_id=old_id,

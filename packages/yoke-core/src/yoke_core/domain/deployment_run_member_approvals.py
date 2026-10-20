@@ -42,12 +42,14 @@ def _members(conn: Any, run_id: str) -> list[dict[str, Any]]:
 
 
 def member_approval_blockers(
-    conn: Any, run_id: str, *, create: bool = True
+    conn: Any, run_id: str, *, create: bool = True, commit: bool = True
 ) -> list[str]:
     """Return named unresolved item decisions, creating each only once.
 
     The item's pinned workflow and project determine its approver. The run's
-    project never substitutes for a bound member's own authority.
+    project never substitutes for a bound member's own authority. Each item
+    gate commits its own decision by default; ``commit=False`` leaves them in
+    the caller's transaction, for a caller already holding the run lock.
     """
     blockers: list[str] = []
     for member in _members(conn, run_id):
@@ -109,6 +111,7 @@ def member_approval_blockers(
             to_stage_id="done",
             policy=policy,
             approval_source=source,
+            commit=commit,
         )
         if not verdict.satisfied:
             blockers.append(
@@ -118,9 +121,11 @@ def member_approval_blockers(
     return blockers
 
 
-def shared_approval_blocker(conn: Any, run_id: str) -> Any | None:
+def shared_approval_blocker(
+    conn: Any, run_id: str, *, commit: bool = True
+) -> Any | None:
     """Return a stage verdict without opening its request while items wait."""
-    blockers = member_approval_blockers(conn, run_id)
+    blockers = member_approval_blockers(conn, run_id, commit=commit)
     if not blockers:
         return None
     from yoke_core.domain.approval_gate import ApprovalGateVerdict
@@ -158,36 +163,40 @@ def resume_after_member_decision(conn: Any, item_id: int) -> None:
         "AND dr.status='executing' ORDER BY dr.id",
         (item_id,),
     ).fetchall()
+    for row in rows:
+        _resume_run(conn, str(row["id"]), row)
+        # Each run's settlement may take that run's lock; release it before
+        # the next run, so one answered item never holds a queue of runs.
+        conn.commit()
+
+
+def _resume_run(conn: Any, run_id: str, row: Any) -> None:
     import json
 
-    for row in rows:
-        run_id = str(row["id"])
-        if member_approval_blockers(conn, run_id, create=False):
-            continue
-        stage_name = str(row["current_stage"] or "")
-        if stage_name == "complete":
-            from yoke_core.domain.deployment_run_auto_completion import (
-                continue_after_settlement,
-            )
-
-            continue_after_settlement(conn, run_id)
-            continue
-        stages = json.loads(str(row["stages"]))
-        stage = next(
-            (stage for stage in stages if stage.get("name") == stage_name), None
+    if member_approval_blockers(conn, run_id, create=False):
+        return
+    stage_name = str(row["current_stage"] or "")
+    if stage_name == "complete":
+        from yoke_core.domain.deployment_run_auto_completion import (
+            continue_after_settlement,
         )
-        if stage is None:
-            continue
-        if stage.get("step_runner") == "qa" and stage.get("scope") == "run":
-            from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
 
-            settle_subject(conn, run_id=run_id, stage=stage_name, member=None)
-        elif stage.get("step_runner") == "human-approval":
-            from yoke_core.domain.deployment_approval_requests import (
-                evaluate_deployment_stage_approval,
-            )
+        continue_after_settlement(conn, run_id)
+        return
+    stages = json.loads(str(row["stages"]))
+    stage = next((stage for stage in stages if stage.get("name") == stage_name), None)
+    if stage is None:
+        return
+    if stage.get("step_runner") == "qa" and stage.get("scope") == "run":
+        from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
 
-            evaluate_deployment_stage_approval(conn, run_id=run_id, stage=stage_name)
+        settle_subject(conn, run_id=run_id, stage=stage_name, member=None)
+    elif stage.get("step_runner") == "human-approval":
+        from yoke_core.domain.deployment_approval_requests import (
+            evaluate_deployment_stage_approval,
+        )
+
+        evaluate_deployment_stage_approval(conn, run_id=run_id, stage=stage_name)
 
 
 __all__ = [

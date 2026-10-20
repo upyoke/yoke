@@ -6,16 +6,10 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
-from yoke_core.domain.deployment_qa_acceptance_record import (
-    record_acceptance as _record_acceptance,
-)
 from yoke_core.domain.deployment_qa_stage_acceptance import (
-    acceptance_waived,
-    completed_execution,
     existing_acceptance_requirement,
-    latest_verdict,
+    completed_execution,
     missing_execution_blocker,
 )
 from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
@@ -25,11 +19,7 @@ from yoke_core.domain.deployment_qa_stage_case_failures import (
 )
 from yoke_core.domain.deployment_qa_stage_outcome import (
     OUTCOME_BLOCKED,
-    OUTCOME_REJECTED,
-    OUTCOME_WAITING,
-    answer,
     discharged,
-    passed,
     settled,
     waiting,
 )
@@ -52,6 +42,12 @@ from yoke_core.domain.post_deploy_verification_answer import (
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
 from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.deployment_qa_stage_acceptance_write import (
+    Acceptance,
+    write_status as _write_status,
+)
 
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
@@ -156,10 +152,43 @@ def _settle_stage_status(
     stage_name: str,
     member_item_id: int | None,
 ) -> dict[str, Any]:
-    """Settle or describe one active stage/member acceptance boundary."""
-    from yoke_core.domain.deployment_qa_shared_acceptance import shared_member_status
+    """Settle or describe one active stage/member acceptance boundary.
 
-    shared = shared_member_status(conn, subject, target)
+    Every read happens first, as one set per fact across the run's members;
+    the run row lock covers only each acceptance write.
+    """
+    return _write_status(
+        conn,
+        _read_settlement(
+            conn,
+            subject=subject,
+            target=target,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+        ),
+    )
+
+
+@presentation_operation
+@run_presentation
+def _read_settlement(conn: Any, *, run_id: str, **subject: Any) -> Any:
+    return _settle_reads(conn, run_id=run_id, **subject)
+
+
+def _settle_reads(
+    conn: Any,
+    *,
+    subject: Mapping[str, Any],
+    target: Mapping[str, Any],
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+) -> Any:
+    """An answer, a passed subject owing its acceptance write, or shared parts."""
+    from yoke_core.domain.deployment_qa_shared_acceptance import shared_member_reads
+
+    shared = shared_member_reads(conn, subject, target)
     if shared is not None:
         return shared
     current_target_digest = target_authority.target_digest(target)
@@ -225,76 +254,7 @@ def _settle_stage_status(
         return waiting(obligation_failures)
     if blockers := run_qa_blockers(conn, run_id, member_item_id, subject):
         return waiting(blockers)
-    conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
-    requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
-    if acceptance_waived(conn, requirement_id):
-        return passed()
-    latest = latest_verdict(conn, requirement_id)
-    if latest == "pass":
-        return passed()
-    if latest == "fail":
-        return answer(
-            accepted=False,
-            outcome=OUTCOME_REJECTED,
-            reasons=[f"stage acceptance requirement #{requirement_id} was rejected"],
-        )
-    verdict = subject["stage"]["verdict"]
-    mode = str(verdict["mode"])
-    if mode in {"agent_only", "human_if_unsure"}:
-        _record_acceptance(
-            conn,
-            requirement_id=requirement_id,
-            execution_id=str(execution["id"]),
-            verdict="pass",
-            reason=f"all scoped cases passed under {mode}",
-        )
-        conn.commit()
-        return passed()
-    # The undetermined acceptance and its review request stand or fall
-    # together: no review is requested against evidence a reviewer cannot
-    # open, and a repaired stage re-evaluates from the same state.
-    conn.execute("SAVEPOINT stage_acceptance_review")
-    if latest != "undetermined":
-        review_run_id = _record_acceptance(
-            conn,
-            requirement_id=requirement_id,
-            execution_id=str(execution["id"]),
-            verdict="undetermined",
-            reason="configured deployment stage requires authorized human acceptance",
-        )
-    else:
-        from yoke_core.domain.qa_latest_execution import latest_executions
-
-        review_run_id = int(
-            latest_executions(conn, [requirement_id])[requirement_id]["id"]
-        )
-    from yoke_core.domain.qa_evidence_portability import EvidenceNotPortable
-    from yoke_core.domain.qa_review_requests import ensure_qa_review_request
-
-    try:
-        request, _created = ensure_qa_review_request(
-            conn,
-            requirement_id=requirement_id,
-            run_id=review_run_id,
-            policy=parse_approval_policy(
-                verdict["reviewers"], path="deployment stage verdict.reviewers"
-            ),
-            commit=False,
-        )
-    except EvidenceNotPortable as exc:
-        conn.execute("ROLLBACK TO SAVEPOINT stage_acceptance_review")
-        conn.commit()
-        return answer(accepted=False, outcome=OUTCOME_BLOCKED, reasons=[str(exc)])
-    conn.commit()
-    request_id = int(request["id"]) if request is not None else None
-    return answer(
-        accepted=False,
-        outcome=OUTCOME_WAITING,
-        reasons=[
-            f"stage acceptance requirement #{requirement_id} awaits authorized human review"
-        ],
-        request_id=request_id,
-    )
+    return Acceptance(subject, target, run_id, execution)
 
 
 def _with_pin_diagnosis(

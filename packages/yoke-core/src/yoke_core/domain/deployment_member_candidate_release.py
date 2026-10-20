@@ -97,10 +97,8 @@ def candidate_exclusions(
 def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -> bool:
     """Use the independent item-QA removal guards and retain unknown candidates."""
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
-    from yoke_core.domain.deployment_run_member_removal import (
-        _require_removable,
-        remove_member_on,
-    )
+    from yoke_core.domain.deployment_run_member_removal import remove_member_on
+    from yoke_core.domain.deployment_run_member_removal_read import read_removal
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
     excluded = candidate_exclusions(
@@ -109,6 +107,7 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
     if not excluded:
         return False
     _, merge, _ = excluded[0]
+    read = read_removal(conn, run_id=run_id, item_ids=(item_id,))
     run_status, held = lock_run_with_stable_membership(conn, run_id)
     current = query_one(
         conn, "SELECT current_stage FROM deployment_runs WHERE id=%s", (run_id,)
@@ -121,17 +120,22 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
     ):
         conn.commit()
         return False
-    try:
-        _require_removable(conn, run_id, item_id)
-    except ValueError as exc:
+    if not read.projection.holds(conn):
+        read = read_removal(conn, run_id=run_id, item_ids=(item_id,))
+    if read.refusal is not None:
         conn.commit()
         print(
-            f"member_candidate_release_held: {render_item_ref(conn, item_id)} on {run_id}: {exc}"
+            f"member_candidate_release_held: {render_item_ref(conn, item_id)} on {run_id}: {read.refusal}"
         )
         return False
     reason = "failed item QA cannot pass against this run's frozen lineage; recorded merge is not contained; awaiting a later release"
     ref = remove_member_on(
-        conn, run_id, item_id, reason=reason, removed_by=CORRECTION_RELEASE_REMOVED_BY
+        conn,
+        run_id,
+        item_id,
+        reason=reason,
+        removed_by=CORRECTION_RELEASE_REMOVED_BY,
+        projection=read.projection,
     )
     conn.commit()
     print(f"Released {ref} from run {run_id}: {reason}.")
@@ -152,10 +156,10 @@ def release_replaced_members(
     the run froze. Either is released when its recorded merge or active lane
     head is outside the run's frozen lineage, bypassing the settled-QA guard
     because the candidate this run carries is no longer the item's. Resolve
-    repository comparisons before taking the run row; re-check identities
-    under the workflow-binding locks so a concurrent landing cannot be removed
-    on an answer about a different commit. Unknown containment remains a
-    blocker and is collected in *unproven*.
+    repository comparisons and the run's shared groups before taking the run
+    row; re-check identities under the workflow-binding locks so a concurrent
+    landing cannot be removed on an answer about a different commit. Unknown
+    containment remains a blocker and is collected in *unproven*.
     """
     from yoke_core.domain.dash_lane_head_staleness import active_lane_head
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
@@ -166,6 +170,7 @@ def release_replaced_members(
         SETTLEMENT_REMOVED_BY,
         remove_members_on,
     )
+    from yoke_core.domain.deployment_run_member_removal_read import read_removal
     from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
 
     excluded = candidate_exclusions(
@@ -174,10 +179,13 @@ def release_replaced_members(
     if not excluded:
         return []
     reopened = {int(m["item_id"]) for m in members if m.get("reopened")}
+    read = read_removal(conn, run_id=run_id, guard=False)
     status, held = lock_run_with_stable_membership(conn, run_id)
     if status not in {"created", "executing", "failed"}:
         conn.commit()
         return []
+    if not read.projection.holds(conn):
+        read = read_removal(conn, run_id=run_id, guard=False)
     current = [
         item_id
         for item_id, merge, head in excluded
@@ -195,7 +203,12 @@ def release_replaced_members(
         ),
     ):
         for ref in remove_members_on(
-            conn, run_id, ids, reason=reason, removed_by=removed_by
+            conn,
+            run_id,
+            ids,
+            reason=reason,
+            removed_by=removed_by,
+            projection=read.projection,
         ).values():
             print(f"Released {ref} from run {run_id}: {reason}.")
             released.append(ref)

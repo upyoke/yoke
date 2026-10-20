@@ -198,29 +198,24 @@ def cmd_update(
                         )
                     if refusal:
                         return refusal
-                completed_at = utc_now()
-                conn.execute(
-                    "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
-                    (value, instant_parameter(conn, completed_at), run_id),
-                )
-                if value == "succeeded":
-                    from yoke_core.domain.deployment_run_carried_work import (
-                        record_carried_work,
-                    )
-                    from yoke_core.domain.environment_delivery_record import (
-                        stamp_run_environment,
+                    from yoke_core.domain.deployment_run_settle_success import (
+                        read_success,
+                        succeed_run_on,
                     )
 
-                    stamp_run_environment(conn, run_id, when=completed_at)
-                    from yoke_core.domain.completed_item_delivery import (
-                        record_completed_run_delivery,
+                    # Members' attributions and the carried-work comparison
+                    # are read before the run row lock, which then covers a
+                    # one-statement re-check and the writes. A delivered run
+                    # keeps its carried-work answer, so no reader derives it.
+                    succeed_run_on(conn, run_id, read_success(conn, run_id))
+                else:
+                    # A failed or cancelled run derives no carried work under
+                    # this row lock; a read derives it if the freeze never did.
+                    conn.execute(
+                        "UPDATE deployment_runs SET status=%s, completed_at=%s "
+                        "WHERE id=%s",
+                        (value, instant_parameter(conn, utc_now()), run_id),
                     )
-
-                    record_completed_run_delivery(conn, run_id=run_id)
-                    # A delivered run keeps its answer, so no reader derives
-                    # it. A failed or cancelled run derives nothing under this
-                    # row lock; a read derives it if the freeze never did.
-                    record_carried_work(conn, run_id)
                 if value in {"failed", "cancelled"}:
                     from yoke_core.domain.qa_deployment_run_settlement import (
                         settle_unsuccessful_run,

@@ -119,11 +119,17 @@ def test_removing_the_last_attaching_member_retracts_the_shared_copy(test_db):
 
 def test_orphan_check_reads_peers_once_and_refreshes_after_each_removal(test_db):
     from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+    from yoke_core.domain.deployment_qa_materialization_projection import (
+        read_run_projection,
+    )
     from yoke_core.domain.qa_deployment_member_removal import (
-        _plan_still_attached,
         retract_orphaned_shared_copies,
     )
     from yoke_core.domain.schema_read_scope import composition_reads
+
+    def attached(conn):
+        projection = read_run_projection(conn, run_id=RUN, stages=["item-qa"])
+        return projection.attached("item-qa", plan, without=())
 
     members = (9901, 9902, 9903)
     plan = _plan(test_db, "orphan-read-scope")
@@ -137,19 +143,21 @@ def test_orphan_check_reads_peers_once_and_refreshes_after_each_removal(test_db)
 
     # Create already shares schema/source reads across all membership writes.
     with composition_reads():
-        assert _plan_still_attached(conn, RUN, "item-qa", plan)
+        assert attached(conn)
         peer_reads = sum(
             count
             for sql, count in conn.queries.items()
-            if "SELECT item_id,requirement_snapshot FROM deployment_run_items" in sql
+            if "requirement_snapshot" in sql and "FROM deployment_run_items" in sql
         )
-        assert peer_reads == 1
+        # One set read each: the fingerprint, the projection's members, and
+        # the presented members' snapshots; never one per peer.
+        assert peer_reads == 3
         for index, member in enumerate(members):
             conn.execute(
                 "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
                 (RUN, member),
             )
-            assert _plan_still_attached(conn, RUN, "item-qa", plan) is (index < 2)
+            assert attached(conn) is (index < 2)
             retracted = retract_orphaned_shared_copies(
                 conn, run_id=RUN, reason="member moved to a later release"
             )

@@ -16,10 +16,10 @@ from runtime.api.domain.test_deployment_run_composition_freeze import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_run_composition_freeze as composition
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item, cmd_update
-from yoke_core.domain.deployment_runs_validation import (
+from yoke_core.domain.deployment_runs_batch_compatibility import (
     cmd_check_batch_compatibility,
-    cmd_validate_composition,
 )
+from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.workflow_item_binding_validation import (
     WorkflowItemBindingError,
 )

@@ -107,9 +107,15 @@ def shared_member_acceptance(conn, subject, target, acceptance_qa_kind):
     )
 
 
-def shared_member_status(conn, subject, target):
-    from yoke_core.domain.deployment_qa_stage_gate import _settle_stage_status
-    from yoke_core.domain.deployment_qa_stage_outcome import passed
+def shared_member_reads(conn, subject, target):
+    """Read each shared group and the member's own subject, before any write.
+
+    ``None`` when the member answers alone; a discharge when it withdrew every
+    group it owed; otherwise the parts, each read the way the gate reads one
+    subject. :func:`combine_shared` joins their answers once written.
+    """
+    from yoke_core.domain.deployment_qa_stage_acceptance_write import SharedParts
+    from yoke_core.domain.deployment_qa_stage_gate import _settle_reads
 
     subjects = acceptance_subjects(conn, subject, target)
     if not subjects:
@@ -121,17 +127,25 @@ def shared_member_status(conn, subject, target):
         return (
             discharged() if withdrawn_member_discharge(conn, subject, target) else None
         )
-    answers = [
-        _settle_stage_status(
-            conn,
-            subject=part,
-            target=part_target,
-            run_id=part["id"],
-            stage_name=part["stage"]["name"],
-            member_item_id=part.get("member_item_id"),
-        )
-        for part, part_target in subjects
-    ]
+    return SharedParts(
+        [
+            _settle_reads(
+                conn,
+                subject=part,
+                target=part_target,
+                run_id=part["id"],
+                stage_name=part["stage"]["name"],
+                member_item_id=part.get("member_item_id"),
+            )
+            for part, part_target in subjects
+        ]
+    )
+
+
+def combine_shared(answers):
+    """The member passes when every part passed; otherwise its reddest part."""
+    from yoke_core.domain.deployment_qa_stage_outcome import passed
+
     unresolved = [answer for answer in answers if not answer["accepted"]]
     if not unresolved:
         return passed()

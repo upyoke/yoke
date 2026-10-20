@@ -26,6 +26,7 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 _CLOSED_STATUSES = frozenset({"done", "cancelled", "stopped"})
@@ -70,7 +71,7 @@ def reopened_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """Open members of this run that are no longer delivery-ready."""
     rows = query_rows(
         conn,
-        "SELECT i.id, i.status FROM deployment_run_items dri "
+        f"SELECT i.id, i.status FROM {run_items('dri')} "
         "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
         (run_id,),
     )
@@ -107,7 +108,7 @@ def set_aside_reopened_members(
     remaining = {
         int(row[0])
         for row in query_rows(
-            conn, "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (run_id,)
+            conn, f"SELECT item_id FROM {run_items()} WHERE run_id=%s", (run_id,)
         )
     }
     refused = [
@@ -139,7 +140,7 @@ def frozen_member_readiness(conn: Any, run_id: str) -> tuple[list[str], str]:
     """
     rows = query_rows(
         conn,
-        "SELECT i.id, i.status FROM deployment_run_items dri "
+        f"SELECT i.id, i.status FROM {run_items('dri')} "
         "JOIN items i ON dri.item_id = i.id WHERE dri.run_id=%s",
         (run_id,),
     )

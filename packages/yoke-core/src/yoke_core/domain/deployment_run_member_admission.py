@@ -68,6 +68,18 @@ class MemberAdmission:
 Refusal = Callable[[int, Exception], Exception]
 
 
+@dataclass(frozen=True)
+class RunItemsAdmission:
+    """Validated membership rows not yet inserted; see :func:`prepare_run_items`."""
+
+    ids: tuple[int, ...]
+    intents: dict[int, str | None]
+    selections: dict[int, str | None]
+    refs: dict[int, str]
+    requirement_ids: tuple[int, ...]
+    plan_ids: tuple[int, ...]
+
+
 def admit_run_items(
     conn: Any,
     *,
@@ -95,10 +107,55 @@ def admit_run_items(
     *refused* receives the refusing member and its cause, and returns the
     exception to raise in its place; without it the cause is raised as is.
     """
+    admission = prepare_run_items(conn, run_id=run_id, members=members, refused=refused)
+    return insert_run_items(conn, run_id, admission)
+
+
+def insert_run_items(
+    conn: Any, run_id: str, admission: RunItemsAdmission
+) -> dict[int, str]:
+    """Insert the rows :func:`prepare_run_items` validated; return their refs."""
+    ids = list(admission.ids)
+    if not ids:
+        return {}
+    added_at = instant_parameter(conn, utc_now())
+    conn.execute(
+        "INSERT INTO deployment_run_items "
+        "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
+        "SELECT %s, member.item_id, %s, member.intent, member.selection "
+        "FROM unnest(%s::bigint[], %s::text[], %s::text[]) "
+        "AS member(item_id, intent, selection)",
+        (
+            run_id,
+            added_at,
+            ids,
+            [admission.intents[item_id] for item_id in ids],
+            [admission.selections[item_id] for item_id in ids],
+        ),
+    )
+    return {item_id: admission.refs[item_id] for item_id in ids}
+
+
+def prepare_run_items(
+    conn: Any,
+    *,
+    run_id: str,
+    members: Sequence[MemberAdmission],
+    refused: Refusal | None = None,
+    lock_reads: bool = True,
+) -> RunItemsAdmission:
+    """Validate every member and decide its row, inserting nothing.
+
+    Pins each item's completion flow, as admission always has. With
+    ``lock_reads=False`` the requirement and plan rows the selections read
+    stay unlocked, for a caller deciding before the run lock; it locks
+    ``requirement_ids`` and ``plan_ids`` under the run lock and proves them
+    unchanged before :func:`insert_run_items`.
+    """
     entries = {int(member.item_id): member for member in members}
     ids = sorted(entries)
     if not ids:
-        return {}
+        return RunItemsAdmission((), {}, {}, {}, (), ())
 
     def refuse(item_id: int, exc: Exception) -> None:
         if refused is None:
@@ -171,6 +228,7 @@ def admit_run_items(
         item_ids=ids,
         requirement_ids=_selected(entries, derived, "requirement_ids"),
         plan_ids=_selected(entries, derived, "plan_ids"),
+        lock=lock_reads,
     )
     for item_id in ids:
         # Validated now so an unusable obligation refuses here rather than at
@@ -185,23 +243,18 @@ def admit_run_items(
                 admission=admission,
             ),
         )
-    added_at = instant_parameter(conn, utc_now())
-    conn.execute(
-        "INSERT INTO deployment_run_items "
-        "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
-        "SELECT %s, member.item_id, %s, member.intent, member.selection "
-        "FROM unnest(%s::bigint[], %s::text[], %s::text[]) "
-        "AS member(item_id, intent, selection)",
-        (
-            run_id,
-            added_at,
-            ids,
-            [intents[item_id] for item_id in ids],
-            [None if item_id in derived else selections[item_id] for item_id in ids],
-        ),
-    )
     ref = render_item_ref_lookup(conn, ids)
-    return {item_id: ref(item_id) for item_id in ids}
+    return RunItemsAdmission(
+        tuple(ids),
+        intents,
+        {
+            item_id: None if item_id in derived else selections[item_id]
+            for item_id in ids
+        },
+        {item_id: ref(item_id) for item_id in ids},
+        tuple(sorted(admission.requirements)),
+        tuple(sorted(admission.plans)),
+    )
 
 
 def admit_run_item(
@@ -229,4 +282,11 @@ def _selected(
     return values
 
 
-__all__ = ["MemberAdmission", "admit_run_item", "admit_run_items"]
+__all__ = [
+    "MemberAdmission",
+    "RunItemsAdmission",
+    "admit_run_item",
+    "admit_run_items",
+    "insert_run_items",
+    "prepare_run_items",
+]

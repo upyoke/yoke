@@ -18,7 +18,10 @@ from typing import Any, Dict, List, Union
 
 from pydantic import BaseModel
 
+from psycopg.errors import DeadlockDetected, LockNotAvailable, QueryCanceled
+
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_core.domain.deploy_pipeline_qa_wait import AWAITING_SCOPED_QA
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION as DISPATCH_FUNCTION_ID,
     materialize_and_gate_deployment_qa_stage,
@@ -31,6 +34,42 @@ from yoke_core.domain.handlers.deployment_common import error, run_id
 from yoke_core.domain.handlers.deployment_run_execution import (
     require_run_driver,
 )
+
+
+#: A cancelled statement (57014), a lock timeout (55P03) or a deadlock victim
+#: (40P01): the wait ended, not the stage. Retrying the same dispatch is safe.
+LOCK_WAIT_INTERRUPTIONS = (QueryCanceled, LockNotAvailable, DeadlockDetected)
+
+
+def interrupted_dispatch_wait(
+    conn: Any, *, run_id: str, stage_name: str, exc: Exception
+) -> str:
+    """Name a lock wait that was cancelled or timed out; the run is not failed.
+
+    Members settled before the interruption already committed. Answering the
+    held QA wait keeps the run executing at this stage, so the driver
+    re-dispatches the same stage instead of failing the run.
+    """
+    from yoke_core.domain.deployment_runs_lock import run_row_lock_holder
+
+    holder = run_row_lock_holder(conn)
+    who = (
+        f"pid {holder.pid} has held a deployment_runs lock for "
+        f"{holder.age_seconds}s{f' while {holder.state}' if holder.state else ''}"
+        if holder is not None
+        else "no other backend holds a deployment_runs lock now"
+    )
+    sqlstate = getattr(exc, "sqlstate", "") or type(exc).__name__
+    return (
+        f"qa_stage_dispatch_interrupted: run {run_id!r} stage {stage_name!r} "
+        f"stopped on a database lock wait that was cancelled or timed out "
+        f"(SQLSTATE {sqlstate}; {who}). Its transaction was rolled back, members "
+        "settled before it keep their result, and the run stays executing at "
+        "this stage; the driver re-dispatches the same stage. If it repeats, "
+        "let the holder finish (an 'idle in transaction' holder is an abandoned "
+        "client that releases on its own), then re-drive with "
+        f"`yoke watch deploy -- {run_id}`."
+    )
 
 
 def _driven_run(request: FunctionCallRequest, function_id: str):
@@ -110,9 +149,18 @@ def handle_deployment_qa_stage_dispatch(
                 "not_found",
                 f"deployment run {resolved!r} has no stage named {stage_name!r}",
             )
-        code, message = materialize_and_gate_deployment_qa_stage(
-            conn, stage, run_id=resolved
-        )
+        try:
+            code, message = materialize_and_gate_deployment_qa_stage(
+                conn, stage, run_id=resolved
+            )
+        except LOCK_WAIT_INTERRUPTIONS as exc:
+            conn.rollback()
+            code, message = (
+                AWAITING_SCOPED_QA,
+                interrupted_dispatch_wait(
+                    conn, run_id=resolved, stage_name=str(stage["name"]), exc=exc
+                ),
+            )
     finally:
         conn.close()
     return HandlerOutcome(
