@@ -25,6 +25,7 @@ from yoke_core.domain.path_claims_integration_resolver import (
     resolve_integration_head_with_divergence_check,
 )
 
+
 def _git(repo: Path, *args: str) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
