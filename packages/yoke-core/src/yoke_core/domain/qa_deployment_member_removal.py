@@ -98,11 +98,14 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
     agent_mission walk holding its machine owes its walk-end teardown. An
     earlier cancellation keeps its time and case but now names the removal.
     """
+    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+
     request = owed_host_abort(conn, execution, reason=MEMBER_REMOVED_REASON)
     if (
         request is None
         and execution["state"] == "awaiting_agent_review"
         and execution.get("machine_lease_id")
+        and not mission_restores_recorded(conn, execution)
     ):
         request = next(
             (
