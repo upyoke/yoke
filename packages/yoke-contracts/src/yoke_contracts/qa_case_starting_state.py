@@ -17,6 +17,7 @@ chain's starting state after its last case.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -139,12 +140,12 @@ def chain_baselines(
                     "plan's first case and nothing runs before it; declare "
                     "host_baselines or starting_state 'as_is' instead"
                 )
-            if MISSION_RUNNER_ID in (case.get("runner_id"), previous.get("runner_id")):
+            if previous.get("runner_id") == MISSION_RUNNER_ID:
                 raise StartingStateError(
                     f"case {key!r} inherits from case "
                     f"{str(previous['case_key'])!r}, but an exploratory "
-                    "mission is walked after the plan's other cases, so no "
-                    "case runs directly before or after it on the machine; "
+                    "mission is walked after the plan's captures, so no "
+                    "case may inherit after it on the machine; "
                     "declare host_baselines or starting_state 'as_is' instead"
                 )
             if not is_machine_runner(previous.get("runner_id")):
@@ -153,6 +154,20 @@ def chain_baselines(
                     f"{str(previous['case_key'])!r}, which does not run on a "
                     "Test Machine; an inheriting case must directly follow a "
                     "machine-run case"
+                )
+
+            def driver(row: Mapping[str, Any]) -> str | None:
+                config = row.get("method_config") or {}
+                if isinstance(config, str):
+                    config = json.loads(config)
+                return config.get("machine")
+
+            if driver(case) != driver(previous):
+                raise StartingStateError(
+                    f"inherited_driver_mismatch: case {key!r} inherits from "
+                    f"case {str(previous['case_key'])!r}, but their driving "
+                    "machines differ; use the predecessor's method_config.machine "
+                    "or declare host_baselines / starting_state 'as_is' instead"
                 )
             fan_out[key] = list(fan_out[str(previous["case_key"])])
         elif state == BASELINE:

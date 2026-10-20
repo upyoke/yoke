@@ -131,7 +131,12 @@ def begin_case_host_contract(
             f"but --machine names {machine!r}; omit --machine to resume on its recorded host"
         )
     driver = resolve_case_machine(case, retained or machine)
-    names = case_machines(case, driver)
+    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
+
+    _, chain_hosts, _ = chain_host_groups(execution["roster"])[
+        int(case["requirement_id"])
+    ]
+    names = chain_hosts or case_machines(case, driver)
     lease_id = execution.get("machine_lease_id")
     if (
         lease_id is not None
@@ -177,7 +182,11 @@ def begin_case_host_contract(
         )
 
     if lease_id is not None:
-        require_case_host_leases(conn, execution, case)
+        require_case_host_leases(
+            conn,
+            execution,
+            {**case, "method_config": {"machine": driver, "machines": list(names)}},
+        )
         return continue_plan_host_control_execution(
             conn,
             project=str(case["project"]),

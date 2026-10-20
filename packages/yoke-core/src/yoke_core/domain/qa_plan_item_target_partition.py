@@ -92,9 +92,16 @@ def item_target_partition(
             "to the lane first; to repeat one case, run `yoke qa case run "
             "--requirement-id ID`."
         )
-    groups: dict[str, list[dict[str, Any]]] = {}
+    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
+
+    chains = chain_host_groups(open_rows)
+    groups: dict[tuple[str, int | None], list[dict[str, Any]]] = {}
     for row in open_rows:
-        groups.setdefault(str(row.get("execution_target_digest") or ""), []).append(row)
+        key = (
+            str(row.get("execution_target_digest") or ""),
+            chains[int(row["requirement_id"])][2],
+        )
+        groups.setdefault(key, []).append(row)
     first_reprint = None
     ordered = list(groups.values())
     for index, rows in enumerate(ordered):

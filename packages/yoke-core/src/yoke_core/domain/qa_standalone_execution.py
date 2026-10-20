@@ -259,6 +259,16 @@ def begin_standalone_execution(
         source_ref=source_ref,
         checkout_path=checkout_path,
     )
+    from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
+
+    partitions = {group[2] for group in chain_host_groups(roster).values()}
+    if len(partitions) > 1:
+        raise QaPlanExecutionStateError(
+            "inherited_mission_requires_isolated_plan: a standalone inheriting "
+            "mission must run only with its own predecessor chain; move that "
+            "chain to a separate plan, or attach the plan to an item or "
+            "deployment stage for automatic execution partitioning"
+        )
     validate_roster_machine(conn, roster, machine)
     if continuation:
         require_same_mission_roster(continuation, roster)
