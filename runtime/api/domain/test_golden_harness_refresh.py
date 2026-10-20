@@ -50,6 +50,7 @@ def contract(*, golden=GOLDEN):
 class World:
     def __init__(self, monkeypatch, recorded):
         self.calls = []
+        self.destinations = []
         self.recorded = recorded
         self.install_ok = True
         refresh._checked.clear()
@@ -100,6 +101,7 @@ class World:
 
     def call(self, *, function_id, target, payload, actor):
         self.calls.append((function_id, payload.get("plan_execution_id")))
+        self.destinations.append(payload.get("destination"))
         if function_id.endswith("begin"):
             return {"execution": {"golden_destination": GOLDEN + "-2", "lease_id": 8}}
         return {"status": "verified", "golden_baseline_path": GOLDEN + "-2"}
@@ -215,3 +217,13 @@ def test_a_retention_failure_warns_and_the_case_begins_again(monkeypatch, capsys
     assert "rm: Operation not permitted" in warning
     assert "Remove the leftovers by hand." in warning
     assert f"resets now restore {GOLDEN}-2" in warning
+
+
+def test_each_refresh_captures_to_a_new_stamped_sibling(monkeypatch):
+    # Today's dated default name may already be the registered golden.
+    world = World(monkeypatch, None)
+    world.run(contract())
+    begin = world.destinations[0]
+    assert begin.startswith("/Users/Shared/yoke-golden/testy-home-")
+    assert begin.endswith("Z") and "T" in begin.rsplit("-", 1)[-1]
+    assert begin != GOLDEN
