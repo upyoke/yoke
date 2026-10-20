@@ -7,7 +7,7 @@
  "encounter": "Connect another computer, invite a teammate or create a personal token",
  "location": "Connect and setup; Team, Machines and Profile",
  "basis": "Shared engine decisions, invite ownership and token controls",
- "note": "A person approves their own machine. Agents present the request and hand private invite input to the human TUI; they never approve or receive the secret as an answer.",
+ "note": "The agent approves machine and GitHub codes; only password entry goes to a person. A machine belongs to the person whose signed-in browser or connected machine approved it. Agents hand private invite input to the human TUI and never receive the secret as an answer.",
  "current": "Source separates own-machine approval, teammate invitation and explicit personal tokens. Hosted and company-sign-in teammates sign in as themselves. A local universe is reachable here only; yoke self-host init is the sharing path.",
  "desired": "Prove the same identities, recovery and secret boundaries from published installers and deployed browser surfaces.",
  "gaps": ["admission-journeys-delivery-proof"],

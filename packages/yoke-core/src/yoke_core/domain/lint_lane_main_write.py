@@ -222,6 +222,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         reason=reason,
         tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
         turn_id=turn_id if isinstance(turn_id, str) else "",
+        agent=str(payload_dict.get("agent_type") or ""),
         derivation=derivation,
     )
 

@@ -77,6 +77,7 @@ def test_exit_status_mirrors_the_conclusion(
     out = capsys.readouterr().out
     assert f"concluded {conclusion} exit={exit_code}" in out
     assert "ci_run_source=dispatched" in out
+    assert "gh run download 42 -p 'pytest-output-selection-*'" in out
     if conclusion == "success":
         assert "failed_log" not in seen
     else:
@@ -296,3 +297,17 @@ class TestFailureDetail:
         )
 
         assert "no diagnostic" in engine.failure_detail(result)
+
+
+def test_artifact_pattern_matches_the_selection_workflow_upload() -> None:
+    import fnmatch
+
+    from yoke_core.domain.yaml_helper import load_document
+    from yoke_core.tools._source_pythonpath import repo_root
+    from yoke_core.tools.pytest_remote_selection_run import OUTPUT_ARTIFACT_PATTERN
+
+    workflow = repo_root() / ".github" / "workflows" / "yoke-tests-selection.yml"
+    steps = load_document(workflow)["jobs"]["selection"]["steps"]
+    upload = next(step for step in steps if "upload-artifact" in step.get("uses", ""))
+    name = upload["with"]["name"].replace("${{ matrix.shard }}", "1")
+    assert fnmatch.fnmatch(name, OUTPUT_ARTIFACT_PATTERN)

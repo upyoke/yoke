@@ -177,6 +177,7 @@ def emit_denial_event(
     server_revision: str = "",
     guard_version_skew: str = "",
     *,
+    agent: str = "",
     close_tool_call: bool = True,
 ) -> None:
     """Emit HarnessToolCallDenied via the Python emit-event owner.
@@ -186,6 +187,8 @@ def emit_denial_event(
     to distinguish suppression-token paths from ordinary denials in the
     audit stream — see
     ``runtime/api/domain/lint_long_command_polling_decide.py``.
+    ``agent`` names the subagent type that made the refused call, so a
+    subagent's denial stays distinguishable from its parent session's.
     """
     payload = build_denial_payload(
         hook=hook,
@@ -237,6 +240,7 @@ def emit_denial_event(
                 *(["--session-id", session_id] if session_id else []),
                 *(["--tool-use-id", tool_use_id] if tool_use_id else []),
                 *(["--turn-id", turn_id] if turn_id else []),
+                *(["--agent", agent] if agent else []),
             ]
         )
         emit_event_cli.emit(args)

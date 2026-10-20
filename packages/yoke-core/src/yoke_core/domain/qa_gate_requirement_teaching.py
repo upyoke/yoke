@@ -33,13 +33,11 @@ def missing_verification_requirement_errors(
         )
         return errors
 
-    # Epic-task attachment has no typed adapter because the registered
-    # item-claim-gated surface accepts item attachments only.
+    # An epic task's verification case is its implementation review, which
+    # the registered review-seed command creates idempotently.
     errors.append(
-        "  python3 -m yoke_core.domain.qa requirement-add "
-        f"--epic-id {item_ref_for_id(int(target.epic_id))} --task-num {target.task_num} "
-        "--qa-kind implementation_review --qa-phase verification "
-        f"--workflow-transition {transition_id}"
+        "  yoke workflow-item epic-task review-seed "
+        f"--epic {item_ref_for_id(int(target.epic_id))} --task-num {target.task_num}"
     )
     return errors
 

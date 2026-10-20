@@ -15,9 +15,8 @@ run case on that run's own project scope, which is the same
 ``claim_required_kind="qa_subject"`` policy every other QA write already
 uses — the run-attached half lives in
 :mod:`yoke_core.domain.handlers.qa_requirement_deployment_run_create`.
-Epic-task attachment keeps the operator-debug domain CLI
-(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...
---workflow-transition STAGE``).
+An epic task's implementation-review case is seeded by
+``yoke workflow-item epic-task review-seed``.
 
 ``add_batch`` accepts rows for the TARGET item only: rows may omit
 ``public_ref`` (defaulted from the target) and any row naming a different
@@ -112,9 +111,9 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
             "target_invalid",
             "qa.requirement.add requires target.public_ref for an item-attached "
             "case, or target.kind='deployment_run' with "
-            "target.deployment_run_id for a run-attached one (epic-task "
-            "attachment is the operator-debug domain CLI: python3 -m "
-            "yoke_core.domain.qa requirement-add)",
+            "target.deployment_run_id for a run-attached one. An epic task's "
+            "case is seeded with `yoke workflow-item epic-task review-seed "
+            "--epic PREFIX-N --task-num K`.",
         )
     row = dict(request.payload or {})
     for run_only in ("deployment_stage", "deployment_member_item"):

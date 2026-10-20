@@ -31,9 +31,8 @@ fails closed (returns 1) rather than silently skipping. This is
 deliberate: a quality gate that silently disables itself on module
 breakage is worse than no gate at all.
 
-Operator escape hatch: ``git commit --no-verify`` bypasses the shim
-entirely. This is the documented path when the check is wrong or when
-an in-flight refactor temporarily exceeds the limit.
+A refusal names its own recovery: split or shorten the named file, or
+repair the named module.
 
 The canonical owner of the 350-line rule and its temporary-exception
 list is :mod:`yoke_core.domain.file_line_check`.
@@ -82,8 +81,7 @@ def _format_warning(files: list[str]) -> str:
     for path in files:
         lines.append(f"  {path}")
     lines.append(
-        "\nRun 'git add <file>' to stage latest content, "
-        "or 'git commit --no-verify' to skip this check."
+        "\nRun 'git add <file>' to stage the latest content, then commit again."
     )
     return "\n".join(lines) + "\n"
 
@@ -147,7 +145,7 @@ def _format_file_line_summary(verdict, *, limit: int) -> str:
             if verdict.hard_fails
             else "Fix each byte budget as its line says"
         )
-        + ", or use `git commit --no-verify` to bypass."
+        + ", then commit again."
     )
     return "\n".join(lines) + "\n"
 
@@ -160,7 +158,7 @@ def _run_file_line_check_or_block() -> int:
         _write_diagnostic(
             "ERROR: file-line-limit checker module not available — "
             "install/repair yoke_core.domain.file_line_check.\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
+            "Repair the source environment with `yoke dev run`, then commit again.\n"
         )
         return 1  # FAIL-CLOSED: missing checker blocks the commit.
 
@@ -197,7 +195,7 @@ def _run_generated_block_renders_or_block() -> int:
     if summary:
         _write_diagnostic(summary)
     if rc != 0 and summary.startswith("ERROR:"):
-        _write_diagnostic("Use `git commit --no-verify` to bypass this check.\n")
+        _write_diagnostic("Fix what the error names, then commit again.\n")
     return rc
 
 
@@ -214,7 +212,7 @@ def _run_harness_capability_render_or_block() -> int:
         _write_diagnostic(
             "ERROR: harness capability renderer not available — install/"
             "repair yoke_core.tools.render_harness_capability_inline.\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
+            "Repair the source environment with `yoke dev run`, then commit again.\n"
         )
         return 1
 
@@ -257,7 +255,7 @@ def _run_agent_render_check_or_block() -> int:
         _write_diagnostic(
             "ERROR: agent renderer not available — "
             "install/repair yoke_core.domain.agents_render.\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
+            "Repair the source environment with `yoke dev run`, then commit again.\n"
         )
         return 1
 
@@ -283,7 +281,6 @@ def _run_agent_render_check_or_block() -> int:
         "sources:\n"
         + "".join(f"  {entry}\n" for entry in drifted)
         + "Run `yoke agents render` and re-stage the rendered files.\n"
-        "Use `git commit --no-verify` to bypass this check.\n"
     )
     return 1
 

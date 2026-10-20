@@ -148,6 +148,7 @@ def emit_audit_event(
             check_id=CHECK_ID,
             reason=annotated,
             session_id=session_id,
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=tool_use_id,
             turn_id=turn_id,
             command_snippet=command_snippet,

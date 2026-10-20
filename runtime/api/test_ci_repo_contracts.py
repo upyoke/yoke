@@ -196,7 +196,9 @@ def test_authored_file_limit_anchors_on_the_shared_base(
 
     def _record(*, repo_root: Path, base: str, staged: bool):
         seen.update(repo_root=repo_root, base=base, staged=staged)
-        return SimpleNamespace(ok=True, summary="ok")
+        return SimpleNamespace(
+            ok=True, summary="ok", hard_fails=[], byte_budget_fails=[]
+        )
 
     monkeypatch.setattr(FILE_LINE_CHECK, _record)
 

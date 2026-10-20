@@ -93,7 +93,7 @@ class TestFormatWarning(unittest.TestCase):
         self.assertIn("foo.py", text)
         self.assertIn("bar.py", text)
         self.assertIn("git add", text)
-        self.assertIn("--no-verify", text)
+        self.assertNotIn("--no-verify", text)
 
 
 # --- Diverged-files warning still fires & is non-blocking -
@@ -123,7 +123,7 @@ class TestRunAgainstFixtureRepo(unittest.TestCase):
         err = buf.getvalue()
         self.assertIn("ERROR", err)
         self.assertIn("pkg/big.py", err)
-        self.assertIn("--no-verify", err)
+        self.assertNotIn("--no-verify", err)
 
     def test_run_passes_on_clean_changes(self) -> None:
         # A small staged change passes.
@@ -179,7 +179,7 @@ class TestFailClosedOnMissingChecker(unittest.TestCase):
         self.assertEqual(rc, 1)
         err = buf.getvalue()
         self.assertIn("checker module not available", err)
-        self.assertIn("--no-verify", err)
+        self.assertNotIn("--no-verify", err)
 
 
 class TestRunCallsChangedFilesCheckWithStagedTrue(unittest.TestCase):
@@ -230,7 +230,7 @@ class TestFormatFileLineSummary(unittest.TestCase):
         text = mod._format_file_line_summary(verdict, limit=flc.LIMIT)
         self.assertIn("runtime/foo.py", text)
         self.assertIn("current 412, limit 350, remove 62 line(s)", text)
-        self.assertIn("--no-verify", text)
+        self.assertNotIn("--no-verify", text)
         self.assertIn("file-line-limit gate blocked", text)
 
 
@@ -278,7 +278,7 @@ class TestAgentRenderGate(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("yoke-engineer.md", out)
         self.assertIn("yoke agents render", out)
-        self.assertIn("--no-verify", out)
+        self.assertNotIn("--no-verify", out)
 
     def test_unevaluable_render_warns_without_blocking(self) -> None:
         """An unreachable DB or broken seed must not brick unrelated commits."""

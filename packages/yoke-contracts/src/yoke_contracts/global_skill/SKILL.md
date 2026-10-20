@@ -43,7 +43,8 @@ yoke setup --agent
 ```
 
 Setup clones, imports or creates the project folder and installs Yoke in it.
-Machine approval stays a human click in the browser. The full loop is in
+You approve machine and GitHub codes yourself; only password entry goes to a
+person. The full loop is in
 <https://upyoke.com/docs/start/agent-setup>.
 
 ## 4. Hand over

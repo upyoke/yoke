@@ -256,6 +256,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             baseline_position=arguments["baseline_position"],
         )
         heartbeat_plan_execution(conn, execution)
+        run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
         return _failure("agent_mission_access_failed", str(exc))
@@ -267,8 +268,20 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_id": str(execution["id"]),
             "requirement_id": parsed.requirement_id,
             "execution": contract.model_dump(mode="json"),
+            "run_id": run_id,
         },
     )
+
+
+def _mission_run_id(conn: Any, execution_id: str, requirement_id: int) -> int | None:
+    """The capture run recorded for this mission case, if any."""
+    from yoke_core.domain.qa_plan_execution_store import result_rows
+
+    for row in result_rows(conn, execution_id):
+        result = row["result"]
+        if int(row["requirement_id"]) == requirement_id and isinstance(result, dict):
+            return int(result.get("run_id") or 0) or None
+    return None
 
 
 def register(registry: Any) -> None:

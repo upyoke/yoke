@@ -48,7 +48,7 @@ class TestCheckVerificationEntry:
             for error in result.errors
         )
 
-    def test_epic_task_recovery_names_the_derived_transition(self, qa_db):
+    def test_epic_task_recovery_names_the_registered_review_seed(self, qa_db):
         target = GateTarget(epic_id=833, task_num=5)
         with mock.patch(
             "yoke_core.domain.qa_workflow_binding_validation.attachment_transition_for_item",
@@ -58,10 +58,11 @@ class TestCheckVerificationEntry:
 
         assert not result.passed
         assert any(
-            "python3 -m yoke_core.domain.qa requirement-add" in error
-            and "--workflow-transition qa-review" in error
+            "yoke workflow-item epic-task review-seed --epic " in error
+            and "--task-num 5" in error
             for error in result.errors
         )
+        assert not any("python3 -m" in error for error in result.errors)
 
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")

@@ -46,8 +46,8 @@ usage: yoke git pre-commit
 Run the Yoke pre-commit gate against the staged content of the current
 repo: diverged-files advisory, file-line-limit check, and (on a Yoke
 source checkout) silent creation or currency refresh of the ignored local
-docs/atlas.md view. Exit 1 blocks the commit; bypass with
-`git commit --no-verify`.
+docs/atlas.md view. Exit 1 blocks the commit: fix what the refusal names
+(split an oversized file by responsibility) and commit again.
 
 Invoked by the `.git/hooks/pre-commit` shim that `yoke project
 install` writes (both delivery strategies). Extra arguments from git are
@@ -169,7 +169,8 @@ def git_pre_commit(args: List[str]) -> int:
         sys.stderr.write(
             "yoke (pre-commit): ERROR: requires yoke-harness; "
             f"install/repair the product hook package ({exc}).\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
+            "Repair the machine CLI with the public installer: "
+            "curl -fsSL https://api.upyoke.com/install | bash\n"
         )
         return 1
     return int(run())

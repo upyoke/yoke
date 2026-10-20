@@ -271,12 +271,26 @@ PROJECT_STRUCTURE_PATCH_APPLY_USAGE = (
     "yoke project-structure patch apply --project NAME "
     "--ops-json JSON [--item ITEM] [--actor ACTOR] [--session-id S] [--json]"
 )
+PROJECT_STRUCTURE_PATCH_APPLY_EPILOG = """\
+Each op is an object:
+  op          put | remove
+  family      the structure family, e.g. test_roots
+  attachment  the path or key the entry attaches to, e.g. tests/
+  entry_key   the entry's key within that attachment, e.g. tests
+  payload     the entry object (put only)
+
+Example, one test root:
+  --ops-json '[{"op":"put","family":"test_roots","attachment":"tests/",
+  "entry_key":"tests","payload":{"path":"tests"}}]'
+"""
 
 
 def project_structure_patch_apply(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure patch apply",
         description=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
+        epilog=PROJECT_STRUCTURE_PATCH_APPLY_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project id.")
     parser.add_argument("--item", help="Optional work-item provenance.")

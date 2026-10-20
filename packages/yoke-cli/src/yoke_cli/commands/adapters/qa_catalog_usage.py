@@ -225,6 +225,15 @@ Reading drift without two bodies
 current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
 
+PLAN_CASES_SYNC_USAGE = (
+    "yoke qa plan-cases sync --project P --plan-id N (--cases-file SOURCE_EXPORT | "
+    "--stdin) [--json]\n"
+    "       yoke qa plan-cases sync --project P --plan-id N (--cases-file CASES | "
+    "--stdin) --source-revision FULL_SHA [--json]\n"
+    "A manual case array without a source revision is authored with "
+    "yoke qa plan-cases replace."
+)
+
 USAGE_BY_FUNCTION_ID = {
     "qa.method.list": "yoke qa method list [--project P]",
     "qa.method.get": "yoke qa method get METHOD [--project P]",
@@ -248,7 +257,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.plan.create": ("yoke qa plan create SLUG --project P --environment ENV"),
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",
-    "qa.plan_cases.sync": "yoke qa plan-cases sync --project P --plan-id N --cases-file SOURCE_EXPORT",
+    "qa.plan_cases.sync": PLAN_CASES_SYNC_USAGE,
     "qa.registered_command.set": (
         "yoke qa registered-command set --project P "
         "--scope quick|full|e2e|smoke --command ARGV "

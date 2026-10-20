@@ -48,7 +48,8 @@ def run_start(args: list[str]) -> int:
         description=(
             "Reset the Test Machine to this mission's declared baseline, "
             "restore its declared OS packages, and stage its scratch. Run it "
-            "before the walk's first host command."
+            "before the walk's first host command. Its output names run_id, "
+            "the mission's capture run that walk-end --run-id takes."
         ),
     )
     add_mission_subject_arguments(parser)
@@ -62,6 +63,9 @@ def run_start(args: list[str]) -> int:
 
     _register()
     prepared = execute_agent_mission_walk_start(contract)
+    run_id = getattr(parsed, "mission_run_id", None)
+    if run_id:
+        prepared["run_id"] = int(run_id)
     print(json.dumps(prepared, sort_keys=True))
     preparation = prepared["preparation"]
     if preparation["ok"]:

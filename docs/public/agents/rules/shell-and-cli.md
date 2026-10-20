@@ -11,9 +11,9 @@
 - A work claim authorizes its lanes, main control-plane paths and `/tmp` or `/var/folders`.
   Writes to main source while you hold a lane refuse; deliberate exceptions use
   `# lint:allow-lane-main-write`. Read [lane rules](lanes-and-claims.md) first.
-- Another item's lane is read-only (`foreign_lane`): use read-only `git -C LANE` verbs, `cat`,
-  `ls` or native Read.
-- Unresolved home paths refuse; use a literal absolute path on the executing machine.
+- Another item's lane is read-only (`foreign_lane`): use read-only `git -C LANE` verbs, `cat`, `ls`
+  or Read.
+- Unresolved home paths refuse; use a literal absolute path.
 - Remove a `mktemp -d` dir in the call that made it: `T=$(mktemp -d); trap 'rm -rf "$T"' EXIT`.
   Recursive `rm` refuses unresolved targets and shared temp-root sweeps; name the exact path.
 
@@ -31,25 +31,26 @@
   imports, curl against the API and DB-router or service-client forms are operator-debug only.
 - Install or repair the launcher per [install](../../start/install.md). Lane checks use
   `yoke dev run -- <command>`.
-- Ask the narrow read (AGENTS.md "Command Output"; [help and replies](../../cli/help.md)). Registered human reads over 28,000 bytes refuse atomically; narrow them or use `--full`.
-  JSON and write replies remain complete.
+- Ask the narrow read (AGENTS.md "Command Output"; [help and replies](../../cli/help.md)). Registered human reads over 28,000 bytes refuse atomically; narrow them or use `--full`;
+  JSON and write replies stay complete.
 - Code that refuses composes through `yoke_core.domain.refusal_recovery.compose_refusal`: a
   true reason plus a reachable recovery, or the escalation owner.
 
 ## Serving floors
 
-New function ids declare `minimum_serving_version`; an older engine refuses with
-`function_version_skew`. New response fields degrade to declared earlier behavior or refuse
-with a named floor; never invent defaults for required receipts.
+A new function id declares `minimum_serving_version` on its registry entry and in
+`yoke_contracts.function_serving_floors.FUNCTION_MINIMUM_SERVING_VERSIONS`; older engines
+refuse `function_version_skew`. New response fields degrade to earlier behavior or refuse with
+a named floor; never invent required receipt defaults.
 
 ## Shell path-use analysis
 
-When changing shell classification, reuse `lint_shell_path_use.analyze_shell_path_use` and
-`lint_payload_path_use.extract_payload_path_uses`. No second parser or broad read exception.
+Shell classification reuses `lint_shell_path_use.analyze_shell_path_use` and
+`lint_payload_path_use.extract_payload_path_uses`; no second parser or broad read exception.
 
 ## Command output
 
-- Capture non-trivial commands (tests, builds, deploys, merges, long git) to a temp file once;
+- Capture non-trivial commands (tests, builds, deploys) to a temp file once;
   never pipe a live command to `tail` or `head`. Run `yoke <subcommand>` bare.
 - Stream long commands through a `yoke watch` wrapper on the harness surface
   ([Claude](claude-long-commands.md)). A command handed back before it ends still runs:

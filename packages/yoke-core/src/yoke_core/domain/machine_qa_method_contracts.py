@@ -29,6 +29,8 @@ MACHINE_METHODS = frozenset(
 _REGISTERED_HOST_BASELINES = frozenset(HOST_BASELINE_OPERATIONS)
 _MAX_STEPS = 100
 _MAX_ASSERTIONS = 50
+ASSERTION_ARGV_MAX_ITEMS = 32
+ASSERTION_ARGV_MAX_CHARS = 1000
 
 
 class MachineQaExecutionError(ValueError):
@@ -313,13 +315,19 @@ def _assertion(raw: Any) -> dict[str, Any]:
     argv = raw.get("argv")
     if (
         not isinstance(argv, list)
-        or not 1 <= len(argv) <= 32
-        or any(
-            not isinstance(value, str) or not value or len(value) > 1000
-            for value in argv
-        )
+        or not 1 <= len(argv) <= ASSERTION_ARGV_MAX_ITEMS
+        or any(not isinstance(value, str) or not value for value in argv)
     ):
-        raise MachineQaExecutionError("assertion argv must be 1..32 strings")
+        raise MachineQaExecutionError(
+            f"assertion argv must be 1..{ASSERTION_ARGV_MAX_ITEMS} non-empty strings"
+        )
+    longest = max(len(value) for value in argv)
+    if longest > ASSERTION_ARGV_MAX_CHARS:
+        raise MachineQaExecutionError(
+            f"assertion argv value is {longest} characters; each value holds at most "
+            f"{ASSERTION_ARGV_MAX_CHARS}. Split the check into several assertions, or "
+            "shorten the script by moving it into a committed file the argv runs."
+        )
     expected = raw.get("expected_exit", 0)
     if not isinstance(expected, int) or not 0 <= expected <= 255:
         raise MachineQaExecutionError("expected_exit must be 0..255")

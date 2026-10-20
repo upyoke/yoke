@@ -225,6 +225,7 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
             check_id="structured_field_transform_choreography",
             reason=reason,
             session_id=sid if isinstance(sid, str) else "",
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
             command_snippet=_extract_command(payload),

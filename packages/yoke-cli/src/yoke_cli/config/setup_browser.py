@@ -80,7 +80,7 @@ def render_progress(event: Mapping[str, Any], *, json_mode: bool) -> None:
         data = dict(event)
         if event.get("phase") in {"device_browser", "machine_authorization"}:
             data["wait"] = {
-                "reason": "human_browser_approval",
+                "reason": "browser_approval",
                 "max_seconds": event.get("expires_in"),
                 "poll_interval_seconds": event.get("interval"),
                 "silence_expected": True,

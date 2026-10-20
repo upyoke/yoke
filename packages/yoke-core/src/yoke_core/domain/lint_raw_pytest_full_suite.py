@@ -210,6 +210,7 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
             check_id=CHECK_ID,
             reason=audit_reason,
             session_id=session_id if isinstance(session_id, str) else "",
+            agent=str(payload.get("agent_type") or ""),
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
             command_snippet=_extract_command(payload),

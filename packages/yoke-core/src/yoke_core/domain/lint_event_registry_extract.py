@@ -36,6 +36,7 @@ class HookMeta:
     tool_use_id: str = ""
     turn_id: str = ""
     command_snippet: str = ""
+    agent: str = ""
 
 
 def parse_payload(raw: str) -> Optional[dict]:
@@ -72,7 +73,7 @@ def extract_event_name(command: str) -> Optional[str]:
 
 
 def extract_hook_meta(data: dict) -> HookMeta:
-    """Pull ``session_id`` / ``tool_use_id`` / ``turn_id`` / command from the payload.
+    """Pull session, call, turn, command and agent fields from the payload.
 
     Missing fields become empty strings. ``turn_id`` falls back to
     ``message_id`` to match the previous shell extraction logic. The
@@ -90,4 +91,5 @@ def extract_hook_meta(data: dict) -> HookMeta:
         tool_use_id=str(tool_use_id),
         turn_id=str(turn_id),
         command_snippet=extract_command(data),
+        agent=str(data.get("agent_type") or ""),
     )

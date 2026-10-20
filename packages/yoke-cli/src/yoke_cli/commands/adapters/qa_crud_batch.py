@@ -45,7 +45,7 @@ Worked example:
   "instructions":"Check /login","expected_outcome":"Login renders",
   "method_config":{"steps":[{"action":"navigate","route":"/login"},
   {"action":"assert","selector":"form"}]},
-  "workflow_transition_id":"reviewed-implementation"}]' |
+  "workflow_transition_id":"reviewing-implementation"}]' |
   yoke qa requirement add-batch --item YOK-N --stdin
 
 Flag matrix:

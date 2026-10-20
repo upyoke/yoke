@@ -98,6 +98,7 @@ def emit_denied(
     reason: str = "",
     tool_use_id: str = "",
     turn_id: str = "",
+    agent: str = "",
     derivation: Optional[TargetDerivation] = None,
 ) -> None:
     outcome = "suppression_attempted" if suppression_attempted else "blocked"
@@ -125,6 +126,7 @@ def emit_denied(
         reason=reason,
         tool_use_id=tool_use_id,
         turn_id=turn_id,
+        agent=agent,
     )
 
 
@@ -138,6 +140,7 @@ def _emit_canonical_denial(
     reason: str,
     tool_use_id: str,
     turn_id: str,
+    agent: str,
 ) -> None:
     """Also record the cross-guard ``HarnessToolCallDenied`` audit row.
 
@@ -159,6 +162,7 @@ def _emit_canonical_denial(
             session_id=session_id,
             tool_use_id=tool_use_id,
             turn_id=turn_id,
+            agent=agent,
             command_snippet=attempted_path,
             outcome="suppression_attempted" if suppression_attempted else "denied",
             guard_key="lint_lane_main_write",

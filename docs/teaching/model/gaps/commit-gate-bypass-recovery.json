@@ -1,0 +1,8 @@
+{
+ "id": "commit-gate-bypass-recovery",
+ "title": "Give every commit gate a recovery that is not a bypass",
+ "status": "observed",
+ "text": "The file-line pre-commit gate, the yoke check file-line CLI and the yoke git pre-commit help now name splitting or shortening the file as the recovery. Two other commit gates still teach git commit --no-verify: the path-claim coverage check and the worktree status invariant. Each needs a named non-bypass recovery before the git hooks record's claim that hook messages never suggest --no-verify holds for every gate.",
+ "surfaces": ["command-feedback"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/check_path_claim_coverage_at_commit.py", "packages/yoke-core/src/yoke_core/domain/check_worktree_status_invariant.py", "packages/yoke-harness/src/yoke_harness/git_hooks/pre_commit.py"]
+}

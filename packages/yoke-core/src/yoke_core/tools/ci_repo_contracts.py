@@ -86,7 +86,13 @@ def check_authored_file_limit(
     verdict = flc.changed_files_check(
         repo_root=repo_root, base=scope.base_sha, staged=False,
     )
-    return verdict.ok, verdict.summary
+    # Each failure names its file and the bound it broke, so the CI line
+    # alone says what to split or shorten.
+    failures = [
+        f"{change.path}: {change.new_line_count} lines, limit {flc.LIMIT}"
+        for change in verdict.hard_fails
+    ] + [failure.message() for failure in verdict.byte_budget_fails]
+    return verdict.ok, "; ".join([verdict.summary, *failures])
 
 
 def _ruff_diagnostic_sort_key(

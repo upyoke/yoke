@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.builtin_workflow_canon import canon_generations
+from yoke_core.domain.schema_api_context_commands_qa import QA_COMMANDS
 from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
@@ -87,7 +91,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
         "yoke qa requirement add "
         "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
         "--blocking-mode blocking --requirement-source ac_derived "
-        "--workflow-transition reviewed-implementation"
+        "--workflow-transition STAGE"
     ) in body
     assert "`--workflow-transition` is required" in body
     assert "precedes a qa_verification gate" in body
@@ -98,9 +102,8 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     assert "--deployment-run run-YYYYMMDD-NNN" in body
     assert "A run-attached case requires `--method-id`" in body
     assert "authorized by the run's project scope" in body
-    # Epic-task attachment is the one shape that stays operator-debug.
     assert (
-        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
+        "yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K"
     ) in body
 
 
@@ -111,11 +114,11 @@ def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
         "yoke qa requirement add "
         "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
         "--blocking-mode blocking --requirement-source ac_derived "
-        "--workflow-transition reviewed-implementation"
+        "--workflow-transition STAGE"
     ) in body
     assert "every row must include `workflow_transition_id`" in body
     assert (
-        "requirement-add --epic-id PREFIX-N --task-num K --workflow-transition STAGE"
+        "yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K"
     ) in body
 
 
@@ -123,7 +126,7 @@ def test_qa_packet_carries_plan_case_materialization_example() -> None:
     body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Materialize attached QA plan cases for a transition" in body
     assert (
-        "yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation"
+        "yoke qa plan materialize --item PREFIX-N --transition STAGE"
     ) in body
     assert (
         "yoke qa item-plan retract --item PREFIX-N --project P "
@@ -206,3 +209,57 @@ def test_qa_packet_replaces_run_add_trailing_parenthetical() -> None:
     assert "yoke qa run get --run-id <id>" in body
     assert "Registered read qa.run.get" in body
     assert "no registered id" not in body
+
+
+_TRANSITION = re.compile(
+    r"(?:--workflow-transition|--transition|--to)\s+([A-Za-z0-9_{}-]+)"
+    r'|"workflow_transition_id":\s*"([^"]+)"'
+)
+
+
+def _stages_every_qa_workflow_has() -> set[str]:
+    """Stage ids shared by every current workflow that carries a QA gate.
+
+    A recipe naming a concrete stage must work whichever workflow pins the
+    reader's item; any other stage is taught as a placeholder.
+    """
+    latest: dict[str, dict] = {}
+    for generation in canon_generations():
+        latest[generation.workflow_id] = generation.definition
+    qa_workflows = [
+        definition
+        for definition in latest.values()
+        if any(
+            gate.get("id") == "qa_verification"
+            for stage in definition["stages"]
+            for gate in stage.get("gates", [])
+        )
+    ]
+    assert qa_workflows
+    return set.intersection(
+        *({stage["id"] for stage in definition["stages"]} for definition in qa_workflows)
+    )
+
+
+def _qa_command_text() -> str:
+    return "\n".join(
+        f"{command['recipe']}\n{command.get('notes', '')}" for command in QA_COMMANDS
+    )
+
+
+def test_qa_packet_never_teaches_a_python_module_entrypoint() -> None:
+    assert "python3 -m" not in _qa_command_text()
+
+
+def test_qa_packet_transitions_name_live_workflow_stages() -> None:
+    stages = _stages_every_qa_workflow_has()
+    assert "reviewing-implementation" in stages
+    assert "reviewed-implementation" not in stages
+    unknown = sorted(
+        name
+        for match in _TRANSITION.finditer(_qa_command_text())
+        for name in match.groups()
+        if name and not name.isupper() and name not in stages
+    )
+    assert not unknown, f"QA packet teaches transitions no live workflow has: {unknown}"
+

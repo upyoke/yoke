@@ -8,9 +8,8 @@ item's active work claim — or straight to a deployment run with
 optionally naming the stage and member item the case is about. A
 run-attached case omits the workflow transition, because its delivery run
 owns that context rather than an item workflow. ``add-batch`` stays
-item-attached; epic-task attachment stays on the operator-debug domain CLI
-(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...
---workflow-transition STAGE``).
+item-attached; an epic task's implementation-review case is seeded by
+``yoke workflow-item epic-task review-seed``.
 """
 
 from __future__ import annotations

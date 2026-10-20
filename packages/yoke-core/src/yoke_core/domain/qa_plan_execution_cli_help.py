@@ -158,6 +158,9 @@ Stopping a host case
 -------------------
   yoke qa plan abort --deployment-run-id RUN --execution-id ID --reason TEXT
 
+--reason holds at most 200 characters: a code and a short diagnosis. Put the
+full rationale in the Progress Log or an artifact and cite it.
+
 An in-flight host abort records cancellation and returns qa_abort_restore_pending
 while custody remains held. Keep the runner connected: it stops between steps,
 finishes cleanup, restores the declared starting baseline and records proof.

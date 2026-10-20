@@ -49,10 +49,11 @@ def test_qa_topic_includes_gate_preview_with_both_target_forms() -> None:
     assert "yoke qa gate-summary" in body
     # Both supported target forms are surfaced.
     assert "--item" in body
-    assert "--epic-id" in body
-    assert "--task-num" in body
-    # The recipe moves the item with the plain transition, which runs the gate.
-    assert "yoke lifecycle transition PREFIX-N --to reviewed-implementation" in body
+    assert "--epic PREFIX-N --task-num K" in body
+    # The recipe moves the item to its next pinned stage, which runs the gate.
+    assert (
+        "yoke lifecycle transition PREFIX-N --from LIVE_STAGE --to STAGE"
+    ) in body
 
 
 def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
@@ -69,8 +70,8 @@ def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
     assert "--epic-id" in requirement_help
     assert "--task-num" not in requirement_help
     assert "yoke qa requirement list --item PREFIX-N" in body
-    assert "--epic-id PREFIX-N" in body
-    assert "--epic-id" in body
+    assert "--epic PREFIX-N" in body
+    assert "--epic-id" not in body
     assert "qa requirement list --task-num" not in body
 
 

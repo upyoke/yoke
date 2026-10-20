@@ -152,7 +152,7 @@ different `target_env`, correct a live `method_config` capture script
 requirement identity, so linked runs and artifacts stay attached. A
 `method_config` correction invalidates prior greens for gating unless a later run recorded the new config at start; re-run the
 case. Frozen deployment-run requirements refuse `method_config` updates.
-Use `requirement-add` when the *verification surface itself* needs to change
+Use `yoke qa requirement add` when the *verification surface itself* needs to change
 — for example, swapping from `unit_test` to `integration` — since that is a
 different requirement. `requirement-update` refuses to mutate `qa_kind` for
 exactly that reason. It cannot change `instructions` or `expected_outcome`

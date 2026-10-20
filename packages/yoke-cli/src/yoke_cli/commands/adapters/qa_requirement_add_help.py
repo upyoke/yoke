@@ -47,7 +47,7 @@ Worked examples:
   yoke qa requirement add --item YOK-N \\
     --qa-kind ac_verification --qa-phase verification \\
     --blocking-mode blocking --requirement-source ac_derived \\
-    --workflow-transition reviewed-implementation
+    --workflow-transition reviewing-implementation
 
   yoke qa requirement add --item YOK-N \\
     --method-id browser-inspection --qa-phase verification \\
@@ -55,7 +55,7 @@ Worked examples:
     --expected-outcome "The login form is aligned and usable." \\
     --method-config '{"color_scheme":"dark","steps":[{"action":"navigate","route":"/login"},
       {"action":"screenshot","capture":true,"label":"login"}]}' \\
-    --workflow-transition reviewed-implementation
+    --workflow-transition reviewing-implementation
 
   yoke qa requirement add --deployment-run run-YYYYMMDD-NNN \\
     --method-id browser-inspection --qa-phase post_deploy \\
@@ -111,7 +111,10 @@ runner resets to and restores afterwards, or --starting-state as_is with
 case is refused. A case added on its own belongs to no plan, so it cannot
 inherit a preceding case's machine; author that chain in a plan.
 
-Epic-task attachment: operator-debug domain CLI only.
+--workflow-transition names a stage of the item's pinned workflow; read it
+from `yoke workflows item get PREFIX-N --json` (Dash: reviewing-implementation).
+An epic task's case is its implementation review: seed it with
+`yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K`.
 Exit codes: 0 success, 1 dispatch failure (e.g. claim_required, a closed
 run, a stage the run does not declare), 2 usage.
 """
