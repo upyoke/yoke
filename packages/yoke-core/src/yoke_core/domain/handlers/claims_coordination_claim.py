@@ -237,8 +237,8 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.coordination_claims import (
         CoordinationClaimNotFoundError,
         get_claim,
-        release,
     )
+    from yoke_core.domain.qa_host_manual_release import release_host_claim
 
     with _connect_rw() as conn:
         try:
@@ -266,7 +266,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
                     "session holding the project's steering seat after "
                     "reviewing the current claim id and holder",
                 )
-            claim = release(
+            claim = release_host_claim(
                 conn,
                 claim_id,
                 body.reason,

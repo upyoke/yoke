@@ -138,6 +138,14 @@ receipts do not change health. Ending the session, settling the execution, or
 releasing an unused reservation cancels the wait and passes a reserved turn to
 the next waiter.
 
+Removing a release member ends its QA execution and releases its hosts when
+every mission already recorded its walk-end restore. Otherwise the removed
+mission retains custody for its original owner's walk-end teardown. A deliberate
+host release by the holder, a covering steering seat, or claim id cancels the
+live execution and releases its entire host set in the same transaction;
+it records the release reason and never counts as a QA pass. Stop the runner
+and recover the host's starting state before using manual release.
+
 Before it parks, a queued plan runs every remaining host-free automatic case in
 its roster — Command and Command (CI) — through the ordinary case runner and
 records each result against its requirement. A failing case is recorded and

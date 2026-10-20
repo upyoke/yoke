@@ -50,7 +50,8 @@ RUN = "run-mission-teardown"
 
 
 @pytest.fixture
-def removed_mission(test_db, tmp_path, monkeypatch):
+def removed_mission(test_db, tmp_path, monkeypatch, request):
+    restored_before_removal = getattr(request, "param", False)
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement = _materialize_mission(test_db, item_id=ITEM)
     execution = begin_plan_execution(
@@ -103,14 +104,33 @@ def removed_mission(test_db, tmp_path, monkeypatch):
     test_db.execute("UPDATE items SET status='release' WHERE id=%s", (ITEM,))
     test_db.commit()
     control.existing_paths.add(mission_scratch_path(execution_id) + "/staged-token")
+    if restored_before_removal:
+        import base64
+        import json
+        from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
+
+        outcome = handle_qa_artifact_add(request.model_copy(update={
+            "function": "qa.artifact.add",
+            "target": TargetRef(kind="qa_requirement", qa_requirement_id=requirement),
+            "payload": {
+                "run_id": ready.result_payload["result"]["run_id"],
+                "artifact_type": "starting_state_restore",
+                "filename": "starting-state-restore.json",
+                "content_type": "application/json",
+                "content_base64": base64.b64encode(json.dumps({
+                    "restored": True, "baseline": "fresh-host",
+                }).encode()).decode(),
+            },
+        }))
+        assert outcome.primary_success, outcome.error
     remove_member_on(test_db, RUN, ITEM, reason="later release")
     test_db.commit()
     # Removal keeps the walk's dirty host until its walk-end teardown.
-    assert get_claim(test_db, original["lease_id"]).is_active
+    assert get_claim(test_db, original["lease_id"]).is_active != restored_before_removal
     current = lock_plan_execution(test_db, execution_id)
     test_db.rollback()
-    assert current["state"] == "awaiting_agent_review"
-    assert member_removal_pending(current)
+    assert current["state"] == ("aborted" if restored_before_removal else "awaiting_agent_review")
+    assert member_removal_pending(current) != restored_before_removal
     cleanup = request.model_copy(
         update={
             "function": "test_machine.mission.access",

@@ -59,7 +59,14 @@ def owed_host_abort(conn, execution, *, reason):
     )
     runner = roster[ordinal].get("runner_id")
     if runner == "agent_mission" and request:
-        return request if execution.get("machine_lease_id") else None
+        from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+
+        return (
+            request
+            if execution.get("machine_lease_id")
+            and not mission_restores_recorded(conn, execution)
+            else None
+        )
     if runner != "host_control":
         return None
     if host_cleanup_proven(conn, execution, ordinal):
@@ -90,7 +97,9 @@ _MISSION_WALK_END = (
     "keeps its Test Machine lease until teardown. Its original session must run "
     "the dispatched `yoke qa mission walk-end` command, which removes staged "
     "secrets, restores starting state and releases the host; the abort settles "
-    "there. Nothing else releases this lease."
+    "there. For deliberate custody recovery, stop the runner and recover the "
+    "host starting state, then have the holder or a covering steering seat "
+    "release the host claim; manual release cancels the execution."
 )
 
 

@@ -32,7 +32,6 @@ from yoke_core.domain.coordination_claims import (
     CoordinationClaimHookContextError,
     CoordinationClaimNotFoundError,
     active_claim,
-    release,
 )
 from yoke_core.domain.project_identity import resolve_project
 
@@ -119,7 +118,9 @@ def operator_release(
         context=context,
     )
 
-    released = release(
+    from yoke_core.domain.qa_host_manual_release import release_host_claim
+
+    released = release_host_claim(
         conn,
         claim.id,
         f"operator-override: {operator_reason}",
