@@ -144,4 +144,5 @@ def test_poll_backoff_preserves_expiry_and_cancellation(monkeypatch, cancelled):
             cancelled=lambda: cancelled and len(clock.waits) > 1,
         )
     assert clock.waits == [2, 58]
-    assert calls == [True]
+    # Waits never pass expiry; an uncancelled wait asks once more at it.
+    assert calls == ([True] if cancelled else [True, True])
