@@ -12,6 +12,8 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<res
 - Exit 0 is not done; read the `[close-out]` block. Exit 9 names its recovery; a red check means fix, commit, reverify. Wait budget exhausted: checkpoint, park, keep the claim.
 - Before any correction: `yoke github merge-queue hold ITEM --json`.
 
-Selected deployment posture: merge with `yoke merge item ITEM --skip-status --json`, then deliver through the item's flow (`.yoke/docs/agents/rules/delivery.md`). A steering-batched worker starts no run.
+Selected deployment: `yoke merge item ITEM --skip-status --json`; follow `.yoke/docs/agents/rules/delivery.md`. A steering-batched worker starts no run.
 
 Next: [close-out](close-out.md).
+
+Flakes: `.yoke/docs/github/merge-queue-landings.md#failed-merge-trains`.

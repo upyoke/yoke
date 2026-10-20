@@ -30,6 +30,13 @@ Model: [verification](../../verification/index.md).
   BRANCH --expected-sha FULL_SHA`. Follow refusal recovery for `qa_source_lane_unresolved`,
   `qa_ci_source_mismatch` and `qa_published_head_unproven`.
 
+## Unexplained test failure
+
+The item holder may retry once if the change cannot explain the failed test. First message
+`yoke say --steering` with the test and CI run URL. A second failure of the same check on
+the same inputs belongs to this item. Failed trains use the recorded
+[`--retry-flake` path](../../github/merge-queue-landings.md#failed-merge-trains).
+
 ## QA results
 
 - Judge a result against the item's user outcome first. A case step the product cannot meet

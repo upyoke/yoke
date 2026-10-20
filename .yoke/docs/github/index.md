@@ -207,7 +207,10 @@ unadmitted PR without arming it twice. Active, successful and superseded runs
 are protected. Acceptance is not a passing check: resume the exact-head wait.
 A fresh `workflow_dispatch` is a new attempt; verify its head and that GitHub
 replaced the required checks before treating it as recovery.
-Repair test failures in the item and commit before retrying verification.
+For a test failure the change cannot explain, the worker may retry once after messaging
+steering with the test and CI run URL. A second failure on the same inputs belongs to the
+item; fix and commit before further verification. Failed merge trains use the recorded
+[`--retry-flake` recovery](merge-queue-landings.md#failed-merge-trains).
 A lost POST response reports `ci_rerun_ambiguous`: inspect the run's attempt
 and status before retrying. If GitHub accepted the rerun but receipt recording
 failed, restore item writes and append the returned receipt; resume the wait

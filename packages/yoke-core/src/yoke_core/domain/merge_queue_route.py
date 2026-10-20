@@ -72,6 +72,7 @@ def land_item_through_merge_queue(
     emit: Callable[[str], None] = _emit_to_stderr,
     wait_for_landing: bool = True,
     relay_launched: bool = False,
+    retry_flake: str = "",
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue.
 
@@ -202,6 +203,7 @@ def land_item_through_merge_queue(
             pr_num,
             lane_head=commit_sha,
             base_branch=target,
+            retry_flake=retry_flake, public_ref=public_ref, dispatch=dispatch,
         )
         if refusal:
             return QueueLandingOutcome(

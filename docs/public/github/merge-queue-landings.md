@@ -71,6 +71,30 @@ pass: required checks must be replaced on the exact candidate. A new
 `workflow_dispatch` is a fresh attempt whose head and replacement need proof. Repeated observation reuses the
 same stop notice; a new governed arming starts a new episode.
 
+## Failed merge trains
+
+After inspecting the failed run, a worker may claim one retry when the change cannot
+explain the test failure. First message `yoke say --steering` with the test and CI run URL,
+then re-run the same complete `yoke merge item` command with
+`--retry-flake 'TEST: why the change cannot explain the failure'`.
+The item records its pull request, head/base, run URL, reason and session before arming.
+A second claim on that input pair refuses with `merge_train_flake_retry_exhausted`;
+a second failure belongs to the item and requires a fix. The observer never claims a
+flake automatically. A reservation is spent even if admission fails or its reply is lost;
+inspect **Merge train retries** before recovery. See the
+[verification policy](../agents/rules/verification.md#unexplained-test-failure).
+An older serving build refuses this reservation with its serving floor; ask the
+control-plane operator for a serving release that carries the function. Ordinary merges
+remain available without this optional retry.
+
+Automatic conflict re-entry requests Contents: write and Pull requests: write on its
+installation token. If GitHub refuses access, restore those App permissions and token
+scopes, then retry the governed merge. Each accepted automatic request is saved in the
+item's **Queue re-entry receipts** section, including the pull request, head and acceptance
+time; read it with `yoke items section get PREFIX-N --section 'Queue re-entry receipts'`.
+Post-release proof requires a real receipt accepted after that release; unit tests alone
+cannot establish it.
+
 ## Re-landing an item that already landed
 
 An item keeps its current landing until a new pull request actually merges.
