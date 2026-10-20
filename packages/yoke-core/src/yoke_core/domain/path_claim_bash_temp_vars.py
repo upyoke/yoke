@@ -23,13 +23,11 @@ from __future__ import annotations
 import re
 from typing import Collection, FrozenSet
 
-from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
+from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
 
 
 _VAR_NAME = r"[A-Za-z_][A-Za-z0-9_]*"
-_MKTEMP_ASSIGN_RE = re.compile(
-    rf"(?P<name>{_VAR_NAME})=\$\(\s*mktemp(?P<args>[^)]*)\)"
-)
+_MKTEMP_ASSIGN_RE = re.compile(rf"(?P<name>{_VAR_NAME})=\$\(\s*mktemp(?P<args>[^)]*)\)")
 _VAR_REF_RE = re.compile(
     rf"""^['"]?\$(?:\{{(?P<braced>{_VAR_NAME})\}}|(?P<plain>{_VAR_NAME}))['"]?$"""
 )
@@ -101,7 +99,7 @@ def _is_safe_mktemp_args(args: str) -> bool:
 def _is_safe_temp_target(target: str) -> bool:
     if target.startswith("${TMPDIR"):
         return True
-    return any(target.startswith(prefix) for prefix in FREE_PATH_PREFIXES)
+    return any(target.startswith(prefix) for prefix in free_path_prefixes())
 
 
 __all__ = ["is_temp_file_var_ref", "temp_file_vars"]

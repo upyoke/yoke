@@ -26,8 +26,9 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_core.domain import lint_session_cwd_path_authority
+from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
 from yoke_core.domain.lint_session_cwd_validate import (
-    FREE_PATH_PREFIXES,
     is_yoke_watcher_capture_path,
     validate_targets,
 )
@@ -37,6 +38,17 @@ from yoke_core.domain.project_scratch_dir import (
 )
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
+
+#: A home outside every OS temp root, like a real machine's. The isolated
+#: per-test HOME lives under the temp root, which is itself a free path, so
+#: refusals of home paths could never be observed there. Nothing is written
+#: under it: ``/`` is not writable, so a stray write fails loudly.
+NON_TEMP_HOME = "/__yoke_test_home__"
+
+
+@pytest.fixture(autouse=True)
+def _home_outside_temp_roots(monkeypatch):
+    monkeypatch.setenv("HOME", NON_TEMP_HOME)
 
 
 @pytest.fixture
@@ -59,31 +71,31 @@ class TestFreePathPrefixesContainExpectedRoots:
     """Static check: the expansion landed and the literal forms are present."""
 
     def test_dev_family_in_free_paths(self) -> None:
-        assert "/dev" in FREE_PATH_PREFIXES
+        assert "/dev" in free_path_prefixes()
 
     def test_harness_internal_literal_form_in_free_paths(self) -> None:
-        assert "~/.claude/projects" in FREE_PATH_PREFIXES
+        assert "~/.claude/projects" in free_path_prefixes()
 
     def test_harness_internal_expanded_form_in_free_paths(self) -> None:
         home = os.path.expanduser("~")
         expected = os.path.join(home, ".claude", "projects")
-        assert expected in FREE_PATH_PREFIXES
+        assert expected in free_path_prefixes()
 
     def test_codex_sessions_literal_form_in_free_paths(self) -> None:
-        assert "~/.codex/sessions" in FREE_PATH_PREFIXES
+        assert "~/.codex/sessions" in free_path_prefixes()
 
     def test_codex_sessions_expanded_form_in_free_paths(self) -> None:
         home = os.path.expanduser("~")
         expected = os.path.join(home, ".codex", "sessions")
-        assert expected in FREE_PATH_PREFIXES
+        assert expected in free_path_prefixes()
 
     def test_codex_archived_sessions_literal_form_in_free_paths(self) -> None:
-        assert "~/.codex/archived_sessions" in FREE_PATH_PREFIXES
+        assert "~/.codex/archived_sessions" in free_path_prefixes()
 
     def test_codex_archived_sessions_expanded_form_in_free_paths(self) -> None:
         home = os.path.expanduser("~")
         expected = os.path.join(home, ".codex", "archived_sessions")
-        assert expected in FREE_PATH_PREFIXES
+        assert expected in free_path_prefixes()
 
 
 class TestDevFamilyAllowed:
@@ -225,12 +237,14 @@ class TestWatcherMintedCapturePairAllowed:
     def test_minted_pair_targets_allowed(
         self, conn, session_with_claim, monkeypatch, tmp_path
     ) -> None:
-        # Scratch must sit outside /tmp and /var/folders so the allowlist
-        # under test is the watcher-captures rule, not OS temp free-paths.
-        scratch = Path.home() / ".yoke" / "test-scratch-watcher-authority"
-        if scratch.exists():
-            shutil.rmtree(scratch)
-        scratch.mkdir(parents=True)
+        # With the OS temp roots removed from the allowlist, the rule under
+        # test is the watcher-captures one, not OS temp free-paths.
+        monkeypatch.delenv("TMPDIR", raising=False)
+        monkeypatch.setattr(
+            lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", ()
+        )
+        scratch = tmp_path / "test-scratch-watcher-authority"
+        scratch.mkdir()
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(scratch))
         monkeypatch.setenv("YOKE_SESSION_ID", session_with_claim)
         try:

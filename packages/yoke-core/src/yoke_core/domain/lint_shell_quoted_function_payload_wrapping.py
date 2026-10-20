@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import FrozenSet, List, Optional
 
-from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
+from yoke_core.domain.lint_session_cwd_path_authority import free_path_prefixes
 from yoke_core.domain.lint_shell_quoted_function_payload_classify import (
     _ScanState,
     _find_boundary,
@@ -328,7 +328,7 @@ def _is_free_path_target(
 ) -> bool:
     if not target:
         return False
-    for prefix in FREE_PATH_PREFIXES:
+    for prefix in free_path_prefixes():
         if target.startswith(prefix):
             return True
     var_name = _extract_var_name(target)

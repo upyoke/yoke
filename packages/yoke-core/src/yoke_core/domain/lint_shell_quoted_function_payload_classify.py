@@ -33,15 +33,26 @@ from typing import FrozenSet, List, Optional
 # as whitespace before the boundary scan, so its emitted token list is
 # unchanged by the listing here.
 _BOUNDARY_TOKENS = (
-    "2>&1", "&&", "||", ">>", "<<<", "<<-", "<<",
-    "2>", ">&", "|", ">", "<", ";", "&", "\n",
+    "2>&1",
+    "&&",
+    "||",
+    ">>",
+    "<<<",
+    "<<-",
+    "<<",
+    "2>",
+    ">&",
+    "|",
+    ">",
+    "<",
+    ";",
+    "&",
+    "\n",
 )
 
 # Canonical ``cat <free-path> | python3`` upstream that the host lint
 # uses to recognise a clean file-to-stdin source as benign.
-_UPSTREAM_CAT_STDIN_RE = re.compile(
-    r"^\s*cat\s+(?P<path>\S+)\s*\|\s*python3?\s*$"
-)
+_UPSTREAM_CAT_STDIN_RE = re.compile(r"^\s*cat\s+(?P<path>\S+)\s*\|\s*python3?\s*$")
 
 
 def strip_safe_cat_stdin_source(prefix: str) -> str:
@@ -53,15 +64,18 @@ def strip_safe_cat_stdin_source(prefix: str) -> str:
     ``/var/folders/...``, etc.). Other paths (in-repo, ambient) keep
     the prefix intact so the lint still refuses them.
     """
-    from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
+    from yoke_core.domain.lint_session_cwd_path_authority import (
+        free_path_prefixes,
+    )
 
     match = _UPSTREAM_CAT_STDIN_RE.match(prefix)
     if match is None:
         return prefix
     path = match.group("path")
-    if not any(path.startswith(p) for p in FREE_PATH_PREFIXES):
+    if not any(path.startswith(p) for p in free_path_prefixes()):
         return prefix
     return ""
+
 
 # Module-level cache for READ-shape lookups.
 _READ_SHAPE_CACHE: dict[str, Optional[bool]] = {}
@@ -131,7 +145,7 @@ def extract_subcommand_path(tail: str) -> str:
     """Return everything up to the first unquoted shell-syntax boundary."""
     if not tail:
         return ""
-    return tail[:_find_boundary(tail)].strip()
+    return tail[: _find_boundary(tail)].strip()
 
 
 def mktemp_bound_vars(command: str) -> FrozenSet[str]:
@@ -162,11 +176,13 @@ def is_read_shape_function(function_id: str) -> bool:
         return cached
     try:
         from yoke_core.domain import yoke_function_registry
+
         entry = yoke_function_registry.lookup(function_id)
         if entry is None:
             from yoke_core.domain.handlers.__init_register__ import (
                 register_all_handlers,
             )
+
             register_all_handlers()
             entry = yoke_function_registry.lookup(function_id)
         if entry is not None:
@@ -208,7 +224,10 @@ class _ScanState:
         return self.in_single or self.in_double or self.paren_depth > 0
 
     def consume_quote_or_subst(
-        self, src: str, i: int, sink: List[str],
+        self,
+        src: str,
+        i: int,
+        sink: List[str],
     ) -> int:
         """Return the number of characters consumed by quote / subst handling.
 

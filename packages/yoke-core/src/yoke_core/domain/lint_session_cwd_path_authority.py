@@ -33,11 +33,13 @@ def _abs(*parts: str) -> str:
 # separately by :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs``
 # and other scratch subtrees keep their own authority rules.
 
-FREE_PATH_PREFIXES = (*machine_free_path_prefixes(), *home_free_path_prefixes())
-
 
 def free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
-    """Resolve free paths against the local or explicitly evidenced home."""
+    """Resolve free paths against the local or explicitly evidenced home.
+
+    Resolved per call: the home and ``TMPDIR`` belong to the command being
+    judged, not to whatever environment first imported this module.
+    """
     return (
         *machine_free_path_prefixes(_STATIC_FREE_PATH_PREFIXES),
         *home_free_path_prefixes(machine_home),
@@ -246,7 +248,6 @@ def _unique_repo_roots(worktree_paths: Iterable[str]) -> List[str]:
 
 __all__ = [
     "DEV_FAMILY_PREFIX",
-    "FREE_PATH_PREFIXES",
     "TOOL_DIR_PREFIXES",
     "derive_repo_roots",
     "free_path_prefixes",

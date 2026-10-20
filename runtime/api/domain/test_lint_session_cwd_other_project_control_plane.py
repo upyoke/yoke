@@ -17,7 +17,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.hook_runner.client_facts import SOURCE_ROOT_KEY, client_fact
 from yoke_core.domain import (
     lint_session_cwd,
-    lint_session_cwd_validate,
+    lint_session_cwd_path_authority,
 )
 from yoke_core.hooks.types import HookContext, Outcome
 
@@ -33,8 +33,8 @@ def fake_yoke_root(monkeypatch):
     yoke_root = Path("/__yoke_test_root__")
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
-        lint_session_cwd_validate,
-        "FREE_PATH_PREFIXES",
+        lint_session_cwd_path_authority,
+        "_STATIC_FREE_PATH_PREFIXES",
         ("/tmp", "/private/tmp", "/dev"),
     )
     return yoke_root
