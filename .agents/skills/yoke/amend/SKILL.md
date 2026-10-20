@@ -6,4 +6,6 @@ argument-hint: "{epic-ref}"
 
 # /yoke amend {epic-ref}
 
-Internal to Conduct. Hold the epic claim; never amend during its dispatch. Next: [steps](steps.md).
+Internal to Conduct. Hold the epic claim; never amend during its dispatch.
+
+Phase map: [steps](steps.md).

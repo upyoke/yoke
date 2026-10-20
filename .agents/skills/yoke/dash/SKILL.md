@@ -6,7 +6,9 @@ argument-hint: "\"spec\" | {PREFIX-N}"
 
 # /yoke dash
 
-Execute the whole spec through delivery in this session; never split it for size. Start at [file-and-claim](file-and-claim.md); decisions: [escalate](escalate.md).
+Execute the whole spec through delivery in this session; never split it for size.
+
+Phase map: [file-and-claim](file-and-claim.md), [survey-and-isolate](survey-and-isolate.md), [implement](implement.md), [verify](verify.md), [merge](merge.md), [close-out](close-out.md); decisions: [escalate](escalate.md).
 
 ```text
 yoke sessions touch --mode dash

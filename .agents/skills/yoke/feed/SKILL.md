@@ -9,4 +9,4 @@ argument-hint: "[--no-new-items] [PREFIX-N ...] [--model MODEL]"
 Refresh stale items and Feed's dependency rows; file strategy work.
 
 `--no-new-items` creates nothing; `PREFIX-N` args set the focus. Start with
-[entry.md](entry.md).
+Phase map: [entry.md](entry.md).

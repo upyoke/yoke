@@ -9,6 +9,6 @@ argument-hint: "[--model MODEL]"
 Guided review and approved edits of the strategy docs.
 
 Docs (MISSION, LANDSCAPE, VISION, MASTER-PLAN, CURRENT-PLAN) live in DB rows;
-`.yoke/strategy/` is a gitignored render. Phases in order: [entry](entry.md),
+`.yoke/strategy/` is a gitignored render. Phase map, in order: [entry](entry.md),
 [refresh](refresh.md), [research](research.md), [propose](propose.md),
 [approve](approve.md), [finalize](finalize.md). Any abort releases the claim.

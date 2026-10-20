@@ -6,5 +6,5 @@ argument-hint: "[project] [--fix] [--file path]"
 
 # /yoke doctor
 
-Read [run.md](run.md), then [notes.md](notes.md) before any `--fix`.
+Phase map: read [run.md](run.md), then [notes.md](notes.md) before any `--fix`.
 N/A is never a pass; report its reasons and count.

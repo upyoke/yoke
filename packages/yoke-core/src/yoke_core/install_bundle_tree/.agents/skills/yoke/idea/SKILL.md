@@ -13,5 +13,5 @@ yoke sessions touch --mode idea
 ```
 
 Ask for a missing title or outcome; keep the user's text verbatim. Then
-read [infer-and-create.md](infer-and-create.md),
+Phase map: read [infer-and-create.md](infer-and-create.md),
 [body-and-sync.md](body-and-sync.md) and [notes.md](notes.md).

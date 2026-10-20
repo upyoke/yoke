@@ -8,4 +8,4 @@ argument-hint: "(no arguments)"
 
 Cluster unreviewed Ouroboros entries, file approved outputs, archive.
 
-Start with [run.md](run.md).
+Phase map: start with [run.md](run.md).

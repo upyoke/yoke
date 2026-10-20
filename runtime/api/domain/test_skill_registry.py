@@ -33,11 +33,12 @@ def test_registry_covers_each_installed_skill_exactly_once():
     }
     assert paths == installed
     assert len(paths) == len(SKILLS) == len({skill.id for skill in SKILLS})
-    assert paths <= set(INVENTORY)
-    assert all(
-        "<!-- BEGIN GENERATED: field-note-directive -->" in (ROOT / path).read_text()
-        for path in paths
+    router = ".agents/skills/yoke/SKILL.md"
+    assert router in INVENTORY
+    assert (
+        "<!-- BEGIN GENERATED: field-note-directive -->" in (ROOT / router).read_text()
     )
+    assert not paths & set(INVENTORY)
     assert {skill.session_mode for skill in SKILLS} <= SESSION_MODES
 
 

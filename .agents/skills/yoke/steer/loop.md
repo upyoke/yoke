@@ -53,7 +53,7 @@ yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' 
 ## 3. Staff everything
 
 Before ending a pass, launch every runnable unclaimed scoped item
-([worker-launch.md](worker-launch.md)). A spec write takes a temporary claim:
+([worker-launch.md](worker-launch.md)). This seat is the only staffing path. A spec write takes a temporary claim:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason steering

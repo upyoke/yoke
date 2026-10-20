@@ -13,5 +13,5 @@ persists Simulator output.
 yoke sessions touch --mode simulate
 ```
 
-Read [system](system.md) for `--system`; else [epic-flow](epic-flow.md),
+Phase map: read [system](system.md) for `--system`; else [epic-flow](epic-flow.md),
 [dispatch-prompts](dispatch-prompts.md), then [autofix-loop](autofix-loop.md).

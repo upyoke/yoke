@@ -6,5 +6,7 @@ argument-hint: "(no arguments)"
 
 # /yoke wrapup
 
-Keep trivial sessions brief. Start with [survey-and-report.md](survey-and-report.md),
+Keep trivial sessions brief.
+
+Phase map: [survey-and-report.md](survey-and-report.md),
 then [record-and-close.md](record-and-close.md).

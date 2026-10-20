@@ -13,6 +13,6 @@ land again.
 yoke sessions touch --mode usher
 ```
 
-Phases in order: [collect](collect.md), [plan](plan.md), [merge](merge.md),
+Phase map: phases in order: [collect](collect.md), [plan](plan.md), [merge](merge.md),
 [deploy](deploy.md), [finalize](finalize.md). A failure halts the batch. A `level_change` handoff beats a release wait:
 [levels](../../../../.yoke/docs/agents/levels.md).

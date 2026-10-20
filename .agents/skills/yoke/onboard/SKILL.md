@@ -17,7 +17,7 @@ Never switch projects or install a harness. Missing wire-up: `yoke setup`.
 Secrets go through `--value-stdin` only. The checklist read is authority; never
 edit its rendered local view.
 
-Read [run-and-rows.md](run-and-rows.md); follow `run.next_action`. Steps 2–7 run only for what the
+Phase map: read [run-and-rows.md](run-and-rows.md); follow `run.next_action`. Steps 2–7 run only for what the
 first work needs; otherwise write their rows `deferred`.
 
 1. [strategy-conversation.md](strategy-conversation.md)

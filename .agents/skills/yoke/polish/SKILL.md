@@ -9,6 +9,6 @@ argument-hint: "{PREFIX-N}"
 Review, fix, verify and commit the item's lanes, then advance through its
 pinned polish binding. Never push or open a PR by hand.
 
-Steps: [parse-and-claim](parse-and-claim.md), [context](context.md),
+Phase map: steps: [parse-and-claim](parse-and-claim.md), [context](context.md),
 [doctrine](doctrine.md), [simplify-pass](simplify-pass.md), [review](review.md),
 [fixes](fixes.md), [verify-and-commit](verify-and-commit.md), [advance](advance.md).

@@ -13,6 +13,6 @@ in this session. Prove every AC; never stop at "code passes" or a menu.
 yoke sessions touch --mode implement
 ```
 
-Read [entry.md](entry.md), then [implementing/SKILL.md](implementing/SKILL.md),
+Phase map: read [entry.md](entry.md), then [implementing/SKILL.md](implementing/SKILL.md),
 then [review.md](review.md). A level-change handoff beats a release wait:
 [levels](../../../../.yoke/docs/agents/levels.md).
