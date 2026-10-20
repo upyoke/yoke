@@ -114,7 +114,10 @@ def begin_case_host_contract(
     from yoke_core.domain.qa_plan_execution_lifecycle import set_plan_machine_lease
 
     from yoke_core.domain.qa_resume_machine import execution_machine
-    from yoke_core.domain.machine_qa_case_platform import case_platform
+    from yoke_core.domain.machine_qa_case_platform import (
+        case_platform,
+        matching_platform_hosts,
+    )
 
     retained = execution_machine(conn, execution, case)
     if retained and machine and retained != machine:
@@ -202,7 +205,7 @@ def begin_case_host_contract(
                 machine=name,
                 select_any=False,
                 healthy_only=True,
-                cases=(case,) if name == driver else (),
+                cases=(),
             )
             record_claim_reason(
                 conn,
@@ -219,6 +222,9 @@ def begin_case_host_contract(
     except TestMachineHostUnhealthy:
         release_execution_hosts(conn, execution, reason="qa-host-set-incomplete")
         raise
+    matching_platform_hosts(
+        [admission.contract for admission in admissions.values()], (case,)
+    )
     selected = admissions[driver]
     contract = _issue(
         conn,

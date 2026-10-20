@@ -29,7 +29,12 @@ def run_machine(conn: Any, raw: str) -> str | None:
 def execution_machine(
     conn: Any, execution: Mapping[str, Any], case: Mapping[str, Any]
 ) -> str | None:
-    """Recover this platform's host from execution custody and run history."""
+    """Recover a single-host case's platform host from custody and run history."""
+    from yoke_core.domain.machine_qa_case_hosts import case_machines
+
+    if len(case_machines(case)) > 1:
+        return None
+
     from yoke_core.domain.machine_qa_case_platform import case_platform
     from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
