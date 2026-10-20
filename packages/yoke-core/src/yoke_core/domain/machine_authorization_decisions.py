@@ -1,7 +1,9 @@
 """Personal machine approval, bound immutably to a human organization member."""
 
+from datetime import timedelta
 from typing import Any
 
+from yoke_contracts.machine_authorization import COLLECT_GRACE_SECONDS
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.external_identities import default_org_id
@@ -26,7 +28,12 @@ def _identity(conn: Any, actor_id: int) -> dict[str, Any]:
 def _state(row: dict[str, Any]) -> str:
     if row["consumed_at"]:
         return "consumed"
-    if parse_instant(row["expires_at"]) <= _now():
+    expires, now = parse_instant(row["expires_at"]), _now()
+    if expires <= now and row["decision"] == "approve":
+        # Approved in time; the machine collects it until the grace deadline.
+        grace = timedelta(seconds=COLLECT_GRACE_SECONDS)
+        return "approved" if now <= expires + grace else "uncollected"
+    if expires <= now:
         return "expired"
     return {"approve": "approved", "deny": "denied"}.get(row["decision"], "pending")
 

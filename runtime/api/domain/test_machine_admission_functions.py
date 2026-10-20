@@ -144,7 +144,8 @@ def test_pending_empty_list_still_names_viewer(conn):
         (None, False, False, "pending"),
         ("approve", False, False, "approved"),
         ("deny", False, False, "denied"),
-        ("approve", True, False, "expired"),
+        # Approved in time: still collectable inside the grace window.
+        ("approve", True, False, "approved"),
         ("approve", True, True, "consumed"),
     ],
 )

@@ -1,0 +1,8 @@
+{
+ "id": "hosted-late-approval-collection",
+ "title": "Hosted machine approvals collected after expiry",
+ "status": "observed",
+ "text": "The engine and CLI collect a code approved before expiry for ten minutes after it (approval at expiry minus 5 seconds, collected after expiry, is source-tested). On app.upyoke.com the Platform webapp poll still refuses an expired code before asking the engine, so a hosted approval landing just before expiry is still lost until PLAT-252 forwards expired codes to the engine. Owed: PLAT-252 and production proof of a late hosted approval connecting a Test Machine.",
+ "surfaces": ["machine-admission", "setup-agent"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/machine_authorization_codes.py", "packages/yoke-cli/src/yoke_cli/config/hosted_machine_authorization.py", "docs/public/cli/machine-authorization.md"]
+}

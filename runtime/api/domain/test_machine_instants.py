@@ -108,6 +108,7 @@ def test_device_code_expiry_and_prune_keep_microseconds(test_db, monkeypatch, zo
     with pytest.raises(codes.MachineAuthorizationError) as expired:
         codes._row(test_db, "user_code", pending["user_code"])
     assert expired.value.code == "authorization_expired"
+    clock[0] = expiry + timedelta(seconds=codes.COLLECT_GRACE_SECONDS)
     start()
     assert (
         test_db.execute(

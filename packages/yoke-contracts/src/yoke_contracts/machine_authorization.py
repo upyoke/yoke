@@ -12,6 +12,9 @@ START_PATH = "/api/machine/authorizations"
 POLL_PATH = START_PATH + "/token"
 APPROVAL_PAGE_PATH = "/machine-approval"
 CODE_TTL_SECONDS = 600
+# A code approved before expiry stays collectable this long after it: an agent
+# setup call that ended at the browser step collects on its next call.
+COLLECT_GRACE_SECONDS = 600
 POLL_INTERVAL_SECONDS = 2
 APPROVAL_RETURN_COOKIE = "yoke_machine_approval_return"
 MATCH_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"

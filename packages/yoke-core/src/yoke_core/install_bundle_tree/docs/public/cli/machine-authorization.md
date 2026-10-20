@@ -80,12 +80,14 @@ poll receives the raw credential and no raw credential is stored in the code
 record. Network loss after delivery requires starting a new code.
 
 The self-host store keeps hashed device secrets and expires codes after ten
-minutes, deleting expired records on the next start. Pending admission is bounded
-by trusted transport client identity: eight unconsumed codes per client and
-128 across the server. Changing the machine UUID or forwarding headers does
-not create a new client budget. `authorization_client_capacity` and
-`authorization_capacity` refuse further starts; finish an approval or retry
-after expiry. Consumed codes free pending capacity.
+minutes. An approval made in time stays collectable ten more minutes (an agent
+setup call collects it next call); later, poll refuses `authorization_expired`
+naming `approval_uncollected` and inspection reports state `uncollected`. A
+later start deletes records past that window. Trusted transport client identity
+bounds pending admission: eight live codes per client, 128 per server; a new
+machine UUID or forwarding header creates no new budget. Past it,
+`authorization_client_capacity` and `authorization_capacity` refuse starts;
+finish an approval or retry after expiry.
 
 Persistent atomic counters are shared across processes and restarts, separately
 from telemetry: six start requests and 120 poll requests per client per minute.
@@ -186,7 +188,8 @@ The shared notice also has a token variant: a token does not make a local
 universe reachable from another computer.
 
 Inspection may read an expired or consumed record to display its outcome,
-but resolve and poll still refuse expired or consumed codes. A record removed
+but resolve refuses expired codes and poll refuses consumed or unapproved
+expired codes. A record removed
 by pending-store expiry cleanup is unavailable; membership and ownership still
 protect reads. Light and dark themes share the same card and narrow layouts.
 
