@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   renderOuroborosView,
+  renderOuroborosEntryDetailView,
   OUROBOROS_PAGE_SIZE,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_ouroboros.js";
 import {
@@ -290,4 +291,22 @@ test("the mounted roster performs no polling", async () => {
   await new Promise((resolve) => setTimeout(resolve, 80));
   await settle();
   assert.equal(requests.length, afterMount);
+});
+
+
+test("note details link repeat evidence and its root", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const context = ouroborosContext(documentNode, async () => ({
+    status: 200, envelope: { success: true, result: { entry: {
+      id: 12, body: "A problem", correlation_id: 9,
+      repeat_count: 1, repeats: [{ id: 15, preview: "Another context" }],
+    } } },
+  }));
+  renderOuroborosEntryDetailView(context, root, "alpha", "12");
+  await settle();
+  const links = allNodes(root).filter(node => node.href);
+  assert(links.some(node => node.href === "/ouroboros/9?project=alpha"));
+  assert(links.some(node => node.href === "/ouroboros/15?project=alpha"));
+  assert.match(visibleText(root), /Another context/);
 });

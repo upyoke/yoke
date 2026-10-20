@@ -19,7 +19,26 @@ yoke ouroboros field-note append --kind observation --evidence '...'
  /yoke curate
 ```
 
-Session continuity for long work also belongs on the item **Progress Log**.
+For a repeat, pass `--correlation-id ROOT_ID` with the first note's integer id.
+The note stores that root and the filing session durably. Unreviewed lists and
+counts include root problems only; root reads show a repeat count and the latest
+20 evidence previews. Open a repeat by id for its complete evidence; ordinary
+lists page through all notes.
+
+Append returns the existing id for the same project, author kind and first 200
+normalized body characters within 24 hours. Normalization folds case and
+whitespace. A session warns at eight distinct notes and refuses an eleventh;
+correlated evidence and duplicate retries remain available. Put unrelated
+findings beyond that budget in the item's **Progress Log** for operator review.
+A wrong or missing recipe belongs here; a successful routine recovery and
+progress narration belong in the item's **Progress Log**.
+
+Curation is operator-run. Once a week, the steering operator runs `/yoke curate`
+for each project with an open queue and records the review date, remaining count
+and next review date in the claimed strategy document. Steering checks this
+checkpoint each pass and surfaces an overdue review. Curate verifies causes
+against shipped work, records the covering item for each handled set, then
+reviews and archives those notes through the existing entry commands.
 
 
 The Ouroboros dashboard labels filing timestamps as **Filed at** and defaults to newest first. Observation, project, Filed at, Category, Context and Reviewed headers sort the matching roster before cursor pagination. Sort choices use the existing actor/universe preference store and restore across browsers and devices. The repetitive executor column is omitted; complete entry details remain available. Narrow layouts expose labeled row values and keep sort controls available.

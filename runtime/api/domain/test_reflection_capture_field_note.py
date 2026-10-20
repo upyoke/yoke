@@ -13,6 +13,7 @@ The marker-parse unit tests for the regex live alongside the integration
 cases here so the bridge module's contract is in one place; the broader
 ``reflection_capture`` parsing suite stays in ``test_reflection_capture``.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -81,12 +82,15 @@ def _patch_dispatch_capture(monkeypatch):
         result = {}
 
     def fake_dispatch(request, ambient_session_id=None, **kwargs):
-        calls.append({
-            "function": request.function,
-            "payload": dict(request.payload),
-            "session_id": request.actor.session_id,
-            "ambient_session_id": ambient_session_id,
-        })
+        calls.append(
+            {
+                "function": request.function,
+                "request_id": request.request_id,
+                "payload": dict(request.payload),
+                "session_id": request.actor.session_id,
+                "ambient_session_id": ambient_session_id,
+            }
+        )
         return _StubResponse()
 
     monkeypatch.setattr(yoke_function_dispatch, "dispatch", fake_dispatch)
@@ -105,6 +109,7 @@ def _patch_marker_failed_events(monkeypatch):
         class _R:
             ok = True
             event_id = "evt-stub"
+
         return _R()
 
     monkeypatch.setattr(_rcfn._events, "emit_event", fake_emit)
@@ -114,6 +119,7 @@ def _patch_marker_failed_events(monkeypatch):
 # ---------------------------------------------------------------------------
 # Integration through capture_reflections
 # ---------------------------------------------------------------------------
+
 
 class TestFieldNoteMarkerBridge:
     """PM/PD reflection markers convert to ouroboros.field_note.append."""
@@ -139,6 +145,14 @@ class TestFieldNoteMarkerBridge:
         call = dispatch_calls[0]
         assert call["function"] == "ouroboros.field_note.append"
         assert call["payload"]["kind"] == "failed"
+        assert "correlation_id" not in call["payload"]
+        capture_reflections(
+            PM_VALID_MARKER_BLOCK,
+            default_agent="product-manager",
+            project="yoke",
+            _conn=conn,
+        )
+        assert dispatch_calls[-1]["request_id"] == call["request_id"]
         assert "R-CL-03" in call["payload"]["evidence"]
         conn.close()
 
@@ -193,6 +207,7 @@ class TestFieldNoteMarkerBridge:
 # ---------------------------------------------------------------------------
 # Marker parser unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestFindMarkers:
     """Direct coverage of the marker regex."""

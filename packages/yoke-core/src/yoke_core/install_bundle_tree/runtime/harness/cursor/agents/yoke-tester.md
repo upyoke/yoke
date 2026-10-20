@@ -85,7 +85,7 @@ Adapters build the function-call envelope: `actor.session_id` binds the harness;
   - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
+  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id ROOT_NOTE_ID`
 - _Subagent communication through its registered parent_
   - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
 - _Verify Python imports/tests against linked worktree source_

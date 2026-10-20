@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from yoke_core.domain.field_note_correlations import attach_correlations
 from typing import Optional
 
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import format_instant, utc_now
 
+from yoke_core.domain.ouroboros_entry_insert import cmd_insert_entry
 from yoke_core.domain import db_backend
 from yoke_core.domain.ouroboros_entry_presentation import (
     _apply_correction_link,
@@ -66,53 +67,6 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def cmd_insert_entry(
-    conn,
-    timestamp: datetime | str,
-    agent: str,
-    context: Optional[str],
-    category: str,
-    body: str,
-    project: Optional[str] = None,
-    target_project: Optional[str] = None,
-) -> str:
-    timestamp = instant_parameter(conn, parse_instant(timestamp))
-    p = _p(conn)
-    project_id = resolve_project_id(conn, project) if project else None
-    target_project_id = (
-        resolve_project_id(conn, target_project) if target_project else None
-    )
-    existing = query_one(
-        conn,
-        "SELECT id FROM ouroboros_entries "
-        f"WHERE timestamp={p} AND agent={p} AND category={p} AND body={p}",
-        (timestamp, agent, category, body),
-    )
-    if existing:
-        return "Duplicate entry skipped"
-
-    # Native id read: driver-side generated-id attributes are fragile to
-    # intervening sequence touches. RETURNING is the unambiguous form.
-    row = conn.execute(
-        "INSERT INTO ouroboros_entries "
-        "(timestamp, agent, context, category, body, project_id, "
-        "target_project_id, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (
-            timestamp,
-            agent,
-            context,
-            category,
-            body,
-            project_id,
-            target_project_id,
-            instant_parameter(conn, utc_now()),
-        ),
-    ).fetchone()
-    conn.commit()
-    return str(row[0])
-
-
 def _entry_list_filters(
     conn,
     *,
@@ -126,7 +80,9 @@ def _entry_list_filters(
     params: list[object] = []
 
     if unreviewed:
-        conditions.append("o.reviewed_at IS NULL AND o.archived_at IS NULL")
+        conditions.append(
+            "o.reviewed_at IS NULL AND o.archived_at IS NULL AND o.correlation_id IS NULL"
+        )
     if project:
         conditions.append(f"o.project_id={p}")
         params.append(resolve_project_id(conn, project))
@@ -205,6 +161,7 @@ def list_entry_rows(
     for entry in entries:
         entry["promoted_dash"] = promotions.get(entry["id"])
         _apply_correction_link(entry, links.get(entry["id"]))
+    attach_correlations(conn, entries)
     return entries
 
 
@@ -277,6 +234,7 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
         entry,
         correction_links_by_entry_ids(conn, [entry_id]).get(entry_id),
     )
+    attach_correlations(conn, [entry])
     return entry
 
 

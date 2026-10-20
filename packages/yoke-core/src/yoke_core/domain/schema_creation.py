@@ -155,7 +155,6 @@ def _create_in_dependency_order(conn: Any) -> None:
     ensure_harness_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     ensure_doctor_runs_schema(conn)
-    apply_ouroboros_columns(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()
     ensure_function_index(conn)
@@ -167,4 +166,5 @@ def _create_in_dependency_order(conn: Any) -> None:
     conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
     ensure_strategy_execution_schema(conn)
     apply_additive_schema(conn)
+    apply_ouroboros_columns(conn)
     converge_flow_catalog(conn)

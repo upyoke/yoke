@@ -149,7 +149,7 @@ Adapters build the function-call envelope: `actor.session_id` binds the harness;
   - `cat .yoke/docs/documentation/index.md`
   - `yoke <family> --help`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
+  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id ROOT_NOTE_ID`
 - _Apply a structural patch without duplicate or stale hunks_
   - `Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.`
 - _Subagent communication through its registered parent_

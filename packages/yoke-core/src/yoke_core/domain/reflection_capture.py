@@ -196,7 +196,7 @@ def capture_reflections(
             session_id=session_id,
             errors=result.errors,
             project=project,
-            correlation_id=hashlib.sha256(
+            capture_key=hashlib.sha256(
                 repr(
                     (
                         entry.timestamp,

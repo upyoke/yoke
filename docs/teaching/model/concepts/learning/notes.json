@@ -1,10 +1,11 @@
 {
  "id": "notes",
  "title": "Field-notes",
- "status": "draft-copy",
+ "status": "observed",
  "surface_refs": ["execution-instructions"],
  "commands": ["yoke ouroboros field-note append", "yoke ouroboros field-note get", "yoke ouroboros field-note list"],
  "functions": ["ouroboros.field_note.append", "ouroboros.field_note.get", "ouroboros.field_note.list"],
  "page": "learning",
- "position": 0
+ "position": 0,
+ "summary": "Field notes store a root correlation and filing session. Unreviewed counts represent root problems; root reads list bounded repeat evidence. Append reuses the same project/author normalized 200-character body prefix within 24 hours, warns at eight distinct session notes, and caps at ten while accepting correlated evidence."
 }

@@ -213,7 +213,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "--evidence "
             "'R-CL-03 path-claim-narrow recipe used --remove; "
             "actual flag is --drop-paths' "
-            "--correlation-id polish-run-2026-05-20"
+            "--correlation-id ROOT_NOTE_ID"
         ),
         "notes": (
             "File a field note each time a recipe, help text or refusal is "

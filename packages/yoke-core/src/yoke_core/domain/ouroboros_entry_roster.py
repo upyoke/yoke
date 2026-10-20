@@ -11,6 +11,7 @@ import base64
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.field_note_correlations import attach_correlations
 from yoke_core.domain.ouroboros_entry_presentation import entry_wire_value
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.field_note_dash_promotion import (
@@ -88,7 +89,7 @@ def decode_cursor(cursor: str) -> int:
 
 def _review_clause(review_state: str) -> str:
     if review_state == "unreviewed":
-        return "o.reviewed_at IS NULL AND o.archived_at IS NULL"
+        return "o.reviewed_at IS NULL AND o.archived_at IS NULL AND o.correlation_id IS NULL"
     if review_state == "reviewed":
         return "o.reviewed_at IS NOT NULL"
     return ""
@@ -206,6 +207,7 @@ def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
         link = links.get(entry["id"]) or {}
         entry["corrects"] = link.get("corrects")
         entry["superseded_by"] = link.get("superseded_by")
+    attach_correlations(conn, entries)
     return entries
 
 

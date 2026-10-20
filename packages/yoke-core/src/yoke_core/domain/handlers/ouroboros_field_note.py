@@ -44,6 +44,10 @@ from yoke_core.domain import events as _events
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
+from yoke_core.domain.field_note_append_policy import (
+    inspect_append,
+    FieldNoteAdmissionError,
+)
 from yoke_core.domain.ouroboros_entry_corrections import (
     CorrectionTargetError,
     record_correction,
@@ -88,6 +92,8 @@ class FieldNoteAppendRequest(BaseModel):
 
 class FieldNoteAppendResponse(BaseModel):
     event_id: Optional[str]
+    deduplicated: bool = False
+    warning: Optional[str] = None
     entry_id: Optional[str]
     kind: str
     evidence_preview: str
@@ -145,7 +151,15 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 project=payload.project,
                 target_project=payload.target_project,
             )
-            entry_id = cmd_insert_entry(
+            existing_id, root_id, warning = inspect_append(
+                conn,
+                project_id=provenance.project_id,
+                author=provenance.author,
+                body=payload.evidence,
+                session_id=session_id,
+                correlation_id=payload.correlation_id,
+            )
+            entry_id = existing_id or cmd_insert_entry(
                 conn,
                 timestamp,
                 provenance.author,
@@ -154,6 +168,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 payload.evidence,
                 project=provenance.project,
                 target_project=provenance.target_project,
+                correlation_id=root_id,
+                session_id=session_id,
             )
             if payload.corrects is not None and entry_id.isdigit():
                 record_correction(
@@ -161,6 +177,10 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                     correction_entry_id=int(entry_id),
                     corrected_entry_id=payload.corrects,
                 )
+    except FieldNoteAdmissionError as exc:
+        return HandlerOutcome(
+            primary_success=False, error=FunctionError(code=exc.code, message=str(exc))
+        )
     except CorrectionTargetError as exc:
         return _bad_request(str(exc))
     except LookupError as exc:
@@ -213,7 +233,9 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         entry_id=entry_id,
         kind=payload.kind,
         evidence_preview=evidence_preview,
-        correlation_id=payload.correlation_id,
+        correlation_id=str(root_id) if root_id is not None else None,
+        deduplicated=existing_id is not None,
+        warning=warning,
         author=provenance.author,
         project=provenance.project,
         target_project=provenance.target_project,
