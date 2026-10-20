@@ -23,6 +23,30 @@ class QaCasesNotSelectedError(QaPlanError):
     """
 
 
+def _require_member_still_attached(
+    conn: Any, run_id: str, member_item_id: int | None
+) -> None:
+    """Refuse by name when a removal committed while plans were being selected.
+
+    Removal locks the run row too, so membership read under that lock holds
+    until this transaction ends.
+    """
+    if member_item_id is None:
+        return
+    attached = conn.execute(
+        "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+        (run_id, member_item_id),
+    ).fetchone()
+    if attached is None:
+        from yoke_core.domain.project_identity import render_item_ref
+
+        raise LookupError(
+            f"deployment_member_removed: {render_item_ref(conn, member_item_id)} "
+            f"left deployment run '{run_id}' while its QA was being prepared; "
+            f"read `yoke deployment-runs get {run_id}` for the current members"
+        )
+
+
 @composition_operation
 def materialize_deployment_qa_stage(
     conn: Any,
@@ -79,6 +103,9 @@ def materialize_deployment_qa_stage(
         conn.execute(
             "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
             (deployment_run_id,),
+        )
+        _require_member_still_attached(
+            conn, deployment_run_id, deployment_member_item_id
         )
         from yoke_core.domain.deployment_qa_materialization_projection import (
             MaterializationProjection,

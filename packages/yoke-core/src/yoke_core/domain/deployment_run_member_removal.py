@@ -124,7 +124,9 @@ def retract_member_copies(
 
     A removed member owes this run nothing, whatever its copies' verdict
     history: completion grades each copy's latest attempt, so a copy that
-    passed and later failed would otherwise hold the run. Retraction keeps
+    passed and later failed would otherwise hold the run. A copy the failed
+    run already retired is taken over too, so a retry cannot restore it.
+    Retraction keeps
     the rows and their qa_runs; standing item plans survive and the next
     release materializes fresh run-bound copies. Returns each member's
     retracted requirement ids.
@@ -136,7 +138,8 @@ def retract_member_copies(
         conn,
         "SELECT r.id,r.deployment_member_item_id FROM qa_requirements r "
         "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=ANY(%s) "
-        f"AND NOT {settled_obligation_sql(conn, 'r')} ORDER BY r.id",
+        f"AND (NOT {settled_obligation_sql(conn, 'r')} "
+        "OR r.retraction_source='deployment_run') ORDER BY r.id",
         (run_id, ids),
     )
     retracted: dict[int, list[int]] = {}

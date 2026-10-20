@@ -81,7 +81,10 @@ the targeted state and rerun once `yoke env list` shows the control plane
 reachable; the deploy driver adds `yoke watch deploy -- RUN-ID`, because a run
 resumes where it stopped. Any other exception a handler raises answers
 `handler_exception` with the function id and exception class, on in-process
-dispatch as on the HTTPS route, never a raw traceback.
+dispatch as on the HTTPS route, never a raw traceback. The HTTPS server logs
+`function_call_handler_failed` with the request id, exception class and the
+traceback's frame locations (file, line, function), never the message or
+payload, so an operator can find the failing line.
 
 ## Claim verification
 
