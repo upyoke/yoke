@@ -4,8 +4,7 @@ A worker told to survey the neighbour it shares a file with runs ``git
 status`` / ``git diff`` against the neighbour's tree, or reads a file
 there with ``cat`` / ``ls``. Those reads are allowed; everything that
 writes or moves state in that lane stays refused, and so does a shell
-shape that could smuggle a write past an allowed verb (a redirect, a
-chain, an ``--output`` file).
+shape that could smuggle a write past an allowed verb (a redirect or an ``--output`` file).
 
 The caller in the observed failure holds its OWN lane claim, so the
 allowance has to clear both halves of the policy: the ownership test
@@ -223,3 +222,95 @@ class TestNeighbourLaneWritesStillRefused:
         assert "git -C <lane> (" in verdict.reason
         assert "status" in verdict.reason
         assert "listing form only" in verdict.reason
+
+
+COMPOUND_READS = (
+    "git -C {lane} status --short; git -C {lane} log -5 --oneline",
+    "git -C {lane} status&&git -C {lane} diff",
+    "git -C {lane} log | head -5",
+    "cd {lane} && git status && cat README.md",
+    "cat {lane}/README.md; git -C {lane} diff",
+    "git -C {lane} status\ngit -C {lane} log -5",
+    "git -c alias.peek=status -C {lane} status && git -C {lane} log",
+)
+
+
+@pytest.mark.parametrize("command", COMPOUND_READS)
+@pytest.mark.parametrize("target", ["own", "peer"])
+def test_compound_reads_before_implementation(conn, repo, command, target):
+    held, own = _neighbouring_lanes(conn, repo)
+    conn.execute("UPDATE items SET status = 'idea' WHERE id = %s", (NEIGHBOUR_ITEM,))
+    conn.commit()
+    lane = own if target == "own" else held
+    verdict = _bash_verdict(command.format(lane=lane))
+    assert verdict.allow is True, verdict.reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "git -C {lane} log && git -C {lane} checkout x",
+        "git -C {lane} log; rm {lane}/f",
+        "git -C {lane} diff > /tmp/lane-inspection.txt",
+        'git -C {lane} log "$(touch {lane}/f)"',
+        'git -C {lane} log "`touch {lane}/f`"',
+    ),
+)
+def test_compound_unsafe_calls_keep_lane_authority(conn, repo, command):
+    held, _own = _neighbouring_lanes(conn, repo)
+    verdict = _bash_verdict(command.format(lane=held))
+    assert verdict.allow is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "sed -n '/KEEP IN SYNC/,+4p' {lane}/README.md",
+        "sed -n -e '/KEEP IN SYNC/,+4p' {lane}/README.md",
+        "sed --expression='/KEEP IN SYNC/,+4p' {lane}/README.md",
+        "awk '/KEEP IN SYNC/ {{print}}' {lane}/README.md",
+        "awk -v key=/pattern -F /delimiter '/KEEP IN SYNC/' {lane}/README.md",
+        "awk --source='/KEEP IN SYNC/' {lane}/README.md",
+    ),
+)
+def test_inline_program_is_not_a_path(conn, repo, command):
+    _held, own = _neighbouring_lanes(conn, repo)
+    verdict = _bash_verdict(command.format(lane=own))
+    assert verdict.allow is True, verdict.reason
+
+
+@pytest.mark.parametrize(
+    "command, expected",
+    (
+        ("sed -n '/KEEP IN SYNC/,+4p' /input", ["/input"]),
+        ("sed -e /program -e /other /input", ["/input"]),
+        ("awk '/program/ {{print}}' /input", ["/input"]),
+        ("awk -f /program /input", ["/program", "/input"]),
+        ("sed -f /program /input", ["/program", "/input"]),
+        ("sed -e /program /input > /output", ["/input", "/output"]),
+    ),
+)
+def test_script_data_and_file_operands_stay_distinct(command, expected):
+    from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+        extract_command_targets,
+    )
+
+    assert extract_command_targets(command) == expected
+
+
+def test_git_config_value_does_not_hide_subcommand():
+    from yoke_core.domain.lint_session_cwd_read_only_signatures import git_subcommand
+
+    assert git_subcommand(["git", "-c", "alias.peek=status", "status"]) == "status"
+    assert is_read_only_git_inspection("git -c alias.peek=status status")
+    assert not is_read_only_git_inspection("git -c alias.peek=status peek")
+
+
+def test_unknown_segment_cannot_exempt_lane_targets():
+    from yoke_core.domain.lint_session_cwd_foreign_lane import governed_targets
+
+    assert governed_targets(
+        ["/repo/.worktrees/lane"],
+        ["/repo"],
+        "git -C /repo/.worktrees/lane status && unknown-reader /repo/.worktrees/lane",
+    ) == ["/repo/.worktrees/lane"]

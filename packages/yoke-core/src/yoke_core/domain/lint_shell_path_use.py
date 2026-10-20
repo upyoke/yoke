@@ -209,8 +209,7 @@ def analyze_shell_path_use(
             )
             if state_move:
                 writes.extend(targets)
-            # Compound Git keeps the established conservative lane judgment.
-            lane_move = state_move or _state_move(tokens, command)
+            lane_move = state_move or _state_move(tokens, shlex.join(tokens))
             mutation = mutation or lane_move
             direct_write = direct_write or state_move
             role = (

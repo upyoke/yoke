@@ -13,8 +13,9 @@ shares a file with needs ``git status`` and ``git diff`` against the
 neighbour's tree. Writes and state moves stay refused: the write-target
 resolver decides filesystem writes, and a Git call that is not read-only
 inspection, a delete, or an in-place ``sed`` moves the lane even when
-that resolver has no path to name. A redirect, a chained command, a
-substitution, or an ``--output`` file each drop the call back to refused.
+that resolver has no path to name. Chains and pipelines are allowed only
+when every segment is a known read or directory change. Redirects,
+substitutions and ``--output`` files retain ordinary authority checks.
 
 The refusal deliberately does NOT suggest stashing or committing. That
 advice is addressed to a single author who has dirtied their own tree;
@@ -85,8 +86,44 @@ def governed_targets(
     disturbing its holder, so its lane targets are outside both the
     ownership question and the authority question.
     """
-    if not is_read_only_git_inspection(command):
+    from yoke_core.domain.lint_session_cwd_read_only_signatures import _match_simple
+    from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
+    from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+
+    # The splitter does not descend into substitutions, including quoted ones.
+    if any(mark in command for mark in (">", "<", "$(", "`")):
         return list(targets)
+    segments = [
+        tokens
+        for part in split_pipeline(command)
+        for tokens in shell_command_segments(part)
+    ]
+    if not segments:
+        return list(targets)
+    for tokens in segments:
+        segment = shlex.join(tokens)
+        if is_read_only_git_inspection(segment):
+            continue
+        if len(tokens) == 2 and tokens[0] == "cd" and not tokens[1].startswith("-"):
+            continue
+        # Broader orientation signatures (find, help, adapters) cannot grant
+        # authority over another lane; only the established file readers can.
+        label = _match_simple(segment)
+        if label not in {
+            "wc-read",
+            "ls-read",
+            "cat-read",
+            "head-read",
+            "tail-read",
+            "file-read",
+            "stat-read",
+            "sed-read",
+            "grep",
+            "rg",
+            "ag",
+            "ack",
+        }:
+            return list(targets)
     return outside_worktree_lanes(targets, repo_roots)
 
 
@@ -95,8 +132,8 @@ def allowed_inspection_lines() -> List[str]:
     inspection = "|".join(sorted(GIT_INSPECTION_SUBS))
     listing = "|".join(sorted(GIT_LISTING_SUBS))
     return [
-        "Read-only Git inspection of that lane IS allowed — one plain git "
-        "call, no redirection, chaining, or --output file:",
+        "Read-only Git inspection of that lane IS allowed, including chains "
+        "of reads and cd; no redirection, substitution, or --output file:",
         "",
         f"  git -C <lane> ({inspection}) ...",
         f"  git -C <lane> ({listing})   # listing form only, no positional argument",
