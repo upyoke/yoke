@@ -31,86 +31,40 @@ def _between(text: str, start: str, end: str) -> str:
 
 def test_profile_confirms_exactly_one_named_delivery_outcome() -> None:
     text = _read(ONBOARD / "profile-and-scaffold.md")
-    delivery = _between(text, "### The delivery box", "### The test-setup box")
-    confirmation = _between(text, "### Confirm (stop 1 of 2)", "## Step 3")
-
-    assert "Every profile names exactly one delivery outcome" in delivery
-    assert "**Persistent environment**" in delivery
-    assert "**Merge-only**" in delivery
     assert (
-        "local merge with no environment and no deployment pipeline or run" in delivery
+        "Delivery: persistent environment (needs hosting), merge-only, or no default."
+        in text
     )
-    assert "**No default**" in delivery
-    assert "offer only merge-only or no default" in delivery
-    assert "delivery {persistent-environment|merge-only|no-default}" in confirmation
-    assert "envs stage+prod" not in confirmation
 
 
 def test_no_host_merge_only_branch_creates_a_runless_default() -> None:
     text = _read(ONBOARD / "hosting-and-environments.md")
-    merge_only = _between(
-        text,
-        "### Hosting deferred/not-needed: create the confirmed merge-only default",
-        "### Hosting deferred/not-needed: clear the project default",
+    merge_only = " ".join(
+        _between(text, "- **Merge-only:**", "- **No default:**").split()
     )
 
-    assert "yoke deployment-flows create {project}-merge-only" in merge_only
-    assert '[{"name":"merged","step_runner":"auto"},' in merge_only
-    assert '{"name":"complete","step_runner":"auto"}]' in merge_only
-    assert '"family":"deploy_defaults"' in merge_only
-    assert "target-tier read must print nothing" in merge_only
-    assert "delivery-setup=configured" in merge_only
-    assert "no deployment run" in merge_only
-    assert "yoke projects site create" not in merge_only
-    assert "yoke projects environment create" not in merge_only
-    create_command = merge_only.split("yoke deployment-flows create", 1)[1].split(
-        "yoke deployment-flows get", 1
-    )[0]
-    assert "--target-tier" not in create_command
-    assert "--environment" not in create_command
+    assert "two `auto` stages, `merged` and `complete`" in merge_only
+    assert "no tier or environment" in merge_only
+    assert "`target_tier` read must print nothing" in merge_only
+    assert "site" not in merge_only
 
 
 def test_no_default_branch_clears_and_verifies_the_attachment() -> None:
     text = _read(ONBOARD / "hosting-and-environments.md")
-    no_default = _between(
-        text,
-        "### Hosting deferred/not-needed: clear the project default",
-        "### Bind the confirmed test setup",
-    )
+    no_default = _between(text, "- **No default:**", "\n\n")
 
-    assert "confirmed delivery outcome is **no default**" in no_default
-    assert '"op":"remove","family":"deploy_defaults"' in no_default
-    assert (
-        no_default.count(
-            "yoke project-structure deploy-defaults get --project {project}"
-        )
-        == 2
-    )
-    assert "delivery-setup=not-needed" in no_default
+    assert "remove the project `deploy_defaults`" in no_default
+    assert "the read must print nothing" in no_default
 
 
 def test_usher_routes_registered_empty_tier_without_starting_a_run() -> None:
     text = _read(USHER / "deploy.md")
-    grouping = text.split("## Route A", 1)[0]
-    route_a = _between(text, "## Route A", "## Route B")
+    route_a = _between(text, "Route A", "Route B:")
 
-    assert "Read actual flow target_tier and status" in grouping
-    assert "Successful empty/no flow" in grouping
-    assert "Route A" in grouping
-    assert "unresolved Route B, never guessed" in grouping
+    assert "only for a flow that delivers nothing" in route_a
+    assert "exit 7: use Route B" in route_a
     assert "deployment-runs start-for-item" not in route_a
     assert "done-transition -- PREFIX-N --skip-deploy" in route_a
-
-
-def test_no_host_router_and_handoff_accept_both_delivery_outcomes() -> None:
-    router = _read(ONBOARD / "SKILL.md")
-    handoff = _read(ONBOARD / "domain-and-deploy.md")
-
-    expected = "registered merge-only default or an empty default"
-    assert expected in router
-    assert expected in handoff
-    assert "no-host default is empty" not in router
-    assert "project default is empty" not in handoff
 
 
 def test_packaged_skill_contract_is_byte_exact() -> None:

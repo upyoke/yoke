@@ -34,9 +34,6 @@ INTERNAL_INVENTORY = (
     "docs/public/agents/maintenance-commands.md",
     "docs/harness-bootstrap.md",
 )
-ARGUMENT_HINT_NOTICE = (
-    "# argument-hint is generated from yoke_contracts.skill_registry."
-)
 
 
 def _names(skills) -> str:
@@ -45,12 +42,14 @@ def _names(skills) -> str:
 
 def content_for_path(path: str) -> str:
     public = [skill for skill in SKILLS if skill.kind != "internal"]
-    lines = [
-        "Skill metadata is generated from `yoke_contracts.skill_registry`.",
-        "Change that source and run `yoke dev run -- python3 -m",
-        "yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.",
-        "",
-    ]
+    lines = []
+    if not path.startswith(".agents/"):
+        lines = [
+            "Skill metadata is generated from `yoke_contracts.skill_registry`.",
+            "Change that source and run `yoke dev run -- python3 -m",
+            "yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.",
+            "",
+        ]
     if path == INVENTORY[0]:
         lines.extend(
             [
@@ -136,17 +135,9 @@ def _render_argument_hints(target_root: Path, *, check: bool) -> RenderResult:
             continue
         end = lines.index("---\n", 1)
         header = [
-            line
-            for line in lines[1:end]
-            if not line.startswith("argument-hint:")
-            and line.rstrip() != ARGUMENT_HINT_NOTICE
+            line for line in lines[1:end] if not line.startswith("argument-hint:")
         ]
-        header.extend(
-            [
-                ARGUMENT_HINT_NOTICE + "\n",
-                "argument-hint: " + dumps_compact(skill.arguments) + "\n",
-            ]
-        )
+        header.append("argument-hint: " + dumps_compact(skill.arguments) + "\n")
         rewritten = "".join([lines[0], *header, *lines[end:]])
         changed = rewritten != original
         outcomes["changed" if changed else "unchanged"].append(

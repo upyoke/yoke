@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
-
 import pytest
 
 from runtime.api.skill_doc_regressions_test_helpers import (
     REPO,
     SKILLS,
     _read,
-    _read_skill_corpus,
 )
 
 
@@ -24,42 +20,22 @@ class TestImplementEntrySkill:
     """Implement entry must derive implementation entry from the exact pin."""
 
     @pytest.fixture
-    def entry_doc(self) -> Path:
-        doc = SKILLS / "implement" / "entry.md"
-        assert doc.is_file()
-        return doc
-
-    def _entry_section(self, entry_doc: Path) -> str:
-        text = _read(entry_doc)
-        section = re.search(
-            r"## Reach the binding's entry stage first.*?(?=^## Enter at)",
-            text,
-            re.MULTILINE | re.DOTALL,
-        )
-        assert section is not None, (
-            "implement/entry.md missing the implementation-entry source section"
-        )
-        return section.group(0)
+    def entry_text(self) -> str:
+        return _read(SKILLS / "implement" / "entry.md")
 
     def test_implementation_entry_requires_pinned_implement_source(
-        self, entry_doc: Path
+        self, entry_text: str
     ):
-        section_text = self._entry_section(entry_doc)
-        # The engine dispatches one adjacent transition from the pinned
-        # implement binding source.
-        assert "advance_hop" not in section_text
-        assert "from_stage_id" in section_text
-        assert "single_implementation_lane" in section_text
-        assert "pinned definition" in section_text
-        # Raw intermediate status writes stay claim-protected.
-        assert "ClaimVerificationDenied" in section_text
+        assert "yoke workflows item get PREFIX-N --json" in entry_text
+        assert "must be `implement`" in entry_text
+        assert "yoke advance implementation-entry --item PREFIX-N" in entry_text
+        assert "advance_hop" not in entry_text
 
     def test_implementation_entry_drops_raw_intermediate_examples(
-        self, entry_doc: Path
+        self, entry_text: str
     ):
-        section_text = self._entry_section(entry_doc)
-        assert "items update {N} status refining-idea" not in section_text
-        assert "items update {N} status refined-idea" not in section_text
+        assert "items update {N} status refining-idea" not in entry_text
+        assert "items update {N} status refined-idea" not in entry_text
 
 
 # ---------------------------------------------------------------------------
@@ -104,12 +80,6 @@ class TestSkillDiscovery:
         assert "/yoke refine" in text
         assert "/yoke polish" in text
 
-    def test_help_command_reference_includes_refine_and_polish(self):
-        # Help output is rendered from the router's Command Reference table.
-        router_text = _read(SKILLS / "SKILL.md")
-        assert "/yoke refine PREFIX-N" in router_text
-        assert "/yoke polish PREFIX-N" in router_text
-
     def test_codex_bootstrap_lists_refine_polish_and_usher(self):
         codex = REPO / "docs/public/agents/codex.md"
         text = _read(codex)
@@ -120,11 +90,11 @@ class TestSkillDiscovery:
 
 # ---------------------------------------------------------------------------
 class TestImplementIdentityGuard:
-    """Implementation entry corroborates identity before lane mutation."""
+    """Implementation entry lets the engine take the first work claim."""
 
-    def test_implementation_entry_probes_identity_before_claim(self):
-        text = _read_skill_corpus(SKILLS / "implement")
-        assert "Defer the first work-claim acquisition to the orchestrator" in text
-        assert "write-guard-identity-unresolved" in text
-        assert "--session-id` must match the ambient result" in text
-        assert "worktree_preflight.run_preflight` acquires the claim" in text
+    def test_implementation_entry_defers_first_claim_to_the_engine(self):
+        text = _read(SKILLS / "implement" / "entry.md")
+        assert "let the engine take the claim" in text
+        assert text.index("yoke advance implementation-entry") < text.index(
+            "yoke claims work acquire"
+        )

@@ -27,9 +27,9 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 class TestConductActivationGate:
     """Conduct start gate must pass ``--gate-point activation``.
 
-    Both conduct entry surfaces (``conduct/SKILL.md`` and
-    ``conduct/entry-activation.md``) must use activation-scoped hard-block
-    checks so integration/closure edges don't block conduct dispatch.
+    The conduct entry gate (``conduct/entry-gates.md``) must use the
+    activation-scoped hard-block check so integration/closure edges don't
+    block conduct dispatch.
     """
 
     @pytest.fixture
@@ -51,10 +51,6 @@ class TestConductActivationGate:
             f"conduct/SKILL.md has {unscoped} unscoped check_hard_blocks call(s); "
             "all must use --gate-point"
         )
-
-    def test_entry_activation_has_activation_gate_point(self, conduct_dir: Path):
-        text = _read(conduct_dir / "entry-activation.md")
-        assert "--gate-point activation" in text
 
     def test_entry_activation_has_no_unscoped_hard_blocks_call(self, conduct_dir: Path):
         text = _read(conduct_dir / "entry-activation.md")
@@ -111,25 +107,6 @@ class TestConductPhasedRead:
         assert "engineer-tester-loop.md" in text
         assert "simulation-gate.md" in text
         assert "cleanup-report.md" in text
-
-    def test_router_has_offset_limit_guidance(self, conduct_dir: Path):
-        text = _read(conduct_dir / "file-map.md")
-        assert "offset" in text.lower()
-        assert "limit" in text.lower()
-
-    def test_router_has_successor_owner_map(self, conduct_dir: Path):
-        text = _read(conduct_dir / "file-map.md")
-        assert "Successor owner map" in text
-        # Verify the owner-map points at the real phase files, not legacy
-        # work-item breadcrumbs.
-        for owner_file in (
-            "engineer-tester-loop.md",
-            "dispatch-context.md",
-            "entry-activation.md",
-            "cleanup-report.md",
-            "simulation-gate.md",
-        ):
-            assert owner_file in text, f"Successor owner map missing {owner_file}"
 
     def test_dispatch_context_has_section_index(self, conduct_dir: Path):
         text = _read(conduct_dir / "dispatch-context.md")
@@ -191,33 +168,6 @@ class TestConductSyncCleanupRegressions:
             f"entry-activation.md still contains stale '{self.PLANNED_TO_READY}' wording"
         )
 
-    def test_entry_activation_documents_no_diff_success(self):
-        """entry-activation.md must document that no tracked diff is a valid sync outcome."""
-        text = _read(self.CONDUCT / "entry-activation.md")
-        assert "no tracked" in text.lower() or "nothing to commit" in text.lower(), (
-            "entry-activation.md must document that DB-only sync with no tracked diff is valid"
-        )
-
-    def test_dispatch_context_documents_no_diff_success(self):
-        """dispatch-context.md must document that no tracked diff is a valid sync outcome."""
-        text = " ".join(
-            (
-                _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
-                + _read(self.CONDUCT / "entry-activation-resolution.md")
-            ).split()
-        )
-        assert "no tracked" in text.lower() or "nothing to commit" in text.lower(), (
-            "dispatch-context.md must document that DB-only sync with no tracked diff is valid"
-        )
-
-    def test_sync_paths_forbid_staging_legacy_root_db_files(self):
-        """Auto-sync paths must explicitly forbid staging legacy DB files."""
-        for fname in ("entry-activation.md", "dispatch-context.md"):
-            text = _read_dispatch_context(self.CONDUCT / fname)
-            assert "legacy root db files" in text.lower(), (
-                f"{fname} must mention legacy root DB staging prohibition"
-            )
-
     def test_cleanup_uses_main_root_not_rev_parse(self):
         """cleanup-report.md must use MAIN_ROOT, not git rev-parse --show-toplevel in code blocks."""
         text = _read(self.CONDUCT / "cleanup-report.md")
@@ -234,16 +184,6 @@ class TestConductSyncCleanupRegressions:
                 )
         assert "MAIN_ROOT" in text, (
             "cleanup-report.md must reference MAIN_ROOT for main-repo-root resolution"
-        )
-
-    def test_cleanup_temp_loop_is_null_safe(self):
-        """cleanup-report.md temp cleanup must avoid shell-glob nomatch failures."""
-        text = _read(self.CONDUCT / "cleanup-report.md")
-        assert 'find "$_yoke_dir" -maxdepth 1 -type f' in text, (
-            "cleanup-report.md temp cleanup must use find-based matching for zsh/bash safety"
-        )
-        assert '[ -f "$_tmp" ] || continue' not in text, (
-            "cleanup-report.md should not rely on [ -f ] shell-glob fallback for null-safety"
         )
 
     def test_no_resolve_paths_sh_reference(self):
@@ -281,10 +221,7 @@ class TestConductFanOutEntryPath:
             )
         ]
         required = (
-            "Epic Task Fan-Out Flow",
-            "_task_ids",
-            "_worktree_branch_${_task_id}",
-            "_worktree_path_${_task_id}",
+            "epic-dispatch-chain advance",
             "dispatch-context-dispatch.md",
             "dispatch-context-prompts.md",
             "Dispatched by conduct (task fan-out)",
@@ -294,51 +231,32 @@ class TestConductFanOutEntryPath:
         joined = "\n".join(texts)
         assert self.LEGACY_FLOW not in joined, "legacy single-item flow name present"
         assert "Dispatched by conduct (single-item)" not in joined, "legacy marker"
-        assert "If dispatchable task found: proceed with `_task_id`." not in joined, (
-            "legacy single-task resolution wording still present"
-        )
 
-    def test_dispatch_context_and_prompts_match_fan_out(self):
-        context = _read(self.CONDUCT / "dispatch-context.md")
+    def test_dispatch_prompts_match_fan_out(self):
         prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
-        epic_prompts = prompts
         shared = _read(SKILLS / "shared" / "tester-dispatch-template.md")
-        for needle in (
-            "Epic Fan-Out Enumeration",
-            "_task_ids",
-            "_worktree_path_${_task_id}",
-        ):
-            assert needle in context, f"dispatch-context.md missing {needle}"
         for needle in (
             "Implement PREFIX-{N} task {_task_id}",
             "epic-task body-get --epic {_epic_ref} --task-num {_task_id}",
-        ):
-            assert needle in epic_prompts, f"epic prompts missing {needle}"
-        assert "../shared/tester-dispatch-template.md" in epic_prompts
-        assert 'DispatchDescriptor(role="tester"' not in epic_prompts
-        assert "task-num: {task_num}" in shared
-        assert "review-insert --epic {epic_ref} --task-num {task_num}" in shared
-        for needle in (
-            "Anticipated path coverage (pre-authorized)",
-            "_anticipated_paths_block_{_task_id}",
             "## Anticipated Paths",
         ):
-            assert needle in epic_prompts, f"epic prompts missing path block {needle}"
-        assert "If a dispatchable task is found: use its local ID" not in context, (
-            "legacy single-task resolution wording still present"
-        )
-        assert "Implement PREFIX-{_id}" not in epic_prompts, "legacy prompt placeholder"
-        assert "items get PREFIX-{_id} spec" not in epic_prompts, "legacy spec read"
+            assert needle in prompts, f"epic prompts missing {needle}"
+        assert "../shared/tester-dispatch-template.md" in prompts
+        assert 'DispatchDescriptor(role="tester"' not in prompts
+        assert "task-num: {task_num}" in shared
+        assert "review-insert --epic {epic_ref} --task-num {task_num}" in shared
+        assert "Implement PREFIX-{_id}" not in prompts, "legacy prompt placeholder"
+        assert "items get PREFIX-{_id} spec" not in prompts, "legacy spec read"
 
     def test_dispatch_protocol_remains_live(self):
-        dispatch = _read(self.CONDUCT / "dispatch-context-dispatch.md")
-        prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
+        dispatch = " ".join(
+            _read(self.CONDUCT / "dispatch-context-dispatch.md").split()
+        )
         assert "parallel_subagents" in dispatch, "missing harness concurrency read"
-        assert "Dispatch every eligible Engineer together" in dispatch
-        assert "Never wait for sibling Engineers" in dispatch, "missing per-return"
-        assert "advance every idle chain" in dispatch, "missing lane refill"
+        assert "dispatch all eligible Engineers at once" in dispatch
+        assert "finish its [loop](engineer-tester-loop.md) without waiting" in dispatch
+        assert "on that chain and every idle chain" in dispatch, "missing lane refill"
         assert "After ALL Engineers return" not in dispatch, "batch wait returned"
-        assert "Dispatch every eligible Engineer together" in prompts
 
     def test_legacy_flow_name_only_in_decision_record(self):
         offenders = [

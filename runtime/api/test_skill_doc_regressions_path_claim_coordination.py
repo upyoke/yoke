@@ -9,11 +9,11 @@ again.
 Specifically the suite verifies:
 
 * Path-claim conflict prose presents the overlap classification step
-  before any directional-activation example, and reaches for
+  before any directional-activation shape, and reaches for
   ``coordination_only`` as the default shape for independent same-file
   edits.
 * The ``yoke claims path coordination-decision-build`` helper invocation is named
-  in idea and refine intake.
+  in the classification doc, and idea and refine intake link to it.
 * No path-claim conflict-resolution doc reintroduces the bare
   ``items dependency add YOK-A YOK-B idea`` shape without an explicit
   ``--gate-point`` flag — that shape silently defaults to activation
@@ -47,12 +47,15 @@ CLAIMS_HOME = REPO / "docs" / "public" / "agents" / "rules" / "lanes-and-claims.
 
 
 DOCS_WITH_COORDINATION_GUIDANCE = (
+    PATH_CLAIM_BLOCKING,
+    CLAIMS_HOME,
+)
+
+# Intake docs that meet an overlap route it to the one classification doc.
+DOCS_ROUTING_OVERLAP_TO_CLASSIFICATION = (
     IDEA_BODY_AND_SYNC,
     IDEA_PATH_CLOSURE,
-    IDEA_INFER_AND_CREATE,
     REFINE_READINESS_REPAIR,
-    REFINE_SURVEY_AND_FOCUS,
-    CLAIMS_HOME,
 )
 
 
@@ -70,22 +73,19 @@ class TestPathClaimBlockingClassificationFirst:
 
     def test_coordination_only_appears_before_directional_activation(self, text: str):
         """Independent overlap → coordination_only must be taught before
-        the directional activation example."""
+        the directional activation shape."""
         coord_index = text.find("coordination_only")
-        # `--gate-point activation` is the explicit directional example
-        # the doc now requires. It must come AFTER the first
-        # coordination_only mention.
-        activation_index = text.find("--gate-point activation")
+        activation_index = text.find("`activation`")
         assert coord_index >= 0, (
             "coordination_only must be taught in path-claim-blocking.md"
         )
         assert activation_index >= 0, (
-            "explicit --gate-point activation example must be present so "
-            "the default isn't silently activation"
+            "the directional `activation` shape must be named so the "
+            "default isn't silently activation"
         )
         assert coord_index < activation_index, (
-            "coordination_only must appear before directional --gate-point "
-            "activation; otherwise the doc teaches activation-by-default"
+            "coordination_only must appear before directional activation; "
+            "otherwise the doc teaches activation-by-default"
         )
 
     def test_no_implication_that_most_overlaps_are_serial(self, text: str):
@@ -94,12 +94,11 @@ class TestPathClaimBlockingClassificationFirst:
         assert "Most overlaps reflect a real serial ordering" not in text
 
     def test_classification_step_is_mandatory(self, text: str):
-        """The doc must lead with a 'classify' step before authoring."""
-        text_lower = text.lower()
-        assert "classify" in text_lower
-        # The classification headline must precede the first
-        # `items dependency add` invocation.
-        first_classify = text_lower.find("classify")
+        """The doc classifies the overlap before any dependency is authored."""
+        flat = " ".join(text.split())
+        for case in ("Independent edits:", "Ordered edits:", "Unclear: ask"):
+            assert case in flat
+        first_classify = text.find("coordination-decision-build")
         first_dep_add = text.find("items dependency add")
         assert first_classify >= 0
         assert first_dep_add >= 0
@@ -168,6 +167,14 @@ class TestCoordinationOnlyDistinguishedFromActivation:
         assert "activation" in text, (
             f"{doc.name}: must reference activation alongside coordination_only "
             "so the distinction is visible"
+        )
+
+
+class TestOverlapRoutesToClassification:
+    @pytest.mark.parametrize("doc", list(DOCS_ROUTING_OVERLAP_TO_CLASSIFICATION))
+    def test_links_path_claim_blocking(self, doc):
+        assert "path-claim-blocking.md)" in _read(doc), (
+            f"{doc.name}: overlap handling must link idea/path-claim-blocking.md"
         )
 
 

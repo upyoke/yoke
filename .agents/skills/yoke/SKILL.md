@@ -6,22 +6,14 @@ argument-hint: "{subcommand} [args]"
 
 # Yoke — Command Router
 
-Read the selected subcommand's router and follow it.
+<!-- BEGIN GENERATED: field-note-directive -->
+File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
+yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
+<!-- END GENERATED: field-note-directive -->
 
-## Routing Instructions
-
-1. Parse the first word, or the name after a colon (`/yoke:conduct`, `yoke:shepherd`).
-2. Apply the generated plan-mode classification below.
-3. Read `.agents/skills/yoke/{subcommand}/SKILL.md`, follow its next-phase pointer, and pass remaining arguments. Read phases when reached.
-4. Missing, unknown or `help`: follow [`help/SKILL.md`](help/SKILL.md), the sole command reference for operator/local helpers, harness item commands, internal skills and flows.
-
-## Subcommands
+Apply the plan-mode guard, then read `{subcommand}/SKILL.md` and pass the remaining arguments. Unknown: [help](help/SKILL.md).
 
 <!-- BEGIN GENERATED: skill-registry -->
-Skill metadata is generated from `yoke_contracts.skill_registry`.
-Change that source and run `yoke dev run -- python3 -m
-yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
-
 Operator: `/yoke blitz` · `/yoke charge` · `/yoke conduct` · `/yoke curate` · `/yoke dash` · `/yoke doctor` · `/yoke feed` · `/yoke help` · `/yoke idea` · `/yoke implement` · `/yoke models` · `/yoke onboard` · `/yoke polish` · `/yoke refine` · `/yoke resync` · `/yoke shepherd` · `/yoke simulate` · `/yoke steer` · `/yoke strategize` · `/yoke usher` · `/yoke wrapup`
 
 Internal: [amend](amend/SKILL.md) · [approve](approve/SKILL.md) · [implementing](implement/implementing/SKILL.md)
@@ -35,23 +27,3 @@ Internal: [amend](amend/SKILL.md) · [approve](approve/SKILL.md) · [implementin
 - Every other skill preserves plan mode.
 - On exit, call `ExitPlanMode` when available and emit: `Plan mode auto-exited — Yoke work item is the plan.` Harnesses without that tool emit the same note and continue.
 <!-- END GENERATED: skill-registry -->
-
-Routing distinctions:
-
-- `/yoke onboard [--project P] [--run-id RUN]` adopts a wired project's existing
-  work: strategy and CURRENT-PLAN, only the setup the first work needs, then
-  `/yoke steer` until the first item is done. `yoke setup` owns
-  machine/project wire-up; from an agent session run `yoke setup --agent` and
-  relay each question (`.yoke/docs/start/agent-setup.md`).
-- `/yoke simulate PREFIX-N` and `/yoke simulate --system` are a harness slash
-  skill only — there is no terminal `yoke simulate` adapter.
-- `/yoke steer [STRATEGY-DOC-SLUG]` defaults an omitted slug to `CURRENT-PLAN`
-  without asking; an explicit slug wins.
-- `/yoke refine PREFIX-N` critiques artifacts without a worktree/code edits;
-  `/yoke polish PREFIX-N` finishes implementation in an existing lane.
-- `/yoke implement PREFIX-N` runs the pinned implementation-through-review
-  segment without a target argument; stage writes use `yoke lifecycle transition`.
-- `/yoke idea --workflow issue|epic|blitz|task {title}` files new work through
-  the skill path. Filing without executing is the terminal
-  `yoke dash --title TEXT --spec-file PATH` / `yoke task` pair; code project work ->
-  `yoke dash`, because Task refuses projects with a code repository.

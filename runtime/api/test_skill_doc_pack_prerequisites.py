@@ -14,20 +14,16 @@ def _read(name: str) -> str:
 def test_execution_profile_names_pack_prerequisites_before_confirmation() -> None:
     text = _read("profile-and-scaffold.md")
 
-    prerequisite = text.index("declared local\n  tool prerequisites")
-    confirmation = text.index("### Confirm (stop 1 of 2)")
+    prerequisite = text.index("Packs and their tool prerequisites")
+    confirmation = text.index("Stop 1: no writes before the operator confirms.")
 
     assert prerequisite < confirmation
-    assert "minimum version" in text
-    assert "install\n  recipe" in text
-    assert "yoke packs list --project {project} --json" in text
 
 
-def test_onboarding_treats_pack_preview_as_the_pulumi_preflight() -> None:
-    text = _read("hosting-and-environments.md")
+def test_missing_tool_bypass_needs_the_confirmed_profile() -> None:
+    text = " ".join(_read("profile-and-scaffold.md").split())
 
-    assert "preview is also the local-tool preflight" in text
-    assert "`pulumi` prerequisite row with status `ready`" in text
-    assert "named prerequisite code" in text
-    assert "--allow-missing-tools" in text
-    assert "explicitly confirmed" in text
+    assert (
+        "Use `--allow-missing-tools` only when the confirmed profile asks for it."
+        in text
+    )

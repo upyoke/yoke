@@ -16,7 +16,7 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 MATERIALIZE_COMMAND = "yoke qa plan materialize --item ITEM --transition NEXT_STAGE"
 TRANSITION_COMMAND = "yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE"
 SELECT_PLAN_COMMAND = (
-    "yoke workflows item-posture amend PREFIX-N --verification-plan "
+    "yoke workflows item-posture amend ITEM --verification-plan "
     "ID_OR_SLUG --reason TEXT"
 )
 PREMERGE_ATTACH_COMMAND = (
@@ -34,7 +34,6 @@ class TestDashQaMaterializationOrder:
 
     def test_names_the_materialization_command(self, dash_doc: str):
         assert MATERIALIZE_COMMAND in dash_doc
-        assert "yoke qa requirement list --item ITEM --json" in dash_doc
         assert "yoke qa case run --requirement-id <requirement-id>" in dash_doc
 
     def test_materializes_before_the_transition_that_gates_on_it(self, dash_doc: str):
@@ -49,16 +48,11 @@ class TestDashQaMaterializationOrder:
         self, dash_doc: str
     ):
         materialize_at = dash_doc.index(MATERIALIZE_COMMAND)
-        posture_at = dash_doc.index("Then execute each selected posture knob")
+        posture_at = dash_doc.index("Selected posture adds proof")
         assert materialize_at < posture_at, (
             "an attached project-default plan materializes regardless of posture, "
             "so the recipe must teach it outside the posture-conditional list"
         )
-
-    def test_registers_the_qa_operation_authority(self):
-        authority = _read(SKILLS / "dash" / "function-reference.md")
-        assert "`qa.plan.materialize`" in authority
-        assert "`qa.requirement.list`" in authority
 
 
 class TestDashVerificationPlanSelectionOrder:

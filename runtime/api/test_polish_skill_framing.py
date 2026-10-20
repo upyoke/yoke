@@ -8,10 +8,10 @@ the operator-facing operator actually runs; the JSON envelope is for
 dispatch-surface callers and is allowed to remain as a tail
 "Function-call equivalent" block but never as the lead.
 
-The retained function-call envelopes must also use the canonical
+Any retained function-call envelope must use the canonical
 `lifecycle.transition.execute` function id and the `source_status` /
-`target_status` payload keys (not `from` / `to`); the regex pair below
-enforces both at once.
+`target_status` payload keys (not `from` / `to`). Polish routing names no
+literal stage ids; it reads its pinned binding.
 
 The leading CLI examples must not teach `--session-id`; the active
 harness session is resolved from the environment.
@@ -19,13 +19,12 @@ harness session is resolved from the environment.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 import pytest
 
-from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
+from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 POLISH_DIR = SKILLS / "polish"
 
@@ -45,13 +44,13 @@ OPERATION_PAIRS: tuple[tuple[str, str, str, str], ...] = (
     (
         "parse-and-claim.md",
         "lifecycle enters the bound working stage",
-        r'yoke lifecycle transition[^\n]+--from "\$LIVE_STAGE" --to "\$NEXT_STAGE"',
+        r"yoke lifecycle transition",
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
         "advance.md",
         "lifecycle completes the bound segment",
-        r'yoke lifecycle transition[^\n]+--from "\$LIVE_STAGE" --to "\$NEXT_STAGE"',
+        r"yoke lifecycle transition[^\n]+--from <live-stage> --to <next-stage>",
         r'"function":\s*"lifecycle\.transition\.execute"',
     ),
     (
@@ -136,18 +135,21 @@ def test_polish_lifecycle_envelopes_use_canonical_shape(
             f'"to" payload key — use "target_status" instead.'
         )
     for filename in ("parse-and-claim.md", "advance.md"):
-        text = polish_texts[filename]
-        assert "definition.skill_bindings" in text
-        assert "definition.transitions" in text
-        assert "definition.stages" in text
-        assert "workflow_next_stage_ambiguous" in text
-        assert "POLISH_THROUGH_STAGE" in text
         assert not re.search(
-            r"reviewed-implementation|polishing-implementation|\bimplemented\b", text
+            r"reviewed-implementation|polishing-implementation|\bimplemented\b",
+            polish_texts[filename],
         ), f"{filename}: polish routing must not name literal stage ids"
-    assert "skip the entry transition" in polish_texts["parse-and-claim.md"]
-    assert "repeat steps 10–12" in polish_texts["advance.md"]
-    assert "shared handoff recipe" in polish_texts["advance.md"]
+
+
+def test_polish_routes_through_its_pinned_binding(
+    polish_texts: dict[str, str],
+) -> None:
+    parse = polish_texts["parse-and-claim.md"]
+    assert "yoke workflows item get PREFIX-N --json" in parse
+    assert "The binding containing the live status must be `polish`" in parse
+    assert "[stage handoff](../shared/stage-handoff.md)" in parse
+    assert "At the entry stage, take the one declared forward edge" in parse
+    assert "Until the through-stage" in polish_texts["advance.md"]
 
 
 def test_leading_cli_examples_omit_session_id(polish_texts: dict[str, str]) -> None:
@@ -179,63 +181,11 @@ def test_polish_files_under_file_budget_limits() -> None:
         )
 
 
-@pytest.mark.parametrize("canon", ["issue.07", "issue.08", "epic.05", "epic.06"])
-@pytest.mark.parametrize("rename_stages", [False, True])
-def test_polish_reruns_review_command_plan(canon: str, rename_stages: bool) -> None:
-    """Execute the taught selector against pins and renamed stage identities."""
-    path = (
-        REPO
-        / "packages/yoke-core/src/yoke_core/domain/builtin_workflow_canon"
-        / f"{canon}.json"
-    )
-    definition = json.loads(path.read_text())["definition"]
-    review_id = next(
-        stage["id"]
-        for stage in definition["stages"]
-        if stage["board_bucket"] == "reviewing"
-    )
-    if rename_stages:
-        names = {
-            stage["id"]: f"state-{index}"
-            for index, stage in enumerate(definition["stages"])
-        }
-        for stage in definition["stages"]:
-            stage["id"] = names[stage["id"]]
-        for row in (*definition["transitions"], *definition["skill_bindings"]):
-            for key in ("from_stage_id", "to_stage_id", "through_stage_id"):
-                if key in row:
-                    row[key] = names[row[key]]
-        review_id = names[review_id]
-    binding = next(
-        row for row in definition["skill_bindings"] if row["skill_id"] == "polish"
-    )
-    text = _read(POLISH_DIR / "verify-and-commit.md")
-    recipe = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
-    assert recipe is not None
-    context = {"definition": definition, "POLISH_ENTRY_STAGE": binding["from_stage_id"]}
-    exec(compile(recipe.group(1), "polish-review-selector", "exec"), context)
-    assert context["REVIEW_STAGE"] == review_id
-    assert context["REVIEW_STAGE"] != binding["through_stage_id"]
-    assert '--transition "$REVIEW_STAGE"' in text
-    assert '--transition "$NEXT_STAGE"' not in text
-    assert "previously satisfied" in text
-
-
-def test_polish_refuses_ambiguous_review_attachment() -> None:
-    text = _read(POLISH_DIR / "verify-and-commit.md")
-    recipe = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
-    assert recipe is not None
-    definition = {
-        "stages": [{"id": "finish", "board_bucket": "reviewing"}],
-        "transitions": [],
-    }
-    with pytest.raises(
-        SystemExit, match="polish_review_transition_ambiguous.*workflow owner"
-    ):
-        exec(
-            compile(recipe.group(1), "polish-review-selector", "exec"),
-            {
-                "definition": definition,
-                "POLISH_ENTRY_STAGE": "finish",
-            },
-        )
+def test_polish_reruns_review_plan_for_the_unique_review_edge() -> None:
+    text = " ".join(_read(POLISH_DIR / "verify-and-commit.md").split())
+    assert "unique pinned forward edge from an implementing-bucket" in text
+    assert "to a reviewing-bucket stage at or before the polish entry" in text
+    assert "stop if not unique" in text
+    assert "Rerun every case not passing on the current commit" in text
+    assert "--transition <review-stage>" in text
+    assert "--transition <next-stage>" not in text

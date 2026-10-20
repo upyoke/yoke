@@ -28,100 +28,31 @@ def _between(text: str, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
-def test_step_map_rechecks_the_live_hosting_branch() -> None:
-    router = _read(ONBOARD / "SKILL.md")
+def test_hosting_branch_is_read_live_and_chosen_once() -> None:
+    text = " ".join(_read(ONBOARD / "hosting-and-environments.md").split())
 
-    for state_pair in (
-        "hosting-setup=verified\\|configured",
-        "deferred\\|not-needed",
-    ):
-        assert state_pair in router
-    assert "no-host delivery choice is verified" in router
-    assert "current no-host branch recorded `domain-setup=not-needed`" in router
-    assert (
-        "terminal `deferred\\|not-needed` still matches the live hosting row" in router
-    )
+    assert "yoke aws admin-status --project {project} --json" in text
+    assert "Pick exactly one branch" in text
+    assert "a failed managed step never falls back to no-host" in text
 
 
 def test_managed_and_merge_only_recipes_stay_in_their_branches() -> None:
     text = _read(ONBOARD / "hosting-and-environments.md")
-    managed = _between(
-        text,
-        "### Hosting verified/configured: register the site and environments",
-        "### Hosting deferred/not-needed: create the confirmed merge-only default",
-    )
-    merge_only = _between(
-        text,
-        "### Hosting deferred/not-needed: create the confirmed merge-only default",
-        "### Hosting deferred/not-needed: clear the project default",
-    )
-    no_default = _between(
-        text,
-        "### Hosting deferred/not-needed: clear the project default",
-        "### Bind the confirmed test setup",
-    )
+    managed = _between(text, "- **Managed:**", "- **Merge-only:**")
+    merge_only = _between(text, "- **Merge-only:**", "- **No default:**")
+    no_default = _between(text, "- **No default:**", "\n\n")
 
-    for recipe in ("yoke projects site create", "yoke projects environment create"):
-        assert recipe in managed
-        assert recipe not in merge_only
-        assert recipe not in no_default
-    for recipe in (
-        "yoke deployment-flows create",
-        '"op":"put","family":"deploy_defaults"',
-    ):
-        assert recipe in managed
-        assert recipe in merge_only
-        assert recipe not in no_default
-    assert "--target-tier persistent" in managed
-    create_command = merge_only.split("yoke deployment-flows create", 1)[1].split(
-        "yoke deployment-flows get", 1
-    )[0]
-    assert "--target-tier" not in create_command
-    assert "--environment" not in create_command
-
-
-def test_no_host_branch_clears_and_verifies_the_default() -> None:
-    text = _read(ONBOARD / "hosting-and-environments.md")
-    no_host = _between(
-        text,
-        "### Hosting deferred/not-needed: clear the project default",
-        "### Bind the confirmed test setup",
-    )
-
-    remove = '"op":"remove","family":"deploy_defaults","attachment":"project"'
-    readback = "yoke project-structure deploy-defaults get --project {project}"
-    assert remove in no_host
-    assert no_host.count(readback) == 2
-    assert "final read must print nothing" in no_host
-    assert "environment-registration=not-needed" in no_host
-    assert "delivery-setup=not-needed" in no_host
-    assert "delivery-setup=blocked" in no_host
-    assert "then stop" in no_host
-
-
-def test_later_verified_hosting_can_register_persistent_routes() -> None:
-    text = _read(ONBOARD / "hosting-and-environments.md")
-
-    assert "Prior `deferred` or `not-needed` values are not proof" in text
-    assert "re-evaluates the live capability probe" in text
-    assert "Choose exactly one branch" in text
-    assert "Only this branch may register managed hosting" in text
+    assert "register site and environments" in managed
+    for branch in (merge_only, no_default):
+        assert "register" not in branch
+        assert "environments" not in branch
 
 
 def test_no_host_domain_and_deploy_rows_are_terminal() -> None:
-    text = _read(ONBOARD / "domain-and-deploy.md")
-    no_host = _between(
-        text,
-        "### Hosting deferred/not-needed: close the hosted rows",
-        "### Hosting verified/configured: record the domain",
-    )
+    text = " ".join(_read(ONBOARD / "domain-and-deploy.md").split())
 
-    assert no_host.count("domain-setup=not-needed") == 2
-    assert "infra-apply-first-deploy=deferred" in no_host
-    assert "infra-apply-first-deploy=not-needed" in no_host
-    assert "continue directly to step 8" in no_host
-    assert "registered merge-only default or an empty default" in no_host
-    assert "no-host branch above does not enter this gate" in text
+    assert "No host: mark both rows not-needed or deferred; go to step 8." in text
+    assert "Step 7, managed deploys only" in text
 
 
 def test_packaged_onboard_contract_is_byte_exact() -> None:

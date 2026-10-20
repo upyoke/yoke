@@ -31,21 +31,8 @@ def test_verification_home_defines_current_item_verification_ownership():
     assert "requires a live steering seat covering the project" in text
 
 
-def test_lifecycle_verification_surfaces_reference_global_policy():
-    surfaces = [
-        _read(".agents/skills/yoke/implement/implementing/test-and-record.md"),
-        _read(".agents/skills/yoke/conduct/dispatch-context-verify.md"),
-        _read(".agents/skills/yoke/polish/verify-and-commit.md"),
-        _read(".agents/skills/yoke/usher/merge-conflicts.md"),
-        _read(".agents/skills/yoke/usher/merge.md"),
-    ]
-
+def test_installed_verification_home_carries_claim_override_policy():
     home = _read(".yoke/docs/agents/rules/verification.md")
-    for text in surfaces:
-        assert "claim" in text and "override" in text
-        assert "reconcil" in text.lower()
-        assert "current-item" in text.lower() or "current\nfailures" in text
-        assert "future" in text or "planned" in text
     assert "planned path claim" in home
     assert "Use dependency and claim reconciliation before override" in home
     assert "Do not use `path-claim-override` for a planned future claim" in home
@@ -69,16 +56,12 @@ def test_unchanged_consumer_test_failure_routes_to_the_producer():
         assert "producer commit range or item" in text, rel_path
         assert "producer's companion item" in text, rel_path
 
-    skills = [
-        "implement/implementing/test-and-record.md",
-        "conduct/dispatch-context-verify.md",
-        "polish/verify-and-commit.md",
-        "usher/merge.md",
-    ]
-    for skill in skills:
-        for root in (".agents/skills/yoke/", f"{bundle}.agents/skills/yoke/"):
-            text = " ".join(_read(root + skill).split())
-            assert (
-                "An unchanged consumer test failing against new producer source "
-                "is evidence against the producer: never edit or weaken it"
-            ) in text, root + skill
+    for rel_path in ("AGENTS.md", f"{bundle}AGENTS.md"):
+        text = " ".join(_read(rel_path).split())
+        assert "A verification failure in this item belongs to this item" in text, (
+            rel_path
+        )
+        assert (
+            "Never edit or weaken an unchanged consumer test that fails against new "
+            "producer code; route it to the producer"
+        ) in text, rel_path

@@ -303,16 +303,15 @@ def test_authored_claim_docs_teach_canonical_conflicts_surface(body: str) -> Non
 
 
 def test_db_claim_docs_teach_required_apply_strategy_and_role_enum() -> None:
-    paths = (
-        _REPO / ".yoke" / "docs" / "items" / "model" / "items.md",
-        _REPO / ".agents" / "skills" / "yoke" / "idea" / "body-and-sync-functions.md",
-        _REPO / ".agents" / "skills" / "yoke" / "refine" / "update-protocol.md",
+    text = (_REPO / ".yoke" / "docs" / "items" / "model" / "items.md").read_text(
+        encoding="utf-8"
     )
-    text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
     assert "migration_strategy" in text
     assert 'mutation_intent="apply"' in text
-    assert "role` is only `reader` or `writer`" in text
+    assert (
+        "`pre_merge_readers_writers[].role` accepts only `reader` or `writer`" in text
+    )
 
 
 @pytest.mark.parametrize(

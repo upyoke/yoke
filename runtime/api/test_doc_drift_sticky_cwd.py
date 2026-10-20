@@ -102,20 +102,6 @@ def test_worktree_md_drops_contradictory_cd_prose(repo_root: Path) -> None:
     )
 
 
-def test_worktree_md_teaches_cd_canonical_first_action(
-    repo_root: Path,
-) -> None:
-    """worktree.md now points at the Step 0 cd directive as canonical."""
-    wt = repo_root / ".agents" / "skills" / "yoke" / "implement" / "worktree.md"
-    text = wt.read_text(encoding="utf-8")
-    # The replacement prose names the Step 0 directive so the contract
-    # is single-sourced in implementation.md.
-    assert "canonical first action" in text.lower(), (
-        "worktree.md must teach the cd directive as the canonical first "
-        "action and reference implementation.md's Step 0 directive."
-    )
-
-
 def test_engineer_body_drops_universal_cwd_loss_prose(
     repo_root: Path,
 ) -> None:

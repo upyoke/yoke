@@ -51,17 +51,8 @@ def test_blitz_docs_do_not_name_the_missing_close_transition() -> None:
     assert "reviewing-implementation → done" not in corpus
     close = (BLITZ / "review-and-complete.md").read_text()
     assert "--from LIVE_STAGE --to NEXT_STAGE" in close
-    assert "yoke workflows item get ITEM --json" in close
-    assert "yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json" in close
-    assert "definition.transitions" in close
-    assert "definition.terminal_stage_ids" in close
-    assert "`doc_completion`" in close
-    assert "document-archive" in close
-    assert "keep the work claim and park this session" in close
-    assert "or `release`" in corpus
-    assert "yoke workflows item get PREFIX-N --json" in help_text
-    assert "yoke workflows version get <workflow> <version> --json" in help_text
-    assert "including the release wait" in help_text
+    assert "Walk forward one stage at a time" in close
+    assert "at a release wait keep the claim and park" in close
     assert "BLITZ FLOW" not in help_text
     assert "blitz → release → done" in workflows
 

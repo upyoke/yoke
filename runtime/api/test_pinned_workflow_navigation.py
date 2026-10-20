@@ -26,6 +26,14 @@ IMPLEMENT_SKILL = (
     Path(__file__).parents[2] / ".agents" / "skills" / "yoke" / "implement" / "SKILL.md"
 )
 IMPLEMENT_ENTRY = IMPLEMENT_SKILL.with_name("entry.md")
+LANES_RULES = (
+    Path(__file__).parents[2]
+    / ".yoke"
+    / "docs"
+    / "agents"
+    / "rules"
+    / "lanes-and-claims.md"
+)
 
 
 def _request(
@@ -50,16 +58,14 @@ def _next_stage(definition: dict, current: str) -> str:
 def test_implement_teaches_item_pin_then_exact_version_read() -> None:
     skill = IMPLEMENT_SKILL.read_text()
     lookup = IMPLEMENT_ENTRY.read_text()
+    routing = " ".join(LANES_RULES.read_text().split())
 
-    item_read = lookup.index("yoke workflows item get PREFIX-N --json")
-    version_read = lookup.index(
-        'yoke workflows version get "$_workflow_id" "$_workflow_version" --json'
-    )
-
+    assert "yoke workflows item get PREFIX-N --json" in lookup
+    assert "[entry.md](entry.md)" in skill
+    item_read = routing.index("yoke workflows item get PREFIX-N")
+    version_read = routing.index("yoke workflows version get WORKFLOW VERSION")
     assert item_read < version_read
-    assert "[`entry.md`](entry.md)" in skill
-    assert "yoke workflows definition get" not in lookup
-    assert "current_version_id" not in lookup
+    assert "half-open interval" in routing
 
 
 def test_implement_has_no_stale_current_definition_lookup_residue() -> None:
@@ -70,9 +76,6 @@ def test_implement_has_no_stale_current_definition_lookup_residue() -> None:
     assert "yoke workflows definition get" not in text
     assert "current_version_id" not in text
     assert "items get {N} workflow_id workflow_version_id" not in text
-    assert "immutable pin" in text
-    assert "registry key for the version read" in text
-    assert "behavior branches on its value" in text
 
 
 def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(

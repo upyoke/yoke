@@ -27,121 +27,84 @@ def _skill_corpus(skill: str) -> str:
     return _read_skill_corpus(CANONICAL / skill)
 
 
-def _reference(skill: str) -> str:
-    return (CANONICAL / skill / "function-reference.md").read_text()
-
-
 def test_dash_skill_carries_the_end_to_end_execution_contract():
-    content = _skill_corpus("dash")
+    content = " ".join(_skill_corpus("dash").split())
     for required in (
-        "direct-workflow dash survey",
-        "direct-workflow worktree prepare",
+        "yoke direct-workflow dash survey",
+        "yoke direct-workflow worktree prepare ITEM --workflow dash",
+        "Work only in the returned `worktree_path`",
         "reviewing-implementation",
-        "direct-workflow dash evidence",
-        "direct-workflow dash escalate",
-        "Survey contacts are advisories",
-        "`work_claim_activation` gate",
-        "may already release the item work claim",
-        "registered Dash worktree lane",
-        # The claim is acquired up front, before any survey/edit work, and
-        # its release is conditional twice over: a claim has to remain AND
-        # the item has to be finished, which a release wait is not.
-        "Claim the item first.",
+        "yoke direct-workflow dash evidence",
+        "yoke direct-workflow dash escalate",
+        # The claim is acquired before any survey or edit and held through
+        # delivery; a release wait keeps it.
+        "Claim before any survey or edit",
         'yoke claims work acquire --item ITEM --reason "Dash execution"',
-        "Only release when a claim remains AND the item is finished",
-        "skip it\nentirely while the item sits at a release wait",
+        "Delivery owed: keep the claim and lane",
         'yoke claims work release --item ITEM --reason "Dash completed"',
-        "Every survey call replaces the entire stored touch set",
-        "narrow it to the complete",
-        "concrete file set before preparation",
-        "rg --files",
-        "send_message_to_thread",
-        "invent or guess a prefix",
-        "No environment override is required",
+        "Each survey replaces the whole touch set",
+        "list every concrete file",
         # Merging is a named operation, never a hand-authored git merge.
         "yoke merge item ITEM",
+        "Never hand-merge",
     ):
-        assert " ".join(required.split()) in " ".join(content.split())
+        assert required in content, required
     # The unnamed "merge it through the project's merge path" instruction is
     # what sent agents to hand-authored git merges; it must not come back.
     assert "through the project's normal protected merge path" not in content
-    # A path-claim holder is reached with the harness task-messaging tool,
-    # never by addressing a session or item over the message plane.
     # `yoke say --steering` stays legal: it reaches the steering seat.
     assert "yoke say --session" not in content
     assert "yoke say --item" not in content
     # Unconditional "finally release after merge" teaching contradicts the
     # terminal transition that already releases the claim and lane.
     assert "Finally release the item work claim:" not in content
-    assert "/yoke idea" in content
-    assert "does not route through `/yoke idea`" in content
 
 
 def test_dash_commits_before_every_sha_bound_case():
-    content = _skill_corpus("dash")
-    commit_rule = "Commit before every SHA-bound QA case."
-    verify = (CANONICAL / "dash" / "verify.md").read_text()
+    verify = " ".join((CANONICAL / "dash" / "verify.md").read_text().split())
+    commit_rule = "Commit, then re-survey the actual touched files"
     assert verify.index(commit_rule) < verify.index("yoke qa case run")
-    assert "`worktree_run`" in content
-    assert "`ci_run`" in content
-    assert "running it before the commit" in content
-    assert "rerun every affected SHA-bound case" in content
+    assert "before each SHA-bound case" in verify
+    assert "any tree change reruns the affected cases" in verify
 
 
 def test_dash_rechecks_keep_survey_contacts_advisory():
-    skill = (CANONICAL / "dash/survey-and-isolate.md").read_text()
-    corpus = close = _skill_corpus("dash")
+    skill = " ".join((CANONICAL / "dash/survey-and-isolate.md").read_text().split())
+    corpus = _skill_corpus("dash")
     for retired_stop in (
         "If the survey is blocked, do not commit or run the case.",
         "A stale or newly-blocked survey is a coordination stop",
         "If the result is blocked, do not merge.",
     ):
         assert retired_stop not in corpus
-    assert "A reported overlap remains advisory" in close
-    assert "does not block the transition" in skill
-    contact_rules = skill.split("## Contacts", 1)[1].split("## Selected claims", 1)[0]
-    contact_rules = " ".join(contact_rules.split())
     for required in (
-        "ask an addressable holder for that evidence",
-        "wait for the holding work to land",
-        "re-run the survey",
-        "Survey contacts are advisory",
-        "A shared filename alone does not stop Dash",
+        "Contacts are advisory",
+        "independent edits proceed",
+        "ordered ones wait for the holder's merge",
         "yoke say --steering",
+        "register every file before prepare",
     ):
-        assert required in contact_rules
-    assert "release the work claim" not in contact_rules
-    claim_rules = skill.split("## Selected claims", 1)[1]
-    assert "coordination_only" in claim_rules
-    assert "ITEM HOLDER dash" in claim_rules
-    assert "--key path_claims --clear" in claim_rules
+        assert required in skill, required
+    assert "release the work claim" not in skill
 
 
 def test_blitz_skill_carries_slice_and_document_completion_contract():
     content = _skill_corpus("blitz")
     normalized = " ".join(content.split())
     for required in (
-        "strategy execution get",
-        "direct-workflow blitz survey",
-        "strategy coordination append",
-        "what was completed",
-        "what changed",
-        "what remains",
-        "parent strategy was reconciled",
-        "doc_completion",
-        "registered worker worktree",
-        "terminal transition atomically archives the linked execution document",
-        "shared live document stays active",
-        "parent document is never archived",
-        "GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED",
+        "yoke strategy execution get",
+        "yoke direct-workflow blitz survey",
+        "yoke strategy coordination append",
+        "- Completed:",
+        "- Changed:",
+        "- Remaining:",
+        "- Parent reconciliation:",
+        "Merge worker commits only inside the integration lane",
         # Slice merges route through the same named boundary as Dash, and
         # leave the item non-terminal until the document completes.
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait",
     ):
-        assert required in normalized
-    assert "verified route gets the background subscription" in normalized
-    assert "no route or an unknown answer gets one foreground invocation" in normalized
-    assert "prints \u2014 and never runs \u2014 the shape" in normalized
+        assert required in normalized, required
     assert "through the project's protected merge path" not in content
 
 
@@ -206,13 +169,15 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
     infer = (ROOT / ".agents/skills/yoke/idea/infer-and-create.md").read_text()
     # Install/dogfood corpus (stub at docs/workflows.md only points here).
     workflows = (ROOT / ".yoke/docs/workflows/index.md").read_text()
-    for content in (idea, infer):
-        assert "/yoke idea --workflow blitz" in content
-        assert "harness_skill" in content
-        assert "exactly one execution strategy document" in content
+    assert "--workflow issue|epic|blitz|task" in idea
+    assert "--entry-surface harness_skill" in infer
+    assert "Blitz: refinement links one execution strategy doc" in infer
     assert "blitz" in workflows.lower()
     assert "strategy doc" in workflows.lower()
-    assert "strategy.execution.link" in infer
+    refine = (
+        ROOT / ".agents/skills/yoke/refine/blitz-execution-document.md"
+    ).read_text()
+    assert "yoke strategy execution link" in refine
 
 
 def test_operator_discovery_and_direct_operation_ids_are_complete():
@@ -220,10 +185,8 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
     help_skill = (ROOT / ".agents/skills/yoke/help/SKILL.md").read_text()
     for content in (root_skill, help_skill):
         assert "/yoke dash" in content
-        assert "yoke task" in content
         assert "/yoke blitz" in content
-        assert "--workflow" in content
-        assert "blitz" in content
+    assert "--workflow issue\\|epic\\|blitz\\|task" in help_skill
 
     registered = {row["function_id"]: row for row in DIRECT_WORKFLOW_REGISTRATIONS}
     dash_ids = {
@@ -233,22 +196,19 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
     assert set(registered) == dash_ids | blitz_ids
 
     dash = _skill_corpus("dash")
-    for function_id in dash_ids:
-        assert function_id in dash
+    for op in ("survey", "evidence", "escalate"):
+        assert f"yoke direct-workflow dash {op}" in dash
     blitz = _skill_corpus("blitz")
-    for function_id in blitz_ids:
-        assert function_id in blitz
+    assert "yoke direct-workflow blitz survey" in blitz
     assert registered["direct_workflow.dash.survey"]["claim_required_kind"] is None
     assert registered["direct_workflow.blitz.survey"]["claim_required_kind"] is None
     assert registered["direct_workflow.dash.evidence"]["claim_required_kind"] == "item"
     assert registered["direct_workflow.dash.escalate"]["claim_required_kind"] == "item"
     for content in (dash, blitz):
-        assert "retained tool-shaped operation" in content
-        assert "has no registered" in content
         assert "direct_workflow.worktree.prepare" not in content
 
 
-def test_taught_dash_and_blitz_commands_are_function_id_first():
+def test_taught_dash_and_blitz_commands_resolve_to_registered_functions():
     register_all_handlers()
     dash = _skill_corpus("dash")
     blitz = _skill_corpus("blitz")
@@ -257,64 +217,44 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
             "items.create": "yoke dash ",
             "items.detail.get": "yoke items detail get",
             "claims.work.acquire": "yoke claims work acquire",
-            "direct_workflow.dash.survey": ("yoke direct-workflow dash survey"),
+            "direct_workflow.dash.survey": "yoke direct-workflow dash survey",
             "claims.path.register": "yoke claims path register",
             "lifecycle.transition.execute": "yoke lifecycle transition",
-            "direct_workflow.dash.evidence": ("yoke direct-workflow dash evidence"),
-            "sessions.identity": "yoke sessions identity",
+            "direct_workflow.dash.evidence": "yoke direct-workflow dash evidence",
             "events.query.run": "yoke events query",
             "claims.work.release": "yoke claims work release",
-            "direct_workflow.dash.escalate": ("yoke direct-workflow dash escalate"),
+            "direct_workflow.dash.escalate": "yoke direct-workflow dash escalate",
         },
         blitz: {
-            "items.detail.get": "yoke items detail get",
             "strategy.execution.get": "yoke strategy execution get",
-            "strategy.doc.get": "yoke strategy doc get",
-            "direct_workflow.blitz.survey": ("yoke direct-workflow blitz survey"),
+            "direct_workflow.blitz.survey": "yoke direct-workflow blitz survey",
             "lifecycle.transition.execute": "yoke lifecycle transition",
-            "strategy.coordination.append": ("yoke strategy coordination append"),
+            "strategy.coordination.append": "yoke strategy coordination append",
             "strategy.doc.replace": "yoke strategy doc replace",
-            "strategy.claim.release": "yoke strategy claim release",
             "claims.work.release": "yoke claims work release",
         },
     }
-    reference_by_content = {dash: _reference("dash"), blitz: _reference("blitz")}
     for content, operations in taught.items():
-        reference = reference_by_content[content]
         for function_id, command in operations.items():
             assert lookup(function_id) is not None, function_id
-            assert function_id in content
-            # Dash spreads its phases over files, so "function id first" is a
-            # per-teaching-site property, not one of the concatenated corpus.
-            source = reference if function_id in reference else content
-            assert source.index(function_id) < source.index(command), function_id
+            assert command in content, command
 
     for content, workflow in ((dash, "dash"), (blitz, "blitz")):
         assert (
             f"yoke direct-workflow worktree prepare ITEM --workflow {workflow}"
             in content
         )
-        assert "retained tool-shaped operation" in content
         assert "direct_workflow.worktree.prepare" not in content
 
 
 def test_dash_close_out_surfaces_session_guardrail_denials():
     content = (CANONICAL / "dash/close-out.md").read_text()
-    step = content[content.index("## Surface this session's guardrail denials") :]
-    for required in (
-        "HarnessToolCallDenied",
-        "sessions.identity",
-        "yoke sessions identity",
-        "events.query.run",
-        "yoke events query",
-        "check_id",
-        "command_snippet",
-        "does not block",
-        "say nothing extra",
-        "field-note",
-    ):
-        assert required in step
-    assert "does not correlate" in step.lower() or ("Do not correlate denials" in step)
+    step = content[content.index("guardrail denials") :]
+    assert "file field notes for any unrecorded" in step
+    assert (
+        "yoke events query --session SESSION_ID --event-name HarnessToolCallDenied"
+        in step
+    )
 
 
 def test_direct_workflow_skills_match_install_bundle():

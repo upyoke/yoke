@@ -2,7 +2,7 @@
 
 `/yoke refine` separates recoverable File Budget / claim coverage failures
 from unrecoverable ones and routes the recoverable ones to canonical claim
-repair; adjacent gates carry an explicit repair classification.
+repair.
 """
 
 from __future__ import annotations
@@ -20,10 +20,8 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 class TestRefineRecoverableReadinessRepair:
     """`/yoke refine` distinguishes recoverable claim-coverage readiness
     failures from unrecoverable ones, routing the recoverable ones to
-    canonical claim widen / amendment rather than releasing the
-    work claim and exiting. Adjacent gates (idea-time readiness, implementation-time
-    spec coverage, pre-edit/pre-bash path-claim guards) are classified
-    `auto-repair`, `repair-before-block`, or `block-by-design` with rationale.
+    canonical claim widen rather than releasing the work claim and
+    exiting. The pre-edit and pre-bash path-claim guards teach the same widen.
     """
 
     @pytest.fixture
@@ -32,8 +30,6 @@ class TestRefineRecoverableReadinessRepair:
             "refine_skill": SKILLS / "refine" / "entry-and-gather.md",
             "refine_budget_recheck": SKILLS / "refine" / "survey-and-focus.md",
             "refine_readiness_repair": SKILLS / "refine" / "readiness-repair.md",
-            "idea_body_and_sync": SKILLS / "idea" / "body-and-sync.md",
-            "implement_preflight": SKILLS / "implement" / "entry.md",
         }
 
     def test_refine_classifies_recoverable_readiness_codes(self, docs):
@@ -62,26 +58,12 @@ class TestRefineRecoverableReadinessRepair:
         # CLI item args use ITEM_REF (PREFIX-N), never ITEM_NUM (global DB id).
         assert '--item "$ITEM_REF"' in repair
         assert '--item "$ITEM_NUM"' not in repair
-        # Registered narrowing removes only named paths and binds the
-        # integration branch so retained coverage proves committed edits.
-        assert "yoke claims path amend" in skill
-        assert "--remove-paths" in skill
-        assert "--integration-target" in skill
-        assert "retained coverage" in skill
-
-    def test_idea_body_and_sync_names_registered_removal_adapter(self, docs):
-        text = _read(docs["idea_body_and_sync"])
-        # Intake points to the same registered removal authority as Refine.
-        assert "claims.path.amend" in text
-        assert "removed paths and integration target" in text
-        assert "narrow <id> --paths <" not in text
 
     def test_refine_does_not_unconditionally_release_on_readiness(self, docs):
         text = _read(docs["refine_readiness_repair"])
         # Anti-regression for the original bug: a bare
         # `if [ "$?" -ne 0 ]; then ... release-work-claim ... exit 1`
-        # block with no classification is exactly the contradiction this
-        # work item exists to delete.
+        # block with no classification is the shape this guards against.
         assert "readiness-check-blocked" in text
         # The release/exit must be conditional on the unrecoverable case.
         assert "unrecoverable" in text
@@ -94,31 +76,13 @@ class TestRefineRecoverableReadinessRepair:
         # before releasing the claim.
         skill = _read(docs["refine_skill"])
         repair = _read(docs["refine_readiness_repair"])
-        assert "pure_stale_count" in skill
         assert "[`readiness-repair.md`](readiness-repair.md)" in skill
+        assert "pure_stale_count" in repair
         assert "yoke readiness repair-stale-count" in repair
         assert "STALE_LINE_COUNT" in repair
         assert "classify_readiness_issues" in repair
-        # The phase doc must explain why the helper exists (chain step
-        # contract) — that is the operator-facing rationale.
+        # Repair keeps the work claim; only unrecoverable issues release it.
         assert "work claim stays" in repair.lower()
-
-    def test_idea_readiness_classifies_as_repair_before_block(self, docs):
-        text = _read(docs["idea_body_and_sync"])
-        assert "repair-before-block" in text
-        # Idea-time check stays advisory; refine is the mandatory pass.
-        assert "advisory" in text or "advisory" in text.lower()
-
-    def test_implementation_spec_coverage_gate_classifies_as_block_by_design(
-        self, docs
-    ):
-        text = _read(docs["implement_preflight"])
-        assert "block-by-design" in text
-        # The rationale must name the worktree timing problem.
-        assert "worktree" in text.lower()
-        # The sanctioned remediation must point back to refine or
-        # canonical claim widen — not invent a new mutation surface.
-        assert "/yoke refine" in text or "yoke claims path widen" in text
 
     def test_pre_edit_and_pre_bash_guards_already_emit_widen_remediation(self):
         """Pre-edit and pre-bash guard narratives teach canonical widen."""

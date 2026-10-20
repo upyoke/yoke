@@ -1,65 +1,18 @@
 ---
 name: refine
 description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
-# argument-hint is generated from yoke_contracts.skill_registry.
 argument-hint: "{PREFIX-N}"
 ---
 
 # /yoke refine {PREFIX-N}
 
-Critique and enhance stored item artifacts through sanctioned structured writes.
-Require a complete public ref. Standalone and routed invocations both advance
-on success through the item's exact pinned refine segment.
+No code edits. **Never subtract, only add:** keep every decision, AC,
+question and evidence verbatim. **Escalate, don't correct:** a verified
+wrong reference or scope conflict stops writes and advancement.
 
-<!-- BEGIN GENERATED: field-note-directive -->
-File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-<!-- END GENERATED: field-note-directive -->
-
-## Boundaries from the first action
-
-Before reviewing scope and interfaces, read
-`.yoke/docs/agents/rules/code-and-cli.md` and the teaching standard at
-`.yoke/docs/documentation/index.md`. Classify portable guidance and private
-policy by `.yoke/docs/projects/execution-instructions.md`; a private instruction
-never proves that an external worker receives the rule.
-
-No worktree, implementation-code edits or commits. Hold the item work claim
-before artifact, File Budget, path-claim or GitHub-body writes. Identity is not
-authority. The binding is three rungs: source, one active stage, handoff;
-failure/interruption cannot advance beyond the actual live stage.
-
-**Cardinal rule: never subtract, only add.** Preserve every existing decision,
-AC, question, observation and evidence. Add missing sections, ACs, verification,
-discovery, scope and links. Grammar/clarity edits in place may not change meaning.
-Never delete, replace substance, paraphrase user voice, or abstract concrete
-decisions. Every rewrite is lossy: enhance rather than rewrite.
-
-**Escalate, don't correct:** major verified errors—wrong references,
-contradictions, flawed approach or scope conflict—stop writes and advancement.
-Surface them to the operator; remain at REFINE_ACTIVE_STATUS until resolved.
-
-Refine does not derive QA requirements from workflow selection or Browser
-posture. Existing default/attached plans materialize at their declared
-transitions. Add `qa.requirement.add` only for explicit verification outside them.
-
-When `ITEM_NEXT_SKILL=blitz`, leave exactly one verified project execution
-strategy document linked through `strategy.execution.link`. This is metadata;
-Blitz activation owns atomic document-claim acquisition.
-
-## Phase map
-
-| Phase | Read before acting |
-|---|---|
-| 1. Exact pin and supported binding | [workflow-context.md](workflow-context.md) |
-| 1b–2. Claim, readiness, enter, gather | [entry-and-gather.md](entry-and-gather.md) |
-| 3–4b. Survey, focus and independent policy axes | [survey-and-focus.md](survey-and-focus.md) |
-| 5. Critique | [doctrine.md](doctrine.md), [review-rubric.md](review-rubric.md) |
-| 6–12. Add, verify, transition, release, report | [update-protocol.md](update-protocol.md) |
-| Before advancement: final path closure | [closure.md](closure.md) |
-| Readiness repair branches | [`readiness-repair.md`](readiness-repair.md) |
-| Blitz after verified writes, before advancement | [blitz-execution-document.md](blitz-execution-document.md) |
-
-Start with workflow-context. A `handoff` with `reason=level_change` takes
-precedence over release wait; follow
-`.yoke/docs/agents/levels.md`. Workers may launch a successor.
+Phase map: read in order: [workflow-context.md](workflow-context.md),
+[entry-and-gather.md](entry-and-gather.md), [survey-and-focus.md](survey-and-focus.md),
+[review-rubric.md](review-rubric.md), [update-protocol.md](update-protocol.md).
+Also [`readiness-repair.md`](readiness-repair.md), and
+[blitz-execution-document.md](blitz-execution-document.md) if `ITEM_NEXT_SKILL=blitz`.
+A `level_change` handoff beats a release wait: `.yoke/docs/agents/levels.md`.

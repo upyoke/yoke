@@ -97,7 +97,7 @@ def test_evidence_only_recovery_releases_active_lane_records(
     for relative_path in ("implement/evidence-only.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
         clean_match = re.search(
-            r'git -C (?:"\$_wt_path"|ABSOLUTE_REGISTERED_LANE) status --porcelain',
+            r"git -C (?:<lane>|ABSOLUTE_REGISTERED_LANE) status --porcelain",
             text,
         )
         clean_check = clean_match.start() if clean_match else -1
@@ -108,19 +108,9 @@ def test_evidence_only_recovery_releases_active_lane_records(
         assert "--untracked-files=all" in text[clean_check:release]
         assert "--ignored=matching" not in text[clean_check:release]
         assert "--reason evidence-only-recovery" in text[release:]
-        assert "exactly one active implementation lane" in text
-        assert "attestation" in text
-
-
-@pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
-def test_tester_reads_the_lane_through_the_registered_function(
-    root: Path,
-) -> None:
-    text = (root / "shared/tester-dispatch-template.md").read_text()
-
-    assert "`item_worktrees.get`" in text
-    assert '`payload = {"lane_role": "implementation"}`' in text
-    assert "`result.worktree.branch`" in text
+    deploy = (root / "usher/deploy.md").read_text()
+    assert "exactly one active implementation lane" in deploy
+    assert "attestation" in deploy
 
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
@@ -128,11 +118,7 @@ def test_wrapup_reads_active_lanes_from_item_worktrees(root: Path) -> None:
     text = (root / "wrapup/survey-and-report.md").read_text()
 
     assert "yoke items overview list --json" in text
-    assert "`result.rows`" in text
-    assert "`worktrees` array is non-empty" in text
-    assert "`public_ref`" in text
-    assert "`branch`" in text
-    assert "`lane_role`" in text
+    assert "active worktrees by `public_ref`" in text
     assert "JOIN item_worktrees" not in text
     assert "- PREFIX-{N}: {title} ({status}, branch:" not in text
 

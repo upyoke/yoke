@@ -33,11 +33,12 @@ def test_registry_covers_each_installed_skill_exactly_once():
     }
     assert paths == installed
     assert len(paths) == len(SKILLS) == len({skill.id for skill in SKILLS})
-    assert paths <= set(INVENTORY)
-    assert all(
-        "<!-- BEGIN GENERATED: field-note-directive -->" in (ROOT / path).read_text()
-        for path in paths
+    router = ".agents/skills/yoke/SKILL.md"
+    assert router in INVENTORY
+    assert (
+        "<!-- BEGIN GENERATED: field-note-directive -->" in (ROOT / router).read_text()
     )
+    assert not paths & set(INVENTORY)
     assert {skill.session_mode for skill in SKILLS} <= SESSION_MODES
 
 
@@ -81,7 +82,6 @@ def test_argument_hints_have_one_authoring_source():
     for skill in SKILLS:
         header = (ROOT / skill.body_path).read_text().split("---", 2)[1]
         assert parse_document(header)["argument-hint"] == skill.arguments
-        assert render_skill_registry_inline.ARGUMENT_HINT_NOTICE in header
     by_id = {skill.id: skill for skill in SKILLS}
     assert '"spec"' in by_id["dash"].display
     assert "--no-new-items" in by_id["feed"].display

@@ -1,0 +1,10 @@
+{
+ "id": "action-only-bodies",
+ "title": "Skill bodies carry only what an agent must do at each step",
+ "status": "observed",
+ "form": "Rule",
+ "verification": "Source audit: skill tree cut from 639 KB to about 110 KB; a reviewer pass restored each binding step without another live home. Every skill file carries a file_byte_budget in .yoke/project.config, so growth fails the authored-file check. Delivery proof in an installed project is pending.",
+ "topics": ["agents/skills", "workflows/bindings"],
+ "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/dash/verify.md", "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py", ".yoke/project.config", "runtime/api/test_skill_byte_budgets.py"],
+ "position": 21
+}

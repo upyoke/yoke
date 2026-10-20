@@ -21,9 +21,9 @@ class TestSystemSimulationAgentPrompts:
     @staticmethod
     def _system_guide():
         phase = _read(SKILLS / "simulate" / "system.md")
-        assert "--system requires a Yoke source checkout" in phase
-        assert "before reading that guide" in phase
+        assert "Needs a Yoke source checkout" in phase
         assert "docs/source-dev/system-simulation.md" in phase
+        assert "Without it, stop." in phase
         return _read(REPO / "docs/source-dev/system-simulation.md")
 
     def test_system_simulation_reads_installed_agent_prompts(self):
@@ -55,8 +55,7 @@ class TestSystemSimulationAgentPrompts:
 
     def test_simulate_is_operator_callable_through_the_harness(self):
         text = _read(SKILLS / "simulate" / "SKILL.md")
-        assert "operators may invoke" in text
-        assert "no terminal `yoke simulate` adapter" in text
+        assert "No `yoke simulate` command exists" in text
         assert "Not operator-facing" not in text
 
 
@@ -73,13 +72,12 @@ class TestReflectionCaptureDocs:
             "agents_doc": REPO / "docs" / "agents.md",
         }
 
-    def test_dispatch_context_names_hook_capture_path(self, docs):
-        # Post-YOK-1832: capture moved from skill-prose recipe to the
-        # PostToolUse Agent-tool hook. The hook module must be named
-        # in the conduct dispatch artifacts so future agents see WHO
-        # captures reflections.
+    def test_dispatch_context_names_hookless_capture_path(self, docs):
+        # The Agent reflection hook captures returns; harnesses without it
+        # capture each return through the registered command.
         text = _read_dispatch_context(docs["dispatch_context"])
-        assert "yoke_core.domain.reflection_capture_hook" in text
+        assert "Without the Agent reflection hook" in text
+        assert "yoke ouroboros reflection capture" in text
 
     def test_dispatch_context_does_not_hardcode_context_placeholder(self, docs):
         text = _read_dispatch_context(docs["dispatch_context"])
@@ -170,18 +168,13 @@ class TestSameSessionWorktreeScopeDocs:
     def test_implement_docs_describe_same_session_continuation(self, docs):
         text = _read(docs["implement"])
         worktree = _read(docs["implement_worktree"])
-        # The durable markers under the claim-based authority model are
-        # "same harness session" + the absence of any "manual relaunch".
-        assert "same harness session" in text
-        assert "no manual relaunch" in worktree or "no relaunch" in worktree
-        # The legacy event name no longer appears in implement prose.
+        assert "in this session" in text
         assert "SessionExecutionScopeChanged" not in worktree
         assert "SessionExecutionScopeChanged" not in text
 
     def test_conduct_docs_describe_same_session_continuation(self, docs):
         text = _read(docs["conduct"])
-        assert "same-session" in text or "same harness session" in text
-        assert "no manual relaunch" in text
+        assert "Continue after every subagent return" in text
 
 
 class TestRetiredEventNamesLeaveTheCatalog:

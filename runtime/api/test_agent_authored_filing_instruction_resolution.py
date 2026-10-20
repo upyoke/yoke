@@ -38,16 +38,11 @@ def _ordered(text: str, first: str, second: str) -> None:
 
 
 def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
-    text = _read("dash/file-and-claim.md")
-    filing = text.split("## New spec", 1)[1].split(
-        "## Existing reference and first claim", 1
-    )[0]
+    filing = _read("dash/file-and-claim.md")
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash --title "<specific title>" --project PROJECT '
-        "--spec-file /tmp/dash-spec.txt "
-        f"{ATTESTATION} --json",
+        'yoke dash --title "<specific title>" --project PROJECT',
     )
 
     # Escalation is its own phase file; the entrypoint only routes to it.
@@ -55,10 +50,8 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     _ordered(
         escalation,
         f"{RESOLVER} --workflow issue --project PROJECT",
-        "Apply instructions; present grounded findings",
+        "yoke direct-workflow dash escalate",
     )
-    assert FUNCTION_ID in filing
-    assert FUNCTION_ID in escalation
 
 
 def test_idea_resolves_after_scope_selection_and_before_create() -> None:
@@ -80,39 +73,21 @@ def test_feed_resolves_each_materialized_item_before_create() -> None:
     assert "/yoke idea --workflow ${_workflow}" in text
 
 
-def test_curate_resolves_both_cluster_outputs_and_quick_promotion() -> None:
+def test_curate_resolves_before_both_cluster_outputs() -> None:
     cluster = _read("curate/cluster-and-work-item.md")
-    assert (
-        "Run only the resolver for the selected output; these are alternatives"
-        in cluster
-    )
-    assert (
-        'yoke items create --title "{title}" --workflow issue '
-        "--spec-file {spec_file} --project {project}" in cluster
-    )
+    assert "Run only the\nresolver for the selected output" in cluster
     filing = cluster.split("## 3. Validate and propose", 1)[1]
+    _ordered(filing, FUNCTION_ID, RESOLVER)
     _ordered(filing, RESOLVER, "## 4. Produce approved outputs")
+    _ordered(filing, RESOLVER, "yoke ouroboros field-note promote")
     _ordered(
         filing,
-        f"{RESOLVER} --workflow dash --project {{project}}",
-        "yoke ouroboros field-note promote",
-    )
-    _ordered(
-        filing,
-        f"{RESOLVER} --workflow issue --project {{project}}",
+        RESOLVER,
         'yoke items create --title "{title}" --workflow issue',
     )
 
-    router = _read("curate/SKILL.md")
+    router = _read("curate/run.md")
     assert "[cluster-and-work-item.md](cluster-and-work-item.md)" in router
-    quick = cluster
-    _ordered(
-        quick,
-        f"{RESOLVER} --workflow dash --project {{project}}",
-        "yoke ouroboros field-note promote",
-    )
-    assert FUNCTION_ID in filing
-    assert quick.index(FUNCTION_ID) < quick.index(RESOLVER)
 
 
 def test_conduct_resolves_before_gap_filing() -> None:

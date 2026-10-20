@@ -1,6 +1,5 @@
 """Literal QA teaching uses product contracts without executing recipes."""
 
-from pathlib import Path
 import json
 import shlex
 
@@ -137,23 +136,24 @@ def test_literal_css_selector_survives_placeholder_normalization(no_dispatch):
     assert probe_recipe(recipe, normalize).status == "validated"
 
 
-def _rendered_recipe():
-    root = Path(__file__).resolve().parents[3]
-    rows = list(
-        extract_recipe_rows(
-            root, (".agents/skills/yoke/idea/delivery-requirements.md",)
-        )
+def _screenshot_recipe():
+    return _recipe(
+        {
+            "steps": [
+                {"action": "navigate", "route": "/ROUTE"},
+                {"action": "screenshot", "capture": True, "label": "intake"},
+            ]
+        }
     )
-    return next(row[2] for row in rows if "--method-config" in row[2])
 
 
-def test_rendered_delivery_recipe_is_valid(no_dispatch):
-    recipe = _rendered_recipe()
+def test_screenshot_label_recipe_is_valid(no_dispatch):
+    recipe = _screenshot_recipe()
     assert probe_recipe(recipe, normalize).status == "validated"
     assert parse_probe(recipe)[0]
 
 
-def test_rendered_recipe_authors_in_isolated_database():
+def test_screenshot_label_recipe_authors_in_isolated_database():
     from runtime.api.fixtures.backlog_inserts import insert_item
     from runtime.api.fixtures.pg_testdb import test_database
     from yoke_contracts.api.function_call import (
@@ -165,7 +165,7 @@ def test_rendered_recipe_authors_in_isolated_database():
         handle_qa_requirement_add,
     )
 
-    argv = shlex.split(_rendered_recipe())
+    argv = shlex.split(_screenshot_recipe())
     config = json.loads(argv[argv.index("--method-config") + 1])
     with test_database() as conn:
         item_id = 42

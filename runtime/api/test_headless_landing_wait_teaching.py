@@ -104,12 +104,6 @@ def _mandate() -> str:
     )
 
 
-def _outcome(text: str, label: str) -> str:
-    """The bullet for one landing outcome, up to the next bullet or blank."""
-    body = text.split(f"- **{label}**", 1)[1]
-    return _words(body.split("\n- **", 1)[0].split("\n\n", 1)[0])
-
-
 def _merge_recipe() -> dict:
     for entry in WATCHERS_COMMANDS:
         if "watch merge" in entry["recipe"]:
@@ -119,77 +113,26 @@ def _merge_recipe() -> dict:
 
 def test_dash_merge_phase_hands_a_launched_landing_to_its_notice():
     content = _words(_read(DASH_MERGE))
-    assert "A relay-launched session arms the landing and stops." in content
-    assert "naming the pull request, whatever you passed" in content
-    assert "a headless command cannot outlive a queue landing" in content
-    assert "say you are waiting on landing" in content
-    assert "recorded pending landing as a legitimate stop" in content
-    assert "The control-plane landing notice wakes you" in content
-
-
-def test_dash_merge_phase_routes_every_other_landing_by_harness_wake_capability():
-    content = _words(_read(DASH_MERGE))
-    assert "**Every other session waits.**" in content
-    assert "resolved from the calling session's manifest wake capability" in content
-    assert (
-        "never from who opened the session, its executor name, or whether "
-        "Yoke can reach it over a relay" in content
-    )
-    assert "A native idle-wake primitive preserves the background subscription" in (
+    assert "Relay-launched: arm, report the PR and the pending landing, stop." in (
         content
     )
-    assert "harness with no or unverified idle wake keeps the wait" in content
-    assert "a desktop conversation waits exactly as its CLI sibling does" in content
-    assert "Wake-routed wait" in content
-    assert "A relay-launched session takes the arm-and-stop handoff above" in content
+    assert "The landing notice wakes you to rerun." in content
+
+
+def test_dash_merge_phase_prints_the_wait_shape_before_running_it():
+    content = _words(_read(DASH_MERGE))
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
     )
-    assert "four-fact landing readback" in content
-    assert "armed, queued, eligible, required checks" in content
-    assert "never needs a hand-authored `gh` poll loop" in content
-    assert "That call only prints: it merges nothing, arms nothing" in content
-    assert "run the printed command exactly once" in content
-    assert "`background-wake` means the caller's harness can resume an ended turn" in (
-        content
-    )
-    assert (
-        "`in-turn` means the printed command is a single foreground invocation"
-        in content
-    )
-    assert "No later completion notice is expected" in content
-    assert "yoke github merge-queue readiness ITEM --json" in content
-    assert "queue-entry=AWAITING_CHECKS" in content
-    assert "consumed and in flight, not cleared" in content
-    assert "merge_queue.landing.observe" in content
-    assert (
-        "answers from the stored landing record and reads GitHub only when that "
-        "record is stale" in content
-    )
-    assert "waiting machine issues no `gh`, GitHub, or `git fetch` read loop" in content
-    assert "none of them is silence" in content
+    assert "run the printed command once" in content
 
 
-def test_dash_merge_phase_continues_a_call_its_harness_handed_back():
-    content = _words(_read(DASH_MERGE))
-    assert "set the Bash tool's `timeout` to `600000`" in content
-    assert "so the harness does not move the call to a background task" in content
-    assert "If it moves the call anyway, the command is still running" in content
-    assert "continue that same call through the background task's output" in content
-    assert "Reading that output continues the call" in content
-    assert "only ending the turn kills the watcher" in content
-
-
-def test_worker_lifecycle_teaches_the_continuation_it_mandates():
-    content = _read(WORKER_LIFECYCLE) + _read(SKILLS / "steer" / "worker-launch.md")
-    assert HEADLESS_TOOL_CONTINUATION_TEACHING in content
-    collapsed = _words(content)
-    assert "a launched turn is the whole life of every command it starts" in collapsed
-    assert "read that hand-back as completion" in collapsed
-    assert (
-        "stop early only for a command-handed wait or the taught local-check interrupt"
-        in collapsed
-    )
+def test_the_continuation_teaching_names_the_only_early_stops():
+    teaching = HEADLESS_TOOL_CONTINUATION_TEACHING
+    assert "reading the background task's output continues the call" in teaching
+    assert "only ending the turn kills the watcher" in teaching
+    assert "Never start a second invocation beside a live one" in teaching
+    assert "a merge that returned landing_pending has its landing notice" in teaching
 
 
 def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
@@ -212,54 +155,23 @@ def test_claude_session_rules_keep_the_watcher_alive_through_a_hand_back():
 
 
 def test_dash_merge_phase_names_every_way_the_in_turn_wait_ends():
-    wait = _read(DASH_MERGE).split("## Wake-routed wait", 1)[1]
-    # Merged closes the item out inside the same turn — no second pass.
-    merged = _outcome(wait, "merged")
-    assert "exit 0" in merged
-    assert "closed the item out in this turn" in merged
-    # An ejection is a rebase, a re-gate, and a re-run of the same command.
-    stopped = _outcome(wait, "landing stopped")
-    assert "exit 9" in stopped
-    assert "rebase the lane onto the base branch" in stopped
-    assert "re-run the verification gate" in stopped
-    assert "converges on the merge if one happened meanwhile" in stopped
-    # A red required check is terminal for this tree, not a wait.
-    red = _outcome(wait, "a required check already red")
-    assert "exit 1, terminal for this tree" in red
-    stale = _outcome(wait, "landing record stale")
-    assert "landing_record_stale" in stale
-    assert "last record/project refresh times" in stale
-    assert "Do not substitute local polling" in stale
-    # The bounded deadline parks with the state it read, and only then.
-    deadline = _outcome(wait, "wait budget exhausted")
-    assert "exit 9" in deadline
-    assert "last observed reading" in deadline
-    assert (
-        'yoke sessions touch --mode parked --reason "<observed landing state>"'
-        in deadline
-    )
-    assert "HUMAN_GATE" in deadline
-    assert "The item stays non-terminal and the claim stays held" in deadline
+    content = _words(_read(DASH_MERGE))
+    assert "Exit 0 is not done; read the `[close-out]` block." in content
+    assert "Exit 9 names its recovery" in content
+    assert "a red check means fix, commit, reverify" in content
+    assert "Wait budget exhausted: checkpoint, park, keep the claim." in content
 
 
 def test_usher_merge_step_routes_the_landing_the_same_way():
     content = _words(_read(USHER_MERGE))
-    assert "prints the safe invocation for the caller's manifest wake" in content
-    assert "a native idle-wake primitive gets the background subscription" in content
-    assert "no or unverified idle wake gets one foreground invocation" in content
-    assert "Do not choose from the executor, launch origin" in content
-    assert "dash/merge.md" in content
-    assert "Only `background-wake` may release the caller" in content
-    assert "the `in-turn` command blocks inside the invocation you run" in content
+    assert "yoke watch merge --print-streaming-pair merge-item --" in content
+    assert "Run the printed command once." in content
 
 
 def test_every_launched_worker_mandate_carries_the_landing_handoff():
     assert (
         "read its phase instructions before verification, merge or delivery"
         in _mandate()
-    )
-    assert HEADLESS_LANDING_WAIT_TEACHING in _read(
-        SKILLS / "steer" / "worker-launch.md"
     )
     teaching = HEADLESS_LANDING_WAIT_TEACHING
     assert "headless command that cannot be prompted again" in teaching
@@ -273,17 +185,6 @@ def test_every_launched_worker_mandate_carries_the_landing_handoff():
     assert "A stopped landing arrives the same way and names its recovery" in teaching
     assert "stale server landing record names its last refresh" in teaching
     assert "never report a landing you did not read" in teaching
-
-
-def test_worker_lifecycle_copy_of_the_mandate_matches_the_composed_one():
-    content = _read(WORKER_LIFECYCLE) + _read(SKILLS / "steer" / "worker-launch.md")
-    assert HEADLESS_LANDING_WAIT_TEACHING in content
-    collapsed = _words(content)
-    assert "Every launched worker, whatever its origin, is a headless command" in (
-        collapsed
-    )
-    assert "waiting for a re-entry nobody could make" in collapsed
-    assert "the control-plane landing notice is what closes that gap" in collapsed
 
 
 def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():

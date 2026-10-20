@@ -144,7 +144,6 @@ def test_installed_rules_share_manifest_and_registered_context_homes(bundle):
     assert "--family context_routing --json" in conduct
     assert "python3 -m yoke_core.domain.context_routing" not in conduct
     assert "../implement/implementing/project-context.md" in conduct
-    assert "entry_key" in context and "payload.docs" in context
-    assert "No context entries is an advisory" in context
+    assert "`entries` is a list" in context
+    assert "No entries or a missing configured file is an advisory" in context
     assert "A failed read stops" in context
-    assert "Missing configured files" in context

@@ -10,36 +10,25 @@ IMPLEMENT_DIR = REPO_ROOT / ".agents" / "skills" / "yoke" / "implement"
 
 
 def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    return " ".join(path.read_text(encoding="utf-8").split())
 
 
-def test_the_no_suite_branch_offers_three_named_choices():
+def test_the_no_suite_branch_offers_named_choices():
     text = _read(ONBOARD_DIR / "profile-and-scaffold.md")
-    assert "No suite at all" in text
-    assert "Scaffold a minimal suite" in text
-    assert "Attest no-tests" in text
-    assert "Stop." in text
+    assert "scaffold suite, review-only, attested no-tests, or stop" in text
     # The stop is the existing failure floor, not a new mechanism.
-    assert "human-interview=blocked" in text
-
-
-def test_the_attestation_recipe_is_a_copy_pasteable_command():
-    text = _read(ONBOARD_DIR / "verification-binding.md")
-    assert "yoke qa no-tests attest --project {project} --reason" in text
-    assert "yoke qa no-tests clear --project" in text
-    # The refusal that pairs with the posture is named where it is taught.
-    assert "command-ci" in text
+    assert "An undecided box writes `human-interview=blocked`" in text
 
 
 def test_the_checklist_records_an_attestation_as_configured():
     # A reader must be able to tell an attested project from one nobody asked;
     # marking both `not-needed` would erase that difference.
     text = _read(ONBOARD_DIR / "verification-binding.md")
-    assert "attested no-tests posture, mark `verification-command-binding=configured`" in text
-    assert "`deferred` for the operator who has not decided" in text
+    assert "`yoke qa no-tests attest`, then write the row `configured`" in text
 
 
-def test_implement_stops_teaching_the_prose_fallback_as_the_no_tests_story():
-    text = _read(IMPLEMENT_DIR / "implementing" / "qa-seeding.md")
-    assert "yoke qa no-tests attest" in text
-    assert "seeded structurally" in text
+def test_no_tests_requirement_is_seeded_and_recorded_as_attested():
+    doc = _read(REPO_ROOT / ".yoke" / "docs" / "verification" / "index.md")
+    assert "seeds a blocking `no_tests_declared` requirement" in doc
+    text = _read(IMPLEMENT_DIR / "implementing" / "test-and-record.md")
+    assert "`no_tests_declared` agent-attested, never tests run" in text

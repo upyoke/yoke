@@ -87,12 +87,10 @@ def test_health_check_reports_fail_and_unavailable_corpus(tmp_path, monkeypatch)
 def test_refine_blitz_path_links_one_document_and_hands_off():
     root = Path(__file__).resolve().parents[3] / ".agents/skills/yoke"
     refine = (root / "refine/SKILL.md").read_text()
-    protocol = (root / "refine/update-protocol.md").read_text()
     handoff = (root / "refine/blitz-execution-document.md").read_text()
 
     assert "ITEM_NEXT_SKILL=blitz" in refine
     assert "blitz-execution-document.md" in refine
-    assert "strategy.execution.link" in protocol
     for required in (
         "Select exactly one document",
         "strategy.execution.link",

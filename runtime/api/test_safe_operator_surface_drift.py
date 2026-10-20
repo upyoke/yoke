@@ -69,17 +69,12 @@ def test_help_skill_lists_full_safe_surface():
         )
 
 
-def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
+def test_board_art_terminal_helper_is_listed_in_command_reference():
     helper = "yoke board art variant create"
-    # The root skill routes; it does not carry the command catalog. The
-    # catalog lives once, at /yoke help and the generated command reference.
-    surfaces = (
-        REPO / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
-        YOKE_DOCS / "commands.md",
-    )
-    for path in surfaces:
-        text = _read(path)
-        assert helper in text, f"{path} missing local terminal helper {helper!r}"
+    # Skills route; they do not carry the command catalog. The catalog
+    # lives once, in the generated command reference.
+    path = YOKE_DOCS / "commands.md"
+    assert helper in _read(path), f"{path} missing local terminal helper {helper!r}"
 
 
 def test_codex_md_names_codex_incompatible_commands():

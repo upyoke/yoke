@@ -114,46 +114,35 @@ def test_active_setup_docs_teach_replacement_terminal_surfaces():
         assert surface in text, f"{surface!r} missing from active setup docs"
 
 
-def test_yoke_skill_refs_teach_setup_replacements_and_agentic_handoff():
+def test_yoke_skill_refs_teach_setup_and_agentic_handoff():
     text = "\n\n".join(_read(path) for path in _SETUP_SKILL_REFS)
-    for surface in (
-        "yoke setup",
-        "yoke project install",
-        "yoke project create",
-        "yoke project import",
-        "yoke onboard project",
-        "yoke status",
-        "yoke dev setup",
-        "/yoke onboard",
-    ):
+    for surface in ("yoke setup", "/yoke onboard"):
         assert surface in text, f"{surface!r} missing from Yoke skill refs"
 
 
 def test_onboard_skill_exists_with_expected_frontmatter():
     text = _read(ONBOARD)
     assert "name: onboard" in text
-    assert "first item done" in text
+    assert "first item is done" in text
     assert '"[--project P] [--run-id RUN]"' in text
 
 
 def test_router_lists_onboard():
     router = _read(SKILLS / "SKILL.md")
     assert "/yoke onboard" in router
-    assert "first item is done" in router
 
 
 def test_onboard_initializes_and_resumes_the_durable_checklist():
     text = _onboard_bundle()
-    assert "yoke onboard checklist --run-id {run_id} --json" in text
+    assert "yoke onboard checklist get --project {project} --json" in text
     assert (
         "yoke onboard checklist init --project {project} "
         "--checkout {checkout} --json" in text
     )
-    assert "never treat it as authority" in text
-    # Re-runs are idempotent-skip with explicit reconfigure, never blind
-    # re-apply.
-    assert "never blindly re-applies" in text
-    assert "reconfigure" in text.lower()
+    assert "init only when none exists" in text
+    assert "The checklist read is authority" in text
+    # A requested reconfigure goes back through the gate, never a blind reapply.
+    assert "never reapply silently" in text
 
 
 def test_onboard_names_every_checklist_row():
@@ -165,47 +154,35 @@ def test_onboard_names_every_checklist_row():
     assert "--blocker" in text
 
 
-def test_onboard_has_the_eight_step_structure():
-    text = _onboard_bundle()
-    for heading in (
-        "Strategy Conversation",
-        "Derive The Execution Profile",
-        "Install The Scaffold Pack",
-        "Hosting Capability",
-        "Deploy Flow",
-        "Domain",
-        "Gated Infra Apply + First Deploy",
-        "Hand Off The First Work",
-    ):
-        assert heading in text, f"step heading {heading!r} missing"
-    # Every step carries entry and skip conditions in the router map.
-    router = _read(ONBOARD)
-    assert "| Entry | Skip |" in router
+def test_onboard_router_reaches_every_step_file():
+    """Every onboard step file is linked from the router or a linked step."""
+    linked = set()
+    for path in ONBOARD_DIR.glob("*.md"):
+        linked.update(re.findall(r"\]\(([\w-]+\.md)\)", _read(path)))
+    router_links = set(re.findall(r"\]\(([\w-]+\.md)\)", _read(ONBOARD)))
+    assert "run-and-rows.md" in router_links
+    for path in ONBOARD_DIR.glob("*.md"):
+        if path.name != "SKILL.md":
+            assert path.name in linked, f"{path.name} is unreachable from onboard"
 
 
 def test_onboard_binds_two_stop_pacing_and_the_apply_gate():
     text = _onboard_bundle()
-    assert "At most two more stops" in text
+    assert "Only two stops" in text
     assert "[y/N]" in text
-    assert "defaults No" in text
-    assert "unattended" in text
-    # Gated-apply failure posture: re-approve + retry; smoke failures stay up.
-    assert "re-presents the same gate" in text
-    assert "stays up for diagnosis" in text
-    assert "run.execution_profile" in text
-    assert "profile_changed=false" in text
-    assert "confirm only the" in text
+    assert "default No records `deferred`" in text
+    # Gated-apply failure posture: keep it up, record blocked, no retry.
+    assert "keep it up, write `blocked`, no retry" in text
+    assert "profile_changed" in text
 
 
-def test_onboard_teaches_receipt_first_preview_first_packs():
+def test_onboard_teaches_preview_first_packs():
     text = _onboard_bundle()
     assert "yoke packs get webapp-scaffold {checkout} --project {project}" in text
     assert "--apply" in text
-    assert ".yoke/packs.json" in text
-    assert "preview" in text.lower()
-    assert "ordinary project-owned source" in text
-    # Version moves are Pack updates, not onboarding.
-    assert "yoke packs update" in text
+    assert "Preview without" in text
+    # A Pack already installed is verified, never reinstalled or moved.
+    assert "`.yoke/packs.json` is verified, not reinstalled" in " ".join(text.split())
 
 
 def test_onboard_teaches_strategy_seed_topup_and_all_five_docs():
@@ -220,96 +197,62 @@ def test_onboard_teaches_strategy_seed_topup_and_all_five_docs():
 
 def test_onboard_profile_always_carries_a_test_setup_box():
     """The wizard never asks how tests run, so the profile confirmation must."""
-    text = _read(ONBOARD_DIR / "profile-and-scaffold.md")
-    assert "### The test-setup box" in text
+    text = _read(ONBOARD_DIR / "profile-and-scaffold.md").lower()
     # Every outcome is named; none is a silent default.
-    assert "surveyed command" in text.lower()
-    assert "scaffold suite" in text.lower()
-    assert "review-only suite" in text.lower()
-    assert "no suite at all" in text.lower()
-    # A descriptive project-structure entry is not one of the outcomes.
-    assert "verification_profiles.test_command" in text
+    for outcome in (
+        "surveyed command",
+        "scaffold suite",
+        "review-only",
+        "attested no-tests",
+    ):
+        assert outcome in text, f"test-setup outcome {outcome!r} missing"
+    # A descriptive project-structure entry is never the gate command.
+    doc = _read(REPO / ".yoke" / "docs" / "verification" / "index.md")
+    assert "`verification_profiles.test_command` entry is descriptive" in doc
 
 
 def test_onboard_binds_the_confirmed_test_setup_to_the_gate():
     """AC-bearing gate commands come from the binding, not from prose."""
     text = _read(ONBOARD_DIR / "verification-binding.md")
     assert "yoke qa registered-command set --project {project} --scope quick" in text
-    assert "--scope full" in text
-    assert "--cap-type ci_workflow_file" in text
-    assert "verification-command-binding=configured" in text
-    # The declaration must name the workflow that runs the command.
-    assert "deploy" in text and "not a verification workflow" in text
+    assert "`full` only when broader" in text
+    assert "ci_workflow_file" in text
+    # The declaration must name the workflow that runs the tests.
+    assert "never deploy/release" in text
 
 
 def test_onboard_teaches_hosting_probe_and_stdin_secrets():
-    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    # The row and the machine credential pair are separate halves, and the
-    # step reads both before asking for anything: an operator whose pair is
-    # already on disk must never be asked to paste it again.
+    text = " ".join(_read(ONBOARD_DIR / "hosting-and-environments.md").split())
+    # An operator whose pair is already saved is never asked for it again.
     assert "yoke aws admin-status --project {project} --json" in text
-    assert "in-process caller-identity probe" in text
-    assert "yoke projects capability secret set" in text
-    assert "--value-stdin" in text
-    assert "app-binding" in text
-    assert "disabled" in text
-    bundle = _onboard_bundle()
-    assert "never printed" in bundle or "never print" in bundle.lower()
-
-
-def test_onboard_fills_only_the_missing_aws_admin_half():
-    """Each half has its own command; neither is taught for the other."""
-    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert (
-        "yoke projects capability-settings merge --project {project} "
-        "--cap-type aws-admin --set region={region}" in text
-    )
-    # The scalar flag pair does not exist on the settings surface.
-    assert "capability-settings set --project {project}" not in text
-    assert "capability_row" in text and "machine_secrets" in text
+    assert "never re-request a saved pair or use ambient" in text
+    assert "write `hosting-setup=blocked` and stop" in text
+    assert "--value-stdin" in _read(ONBOARD)
+    assert "Never print secrets" in _read(REPO / "AGENTS.md")
 
 
 def test_onboard_teaches_environment_and_flow_registration():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert "yoke projects site create --project {project} --site {site_name}" in text
-    assert "yoke projects environment create" in text
-    assert "--environment stage" in text
-    assert "--environment prod" in text
+    assert "register site and environments" in text
+    assert "never overwrite an existing one" in text
+    assert "execution_supported=false" in text
+    assert "Disable a referenced flow rather than edit it" in text
     assert "--environment-id" not in text
-    assert "yoke deployment-flows create {flow_id} --project {project}" in text
-    assert "yoke deployment-flows set-status {flow_id} disabled" in text
-    assert "yoke project-structure deploy-defaults get --project {project}" in text
     # An existing project deploy file is a hint, never a contract onboarding
     # must parse, author, or repair.
-    assert "read it as a **hint**" in text
-    assert "none of it is contractual" in text
+    assert "`.yoke/deployment-flows.json` are hints" in text
+    assert "never edit or depend on them" in text
     assert "reconcile-project" not in text
-    patch_commands = [
-        line
-        for line in text.splitlines()
-        if line.startswith("yoke project-structure patch apply ")
-    ]
-    # hosting posture, two deploy-default branches, project-wide policy rows,
-    # and architecture model — every project-level declaration writes through
-    # the one patch surface.
-    assert len(patch_commands) == 5
-    assert all("--project {project} --ops-json " in line for line in patch_commands)
-    assert all("--item" not in line for line in patch_commands)
 
 
-def test_onboard_honors_the_web_views_and_steers_boundary():
-    text = _read(ONBOARD)
-    assert "The web views and steers; it never invokes." in text
-    assert "No web button runs this skill." in text
-    # Harness connections are detected, never installed.
-    assert "never install one" in text
+def test_onboard_never_installs_a_harness():
+    assert "never switch projects or install a harness" in _read(ONBOARD).lower()
 
 
 def test_onboard_failure_floor_is_the_resume_point():
     text = _read(ONBOARD_DIR / "run-and-rows.md")
-    assert "Failure floor" in text
-    assert "resume point" in text
-    assert "Completed writes stay in place" in text
+    assert "On failure write `blocked`" in text
+    assert "never undo prior steps" in " ".join(text.split())
 
 
 def test_onboard_skill_avoids_forbidden_raw_surfaces():

@@ -59,8 +59,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
         ),
         (
             ".agents/skills/yoke/implement/implementing/browser-seeding.md",
-            "--qa-phase verification \\\n"
-            "  --workflow-transition reviewed-implementation",
+            "--plan-id <plan-id> --transition <stage>",
         ),
         (
             ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
@@ -68,7 +67,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
         ),
         (
             ".agents/skills/yoke/onboard/first-work.md",
-            "--requirement-source explicit --workflow-transition reviewed-implementation",
+            "--transition reviewing-implementation --qa-phase verification",
         ),
         (
             ".yoke/docs/verification/browser-scenarios.md",
@@ -134,17 +133,26 @@ def test_browser_case_placement_has_one_home() -> None:
 
 
 @pytest.mark.parametrize(
-    "relative_path",
+    ("relative_path", "placement_link"),
     (
-        ".agents/skills/yoke/idea/delivery-requirements.md",
-        ".agents/skills/yoke/dash/file-and-claim.md",
-        ".agents/skills/yoke/dash/verify.md",
-        ".agents/skills/yoke/implement/implementing/browser-seeding.md",
-        ".agents/skills/yoke/refine/review-rubric.md",
+        (
+            ".agents/skills/yoke/idea/delivery-requirements.md",
+            _BROWSER_PLACEMENT_ANCHOR,
+        ),
+        (
+            ".agents/skills/yoke/dash/verify.md",
+            ".yoke/docs/verification/browser-targets.md",
+        ),
+        (
+            ".agents/skills/yoke/implement/implementing/browser-seeding.md",
+            _BROWSER_PLACEMENT_ANCHOR,
+        ),
+        (".agents/skills/yoke/refine/review-rubric.md", _BROWSER_PLACEMENT_ANCHOR),
     ),
 )
 def test_browser_case_authoring_surfaces_link_the_placement_home(
     relative_path: str,
+    placement_link: str,
 ) -> None:
     body = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-    assert _BROWSER_PLACEMENT_ANCHOR in body
+    assert placement_link in body
