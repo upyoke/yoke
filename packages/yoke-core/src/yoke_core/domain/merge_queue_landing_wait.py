@@ -133,11 +133,20 @@ def _record_refusal(
             "verification gate, and re-run `yoke merge item`",
             RECOVERABLE_QUEUE_EXIT_CODE,
         )
+    if record.state == STALLED and record.recovery.get("action") in {
+        "waiting",
+        "retry",
+    }:
+        return None
+    if record.state == STALLED and record.recovery.get("message"):
+        return WaitRefusal(record.recovery["message"], RECOVERABLE_QUEUE_EXIT_CODE)
     if record.state == STALLED:
         return WaitRefusal(
             f"the merge queue is no longer driving pull request {pr_num} — "
-            f"observed {record.narrative}; rebase the lane onto {target}, "
-            "re-run the verification gate, and re-run `yoke merge item`. "
+            f"observed {record.narrative}; re-read base mergeability. If CONFLICTING, "
+            f"rebase the lane onto {target}, re-run the verification gate, and "
+            "re-run `yoke merge item`. If MERGEABLE, wait for any entries ahead "
+            "to land or leave before re-enqueueing unchanged. "
             "Re-running the landing is safe: it converges on the merge if "
             "one happens meanwhile",
             RECOVERABLE_QUEUE_EXIT_CODE,
@@ -210,6 +219,8 @@ def wait_for_queue_landing(
                 RECOVERABLE_QUEUE_EXIT_CODE,
             )
         narrative = record.narrative
+        if record.recovery.get("message"):
+            narrative += "; " + record.recovery["message"]
         if narrative:
             last_seen = narrative
             if narrative != last_announced:

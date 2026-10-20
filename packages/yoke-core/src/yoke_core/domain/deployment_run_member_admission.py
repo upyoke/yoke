@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 from typing import Any
 
+from yoke_core.domain.deployment_landing_guard import open_landing_refusals
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_admission_reads import read_snapshot_inputs
 from yoke_core.domain.deployment_item_flow_admission import (
@@ -109,6 +110,11 @@ def admit_run_items(
             return answer()
         except (LookupError, ValueError) as exc:
             refuse(item_id, exc)
+
+    landing_refusals = open_landing_refusals(conn, ids)
+    if landing_refusals:
+        first = min(landing_refusals)
+        refuse(first, ValueError(landing_refusals[first]))
 
     pinned = read_pinned_items(conn, ids) if has_workflow_pin_schema(conn) else None
     states = {

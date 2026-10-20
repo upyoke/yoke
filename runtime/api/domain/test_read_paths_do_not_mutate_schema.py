@@ -66,6 +66,8 @@ _SANCTIONED_SCHEMA_HELPER_CALLS: frozenset[str] = frozenset(
         # Boot's creation phase, also run by a release driver before its
         # run starts (release_start_schema) — a converge, never a read.
         "domain/schema_creation.py::_create_in_dependency_order",
+        # Deployment storage initialization owns its landing-admission dependency.
+        "domain/deployment_runs_schema_init.py::cmd_init",
         "domain/schema_init_tables.py::create_core_tables",
         "domain/schema_init_actor_path_claim_tables.py::create_actor_path_claim_tables",
         "domain/schema_init_path_tables.py::create_path_registry_tables",

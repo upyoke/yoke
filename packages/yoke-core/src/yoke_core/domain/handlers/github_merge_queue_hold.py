@@ -79,13 +79,21 @@ def handle_hold(request: FunctionCallRequest) -> HandlerOutcome:
             "$.target.public_ref",
         )
 
-    hold = hold_landing(
-        MergeContext(
-            args=MergeArgs(branch="", target=target),
-            project=str(project.get("slug") or ""),
+    from yoke_core.domain.merge_queue_ejection_recovery import (
+        hold_with_recovery_suspended,
+    )
+
+    hold = hold_with_recovery_suspended(
+        int(item["id"]),
+        pr_number,
+        lambda: hold_landing(
+            MergeContext(
+                args=MergeArgs(branch="", target=target),
+                project=str(project.get("slug") or ""),
+            ),
+            pr_number=pr_number,
+            target=target,
         ),
-        pr_number=pr_number,
-        target=target,
     )
     result: Dict[str, Any] = {
         "item_id": int(item["id"]),

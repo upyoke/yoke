@@ -9,7 +9,7 @@ Cancelled checks recover before admission, independently of duplicate arming.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from yoke_core.domain.merge_queue_entry_check_redispatch import (
@@ -41,13 +41,9 @@ from yoke_core.engines.merge_worktree_pr_queue import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-#: How long to wait before re-reading an admission GitHub has not yet
-#: reported. Arming moves within seconds, so this is a probe rather than
-#: a poll: exactly one re-read, then a verdict.
+#: One bounded admission confirmation, in seconds.
 ADMISSION_CONFIRM_SECONDS = 10.0
 
-#: What each ``mergeable_state`` means for a pull request the queue is not
-#: going to take, and what the holder has to do about it.
 _ABSENCE_REASONS = {
     "dirty": (
         "it conflicts with its base branch — rebase the lane onto "
@@ -91,6 +87,7 @@ class LandingReadback:
     state_error: str = ""
     membership_error: str = ""
     checks_error: str = ""
+    queue_recovery: dict = field(default_factory=dict)
 
     @property
     def failed_required(self) -> tuple[LandingCheck, ...]:
@@ -115,9 +112,7 @@ class LandingReadback:
         refused by its own required checks — which together are the
         ordinary armed-and-waiting state before those checks pass.
 
-        An unreadable pull request, membership, or rollup is not an
-        admission — it proves nothing — but it is not a refusal either;
-        callers distinguish the two.
+        Unreadable admission facts are undetermined, not a refusal.
         """
         if self.state is None or self.membership is None:
             return False
@@ -180,12 +175,18 @@ class LandingReadback:
         failed = self.failed_required
         if failed:
             return regate_instruction(failed)
+        from yoke_core.domain.merge_queue_ejection_recovery import recovery_instruction
+
+        instruction = recovery_instruction(self, target=target)
+        if instruction:
+            return instruction
         merge_state = (state.merge_state_status if state is not None else "").strip()
-        if self.membership is not None:
-            if self.membership.entry_state == "UNMERGEABLE":
-                merge_state = "dirty"
-            elif self.membership.mergeable == "CONFLICTING":
-                merge_state = merge_state or "dirty"
+        if (
+            self.membership
+            and self.membership.mergeable == "MERGEABLE"
+            and merge_state.lower() == "dirty"
+        ):
+            merge_state = ""
         template = _ABSENCE_REASONS.get(merge_state.lower(), _DEFAULT_ABSENCE_REASON)
         return template.format(target=target)
 
@@ -272,6 +273,9 @@ def verify_landing_admitted(
             return ""
         if readback.admitted():
             return ""
+    from yoke_core.domain.merge_queue_ejection_recovery import snapshot_recovery
+
+    readback = snapshot_recovery(ctx, pr_num, readback)
     observed = readback.describe()
     if not readback.readable:
         return (
@@ -295,18 +299,7 @@ def red_entry_checks_refusal(
     lane_head: str = "",
     armed: bool = False,
 ) -> str:
-    """Refuse to arm a pull request its required checks have already failed.
-
-    Arming a red pull request is not harmless: merge-when-ready takes, so
-    every downstream read sees an armed landing and waits for a queue
-    entry GitHub is never going to create. Reading the rollup before the
-    mutation is what keeps the ordering honest. An unreadable rollup is
-    not a refusal — the admission read-back after arming asks again.
-
-    A set whose only red checks were cancelled or never started is not
-    refused: those checks are re-run on the same head, and arming proceeds
-    once GitHub shows them replaced.
-    """
+    """Recover no-verdict checks and refuse a red, unadmitted candidate."""
     if armed:
         facts = read_landing(ctx, pr_num, read_checks=read_checks)
         if facts.merged or (facts.state and facts.state.closed):

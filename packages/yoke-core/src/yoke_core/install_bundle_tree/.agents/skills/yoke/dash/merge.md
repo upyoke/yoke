@@ -92,7 +92,8 @@ yoke github merge-queue hold ITEM --json
 ```
 
 Only held proves both gone. Already-landed/landed-during-hold names the actual
-merge; other answers leave it live. Nothing auto-rearms.
+merge; other answers leave it live. An explicit hold suspends queue recovery
+until the next governed arming.
 Correct, commit, reverify the new candidate and merge again.
 
 ## Read the explicit close-out outcome
@@ -103,8 +104,12 @@ and holder fact beside stdout's envelope. Exit0 alone is not done.
 - **merged** — exit 0: the boundary closed the item out in this turn, or
   landing_already_recorded names its receipt. Read status/identity; done needs
   no new claim/transition. Continue denial reporting.
-- **landing stopped** — exit 9: follow named recovery, rebase the lane onto the
-  base branch and re-run the verification gate before the same merge command.
+- **landing stopped** — exit 9: follow the named recovery. A base conflict
+  requires you to rebase the lane onto the base branch and re-run the
+  verification gate; a queue-only conflict names the PRs ahead
+  and shared files. Wait for those entries to land or leave, then rebase only
+  if base mergeability is CONFLICTING, or re-enqueue unchanged if MERGEABLE.
+  The explicit waiter follows this recovery through the server record.
   It converges on the merge if one happened meanwhile; never discard landed state.
 - **a required check already red** — exit 1, terminal for this tree: fix,
   commit/reverify, then rearm. A cancelled/not-started check has no verdict;

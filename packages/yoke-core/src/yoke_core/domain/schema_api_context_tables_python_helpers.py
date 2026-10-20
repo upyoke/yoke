@@ -128,8 +128,9 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
         "notes": (
             "This production schema owner creates merge_queue_landing_records, "
             "merge_queue_landing_attempts and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
-            "fixture already contains these landing tables. "
-            "Call this owner before converting those landing clocks in a test; "
+            "fixture already contains these landing tables or the recovery column. "
+            "Deployment admission reads open attempts, including in partial fixtures. "
+            "Call this owner before admission or converting landing clocks in a test; "
             "do not invent replacement table DDL or apply schema to a live database."
         ),
     },
