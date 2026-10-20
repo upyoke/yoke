@@ -65,6 +65,18 @@ class OpenFixtureConnection:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
+    def __enter__(self) -> "OpenFixtureConnection":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool:
+        # A psycopg connection ends its transaction this way, then closes;
+        # the fixture connection stays open for the rest of the test.
+        if exc_type is None:
+            self._inner.commit()
+        else:
+            self._inner.rollback()
+        return False
+
     def close(self) -> None:
         pass
 

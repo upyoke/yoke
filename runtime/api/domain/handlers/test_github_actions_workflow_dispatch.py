@@ -208,7 +208,7 @@ def test_post_accept_http_5xx_remains_ambiguous_and_never_reposts(
     assert post_calls == 1
 
 
-def test_completed_failed_run_resumes_with_new_correlated_attempt(
+def test_completed_no_verdict_run_resumes_with_new_correlated_attempt(
     tmp_path: Path, monkeypatch,
 ) -> None:
     _patch_auth(monkeypatch)
@@ -226,7 +226,7 @@ def test_completed_failed_run_resumes_with_new_correlated_attempt(
         monkeypatch.setattr(
             "yoke_core.domain.github_actions_rest.rest_get",
             lambda *args, **kwargs: {
-                "id": 101, "status": "completed", "conclusion": "failure",
+                "id": 101, "status": "completed", "conclusion": "cancelled",
             },
         )
         second = handle_workflow_dispatch(_request())

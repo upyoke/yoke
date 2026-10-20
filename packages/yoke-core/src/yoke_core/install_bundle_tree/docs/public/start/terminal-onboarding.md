@@ -84,7 +84,11 @@ to leave Apply's writes undone.
 
 The run report records what publication did on its own step: complete when
 the commit reached the remote, skipped with its reason, or incomplete with the
-recovery command when the commit stayed local. The report's `final_status` is
+recovery command when the commit stayed local. Setup's board art is committed
+after that commit and goes where it went: pushed to the same branch, or added
+to the review pull request's branch. A refused art push turns the step
+incomplete with its recovery; when setup's commit stayed local, its recovery
+also names the art commit. The report's `final_status` is
 `done` only when setup was published (or had nothing to publish);
 otherwise it reads `publication-pending` or `publication-skipped`.
 

@@ -5,7 +5,7 @@ Two independently authorized callers sharing one deterministic
 ref, and inputs) may authenticate as different actors within the same
 authorized scope. Reading an already-running or already-completed proof
 must not require actor equality; only *owning* the dispatch mutation
-(posting a fresh attempt, retriggering after failure) does. See
+(posting a fresh attempt, retriggering a run with no verdict) does. See
 ``packages/yoke-core/src/yoke_core/domain/github_workflow_dispatch.py``
 for the split between ``_same_logical_request`` (ownership) and
 ``_proof_reusable`` (read authorization). Genuinely concurrent races and
@@ -100,21 +100,52 @@ def test_cross_actor_reads_failed_run_without_retriggering(
     assert outcome.result_payload["run_id"] == "999"
 
 
-def test_owner_still_retriggers_after_failed_run(
+def _complete_owned_intent() -> None:
+    seed_intent(owner_actor="local-operator")
+    complete_intent(
+        latest_intent(REQUEST_ID),
+        workflow_run_id="999",
+        run_url=None,
+        html_url=f"https://github.com/{REPO}/actions/runs/999",
+    )
+
+
+def test_owner_replays_failed_run_without_a_new_attempt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with init_test_db(tmp_path):
-        seed_intent(owner_actor="local-operator")
-        complete_intent(
-            latest_intent(REQUEST_ID),
-            workflow_run_id="999",
-            run_url=None,
-            html_url=f"https://github.com/{REPO}/actions/runs/999",
-        )
+        _complete_owned_intent()
 
         def fake_rest_get(path: str, *, query: Any = None, token: str) -> Any:
             return {"id": "999", "status": "completed", "conclusion": "failure"}
+
+        monkeypatch.setattr(github_actions_rest, "rest_get", fake_rest_get)
+        monkeypatch.setattr(github_actions_rest, "rest_post", refusing_rest_post)
+
+        outcome = dispatch_workflow_with_intent(
+            build_request("local-operator"), build_payload(), "tok"
+        )
+        attempt = latest_intent(REQUEST_ID).attempt
+
+    # A failure is a verdict about the tree: the request id replays it.
+    assert outcome.primary_success is True
+    assert outcome.result_payload["dispatched"] is False
+    assert outcome.result_payload["run_id"] == "999"
+    assert attempt == 1
+
+
+@pytest.mark.parametrize("conclusion", ["cancelled", "startup_failure", "timed_out"])
+def test_owner_retriggers_a_run_with_no_verdict(
+    conclusion: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with init_test_db(tmp_path):
+        _complete_owned_intent()
+
+        def fake_rest_get(path: str, *, query: Any = None, token: str) -> Any:
+            return {"id": "999", "status": "completed", "conclusion": conclusion}
 
         posted: List[Dict[str, Any]] = []
 

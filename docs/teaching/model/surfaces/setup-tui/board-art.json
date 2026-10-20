@@ -3,8 +3,8 @@
  "title": "Setup adds a progress map and three random headers without a design prompt; customize after setup.",
  "status": "observed",
  "form": "State",
- "verification": "Source and scripted setup flow tests; live delivery remains unproved.",
+ "verification": "Source and scripted setup flow tests; live delivery remains unproved. Setup commits the art after its own publication and pushes it where setup's commit went (the default branch or the open review branch); a refused art push reads publication-pending with its recovery, and an unpushed setup commit's recovery names the art commit too.",
  "topics": ["workbench/onboarding"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_board_art.py", "runtime/api/cli/test_onboard_board_art.py", "docs/public/start/terminal-onboarding.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_board_art.py", "runtime/api/cli/test_onboard_board_art.py", "packages/yoke-cli/src/yoke_cli/config/onboard_board_art_publication.py", "runtime/api/cli/test_onboard_board_art_publication.py", "docs/public/start/terminal-onboarding.md"],
  "position": 14
 }

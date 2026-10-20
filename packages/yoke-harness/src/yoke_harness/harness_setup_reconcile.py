@@ -119,8 +119,8 @@ def _posture(harness: str) -> tuple[bool, str]:
                 f"harness_config_malformed: {target}: permissions is not an object"
             )
     verdict = yoke_posture(harness)
-    problems = verdict.blocking if verdict else (f"no {harness} config",)
-    return not problems, f"harness_posture_missing: {target}: {'; '.join(problems)}"
+    problems = verdict.blocking if verdict else (f"{target}: no {harness} config",)
+    return not problems, f"harness_posture_missing: {'; '.join(problems)}"
 
 
 def _hooks(path: Path, source: Path, *, apply: bool) -> tuple[bool, str]:

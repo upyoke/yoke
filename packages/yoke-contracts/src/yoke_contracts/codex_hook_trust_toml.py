@@ -147,13 +147,25 @@ def mutate(
     path: Path,
     planner: Callable[[str, dict[str, Any]], tuple[str, _Result]],
 ) -> _Result:
-    """Serialize read, plan and atomic publication for one physical config."""
+    """Serialize read, plan and atomic publication for one physical config.
+
+    FileLock removes the lock sidecar on release, and a waiter that opened the
+    unlinked file retries. A sidecar that could not be removed is recorded for
+    ``yoke uninstall`` instead of being left behind unowned.
+    """
     target = path
     try:
         target = path.resolve(strict=False)
         lock_path = target.with_name(f".{target.name}.yoke.lock")
-        with FileLock(str(lock_path), timeout=CONFIG_LOCK_TIMEOUT_SECONDS, mode=0o600):
-            return _mutate_locked(target, planner)
+        created_lock = not lock_path.exists()
+        try:
+            with FileLock(
+                str(lock_path), timeout=CONFIG_LOCK_TIMEOUT_SECONDS, mode=0o600
+            ):
+                return _mutate_locked(target, planner)
+        finally:
+            if created_lock and lock_path.exists():
+                _record_lock_sidecar(lock_path)
     except Timeout as exc:
         raise CodexHookTrustStoreError(
             f"Codex config is busy: {target}. Recovery: wait for the other "
@@ -164,6 +176,14 @@ def mutate(
             f"could not update {target}: {exc}. Recovery: check the directory "
             "permissions and available space, then retry."
         ) from exc
+
+
+def _record_lock_sidecar(lock_path: Path) -> None:
+    # Imported here: the ledger reads machine config this module never needs.
+    from yoke_contracts import harness_settings_ledger as ledger
+
+    # A record failure leaves only an empty lock file, never a broken config.
+    ledger.record(ledger.created_file_entry(lock_path))
 
 
 def _mutate_locked(

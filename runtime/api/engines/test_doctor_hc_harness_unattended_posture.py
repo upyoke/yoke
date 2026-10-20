@@ -160,3 +160,20 @@ def test_a_kept_mode_without_yoke_allowed_fails_naming_the_entry(
     assert _status(result) == "FAIL"
     assert "Bash(yoke:*) is not in" in _detail(result)
     assert "doctor run --only harness-setup --fix" in _detail(result)
+
+
+def test_an_unnamed_surface_labels_a_settings_problem_with_the_settings_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    resolved = _paths(
+        tmp_path,
+        monkeypatch,
+        claude=json.dumps({"preferences": {CLAUDE_BYPASS_KEY: True}}),
+        cli=json.dumps({"permissions": {"defaultMode": "auto"}}),
+    )
+
+    verdict, detail = mod.harness_posture("claude-code", installed=True)
+
+    assert verdict == "FAIL"
+    assert f"{claude_settings_path()}: permissions.defaultMode is 'auto'" in detail
+    assert str(resolved["claude-code"]) not in detail

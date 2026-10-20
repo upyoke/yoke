@@ -96,8 +96,9 @@ def test_landing_tells_the_parked_dependent_once(test_db: Any) -> None:
     [body] = _bodies(test_db, _key(test_db, "activation"))
     blocker_ref = render_item_ref(test_db, BLOCKER)
     assert body.startswith(f"{blocker_ref} merged; your activation gate fact:merged")
-    assert "is satisfied — resume." in body
-    assert "No other gates remain." in body
+    assert "is satisfied — continue the step this gate held." in body
+    assert "No other dependency gates remain." in body
+    assert "resume" not in body
 
 
 def test_partially_satisfied_dependent_is_told_what_remains(test_db: Any) -> None:

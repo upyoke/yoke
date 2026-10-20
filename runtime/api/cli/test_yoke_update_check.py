@@ -180,3 +180,19 @@ def test_check_text_names_the_commit_and_wheel_hashes(install, capsys):
     out = capsys.readouterr().out
     assert f"built from {COMMIT}" in out
     assert f"{WHEELS[0]['filename']} sha256 {'a' * 64}" in out
+
+
+def test_missing_active_env_refuses_with_env_use_recovery(install, monkeypatch, capsys):
+    install()
+
+    def unconfigured():
+        raise update_check.machine_config.contract.MachineConfigContractError(
+            "active env is not configured; run `yoke env use <env>` or pass --env"
+        )
+
+    monkeypatch.setattr(update_check.machine_config, "active_connection", unconfigured)
+    assert command.update(["--check"]) == 1
+    out = capsys.readouterr().out
+    assert out.startswith("yoke update --check: active_connection_unavailable:")
+    assert "`yoke env use <env>`" in out
+    assert "Traceback" not in out

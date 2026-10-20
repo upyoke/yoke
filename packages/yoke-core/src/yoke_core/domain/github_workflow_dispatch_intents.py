@@ -4,7 +4,8 @@ The GitHub workflow-dispatch endpoint has no idempotency header.  A process can
 therefore lose the response after GitHub accepted the POST.  This table records
 the scoped logical request and a GitHub-visible correlation token *before* the
 POST; a retry recovers the run by that token instead of issuing another POST.
-Completed failed runs remain immutable history and advance to a new attempt.
+A run that concluded with no verdict remains immutable history and advances
+to a new attempt; a run with a verdict (success or failure) is reused.
 """
 
 from __future__ import annotations

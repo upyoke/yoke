@@ -3,8 +3,9 @@
 ``WizardFlow._on_confirm`` hands a confirmed Apply to :meth:`ApplyFlow._start_apply`.
 Apply is a blocking network/git transaction, so it runs in a worker thread while
 the event loop keeps painting the Applying screen; each ``build_report`` progress
-event flips one row in place. The worker's outcome routes to a success, board-art
-payoff, or in-TUI failure/recovery screen — never a mid-mutation teardown.
+event flips one row in place. The worker also writes and publishes the board
+art; its outcome routes to a success or in-TUI failure/recovery screen — never
+a mid-mutation teardown.
 """
 
 from __future__ import annotations
@@ -81,6 +82,9 @@ class ApplyFlow:
             kwargs["resume_payload"] = self._resume_payload
         try:
             report = self._apply_report(kwargs, self._thread_progress)
+            # Board art lands in the checkout Apply created and is pushed
+            # beside setup's commit, so it runs here, off the event loop.
+            self._board_art_committed = self._board_art_after_apply(report)
         except Exception as exc:  # noqa: BLE001 - every failure routes to the screen
             self.call_from_thread(self._finish_apply, None, exc)
             return
@@ -141,13 +145,6 @@ class ApplyFlow:
             if isinstance(summary, dict):
                 self.report_path = summary.get("path")
             self._applied_report = report
-        # Board art is materialized into the freshly created checkout, and the
-        # Apply summary reports it beside everything else this run did.
-        try:
-            self._board_art_committed = self._board_art_after_apply(report)
-        except Exception as board_art_exc:  # noqa: BLE001 - route to recovery
-            self._show_apply_failure(board_art_exc)
-            return
         self._goto_apply_success()
 
     def _show_apply_failure(self, exc: BaseException) -> None:

@@ -113,10 +113,13 @@ def _merge_recipe() -> dict:
 
 def test_dash_merge_phase_hands_a_launched_landing_to_its_notice():
     content = _words(_read(DASH_MERGE))
-    assert "Relay-launched: arm, report the PR and the pending landing, stop." in (
-        content
+    assert "Follow the printed `wait_mode`: `in-turn` holds this turn" in content
+    assert (
+        "Relay-launched, it exits with `landing_pending=true`: report the PR "
+        "and the pending landing, stop." in content
     )
     assert "The landing notice wakes you to rerun." in content
+    assert "Relay-launched: arm" not in content
 
 
 def test_dash_merge_phase_prints_the_wait_shape_before_running_it():

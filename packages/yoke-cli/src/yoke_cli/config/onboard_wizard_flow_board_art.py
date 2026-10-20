@@ -6,6 +6,7 @@ import secrets
 from typing import Any
 
 from yoke_cli.config import onboard_apply_report
+from yoke_cli.config import onboard_board_art_publication as art_publication
 from yoke_cli.config import onboard_wizard_board_art_apply as art_apply
 from yoke_cli.config.onboard_wizard import WizardApplyError
 from yoke_cli.config.setup_run_facts import BOARD_ART_SEED
@@ -36,13 +37,14 @@ class BoardArtFlow:
         self._goto_hosting()
 
     def _board_art_after_apply(self, report: Any) -> bool:
-        """Write, rebuild, and commit the chosen art; report whether it landed.
+        """Write, rebuild, commit, and publish the art; report whether it landed.
 
         Returns True when the art was committed, so the Apply summary can say
         so on the one screen that reports everything this run did. No saved
         variants, or no resolvable checkout, means there is nothing to do. The
         commit is what keeps a freshly installed checkout from being dirty
-        with the installer's own output.
+        with the installer's own output; publishing it beside setup's commit
+        is what puts the art on the remote.
         """
         if not self.result.board_art_variants:
             return False
@@ -59,10 +61,10 @@ class BoardArtFlow:
                 self.result.board_art_variants,
             )
             art_apply.rebuild_board(repo_root)
-            art_apply.record_board_art_done(
-                report,
-                art_apply.commit_board_art(repo_root, report),
-                report_path=fallback_path,
+            receipt = art_apply.commit_board_art(repo_root, report)
+            art_apply.record_board_art_done(report, receipt, report_path=fallback_path)
+            art_publication.publish_board_art(
+                repo_root, report, receipt, report_path=fallback_path
             )
         except Exception as exc:  # noqa: BLE001 - route through Apply recovery
             summary = art_apply.mark_board_art_failed(

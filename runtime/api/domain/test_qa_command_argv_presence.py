@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.domain import qa_command_argv_presence as argv_presence
 from yoke_core.domain.qa_command_argv_presence import (
     REFUSING_REASON_CODES,
     check_argv_presence,
@@ -37,11 +38,29 @@ def test_a_repo_relative_script_the_repo_lacks_is_refused(tmp_path: Path) -> Non
     assert "no-tests attest" in presence.message
 
 
-def test_a_program_on_path_resolves(tmp_path: Path) -> None:
-    presence = check_argv_presence("python3 -m pytest", checkout=tmp_path)
+def test_a_program_on_path_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        argv_presence.shutil, "which", lambda name: f"/usr/bin/{name}"
+    )
+    presence = check_argv_presence("make test", checkout=tmp_path)
 
     assert presence.verified
     assert presence.reason_code == "resolved_on_path"
+
+
+@pytest.mark.parametrize("command", ["python3 -m pytest", "python3.12 x.py", "sh t"])
+def test_a_bare_interpreter_is_unverifiable_here_not_passed(
+    tmp_path: Path, command: str
+) -> None:
+    # The checking process runs beside an interpreter, so PATH proves nothing.
+    presence = check_argv_presence(command, checkout=tmp_path)
+
+    assert not presence.verified
+    assert presence.reason_code == "interpreter_unverifiable_here"
+    assert presence.reason_code not in REFUSING_REASON_CODES
+    assert "repository path" in presence.message
 
 
 def test_a_program_this_machine_lacks_is_reported_not_refused(

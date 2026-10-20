@@ -37,6 +37,7 @@ from yoke_core.domain.project_onboarding_facts import (
 )
 from yoke_core.domain.project_onboarding_configuration import (
     first_item_done_fact,
+    profile_changed,
     project_facts,
     repaired_handoff_fact,
 )
@@ -240,7 +241,7 @@ def get_run(
             "execution_profile": metadata.get("execution_profile"),
             "profile_changed": bool(
                 metadata.get("execution_profile")
-                and metadata.get("profile_facts") != facts
+                and profile_changed(metadata.get("profile_facts"), facts)
             ),
             "branch": run["branch"],
             "checkout_path": project["root"],

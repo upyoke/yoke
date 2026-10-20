@@ -13,6 +13,7 @@ from yoke_core.domain.qa_case_execution import (
 )
 
 WAITING_RETRY_EXIT = 3
+INTERRUPTED_EXIT = 130
 
 
 def _report_outcome(result: dict) -> None:
@@ -146,6 +147,15 @@ def run(args: List[str]) -> int:
     except QaCaseExecutionError as exc:
         print(f"yoke qa case run: {exc}", file=sys.stderr)
         return 2
+    except KeyboardInterrupt:
+        print(
+            "yoke qa case run: cancelled: interrupted before a verdict was "
+            "reported. Rerun `yoke qa case run --requirement-id "
+            f"{parsed.requirement_id}` to execute the case again.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return INTERRUPTED_EXIT
     _report_outcome(result)
     print(json.dumps(result, sort_keys=True))
     if result.get("case_outcome") == "waiting":
@@ -162,7 +172,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     return run(list(sys.argv[1:] if argv is None else argv))
 
 
-__all__ = ["WAITING_RETRY_EXIT", "main", "run"]
+__all__ = ["INTERRUPTED_EXIT", "WAITING_RETRY_EXIT", "main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter
