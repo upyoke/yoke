@@ -97,8 +97,10 @@ skipped for now. Or ask the person to finish that step with `yoke setup --tui`.
 
 Setup flags given to the first agent call (for example `--local` or `--yes`)
 are presets, like wizard defaults. Later calls may repeat them or leave them
-out; different flags refuse with `setup_agent_flags_changed`. `--yes` answers
-the review question with `apply`.
+out; different flags refuse with `setup_agent_flags_changed` before setup
+runs. This refusal names the saved waiting `key`, leaves the setup file
+unchanged and requests no approval code or link. Rerun without changed flags
+to see the waiting question. `--yes` answers the review question with `apply`.
 
 Answering `review.confirm` with `apply` writes the setup and returns `done`.
 A failed Apply returns `state` `failed` with `reason` `setup_apply_failed`, the
@@ -111,9 +113,12 @@ choice returns `done` with `"cancelled": true` and deletes the saved answers.
 
 Exit 0 means the last line is `question`, `browser` or `done`; 1 means
 `failed`; 2 means `refused`. Every refusal and failure carries `reason` and
-`recovery`. A refusal saves no answer. It repeats the question setup waits at
-now, which can be an earlier one when machine state changed, and that
-question's printed `answer_command` is the next answer accepted.
+`recovery`. A refusal saves no answer. Answer refusals repeat the question
+setup waits at now, which can be an earlier one when machine state changed,
+and that question's printed `answer_command` is the next answer accepted.
+If setup already requested a browser approval before a later answer refusal,
+it keeps that pending approval in the private setup file so a later call can
+collect it.
 
 | reason | what to do |
 |---|---|

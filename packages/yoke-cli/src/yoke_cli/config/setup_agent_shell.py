@@ -170,7 +170,6 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         apply_report: Callable[..., Any],
         store: answers.AnswerStore,
         cli_answers: dict[str, str],
-        refusal: tuple[str, str] | None = None,
     ) -> None:
         init_setup_state(
             self,
@@ -180,11 +179,11 @@ class AgentSetup(AgentShell, *SETUP_FLOWS):
         )
         self._answers = store
         self._cli = dict(cli_answers)
-        self._pending_refusal = refusal
+        self._pending_refusal: tuple[str, str] | None = None
         waiting = store.waiting_key
         if waiting and any(not _belongs(key, waiting) for key in self._cli):
             self._cli = {}
-            self._pending_refusal = refusal or (
+            self._pending_refusal = (
                 "setup_answer_not_current",
                 "answer the current question shown here, by its key",
             )
