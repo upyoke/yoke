@@ -12,13 +12,14 @@ for local-mode success evidence. No custom PostgreSQL build is supported.
 Host preparation, sign-in, permissions, desktop access, save/restore and their
 recoveries have one authoritative procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-See the [provisioning index](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md).
-These procedures install at `docs/packs/machine-qa/`; installed files belong
-to the project. This page describes execution and evidence contracts.
+See the [provisioning index](../../packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/host-provisioning.md)
+for disk sizing (40 GiB minimum) and online disk growth. These procedures
+install at `docs/packs/machine-qa/`; installed files belong to the project.
+This page describes execution and evidence contracts.
 
 A Test Machine capability owns its settings, credentials, QA leases and
 operation receipts. Capacity registration owns agent-launch capacity and relay
