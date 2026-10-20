@@ -36,7 +36,6 @@ def run_probe() -> None:
     from tempfile import TemporaryDirectory
     from unittest.mock import patch
 
-    from yoke_contracts import claude_posture_install
     from yoke_harness import harness_setup_reconcile as setup
     from yoke_harness import session_relay_harness_reconcile as relay
 
@@ -90,16 +89,17 @@ def run_probe() -> None:
         )
         for name in ("lane-a", "lane-b"):
             git("worktree", "add", "--detach", str(root / name))
-        environment = {"HOME": str(home), "CODEX_HOME": str(home / ".codex")}
+        environment = {
+            "HOME": str(home),
+            "CODEX_HOME": str(home / ".codex"),
+            "XDG_CONFIG_HOME": str(home / ".config"),
+        }
         with (
             patch.dict(os.environ, environment),
             patch.object(
                 setup,
                 "all_registered_checkouts",
                 return_value=[checkout],
-            ),
-            patch.object(
-                claude_posture_install, "CLAUDE_APP_CONFIG_PATH", home / "desktop.json"
             ),
         ):
             initial = setup.reconcile_harness_setup()

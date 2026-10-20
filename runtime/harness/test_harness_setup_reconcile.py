@@ -33,11 +33,6 @@ def machine(monkeypatch, tmp_path):
             )
         ),
     )
-    from yoke_contracts import claude_posture_install
-
-    monkeypatch.setattr(
-        claude_posture_install, "CLAUDE_APP_CONFIG_PATH", home / "desktop.json"
-    )
     root = tmp_path / "checkout"
     lanes = [tmp_path / "lane-a", tmp_path / "lane-b"]
     hooks = {

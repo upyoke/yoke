@@ -18,7 +18,7 @@ from yoke_core.domain import verification_tree_binding_pytest_startup as _bindin
 
 
 REPO_ROOT = Path(__file__).resolve().parent
-pytest_plugins = ["runtime.ci_test_selection"]
+pytest_plugins = ["runtime.ci_test_selection", "runtime.real_home_isolation"]
 
 # ---------------------------------------------------------------------------
 # Tree binding
@@ -216,54 +216,6 @@ def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
     _commit_cache._reset_memo_for_tests()
     yield
     _commit_cache._reset_memo_for_tests()
-
-
-@pytest.fixture(autouse=True)
-def _isolate_harness_settings_ledger(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Keep the harness-settings record that uninstall reverts off ``~/.yoke``.
-
-    Posture and folder-trust tests write throwaway harness configs; recording
-    those paths in the developer's real record would aim a real uninstall at
-    them. Subprocesses stay isolated through the ``YOKE_MACHINE_HOME`` they set.
-    """
-    from yoke_contracts import harness_settings_ledger
-
-    monkeypatch.setattr(
-        harness_settings_ledger,
-        "ledger_path",
-        lambda: tmp_path / "ledger" / harness_settings_ledger.LEDGER_NAME,
-    )
-
-
-@pytest.fixture(autouse=True)
-def _isolate_harness_homes(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Keep machine-wide hook and ``yoke-global`` writes out of the
-    developer's harness homes.
-
-    Every hook relay self-heals the running harness's user config, and setup,
-    uninstall and doctor read or write all three. A call that passes no
-    explicit environment resolves homes under one empty per-test ``HOME``, so
-    a test creates the harness home it means to exercise. Subprocesses stay
-    isolated through the ``HOME`` they set.
-    """
-    from yoke_contracts import global_skill_install
-    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
-
-    resolve = HarnessMachineHooks.home_path
-    isolated = {"HOME": str(tmp_path / "harness-home")}
-    monkeypatch.setattr(
-        HarnessMachineHooks,
-        "home_path",
-        lambda self, environ=None: resolve(
-            self, isolated if environ is None else environ
-        ),
-    )
-    user_home = global_skill_install.user_home
-    monkeypatch.setattr(
-        global_skill_install,
-        "user_home",
-        lambda environ=None: user_home(isolated if environ is None else environ),
-    )
 
 
 @pytest.fixture(scope="session")

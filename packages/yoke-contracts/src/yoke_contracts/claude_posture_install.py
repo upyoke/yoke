@@ -12,7 +12,7 @@ from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.harness_unattended_posture import (
     CLAUDE_BYPASS_KEY,
     CLAUDE_PERMISSIONS_CONTAINER,
-    claude_config_path as _claude_config_path,
+    claude_config_path,
     claude_settings_path,
     claude_settings_problems,
 )
@@ -20,9 +20,6 @@ from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_SETTINGS_PERMISSION_MODE,
     CLAUDE_SETTINGS_PERMISSION_MODE_KEY,
 )
-
-
-CLAUDE_APP_CONFIG_PATH = _claude_config_path()
 
 
 def configure_claude_app_bypass_permissions(
@@ -35,7 +32,7 @@ def configure_claude_app_bypass_permissions(
     Patch an existing platform config only when the key is absent;
     respect an explicit ``False``.
     """
-    target = config_path if config_path is not None else CLAUDE_APP_CONFIG_PATH
+    target = config_path if config_path is not None else claude_config_path()
     if not target.is_file():
         return False
     out = stream if stream is not None else sys.stdout

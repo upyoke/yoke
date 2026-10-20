@@ -35,7 +35,7 @@ def bare_machine(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    from yoke_contracts import claude_posture_install, global_skill_install
+    from yoke_contracts import global_skill_install
     from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
     from yoke_harness import harness_setup_reconcile as setup
 
@@ -44,9 +44,6 @@ def bare_machine(monkeypatch, tmp_path):
         HarnessMachineHooks,
         "home_path",
         lambda self, environ=None: home / dirs[self.harness_id],
-    )
-    monkeypatch.setattr(
-        claude_posture_install, "CLAUDE_APP_CONFIG_PATH", home / "desktop.json"
     )
     monkeypatch.setattr(global_skill_install, "user_home", lambda environ=None: home)
     monkeypatch.setattr(setup, "all_registered_checkouts", lambda **kw: [])

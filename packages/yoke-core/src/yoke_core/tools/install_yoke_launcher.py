@@ -31,7 +31,6 @@ LAUNCHER_SOURCE = _core.LAUNCHER_SOURCE
 PROBE_BYTES = _core.PROBE_BYTES
 LAUNCHER_FINGERPRINT_IMPORT = _core.LAUNCHER_FINGERPRINT_IMPORT
 
-CLAUDE_APP_CONFIG_PATH = _claude.CLAUDE_APP_CONFIG_PATH
 MACOS_PATHS_FILE = _macos.MACOS_PATHS_FILE
 BREW_APPLE_SILICON_BIN = _macos.BREW_APPLE_SILICON_BIN
 
@@ -103,7 +102,6 @@ def reconcile_harness_setup(*, stream=None) -> list:
         reconcile_harness_setup as reconcile,
     )
 
-    _claude.CLAUDE_APP_CONFIG_PATH = CLAUDE_APP_CONFIG_PATH
     lines = reconcile().lines()
     for line in lines:
         (stream or sys.stdout).write(f"{line}\n")
@@ -115,7 +113,6 @@ def configure_claude_app_bypass_permissions(
     config_path: Optional[Path] = None,
     stream=None,
 ) -> bool:
-    _claude.CLAUDE_APP_CONFIG_PATH = CLAUDE_APP_CONFIG_PATH
     return _claude.configure_claude_app_bypass_permissions(
         config_path=config_path,
         stream=stream,
