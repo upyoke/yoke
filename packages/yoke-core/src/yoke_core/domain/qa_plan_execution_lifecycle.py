@@ -159,6 +159,7 @@ def finish_plan_execution(
             "QA plan execution cannot complete before every case advances"
         )
     terminal_settlement = state in TERMINAL_PLAN_EXECUTION_STATES
+    stopped_review = None
     if terminal_settlement:
         from yoke_core.domain.qa_host_turns import cancel_host_waits
         from yoke_core.domain.qa_plan_review import begin_plan_review
@@ -174,7 +175,9 @@ def finish_plan_execution(
             case.get("verdict_path") == "agent"
             for case in execution.get("roster") or []
         ):
-            begin_plan_review(conn, execution, completed_captures_only=True)
+            stopped_review = begin_plan_review(
+                conn, execution, completed_captures_only=True
+            )
         settle_unreviewed_execution_captures(conn, execution)
         record_inflight_case_failure(conn, execution, reason=reason)
     retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(
@@ -215,6 +218,15 @@ def finish_plan_execution(
     execution["release_reason"] = reason
     if terminal_settlement:
         dispose_execution_decisions(conn, execution, commit=False)
+    if stopped_review is not None and stopped_review.get("state") == "pending":
+        # The review outlives the walk; without an owner it strands the stage.
+        from yoke_core.domain.qa_plan_agent_review_wake import (
+            notify_stopped_capture_review,
+        )
+
+        notify_stopped_capture_review(
+            conn, execution, bundle_id=str(stopped_review["bundle_id"])
+        )
     if commit:
         if state == "awaiting_agent_review":
             from yoke_core.domain.qa_plan_agent_review_wake import (

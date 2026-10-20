@@ -229,16 +229,23 @@ def _pending_review_wakes(
     placeholder = marker(conn)
     if execution_id is None:
         match_sql = f"m.idempotency_key LIKE {placeholder}"
-        match_param: Any = f"{REVIEW_WAKE_PREFIX}%"
+        match_param: tuple[str, ...] = (f"{REVIEW_WAKE_PREFIX}%",)
     else:
-        match_sql = f"m.idempotency_key={placeholder}"
-        match_param = f"{REVIEW_WAKE_PREFIX}{execution_id}"
+        # A stopped walk's review wakes under ``ID:owner`` or ``ID:MEMBER``.
+        match_sql = (
+            f"(m.idempotency_key={placeholder} "
+            f"OR m.idempotency_key LIKE {placeholder})"
+        )
+        match_param = (
+            f"{REVIEW_WAKE_PREFIX}{execution_id}",
+            f"{REVIEW_WAKE_PREFIX}{execution_id}:%",
+        )
     rows = conn.execute(
         "SELECT m.message_id, m.idempotency_key FROM session_messages m "
         f"WHERE m.cancelled_at IS NULL AND {match_sql} "
         "AND EXISTS (SELECT 1 FROM session_message_recipients r "
         "WHERE r.message_id=m.message_id AND r.state IN ('pending','injected'))",
-        (match_param,),
+        match_param,
     ).fetchall()
     found = []
     for row in rows:
@@ -262,7 +269,7 @@ def withdraw_settled_agent_review_wakes(
     for message_id, key in _pending_review_wakes(conn, execution_id=execution_id):
         if not key.startswith(REVIEW_WAKE_PREFIX):
             continue
-        target_id = key[len(REVIEW_WAKE_PREFIX) :]
+        target_id = key[len(REVIEW_WAKE_PREFIX) :].split(":", 1)[0]
         if not target_id or not execution_has_persisted_verdict_batch(conn, target_id):
             continue
         cancel_message_rows(
