@@ -3,5 +3,5 @@
  "title": "Released relay long-wait proof is pending",
  "status": "deferred",
  "detail": "After release, record a real relay-launched headless Claude worker completing a wait longer than twenty minutes with the manifest launch setting. Source tests and historical direct Claude probes do not establish released relay behavior.",
- "sources": ["runtime/harness/test_session_relay_environment.py", "runtime/harness/manifest-native-cli.md"]
+ "sources": ["runtime/harness/test_session_relay_environment.py", "runtime/harness/manifest-native-cli.md", "runtime/api/tools/headless_relay_wait_probe.py"]
 }
