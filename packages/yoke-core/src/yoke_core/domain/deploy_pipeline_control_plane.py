@@ -10,7 +10,12 @@ from yoke_core.domain.deployment_start_timing import emit_records
 from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.deploy_pipeline_unknown_outcome import (
     DeploymentOutcomeUnknown,
+    DeploymentRunStayedBusy,
     UNKNOWN_CODES,
+)
+from yoke_core.domain.function_lock_refusal import (
+    LOCK_RETRY_DELAYS_SECONDS,
+    RETRYABLE_LOCK_CODES,
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -44,14 +49,36 @@ _READ_DEADLINE_BACKOFF_SECONDS = (2.0, 5.0)
 
 def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     retries = _READ_DEADLINE_BACKOFF_SECONDS if function_id in _READ_ONLY else ()
-    for delay in (*retries, None):
+    read_delays = iter(retries)
+    # A busy answer wrote nothing, so any call -- write or read -- asks again
+    # on the shared schedule; past it the driver stops with the run unchanged.
+    busy_delays = iter(LOCK_RETRY_DELAYS_SECONDS)
+    attempts = 0
+    while True:
         response = call_dispatcher(
             function_id=function_id,
             target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
             payload=payload,
         )
+        attempts += 1
         error = None if response.success else response.error
-        if delay is None or error is None or error.code != READ_DEADLINE_CODE:
+        if error is not None and error.code in RETRYABLE_LOCK_CODES:
+            delay = next(busy_delays, None)
+            if delay is None:
+                raise DeploymentRunStayedBusy(
+                    run_id, function_id, attempts, error.message
+                )
+            print(
+                f"{function_id} answered {error.code}; asking again in {delay:g}s "
+                f"(attempt {attempts + 1})",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+        if error is None or error.code != READ_DEADLINE_CODE:
+            break
+        delay = next(read_delays, None)
+        if delay is None:
             break
         print(
             f"{function_id} exceeded its read deadline; reading again in {delay:g}s",

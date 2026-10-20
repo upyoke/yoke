@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.deployment_qa_acceptance_record import (
     record_acceptance as _record_acceptance,
@@ -64,7 +65,7 @@ def write_status(conn: Any, read: Any) -> dict[str, Any]:
 
     # The run lock covers only the acceptance row and its verdict; every
     # path below commits, so no caller carries it into later members.
-    conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
+    lock_run(conn, str(run_id))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
     if acceptance_waived(conn, requirement_id):
         conn.commit()

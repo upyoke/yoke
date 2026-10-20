@@ -153,16 +153,16 @@ def _column_ready(conn: Any) -> bool:
 
 
 def _locked_row(conn: Any, run_id_value: str) -> tuple[str, Any] | None:
-    """Lock the run row without waiting, so a liveness write can never queue.
+    """Lock the run row within its bound, so a liveness write can never queue.
 
-    Raises :class:`DeploymentRunRowLockBusy` when another transaction holds the
+    Raises :class:`DeploymentRunBusy` when another transaction holds the
     row. Attaching and releasing are both liveness bookkeeping: a tick that
     waits stops reporting, and a release that waits keeps the process alive
     through its own shutdown.
     """
-    from yoke_core.domain.deployment_runs_lock import lock_run_bounded
+    from yoke_core.domain.deployment_runs_lock import lock_run
 
-    status = lock_run_bounded(conn, run_id_value)
+    status = lock_run(conn, run_id_value)
     if status is None:
         return None
     if not _column_ready(conn):
@@ -195,7 +195,7 @@ def attach_driver(
     is gone from *machine_id*; it supersedes a live attachment only when both
     match what the attachment recorded, since no other machine can know.
 
-    Raises :class:`DeploymentRunRowLockBusy` rather than waiting for a run row
+    Raises :class:`DeploymentRunBusy` rather than waiting for a run row
     another transaction holds -- see :func:`_locked_row`.
     """
     if phase not in VALID_PHASES:
@@ -245,7 +245,7 @@ def release_driver(
 ) -> bool:
     """Clear the attachment when this process still holds it.
 
-    Raises :class:`DeploymentRunRowLockBusy` rather than waiting, so shutdown
+    Raises :class:`DeploymentRunBusy` rather than waiting, so shutdown
     always completes: a release that blocked on the run row is what left a
     SIGTERMed watcher alive in its own cleanup.
     """

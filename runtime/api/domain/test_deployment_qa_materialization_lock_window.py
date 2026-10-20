@@ -272,7 +272,8 @@ def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(
     assert held.primary_success
     assert result["code"] == AWAITING_SCOPED_QA
     assert result["message"].startswith("qa_stage_dispatch_interrupted:")
-    assert "SQLSTATE 55P03" in result["message"]
+    # The run row lock is bounded on its own and refuses by name.
+    assert "(run_busy; pid " in result["message"]
     assert f"yoke watch deploy -- {run_id}" in result["message"]
     status = test_db.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s", (run_id,)

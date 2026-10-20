@@ -79,12 +79,37 @@ drop in a state-changing function, returns `control_plane_connection_lost`
 (HTTP 500, so the HTTPS client does not resend it). Its recovery is to re-read
 the targeted state and rerun once `yoke env list` shows the control plane
 reachable; the deploy driver adds `yoke watch deploy -- RUN-ID`, because a run
-resumes where it stopped. Any other exception a handler raises answers
+resumes where it stopped. The one call the driver re-sends itself is QA stage
+dispatch, which is idempotent: a lost answer is sent again up to three times,
+5s then 15s apart, and a refusal is never re-sent. Any other exception a handler raises answers
 `handler_exception` with the function id and exception class, on in-process
 dispatch as on the HTTPS route, never a raw traceback. The HTTPS server logs
 `function_call_handler_failed` with the request id, exception class and the
 traceback's frame locations (file, line, function), never the message or
 payload, so an operator can find the failing line.
+
+## Locks a handler could not take
+
+Every write that serializes on a deployment run takes the run row through one
+bounded lock: it waits at most 2 seconds, then refuses `run_busy` with the
+holder's pid, its state and how long it has held the lock. Dispatch answers
+three lock outcomes by name instead of `handler_exception`, because each means
+another transaction held what this call needed and this call's open
+transaction did not commit:
+
+| Code | Cause |
+|---|---|
+| `run_busy` | The deployment run row stayed locked past its 2-second bound. |
+| `lock_timeout` | Another lock wait outlived a `lock_timeout`. |
+| `statement_cancelled` | An operator cancelled the statement, or a server timeout ended it. |
+
+Callers retry these instead of failing. The deploy driver re-dispatches a QA or
+approval stage on its 15-second check, and repeats other run calls after 15s,
+30s, then 60s. If the run stays busy past the cap it stops with
+`deployment_run_stayed_busy`, leaving the run unchanged and unfailed;
+re-run `yoke watch deploy -- RUN-ID`. `yoke qa plan run` and `yoke qa case
+run`, and so `yoke watch qa-plan` and `yoke watch qa-case`, back off on the same
+schedule. They stop with `run_busy_retries_exhausted` after seven attempts.
 
 ## Claim verification
 

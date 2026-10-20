@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.db_helpers import query_one
 
 
@@ -36,9 +37,7 @@ def lock_admitted_copies(conn: Any, requirement_ids: list[int]) -> dict[str, Any
     reads = {run_id: _read_projection(conn, run_id) for run_id in run_ids}
     projections: dict[str, Any] = {}
     for run_id in run_ids:
-        query_one(
-            conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,)
-        )
+        lock_run(conn, str(run_id))
     for run_id in run_ids:
         projection = reads[run_id]
         if not projection.holds(conn):
@@ -78,7 +77,7 @@ def _locked_projection(conn, projections, run_id):
     if run_id in projections:
         return projections[run_id]
     projection = _read_projection(conn, run_id)
-    query_one(conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
+    lock_run(conn, str(run_id))
     if not projection.holds(conn):
         projection = _read_projection(conn, run_id)
     projections[run_id] = projection

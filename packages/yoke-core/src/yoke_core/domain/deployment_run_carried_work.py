@@ -26,6 +26,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
     bound_project_shas,
@@ -265,15 +266,15 @@ def record_carried_work(
 ) -> dict[str, Any]:
     """Write a forward-only carried-work record in the caller's transaction.
 
-    The row lock makes a concurrent recorder wait for this answer and then
-    read it, so two writers never derive the same run twice. With
+    The bounded row lock serializes recorders (a later one reads this answer
+    or refuses ``run_busy``), so two never derive the same run twice. With
     ``permanent_only`` an answer the environment caused (see
     ``carried_work_is_permanent``) is returned unrecorded, so a later read
     derives it again instead of keeping a transient failure forever.
     """
+    lock_run(conn, run_id)
     row = conn.execute(
-        "SELECT carried_work FROM deployment_runs WHERE id=%s FOR UPDATE",
-        (run_id,),
+        "SELECT carried_work FROM deployment_runs WHERE id=%s", (run_id,)
     ).fetchone()
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")

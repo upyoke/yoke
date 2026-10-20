@@ -15,8 +15,8 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
   `yoke deployment-runs start-for-item`; drive with `yoke watch deploy -- RUN_ID`.
 - A run occupies its target servers until its QA settles. `target_occupied` names the holder:
   wait for it or follow its recovery. A run with a live driver answers only to that session.
-- Recover an interrupted or lock-blocked driver by re-running `yoke watch deploy -- RUN_ID` on the
-  same run id. Never start a second run beside it.
+- A busy run (`run_busy`) never fails; the driver retries. Re-run a stopped driver with
+  `yoke watch deploy -- RUN_ID`. Never start a second run beside it.
 - A newer run on the same flow and target takes over a run waiting only on item QA. While a
   steering seat covers the project, only the seat holder or the older run's creator may. Others
   report and wait: `printf %s "LANDED <ref> <merge sha>" | yoke say --stdin --steering`.

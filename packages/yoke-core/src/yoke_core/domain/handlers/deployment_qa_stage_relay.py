@@ -22,6 +22,7 @@ from psycopg.errors import DeadlockDetected, LockNotAvailable, QueryCanceled
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.deploy_pipeline_qa_wait import AWAITING_SCOPED_QA
+from yoke_core.domain.deployment_runs_lock import RUN_BUSY_CODE, DeploymentRunBusy
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION as DISPATCH_FUNCTION_ID,
     materialize_and_gate_deployment_qa_stage,
@@ -36,9 +37,15 @@ from yoke_core.domain.handlers.deployment_run_execution import (
 )
 
 
-#: A cancelled statement (57014), a lock timeout (55P03) or a deadlock victim
-#: (40P01): the wait ended, not the stage. Retrying the same dispatch is safe.
-LOCK_WAIT_INTERRUPTIONS = (QueryCanceled, LockNotAvailable, DeadlockDetected)
+#: A cancelled statement (57014), a lock timeout (55P03), a deadlock victim
+#: (40P01) or a run row still held past its bound (``run_busy``): the wait
+#: ended, not the stage. Retrying the same dispatch is safe.
+LOCK_WAIT_INTERRUPTIONS = (
+    QueryCanceled,
+    LockNotAvailable,
+    DeadlockDetected,
+    DeploymentRunBusy,
+)
 
 
 def interrupted_dispatch_wait(
@@ -59,11 +66,16 @@ def interrupted_dispatch_wait(
         if holder is not None
         else "no other backend holds a deployment_runs lock now"
     )
-    sqlstate = getattr(exc, "sqlstate", "") or type(exc).__name__
+    sqlstate = getattr(exc, "sqlstate", "")
+    cause = (
+        f"SQLSTATE {sqlstate}"
+        if sqlstate
+        else RUN_BUSY_CODE if isinstance(exc, DeploymentRunBusy) else type(exc).__name__
+    )
     return (
         f"qa_stage_dispatch_interrupted: run {run_id!r} stage {stage_name!r} "
         f"stopped on a database lock wait that was cancelled or timed out "
-        f"(SQLSTATE {sqlstate}; {who}). Its transaction was rolled back, members "
+        f"({cause}; {who}). Its transaction was rolled back, members "
         "settled before it keep their result, and the run stays executing at "
         "this stage; the driver re-dispatches the same stage. If it repeats, "
         "let the holder finish (an 'idle in transaction' holder is an abandoned "

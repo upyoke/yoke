@@ -33,6 +33,7 @@ from yoke_core.domain.yoke_function_dispatch_idempotency import (
 )
 from yoke_core.domain.yoke_function_dispatch_target import resolve_request_item_refs
 from yoke_core.domain.function_connection_loss import name_connection_loss
+from yoke_core.domain.function_lock_refusal import name_lock_refusal
 from yoke_core.domain.function_read_deadline import invoke_handler
 from yoke_core.domain.yoke_function_idempotency_scope import (
     authorization_scope_key,
@@ -273,7 +274,11 @@ def _dispatch_impl(
             return claim_error
 
         handler_started = start_duration_measurement()
-        outcome = name_connection_loss(entry, typed_request, invoke_handler)
+        outcome = name_connection_loss(
+            entry,
+            typed_request,
+            lambda e, r: name_lock_refusal(e, r, invoke_handler),
+        )
         handler_duration_ms = elapsed_duration_ms(handler_started)
         note_handler_duration(handler_duration_ms)
         if not isinstance(outcome, HandlerOutcome):

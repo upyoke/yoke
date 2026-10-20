@@ -3,6 +3,7 @@
 import json
 from collections.abc import Mapping
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_requirement_snapshot_format import (
     CASE_FIELDS,
@@ -30,6 +31,7 @@ def selected_plan_owners(
     A shared subject names ``group_digests``: each member's shared group
     digests, read with the run's other facts before the run lock.
     """
+    lock_run(conn, str(run_id))
     run = conn.execute(
         "SELECT requirement_snapshot FROM deployment_runs WHERE id=%s FOR UPDATE",
         (run_id,),

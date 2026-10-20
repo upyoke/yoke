@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_requirement_supersession import (
@@ -182,6 +183,7 @@ def declare_existing_replacement(
             "use ordinary supersession after a pass or create a fresh case"
         )
     if failed.get("deployment_run_id"):
+        lock_run(conn, str(failed["deployment_run_id"]))
         run = query_one(
             conn,
             "SELECT status,current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",

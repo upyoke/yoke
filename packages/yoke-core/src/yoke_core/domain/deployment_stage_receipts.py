@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_stage_receipt_schema import (
     DEPLOYMENT_STAGE_RECEIPTS_SQL,
@@ -43,6 +44,7 @@ def _text(value: Any, *, field: str) -> str:
 
 
 def _run_stage(conn: Any, run_id: str, stage_name: str) -> dict[str, Any]:
+    lock_run(conn, run_id)
     cursor = conn.execute(
         "SELECT dr.id,dr.project_id,dr.flow,dr.status,dr.current_stage,"
         "dr.release_lineage,dr.artifact_identity,df.stages "
@@ -170,6 +172,7 @@ def complete_deployment_stage_receipt(
     run_id = _text(run_id, field="run_id")
     correlation_id = _text(correlation_id, field="correlation_id")
     try:
+        lock_run(conn, run_id)
         cursor = conn.execute(
             "SELECT r.*,dr.release_lineage,dr.status AS run_status,"
             "dr.artifact_identity AS run_artifact_identity "

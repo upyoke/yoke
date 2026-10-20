@@ -26,10 +26,10 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     release_driver,
 )
 from yoke_core.domain.deployment_runs_lock import (
-    RUN_ROW_LOCK_BLOCKED_PREFIX,
+    RUN_BUSY_CODE,
     RUN_ROW_LOCK_TIMEOUT_MS,
-    DeploymentRunRowLockBusy,
-    lock_run_bounded,
+    DeploymentRunBusy,
+    lock_run,
 )
 
 pytest_plugins = ["runtime.api.deployment_runs_test_db"]
@@ -54,7 +54,7 @@ def test_attach_refuses_a_run_row_another_transaction_holds(db_path: str) -> Non
         _hold_run_row(holder, run_id)
 
         started = time.monotonic()
-        with pytest.raises(DeploymentRunRowLockBusy) as raised:
+        with pytest.raises(DeploymentRunBusy) as raised:
             attach_driver(
                 driver,
                 run_id,
@@ -68,7 +68,7 @@ def test_attach_refuses_a_run_row_another_transaction_holds(db_path: str) -> Non
         assert elapsed >= RUN_ROW_LOCK_TIMEOUT_MS / 1000
         assert elapsed < PROMPT_SECONDS
         text = str(raised.value)
-        assert text.startswith(RUN_ROW_LOCK_BLOCKED_PREFIX)
+        assert text.startswith(f"{RUN_BUSY_CODE}:")
         assert run_id in text
         # The holder is named, and named as abandoned rather than busy.
         assert "idle in transaction" in text
@@ -92,8 +92,8 @@ def test_a_refused_lock_leaves_the_callers_transaction_usable(db_path: str) -> N
         driver.execute("SELECT 1")
         _hold_run_row(holder, run_id)
 
-        with pytest.raises(DeploymentRunRowLockBusy):
-            lock_run_bounded(driver, run_id)
+        with pytest.raises(DeploymentRunBusy):
+            lock_run(driver, run_id)
 
         assert driver.execute("SELECT 1").fetchone()[0] == 1
     finally:
@@ -124,12 +124,12 @@ def test_release_refuses_a_busy_row_so_shutdown_always_completes(
         _hold_run_row(holder, run_id)
 
         started = time.monotonic()
-        with pytest.raises(DeploymentRunRowLockBusy) as raised:
+        with pytest.raises(DeploymentRunBusy) as raised:
             release_driver(driver, run_id, session_id="sess-driver", pid=4242)
         elapsed = time.monotonic() - started
 
         assert elapsed < PROMPT_SECONDS
-        assert str(raised.value).startswith(RUN_ROW_LOCK_BLOCKED_PREFIX)
+        assert str(raised.value).startswith(f"{RUN_BUSY_CODE}:")
     finally:
         holder.rollback()
         holder.close()
@@ -141,8 +141,8 @@ def test_an_uncontended_row_still_locks_and_reports_its_status(db_path: str) -> 
     run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
     conn = connect_test_db(db_path)
     try:
-        assert lock_run_bounded(conn, run_id) == "created"
-        assert lock_run_bounded(conn, "run-does-not-exist") is None
+        assert lock_run(conn, run_id) == "created"
+        assert lock_run(conn, "run-does-not-exist") is None
     finally:
         conn.rollback()
         conn.close()
@@ -180,7 +180,7 @@ def test_a_table_lock_that_blocks_the_write_refuses_by_name(
         driver.commit()
         _hold_run_table_for_creation(holder)
 
-        with pytest.raises(DeploymentRunRowLockBusy) as raised:
+        with pytest.raises(DeploymentRunBusy) as raised:
             if operation == "attach":
                 attach_driver(
                     driver,
@@ -193,7 +193,7 @@ def test_a_table_lock_that_blocks_the_write_refuses_by_name(
             else:
                 release_driver(driver, run_id, session_id="sess-driver", pid=4242)
 
-        assert str(raised.value).startswith(RUN_ROW_LOCK_BLOCKED_PREFIX)
+        assert str(raised.value).startswith(f"{RUN_BUSY_CODE}:")
         assert driver.execute("SELECT 1").fetchone()[0] == 1
     finally:
         holder.rollback()

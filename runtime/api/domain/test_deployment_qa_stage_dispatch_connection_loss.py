@@ -1,13 +1,16 @@
-"""A lost answer during scoped-QA dispatch stops the driver resumably.
+"""A lost answer during scoped-QA dispatch is re-sent, then stops resumably.
 
-The dispatch may or may not have changed state, so it is never read as a
-failed stage: the driver exits without writing ``<stage>-failed`` or a run
-status, and the next re-drive continues from the same stage.
+The dispatch is idempotent -- it creates requirements only when absent and
+keys its notices -- so a lost answer is sent again, up to three sends with
+5s and 15s pauses. A refusal is never re-sent. Past the last send the outcome
+is still unknown, so it is never read as a failed stage: the driver exits
+without writing ``<stage>-failed`` or a run status, and the next re-drive
+continues from the same stage.
 """
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -33,20 +36,55 @@ def _lost(code: str) -> FunctionCallResponse:
     )
 
 
-def _dispatch(response: FunctionCallResponse):
+@pytest.fixture(autouse=True)
+def _no_real_pauses(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("yoke_core.domain.deploy_pipeline_unknown_outcome.time.sleep", sleeps.append)
+    return sleeps
+
+
+def _dispatch(*responses: FunctionCallResponse) -> tuple[tuple[int, str], Mock]:
+    sender = Mock(side_effect=list(responses))
     with patch(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-        return_value=response,
+        sender,
     ):
-        return dispatch_mod.dispatch_deployment_qa_stage(
+        result = dispatch_mod.dispatch_deployment_qa_stage(
             {"name": "item-qa", "scope": "item"}, run_id=_RUN
         )
+    return result, sender
+
+
+def _accepted() -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=True,
+        function=dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+        version="v1",
+        result={"code": -4, "message": "member pending"},
+    )
 
 
 @pytest.mark.parametrize("code", [CONNECTION_LOST_CODE, TRANSPORT_FAILED_CODE])
-def test_a_lost_answer_is_an_unknown_outcome_not_a_failed_stage(code):
-    with pytest.raises(DeploymentOutcomeUnknown) as raised:
-        _dispatch(_lost(code))
+def test_a_loss_followed_by_success_makes_two_calls(code, _no_real_pauses):
+    result, sender = _dispatch(_lost(code), _accepted())
+
+    assert result == (-4, "member pending")
+    assert sender.call_count == 2
+    assert _no_real_pauses == [5.0]
+
+
+@pytest.mark.parametrize("code", [CONNECTION_LOST_CODE, TRANSPORT_FAILED_CODE])
+def test_three_losses_raise_after_three_calls(code, _no_real_pauses):
+    sender = Mock(return_value=_lost(code))
+    with patch(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        sender,
+    ), pytest.raises(DeploymentOutcomeUnknown) as raised:
+        dispatch_mod.dispatch_deployment_qa_stage(
+            {"name": "item-qa", "scope": "item"}, run_id=_RUN
+        )
+    assert sender.call_count == 3
+    assert _no_real_pauses == [5.0, 15.0]
     text = str(raised.value)
     assert dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION in text
     assert "req-lost-1" in text
@@ -58,7 +96,7 @@ def test_the_driver_exits_without_recording_a_failure(capsys):
 
     @preserve_unknown_outcome
     def drive():
-        rc, diagnostic = _dispatch(_lost(CONNECTION_LOST_CODE))
+        (rc, diagnostic), _sender = _dispatch(*[_lost(CONNECTION_LOST_CODE)] * 3)
         failed.append((rc, diagnostic))  # the stage-failure path
         return rc
 
@@ -76,6 +114,8 @@ def test_a_genuine_refusal_still_fails_the_stage():
         version="v1",
         error=FunctionError(code="plan_execution_invalid", message="no stage"),
     )
-    code, diagnostic = _dispatch(refused)
+    (code, diagnostic), sender = _dispatch(refused)
     assert code == 1
     assert "no stage" in diagnostic
+    # A refusal is an answer: it is never sent again.
+    assert sender.call_count == 1
