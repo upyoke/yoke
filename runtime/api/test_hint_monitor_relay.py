@@ -105,6 +105,9 @@ def test_default_reminder_anchored_on_observed_failure_modes() -> None:
     assert "Ending a turn sends no" in injected_words
     assert "yoke say --steering" in injected_words
     assert "Message another session only" in hint_monitor_relay.HELP_REMINDER
+    for text in (injected_words, " ".join(hint_monitor_relay.HELP_REMINDER.split())):
+        assert "what changed" in text and "write nothing" in text
+        assert "Never paste" in text and "verbatim" not in text
 
 
 @pytest.mark.parametrize(

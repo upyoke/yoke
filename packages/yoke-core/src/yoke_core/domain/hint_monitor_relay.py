@@ -50,11 +50,13 @@ DEFAULT_REMINDER = """\
 <system-reminder>
 Monitor is a SUBSCRIPTION, not a poll. Arm once per background capture;
 matched lines arrive as wakes. Do not re-arm, peek the capture, spawn a
-waiter, or Stop while the command runs. On each wake, relay the matched
-line as your own visible output and nothing else. Ending a turn sends no
-Fleet message; send terminal and other actionable worker reports deliberately
-with `yoke say --steering`. Message another session only for something it
-would act on. Full relay rules:
+waiter, or Stop while the command runs. On each wake, write one plain
+sentence in your own visible output saying what changed that the user cares
+about (item, PR, failing test, terminal state); write nothing if nothing did.
+Never paste raw lines or reports. Ending a turn sends no Fleet message; send
+terminal and other actionable worker reports deliberately with
+`yoke say --steering`. Message another session only for something it would
+act on. Full relay rules:
 python3 -m yoke_core.domain.hint_monitor_relay --help
 </system-reminder>"""
 

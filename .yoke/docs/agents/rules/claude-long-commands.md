@@ -142,8 +142,11 @@ and --help own sanctioned recovery. Do not blanket-suppress unrelated checks.
 
 ### Monitor output and messaging
 
-Relay matched line/digest verbatim into own visible output, including suppressed
-N ticks suffix. Digests and stall notices never wake alone: the tail hands them
+On each wake, write one plain sentence in own visible output saying what changed
+that the user cares about, keeping its concrete signal (item, PR, failing test,
+terminal state); fold a digest into that sentence, and write nothing when nothing
+worth reporting changed. Never paste raw matched lines or report blocks into chat.
+Digests and stall notices never wake alone: the tail hands them
 over ahead of the next urgent line or sentinel, so a bare tail needs no filter.
 Merge/deploy suppress routine progress/retry/metadata/no-progress; other wrappers
 may batch progress (flush-seconds where supported). Silence needs no filler.
