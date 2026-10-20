@@ -8,6 +8,7 @@ landing at all.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, Iterable
 
 from yoke_core.domain import db_backend
@@ -61,7 +62,7 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
         f"CASE WHEN l.pr_number={pr} AND l.state={marker} AND "
         f"(l.merge_when_ready={marker} OR l.queue_holding={marker}) "
         "THEN 1 ELSE 0 END AS previously_held, "
-        "l.observed_at AS previous_observed_at, p.slug, "
+        "l.observed_at AS previous_observed_at, l.recovery AS previous_recovery, p.slug, "
         "p.public_item_prefix, p.default_branch "
         "FROM items i JOIN projects p ON p.id=i.project_id "
         "LEFT JOIN merge_queue_landing_attempts a "
@@ -112,7 +113,12 @@ def read_candidate(
         repo_root="",
         project=str(row["slug"]),
     )
-    if row.get("merge_queue_enqueued_at") or row.get("previously_held"):
+    if (
+        row.get("merge_queue_enqueued_at")
+        or row.get("previously_held")
+        or json.loads(row.get("previous_recovery") or "{}").get("action")
+        in {"waiting", "retry"}
+    ):
         return (
             ctx,
             read_landing(

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.merge_queue_landing_record_state import LANDING_RECORD_STATES
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS merge_queue_landing_records (
   failed_checks TEXT NOT NULL DEFAULT '[]',
   narrative TEXT NOT NULL DEFAULT '',
   disarm_note TEXT NOT NULL DEFAULT '',
+  recovery TEXT NOT NULL DEFAULT '{{}}',
   observed_at TIMESTAMPTZ NOT NULL,
   changed_at TIMESTAMPTZ NOT NULL
 );
@@ -57,6 +59,9 @@ CREATE TABLE IF NOT EXISTS merge_queue_landing_refreshes (
 def ensure_merge_queue_landing_record_schema(conn: Any) -> None:
     """Converge the additive landing-record tables on ``conn``."""
     execute_schema_script(conn, MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL)
+    _add_column_if_not_exists(
+        conn, "merge_queue_landing_records", "recovery", "TEXT NOT NULL DEFAULT '{}'"
+    )
 
 
 __all__ = [

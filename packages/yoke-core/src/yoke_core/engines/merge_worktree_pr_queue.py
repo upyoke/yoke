@@ -40,8 +40,8 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
 _ENABLE_AUTO_MERGE_MUTATION = """
-mutation($pullRequestId: ID!) {
-  enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+mutation($pullRequestId: ID!, $expectedHeadOid: GitObjectID) {
+  enablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId, expectedHeadOid: $expectedHeadOid}) {
     pullRequest { number autoMergeRequest { enabledAt } }
   }
 }
@@ -70,6 +70,7 @@ query($owner: String!, $name: String!, $branch: String!) {
   repository(owner: $owner, name: $name) {
     mergeQueue(branch: $branch) {
       entries(first: 50) {
+        pageInfo { hasNextPage }
         nodes {
           state
           pullRequest { number headRefName }
@@ -165,15 +166,10 @@ def _mutate_pull_request(
     pr_num: str,
     mutation: str,
     *,
+    expected_head_sha: str = "",
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> QueueEntryResult:
-    """Run one pull-request-id mutation; refusals stay named.
-
-    ``required_authority`` stays the installation by default, because the
-    landing observer disarms as unattended automation on the serving side
-    where no operator authorization exists. A caller whose policy requires
-    an operator to stand behind the mutation names that authority instead.
-    """
+    """Mutate one PR with installation authority unless explicitly overridden."""
     auth, auth_err = resolve_auth_detail(
         ctx, PR_WRITE, required_authority=required_authority
     )
@@ -182,10 +178,13 @@ def _mutate_pull_request(
     node_id, node_err = _pr_node_id(auth, pr_num)
     if node_err:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err)
+    variables = {"pullRequestId": node_id}
+    if expected_head_sha:
+        variables["expectedHeadOid"] = expected_head_sha
     _, mutation_err = graphql_with_auth(
         auth,
         query=mutation,
-        variables={"pullRequestId": node_id},
+        variables=variables,
         required_permissions=PR_WRITE,
     )
     if mutation_err:
@@ -193,9 +192,13 @@ def _mutate_pull_request(
     return QueueEntryResult(success=True, pr_num=pr_num)
 
 
-def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+def enter_merge_queue(
+    ctx: MergeContext, pr_num: str, *, expected_head_sha: str = ""
+) -> QueueEntryResult:
     """Enqueue ``pr_num`` with merge-when-ready; refusals stay named."""
-    return _mutate_pull_request(ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION)
+    return _mutate_pull_request(
+        ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION, expected_head_sha=expected_head_sha
+    )
 
 
 def leave_merge_queue(
@@ -280,13 +283,7 @@ def read_pr_landing_state(
 def read_queue_members(
     ctx: MergeContext, *, base_branch: str = "main"
 ) -> tuple[Optional[list[QueueMember]], Optional[str]]:
-    """List current queue entries for the base branch.
-
-    Returns ``(members, None)`` on success — an empty list when the queue
-    is empty — or ``(None, error_detail)`` when the repository has no
-    queue or the read fails; callers treat that as a named refusal, not
-    an empty queue.
-    """
+    """Read queue order; refuse unavailable or incomplete listings."""
     auth, auth_err = resolve_auth_detail(ctx, PR_READ)
     if auth_err or auth is None:
         return None, auth_err
@@ -305,6 +302,11 @@ def read_queue_members(
         return None, (
             f"repository {repo} reports no merge queue on {base_branch!r}; "
             "configure the queue ruleset before selecting the queue route"
+        )
+    if ((queue.get("entries") or {}).get("pageInfo") or {}).get("hasNextPage"):
+        return (
+            None,
+            "queue_order_incomplete: more than 50 entries; retry after the queue drains below 50 entries",
         )
     nodes = ((queue.get("entries") or {}).get("nodes")) or []
     members: list[QueueMember] = []

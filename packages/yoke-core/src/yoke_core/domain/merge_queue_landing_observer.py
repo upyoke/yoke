@@ -53,6 +53,8 @@ from yoke_core.domain.merge_queue_landing_candidates import (
     pending_landing_rows,
     read_candidate,
 )
+from yoke_core.domain.merge_queue_enqueue_verification import read_landing
+from yoke_core.domain.merge_queue_ejection_recovery import recover_ejection
 from yoke_core.domain.merge_queue_landing_record import (
     from_readback,
     write_landing_record,
@@ -158,6 +160,20 @@ def observe_pending_landings(
                 read_membership=read_membership,
                 read_checks=read_checks,
             )
+            readback = recover_ejection(
+                conn,
+                row,
+                ctx,
+                readback,
+                now=current,
+                reread=lambda ctx, pr: read_landing(
+                    ctx,
+                    pr,
+                    read_state=read_state,
+                    read_membership=read_membership,
+                    read_checks=read_checks,
+                ),
+            )
             if readback.membership is not None or readback.merged:
                 if row.get("previously_held") and not row.get(
                     "merge_queue_enqueued_at"
@@ -212,6 +228,8 @@ def observe_pending_landings(
                 # this head; with one, dedupe only that arming's notice.
                 head_sha = readback.state.head_sha if readback.state else ""
                 head_key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
+                if readback.queue_recovery.get("ahead"):
+                    head_key += ":" + readback.queue_recovery.get("action", "")
                 episode = row.get("merge_queue_enqueued_at")
                 episode = parse_instant(episode) if episode not in (None, "") else None
                 key = arming_notice_key(conn, head_key=head_key, enqueued_at=episode)

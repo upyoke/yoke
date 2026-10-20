@@ -36,8 +36,14 @@ When GitHub holds neither arming nor a viable queue entry, or the entry state
 is `UNMERGEABLE`, the observer sends one stopped-landing notice to the item's claim holder through the existing wake
 route. Required checks that failed or were cancelled appear in the notice;
 the stop is still reported if a later rerun passed without restoring arming.
-An `UNMERGEABLE` entry reports a conflict even while GitHub retains it behind
-other entries: rebase onto the base and re-run verification before merge re-entry.
+`mergeable=CONFLICTING` means the PR conflicts with the base: rebase onto the
+base, re-run verification and re-enter `yoke merge item`. An `UNMERGEABLE`
+queue entry with `mergeable=MERGEABLE` can conflict only with the train ahead.
+The landing record snapshots the preceding PR numbers and shared changed
+files. Wait for those entries to land or leave; then re-read `mergeable`:
+`CONFLICTING` requires a rebase and verification, while `MERGEABLE` permits
+re-enqueueing the unchanged head. Shared files explain possible overlap; they
+do not prove a content conflict.
 An unreadable queue membership proves no stop and is retried on the next
 observation. So does an open pull request whose merge state GitHub reports as
 unknown: GitHub reports that while it recomputes, including mid-merge after it
@@ -47,7 +53,14 @@ until a later read shows the merge or a known refusal. A merged pull request rec
 Recovery belongs to the holder: address the named check or protection rule
 and re-run the same governed `yoke merge item` command. If the lane or base
 moved, rebase onto the base, re-run verification, and re-enter that command.
-The observer never re-arms a pull request. A governed retry recovers cancelled
+For a snapshotted queue conflict, the observer waits for the entries ahead to
+leave, rechecks base mergeability and required checks, and requests
+merge-when-ready again on the unchanged head if it remains mergeable.
+`yoke merge item --wait` consumes that recovery through the same server
+record; it returns control to the lane holder when a rebase is needed.
+An unreadable queue or file listing names the failed read and its repair;
+no re-enqueue is sent without the needed evidence. Other stopped landings
+require the holder's governed retry. A governed retry recovers cancelled
 or never-started required checks even when the open PR is already armed but
 unadmitted; it never sends a duplicate arming request. It verifies current
 head, newest workflow run and job evidence before one rerun POST. Active,
@@ -69,7 +82,12 @@ and the item's `merge_queue_*` columns stay on the previous landing. One
 attempt is open per item; a newer pull request closes the older attempt as
 superseded. Opening a never-armed attempt preserves the prior landed
 observation; closing that attempt unmerged leaves it available. Arming a new
-attempt starts a new observation episode.
+attempt starts a new observation episode. Leaving the queue clears the
+attempt's `enqueued_at`; the durable recovery record keeps the queue blocker
+and shared files. Release enrollment and containment refuse an open attempt
+with `item_landing_open`, naming its PR. Wait for the correction to merge or
+close, then refresh the candidate and retry release admission; the older
+landing cannot stand in for a correction still in flight.
 
 When a lane adds no content to its target, re-run `yoke merge item PREFIX-N`
 with `--result` and `--verification`. Close-out verifies the newest completed

@@ -4,6 +4,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Mapping
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_landing_guard import require_closed_landing
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.delivery_landing_custody import merged_open_items
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -93,10 +94,10 @@ def candidate_containment_basis(
             parse_candidate_containment,
         )
 
-        return {
-            "schema": CANDIDATE_CONTAINMENT_SCHEMA,
-            "recorded_snapshot": parse_candidate_containment(stored),
-        }
+        snapshot = parse_candidate_containment(stored)
+        for item in snapshot.get("items", []):
+            require_closed_landing(conn, int(item["id"]))
+        return {"schema": CANDIDATE_CONTAINMENT_SCHEMA, "recorded_snapshot": snapshot}
     run = {
         "project_id": int(_cell(row, "project_id", 0)),
         "release_lineage": _cell(row, "release_lineage", 1),
@@ -125,6 +126,8 @@ def candidate_containment_basis(
     projects: list[dict[str, Any]] = []
     for project_id in project_ids:
         item_ids = _delivery_item_ids(conn, project_id, anchor)
+        for item_id in item_ids:
+            require_closed_landing(conn, item_id)
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
             {
