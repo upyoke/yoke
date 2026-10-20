@@ -7,8 +7,12 @@ import pytest
 
 from runtime.api.domain import test_agent_mission_cleanup as mission_support
 from runtime.api.domain.test_qa_member_machine_partitions import (
-    MACHINES, _begin, _case_begin, _seed,
+    MACHINES,
+    _begin,
+    _case_begin,
+    _seed,
 )
+from yoke_core.domain.machine_reset_debt import reset_owed
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.coordination_claims_operator import operator_release
 from yoke_core.domain.handlers.claims_coordination_claim import handle_release
@@ -21,7 +25,9 @@ removed_mission = mission_support.removed_mission
 
 
 @pytest.mark.parametrize("removed_mission", [True], indirect=True)
-def test_walk_end_recorded_before_removal_releases_review_host(test_db, removed_mission):
+def test_walk_end_recorded_before_removal_releases_review_host(
+    test_db, removed_mission
+):
     request, _, original = removed_mission
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "aborted"
@@ -31,7 +37,9 @@ def test_walk_end_recorded_before_removal_releases_review_host(test_db, removed_
 
 
 @pytest.mark.parametrize("surface", ["holder", "steering", "claim-id"])
-def test_manual_release_settles_dirty_mission_review(test_db, removed_mission, surface, monkeypatch):
+def test_manual_release_settles_dirty_mission_review(
+    test_db, removed_mission, surface, monkeypatch
+):
     request, _, original = removed_mission
     lease_id = original["lease_id"]
     if surface == "holder":
@@ -39,17 +47,25 @@ def test_manual_release_settles_dirty_mission_review(test_db, removed_mission, s
             "yoke_core.domain.handlers.claims_coordination_claim._connect_rw",
             lambda: nullcontext(test_db),
         )
-        outcome = handle_release(request.model_copy(update={
-            "function": "claims.coordination_claim.release",
-            "payload": {"claim_id": lease_id, "reason": "stop host work"},
-        }))
+        outcome = handle_release(
+            request.model_copy(
+                update={
+                    "function": "claims.coordination_claim.release",
+                    "payload": {"claim_id": lease_id, "reason": "stop host work"},
+                }
+            )
+        )
         assert outcome.primary_success, outcome.error
         reason = "stop host work"
     elif surface == "steering":
         operator_release(
-            test_db, None, f"QA_HOST:{original['settings']['resource_name']}",
-            "stop host work", expected_claim_id=lease_id,
-            expected_holder_session_id=request.actor.session_id, operator_actor_id=1,
+            test_db,
+            None,
+            f"QA_HOST:{original['settings']['resource_name']}",
+            "stop host work",
+            expected_claim_id=lease_id,
+            expected_holder_session_id=request.actor.session_id,
+            operator_actor_id=1,
         )
         reason = "operator-override: stop host work"
     else:
@@ -60,6 +76,7 @@ def test_manual_release_settles_dirty_mission_review(test_db, removed_mission, s
     assert current["release_reason"] == reason
     assert current["machine_lease_id"] is None
     assert not get_claim(test_db, lease_id).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
 
 
 @pytest.mark.parametrize("host_index", [0, 1])
@@ -75,18 +92,47 @@ def test_releasing_either_simultaneous_host_settles_the_whole_set(
     current = lock_plan_execution(test_db, execution["id"])
     assert current["state"] == "aborted" and current["machine_lease_id"] is None
     assert all(not get_claim(test_db, lease.id).is_active for lease in leases)
+    assert all(reset_owed(test_db, machine) == "fresh-host" for machine in MACHINES)
 
 
 def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
     from yoke_core.domain.qa_host_manual_release import release_host_claim
 
     request, _, original = removed_mission
-    with patch(
-        "yoke_core.domain.qa_plan_execution_lifecycle.finish_plan_execution",
-        side_effect=ValueError("settlement unavailable"),
-    ), pytest.raises(ValueError, match="settlement unavailable"):
+    with (
+        patch(
+            "yoke_core.domain.qa_plan_execution_lifecycle.finish_plan_execution",
+            side_effect=ValueError("settlement unavailable"),
+        ),
+        pytest.raises(ValueError, match="settlement unavailable"),
+    ):
         release_host_claim(test_db, original["lease_id"], "stop", commit=False)
     assert get_claim(test_db, original["lease_id"]).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) is None
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "awaiting_agent_review"
     assert current["machine_lease_id"] == original["lease_id"]
+
+
+@pytest.mark.parametrize("baseline", [None, "shell-preconfigured"])
+def test_manual_release_owes_the_settled_case_baseline(
+    test_db, removed_mission, baseline
+):
+    from yoke_core.domain.qa_plan_execution_store import canonical, roster_digest
+
+    request, _, original = removed_mission
+    execution = lock_plan_execution(test_db, request.payload["execution_id"])
+    roster = execution["roster"]
+    roster[0].update(
+        host_baseline=baseline, starting_state="baseline" if baseline else "as_is"
+    )
+    test_db.execute(
+        "UPDATE qa_plan_executions SET roster_json=%s,roster_digest=%s WHERE id=%s",
+        (canonical(roster), roster_digest(roster), execution["id"]),
+    )
+    test_db.commit()
+    release_claim_by_id(test_db, original["lease_id"], "stop host work")
+    assert not get_claim(test_db, original["lease_id"]).is_active
+    assert reset_owed(test_db, original["settings"]["resource_name"]) == (
+        baseline or "fresh-host"
+    )

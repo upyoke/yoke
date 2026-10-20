@@ -207,7 +207,10 @@ case without a baseline. Failed recovery records `machine_needs_repair` and
 the exact `yoke test-machine reset` command; the steering report shows that
 machine and command until a later successful reset receipt clears the debt.
 A cleanup finish always releases its lease, even without restore proof, and
-records restore evidence before committing the release. Recovery contracts
+records restore evidence before committing the release. A deliberate manual
+QA_HOST release also records reset debt for every released execution host,
+using its case baseline or `fresh-host`, while preserving cancellation and
+the recorded release reason. Recovery contracts
 require a runner supporting `host-control-reset-recovery-v1`; an older runner
 refuses before host work and must be upgraded before retrying.
 

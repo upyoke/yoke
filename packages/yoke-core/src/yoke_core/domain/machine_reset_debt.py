@@ -137,3 +137,25 @@ def recovered_submission_contract(conn, machine, lease_id, digest, expected):
         if hmac.compare_digest(execution_contract_digest(recovered), digest)
         else None
     )
+
+
+def record_execution_reset_debt(conn, execution, leases):
+    """Custody lost without cleanup owes the interrupted case's baseline."""
+    from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+
+    roster = execution.get("roster") or []
+    if not roster:
+        raise ValueError(
+            "qa_host_reset_context_missing: inspect this execution's missing roster "
+            "with the control-plane operator before releasing its host"
+        )
+    abort = abort_request(execution) or {}
+    ordinal = int(abort.get("ordinal", execution["cursor_ordinal"]))
+    case = roster[min(ordinal, len(roster) - 1)]
+    for lease in leases:
+        record_reset_owed(
+            conn,
+            case=case,
+            machine=lease.target.machine_id,
+            lease_id=lease.id,
+        )

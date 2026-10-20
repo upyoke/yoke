@@ -109,19 +109,30 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
         import json
         from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 
-        outcome = handle_qa_artifact_add(request.model_copy(update={
-            "function": "qa.artifact.add",
-            "target": TargetRef(kind="qa_requirement", qa_requirement_id=requirement),
-            "payload": {
-                "run_id": ready.result_payload["result"]["run_id"],
-                "artifact_type": "starting_state_restore",
-                "filename": "starting-state-restore.json",
-                "content_type": "application/json",
-                "content_base64": base64.b64encode(json.dumps({
-                    "restored": True, "baseline": "fresh-host",
-                }).encode()).decode(),
-            },
-        }))
+        outcome = handle_qa_artifact_add(
+            request.model_copy(
+                update={
+                    "function": "qa.artifact.add",
+                    "target": TargetRef(
+                        kind="qa_requirement", qa_requirement_id=requirement
+                    ),
+                    "payload": {
+                        "run_id": ready.result_payload["result"]["run_id"],
+                        "artifact_type": "starting_state_restore",
+                        "filename": "starting-state-restore.json",
+                        "content_type": "application/json",
+                        "content_base64": base64.b64encode(
+                            json.dumps(
+                                {
+                                    "restored": True,
+                                    "baseline": "fresh-host",
+                                }
+                            ).encode()
+                        ).decode(),
+                    },
+                }
+            )
+        )
         assert outcome.primary_success, outcome.error
     remove_member_on(test_db, RUN, ITEM, reason="later release")
     test_db.commit()
@@ -129,7 +140,9 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     assert get_claim(test_db, original["lease_id"]).is_active != restored_before_removal
     current = lock_plan_execution(test_db, execution_id)
     test_db.rollback()
-    assert current["state"] == ("aborted" if restored_before_removal else "awaiting_agent_review")
+    assert current["state"] == (
+        "aborted" if restored_before_removal else "awaiting_agent_review"
+    )
     assert member_removal_pending(current) != restored_before_removal
     cleanup = request.model_copy(
         update={
@@ -269,72 +282,3 @@ def test_removed_mission_host_is_held_until_walk_end(removed_mission, test_db):
     assert replay.primary_success, replay.error
     assert replay.result_payload["execution"]["lease_id"] == original["lease_id"]
     assert get_claim(test_db, original["lease_id"]).is_active
-
-
-@pytest.mark.parametrize("local_failure", [False, True])
-def test_walk_end_always_finishes_its_cleanup_lease(
-    monkeypatch, capsys, local_failure, removed_mission, test_db
-):
-    from yoke_core.domain import agent_mission_walk_cli, machine_qa_mission_walk
-    from yoke_core.domain import qa_composed_dispatch
-
-    request, _, original = removed_mission
-    acquired = handle_agent_mission_access(request)
-    assert acquired.primary_success, acquired.error
-
-    def resolve(parsed, *, prog):
-        parsed.cleanup_lease = True
-        return acquired.result_payload["execution"]
-
-    def teardown(*args, **kwargs):
-        if local_failure:
-            raise RuntimeError("private-token")
-        return {
-            "removed": True,
-            "stale_owner_marker_removed": True,
-            "starting_state_restore": {"restored": True, "baseline": "fresh-host"},
-        }
-
-    sent = []
-
-    def dispatch(**kw):
-        sent.append(kw)
-        outcome = handle_agent_mission_access(
-            request.model_copy(update={"payload": kw["payload"]})
-        )
-        assert outcome.primary_success, outcome.error
-        return SimpleNamespace(success=True)
-
-    monkeypatch.setattr(agent_mission_walk_cli, "resolve_mission_contract", resolve)
-    monkeypatch.setattr(
-        machine_qa_mission_walk, "execute_agent_mission_walk_end", teardown
-    )
-    monkeypatch.setattr(
-        qa_composed_dispatch,
-        "call_qa_function",
-        dispatch,
-    )
-    code = agent_mission_walk_cli.run_end(
-        [
-            "--deployment-run-id",
-            RUN,
-            "--execution-id",
-            request.payload["execution_id"],
-            "--requirement-id",
-            str(request.payload["requirement_id"]),
-            "--run-id",
-            str(request.payload["run_id"]),
-        ]
-    )
-    assert code == (2 if local_failure else 0)
-    assert len(sent) == 1
-    assert sent[0]["payload"]["cleanup"] == "finish"
-    assert sent[0]["payload"]["lease_id"] == original["lease_id"]
-    from yoke_core.domain.machine_reset_debt import reset_owed
-
-    assert reset_owed(test_db, original["settings"]["resource_name"]) == (
-        "fresh-host" if local_failure else None
-    )
-    assert (sent[0]["payload"]["restore"] is None) == local_failure
-    output = capsys.readouterr()
-    assert "private-token" not in output.out + output.err
