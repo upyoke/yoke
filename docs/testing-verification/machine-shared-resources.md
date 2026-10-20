@@ -29,8 +29,10 @@ home path is refused uses a home outside the OS temp roots (for example
 **The running environment.** The source runner starts pytest with
 `UV_PROJECT_ENVIRONMENT` naming the checkout's `.venv`. A test that inherits
 it and syncs a fixture project installs that fixture's lock into the running
-environment and removes every package the suite needs, so
-`runtime/running_environment_isolation.py` clears it for every test. Product
+environment and removes every package the suite needs. Under GitHub Actions
+the job's command files (`GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`,
+`GITHUB_PATH`) arrive the same way. `runtime/running_environment_isolation.py`
+clears all of them for every test; a test that exercises one sets its own. Product
 code that launches uv for another project (lane provisioning, the
 `yoke watch` re-exec) runs it under
 `yoke_contracts.uv_project.project_own_environment`, which drops
