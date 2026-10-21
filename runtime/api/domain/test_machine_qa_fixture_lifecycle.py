@@ -215,7 +215,7 @@ def test_fixture_failure_preserves_the_reached_baseline_identity() -> None:
     assert result.evidence["baseline"] == "fresh-host"
 
 
-def test_post_state_failure_discards_primary_evidence() -> None:
+def test_post_state_failure_keeps_the_journey_evidence() -> None:
     result, execution, events = run_lifecycle(
         post_state=action_result(
             False,
@@ -224,14 +224,15 @@ def test_post_state_failure_discards_primary_evidence() -> None:
         primary=MachineCaseResult(
             case_outcome="passed",
             verdict="pass",
-            evidence={"sensitive-primary-output": "discard-me"},
+            evidence={"steps": [{"key": "machine-github"}]},
         ),
     )
 
     assert result.error_code == "fixture_post_state_failed"
     assert execution.execute_calls == 1
     assert events == ["setup", "primary", "post-state", "close"]
-    assert "sensitive-primary-output" not in result.evidence
+    assert result.evidence["steps"] == [{"key": "machine-github"}]
+    assert result.evidence["runner_id"] == "host_control"
 
 
 def test_primary_failed_result_still_runs_post_state_and_cleanup() -> None:
@@ -277,21 +278,21 @@ def test_cleanup_retry_preserves_attempts_and_fails_case_closed() -> None:
     ]
 
 
-def test_persistent_cleanup_failure_overrides_primary_result() -> None:
+def test_persistent_cleanup_failure_fails_the_case_but_keeps_its_evidence() -> None:
     failed_cleanup = action_result(False, "fixture.yoke-api-start")
     result, _execution, events = run_lifecycle(
         cleanup=[failed_cleanup, failed_cleanup],
         primary=MachineCaseResult(
             case_outcome="passed",
             verdict="pass",
-            evidence={"primary-private": "discard-me"},
+            evidence={"steps": [{"key": "primary"}]},
         ),
     )
 
     assert result.error_code == "fixture_cleanup_failed"
     assert result.case_outcome == "failed"
     assert events[-2:] == ["close", "close"]
-    assert "primary-private" not in result.evidence
+    assert result.evidence["steps"] == [{"key": "primary"}]
 
 
 def test_plan_case_contract_uses_the_same_single_case_lifecycle(

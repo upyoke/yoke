@@ -57,6 +57,7 @@ def snapshot(mode: str) -> dict[str, Any]:
             "SELECT actor_id, consumed_machine_id FROM teammate_invite_codes "
             "WHERE consumed_at IS NOT NULL ORDER BY id"
         ).fetchall()
+        (issued,) = conn.execute("SELECT count(*) FROM teammate_invite_codes").fetchone()
         identities = conn.execute(
             "SELECT subject, actor_id FROM actor_external_identities ORDER BY id"
         ).fetchall()
@@ -68,6 +69,7 @@ def snapshot(mode: str) -> dict[str, Any]:
         "tokens": [[actor_id, machine_id] for actor_id, machine_id in tokens],
         "identities": {subject: actor_id for subject, actor_id in identities},
         "consumed_invites": [list(row) for row in invites],
+        "issued_invites": issued,
         "org_members": [row[0] for row in org_members],
     }
 
@@ -100,6 +102,19 @@ def admission_changes(
         "new_humans": sorted(set(current["humans"]) - set(baseline["humans"])),
         "new_machines": machines,
         "new_tokens": sorted([list(row) for row in tokens.elements()]),
+    }
+
+
+def admission_report(
+    mode: str, expect: str, baseline: dict[str, Any], current: dict[str, Any]
+) -> dict[str, Any]:
+    """The changes plus whether any invite was issued in this universe at all."""
+    return {
+        "mode": mode,
+        "expect": expect,
+        **admission_changes(baseline, current),
+        "new_issued_invites": current["issued_invites"]
+        - baseline.get("issued_invites", 0),
     }
 
 
@@ -172,7 +187,7 @@ def assert_state(mode: str, expect: str) -> dict[str, Any]:
     baseline = json.loads(path.read_text(encoding="utf-8"))
     current = snapshot(mode)
     failures = expectation_failures(mode, expect, baseline, current)
-    report = {"mode": mode, "expect": expect, **admission_changes(baseline, current)}
+    report = admission_report(mode, expect, baseline, current)
     if failures:
         raise AdmissionFixtureError(
             "machine_admission_state_mismatch: "
@@ -187,6 +202,7 @@ def assert_state(mode: str, expect: str) -> dict[str, Any]:
 __all__ = [
     "EXPECTATIONS",
     "admission_changes",
+    "admission_report",
     "assert_state",
     "expectation_failures",
     "save_baseline",

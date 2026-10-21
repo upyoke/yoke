@@ -146,8 +146,12 @@ def _failed_case(
     lifecycle: Mapping[str, Any],
     primary_failed: bool = False,
     primary_error: BaseException | None = None,
+    primary: MachineCaseResult | None = None,
 ) -> MachineCaseResult:
+    # A journey that ran keeps its own evidence when a fixture step fails
+    # afterwards, so the transcript explains the failed proof.
     evidence: dict[str, Any] = {
+        **(primary.evidence if primary is not None else {}),
         "runner_id": "host_control",
         "machine": execution.material.settings["resource_name"],
         "method_id": case.method_id,
@@ -296,6 +300,7 @@ def execute_case_with_fixture_lifecycle(
             lifecycle=lifecycle,
             primary_failed=primary_failed,
             primary_error=primary_error,
+            primary=primary,
         )
     if not setup.ok:
         return _failed_case(
@@ -304,12 +309,13 @@ def execute_case_with_fixture_lifecycle(
             error_code="fixture_setup_failed",
             lifecycle=lifecycle,
         )
-    if not post_state.ok:
+    if not post_state.ok and (primary is None or primary.case_outcome == "passed"):
         return _failed_case(
             execution,
             case,
             error_code="fixture_post_state_failed",
             lifecycle=lifecycle,
+            primary=primary,
         )
     if primary_failed or primary is None:
         return _failed_case(

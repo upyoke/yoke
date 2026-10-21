@@ -9,8 +9,12 @@ from runtime.api.domain.machine_qa_fixture_test_support import (
     fixture_runner,
     operation,
 )
-from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import run_lifecycle
+from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
+    action_result,
+    run_lifecycle,
+)
 from yoke_core.domain.host_control_runner import HostActionResult
+from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.machine_qa_fixture_admission import HOST_MODULE
 from yoke_core.domain.machine_qa_fixture_runtime import (
     MachineQaFixtureRuntime,
@@ -84,3 +88,22 @@ def test_admission_host_runs_on_the_current_release_interpreter() -> None:
         [release_python, "-m", HOST_MODULE, "stop" if step else "start", "self-hosted"]
         for step in (False, True)
     ]
+
+
+def test_a_failed_journey_reports_its_own_error_before_the_state_proof() -> None:
+    journey = MachineCaseResult(
+        case_outcome="failed",
+        verdict="fail",
+        evidence={"steps": [{"key": "invite-code"}]},
+        error_code="terminal_ready_timeout",
+    )
+    result, _execution, events = run_lifecycle(
+        primary=journey,
+        post_state=action_result(False, "fixture.machine-admission-state-assert"),
+    )
+
+    assert events == ["setup", "primary", "post-state", "close"]
+    assert result.error_code == "terminal_ready_timeout"
+    assert result.evidence["steps"] == [{"key": "invite-code"}]
+    post_state = result.evidence["fixture_operations"]["post_state"]
+    assert post_state["outcome"] == "failed"

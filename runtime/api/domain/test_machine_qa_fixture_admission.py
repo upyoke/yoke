@@ -129,6 +129,7 @@ def test_a_teammate_invite_admits_one_machine_once() -> None:
         proved = _assert_state("self-hosted", "teammate-admitted")
         assert proved.returncode == 0, proved.stderr
         assert invite_code not in proved.stdout
+        assert json.loads(proved.stdout.splitlines()[-1])["new_issued_invites"] == 1
         assert _assert_state("self-hosted", "owner-admitted").returncode == 1
 
 
