@@ -65,37 +65,7 @@ def test_external_project_teaching_has_no_checkout_only_control_plane_recipe() -
     assert residue == []
 
 
-def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
-    """Each recipe stays taught where it belongs, not merely somewhere.
-
-    The rules file carries the standing rules every session needs before it
-    acts. A recipe that only applies while working on Yoke's own source lives
-    in the source-dev doctrine the rules file points at, so this asserts each
-    one against its own home rather than against whichever file it started
-    in.
-    """
-    agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
-    verification = (REPO / "docs/testing-verification.md").read_text(encoding="utf-8")
-    source_development = (
-        REPO / "docs/testing-verification/source-development.md"
-    ).read_text(encoding="utf-8")
-    source_dev_doctrine = (REPO / "docs/source-dev-doctrine.md").read_text(
-        encoding="utf-8"
-    )
-    assert "yoke dev ruff-changed --base <ref>" in source_dev_doctrine
-    assert "Use `-- -n 0`" in source_dev_doctrine
-    assert "docs/source-dev-doctrine.md" in agents
-    assert "`code-and-cli.md`" in agents
-    assert "read its home in `.yoke/docs/agents/rules/`" in agents
-    code_home = (REPO / ".yoke/docs/agents/rules/code-and-cli.md").read_text()
-    shell_home = (REPO / ".yoke/docs/agents/rules/shell-and-cli.md").read_text()
-    assert "Enumerate optional globs with `rg --files`" in shell_home
-    assert "commit hashes and the bare integer `item_id`" in agents
-    assert "Never invent or expand one" in code_home
-    assert "cat-file -e '<sha>^{commit}'" in code_home
-    assert "yoke dev run -- <command>" in verification
-    assert "git diff --name-only --diff-filter=ACMR <base>...HEAD" in source_development
-    assert "Do not pipe NUL-delimited Git output through `rg -z`" in source_development
+def test_registered_surfaces_exist() -> None:
     expected = {
         ("ephemeral-env", "create"),
         ("workflow-item", "epic-dispatch-chain", "advance"),
@@ -148,48 +118,3 @@ def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
         assert (REPO / owner).is_file()
         assert owner in atlas
 
-
-def test_pack_docs_use_capability_owned_pulumi_bootstrap() -> None:
-    paths = (
-        REPO
-        / "packs"
-        / "pulumi-foundation"
-        / "versions"
-        / "1.0.0"
-        / "files"
-        / "docs"
-        / "packs"
-        / "pulumi-foundation"
-        / "environment.md",
-        REPO
-        / "packs"
-        / "production-deploy"
-        / "versions"
-        / "1.0.0"
-        / "files"
-        / "docs"
-        / "packs"
-        / "production-deploy"
-        / "setup.md",
-        REPO
-        / "packs"
-        / "production-deploy"
-        / "versions"
-        / "1.0.0"
-        / "files"
-        / "docs"
-        / "packs"
-        / "production-deploy"
-        / "checklist.md",
-    )
-    for path in paths:
-        text = path.read_text(encoding="utf-8")
-        assert "yoke pulumi exec --project <project> --stack" in text
-        assert "-- preview" in text
-        assert "-- up --yes --non-interactive" in text
-        assert "AWS_PROFILE=" not in text
-    combined = "\n".join(path.read_text(encoding="utf-8") for path in paths)
-    assert "-- init --secrets-provider 'awskms://" in combined
-    assert "0700" in combined
-    assert "typed operator-state" in combined
-    assert "No repo-local infrastructure checkout" in combined

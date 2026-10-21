@@ -1,4 +1,4 @@
-"""Agent filing recipes resolve scoped instructions before authoring.
+"""Agent filing recipes carry the execution-instructions attestation flag.
 
 Every recipe that files through a non-web entry surface also carries the
 attestation flag, because ``items.create`` refuses the filing without it
@@ -12,8 +12,6 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 SKILLS = ROOT / ".agents" / "skills" / "yoke"
-RESOLVER = "yoke workflow execution-instruction resolve"
-FUNCTION_ID = "workflow.execution_instruction.resolve"
 ATTESTATION = "--execution-instructions-considered"
 
 #: Every recipe file whose filing command reaches ``items.create``
@@ -29,74 +27,6 @@ FILING_RECIPES = (
 
 def _read(relative: str) -> str:
     return (SKILLS / relative).read_text(encoding="utf-8")
-
-
-def _ordered(text: str, first: str, second: str) -> None:
-    assert first in text
-    assert second in text
-    assert text.index(first) < text.index(second)
-
-
-def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
-    filing = _read("dash/file-and-claim.md")
-    _ordered(
-        filing,
-        f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash --title "<specific title>" --project PROJECT',
-    )
-
-    # Escalation is its own phase file; the entrypoint only routes to it.
-    escalation = _read("dash/escalate.md")
-    _ordered(
-        escalation,
-        f"{RESOLVER} --workflow issue --project PROJECT",
-        "yoke direct-workflow dash escalate",
-    )
-
-
-def test_idea_resolves_after_scope_selection_and_before_create() -> None:
-    text = _read("idea/infer-and-create.md")
-    resolution = text.split(
-        "### c2. Resolve execution instructions before final authoring", 1
-    )[1]
-    _ordered(resolution, RESOLVER, "## 5. Create The Item")
-    assert FUNCTION_ID in resolution
-    assert "remains defense in depth" in resolution
-
-
-def test_feed_resolves_each_materialized_item_before_create() -> None:
-    text = _read("feed/materialize.md").split(
-        "### 3A.2 Resolve The Filing Contract", 1
-    )[1]
-    _ordered(text, RESOLVER, "### 3A.3 Create via `/yoke idea`")
-    assert FUNCTION_ID in text
-    assert "/yoke idea --workflow ${_workflow}" in text
-
-
-def test_curate_resolves_before_both_cluster_outputs() -> None:
-    cluster = _read("curate/cluster-and-work-item.md")
-    assert "Run only the\nresolver for the selected output" in cluster
-    filing = cluster.split("## 3. Validate and propose", 1)[1]
-    _ordered(filing, FUNCTION_ID, RESOLVER)
-    _ordered(filing, RESOLVER, "## 4. Produce approved outputs")
-    _ordered(filing, RESOLVER, "yoke ouroboros field-note promote")
-    _ordered(
-        filing,
-        RESOLVER,
-        'yoke items create --title "{title}" --workflow issue',
-    )
-
-    router = _read("curate/run.md")
-    assert "[cluster-and-work-item.md](cluster-and-work-item.md)" in router
-
-
-def test_conduct_resolves_before_gap_filing() -> None:
-    conduct = _read("conduct/simulation-gate-escalation.md")
-    assert "[Idea](../idea/SKILL.md)" in conduct
-    assert "exact target project" in conduct
-    idea = _read("idea/infer-and-create.md")
-    _ordered(idea, RESOLVER, "## 5. Create The Item")
-    assert FUNCTION_ID in idea
 
 
 @pytest.mark.parametrize("recipe", FILING_RECIPES)

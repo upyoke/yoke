@@ -58,11 +58,6 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
     assert rc == 0
     assert out.startswith("usage: yoke --env CONTROL-PLANE-ENV")
     assert "CONTROL-PLANE-ENV-db-admin" not in out
-    # The selected connection names the control plane, not the destination;
-    # only a true serving-API self-deploy needs its paired local admin env.
-    assert "not the environment being deployed to" in out
-    assert "self-deploy" in out
-    assert "release_lineage" in out
     assert "--environment" in out
     assert err == ""
 

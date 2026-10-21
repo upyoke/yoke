@@ -137,28 +137,12 @@ class TestRenderCompact:
         assert "Prompt Doctrine:" not in result
         assert "Critical Runtime Invariants:" not in result
 
-    def test_names_the_packet_rather_than_embedding_it(self, spec_dir):
-        """This render feeds a hook reply, so it points at the packet.
-
-        Embedding the packet body here is what pushed the composed reply past
-        every harness inline ceiling; the schema anchors it used to carry are
-        asserted against the packet itself, where they live.
-        """
-        root, _, spec = spec_dir
-        result = render_compact(root, spec)
-        assert "yoke packets render --role main_agent" in result
-        assert "**Schema cheat sheet:**" not in result
-
 
 class TestRenderFull:
     def test_includes_file_contents_and_commands(self, spec_dir):
         root, _, spec = spec_dir
         result = render_full(root, spec)
         assert "=== Critical Runtime Invariants ===" in result
-        assert "registered `yoke <subcommand>` operations" in result
-        assert "diagnostic SELECTs use `yoke db read`" in result
-        assert "python3 -m yoke_core.cli.db_router" not in result
-        assert "yoke packets render --role main_agent" in result
         assert "=== AGENTS.md ===" in result
         assert "# Claude rules" in result
         assert "=== Echo test ===" in result

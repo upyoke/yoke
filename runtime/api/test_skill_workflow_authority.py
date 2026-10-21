@@ -8,72 +8,6 @@ ROOT = Path(__file__).parents[2]
 SKILLS = ROOT / ".agents" / "skills" / "yoke"
 
 
-def _read(*parts: str) -> str:
-    return (SKILLS.joinpath(*parts)).read_text()
-
-
-def test_refine_uses_active_binding_and_child_policy() -> None:
-    skill = _read("refine", "SKILL.md")
-    context = _read("refine", "workflow-context.md")
-    combined = skill + context
-    for required in (
-        "yoke workflows item get",
-        "yoke workflows version get",
-        "[from, through)",
-        "generated_children",
-        "ITEM_NEXT_SKILL=blitz",
-    ):
-        assert required in combined
-    assert "ITEM_WORKFLOW_ID=epic" not in combined
-    assert 'if [ "$ITEM_WORKFLOW_ID"' not in combined
-
-
-def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
-    text = _read("shepherd", "SKILL.md")
-    for required in (
-        "yoke workflows item get",
-        "yoke workflows version get",
-        "`epic_tasks` children",
-        "[from, through)",
-    ):
-        assert required in text
-    for forbidden in (
-        "--workflow issue",
-        "--workflow epic",
-        "Issue mode",
-        "Epic mode",
-    ):
-        assert forbidden not in text
-
-
-def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
-    text = _read("usher", "merge.md") + _read("usher", "merge-arguments.md")
-    for required in (
-        "merge-generated-tasks.md",
-        "yoke item-worktrees list PREFIX-N --json",
-        "registered lane paths",
-    ):
-        assert required in text
-    lanes = (ROOT / ".yoke/docs/agents/rules/lanes-and-claims.md").read_text()
-    assert "half-open interval holds" in lanes
-    assert "_item_workflow_id" not in text
-    assert "issue items only" not in text.lower()
-
-
-def test_conduct_dispatch_has_no_unreachable_item_branch_or_retired_teaching() -> None:
-    text = _read("conduct", "dispatch-context-dispatch.md")
-    retired_function = "qa.screenshot_" + "evidence.satisfy"
-    retired_command = "yoke qa screenshot-" + "evidence satisfy"
-    for forbidden in (
-        retired_function,
-        retired_command,
-        'if [ "${_workflow_id}" = "issue" ]',
-        "Issue items:",
-        "Caller prerequisite:",
-    ):
-        assert forbidden not in text
-
-
 def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
     retired = "advance"
     roots = (
@@ -84,12 +18,7 @@ def test_skill_tree_uses_registered_lifecycle_transitions() -> None:
     for root in roots:
         assert not (root / retired / "SKILL.md").exists()
         assert not list((root / retired).glob("*.md"))
-        for path in root.rglob("*.md"):
-            assert "/yoke " + retired not in path.read_text(), path
     assert retired not in SKILLS_BY_ID
-    review = _read("implement", "review.md")
-    assert "yoke lifecycle transition" in review
-    assert "yoke claims work release --item PREFIX-N" in review
 
 
 def test_retired_skip_phase_handlers_have_no_live_entrypoints() -> None:

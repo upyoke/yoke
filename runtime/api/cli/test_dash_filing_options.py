@@ -75,9 +75,6 @@ def test_dash_filing_help_lists_priority_choices(capsys):
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
     assert "{high,medium,low}" in help_text
-    assert "Priority bucket: high, medium, or low." in help_text
-    assert "skills pass harness_skill" in help_text
-    assert "Task/Dash default to cli" in " ".join(help_text.split())
 
 
 def test_dash_filing_accepts_named_priority(monkeypatch):

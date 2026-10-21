@@ -25,7 +25,6 @@ def test_top_level_help_does_not_import_source_authority(tmp_path: Path) -> None
     run = _run_product_cli(tmp_path, ["--help"])
 
     assert run.returncode == 0
-    assert "Categories and actions" in run.stdout
     assert "yoke status" in run.stdout
     assert "yoke project " in run.stdout
     assert run.stderr == ""

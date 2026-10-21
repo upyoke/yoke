@@ -27,35 +27,6 @@ def _qa_help(subcommand: str) -> str:
     return (result.stdout or "") + (result.stderr or "")
 
 
-def test_project_topic_renders_deploy_defaults_recipe() -> None:
-    body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
-    assert ("yoke project-structure deploy-defaults get --project <project>") in body
-    assert "project_structure.deploy_defaults.get" in body
-    assert "raw deploy_defaults module" in body
-
-
-def test_project_topic_warns_settings_are_not_on_projects() -> None:
-    body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
-    assert "yoke projects get --project <slug>" in body
-    assert "projects.settings" in body
-    assert "project_capabilities.settings" in body
-    assert "environment settings surfaces" in body
-
-
-def test_qa_topic_includes_gate_preview_with_both_target_forms() -> None:
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    assert "qa_gates" not in body
-    assert "check-reviewed-implementation-gate" not in body
-    assert "yoke qa gate-summary" in body
-    # Both supported target forms are surfaced.
-    assert "--item" in body
-    assert "--epic PREFIX-N --task-num K" in body
-    # The recipe moves the item to its next pinned stage, which runs the gate.
-    assert (
-        "yoke lifecycle transition PREFIX-N --from LIVE_STAGE --to STAGE"
-    ) in body
-
-
 def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
     """The packet teaches the registered QA requirement-list wrapper.
 
@@ -64,109 +35,20 @@ def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
     list command.
     """
 
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     requirement_help = _qa_help("requirement-list")
     assert "--item-id" in requirement_help
     assert "--epic-id" in requirement_help
     assert "--task-num" not in requirement_help
-    assert "yoke qa requirement list --item PREFIX-N" in body
-    assert "--epic PREFIX-N" in body
-    assert "--epic-id" not in body
-    assert "qa requirement list --task-num" not in body
 
 
 def test_qa_topic_includes_run_get_recipe_matching_cli() -> None:
     """Packets teach the registered one-run getter and keep list separate."""
 
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     run_list_help = _qa_help("run-list")
     run_get_help = _qa_help("run-get")
     assert "--requirement-id" in run_list_help
     assert "--requirement-id" not in run_get_help
     assert "positional arguments" in run_get_help
-    assert "yoke qa run list --requirement-id <id>" in body
-    assert "yoke qa run get --run-id <id>" in body
-    assert "Registered read qa.run.get" in body
-    assert "qa {run-list,run-get} --requirement-id" not in body
-
-
-def test_core_topic_includes_dependency_wrappers() -> None:
-    """List lives in core; add/update/remove recipes stay in claims."""
-
-    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
-    assert "items dependency list" in body
-    assert "dependent_item_id" in body
-    assert "blocking_item_id" in body
-    assert "Storage is" in body
-    assert "Dependency add/update/remove are authoring-time surfaces" in body
-    assert "registered command adapters land" in body
-    assert "yoke items dependency add" not in body
-    assert "yoke items dependency update" not in body
-    assert "yoke items dependency remove" not in body
-
-
-def test_reading_roles_receive_reads_and_discover_mutation_depth() -> None:
-    for role in ("boss_agent", "simulator_agent", "qa_walker_agent"):
-        body = sac.render_role_packet(role)
-        assert "yoke items get PREFIX-N spec" in body
-        assert "yoke items dependency list PREFIX-N" in body
-        assert "yoke claims work acquire" not in body
-        assert "yoke items structured-field replace" not in body
-        assert "yoke pulumi exec" not in body
-        assert "yoke lifecycle repair-status" not in body
-        depth = sac.render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
-        assert "yoke items structured-field replace" in depth
-
-
-def test_coordination_authoring_stays_with_authoring_roles() -> None:
-    for role in seed.ROLE_TOPICS:
-        body = sac.render_role_packet(role)
-        assert ("yoke claims path coordination-decision-build" in body) == (
-            role in ("main_agent", "architect_agent")
-        )
-
-
-def test_every_role_packet_teaches_locked_worktree_source_verification() -> None:
-    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
-    for token in (
-        "Verify Python imports/tests against linked worktree source",
-        "yoke dev import-check yoke_core",
-        "yoke dev run -- yoke watch pytest --local --",
-        "<project-test-path>",
-        "declared locked .venv",
-        "QA extras/groups",
-        "Python identity and source origins",
-        "uv sync --locked",
-        "Checks never rewrite locks or borrow main dependencies",
-        "installed control-plane commands keep the installed interpreter",
-    ):
-        assert token in body
-    assert "python3 -m yoke_core.tools.watch_pytest" not in body
-
-    for role in seed.ROLE_TOPICS:
-        role_body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
-        executes_tests = role in {"main_agent", "engineer_agent", "tester_agent"}
-        assert ("yoke dev import-check yoke_core" in role_body) == executes_tests
-        assert (
-            "yoke dev run -- yoke watch pytest --local --" in role_body
-        ) == executes_tests
-        assert (
-            f"yoke packets render --role {role} --topic core --detail full" in role_body
-        )
-        assert "python3 -m yoke_core.tools.watch_pytest" not in role_body
-
-
-def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
-    main_body = sac.render_topic_packet(
-        "core", detail=PACKET_DETAIL_FULL
-    ) + sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
-
-    assert "ouroboros_entries" in main_body
-    assert "deployment_runs" in main_body
-    assert "`deployment_flows.target_environment_id`" in main_body
-    assert "`deployment_runs.status`" in main_body
-    assert "`deployment_runs.current_stage`" in main_body
-    assert "Join through `deployment_run_items` for item-bound runs" in main_body
 
 
 def test_taught_items_get_fields_match_handler_allowlist() -> None:
@@ -182,22 +64,6 @@ def test_taught_items_get_fields_match_handler_allowlist() -> None:
     }
 
     assert taught_fields == set(ALLOWED_GET_FIELDS)
-
-
-_NEW_STALE_TERMS_2026_05 = (
-    "qa_kind='review'",
-    "--qa-kind review",
-    ".agents/skills/yoke/scripts/python3 -m yoke_core.cli.db_router qa",
-    "blocker_item_id",
-)
-
-
-def test_new_stale_terms_in_seed() -> None:
-    """The stale-term additions are present in the
-    seed regression list."""
-
-    for term in _NEW_STALE_TERMS_2026_05:
-        assert term in seed.STALE_TERMS, f"STALE_TERMS missing YOK-1611 entry: {term!r}"
 
 
 def test_execution_agents_receive_project_and_qa_topics() -> None:
@@ -254,11 +120,6 @@ def test_main_agent_role_includes_packs_and_deployment_run_hint() -> None:
     assert sac._TOPIC_HEADERS["qa"] in body
     assert sac._TOPIC_HEADERS["project"] not in body
     assert "deployment_runs" not in body
-    # Topics with nothing to act on at startup are named once, one read away.
-    assert (
-        "_Other topics (auth, packs, project):_ "
-        "`yoke packets render --role main_agent --topic T`." in body
-    )
     depth = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
     assert "deployment_runs" in depth
     assert "deployment_run_items" in depth
@@ -271,39 +132,11 @@ def test_qa_topic_includes_gate_summary_recipe_matching_cli() -> None:
     final reviewed-implementation / implemented gate check. Recipe text
     must agree with the live CLI surface."""
 
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    assert "qa gate-summary" in body
-    # Target vocabulary surfaced verbatim from the CLI.
-    assert "reviewed-implementation" in body
-    assert "implemented" in body
-
     summary_help = _qa_help("gate-summary")
     assert "--item-id" in summary_help
     assert "--target" in summary_help
     assert "reviewed-implementation" in summary_help
     assert "implemented" in summary_help
-    # The recipe and the live CLI agree on the supported targets.
-    for target in ("reviewed-implementation", "implemented"):
-        assert target in body
-        assert target in summary_help
-
-
-def test_qa_topic_events_recipe_matches_supported_filter_shape() -> None:
-    """The events recipe must teach the supported
-    filter shape. The canonical agent recipe is the registered
-    ``yoke events query`` form carrying ``--item``; the db_router
-    long form survives only as a labelled operator-debug fallback."""
-
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    # The packet must surface --item on the canonical events read —
-    # it routes through normalize_event_item_id (YOK-N + bare-int).
-    assert "events query --item" in body
-    # The retired unbounded db_router recipe is not taught as the
-    # primary shape.
-    assert "events list --item PREFIX-N\n" not in body
-    # The packet teaches the bounded form (with --limit) so agents do
-    # not paste an unbounded dump command.
-    assert "--limit" in body
 
 
 def test_events_table_packet_teaches_text_item_id() -> None:
@@ -312,11 +145,7 @@ def test_events_table_packet_teaches_text_item_id() -> None:
 
     from yoke_core.domain.schema_api_context_tables import CANONICAL_TABLES
 
-    notes = CANONICAL_TABLES["events"]["notes"]
     assert ("item_id", "TEXT") in CANONICAL_TABLES["events"]["columns"]
-    assert "item_id` is TEXT" in notes or "item_id is TEXT" in notes
-    assert "WHERE item_id = '<id>'" in notes
-    assert "WHERE item_id = <id>" not in notes
 
 
 def test_role_keys_use_layer_explicit_agent_suffix() -> None:

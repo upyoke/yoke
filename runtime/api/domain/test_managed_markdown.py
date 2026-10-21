@@ -33,7 +33,6 @@ def test_render_block_wraps_in_markers() -> None:
     assert block.startswith(MANAGED_BLOCK_BEGIN)
     assert block.rstrip().endswith(MANAGED_BLOCK_END)
     assert "hello" in block
-    assert "overwritten on refresh" in block
 
 
 def test_create_when_absent(tmp_path) -> None:

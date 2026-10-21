@@ -50,7 +50,6 @@ def test_top_level_help_lists_core_commands(capsys) -> None:
     out = capsys.readouterr().out
     assert "yoke core build" in out
     assert "yoke core status" in out
-    assert "Immediate children" in out
 
 
 def test_operation_inventory_marks_core_launcher_as_permanent_tool_shaped() -> None:

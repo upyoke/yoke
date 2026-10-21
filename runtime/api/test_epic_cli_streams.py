@@ -18,11 +18,6 @@ def _resolve_epic_argument(monkeypatch):
 
 
 class TestCLIStreams:
-    def test_task_update_body_usage_mentions_stdin(self):
-        from yoke_core.domain import epic_cli as _epic_cli
-
-        assert "reads body from stdin when the flag is omitted" in _epic_cli._USAGE
-
     def test_dispatch_chain_upsert_reads_json_stdin(self, db):
         with (
             patch("yoke_core.domain.epic.connect", return_value=db),

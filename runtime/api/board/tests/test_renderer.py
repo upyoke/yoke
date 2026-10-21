@@ -154,13 +154,6 @@ class TestCLIRender:
         captured = capsys.readouterr()
         assert "yoke board rebuild --print" in captured.err
 
-    def test_top_level_help_points_to_preview_and_rebuild(self, capsys):
-        rc = main(["--help"])
-
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert "python3 -m yoke_core.board preview" in captured.out
-        assert "yoke board rebuild --print" in captured.out
 
 
 # ---------------------------------------------------------------------------

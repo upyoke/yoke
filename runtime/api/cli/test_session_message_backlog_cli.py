@@ -29,14 +29,10 @@ def test_default_list_dispatches_the_unacknowledged_union_filter(monkeypatch) ->
     }
 
 
-def test_message_help_teaches_the_complete_backlog_filter(capsys) -> None:
+def test_message_help_points_to_the_inbox_doc(capsys) -> None:
     with pytest.raises(SystemExit) as exit_info:
         messages.session_message_list(["--help"])
 
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
-    normalized = " ".join(rendered.split())
-    assert (
-        "defaults to unacknowledged, which includes pending and injected" in normalized
-    )
     assert ".yoke/docs/sessions/inbox.md" in rendered

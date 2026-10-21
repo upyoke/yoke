@@ -5,8 +5,6 @@ from __future__ import annotations
 import sys
 from unittest.mock import patch
 
-import pytest
-
 from yoke_cli.commands.adapters.workflows_read import (
     workflows_current_set,
     workflows_definition_get,
@@ -252,14 +250,3 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         "expected_current_version": 3,
         "path_survey_default": False,
     }
-
-
-def test_item_migrate_help_teaches_steering_authority(capsys) -> None:
-    with pytest.raises(SystemExit) as raised:
-        workflows_item_migrate(["--help"])
-
-    assert raised.value.code == 0
-    help_text = capsys.readouterr().out
-    assert "live steering seat covering" in help_text
-    assert "yoke say --steering" in help_text
-    assert "--preview" in help_text

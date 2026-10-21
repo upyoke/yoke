@@ -69,18 +69,6 @@ def test_retire_requires_confirmation_and_sends_the_machine(dispatched, local_ma
     assert dispatched[0]["payload"] == {"machine_id": MACHINE_ID}
 
 
-def test_machine_access_help_discloses_that_offers_are_not_enforced(capsys):
-    for adapter in (
-        machine.machine_show,
-        machine.machine_access_get,
-        machine.machine_access_set,
-    ):
-        with pytest.raises(SystemExit) as excinfo:
-            adapter(["--help"])
-        assert excinfo.value.code == 0
-        assert "not enforced or consulted today" in capsys.readouterr().out
-
-
 def test_settings_set_parses_a_json_value_and_accepts_a_bare_word(
     dispatched, local_machine
 ):

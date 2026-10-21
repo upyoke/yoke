@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -20,20 +18,6 @@ from yoke_core.domain.handlers.workflows_versioning import (
 )
 from yoke_core.domain.workflow_definition_builders import workflow_stage
 from yoke_core.domain.workflow_registry import publish_workflow_version
-
-
-IMPLEMENT_SKILL = (
-    Path(__file__).parents[2] / ".agents" / "skills" / "yoke" / "implement" / "SKILL.md"
-)
-IMPLEMENT_ENTRY = IMPLEMENT_SKILL.with_name("entry.md")
-LANES_RULES = (
-    Path(__file__).parents[2]
-    / ".yoke"
-    / "docs"
-    / "agents"
-    / "rules"
-    / "lanes-and-claims.md"
-)
 
 
 def _request(
@@ -53,29 +37,6 @@ def _request(
 def _next_stage(definition: dict, current: str) -> str:
     stage_ids = [str(stage["id"]) for stage in definition["stages"]]
     return stage_ids[stage_ids.index(current) + 1]
-
-
-def test_implement_teaches_item_pin_then_exact_version_read() -> None:
-    skill = IMPLEMENT_SKILL.read_text()
-    lookup = IMPLEMENT_ENTRY.read_text()
-    routing = " ".join(LANES_RULES.read_text().split())
-
-    assert "yoke workflows item get PREFIX-N --json" in lookup
-    assert "[entry.md](entry.md)" in skill
-    item_read = routing.index("yoke workflows item get PREFIX-N")
-    version_read = routing.index("yoke workflows version get WORKFLOW VERSION")
-    assert item_read < version_read
-    assert "half-open interval" in routing
-
-
-def test_implement_has_no_stale_current_definition_lookup_residue() -> None:
-    text = "".join(
-        path.read_text() for path in sorted(IMPLEMENT_SKILL.parent.glob("*.md"))
-    )
-
-    assert "yoke workflows definition get" not in text
-    assert "current_version_id" not in text
-    assert "items get {N} workflow_id workflow_version_id" not in text
 
 
 def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(

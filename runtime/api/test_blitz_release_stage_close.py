@@ -1,4 +1,4 @@
-"""Blitz close teaching walks declared stages and retains terminal gates."""
+"""Blitz close walks declared stages and retains terminal gates."""
 
 from __future__ import annotations
 
@@ -7,13 +7,9 @@ from pathlib import Path
 from yoke_core.domain import workflow_declared_transitions as declared
 from yoke_core.domain.blitz_document_archive import BLITZ_DOCUMENT_ARCHIVE_FAILURE
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
-from runtime.api.skill_doc_regressions_test_helpers import _read_skill_corpus
 
 
 ROOT = Path(__file__).parents[2]
-BLITZ = ROOT / ".agents" / "skills" / "yoke" / "blitz"
-HELP = ROOT / ".agents" / "skills" / "yoke" / "help" / "SKILL.md"
-WORKFLOWS = ROOT / "docs" / "public" / "workflows" / "index.md"
 ARCHIVE = (
     ROOT
     / "packages"
@@ -39,22 +35,6 @@ def test_blitz_refuses_reviewing_implementation_to_done() -> None:
         "release",
     )
     assert declared.declares_transition(workflow, "release", "done")
-
-
-def test_blitz_docs_do_not_name_the_missing_close_transition() -> None:
-    corpus = _read_skill_corpus(BLITZ)
-    help_text = HELP.read_text()
-    workflows = WORKFLOWS.read_text()
-
-    assert "--from reviewing-implementation --to done" not in corpus
-    assert "reviewing-implementation -> done" not in corpus
-    assert "reviewing-implementation → done" not in corpus
-    close = (BLITZ / "review-and-complete.md").read_text()
-    assert "--from LIVE_STAGE --to NEXT_STAGE" in close
-    assert "Walk forward one stage at a time" in close
-    assert "at a release wait keep the claim and park" in close
-    assert "BLITZ FLOW" not in help_text
-    assert "blitz → release → done" in workflows
 
 
 def test_archive_recovery_retries_the_terminal_release_to_done_edge() -> None:

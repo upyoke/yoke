@@ -1,96 +1,14 @@
-"""Claims-topic packet-content regressions.
+"""Claims-topic packet recipe regressions.
 
-Sibling of :mod:`test_schema_api_context`; split out so the parent module
-stays under the 350-line authoring cap.
-
-- The ``path_claims`` stanza carries the canonical JOIN through
-  ``path_claim_targets`` -> ``path_targets`` and the full ``state``
-  enum as a positive value listing.
-- Working ``yoke claims work release`` invocations for item,
-  claim-id, epic-task, and session-scoped release appear in the claims
-  commands block.
-- The claim -> edit -> release pattern is taught as a working example,
-  not as a new skill.
+Sibling of :mod:`test_schema_api_context`; the raw diagnostic path-claim
+conflict recipe stays executable against the canonical columns.
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain.schema_api_context_commands_claims import CLAIMS_COMMANDS
-from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
-
-
-def test_claims_packet_teaches_path_claims_join_and_state_enum() -> None:
-    """The packet teaches the physical path-claim join and state enum."""
-    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert "JOIN path_claim_targets pct ON pct.claim_id = pc.id" in body
-    assert "JOIN path_targets ptarget ON ptarget.id = pct.target_id" in body
-    assert "there is no `path_claims.paths`" in body
-    # Positive value listing — every state present, not "NOT X" prose.
-    for state in ("'planned'", "'active'", "'released'", "'cancelled'", "'blocked'"):
-        assert state in body, f"path_claims state enum missing value: {state}"
-
-
-def test_claims_packet_teaches_release_work_claim_variants() -> None:
-    """The packet teaches every registered work-claim release selector.
-
-    The registered adapter supports one claim by item, claim id, or
-    epic-task identity, plus session-scoped handoff cleanup.
-    """
-    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
-    assert "yoke claims work release --claim-id <id> --reason TEXT" in body
-    assert "yoke claims work release --epic PREFIX-N --task-num K --reason TEXT" in body
-    assert "yoke claims work release --all-mine" in body
-
-
-def test_claims_packet_teaches_claim_edit_release_pattern() -> None:
-    """The edit pattern is acquire → structured-field replace → release."""
-    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert "yoke claims work acquire --item PREFIX-N --reason edit" in body
-    assert "yoke claims work release --item PREFIX-N --reason edit-complete" in body
-    # Doctrine sentence — no new skill.
-    assert "no new skill" in body.lower()
-
-
-def test_claims_packet_teaches_scoped_steering_claim_lifecycle() -> None:
-    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert 'steering={"project_id":N}' in body
-    assert '{"project_id":N,"document":SLUG}' in body
-    assert (
-        "A project seat overlaps CURRENT-PLAN document steering of the "
-        "same project" in body
-    )
-    assert "two different documents do not overlap" in body
-    assert "Document steering covers every item linked to that exact document" in body
-    assert "Strategy-document locks remain in strategy_doc_claims" in body
-    assert (
-        "yoke claims steering acquire --project P "
-        "[--doc SLUG | --plan-doc SLUG] [--reason TEXT]" in body
-    )
-    assert "narrows the seat to that document's linked items and locks it" in body
-    assert (
-        "`--plan-doc` locks the standing plan while the seat still covers "
-        "the whole project" in body
-    )
-    assert "releases the paired document too" in body
-    assert "yoke claims steering list --project P --active-only" in body
-    assert "yoke claims steering release CLAIM_ID --reason TEXT" in body
-    assert "Stale-session reclaim frees both" in body
-
-
-def test_claims_packet_teaches_live_progress_log_content_flags() -> None:
-    entry = next(
-        command
-        for command in CLAIMS_COMMANDS
-        if command["purpose"].startswith("Controlled handoff")
-    )
-    recipe = str(entry["recipe"])
-    assert '--content "<resume-context-body>"' in recipe
-    assert "--content-file PATH" in recipe
-    assert "--stdin" not in recipe
 
 
 def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> None:

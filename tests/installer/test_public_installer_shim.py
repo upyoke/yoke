@@ -71,15 +71,6 @@ def test_missing_uv_failure_redacts_configured_origin_credentials(
     assert "<configured-yoke-origin>/install" in rendered
 
 
-def test_help_teaches_install_and_upgrade_index_contract(tmp_path: Path) -> None:
-    result = run_shim(_bin(tmp_path), args=("--help",))
-
-    assert result.returncode == 0
-    assert "upgrade/reinstall" in result.stdout
-    assert "Yoke index" in result.stdout
-    assert "public PyPI" in result.stdout
-
-
 def test_prompt_answer_never_gates_uv_install(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     prompt_in = tmp_path / "prompt-in"

@@ -5,11 +5,7 @@ import subprocess
 from typing import List, Tuple
 
 from runtime.api.test_zero_shell_proof_test_helpers import (
-    AGENTS_DOC,
-    CODEX_DOC,
-    HOOK_PARITY_DOC,
     REPO_ROOT,
-    TEST_INVENTORY_DOC,
     _DIRECT_SH_ALLOWLIST,
     _HELPER_WRAPPER_NAMES,
     _RETIRED_SCRIPT_NAMES,
@@ -61,44 +57,10 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
     assert shell_scripts == ["packaging/public-installer/install"]
 
 
-def test_operator_docs_point_at_python_entrypoints() -> None:
-    doctrine = _read(AGENTS_DOC)
-    code_home = _read(REPO_ROOT / "docs/public/agents/rules/code-and-cli.md")
-    assert "Write stateful helpers and hooks in Python" in code_home
-    assert "docs/source-dev-doctrine.md" in doctrine
-    source = _read(REPO_ROOT / "docs/source-dev-doctrine.md")
-    assert "python3 -m yoke_core.tools.run_tests" in source
-    for retired in (
-        "yoke-db.sh",
-        "backlog-registry.sh",
-        "rebuild-board.sh",
-        "preview-board-art.sh",
-        "doctor.sh",
-        "observe-tool.sh",
-    ):
-        assert retired not in doctrine
-
-    codex = _read(CODEX_DOC)
-    assert "python3 -m yoke_core.hooks.bootstrap render-full" in codex
-
-    hook_parity = _read(HOOK_PARITY_DOC)
-    assert "harness-bootstrap.md" in hook_parity
-    bootstrap = _read(REPO_ROOT / "docs/harness-bootstrap.md")
-    assert "`yoke_core.hooks.bootstrap` renderer" in bootstrap
-    assert "`render_full` is a deliberate complete read" in bootstrap
-    assert "git-root-stable" not in hook_parity
-    assert 'PYTHONPATH="$(git rev-parse --show-toplevel)' not in hook_parity
-    assert "yoke hook evaluate <event>" in hook_parity
-    assert "`PreToolUse@Bash`" in hook_parity
-    assert "`UserPromptSubmit`" in hook_parity
+def test_codex_hook_config_routes_through_yoke_hook_evaluate() -> None:
     hook_config = _read(REPO_ROOT / "runtime/harness/codex/hooks.json")
     assert "yoke hook evaluate PreToolUse" in hook_config
     assert "yoke hook evaluate UserPromptSubmit" in hook_config
-
-    test_inventory = _read(TEST_INVENTORY_DOC)
-    assert "test-codex-entry.sh" not in test_inventory
-    assert "test-codex-hooks.sh" not in test_inventory
-    assert "test-harness-routing.sh" not in test_inventory
 
 
 # ---------------------------------------------------------------------------

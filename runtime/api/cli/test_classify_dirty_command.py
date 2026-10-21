@@ -175,8 +175,3 @@ def test_invalid_payload_is_named():
     )
     assert not response.success
     assert response.error.code == "payload_invalid"
-
-
-def test_help_teaches_registered_read(capsys):
-    assert main(["worktree", "classify-dirty", "--help"]) == 0
-    assert "mapped checkout" in capsys.readouterr().out

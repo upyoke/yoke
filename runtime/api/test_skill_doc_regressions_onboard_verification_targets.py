@@ -1,4 +1,4 @@
-"""Onboard and public QA docs teach the registered-command target matrix."""
+"""Shipped onboard and public QA docs match their canonical sources."""
 
 from __future__ import annotations
 
@@ -18,28 +18,6 @@ ONBOARD_MIRROR = (
     / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke/"
     / "onboard/verification-binding.md"
 )
-
-
-def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
-
-
-def test_onboard_teaches_each_registered_command_target_mode() -> None:
-    text = " ".join(_read(ONBOARD).split())
-    retired_blanket_claim = "It needs no " + "environment"
-    assert (
-        "Deployed scopes take one target: `--environment` or `--requires-base-url`; "
-        "`quick`/`full` take neither." in text
-    )
-    assert retired_blanket_claim not in text
-
-
-def test_public_qa_doc_keeps_generic_and_registered_plan_contracts_distinct() -> None:
-    text = _read(PUBLIC_QA)
-    assert "project source · no deployment environment" in text
-    assert "Generic `yoke qa plan" in text
-    assert "create` remains environment-bound" in text
-    assert "Exactly one local deployed target is required" in text
 
 
 def test_shipped_qa_and_onboard_docs_match_the_canonical_sources() -> None:

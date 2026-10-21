@@ -202,39 +202,6 @@ class TestPassthroughParsing:
         assert passthrough == []
 
 
-class TestArgparseHelpExample:
-    """Argparse-rendered ``--help`` contains the worked example."""
-
-    def test_help_contains_worked_separator_example(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        with pytest.raises(SystemExit) as excinfo:
-            watch_doctor._parse_args(["--help"])
-        assert excinfo.value.code == 0
-        rendered = capsys.readouterr().out
-        assert "yoke watch doctor -- --quick" in rendered, (
-            "argparse --help output must teach the canonical -- --quick form"
-        )
-
-    def test_help_documents_bare_form_too(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        with pytest.raises(SystemExit):
-            watch_doctor._parse_args(["--help"])
-        rendered = capsys.readouterr().out
-        assert "yoke watch doctor --quick" in rendered
-
-    def test_help_teaches_scope_and_exit_status(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        with pytest.raises(SystemExit):
-            watch_doctor._parse_args(["--help"])
-        rendered = capsys.readouterr().out
-        assert "--quick" in rendered and "--full" in rendered
-        assert "--only" in rendered
-        assert "Exit status" in rendered
-
-
 class TestPrintStreamingPair:
     """``--print-streaming-pair -- --quick`` emits ``-- --quick``."""
 

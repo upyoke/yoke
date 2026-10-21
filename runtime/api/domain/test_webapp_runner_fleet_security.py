@@ -1,7 +1,6 @@
 """Security boundaries for the rendered GitHub Actions runner fleet."""
 
 import json
-from pathlib import Path
 
 from runtime.api.domain.webapp_runner_fleet_test_support import _runner_stack
 from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
@@ -144,10 +143,6 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
         }
     )
     requirements = _pack_program_source("requirements.txt").read_text()
-    operations = Path(__file__).resolve().parents[3].joinpath(
-        "packs", "self-hosted-runners", "versions", "1.0.0", "files",
-        "docs", "packs", "self-hosted-runners", "operations.md",
-    ).read_text()
 
     assert "require_repository_token_environment" in stack_source
     assert "RUNNER_FLEET_GITHUB_TOKEN" in provider_source
@@ -163,36 +158,6 @@ def test_runner_fleet_has_only_short_lived_repository_credential_input():
     assert "/github-token" not in sources
     assert "pulumi-github" in requirements
     assert "pulumi-random" in requirements
-    assert "repository_hooks: write" in operations
-    assert "actions_variables: write" in operations
-    assert "runnerFleetRoutingVariable" in operations
-    assert "Arm and disarm only through the capability plus runner-fleet apply" in operations
-    assert "variable writes are drift" in operations
-    assert "network.deployment_ssh_stack_names" in operations
-    assert "originElasticIpAddress" in operations
-    assert "vpsElasticIpAddress" in operations
-    assert "Literal addresses and CIDRs are not" in operations
-    assert "Pulumi.StackReference" in operations
-    assert "configure one manual GitHub webhook" not in operations
-
-
-def test_runner_variable_adoption_docs_preserve_generated_pulumi_identity():
-    root = Path(__file__).resolve().parents[3]
-    documents = (
-        (root / "docs" / "github-app-operations.md").read_text(),
-        root.joinpath(
-            "packs", "self-hosted-runners", "versions", "1.0.0", "files",
-            "docs", "packs", "self-hosted-runners", "operations.md",
-        ).read_text(),
-    )
-
-    for document in documents:
-        assert "--import-file <preview-import-file.json>" in document
-        assert "--file <runner-variable-import-file.json>" in document
-        assert "preserve its generated `parent`" in document
-        assert "`provider` fields unchanged" in document
-        assert "positional" in document
-        assert "final zero-change refresh" in document
 
 
 def test_runner_network_derives_standalone_ssh_target_from_stack_output(

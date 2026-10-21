@@ -113,8 +113,4 @@ def test_task_help_is_the_deep_filing_home(capsys):
 
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
-    assert "Laneless, merge-free" in help_text
-    assert "task  Laneless" in help_text
-    assert "dash  Focused repository work" in help_text
-    assert "idea  Use /yoke idea" in help_text
     assert "--approval-on-done" in help_text

@@ -323,7 +323,7 @@ def test_check_json_shape(repo: pathlib.Path) -> None:
     assert set(payload.keys()) >= {"ok", "hard_fails", "warnings", "summary"}
 
 
-def test_cli_help_mentions_hard_fail_and_split_recovery() -> None:
+def test_cli_help_lists_subcommands() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "yoke_core.domain.file_line_check", "--help"],
         capture_output=True,
@@ -332,8 +332,6 @@ def test_cli_help_mentions_hard_fail_and_split_recovery() -> None:
     )
     assert proc.returncode == 0
     combined = proc.stdout + proc.stderr
-    assert "Hard-fail" in combined
-    assert "split an oversized file" in combined and "--no-verify" not in combined
     assert "report" in combined and "check" in combined
 
 

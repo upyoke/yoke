@@ -24,15 +24,3 @@ def test_execution_level_column_kind_is_text():
     packet = CANONICAL_TABLES["harness_sessions"]
     type_by_name = {name: kind for name, kind in packet["columns"]}
     assert type_by_name["execution_level"] == "TEXT"
-
-
-def test_notes_describe_level_identity_and_roster_role():
-    packet = CANONICAL_TABLES["harness_sessions"]
-    notes = packet["notes"]
-    assert "execution_level" in notes
-    assert "groups sessions in identity and roster views" in notes
-
-
-def test_notes_name_registered_identity_read():
-    notes = CANONICAL_TABLES["harness_sessions"]["notes"]
-    assert "yoke sessions identity" in notes

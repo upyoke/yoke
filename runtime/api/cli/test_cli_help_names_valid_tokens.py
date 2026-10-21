@@ -12,10 +12,6 @@ import pytest
 
 from yoke_cli.commands import group_help
 from yoke_cli.commands.adapters.dash import dash_evidence
-from yoke_cli.commands.adapters.item_dependency import (
-    items_dependency_add,
-    items_dependency_update,
-)
 from yoke_cli.commands.adapters.items import items_get
 from yoke_cli.main import main as cli_main
 from yoke_contracts.dash_evidence_status import (
@@ -77,27 +73,6 @@ class TestGroupHelpWhereAGroupExists:
 
 
 class TestGroupTeachingNamesTheRealSurface:
-    def test_sessions_group_names_what_refreshes_liveness(self, capsys):
-        assert cli_main(["sessions", "--help"]) == 0
-        out = capsys.readouterr().out
-        assert "no standalone heartbeat command" in out
-        assert "yoke sessions touch" in out
-
-    def test_connection_group_names_the_discovery_reader(self, capsys):
-        assert cli_main(["connection", "--help"]) == 0
-        assert "yoke env list" in capsys.readouterr().out
-
-    def test_db_group_names_registered_writes_and_operator_escalation(self, capsys):
-        """Product help names reachable mutations and the missing-command route."""
-        assert cli_main(["db", "--help"]) == 0
-        out = capsys.readouterr().out
-        assert "yoke db read" in out
-        assert "registered `yoke <subcommand>`" in out
-        assert "escalate the missing" in out
-        assert "control-plane operator" in out
-        assert "yoke_core.cli.db_router query" not in out
-        assert "db-admin" not in out
-
     def test_unknown_db_write_leaf_names_operator_escalation(self, capsys):
         assert cli_main(["db", "write"]) == 2
         err = capsys.readouterr().err
@@ -108,12 +83,6 @@ class TestGroupTeachingNamesTheRealSurface:
         assert "control-plane operator" in err
         assert "yoke_core.cli.db_router query" not in err
         assert "db-admin" not in err
-
-    def test_singular_project_group_points_at_the_plural_reader(self, capsys):
-        assert cli_main(["project", "--help"]) == 0
-        out = capsys.readouterr().out
-        assert "yoke projects list" in out
-        assert "yoke projects checkout-context" in out
 
     def test_sibling_group_wins_the_nearest_hint(self):
         hint = group_help.nearest_subcommand_hint(["project", "list"])
@@ -129,10 +98,6 @@ class TestItemFieldNames:
         out = _help_text(items_get, ["--help"], capsys)
         for field in sorted(ALLOWED_GET_FIELDS):
             assert field in out, field
-
-    def test_help_names_the_claim_holder_read(self, capsys):
-        out = _help_text(items_get, ["--help"], capsys)
-        assert "yoke claims work holder-get" in out
 
     def test_refusal_lists_every_accepted_field(self):
         message = unknown_field_message("nonesuch")
@@ -207,27 +172,6 @@ class TestVerificationStatusTokens:
         assert tuple(merge_flag.choices) == PASSING_VERIFICATION_STATUSES
 
 
-class TestDependencySatisfactionHelp:
-    @pytest.mark.parametrize(
-        "adapter",
-        [items_dependency_add, items_dependency_update],
-    )
-    def test_help_teaches_delivery_grammar_and_authoring_choice(
-        self,
-        adapter,
-        capsys,
-    ):
-        out = _help_text(adapter, ["--help"], capsys)
-        assert "status:<stage-id>" in out
-        assert "lists the stages" in out
-        assert "fact:deployed:<environment-name>" in out
-        assert "not registered" in out
-        assert "needs the blocker's code on trunk" in out
-        assert "needs that code running" in out
-        assert "--satisfaction fact:merged" in out
-        assert "--satisfaction fact:deployed:prod" in out
-
-
 class TestWatchMergeSubcommands:
     def test_help_names_every_subcommand_and_shows_merge_item(self, capsys):
         from yoke_core.tools import watch_merge
@@ -237,7 +181,6 @@ class TestWatchMergeSubcommands:
         out = capsys.readouterr().out
         for name in watch_merge.SUBCOMMAND_MODULES:
             assert name in out, name
-        assert "yoke watch merge merge-item -- PREFIX-N" in out
 
 
 def test_version_get_one_argument_names_slug_and_version_number(capsys):

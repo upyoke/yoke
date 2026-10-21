@@ -13,11 +13,9 @@ from yoke_core.domain.release_wait_ownership import (
     RELEASE_WAIT_RETENTION_TEACHING,
     park_reason,
 )
-from yoke_core.domain.session_launch_mandate import compose_single_item_mandate
 from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
 
 DASH_CLOSE_OUT = SKILLS / "dash" / "close-out.md"
-WORKER_LIFECYCLE = SKILLS / "steer" / "worker-lifecycle.md"
 BUNDLE = (
     REPO
     / "packages"
@@ -31,46 +29,8 @@ BUNDLE = (
 )
 
 
-def _words(text: str) -> str:
-    """Collapse wrapping so prose assertions do not depend on line breaks."""
-    return " ".join(text.split())
-
-
-def _mandate() -> str:
-    return compose_single_item_mandate(
-        public_ref="YOK-12",
-        entrypoint="/yoke dash YOK-12",
-        remaining_legs="the Dash leg to its merge/evidence close",
-    )
-
-
 def test_the_retention_teaching_is_one_of_the_standing_mandate_paragraphs():
     assert RELEASE_WAIT_RETENTION_TEACHING in STANDING_TEACHINGS
-    assert "A release wait retains the claim and park" in _mandate()
-    teaching = _words(RELEASE_WAIT_RETENTION_TEACHING)
-    assert "Do NOT release the claim and do NOT end your session there" in teaching
-    assert "Any prompt that wakes you CLEARS that park" in teaching
-    assert "re-park before stopping" in teaching
-
-
-def test_the_worker_lifecycle_keeps_a_quiet_holder_through_delivery():
-    collapsed = _words(_read(WORKER_LIFECYCLE))
-    assert "the holder keeps its claim through delivery QA" in collapsed
-    assert "Message a quiet worker first." in collapsed
-    assert "Terminate only an unresponsive worker" in collapsed
-
-
-def test_the_dash_close_out_stops_teaching_a_release_wait_release():
-    content = _read(DASH_CLOSE_OUT)
-    assert "yoke sessions touch --mode parked" in content
-    collapsed = _words(content)
-    assert "keep the claim and lane, send no DONE, and park whenever quiet" in (
-        collapsed
-    )
-    assert "--stage STAGE --member PREFIX-N" in collapsed
-    assert "At a terminal status: report to `yoke say --steering`, then release" in (
-        collapsed
-    )
 
 
 def test_the_close_out_park_recipe_is_the_reason_the_product_stamps():

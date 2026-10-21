@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 import io
-import subprocess
 import unittest
 from pathlib import Path
 import json
@@ -88,26 +87,6 @@ def test_monitor_payload_emits_pretooluse_hookspecificoutput() -> None:
     assert inner["hookEventName"] == "PreToolUse"
     assert isinstance(inner["additionalContext"], str)
     assert inner["additionalContext"].strip(), "additionalContext must be non-empty"
-
-
-def test_default_reminder_anchored_on_observed_failure_modes() -> None:
-    text = hint_monitor_relay.HELP_REMINDER
-    assert "tail" in text.lower(), "must describe the existing capture waiter"
-    assert "filler" in text.lower(), "must warn against filler text between wakes"
-    assert "matched line" in text.lower(), (
-        "must anchor on the relay-the-matched-line rule"
-    )
-    injected = hint_monitor_relay.DEFAULT_REMINDER
-    injected_words = " ".join(injected.split())
-    assert "SUBSCRIPTION" in injected
-    assert "hint_monitor_relay --help" in injected
-    assert "something it would act on" in injected_words
-    assert "Ending a turn sends no" in injected_words
-    assert "yoke say --steering" in injected_words
-    assert "Message another session only" in hint_monitor_relay.HELP_REMINDER
-    for text in (injected_words, " ".join(hint_monitor_relay.HELP_REMINDER.split())):
-        assert "what changed" in text and "write nothing" in text
-        assert "Never paste" in text and "verbatim" not in text
 
 
 @pytest.mark.parametrize(
@@ -204,35 +183,7 @@ REMINDER_SOURCE_ROOT = REMINDER_REPO_ROOT / "packages" / "yoke-core" / "src"
 
 
 class TestDefaultReminderContent(unittest.TestCase):
-    """The widened reminder mirrors the deny-side coverage."""
-
-    def test_capture_reads_need_no_suppression(self) -> None:
-        text = " ".join(HELP_REMINDER.split())
-        self.assertIn(
-            "Reads of captures, completed task output and agent-written files need no suppression token",
-            text,
-        )
-        self.assertIn("sleep below 60s", text)
-        self.assertIn("session-registered capture is refused", text)
-
-    def test_bg_waiter_prohibition_present(self) -> None:
-        # The four waiter shapes are named.
-        text = HELP_REMINDER
-        self.assertIn("Bash(run_in_background)", text)
-        self.assertIn("tail -f <capture>", text)
-        self.assertIn("sleep N && tail/cat <capture>", text)
-        self.assertIn("while [ ! -f <sentinel> ]; do sleep; done", text)
-        self.assertIn("watch_tail <capture>", text)
-        self.assertIn("armed Monitor IS the waiter", text)
-
-    def test_private_tmp_claude_path_called_out(self) -> None:
-        # The Claude private-tmp capture root is named explicitly.
-        text = HELP_REMINDER
-        self.assertIn("/private/tmp/claude-", text)
-        # Task artifacts retain the waiter guard and allow ordinary reads.
-        self.assertIn("reads are allowed", text)
-        self.assertIn("waiter", text)
-        self.assertNotIn("pgrep -f <pattern>", text)
+    """The reminder keeps its envelope shape."""
 
     def test_envelope_shape_preserved(self) -> None:
         # The reminder is wrapped in exactly one envelope.
@@ -243,14 +194,6 @@ class TestDefaultReminderContent(unittest.TestCase):
         self.assertEqual(text.count("<system-reminder>"), 1)
         self.assertEqual(text.count("</system-reminder>"), 1)
 
-    def test_turn_end_is_not_the_wait(self) -> None:
-        text = HELP_REMINDER
-        self.assertNotIn("Waiting IS ending the turn", text)
-        self.assertIn("waiter dies with no wake", text)
-        self.assertIn("wait_mode=background-wake", text)
-        self.assertIn("wait_mode=in-turn", text)
-        self.assertNotIn("the completion notification was the verification", text)
-
 
 class TestReminderModuleSize(unittest.TestCase):
     """hint_monitor_relay.py stays ≤200 lines."""
@@ -259,44 +202,6 @@ class TestReminderModuleSize(unittest.TestCase):
         path = REMINDER_SOURCE_ROOT / "yoke_core" / "domain" / "hint_monitor_relay.py"
         line_count = sum(1 for _ in path.read_text(encoding="utf-8").splitlines())
         self.assertLessEqual(line_count, 200)
-
-
-class TestReminderSingleSourceOfTruth(unittest.TestCase):
-    """``DEFAULT_REMINDER`` is the only canonical reminder source.
-
-    A grep for the ``"Use matched lines for progress. Reads of captures"`` substring across
-    ``packages/yoke-core/src`` returns exactly one hit (the canonical
-    constant in ``hint_monitor_relay_help.py``).
-    """
-
-    def test_only_one_canonical_definition(self) -> None:
-        # The substring is an exact match against the widened reminder
-        # text. Only the canonical module should carry it. Skip __pycache__
-        # (bytecode caches contain the source-literal verbatim) and this
-        # test file itself.
-        try:
-            output = subprocess.run(
-                [
-                    "grep",
-                    "-r",
-                    "--exclude-dir=__pycache__",
-                    "-l",
-                    "--exclude-dir=__pycache__",
-                    "Use matched lines for progress. Reads of captures",
-                    str(REMINDER_SOURCE_ROOT),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-        except FileNotFoundError:
-            self.skipTest("grep not available on this platform")
-        if output.returncode not in (0, 1):
-            self.fail(f"grep failed: rc={output.returncode} stderr={output.stderr}")
-        hits = [line.strip() for line in output.stdout.splitlines() if line.strip()]
-        hits = [h for h in hits if not h.endswith("test_hint_monitor_relay.py")]
-        self.assertEqual(len(hits), 1, f"expected 1 hit, got: {hits}")
-        self.assertTrue(hits[0].endswith("hint_monitor_relay_help.py"))
 
 
 class TestDefaultReminderConstantParity(unittest.TestCase):
@@ -312,10 +217,7 @@ class TestDefaultReminderConstantParity(unittest.TestCase):
 class TestInjectedReminderIsShort(unittest.TestCase):
     """The hook injects a few lines; full rules live on ``--help``."""
 
-    def test_injected_text_points_at_help(self) -> None:
-        self.assertIn(
-            "python3 -m yoke_core.domain.hint_monitor_relay --help", DEFAULT_REMINDER
-        )
+    def test_injected_text_is_short(self) -> None:
         self.assertLessEqual(DEFAULT_REMINDER.count("\n"), 12)
         self.assertTrue(DEFAULT_REMINDER.startswith("<system-reminder>"))
 

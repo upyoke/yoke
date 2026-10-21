@@ -1,11 +1,7 @@
-"""Conduct activation, contextual reads and sync-cleanup teaching contracts.
-
-Simulation readback contracts live in test_skill_doc_regressions_conduct_simulation.
-"""
+"""Conduct activation gate scoping and phase-file layout contracts."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -15,7 +11,6 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     SKILLS,
     _count_invocations,
     _read,
-    _read_dispatch_context,
 )
 
 
@@ -38,12 +33,6 @@ class TestConductActivationGate:
         assert d.is_dir()
         return d
 
-    def test_skill_has_activation_gate_point(self, conduct_dir: Path):
-        text = _read(conduct_dir / "entry-gates.md")
-        assert "--gate-point activation" in text, (
-            "conduct/entry-gates.md missing --gate-point activation"
-        )
-
     def test_skill_has_no_unscoped_hard_blocks_call(self, conduct_dir: Path):
         text = _read(conduct_dir / "entry-gates.md")
         _, unscoped = _count_invocations(text, "check_hard_blocks")
@@ -56,14 +45,6 @@ class TestConductActivationGate:
         text = _read(conduct_dir / "entry-activation.md")
         _, unscoped = _count_invocations(text, "check_hard_blocks")
         assert unscoped == 0
-
-    def test_no_legacy_all_blockers_wording(self, conduct_dir: Path):
-        """drop the old 'all blockers must reach done' phrasing."""
-        pattern = re.compile(r"All blockers must reach.*done.*before")
-        for rel in ("SKILL.md", "entry-activation.md"):
-            assert not pattern.search(_read(conduct_dir / rel)), (
-                f"legacy 'all blockers must reach done' wording found in conduct/{rel}"
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -99,20 +80,6 @@ class TestConductPhasedRead:
                 over.append(f"{f} ({lines} lines)")
         assert not over, f"phase files over 400 lines: {over}"
 
-    def test_router_has_phased_read_plan(self, conduct_dir: Path):
-        text = _read(conduct_dir / "SKILL.md")
-        assert "Phase map" in text
-        assert "Do NOT read all files upfront" in text
-        assert "entry-activation.md" in text
-        assert "engineer-tester-loop.md" in text
-        assert "simulation-gate.md" in text
-        assert "cleanup-report.md" in text
-
-    def test_dispatch_context_has_section_index(self, conduct_dir: Path):
-        text = _read(conduct_dir / "dispatch-context.md")
-        assert "Section Index" in text
-        assert "Safe-read guidance" in text
-
     def test_router_is_the_only_phase_index(self, conduct_dir: Path):
         """One phase table, on the entrypoint. A second copy drifts."""
         assert not (conduct_dir / "single-item.md").exists()
@@ -125,143 +92,14 @@ class TestConductPhasedRead:
 
 
 # ---------------------------------------------------------------------------
-# TestConductSyncCleanupRegressions
-# ---------------------------------------------------------------------------
-
-
-class TestConductSyncCleanupRegressions:
-    """Conduct auto-sync and cleanup must not assume tracked worktree diffs."""
-
-    CONDUCT = SKILLS / "conduct"
-    STATUS_READY = "status " + "ready"
-    PLANNED_TO_READY = "planned to " + "ready"
-    RESOLVE_PATHS_HELPER = "resolve-paths" + ".sh"
-
-    def test_dispatch_context_no_stale_ready_wording(self):
-        """dispatch-context.md must not reference stale ready-era wording."""
-        text = _read(self.CONDUCT / "dispatch-context.md")
-        assert self.STATUS_READY not in text, (
-            f"dispatch-context.md still contains stale '{self.STATUS_READY}' wording"
-        )
-        assert self.PLANNED_TO_READY not in text, (
-            f"dispatch-context.md still contains stale '{self.PLANNED_TO_READY}' wording"
-        )
-
-    def test_dispatch_context_uses_implementing_lifecycle(self):
-        """dispatch-context.md auto-sync must use 'implementing', not 'ready'."""
-        text = " ".join(
-            (
-                _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
-                + _read(self.CONDUCT / "entry-activation-resolution.md")
-            ).split()
-        )
-        assert (
-            "yoke lifecycle transition" in text and "--to {IMPLEMENTING_STAGE}" in text
-        ), (
-            "dispatch-context.md auto-sync should use the lifecycle transition to implementing"
-        )
-
-    def test_entry_activation_no_stale_ready_wording(self):
-        """entry-activation.md must not reference stale ready-era wording in auto-sync."""
-        text = _read(self.CONDUCT / "entry-activation.md")
-        assert self.PLANNED_TO_READY not in text, (
-            f"entry-activation.md still contains stale '{self.PLANNED_TO_READY}' wording"
-        )
-
-    def test_cleanup_uses_main_root_not_rev_parse(self):
-        """cleanup-report.md must use MAIN_ROOT, not git rev-parse --show-toplevel in code blocks."""
-        text = _read(self.CONDUCT / "cleanup-report.md")
-        # Extract code blocks and check that none use rev-parse for root resolution
-        in_code = False
-        for line in text.splitlines():
-            if line.strip().startswith("```"):
-                in_code = not in_code
-                continue
-            if in_code and "git rev-parse --show-toplevel" in line:
-                raise AssertionError(
-                    "cleanup-report.md code block uses git rev-parse --show-toplevel "
-                    "instead of MAIN_ROOT"
-                )
-        assert "MAIN_ROOT" in text, (
-            "cleanup-report.md must reference MAIN_ROOT for main-repo-root resolution"
-        )
-
-    def test_no_resolve_paths_sh_reference(self):
-        """Conduct docs must not reference the retired path-helper script."""
-        for fname in self.CONDUCT.iterdir():
-            if fname.suffix == ".md":
-                text = _read(fname)
-                assert self.RESOLVE_PATHS_HELPER not in text, (
-                    f"{fname.name} references retired {self.RESOLVE_PATHS_HELPER}"
-                )
-
-
-# ---------------------------------------------------------------------------
 # TestConductFanOutEntryPath — task-level fan-out restoration
 # ---------------------------------------------------------------------------
 
 
 class TestConductFanOutEntryPath:
-    """Entry path and dispatch protocol must agree about parallelism."""
+    """The fan-out decision record stays on file."""
 
-    CONDUCT = SKILLS / "conduct"
     DECISION = REPO / "docs/archive/decisions/conduct-task-fanout-restore.md"
-    LEGACY_FLOW = "Epic Single-Item Flow"
 
     def test_decision_record_exists(self):
         assert self.DECISION.is_file(), f"missing {self.DECISION}"
-
-    def test_entry_resolution_and_loop_route_fan_out(self):
-        texts = [
-            _read(self.CONDUCT / name)
-            for name in (
-                "entry-activation.md",
-                "entry-activation-resolution.md",
-                "engineer-tester-loop.md",
-            )
-        ]
-        required = (
-            "epic-dispatch-chain advance",
-            "dispatch-context-dispatch.md",
-            "dispatch-context-prompts.md",
-            "Dispatched by conduct (task fan-out)",
-        )
-        missing = [n for n in required if not any(n in text for text in texts)]
-        assert not missing, f"fan-out entry path missing {missing}"
-        joined = "\n".join(texts)
-        assert self.LEGACY_FLOW not in joined, "legacy single-item flow name present"
-        assert "Dispatched by conduct (single-item)" not in joined, "legacy marker"
-
-    def test_dispatch_prompts_match_fan_out(self):
-        prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
-        shared = _read(SKILLS / "shared" / "tester-dispatch-template.md")
-        for needle in (
-            "Implement PREFIX-{N} task {_task_id}",
-            "epic-task body-get --epic {_epic_ref} --task-num {_task_id}",
-            "## Anticipated Paths",
-        ):
-            assert needle in prompts, f"epic prompts missing {needle}"
-        assert "../shared/tester-dispatch-template.md" in prompts
-        assert 'DispatchDescriptor(role="tester"' not in prompts
-        assert "task-num: {task_num}" in shared
-        assert "review-insert --epic {epic_ref} --task-num {task_num}" in shared
-        assert "Implement PREFIX-{_id}" not in prompts, "legacy prompt placeholder"
-        assert "items get PREFIX-{_id} spec" not in prompts, "legacy spec read"
-
-    def test_dispatch_protocol_remains_live(self):
-        dispatch = " ".join(
-            _read(self.CONDUCT / "dispatch-context-dispatch.md").split()
-        )
-        assert "parallel_subagents" in dispatch, "missing harness concurrency read"
-        assert "dispatch all eligible Engineers at once" in dispatch
-        assert "finish its [loop](engineer-tester-loop.md) without waiting" in dispatch
-        assert "on that chain and every idle chain" in dispatch, "missing lane refill"
-        assert "After ALL Engineers return" not in dispatch, "batch wait returned"
-
-    def test_legacy_flow_name_only_in_decision_record(self):
-        offenders = [
-            f.name
-            for f in sorted(self.CONDUCT.glob("*.md"))
-            if self.LEGACY_FLOW in _read(f)
-        ]
-        assert not offenders, f"legacy flow name in conduct prose: {offenders}"

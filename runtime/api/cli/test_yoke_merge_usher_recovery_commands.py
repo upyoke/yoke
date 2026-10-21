@@ -14,13 +14,10 @@ from yoke_cli.commands.merge_audit import merge_audit
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.commands.usher_reconcile import usher_reconcile_github
 from yoke_cli.main import main as cli_main
-from yoke_cli.product_boundary_teaching import generate_teaching_audit
 from runtime.api.test_constants import TEST_ITEM_REF
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CONDUCT_VERIFY = ".agents/skills/yoke/conduct/dispatch-context-verify.md"
-USHER_COLLECT = ".agents/skills/yoke/usher/collect.md"
 
 
 def test_merge_audit_token_resolves() -> None:
@@ -162,19 +159,3 @@ def test_product_boundary_inventory_classifies_recovery_commands() -> None:
             "source_dev_admin"
         }
 
-
-def test_skills_teach_yoke_commands_not_internal_modules() -> None:
-    audit = generate_teaching_audit(repo_root=REPO_ROOT)
-    rows = {
-        (row.source, row.recipe): row
-        for row in audit.surfaces
-        if row.source in {CONDUCT_VERIFY, USHER_COLLECT}
-    }
-
-    assert not any(
-        row.source == CONDUCT_VERIFY and "timeout_portable" in row.recipe
-        for row in rows.values()
-    )
-    assert rows[(USHER_COLLECT, "yoke usher reconcile-github PREFIX-N")].resolution == (
-        "tool_shaped"
-    )

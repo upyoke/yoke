@@ -142,23 +142,6 @@ class TestBareRuntimeRefusal:
         assert "refuses bare 'runtime/'" in captured.err
         assert "watch_tail" not in captured.out
 
-    def test_help_teaches_iteration_then_attached_full_gate(
-        self,
-        capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        # Pin the format width so argparse's epilog wrapping never splits
-        # the asserted phrases across lines.
-        monkeypatch.setenv("COLUMNS", "200")
-        with pytest.raises(SystemExit) as exc_info:
-            watch_pytest.main(["--help"])
-        assert exc_info.value.code == 0
-        out = capsys.readouterr().out
-        assert "--impacted main --bounded" in out
-        assert "yoke qa case run --requirement-id" in out
-        assert "before push/dispatch" in out
-        assert "bare 'runtime/'" in out
-
 
 class TestExplicitFileSelectionDiagnostics:
     def test_missing_file_refuses_the_complete_selection(

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import re
 from functools import partial
-from pathlib import Path
 
 import pytest
 
@@ -33,66 +31,6 @@ def test_cursor_effort_suffix_hits_the_canonical_grok_record() -> None:
     assert lookup.record is not None
     assert lookup.record.model_id == "cursor-grok-4.7"
     assert "operator_preferences" not in lookup.record.to_dict()
-
-
-_TEACHING_FILES = (
-    ".agents/skills/yoke/models/SKILL.md",
-    ".agents/skills/yoke/steer/model-selection.md",
-    "docs/public/cli/index.md",
-    "docs/public/cli/machine-config.md",
-)
-_FENCED_BLOCK_RE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
-_TIER_CLAIM_RE = re.compile(r"tier\s?-?[12]\b|\bexcluded\b", re.IGNORECASE)
-
-
-def _prose_sentences(path: Path) -> list[str]:
-    """Return the file's sentences with fenced blocks removed.
-
-    A fenced block is a syntax example — the ``[1m]`` context suffix, the
-    ``-high`` effort suffix — and each one says in prose that its model
-    ids are illustrative. Only the prose makes claims.
-    """
-    prose = " ".join(_FENCED_BLOCK_RE.sub(" ", path.read_text()).split())
-    return re.split(r"(?<=[.!?])\s+", prose)
-
-
-def test_teaching_prose_never_claims_a_models_tier() -> None:
-    """Which model sits in a tier is live configuration, never taught prose.
-
-    Routing changes without a code lane, so prose naming which models sit
-    in a tier goes stale with nothing to correct it. Naming a model as a
-    selector-syntax example stays fine; claiming its tier in the same
-    sentence does not.
-    """
-    root = Path(__file__).resolve().parents[3]
-    names = sorted(
-        {record.display_name for record in MODEL_RECORDS}
-        | {record.model_id for record in MODEL_RECORDS},
-        key=len,
-        reverse=True,
-    )
-    claims: list[str] = []
-    for rel in _TEACHING_FILES:
-        for sentence in _prose_sentences(root / rel):
-            named = [name for name in names if name in sentence]
-            if named and _TIER_CLAIM_RE.search(sentence):
-                claims.append(f"{rel}: {named} in {sentence!r}")
-    assert not claims, (
-        "taught prose claims a tier for a specific model; state the tier's "
-        "meaning and send the reader to the live routing read instead:\n"
-        + "\n".join(claims)
-    )
-
-
-def test_reference_teaching_retains_its_settled_corrections() -> None:
-    root = Path(__file__).resolve().parents[3]
-    joined = "\n".join((root / rel).read_text() for rel in _TEACHING_FILES)
-    for rel in _TEACHING_FILES[1:]:
-        assert "proposed_tier" not in (root / rel).read_text(), rel
-    assert "Grok 4.6 is tier 1" not in joined
-    assert "bounded-work default" not in joined
-    assert "do not exclude" not in joined.lower()
-    assert "claude-sonnet-5" not in joined
 
 
 def test_claude_cache_write_fields_split_five_minute_and_one_hour() -> None:

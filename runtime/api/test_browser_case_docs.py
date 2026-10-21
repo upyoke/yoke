@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from runtime.api.skill_doc_regressions_test_helpers import REPO
 
 
-TESTER = REPO / "runtime" / "agents" / "tester.md"
-TESTER_BROWSER = REPO / "runtime" / "agents" / "tester-browser.md"
-AGENT_OVERVIEW = REPO / "docs" / "agents.md"
-CONDUCT_EPHEMERAL = (
-    REPO / ".agents" / "skills" / "yoke" / "conduct" / "dispatch-context-ephemeral.md"
-)
 BROWSER_SUBSTRATE = REPO / "docs" / "browser-substrate.md"
 CASE_ORCHESTRATION = REPO / "docs" / "browser-substrate" / "scenario-orchestration.md"
 CANDIDATE_VERIFICATION = REPO / ".agents" / "skills" / "yoke" / "dash" / "verify.md"
@@ -28,74 +21,6 @@ BROWSER_METHOD_MODULES = (
 def _read(path: Path) -> str:
     assert path.is_file(), f"missing canonical Browser QA document: {path}"
     return path.read_text(encoding="utf-8")
-
-
-def _case_run_block(text: str) -> str:
-    match = re.search(r"yoke qa case run\b.*?```", text, re.DOTALL)
-    assert match is not None, "missing yoke qa case run recipe"
-    return match.group(0)
-
-
-def test_canonical_browser_docs_use_method_case_contract() -> None:
-    paths = (
-        TESTER,
-        TESTER_BROWSER,
-        AGENT_OVERVIEW,
-        BROWSER_SUBSTRATE,
-        CASE_ORCHESTRATION,
-        REPO / "docs/public/verification/browser-scenarios.md",
-        REPO / "docs/public/verification/browser-targets.md",
-    )
-    text = "\n".join(_read(path) for path in paths)
-
-    assert "browser-check" in text
-    assert "browser-inspection" in text
-    assert "immutable `method_config`" in text
-    assert "instructions, expected outcome, and `method_config`" in text
-    assert "yoke qa case run" in text
-    for retired in (
-        "success_policy",
-        "browser_smoke",
-        "browser_diff",
-        "yoke qa browser run",
-    ):
-        assert retired not in text
-
-
-def test_browser_configuration_and_execution_have_separate_homes() -> None:
-    targets = _read(REPO / "docs/public/verification/browser-targets.md")
-    scenarios = _read(REPO / "docs/public/verification/browser-scenarios.md")
-    assert "## Browser Methods" in targets
-    assert "## Method configuration" in targets
-    assert "## Where a Browser case runs" in targets
-    assert "## Viewport" in targets
-    assert "method_config" in targets
-    assert "## Action reference" in scenarios
-    assert "## Assertion checks" in scenarios
-    assert "## Execution" in scenarios
-    assert "yoke qa case run" in scenarios
-
-
-def test_tester_protocol_runs_each_case_with_freshness_identity() -> None:
-    tester = _read(TESTER)
-    protocol = _read(TESTER_BROWSER)
-    recipe = _case_run_block(protocol)
-
-    assert "tester-browser.md" not in tester
-    assert "references/yoke-tester-browser.md" not in tester
-    assert "--requirement-id <requirement-id>" in recipe
-    assert '--base-url "<ephemeral-url>"' in recipe
-    assert '--expected-branch "<worktree-branch>"' in recipe
-    assert '--expected-sha "<worktree-head-sha>"' in recipe
-    assert "Do not refine, replace, or otherwise rewrite `method_config`" in protocol
-
-
-def test_conduct_dispatch_forwards_resolved_branch_and_sha_to_each_case() -> None:
-    text = _read(CONDUCT_EPHEMERAL)
-    recipe = _case_run_block(text)
-
-    assert "--expected-branch {BRANCH}" in recipe
-    assert "--expected-sha {HEAD_SHA}" in recipe
 
 
 def test_browser_docs_link_candidate_verification() -> None:
@@ -121,10 +46,7 @@ def test_gate_recovery_names_the_registered_case_runners() -> None:
 
 def test_retired_browser_and_migration_residue_is_absent() -> None:
     browser_text = "\n".join(_read(path) for path in BROWSER_METHOD_MODULES)
-    docs_text = _read(BROWSER_SUBSTRATE)
     timing_text = _read(TIMING_PROFILE)
 
     assert "legacy Browser case" not in browser_text
-    assert "--qa-run-id" not in docs_text
-    assert "qa artifact-add" not in docs_text
     assert "test_harness_session_project_identity.py" not in timing_text

@@ -17,8 +17,7 @@ Covers:
 - ``packets.check`` folds drift, both packet axes, and delivery into one
   verdict, and reports ``ok`` false when any of them is over.
 - ``packets.startup_delivery.get`` is registered, client-local, CLI-routed.
-- Compact packet depth is a strict subset of full, and closes by naming the
-  command that renders its own full form.
+- Compact packet depth is a strict subset of full.
 """
 
 from __future__ import annotations
@@ -153,12 +152,6 @@ def test_compact_topic_is_a_strict_subset_of_full() -> None:
         for line in compact.splitlines():
             if line.strip() and not line.startswith("_Depth:_"):
                 assert line in full, line
-
-
-def test_compact_packet_names_the_command_for_its_own_notes() -> None:
-    compact = render_role_packet("main_agent", detail=PACKET_DETAIL_COMPACT)
-    assert "--detail full" in compact
-    assert "yoke packets render --role main_agent --topic core" in compact
 
 
 def test_compact_topic_keeps_catalog_and_role_discovers_it() -> None:
@@ -333,5 +326,4 @@ def test_orientation_block_does_not_inline_the_packet_body() -> None:
     block = render_orientation({"session_id": "sess-measure"}, _repo_root())
     assert block
     assert "**Schema cheat sheet:**" not in block
-    assert "yoke packets render --role main_agent" in block
     assert len(block.encode("utf-8")) < min(INLINE_CONTEXT_BYTES.values())

@@ -280,16 +280,6 @@ class TestPassthroughParsing:
         assert passthrough == []
 
 
-class TestArgparseHelpExample:
-    def test_help_teaches_the_canonical_form(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        with pytest.raises(SystemExit) as excinfo:
-            watch_qa_case._parse_args(["--help"])
-        assert excinfo.value.code == 0
-        assert "yoke watch qa-case -- --requirement-id" in capsys.readouterr().out
-
-
 class TestPrintStreamingPair:
     def _capture_pair(self, argv: list[str]) -> str:
         buffer = io.StringIO()

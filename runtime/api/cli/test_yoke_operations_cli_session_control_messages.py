@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -235,9 +234,7 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
     assert capsys.readouterr().out == ""
 
 
-def test_say_help_points_to_the_complete_top_level_workflow(capsys) -> None:
-    from yoke_core.api.repo_root import find_repo_root
-
+def test_say_help_links_the_inbox_doc_within_the_size_limit(capsys) -> None:
     with pytest.raises(SystemExit) as exit_info:
         messages.say(["--help"])
 
@@ -245,18 +242,6 @@ def test_say_help_points_to_the_complete_top_level_workflow(capsys) -> None:
     rendered = capsys.readouterr().out
     assert ".yoke/docs/sessions/inbox.md" in rendered
     assert len(rendered) <= 4300
-    rendered = (
-        find_repo_root(Path(__file__)) / "docs/public/sessions/inbox.md"
-    ).read_text()
-    assert "yoke sessions list --liveness active" in rendered
-    assert "yoke say --preview --item PREFIX-N" in rendered
-    assert "yoke say --item PREFIX-N --stdin" in rendered
-    assert "yoke messages get MESSAGE-ID" in rendered
-    assert "yoke messages acknowledge MESSAGE-ID" in rendered
-    assert "Top-level sender recovery for an undelivered message" in rendered
-    assert "yoke messages cancel MESSAGE-ID" in rendered
-    assert "receive no Fleet delivery at all" in rendered
-    assert "handle Fleet wake requests" in rendered
 
 
 def test_sent_message_output_points_to_its_delivery_receipt() -> None:

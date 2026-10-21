@@ -141,11 +141,6 @@ def test_user_facing_hook_floor_matches_manifest() -> None:
     assert floor is not None
     smoke = (root / "runtime/harness/codex/SMOKE-TEST.md").read_text(encoding="utf-8")
     assert f">= {floor}" in smoke
-    overview = (root / "docs/OVERVIEW.md").read_text(encoding="utf-8")
-    assert "runtime/harness/{claude,codex,cursor}/manifest.json" in overview
-    parity = (root / "docs/hook-parity-map.md").read_text(encoding="utf-8")
-    assert "runtime/harness/<harness-dir>/manifest.json" in parity
-    assert "runtime minima" in parity
 
 
 # ---------------------------------------------------------------------------

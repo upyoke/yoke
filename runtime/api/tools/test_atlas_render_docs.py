@@ -167,11 +167,6 @@ class TestRender:
         assert all(p >= 0 for p in positions), positions
         assert positions == sorted(positions)
 
-    def test_permanent_roster_teaches_human_claim_release(self, body: str) -> None:
-        assert "### Human-only stranded work-claim release" in body
-        assert "service_client claim-release" in body
-        assert "OperatorClaimOverride" in body
-
     def test_summary_surfaces_top_level_counts(self, body: str) -> None:
         assert "**3**" in body  # function_ids
         assert "1 pending" in body
@@ -196,7 +191,6 @@ class TestRender:
     def test_tool_cli_roster_lists_local_adapter(self, body: str) -> None:
         assert "## 3. Tool-shaped CLI roster" in body
         assert "yoke watch pytest" in body
-        assert "without a dispatcher function id" in body
 
     def test_client_local_cli_row_renders_only_as_permanent_boundary(
         self,

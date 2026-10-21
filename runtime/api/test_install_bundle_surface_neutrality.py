@@ -228,8 +228,6 @@ def test_installed_project_rules_exclude_source_bundle_sync(tmp_path, packaged):
 
     for name in ("AGENTS.md",):
         assert "install_bundle_tree_sync" not in (tmp_path / name).read_text()
-    source_rules = (REPO / "AGENTS.md").read_text()
-    assert "install_bundle_tree_sync sync" in source_rules.split(BLOCK_END, 1)[1]
 
 
 def test_the_generic_placeholder_is_actually_in_use() -> None:

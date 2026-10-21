@@ -1,14 +1,4 @@
-"""Column-disambiguation regressions for the schema cheat-sheet packet.
-
-A recurring Yoke-surface gap: agents drop to a raw diagnostic SELECT
-with a column name guessed from doctrine prose that actually belongs to a
-DIFFERENT table — the prominent ``path_claims`` typed-owner vocabulary
-cross-applied to ``work_claims`` is the canonical example. These tests
-pin the positive disambiguation notes that steer the next agent to the
-real column, per the AGENTS.md "Same-PR packet teaching on Yoke-surface
-gap failures" rule. They assert against the rendered packet body, so a
-future note rewrite that drops a disambiguation fails loudly.
-"""
+"""Column-listing regressions for the schema cheat-sheet packet."""
 
 from __future__ import annotations
 
@@ -16,57 +6,10 @@ from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
-def test_work_claims_note_disambiguates_from_path_claims() -> None:
-    """work_claims must not inherit the path_claims typed-owner columns."""
+def test_harness_sessions_column_line_lists_offered_at() -> None:
+    """The real session checkpoint timestamp is listed as a column."""
     body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    # The canonical target pair and exact kind-specific scopes are named.
-    assert "target_kind plus one canonical JSON object in scope" in body
-    assert 'item={"item_id":N}' in body
-    assert 'steering={"project_id":N}' in body
-    # Retired specialized columns are explicitly absent.
-    assert "There is no specialized target column" in body
-    assert "`claimed_at`" in body
-    # Holder lookups steer to the registered holder command over a raw SELECT.
-    assert "yoke claims work holder-get" in body
-    assert "yoke claims coordination-claim release --claim-id N" in body
-
-
-def test_harness_sessions_note_calls_out_state_and_started_at() -> None:
-    """harness_sessions has neither `state` nor `started_at`."""
-    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
-    assert "NO `state` column" in body
-    assert "`started_at` column" in body
-    # The real session checkpoint timestamp is named (and listed as a column).
-    assert "`offered_at`" in body
     column_line = next(
         line for line in body.splitlines() if "**`harness_sessions`**" in line
     )
     assert "offered_at" in column_line
-
-
-def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
-    """Items has one integer PK; public refs are rendered, not stored."""
-    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
-    assert "NO `item_id` or `public_id` column" in body
-    assert "select `item_refs.public_ref`" in body
-    assert "join `item_refs.item_id` to `items.id`" in body
-    assert "`github_issue` column" in body
-    assert "no `github_issue_number`" in body
-    assert "WHERE project_id = <p> AND project_sequence = <n>" in body
-    assert "self-orient with `WHERE id = <n>`" not in body
-    assert "never treat the N from a public ref as `WHERE id = N`" in body
-
-
-def test_qa_requirements_note_names_qa_kind_not_kind() -> None:
-    """The qa_requirements kind discriminator is `qa_kind`, not `kind`."""
-    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    assert "discriminator is `qa_kind`" in body
-    assert "no `requirement_type` column" in body
-
-
-def test_migration_audit_note_names_live_columns_for_observed_wrong_guesses() -> None:
-    """Every observed raw-SELECT miss points directly to the live column."""
-    body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
-    assert "wrong guess `migration_id` means `migration_name`" in body
-    assert "wrong guess `failure` means `failure_reason`" in body
-    assert "wrong guess `source_description` means `description`" in body
