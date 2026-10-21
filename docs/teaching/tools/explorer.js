@@ -16,19 +16,19 @@ const text = (tag, value, className = '') => {
   el.className = className;
   return el;
 };
-function place(node, x, y, w, h, depth, color) {
+function place(node, x, y, w, h, depth, color, focused = false) {
   Object.assign(node, {x, y, w, h, depth, color});
   const count = node.children.length;
   if (!count) return;
   const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
   const rows = Math.ceil(count / cols);
-  const gap = w * .018, inset = w * .04;
-  const top = h * .25;
+  const gap = focused ? 12 : w * .018, inset = focused ? 16 : w * .04;
+  const top = focused ? Math.min(110, h * .3) : h * .25;
   const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
   const ch = (h - top - inset - gap * (rows - 1)) / rows;
   node.children.forEach((child, i) => place(child,
     x + inset + (i % cols) * (cw + gap),
-    y + top + Math.floor(i / cols) * (ch + gap), cw, ch, depth + 1, color));
+    y + top + Math.floor(i / cols) * (ch + gap), cw, ch, depth + 1, color, focused));
 }
 function screen(node) {
   return {x: node.x * camera.z + camera.x, y: node.y * camera.z + camera.y,
@@ -43,14 +43,14 @@ function zoom(factor, x = map.clientWidth / 2, y = map.clientHeight / 2) {
   requestRender();
 }
 function fit(node) {
-  const pad = 90;
-  const z = Math.min((map.clientWidth - pad * 2) / node.w,
-    (map.clientHeight - pad * 2) / node.h);
-  camera = {z, x: (map.clientWidth - node.w * z) / 2 - node.x * z,
-    y: (map.clientHeight - node.h * z) / 2 - node.y * z + 20};
+  // Reflow the selected subtree to the viewport instead of preserving a narrow tile.
+  place(node, 18, 62, map.clientWidth - 36, Math.max(240, map.clientHeight - 145),
+    node.depth, node.color, true);
+  camera = {z: 1, x: 0, y: 0};
 }
 function choose(node) {
   focus = node;
+  node.reading = false;
   fit(node);
   document.querySelector('#intro').hidden = true;
   updateTrail();
@@ -58,7 +58,10 @@ function choose(node) {
   requestRender();
 }
 function home() {
+  if (!roots.length) return;
   focus = null;
+  roots.forEach((node, i) => place(node, (i % 4) * 480,
+    Math.floor(i / 4) * 370, 440, 300, 0, palette[i % palette.length]));
   const z = Math.min((map.clientWidth - 100) / 1880,
     Math.max(200, map.clientHeight - 250) / (Math.ceil(roots.length / 4) * 370 - 70));
   camera = {z, x: (map.clientWidth - 1880 * z) / 2, y: 175};
@@ -119,11 +122,7 @@ function makeNode(node) {
   el.tabIndex = 0;
   el.setAttribute('aria-label', node.title + '. Zoom into node');
   const heading = text('div', '', 'node-head');
-  const labels = {'observed': 'Source reviewed', 'draft-copy': 'Draft wording',
-    'candidate': 'Proposed', 'approved': 'Agreed', 'deferred': 'Planned for later',
-    'verified-live': 'Checked in use'};
-  heading.append(text('span', labels[node.status] || (node.depth ? 'Branch' : 'Context source'), 'kind'),
-    text('h2', node.title), text('p', node.summary, 'summary'));
+  heading.append(text('h2', node.title), text('p', node.summary, 'summary'));
   el.append(heading);
   if ((node.record || node.document) && node.children.length) {
     const read = text('button', 'Read this node', 'read-node');
@@ -223,7 +222,10 @@ function render() {
     el.hidden = false;
     Object.assign(el.style, {left: `${s.x}px`, top: `${s.y}px`,
       width: `${s.w}px`, height: `${s.h}px`, zIndex: node.depth + 1});
-    const expanded = focus === node || (s.w > 620 && s.h > 370);
+    const child = node.children[0];
+    const roomForChildren = child && child.w * camera.z >= 150 && child.h * camera.z >= 85;
+    const expanded = focus === node || (focus ? roomForChildren || (!child && s.w > 300 && s.h > 220)
+      : s.w > 620 && s.h > 370);
     el.classList.toggle('expanded', expanded);
     el.classList.toggle('tiny', s.w < 190 || s.h < 110);
     el.classList.toggle('selected', focus === node);
@@ -233,7 +235,7 @@ function render() {
     if (expanded && !node.children.length) fillDetail(node, el);
     if (expanded && !node.reading) node.children.forEach(visit);
   }
-  roots.forEach(visit);
+  (focus ? [focus] : roots).forEach(visit);
   for (const [id, el] of elements) if (!visible.has(id)) el.hidden = true;
   wires.replaceChildren();
   document.querySelector('#scale').textContent = `${Math.round(camera.z * 100)}%`;
@@ -267,7 +269,7 @@ document.querySelector('#home').onclick = home;
 document.querySelector('#up').onclick = up;
 document.querySelector('#in').onclick = () => zoom(1.5);
 document.querySelector('#out').onclick = () => zoom(1 / 1.5);
-window.addEventListener('resize', requestRender);
+window.addEventListener('resize', () => { if (focus) fit(focus); else home(); requestRender(); });
 (async () => {
   try {
     const response = await fetch('manifest.json');

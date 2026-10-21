@@ -68,3 +68,8 @@ button:focus-visible, article:focus-visible { outline: 3px solid #c68c38; outlin
 #connections b { display: block; font-size: 12px; margin-bottom: 8px; }
 #connections button { display: block; width: 100%; text-align: left; margin-top: 6px; font-size: 11px; line-height: 1.4; }
 @media (max-width: 700px) { #connections { top: auto; bottom: 65px; max-height: 20vh; width: 210px; } }
+
+.node.expanded > .node-head { max-height: 100px; }
+.node.expanded > .node-head h2 { font-size: clamp(15px, var(--head-size), 26px); margin-top: 0; }
+.node.expanded { padding: 16px; }
+#connections { top: auto; bottom: 85px; max-height: 22vh; }

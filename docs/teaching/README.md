@@ -190,3 +190,8 @@ Setup, hooks, rules, feedback and working guidance group individual instructions
 by purpose. Skills group by work type, roles by responsibility, and nested skills
 sit below their parent procedure. Public topics and command help retain their
 existing trees. These connections describe context routes, not live execution.
+
+Clicking a node reflows its subtree to the viewport and hides neighboring trees.
+Nested nodes expand while their children have readable space; click a smaller
+node to give it the full viewport. Breadcrumbs and Whole map restore context.
+Node headings omit research-status and node-type labels.
