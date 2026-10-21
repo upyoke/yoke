@@ -98,4 +98,27 @@ def ensure_managed_file_line_exceptions(
     }
 
 
-__all__ = ["ensure_managed_file_line_exceptions"]
+def managed_markdown_paths(bundle: dict) -> list[str]:
+    """Repo-relative paths of the rules files this bundle manages.
+
+    Read from the bundle rather than hardcoded so the exemption set tracks
+    whatever the server declares as managed-markdown targets. A bundle from
+    an older server carries no targets and yields nothing to exempt.
+    """
+    managed = bundle.get("managed_markdown")
+    if not isinstance(managed, dict):
+        return []
+    targets = managed.get("targets")
+    if not isinstance(targets, list):
+        return []
+    paths: list[str] = []
+    for target in targets:
+        if not isinstance(target, dict):
+            continue
+        rel = target.get("path")
+        if isinstance(rel, str) and rel:
+            paths.append(rel)
+    return paths
+
+
+__all__ = ["ensure_managed_file_line_exceptions", "managed_markdown_paths"]

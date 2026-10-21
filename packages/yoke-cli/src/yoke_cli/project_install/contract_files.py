@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, TypeVar
 
 from yoke_cli.project_install.files import (
     assert_resolved_targets_within,
     sha256_text,
 )
+
+_Result = TypeVar("_Result")
 
 
 def apply_contract_files(
@@ -59,6 +61,38 @@ def apply_contract_files(
         contract_map[rel] = sha256_text(content)
         written.append(rel)
     return contract_map, written, existing, adopted
+
+
+def follow_installer_edit(
+    repo_root: Path,
+    contract_map: Dict[str, str],
+    rel: str,
+    edit: Callable[[], _Result],
+) -> _Result:
+    """Run an install edit to a contract file, keeping its record current.
+
+    The record is the content uninstall may remove. When the install appends
+    to a seeded file the operator has not touched, the new content is still
+    the install's own, so the record follows it; an operator-edited file
+    keeps its old record and uninstall preserves it.
+    """
+    before = _text(repo_root / rel)
+    result = edit()
+    after = _text(repo_root / rel)
+    if (
+        before is not None
+        and after is not None
+        and contract_map.get(rel) == sha256_text(before)
+    ):
+        contract_map[rel] = sha256_text(after)
+    return result
+
+
+def _text(path: Path) -> str | None:
+    try:
+        return path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def _gitignore_entry(
@@ -121,4 +155,4 @@ def reconcile_gitignore(
     return missing
 
 
-__all__ = ["apply_contract_files", "reconcile_gitignore"]
+__all__ = ["apply_contract_files", "follow_installer_edit", "reconcile_gitignore"]

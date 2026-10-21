@@ -21,6 +21,19 @@ def prepare(
     authority, so removal proceeds on the current branch and says so.
     """
     warnings: list[str] = []
+    # Strategy documents stay on disk, so the removal has nothing of theirs
+    # to record.
+    paths = installed_output_paths.normalized(
+        [
+            *(
+                path
+                for path in installed_output_paths.manifest_owned_paths(manifest)
+                if path not in dict(manifest.get("strategy_files") or {})
+            ),
+            *installed_output_paths.shared_paths(manifest),
+            *installed_output_paths.managed_region_paths(manifest),
+        ]
+    )
     # A clean tree also means a clean index; the shared commit helper must never
     # incorporate an operator's already-staged changes into an uninstall commit.
     if checkout_gate.is_git_checkout(root):
@@ -48,16 +61,28 @@ def prepare(
             )
         else:
             _require_default_branch(root, str(result.get("value") or "").strip())
-    return (
-        installed_output_paths.normalized(
-            [
-                *installed_output_paths.manifest_owned_paths(manifest),
-                *installed_output_paths.shared_paths(manifest),
-                *installed_output_paths.managed_region_paths(manifest),
-            ]
-        ),
-        warnings,
-    )
+        # Removal deletes the .yoke/.gitignore that kept local views ignored,
+        # so only paths git already tracks may enter the removal commit.
+        paths = _tracked(root, paths)
+    return paths, warnings
+
+
+def _tracked(root: Path, paths: list[str]) -> list[str]:
+    if not paths:
+        return []
+    listed = checkout_gate.run_git(root, "ls-files", "-z", "--", *paths)
+    if listed.returncode != 0:
+        detail = listed.stderr.strip() or listed.stdout.strip() or "git ls-files failed"
+        raise ProjectInstallError(
+            f"project_uninstall_tracked_paths_unread: {detail}. Repair git in "
+            f"{root}, then retry project uninstall."
+        )
+    tracked = [path for path in listed.stdout.split("\0") if path]
+    return [
+        path
+        for path in paths
+        if any(entry == path or entry.startswith(path + "/") for entry in tracked)
+    ]
 
 
 def _require_default_branch(root: Path, branch: str) -> None:

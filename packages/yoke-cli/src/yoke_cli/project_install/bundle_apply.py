@@ -32,6 +32,13 @@ from yoke_cli.project_install.files import (
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_cli.project_install import hook_trust_report
+from yoke_cli.project_install.contract_files import follow_installer_edit
+from yoke_cli.project_install.file_line_managed_exceptions import (
+    ensure_managed_file_line_exceptions,
+    managed_markdown_paths,
+)
+from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
+from yoke_contracts.project_contract.file_line_policy import PROJECT_CONFIG_REL
 from yoke_cli.project_install.validate import _validate_bundle
 
 _MANIFEST_OWNED_KEYS = frozenset(
@@ -121,9 +128,22 @@ def apply_bundle(
     # project onboarded before an ignore name (e.g. `strategy/`) entered the
     # canonical set would keep tracking those views. Reconcile the existing
     # file up to the canonical ignore set on every install/refresh.
-    gitignore_backfilled = files_layer.reconcile_gitignore(
+    gitignore_backfilled = follow_installer_edit(
         repo_root,
-        contract_files,
+        contract_map,
+        YOKE_GITIGNORE_REL,
+        lambda: files_layer.reconcile_gitignore(repo_root, contract_files),
+    )
+    # The install writes the managed rules files AND the gate that measures
+    # them, so it also exempts them — otherwise a project's first commit fails
+    # on the install's own output.
+    file_line_exceptions = follow_installer_edit(
+        repo_root,
+        contract_map,
+        PROJECT_CONFIG_REL,
+        lambda: ensure_managed_file_line_exceptions(
+            repo_root, managed_markdown_paths(bundle)
+        ),
     )
     (
         strategy_map,
@@ -295,6 +315,7 @@ def apply_bundle(
             old_manifest.get(DISCARDED_PRIOR_STRATEGY_RECORDS_KEY) or []
         ),
         "gitignore_ignores_backfilled": gitignore_backfilled,
+        "file_line_managed_exceptions": file_line_exceptions,
         "strategy_files_written": strategy_written,
         "strategy_files_unchanged": strategy_unchanged,
         "strategy_files_preserved_edited": strategy_preserved,
