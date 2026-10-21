@@ -93,10 +93,15 @@ def settle_acceptance(
 ) -> tuple[dict[str, Any], bool]:
     """Converge one subject's acceptance; True when a failure released its member."""
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-
-    status = deployment_qa_stage_status(
-        conn, run_id=run_id, stage_name=stage, member_item_id=member
+    from yoke_core.domain.deployment_run_auto_completion import (
+        stage_settlement_continues,
     )
+
+    # Every caller continues the run once after acceptance converges.
+    with stage_settlement_continues(run_id):
+        status = deployment_qa_stage_status(
+            conn, run_id=run_id, stage_name=stage, member_item_id=member
+        )
     outcome = str(status.get("outcome") or "")
     if outcome not in SETTLED_OUTCOMES:
         return status, False
@@ -135,21 +140,32 @@ def continue_settled_stage(
             continue_after_settlement,
         )
 
-        attempt = continue_after_settlement(conn, run_id, notify_recovery=False)
-        if attempt.completed:
+        # A member's stage is read once: while a sibling still owes QA the
+        # run cannot complete, and once none does completion skips the stage.
+        waiting = (
+            stage_waiting(conn, run_id=run_id, stage=stage)
+            if member is not None
+            else False
+        )
+        if waiting:
+            # One member passing is report state; notify only when the
+            # stage settles, goes red, or its continuation cannot finish.
             return status
-        completion_failure = attempt.failure
-        if member is not None:
-            owing = members_still_owing(conn, run_id=run_id, stage=stage)
-            if owing is None:
-                completion_failure = completion_failure or (
-                    "qa_stage_outstanding_unavailable: cannot determine remaining "
-                    "stage subjects; read the run and retry its QA settlement"
-                )
-            elif owing and not completion_failure:
-                # One member passing is report state; notify only when the
-                # stage settles, goes red, or its continuation cannot finish.
+        if waiting is None:
+            completion_failure = (
+                "qa_stage_outstanding_unavailable: cannot determine remaining "
+                "stage subjects; read the run and retry its QA settlement"
+            )
+        else:
+            attempt = continue_after_settlement(
+                conn,
+                run_id,
+                notify_recovery=False,
+                accepted_qa_stage=stage if member is not None else "",
+            )
+            if attempt.completed:
                 return status
+            completion_failure = attempt.failure
     from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
     from yoke_core.domain.project_identity import resolve_project
 
@@ -187,14 +203,14 @@ def continue_settled_stage(
     return status
 
 
-def members_still_owing(
-    conn: Any, *, run_id: str, stage: str
-) -> tuple[int | None, ...] | None:
-    """Subjects the stage still waits on; ``None`` when that cannot be read."""
+def stage_waiting(conn: Any, *, run_id: str, stage: str) -> bool | None:
+    """Whether any subject still owes the stage; ``None`` when that cannot be read."""
     from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 
-    outstanding = qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
-    return None if outstanding is None else outstanding.waiting_members
+    outstanding = qa_stage_outstanding(
+        conn, run_id=run_id, stage_name=stage, stop_at_first_waiting=True
+    )
+    return None if outstanding is None else bool(outstanding.waiting)
 
 
 def status_project_id(conn: Any, run_id: str) -> int:
@@ -244,8 +260,8 @@ __all__ = [
     "SETTLED_OUTCOMES",
     "continuation_message",
     "continue_settled_stage",
-    "members_still_owing",
     "settle_acceptance",
     "settle_execution",
     "settle_subject",
+    "stage_waiting",
 ]

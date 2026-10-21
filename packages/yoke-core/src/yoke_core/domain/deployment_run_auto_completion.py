@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +24,25 @@ class CompletionAttempt:
     completed: bool = False
     waiting: str = ""
     failure: str = ""
+
+
+_STAGE_SETTLEMENT_RUN: ContextVar[str] = ContextVar(
+    "stage_settlement_continues_run", default=""
+)
+
+
+@contextmanager
+def stage_settlement_continues(run_id: str) -> Iterator[None]:
+    """Defer this run's completion to the QA stage settlement that follows.
+
+    A member close-out inside the settlement's gate would otherwise attempt
+    completion, and walk the stage, once more before the settlement does.
+    """
+    token = _STAGE_SETTLEMENT_RUN.set(run_id)
+    try:
+        yield
+    finally:
+        _STAGE_SETTLEMENT_RUN.reset(token)
 
 
 def _row_value(row: Any, name: str, index: int) -> Any:
@@ -85,7 +106,9 @@ def _qa_waiting(conn: Any, run_id: str, stage_name: str) -> bool:
 
 
 @composition_operation
-def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
+def _readiness(
+    conn: Any, run_id: str, accepted_qa_stage: str = ""
+) -> tuple[dict[str, Any] | None, str]:
     from yoke_core.domain.deployment_run_completion_preconditions import (
         unresolved_blocking_qa,
     )
@@ -133,7 +156,7 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         name = str(stage.get("name") or "")
         runner = str(stage.get("step_runner") or "")
         if runner == "qa":
-            if _qa_waiting(conn, run_id, name):
+            if name != accepted_qa_stage and _qa_waiting(conn, run_id, name):
                 return None, f"QA stage {name!r} is not fully accepted"
         elif runner == "human-approval":
             if not _approved(conn, run_id, name):
@@ -147,7 +170,11 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         runner = stage.get("step_runner")
         if runner == "human-approval" and not _approved(conn, run_id, name):
             return None, f"approval stage {name!r} has no resolved approval"
-        if runner == "qa" and _qa_waiting(conn, run_id, name):
+        if (
+            runner == "qa"
+            and name != accepted_qa_stage
+            and _qa_waiting(conn, run_id, name)
+        ):
             return None, f"QA stage {name!r} is not fully accepted"
     unresolved = unresolved_blocking_qa(conn, run_id)
     if unresolved:
@@ -199,10 +226,14 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     }, ""
 
 
-def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
+def finish_ready_run(
+    conn: Any, run_id: str, *, accepted_qa_stage: str = ""
+) -> CompletionAttempt:
     """Adopt settled evidence once, using the existing succeeded close-out.
 
-    Call after the settlement transaction commits. An attached driver owns
+    Call after the settlement transaction commits. ``accepted_qa_stage``
+    names a QA stage the caller just read as owing nothing, so it is not
+    walked again. An attached driver owns
     its continuation; a detached one is finished here by the serving
     control plane, and the run's target occupancy still keeps any other
     run off its servers until it is terminal.
@@ -212,7 +243,7 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
     from yoke_core.domain.deployment_run_stage_entry import set_current_stage
 
     try:
-        ready, reason = _readiness(conn, run_id)
+        ready, reason = _readiness(conn, run_id, accepted_qa_stage)
         if ready is None:
             return CompletionAttempt(waiting=reason)
         for stage in ready["remaining"]:
@@ -243,10 +274,16 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
 
 
 def continue_after_settlement(
-    conn: Any, run_id: str, *, notify_recovery: bool = True
+    conn: Any,
+    run_id: str,
+    *,
+    notify_recovery: bool = True,
+    accepted_qa_stage: str = "",
 ) -> CompletionAttempt:
     """Attempt completion and durably address a refusal to the run's seat."""
-    result = finish_ready_run(conn, run_id)
+    if _STAGE_SETTLEMENT_RUN.get() == run_id:
+        return CompletionAttempt(waiting="its QA stage settlement continues it")
+    result = finish_ready_run(conn, run_id, accepted_qa_stage=accepted_qa_stage)
     if not notify_recovery:
         return result
     detail = result.failure
@@ -287,4 +324,9 @@ def continue_after_settlement(
     return result
 
 
-__all__ = ["CompletionAttempt", "continue_after_settlement", "finish_ready_run"]
+__all__ = [
+    "CompletionAttempt",
+    "continue_after_settlement",
+    "finish_ready_run",
+    "stage_settlement_continues",
+]

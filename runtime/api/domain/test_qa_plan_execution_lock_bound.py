@@ -1,8 +1,10 @@
-"""A pause behind a held execution row refuses by name instead of queueing."""
+"""A bounded call behind a held execution row refuses by name instead of queueing."""
 
 from __future__ import annotations
 
 from time import monotonic
+
+import pytest
 
 from runtime.api.domain.test_qa_execution_request_subject import (
     SESSION,
@@ -14,12 +16,24 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
+PAUSE = {"phase": "checkin", "cursor": 0, "request_id": "behind-lock", "attempts": []}
+SUBMIT = {"bundle_id": "bundle-behind-lock", "bundle_digest": "0" * 64}
 
-def test_pause_refuses_with_recovery_when_the_execution_row_stays_locked(test_db):
-    run_id = "run-pause-lock-bound"
+
+@pytest.mark.parametrize(
+    ("function", "payload"),
+    [
+        ("qa.plan_execution.pause", PAUSE),
+        ("qa.plan_execution.abort", {"reason": "abort behind lock"}),
+        ("qa.plan_review.submit", SUBMIT),
+    ],
+)
+def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
+    test_db, function, payload
+):
+    run_id = "run-execution-lock-bound"
     execution = _shared_execution(test_db, run_id, (9301, 9302))
     holder = connect_test_database(test_db.info.dbname)
     try:
@@ -30,20 +44,14 @@ def test_pause_refuses_with_recovery_when_the_execution_row_stays_locked(test_db
         started = monotonic()
         response = dispatch(
             FunctionCallRequest(
-                function="qa.plan_execution.pause",
+                function=function,
                 actor=ActorContext(
                     actor_id=str(execution["actor_id"]), session_id=SESSION
                 ),
                 target=TargetRef(
                     kind="deployment_run", deployment_run_id=run_id, project_id="yoke"
                 ),
-                payload={
-                    "execution_id": str(execution["id"]),
-                    "phase": "checkin",
-                    "cursor": 0,
-                    "request_id": "pause-behind-lock",
-                    "attempts": [],
-                },
+                payload={"execution_id": str(execution["id"]), **payload},
             )
         )
         waited = monotonic() - started
@@ -61,4 +69,4 @@ def test_pause_refuses_with_recovery_when_the_execution_row_stays_locked(test_db
         (str(execution["id"]),),
     ).fetchone()
     assert state == execution["state"]
-    assert not str(reason or "").startswith(PAUSE_REASON)
+    assert (reason or None) == (execution.get("release_reason") or None)
