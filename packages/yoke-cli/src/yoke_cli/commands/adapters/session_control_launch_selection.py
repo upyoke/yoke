@@ -129,7 +129,8 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         dest="executor_surface",
         help="Use this surface. On an item-bound create without --model, "
         "choose an option at the item stage level on this surface; "
-        "with --model, launch the explicit selection as an override.",
+        "omit effort/context knobs in that form. With --model, launch the "
+        "explicit selection as an override.",
     )
     parser.add_argument(
         "--machine",

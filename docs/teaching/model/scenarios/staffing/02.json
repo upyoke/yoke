@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Immediately before staffing an item or an itemless mandate",
- "need": "Use registered launch preview/create; the engine composes item mandates. Read the selected level, machine and blockers. An item-bound create with a surface but no model selects the best option at the item stage level on that surface; retry preserves the surface. If none qualifies, use the named --surface, --model and --reasoning-effort launch flags or repair the blocker. The opening hook binds through its launch-specific attestation, never folder/time proximity. An assigned worker must acknowledge and claim its own item before the deadline. Missing entry names launch_work_claim_missing and releases launch-only staffing. Read launch get for the exact session and recovery evidence.",
+ "need": "Use registered launch preview/create; the engine composes item mandates. Read the selected level, machine and blockers. An item-bound create with a surface but no model selects the best option at the item stage level on that surface; retry preserves the surface. Name a model to customize effort/context; a surface-only request never silently discards those knobs. If none qualifies, use the named --surface, --model and --reasoning-effort launch flags or repair the blocker. The opening hook binds through its launch-specific attestation, never folder/time proximity. An assigned worker must acknowledge and claim its own item before the deadline. Missing entry names launch_work_claim_missing and releases launch-only staffing. Read launch get for the exact session and recovery evidence.",
  "disclosure": "current cue",
  "surface": "Steer worker-launch and model-selection -> launch help/preview.",
  "review": "Pending exact recipe proof.",

@@ -166,3 +166,16 @@ def test_a_surface_request_cannot_replay_an_unrestricted_level_launch():
 
     with pytest.raises(SessionLaunchError, match="different launch request"):
         _create(conn)
+
+
+@pytest.mark.parametrize("knobs", [{"reasoning_effort": "high"}, {"context_window_tokens": 1_000_000}])
+def test_surface_only_staffing_never_discards_explicit_knobs(knobs):
+    conn = _two_options(claude=10.0, codex=80.0)
+
+    with pytest.raises(SessionLaunchError) as refused:
+        _create(conn, _surface_request(**knobs))
+
+    assert refused.value.code == "launch_model_required"
+    assert "--model MODEL --reasoning-effort EFFORT" in str(refused.value)
+    assert "omit --reasoning-effort and --context-window" in str(refused.value)
+    assert conn.execute("SELECT count(*) FROM session_launches").fetchone()[0] == 0

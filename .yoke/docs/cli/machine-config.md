@@ -83,7 +83,8 @@ Launch model choice does not live in machine config. A launch names a level
 or names an exact selection with `--surface` and the knobs below, recorded as
 an override. On an item-bound create, `--surface S` without `--model`
 selects the best option from the item's effective stage level on S, using
-the same capacity rules as a level launch. Retry keeps that surface constraint.
+the same capacity rules as a level launch. Omit effort/context knobs in that
+form; pass `--model` to customize them. Retry keeps that surface constraint.
 If no option qualifies, the refusal names the blockers and the launch flags
 `--surface S --model MODEL --reasoning-effort EFFORT` for an explicit selection.
 Other unnamed knobs on an explicit model selection take the vendor default. Preview combines equal requested/effective settings and shows

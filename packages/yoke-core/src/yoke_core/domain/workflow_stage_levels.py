@@ -102,6 +102,16 @@ def default_launch_level(conn: Any, request: Any) -> Any:
     from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
     from yoke_core.domain.session_launch_types import SessionLaunchError
 
+    if request.executor_surface and (
+        request.reasoning_effort is not None or request.context_window_tokens is not None
+    ):
+        raise SessionLaunchError(
+            "launch_model_required",
+            "Surface-only staffing chooses the option's model, effort and context. "
+            f"Recovery: repeat launch create with --surface {request.executor_surface} "
+            "--model MODEL --reasoning-effort EFFORT to customize the selection, "
+            "or omit --reasoning-effort and --context-window to use the level option.",
+        )
     item_id = (
         resolve_item_ref_or_none(conn, request.item, project=request.project_id)
         if request.item

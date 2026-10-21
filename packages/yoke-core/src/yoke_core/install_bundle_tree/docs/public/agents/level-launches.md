@@ -68,7 +68,10 @@ level again. `--machine` narrows placement to one machine.
 
 On an item-bound create, `--surface S` without `--model` uses the live
 effective stage level and restricts placement to S. It never records an item
-level override. The stored request and retries retain S; a replay with a
+level override. Omit effort/context knobs with a surface-only request;
+name `--model` to customize them. A surface-only request with explicit effort
+or context refuses `launch_model_required` instead of discarding those values.
+The stored request and retries retain S; a replay with a
 different surface refuses `idempotency_conflict`. If no option qualifies,
 `level_no_capacity` names the blockers and the explicit launch flags
 `--surface S --model MODEL --reasoning-effort EFFORT`. A missing stage level
