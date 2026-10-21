@@ -172,6 +172,22 @@ class TestRenderAdvisory:
         assert OVERRIDE_ENV_VAR in rendered
         assert "/launcher/venv/bin/python" in rendered
 
+    @pytest.mark.parametrize(
+        "platform,apple", [("darwin", True), ("linux", False)],
+    )
+    def test_system_python_is_apple_only_on_macos(
+        self, monkeypatch, platform, apple,
+    ):
+        bad = ProbeResult(
+            ok=False, resolved_python="/usr/bin/python3",
+            missing_module=SENTINEL_MODULE, override_used=False,
+        )
+        monkeypatch.setattr(probe_mod.sys, "platform", platform)
+        monkeypatch.setattr(
+            probe_mod, "_recommended_python", lambda *, exclude: None,
+        )
+        assert ("Apple's Python" in render_advisory(bad)) is apple
+
     def test_advisory_never_invents_a_missing_interpreter(self, monkeypatch):
         bad = ProbeResult(
             ok=False, resolved_python="/usr/bin/python3",

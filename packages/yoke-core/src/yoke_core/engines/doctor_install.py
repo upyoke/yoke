@@ -13,8 +13,13 @@ from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.executor_labels import harness_display_name
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
 from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
+from yoke_contracts.machine_config.schema import (
+    TRANSPORT_HTTPS,
+    MachineConfigContractError,
+)
+from yoke_contracts.machine_config.served_view_connection import server_workbench_url
 from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
-from yoke_cli.config import universe_ui_daemon_state
+from yoke_cli.config import machine_config, universe_ui_daemon_state
 from yoke_cli.config.path_harness_clis import resolve_harness_clis
 from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
@@ -120,7 +125,29 @@ def dashboard_identity() -> tuple[str, str]:
         )
 
 
+def active_https_connection():
+    """The active connection when it relays over https, else ``None``."""
+    try:
+        connection = machine_config.active_connection()
+    except MachineConfigContractError:
+        return None
+    if str(connection.get("transport") or "").strip() != TRANSPORT_HTTPS:
+        return None
+    return connection
+
+
 def hc_dashboard_current_build(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    hosted = active_https_connection()
+    if hosted is not None:
+        rec.record(
+            "dashboard-current-build",
+            "Dashboard runs the installed build",
+            "N/A",
+            f"The active connection {hosted.get('env')!r} is https: its server "
+            "serves the workbench, so no local dashboard runs here. Open "
+            f"{server_workbench_url(hosted)} in a browser.",
+        )
+        return
     try:
         build, version = dashboard_identity()
         expected = collect_execution_provenance()["source_sha"]

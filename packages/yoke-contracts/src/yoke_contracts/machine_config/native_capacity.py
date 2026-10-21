@@ -44,6 +44,19 @@ class NativeCapacity:
             return "native_swap_headroom_low"
         return None
 
+    def reading(self) -> str:
+        """The observed and required headroom, in bytes, that decided the refusal."""
+
+        def observed(value: int | None) -> str:
+            return "unreadable" if value is None else f"{value} bytes"
+
+        return (
+            f"available memory {observed(self.free_memory_bytes)} (needs >= "
+            f"{MIN_NATIVE_FREE_MEMORY_BYTES} bytes); swap free "
+            f"{observed(self.swap_free_bytes)} of {observed(self.swap_total_bytes)} "
+            f"(needs >= {MIN_NATIVE_SWAP_FREE_BYTES} bytes when swap exists)"
+        )
+
 
 def swap_headroom() -> tuple[int | None, int | None]:
     if sys.platform == "darwin":

@@ -68,13 +68,36 @@ def test_capacity_refusal_is_a_named_launch_result(tmp_path):
         "launch", "job", "lease", "codex-cli", 1, tmp_path, "job"
     )
 
+    reading = capacity.NativeCapacity(2 * 1024**3, 1024**3, 1)
+
     def adapter(_):
-        raise admission.NativeCapacityRefusal("native_swap_headroom_low")
+        raise admission.NativeCapacityRefusal(reading.refusal(), reading.reading())
 
     result = admission.run_admitted_adapter(context, adapter)
     assert isinstance(result, RelayAdapterResult)
     assert result.result_code == "not_created"
     assert result.evidence["result_code"] == "native_swap_headroom_low"
+    assert "swap free 1 bytes of 1073741824 bytes" in result.evidence["skip_reason"]
+    assert "Recovery:" in result.evidence["skip_reason"]
+
+
+def test_memory_refusal_names_observed_and_required_bytes(tmp_path, monkeypatch):
+    monkeypatch.setattr(admission, "_LAST_SPAWN", None)
+    monkeypatch.setattr(
+        admission,
+        "observe_native_capacity",
+        lambda: capacity.NativeCapacity(1, 1024**3, 1024**3),
+    )
+    context = RelayExecutionContext(
+        "launch", "job", "lease", "claude-desktop", 1, tmp_path, "job"
+    )
+    result = admission.run_admitted_adapter(context, lambda _: None)
+    detail = result.evidence["skip_reason"]
+    assert result.evidence["result_code"] == "native_memory_headroom_low"
+    assert "available memory 1 bytes" in detail
+    assert f"needs >= {capacity.MIN_NATIVE_FREE_MEMORY_BYTES} bytes" in detail
+    assert "swap free 1073741824 bytes of 1073741824 bytes" in detail
+    assert f"needs >= {capacity.MIN_NATIVE_SWAP_FREE_BYTES} bytes" in detail
 
 
 def test_macos_swap_probe(monkeypatch):
