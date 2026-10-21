@@ -8,8 +8,8 @@
  "disclosure": "planned cue",
  "surface": "Onboard survey/profile plus FIRST-USER 24 intake",
  "gap": "Define the adoption boundary for existing PRs/items, avoid duplicate filing, and preserve accepted strategy. Infrastructure setup now waits until the first work needs it; later adoption scenarios stay with JOURNEYS.",
- "review": "Pending exact recipe proof.",
+ "review": "Source now teaches a free-form non-empty profile object and reading an existing verification binding by scope before registering it. The broader adoption recipe still awaits proof.",
  "plan_notes": ["FIRST-USER 24", "FIRST-USER 25", "JOURNEYS 9"],
- "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/run-and-rows.md"],
+ "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", ".agents/skills/yoke/onboard/strategy-conversation.md", ".agents/skills/yoke/onboard/run-and-rows.md", ".agents/skills/yoke/onboard/verification-binding.md"],
  "position": 2
 }

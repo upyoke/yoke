@@ -1,7 +1,8 @@
 {
  "id": "testing-setup",
  "title": "Testing setup",
- "status": "draft-copy",
+ "status": "observed",
  "page": "projects",
- "position": 2
+ "position": 2,
+ "note": "The onboarding profile is a free-form non-empty JSON object; example keys and choices are illustrative. The verification-binding skill reads an existing scope through qa plan get before setting it."
 }

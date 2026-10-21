@@ -1,7 +1,8 @@
 {
  "id": "registered-command",
  "title": "Registered command",
- "status": "draft-copy",
+ "status": "observed",
  "page": "verification",
- "position": 0
+ "position": 0,
+ "note": "Read the bound command and target with yoke qa plan get registered-command-<scope> --project P --full. Scopes are quick, full, e2e and smoke; a not-found plan means that scope has no binding."
 }

@@ -49,6 +49,16 @@ gating transitions. The command is arbitrary shell argv: Maven, PHPUnit,
 Register a reliable documented slice as `quick`; add `--scope full` with the
 broader argv only when the two commands genuinely differ.
 
+Read a binding through its project-local plan slug:
+
+```bash
+yoke qa plan get registered-command-quick --project <p> --full
+```
+
+Replace `quick` with `full`, `e2e` or `smoke` for another scope. The plan
+shows the bound command in `method_config` and its target. A not-found plan means that scope has no
+binding; confirm the command and register it with `set` above.
+
 `quick` and `full` always materialize a project target, even when the project
 has exactly one declared environment. Plan list and detail views label this
 `project source · no deployment environment`.
