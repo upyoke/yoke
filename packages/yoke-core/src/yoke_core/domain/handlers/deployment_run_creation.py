@@ -18,6 +18,7 @@ from yoke_core.domain.deployment_run_carried_work_source import (
     CarriedWorkSourceUnavailable,
 )
 from yoke_core.domain.deployment_run_target_takeover import TakeoverRefused
+from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
 )
@@ -199,11 +200,7 @@ def handle_deployment_run_create(
                 project=clean_project,
                 flow=clean_flow,
             )
-            # A retry inherits the failed run's membership, which is only
-            # sound while it is the same candidate. An explicitly named
-            # revision or artifact is therefore an assertion about which
-            # candidate is being retried, and a wrong one is a replacement
-            # release rather than a retry.
+            # Frozen membership is valid only for the same retry candidate.
             if mismatch := candidate_mismatch_refusal(
                 source_lineage,
                 source_artifact,
@@ -261,6 +258,8 @@ def handle_deployment_run_create(
         return error(exc.code, str(exc), jsonpath="$.payload")
     except CarriedWorkSourceUnavailable as exc:
         return error(exc.reason, f"{exc.reason}: {exc.recovery}", jsonpath="$.payload")
+    except MergeOnlyRunRefused as exc:
+        return error(exc.code, str(exc), jsonpath="$.payload.flow")
     except ValueError as exc:
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 

@@ -103,3 +103,21 @@ def test_concurrent_replays_share_one_run(db_path: str) -> None:
     assert errors == []
     assert len({run_id for run_id, _ in results}) == 1
     assert sorted(replayed for _, replayed in results) == [False, True, True, True]
+
+
+@pytest.mark.parametrize("environment", [None, "prod"])
+def test_merge_only_flow_refuses_before_composition(db_path, environment, monkeypatch):
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
+    from yoke_core.domain import deployment_run_create_write as creation
+
+    conn = connect(db_path)
+    conn.execute("UPDATE deployment_flows SET target_tier=NULL, target_environment_id=NULL WHERE id=%s", ("flow-main",))
+    conn.commit()
+    monkeypatch.setattr(creation, "compose_run", lambda *_a, **_k: pytest.fail("merge-only cannot compose"))
+    with pytest.raises(MergeOnlyRunRefused) as refused:
+        create_run("yoke", "flow-main", db_path=db_path, environment=environment)
+    assert refused.value.code == "merge_only_flow_no_release_run"
+    assert "merge close-out" in str(refused.value)
+    assert conn.execute("SELECT COUNT(*) FROM deployment_runs").fetchone()[0] == 0
+    conn.close()

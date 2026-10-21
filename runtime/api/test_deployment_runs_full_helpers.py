@@ -80,7 +80,7 @@ _SCHEMA_DDL = """
     );
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
-        VALUES ('yoke-internal', 1, 'yoke-internal', '[]', NULL, NULL);
+        VALUES ('yoke-internal', 1, 'yoke-internal', '[]', 'ephemeral', NULL);
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
         VALUES ('externalwebapp-standard', 2, 'externalwebapp-standard',

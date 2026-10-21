@@ -48,6 +48,10 @@ class CancelRequest(BaseModel):
         default=None,
         description="Optional superseding item PREFIX-N stored as resolution_ref.",
     )
+    abandon_merged: bool = Field(
+        default=False,
+        description="Operator-only abandonment of merged work that cannot finish.",
+    )
 
 
 class CancelResponse(BaseModel):
@@ -164,7 +168,10 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
             resolution_ref=payload.ref,
             out=captured,
             session_id=request.actor.session_id,
+            abandon_merged=payload.abandon_merged,
         )
+    except SessionError as refused:
+        return _error(str(refused.code).lower(), refused.message)
     finally:
         _release_acquired(acquired, reason="item cancel complete")
     if not result.get("success"):

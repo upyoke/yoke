@@ -17,7 +17,10 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import utc_now
-from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
+from yoke_core.domain.deployment_flow_state import (
+    MergeOnlyRunRefused,
+    require_flow_for_new_run,
+)
 from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_insert import insert_run
@@ -53,6 +56,8 @@ def run_target(
         flow,
         project_id=project_id,
     )
+    if not target_tier:
+        raise MergeOnlyRunRefused(flow)
     if environment:
         from yoke_core.domain.environment_delivery_record import (
             require_registered_environment,

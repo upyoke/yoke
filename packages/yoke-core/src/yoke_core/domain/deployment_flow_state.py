@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.deployment_run_target_resolution import (
     coerce_target_environment_id,
 )
@@ -21,6 +22,19 @@ from yoke_core.domain.schema_common import _table_exists
 FLOW_STATUS_ACTIVE = "active"
 FLOW_STATUS_DISABLED = "disabled"
 FLOW_STATUSES = frozenset({FLOW_STATUS_ACTIVE, FLOW_STATUS_DISABLED})
+
+
+class MergeOnlyRunRefused(DomainRefusal, ValueError):
+    """A merge-only flow completes at merge and cannot own a release run."""
+
+    code = "merge_only_flow_no_release_run"
+
+    def __init__(self, flow_id: str) -> None:
+        super().__init__(
+            f"Flow {flow_id!r} is merge-only (target_tier is null). "
+            "Recovery: finish the item's merge close-out; do not create a "
+            "release run. To deploy, select a flow with a deployment target."
+        )
 
 
 def _p(conn: Any) -> str:

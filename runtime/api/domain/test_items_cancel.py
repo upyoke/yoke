@@ -224,3 +224,64 @@ class TestCancelAdmission:
         assert "yoke claims steering acquire --project" in outcome.error.message
         assert _row(test_db, 8413)[0] == "implementing"
         assert _live_claims(test_db, 8413) == []
+
+
+class TestMergedAbandonment:
+    def test_operator_abandons_with_durable_audit_and_preserves_merge(self, test_db):
+        import json
+
+        item_id = 8420
+        insert_item(test_db, id=item_id, status="release")
+        test_db.execute(
+            "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
+        )
+        test_db.commit()
+        insert_steering_claim(test_db, SESSION, project_id=1)
+        outcome = handle_cancel(_request(
+            item_id, reason="Completion cannot be recovered", abandon_merged=True
+        ))
+        assert outcome.primary_success, outcome.error
+        row = test_db.execute(
+            "SELECT status, merged_at, resolution_comment FROM items WHERE id=%s",
+            (item_id,),
+        ).fetchone()
+        assert row[0] == "cancelled"
+        assert row[1]
+        audit = json.loads(row[2])
+        assert audit["action"] == "abandon_merged"
+        assert audit["session_id"] == SESSION
+        assert "actor_id" in audit
+        assert audit["from_status"] == "release"
+        assert audit["reason"] == "Completion cannot be recovered"
+        assert audit["merged_at"]
+        assert audit["recorded_at"]
+        assert _live_claims(test_db, item_id) == []
+
+    def test_abandonment_requires_operator_seat(self, test_db):
+        item_id = 8421
+        insert_item(test_db, id=item_id, status="release")
+        test_db.execute(
+            "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
+        )
+        test_db.commit()
+        outcome = handle_cancel(_request(item_id, reason="Stuck", abandon_merged=True))
+        assert not outcome.primary_success
+        assert outcome.error.code == "steering_seat_required"
+        assert "yoke claims steering acquire" in outcome.error.message
+        assert _row(test_db, item_id)[0] == "release"
+
+    @pytest.mark.parametrize("status,merged", [("release", True), ("done", True), ("idea", False)])
+    def test_ordinary_cancel_and_delivered_work_keep_their_guards(self, test_db, status, merged):
+        item_id = 8422
+        insert_item(test_db, id=item_id, status=status)
+        if merged:
+            test_db.execute(
+                "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
+            )
+            test_db.commit()
+        insert_steering_claim(test_db, SESSION, project_id=1)
+        outcome = handle_cancel(_request(
+            item_id, reason="Stuck", abandon_merged=status != "release"
+        ))
+        assert not outcome.primary_success
+        assert _row(test_db, item_id)[0] == status

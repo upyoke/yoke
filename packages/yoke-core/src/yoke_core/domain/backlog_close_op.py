@@ -1,6 +1,7 @@
 """Backlog close operation — `execute_close` cancels an item through the
 structured cancellation path: validates the resolution reason, refuses
-to cancel items past review, releases the item's own worktree lanes as
+to cancel items past review unless an operator explicitly abandons merged
+work with durable resolution audit, releases the item's own worktree lanes as
 part of the same terminal close, reconciles `item_dependencies` rows,
 writes the status + resolution payload, and posts the GitHub close +
 status comment.
@@ -36,6 +37,7 @@ def execute_close(
     resolution_comment: Optional[str] = None,
     out: TextIO = sys.stdout,
     session_id: Optional[str] = None,
+    abandon_merged: bool = False,
 ) -> dict:
     """Close an item through the structured cancellation path."""
     from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
@@ -68,6 +70,18 @@ def execute_close(
 
         item = dict(row)
         status = item["status"]
+        merged = item.get("merged_at") not in (None, "", "null")
+        if abandon_merged:
+            from yoke_core.domain.merged_item_abandonment import abandonment_audit
+
+            resolution_comment = abandonment_audit(
+                conn, item=item, session_id=session_id, reason=reason
+            )
+            if not merged:
+                return {
+                    "success": False,
+                    "error": "item_not_merged: use ordinary items cancel for unmerged work.",
+                }
         normalized_resolution_ref = _normalize_item_ref(conn, resolution_ref)
 
         if status == "cancelled" and (item.get("resolution") or "") == reason:
@@ -83,7 +97,7 @@ def execute_close(
                 "error": f"{public_ref} is already done — cannot close a delivered item.",
             }
 
-        if status in {
+        if not abandon_merged and status in {
             "reviewed-implementation",
             "polishing-implementation",
             "implemented",
@@ -94,16 +108,20 @@ def execute_close(
                 "error": (
                     f"{public_ref} is in delivery tail (status={status}). "
                     "Cannot close items past review."
+                    " For merged work that cannot finish, an operator may use "
+                    f"yoke items cancel {public_ref} --abandon-merged --reason TEXT."
                 ),
             }
 
         merged_at = item.get("merged_at")
-        if merged_at not in (None, "", "null"):
+        if merged_at not in (None, "", "null") and not abandon_merged:
             return {
                 "success": False,
                 "error": (
                     f"{public_ref} has merged_at set ({merged_at}). "
                     "Cannot close items with merge evidence."
+                    f" An operator may use yoke items cancel {public_ref} --abandon-merged "
+                    "--reason TEXT when completion cannot be recovered."
                 ),
             }
 
@@ -211,7 +229,7 @@ def execute_close(
             old_status=old_status,
             session_id=session_id,
             out=out,
-            status_source="execute-close",
+            status_source="abandon-merged" if abandon_merged else "execute-close",
         )
         conn.commit()
 
@@ -240,9 +258,8 @@ def execute_close(
             print(
                 f"Warning: {len(preserved_ambiguous)} inbound dependency "
                 f"row(s) preserved — cancelled {public_ref} still listed as "
-                "blocker. Review with `python3 -m yoke_core.cli.db_router "
-                "items dependency list` and remove with "
-                "`dependency-remove` if stale:",
+                "blocker. Review with `yoke items dependency list` and "
+                "remove with `yoke items dependency remove` if stale:",
                 file=out,
             )
             for entry in preserved_ambiguous:

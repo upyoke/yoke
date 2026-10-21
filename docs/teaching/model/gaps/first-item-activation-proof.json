@@ -2,8 +2,8 @@
  "id": "first-item-activation-proof",
  "title": "Prove onboarding reaches the first item done",
  "status": "observed",
- "text": "Source tests cover the scan recipe, deferred setup rows, the steering handoff and the live lifecycle-readiness fact. Re-run the installer campaign against the released candidate and walk one adoption to its first item done before claiming installed proof.",
+ "text": "Source regressions cover local-only merge completion through done, pass-through level changes, named merge-only release-run refusal, and audited operator abandonment of merged work. Re-run installer-exploration against the next released candidate and record one adoption reaching its first item done before claiming installed proof.",
  "work_items": ["YOK-3935"],
- "sources": [".agents/skills/yoke/onboard/first-work.md", "runtime/api/domain/test_project_onboarding_first_item.py"],
+ "sources": [".agents/skills/yoke/onboard/first-work.md", "runtime/api/domain/test_no_change_dash_terminal.py", "runtime/api/domain/test_items_cancel.py"],
  "position": 34
 }

@@ -167,6 +167,7 @@ def transition_to_done(
     reached = source_status
     with capture_level_handoffs() as handoffs:
         for target in stages:
+            handoff_start = len(handoffs)
             refusal = _execute(
                 item_id,
                 reached,
@@ -177,6 +178,10 @@ def transition_to_done(
             if refusal:
                 return "", refusal
             reached = target
+            if delivery_discharged:
+                # Delivery is complete; these declared edges only run the
+                # remaining close-out gates. No successor work is owed.
+                del handoffs[handoff_start:]
             if handoffs:
                 break
     return reached, ""

@@ -1,7 +1,9 @@
 {
  "id": "merge-only",
  "title": "Merge only",
- "status": "draft-copy",
+ "status": "observed",
  "page": "delivery-outcomes",
- "position": 0
+ "position": 0,
+ "text": "A registered flow with null target_tier completes delivery at merge. Close-out runs the remaining lifecycle gates through done without a release run, including for a local-only project. Pass-through stage level changes do not interrupt completion; release-run creation refuses merge_only_flow_no_release_run.",
+ "sources": ["docs/public/deployments/model/flows.md", "packages/yoke-core/src/yoke_core/domain/standalone_item_merge_terminal.py"]
 }
