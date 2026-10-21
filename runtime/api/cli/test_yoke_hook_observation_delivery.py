@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import io
 import json
+import threading
 import time
 import urllib.error
 from contextlib import redirect_stderr
@@ -27,6 +28,7 @@ from yoke_harness.hook_observation_delivery import (
     retry_delay_seconds,
 )
 from yoke_harness.hook_resident_observations import (
+    OBSERVATION_FLUSH_COUNT,
     ObservationQueue,
     PendingObservation,
 )
@@ -88,6 +90,7 @@ def queue_factory():
     yield make
     for queue in created:
         queue.close(drain_timeout=0.1)
+    assert [queue for queue in created if queue._thread.is_alive()] == []
 
 
 def test_permanent_rejection_drops_the_batch_and_names_its_recovery(
@@ -193,6 +196,27 @@ def test_backlog_is_capped_so_one_dead_endpoint_cannot_grow_the_resident(
 
     assert queue.pending_count() == OBSERVATION_BACKLOG_LIMIT
     assert "YOKE_HOOK_TELEMETRY_DROPPED" in queue.diagnostic()
+
+
+def test_close_stops_the_flush_thread_while_a_dead_endpoint_backs_off(
+    queue_factory,
+) -> None:
+    """A retained backlog must not keep the flush thread alive past close()."""
+    attempted = threading.Event()
+
+    def opener(request, timeout=None):  # noqa: ARG001
+        attempted.set()
+        raise OSError("offline")
+
+    queue = queue_factory(opener)
+    for index in range(OBSERVATION_FLUSH_COUNT):
+        queue.enqueue(_pending(index))
+    assert attempted.wait(timeout=5.0)
+
+    started = time.monotonic()
+    assert queue.close(drain_timeout=0.1) is False
+    assert time.monotonic() - started < 1.0
+    assert not queue._thread.is_alive()
 
 
 @pytest.mark.parametrize(
