@@ -79,8 +79,9 @@ A connected RDP client blocks this repair; close it and rerun desktop access.
 GUI commands continue using their existing display without this access repair.
 
 Host-control SSH commands share a per-machine connection on the executing
-workstation. Its private socket lives under Yoke's configured scratch root;
-the master expires after 30 idle seconds. A diagnosed stale socket reports
+workstation. Its private socket lives under Yoke's existing scratch roots;
+when the configured path is too long for a Unix socket, it uses Yoke's short
+OS temporary scratch root. The master expires after 30 idle seconds. A diagnosed stale socket reports
 `host_control_ssh_stale_socket`; OpenSSH opens a fresh connection before
 remote execution. If it repeats, wait 30 seconds and retry. Other disconnects
 are not retried because the remote command may already have run.

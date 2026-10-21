@@ -19,7 +19,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_SECRET_KEYS,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
-from yoke_contracts.machine_config.runtime import effective_temp_root
+from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 from yoke_cli.config.path_doctor import PathStateContract, resolve_path_state_contract
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
@@ -55,18 +55,24 @@ _STALE_SOCKET_ERRORS = (
 
 
 def _control_socket(host: str, user: str, key_path: Path) -> Path:
-    directory = Path(effective_temp_root()) / f"ssh-{os.getuid()}"
+    identity = "\0".join((host, user, str(key_path.resolve())))
+    name = hashlib.sha256(identity.encode()).hexdigest()[:24]
     try:
+        # Reuse Yoke's scratch resolution, choosing a root that can hold a
+        # Unix socket plus OpenSSH's temporary suffix on macOS and Linux.
+        socket = next((
+            root / f"ssh-{os.getuid()}" / name
+            for root in scratch_root_candidates()
+            if len(os.fsencode(root / f"ssh-{os.getuid()}" / name)) <= 85
+        ), None)
+        if socket is None:
+            raise OSError("scratch paths are too long for an SSH control socket")
+        directory = socket.parent
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = directory.lstat()
         if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
             raise OSError("socket directory must be owned by the executing user")
         directory.chmod(0o700)
-        identity = "\0".join((host, user, str(key_path.resolve())))
-        socket = directory / hashlib.sha256(identity.encode()).hexdigest()[:24]
-        # Leave room for OpenSSH's temporary suffix within macOS sockaddr_un.
-        if len(os.fsencode(socket)) > 85:
-            raise OSError("scratch path is too long for an SSH control socket")
         return socket
     except OSError as exc:
         raise RuntimeError(

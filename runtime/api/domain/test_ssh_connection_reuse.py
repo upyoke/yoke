@@ -17,7 +17,7 @@ def tmp_path():
 
 
 def control(tmp_path, monkeypatch, *, host="test-host", user="tester", key="key"):
-    monkeypatch.setattr(transport, "effective_temp_root", lambda: str(tmp_path))
+    monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path,))
     monkeypatch.setattr(transport.SshTestMachineTransport, "_host_facts", lambda self: {
         "home": "/home/tester", "shell": "/bin/sh",
     }, raising=False)
@@ -44,7 +44,7 @@ def test_private_socket_shared_across_calls_and_transport_instances(tmp_path, mo
 
 
 def test_unusable_socket_directory_teaches_recovery(tmp_path, monkeypatch):
-    monkeypatch.setattr(transport, "effective_temp_root", lambda: str(tmp_path))
+    monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path,))
     directory = tmp_path / f"ssh-{transport.os.getuid()}"
     directory.symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(RuntimeError, match="host_control_ssh_socket_unavailable.*temp_root"):
@@ -52,7 +52,7 @@ def test_unusable_socket_directory_teaches_recovery(tmp_path, monkeypatch):
 
 
 def test_long_socket_path_teaches_recovery(tmp_path, monkeypatch):
-    monkeypatch.setattr(transport, "effective_temp_root", lambda: str(tmp_path / ("x" * 90)))
+    monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (tmp_path / ("x" * 90),))
     with pytest.raises(RuntimeError, match="host_control_ssh_socket_unavailable.*temp_root"):
         transport._control_socket("host", "user", tmp_path / "key")
 
@@ -131,3 +131,12 @@ def test_live_master_check_does_not_execute_remote_command(tmp_path, monkeypatch
     assert "capture desktop" not in calls[0]
     assert calls[1][-1] == "capture desktop"
     assert capsys.readouterr().err == ""
+
+
+def test_long_configured_root_uses_existing_short_scratch_candidate(tmp_path, monkeypatch):
+    long_root = tmp_path / ("x" * 90)
+    monkeypatch.setattr(transport, "scratch_root_candidates", lambda: (long_root, tmp_path))
+    socket = transport._control_socket("host", "user", tmp_path / "key")
+    assert socket.is_relative_to(tmp_path)
+    assert not socket.is_relative_to(long_root)
+    assert not long_root.exists()
