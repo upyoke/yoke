@@ -11,6 +11,7 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db, apply_test_schema
 from runtime.api.fixtures.backlog import insert_item
+from yoke_core.domain.claim_recovery import terminate_holder_command
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.handlers.projects_get import (
@@ -176,9 +177,53 @@ def test_live_claims_refuse_even_on_terminal_items(conn, kind, scope):
         "VALUES ('owner',%s,%s,'exclusive','2026-01-01','2026-01-01')",
         (kind, json.dumps(scope)),
     )
-    with pytest.raises(ProjectRetirementError, match=f"held {kind} claim"):
+    with pytest.raises(ProjectRetirementError, match=f"held {kind} claim") as error:
         retire(conn)
+    assert "(holder session owner)" in str(error.value)
+    assert terminate_holder_command("owner") in str(error.value)
     conn.execute("UPDATE work_claims SET released_at='2026-01-02'")
+    assert retire(conn)["retired_at"]
+
+
+def test_named_terminate_recovery_frees_an_ended_holder(conn, monkeypatch):
+    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+    from yoke_core.domain.session_termination import terminate_session
+    from yoke_core.domain.work_claim_targets import (
+        make_item_target,
+        make_steering_target,
+    )
+
+    monkeypatch.setattr(
+        "yoke_core.domain.session_termination.emit_session_terminated",
+        lambda *a, **k: None,
+    )
+    insert_item(conn, id=300, workflow_id="dash", project="fixture", status="done")
+    for sid in ("owner", "steerer"):
+        seed_qa_session(conn, sid)
+    conn.execute(
+        "UPDATE harness_sessions SET project_id=30, ended_at='2026-01-02' "
+        "WHERE session_id='owner'"
+    )
+    for sid, target in (
+        ("owner", make_item_target(300)),
+        ("steerer", make_steering_target(1)),
+    ):
+        conn.execute(
+            "INSERT INTO work_claims (session_id,target_kind,scope,claim_type,"
+            "claimed_at,last_heartbeat) "
+            "VALUES (%s,%s,%s,'exclusive','2026-01-01','2026-01-01')",
+            (sid, target.kind, target.scope_json()),
+        )
+    with pytest.raises(ProjectRetirementError) as error:
+        retire(conn)
+    assert terminate_holder_command("owner") in str(error.value)
+    terminate_session(
+        conn,
+        target_session_id="owner",
+        actor_id=1,
+        caller_session_id="steerer",
+        reason="claims abandoned by an ended session",
+    )
     assert retire(conn)["retired_at"]
 
 

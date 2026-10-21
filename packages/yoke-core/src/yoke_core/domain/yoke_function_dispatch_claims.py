@@ -34,6 +34,7 @@ from yoke_core.domain.yoke_function_dispatch_qa_claims import (
 )
 from yoke_core.domain.claim_recovery import (
     canonical_item_ref as _claim_recovery_item_ref,
+    terminate_holder_command,
 )
 from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     ClaimVerificationEvidence,
@@ -286,16 +287,14 @@ def verify_claim(
         row = _claim_row_for_id(int(claim_id))
         owner = str((row or {}).get("session_id") or "")
         if owner != actor_session:
-            return _claim_error(
-                request,
-                fid,
-                ver,
-                "claim_required",
-                f"claim {claim_id} not held by session {actor_session!r}; "
-                f"acquire your own claim with: "
-                f"yoke claims work acquire "
-                f'--item "YOK-<id>" --reason "<intent>"',
+            message = (
+                f"claim {claim_id} is held by session {owner}, not {actor_session}; "
+                "the holder releases it, or a steering-seat holder frees it with "
+                f"`{terminate_holder_command(owner)}`"
+                if owner
+                else f"claim {claim_id} is not an active claim; nothing to release"
             )
+            return _claim_error(request, fid, ver, "claim_required", message)
         allow_claim_verification(
             evidence,
             authority=WORK_CLAIM_AUTHORITY,
