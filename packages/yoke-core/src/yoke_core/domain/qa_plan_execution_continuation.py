@@ -8,11 +8,11 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
-    ABORT_REASON_MAX_LENGTH,
     CASE_EXECUTION_ERROR_REASON,
     CONTINUATION_PRE_HOST_ERROR_REASON,
     REASON_DETAIL_SEPARATOR,
     abort_reason_code,
+    error_abort_reason,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import (
     STALE_PLAN_EXECUTION_REASON,
@@ -61,9 +61,7 @@ def continuation_abort_reason(
         code = CONTINUATION_PRE_HOST_ERROR_REASON
     else:
         code = CASE_EXECUTION_ERROR_REASON
-    detail = " ".join(str(error).split())
-    reason = f"{code}{REASON_DETAIL_SEPARATOR}{detail}" if detail else code
-    return reason[:ABORT_REASON_MAX_LENGTH]
+    return error_abort_reason(code, error)
 
 
 def _failed_before_host(conn: Any, execution: Mapping[str, Any]) -> bool:

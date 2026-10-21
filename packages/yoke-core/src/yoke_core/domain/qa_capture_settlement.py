@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 from datetime import datetime
 
@@ -169,6 +170,7 @@ def record_inflight_case_failure(
         CASE_EXECUTION_ERROR_REASON,
         CONTINUATION_PRE_HOST_ERROR_REASON,
         abort_reason_code,
+        abort_reason_error_code,
     )
 
     if abort_reason_code(reason) not in {
@@ -203,6 +205,8 @@ def record_inflight_case_failure(
         qa_kind=str(case.get("qa_kind") or ""),
         verdict=INFLIGHT_CASE_FAILURE_VERDICT,
         verdict_reason=f"case execution ended before it recorded a run: {reason}",
+        # Evidence binding keeps these fields and adds the execution's own.
+        raw_result=json.dumps({"error_code": abort_reason_error_code(reason)}),
         # No capture stage was reached, so the row carries a verdict and no
         # execution_status rather than a capture outcome.
         execution_status=None,

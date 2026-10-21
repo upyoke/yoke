@@ -16,17 +16,21 @@ PROG = "yoke qa mission host-command"
 # Yoke commands that can sit in a browser approval for its full lifetime.
 _APPROVAL_WAITING_COMMANDS = frozenset({"setup", "connect", "onboard"})
 _YOKE_EXECUTABLES = frozenset({"yoke", "{yoke_bin}"})
+# Agent mode prints its next question as JSON and returns instead of waiting.
+_NON_WAITING_FLAGS = ("--agent", "--answer")
 
 
 def approval_wait_warning(command: list[str], timeout_seconds: int) -> str | None:
     """Name a timeout that would stop a Yoke command mid browser approval.
 
     The command is stopped when the timeout passes, so an approval the human
-    has not finished yet is abandoned along with it.
+    has not finished yet is abandoned along with it. Agent mode never waits.
     """
     from yoke_contracts.machine_authorization import CODE_TTL_SECONDS
 
     if timeout_seconds >= CODE_TTL_SECONDS:
+        return None
+    if any(value.split("=", 1)[0] in _NON_WAITING_FLAGS for value in command):
         return None
     for index, value in enumerate(command[:-1]):
         if (

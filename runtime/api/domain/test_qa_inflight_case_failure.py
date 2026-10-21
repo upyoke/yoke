@@ -9,6 +9,7 @@ terminal settlement records that failure against the case it was on.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
@@ -141,3 +142,30 @@ def test_reason_carrying_its_diagnosis_still_settles_the_case() -> None:
     assert run is not None
     assert run["verdict"] == "error"
     assert "relay unavailable" in run["verdict_reason"]
+
+
+def test_a_crash_records_the_raised_error_code() -> None:
+    """The runner's own error code survives into the failed run's evidence."""
+    from yoke_core.domain.machine_qa_plan_case_execution import (
+        MachinePlanCaseDispatchError,
+    )
+
+    error = MachinePlanCaseDispatchError(
+        "restore failed", error_code="starting_state_restore_failed"
+    )
+    reasons = {
+        "starting_state_restore_failed": continuation_abort_reason({}, error),
+        CASE_EXECUTION_ERROR_REASON: continuation_abort_reason(
+            {}, RuntimeError("relay unavailable")
+        ),
+    }
+    for expected, reason in reasons.items():
+        with test_database() as conn:
+            _, requirement_id = _abandoned_execution(conn, reason=reason)
+            raw = conn.execute(
+                "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s",
+                (requirement_id,),
+            ).fetchone()["raw_result"]
+
+        evidence = json.loads(raw)
+        assert evidence["error_code"] == expected

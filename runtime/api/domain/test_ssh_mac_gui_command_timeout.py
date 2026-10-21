@@ -174,10 +174,13 @@ def test_process_tree_stop_reports_what_survived(
 @pytest.mark.parametrize(
     ("command", "timeout", "warned"),
     [
-        (["yoke", "setup", "--agent"], 60, True),
+        (["yoke", "setup"], 60, True),
         (["/Users/t/.local/bin/yoke", "connect"], 599, True),
         (["{yoke_bin}", "onboard"], 60, True),
-        (["yoke", "setup", "--agent"], 600, False),
+        (["yoke", "setup"], 600, False),
+        (["yoke", "setup", "--agent"], 60, False),
+        (["yoke", "setup", "--answer", "connect.saved_destination=stored"], 240, False),
+        (["yoke", "setup", "--answer=connect.saved_destination=stored"], 240, False),
         (["yoke", "status"], 60, False),
         (["claude", "-p", "setup"], 60, False),
     ],

@@ -171,18 +171,18 @@ def prune_managed_worktrees(
 ) -> WorktreeSweep:
     """Prune clean, unclaimed, terminal lanes after remote-first delete.
 
-    Unreachable DB authority skips pruning; incomplete remote cleanup keeps
-    the local retry lane. Every kept lane is named with its reason.
-
-    Absent directories retire their rows too; their branches retain the
-    independent landing proof in the branch pass.
+    No origin remote or unreachable DB authority skips pruning; incomplete
+    remote cleanup keeps the local retry lane. Every kept lane is named with
+    its reason. Absent directories retire their rows too; their branches
+    retain the independent landing proof in the branch pass.
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
     root = Path(repo_root).resolve()
     base = f"origin/{target}"
-    fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
-    if fetched.returncode != 0:
+    if git(["remote", "get-url", "origin"], cwd=repo_root, capture=True).returncode:
+        return _skipped(say, "no origin remote (local-only project)")
+    if git(["fetch", "origin", target], cwd=repo_root, capture=True).returncode:
         return _skipped(say, f"could not refresh {base}")
     entries = registered_worktrees(git, repo_root)
     if entries is None:

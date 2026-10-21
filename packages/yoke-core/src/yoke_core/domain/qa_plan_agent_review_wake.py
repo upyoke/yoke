@@ -22,7 +22,11 @@ from yoke_core.domain.qa_plan_settled_review import (
 
 
 def _answered_members(conn: Any, execution: Mapping[str, Any]) -> list[int]:
-    """The deployment members this execution's evidence answers for."""
+    """The deployment members this execution's evidence answers for.
+
+    A shared walk whose attaching members all left the run resolves no group;
+    its review then belongs to the member that requested the walk.
+    """
     member_id = execution.get("deployment_member_item_id")
     if member_id:
         return [int(member_id)]
@@ -34,11 +38,15 @@ def _answered_members(conn: Any, execution: Mapping[str, Any]) -> list[int]:
             group_members,
         )
 
-        group = execution_subject(conn, execution)
-        return [
-            int(member)
-            for member in group_members(conn, group, execution["execution_target"])
-        ]
+        try:
+            group = execution_subject(conn, execution, require_active=False)
+            members = group_members(conn, group, execution["execution_target"])
+        except ValueError:
+            members = []
+        requester = execution.get("requesting_member_item_id")
+        if not members and requester:
+            members = [requester]
+        return [int(member) for member in members]
     return []
 
 
