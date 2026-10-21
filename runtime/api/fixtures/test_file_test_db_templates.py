@@ -70,7 +70,7 @@ def test_session_consumers_bind_machine_after_cached_checkout(
         strategy()
 
     @contextlib.contextmanager
-    def checkout(path, apply_schema):
+    def checkout(path, apply_schema=file_test_db.apply_test_schema):
         nonlocal strategy
         if strategy is None:
             strategy = apply_schema

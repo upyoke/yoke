@@ -130,11 +130,10 @@ def test_github_optional_boolean_merge_preserves_binding_projection(
     ],
 )
 def test_github_merge_rejects_nonoptional_or_nonboolean_settings(
-    github_db: str,
     assignments: dict[str, object],
     message: str,
 ) -> None:
-    _bind_yoke()
+    """Assignment validation refuses before any database read."""
     with pytest.raises(ValueError, match=message):
         projects.cmd_capability_merge_settings("yoke", "github", assignments)
 

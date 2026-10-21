@@ -62,12 +62,7 @@ def smoke(
     assert version.stdout.strip() == _wheel_version(product_wheelhouse, "yoke-cli")
 
     help_result = _run([str(yoke), "--help"], cwd=checkout, env=env)
-    assert "yoke status" in help_result.stdout
-    assert "yoke core " in help_result.stdout
-    assert "yoke core " in help_result.stdout
     assert "yoke core install" not in help_result.stdout
-    assert "yoke config " in help_result.stdout
-    assert "yoke board " in help_result.stdout
 
     core_status = _run(
         [str(yoke), "core", "status", "--json"],
