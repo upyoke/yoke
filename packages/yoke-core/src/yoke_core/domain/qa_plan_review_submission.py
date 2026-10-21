@@ -18,7 +18,11 @@ from yoke_core.domain.qa_constants import (
 )
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import marker
-from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
+from yoke_core.domain.qa_plan_review import (
+    QaPlanReviewError,
+    _public_bundle,
+    execution_missions_walkable,
+)
 from yoke_core.domain.qa_requirement_replacement import announce_discharges
 from yoke_core.domain.qa_run_verdict_record import QaRunWrite
 from yoke_core.domain.qa_undetermined_evidence import (
@@ -176,7 +180,9 @@ def submit_plan_review(
         )
         if stored is None or str(stored["bundle_digest"]) != bundle_digest:
             raise QaPlanReviewError("agent review bundle identity does not match")
-        bundle = _public_bundle(conn, stored)
+        bundle = _public_bundle(
+            conn, stored, missions_walkable=execution_missions_walkable(execution)
+        )
         validated = _validated_verdicts(bundle["cases"], verdicts)
         existing = {
             int(row["requirement_id"]): row

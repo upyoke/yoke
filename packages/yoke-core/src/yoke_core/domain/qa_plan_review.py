@@ -158,7 +158,18 @@ def _chain_blocked(
     return blocked
 
 
-def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
+def execution_missions_walkable(execution: Mapping[str, Any]) -> bool:
+    """A stopped execution holds no host lease, so no walker can reach it."""
+    from yoke_core.domain.qa_plan_execution_schema import (
+        TERMINAL_PLAN_EXECUTION_STATES,
+    )
+
+    return str(execution["state"]) not in TERMINAL_PLAN_EXECUTION_STATES
+
+
+def _public_bundle(
+    conn: Any, stored: Mapping[str, Any], *, missions_walkable: bool = True
+) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
     from yoke_core.domain.qa_mission_stop_settlement import mission_review_cases
 
@@ -179,21 +190,11 @@ def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
         result["subject"] = public_review_subject(conn, subject)
     except ValueError as exc:
         raise QaPlanReviewError(str(exc)) from exc
-    from yoke_core.domain.qa_plan_execution_schema import (
-        TERMINAL_PLAN_EXECUTION_STATES,
-    )
-
-    execution = query_one(
-        conn,
-        f"SELECT state FROM qa_plan_executions WHERE id={marker(conn)}",
-        (str(result["execution_id"]),),
-    )
     result["dispatch"] = dispatch_contract(
         result,
         allowed_verdicts=allowed_verdicts,
         conn=conn,
-        missions_walkable=execution is not None
-        and str(execution["state"]) not in TERMINAL_PLAN_EXECUTION_STATES,
+        missions_walkable=missions_walkable,
     )
     return result
 
@@ -218,7 +219,9 @@ def begin_plan_review(
         (str(execution["id"]),),
     )
     if existing is not None:
-        bundle = _public_bundle(conn, existing)
+        bundle = _public_bundle(
+            conn, existing, missions_walkable=execution_missions_walkable(execution)
+        )
         return bundle if bundle["cases"] else None
     from yoke_core.domain.qa_plan_execution_store import result_rows
 
@@ -308,10 +311,13 @@ def begin_plan_review(
         (bundle_id,),
     )
     assert stored is not None
-    return _public_bundle(conn, stored)
+    return _public_bundle(
+        conn, stored, missions_walkable=execution_missions_walkable(execution)
+    )
 
 
 __all__ = [
     "QaPlanReviewError",
     "begin_plan_review",
+    "execution_missions_walkable",
 ]
