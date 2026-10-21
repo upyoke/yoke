@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime
 from typing import Any
@@ -10,7 +9,7 @@ from typing import Any
 from yoke_contracts.timestamps import as_utc
 
 from yoke_core.domain.hook_overhead import _duration, _timestamp
-from yoke_core.domain.hook_overhead_tool import _classify_call
+from yoke_core.domain.hook_overhead_tool import _classify_call, event_context
 from yoke_core.domain.observe_timing import delivery_is_pending
 
 TOOL_EVENTS = (
@@ -27,16 +26,6 @@ FAMILIES = ("function", "tool", "hook", "relay", "watcher")
 WATCHER_COMMAND = re.compile(
     r"(?:^|[\s;])yoke\s+(?:--env\s+\S+\s+)?(?:dev\s+run\s+--\s+yoke\s+)?watch\s+(pytest|merge|deploy|fleet|preflight|qa-case|qa-plan|ci-run|doctor|tail)\b"
 )
-
-
-def event_context(envelope: Any) -> dict[str, Any]:
-    try:
-        value = json.loads(envelope) if isinstance(envelope, str) else envelope
-        context = (value or {}).get("context", {})
-        detail = context.get("detail")
-        return detail if isinstance(detail, dict) else context
-    except (ValueError, TypeError, AttributeError):
-        return {}
 
 
 def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
@@ -58,6 +47,7 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         identity = row.get("tool_name") or "Unknown tool"
         duration, status = _classify_call(
             event_duration=duration,
+            timing_status=context.get("timing_status"),
             started_at=row.get("started_at"),
             completed_at=row.get("completed_at"),
             observed=observed,
@@ -67,6 +57,12 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
             tool_use_id=row.get("tool_use_id"),
         )
         breakdown["tool_wall_ms"] = duration
+        label = (
+            "native_duration_ms"
+            if context.get("timing_status") == "native_duration"
+            else "hook_elapsed_ms"
+        )
+        breakdown[label] = duration
         completed = _timestamp(row.get("completed_at"))
         breakdown["delivery_lag_ms"] = (
             max(0, round((observed - completed).total_seconds() * 1000))

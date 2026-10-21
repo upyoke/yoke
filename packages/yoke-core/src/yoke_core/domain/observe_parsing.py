@@ -17,7 +17,7 @@ from yoke_core.domain.observe_normalization import (
     _resolve_explicit_refs,
     _resolve_main_session_attribution,
 )
-from yoke_core.domain.observe_timing import CapturedTimestamp, TIMING_MEASURED
+from yoke_core.domain.observe_timing import CapturedTimestamp
 
 
 def _payload_agent_type(data: Dict[str, Any]) -> Optional[str]:
@@ -201,7 +201,7 @@ def parse_hook_event(
     native_ms = native_duration_ms(data)
     if native_ms is not None:
         duration_ms = native_ms
-        timing_status = TIMING_MEASURED
+        timing_status = "native_duration"
     else:
         timing = measure_tool_call_duration(
             db_path,

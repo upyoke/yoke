@@ -37,7 +37,14 @@ There is no invented finer-resolution data or interpolation across gaps.
 
 `YokeFunctionCalled.duration_ms` measures the handler, not end-to-end request
 wall time. `HarnessToolCallCompleted`, failed/structured/interrupted completion
-variants use repaired `session_tool_calls` endpoints when present, preserving
+variants prefer vendor-native durations (`context.detail.timing_status` is
+`native_duration`). Codex reads the matching `CommandExecution` item from a
+bounded local rollout tail before relaying its existing `duration_ms` field;
+model turns between background-command check-backs are excluded. If that native
+record is absent, incomplete or unreadable, repaired `session_tool_calls`
+endpoints remain the fallback. Inspection labels the two as `native_duration_ms`
+and `hook_elapsed_ms`; the latter includes the interval between hooks and can
+include model wait. Both preserve
 timed, pending, unsupported and unknown distinctions across supported harnesses.
 Duplicate tool completion events share one `(session_id, tool_use_id)` count.
 `HookDispatchTelemetry.duration_ms` measures the evaluator; `client_wall_ms`
