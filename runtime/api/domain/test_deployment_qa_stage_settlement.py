@@ -213,8 +213,8 @@ def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
     )
     # The last member to settle is what settles the stage itself.
     monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_stage_settlement.members_still_owing",
-        lambda *args, **kwargs: (),
+        "yoke_core.domain.deployment_qa_stage_settlement.stage_waiting",
+        lambda *args, **kwargs: False,
     )
     conn = mock.Mock()
     for _ in range(2):
@@ -296,29 +296,30 @@ def test_one_member_passing_while_siblings_owe_sends_no_message(test_db):
 
 
 @pytest.mark.parametrize(
-    ("owing", "failure", "notified"),
+    ("waiting", "failure", "notified"),
     [
-        ((7,), "", False),
-        ((7,), "lock refused", True),
+        (True, "", False),
         (None, "", True),
-        ((), "", True),
+        (False, "", True),
+        (False, "lock refused", True),
     ],
 )
 def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
-    monkeypatch, owing, failure, notified
+    monkeypatch, waiting, failure, notified
 ):
-    calls = []
+    calls, attempts = [], []
     monkeypatch.setattr(
         "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
         lambda *args, **kwargs: {"outcome": "passed", "target_digest": "t"},
     )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_run_auto_completion.continue_after_settlement",
-        lambda *args, **kwargs: SimpleNamespace(completed=False, failure=failure),
+        lambda *args, **kwargs: attempts.append(kwargs)
+        or SimpleNamespace(completed=False, failure=failure),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_stage_settlement.members_still_owing",
-        lambda *args, **kwargs: owing,
+        "yoke_core.domain.deployment_qa_stage_settlement.stage_waiting",
+        lambda *args, **kwargs: waiting,
     )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_qa_stage_settlement.status_project_id",
@@ -334,10 +335,14 @@ def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
     )
     settle_subject(mock.Mock(), run_id="run-m", stage="item-qa", member=42)
     assert bool(calls) is notified
+    # The stage is read once: completion is attempted only once it owes
+    # nothing, and then skips re-walking it.
+    expected = [{"notify_recovery": False, "accepted_qa_stage": "item-qa"}]
+    assert attempts == (expected if waiting is False else [])
     if notified:
         message = calls[0]["body_for_route"]("driver")
         if failure:
             assert failure in message
-        if owing is None:
+        if waiting is None:
             assert "qa_stage_outstanding_unavailable" in message
             assert "settled passed" not in message

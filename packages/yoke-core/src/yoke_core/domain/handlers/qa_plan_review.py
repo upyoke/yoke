@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from psycopg.errors import LockNotAvailable, QueryCanceled
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import (
@@ -159,9 +160,12 @@ def handle_plan_review_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 reviewer_actor_id=request.actor.actor_id,
                 reviewer_session_id=request.actor.session_id,
             )
-    except (QaPlanReviewError, ValueError) as exc:
+    except (QaPlanReviewError, ValueError, LockNotAvailable, QueryCanceled) as exc:
+        from yoke_core.domain.qa_plan_execution_reentry import bounded_refusal
+
         conn.rollback()
-        return _error("plan_review_submit_failed", str(exc))
+        message = bounded_refusal(exc, step="review submission")
+        return _error("plan_review_submit_failed", message)
     finally:
         conn.close()
     return HandlerOutcome(primary_success=True, result_payload=result)

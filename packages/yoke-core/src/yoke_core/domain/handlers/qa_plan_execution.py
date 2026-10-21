@@ -155,6 +155,11 @@ def _owned_execution(
         return target
     item_id, deployment_run_id = target
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_execution_reentry import (
+        BOUNDED_CHECKIN_FUNCTIONS,
+        bound_checkin_queries,
+        bounded_refusal,
+    )
     from yoke_core.domain.qa_plan_execution_state import (
         lock_plan_execution,
         plan_execution_abort_authority,
@@ -163,12 +168,7 @@ def _owned_execution(
 
     conn = connect()
     try:
-        if request.function in {
-            "qa.plan_execution.heartbeat",
-            "qa.plan_execution.pause",
-        }:
-            from yoke_core.domain.qa_plan_execution_reentry import bound_checkin_queries
-
+        if request.function in BOUNDED_CHECKIN_FUNCTIONS:
             bound_checkin_queries(conn)
         execution = lock_plan_execution(conn, parsed.execution_id)
         if request.target.kind == "global":
@@ -199,14 +199,7 @@ def _owned_execution(
     except (ValueError, LockNotAvailable, QueryCanceled) as exc:
         conn.rollback()
         conn.close()
-        message = (
-            str(exc)
-            if isinstance(exc, ValueError)
-            else (
-                "qa_checkin_busy: bounded execution validation could not finish; preserve "
-                "the cursor and custody, inspect contention, then retry the same execution"
-            )
-        )
+        message = bounded_refusal(exc, step="execution validation")
         return _error("plan_execution_invalid", message, "$.payload.execution_id")
     return conn, execution
 
@@ -316,9 +309,12 @@ def _finish_execution(
                 session_id=request.actor.session_id,
                 reason=str(getattr(parsed, "reason")),
             )
-    except ValueError as exc:
+    except (ValueError, LockNotAvailable, QueryCanceled) as exc:
+        from yoke_core.domain.qa_plan_execution_reentry import bounded_refusal
+
         conn.rollback()
-        return _error("plan_execution_finish_failed", str(exc), "$.payload")
+        message = bounded_refusal(exc, step="execution finish")
+        return _error("plan_execution_finish_failed", message, "$.payload")
     finally:
         conn.close()
     return HandlerOutcome(primary_success=True, result_payload=result)

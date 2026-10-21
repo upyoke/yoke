@@ -209,6 +209,27 @@ def bound_checkin_queries(conn):
         conn.execute("SELECT set_config('statement_timeout', '5000ms', true)")
 
 
+#: Registered calls whose execution-row transaction runs under the bound above.
+BOUNDED_CHECKIN_FUNCTIONS = frozenset(
+    {
+        "qa.plan_execution.heartbeat",
+        "qa.plan_execution.pause",
+        "qa.plan_execution.abort",
+        "qa.plan_review.submit",
+    }
+)
+
+
+def bounded_refusal(exc, *, step):
+    """A named refusal for a ValueError or a bounded lock or query budget."""
+    if isinstance(exc, ValueError):
+        return str(exc)
+    return (
+        f"qa_checkin_busy: bounded {step} could not finish; preserve the cursor "
+        "and custody, inspect contention, then retry the same execution"
+    )
+
+
 def inflight_checkpoint(execution):
     reason = str(execution.get("release_reason") or "")
     evidence = (

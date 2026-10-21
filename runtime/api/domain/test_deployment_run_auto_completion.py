@@ -106,3 +106,38 @@ def test_approval_and_live_driver_prevent_parallel_completion(
     attached = finish_ready_run(test_db, run_id)
     assert "live-driver" in attached.waiting
     assert _run_status(test_db, run_id) == "executing"
+
+
+def test_member_settlement_walks_its_stage_once(test_db: Any, monkeypatch) -> None:
+    """Completion reuses the settling member's stage read instead of a second walk."""
+    from yoke_core.domain import deployment_qa_stage_outstanding as outstanding
+    from yoke_core.domain import deployment_qa_stage_settlement as settlement
+
+    _isolate_status_effects(monkeypatch)
+    run_id = "run-settlement-single-walk"
+    _seed_undriven(test_db, run_id, shared_qa=False)
+    real_walk, real_settle = outstanding.qa_stage_outstanding, settlement.settle_execution
+    settling, walks = [], []
+
+    def walk(conn: Any, *, run_id: str, stage_name: str, **kwargs: Any) -> Any:
+        if settling:
+            walks.append(stage_name)
+        return real_walk(conn, run_id=run_id, stage_name=stage_name, **kwargs)
+
+    def settle(conn: Any, execution: Any) -> Any:
+        settling.append(True)
+        try:
+            return real_settle(conn, execution)
+        finally:
+            settling.clear()
+
+    monkeypatch.setattr(outstanding, "qa_stage_outstanding", walk)
+    monkeypatch.setattr(settlement, "settle_execution", settle)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
+    assert walks == ["item-qa"]
+    walks.clear()
+    _settle(
+        test_db, run_id=run_id, stage="item-qa", member=MEMBER_B, may_complete_run=True
+    )
+    assert walks == ["item-qa"]
+    assert _run_status(test_db, run_id) == "succeeded"
