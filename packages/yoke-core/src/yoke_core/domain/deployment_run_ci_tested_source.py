@@ -1,13 +1,8 @@
 """The commit a CI-gated release binds: one that has its own CI run.
 
-A CI gate passes only its exact release commit; merge-queue pushes test only
-the newest commit. ``deployment_runs.create`` without a source therefore binds
-the newest first-parent gate-branch commit whose own run passed
-or is running, or — when none has one — dispatches the workflow on the branch
-and binds the commit that run tests, refusing either when it does not descend
-from the previous release (:mod:`deployment_run_gate_branch_lineage`). An
-explicit commit without its own run is refused. Flows without a CI wait,
-projects without a CI workflow, and ephemeral candidates are untouched.
+Creation uses the gate branch tip, dispatching missing CI and refusing
+failed CI or divergence from the previous release. Explicit sources need
+an own CI run. Flows without a CI wait are untouched.
 """
 
 from __future__ import annotations
@@ -27,11 +22,12 @@ from yoke_core.domain.deployment_run_ci_gate_github import (
 )
 from yoke_core.domain.deployment_run_gate_branch_lineage import (
     first_parent_line,
+    gate_branch_tip,
     require_descends_from_previous_release,
     runs_by_commit,
 )
 
-# How far back along the gate branch creation looks for a tested commit.
+# Run listing and explicit-source recovery search bound.
 COMMIT_WINDOW = 100
 _TESTED_STATES = frozenset({"passed", "running"})
 _FULL_SHA = re.compile(r"[0-9a-f]{40}")
@@ -71,10 +67,7 @@ def _waits_for_ci(stage: Any) -> bool:
 def _flow_facts(
     flow: str, environment: Optional[str]
 ) -> Optional[tuple[list, str, str]]:
-    """Return the flow's stages, tier, and gate environment name.
-
-    ``None`` for an unknown flow: run creation refuses that by name itself.
-    """
+    """Return stages, tier, and gate environment; unknown flows return None."""
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.json_helper import loads_text
 
@@ -222,7 +215,7 @@ def dispatch_branch_ci(target: CiGateTarget) -> str:
     except RestTransportError as exc:
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
-            f"no commit on {target.repo}@{target.branch} has its own "
+            f"the tip of {target.repo}@{target.branch} has no own "
             f"{target.workflow} run, and dispatching one failed: {exc}\n{recovery}",
         ) from exc
     run_id = result.get("workflow_run_id") if isinstance(result, dict) else None
@@ -249,20 +242,16 @@ def _untested(
     if retry:
         how = (
             "a retry keeps its candidate, so create a new run instead (no "
-            "--retry-of): without --source-ref it binds a tested commit."
+            "--retry-of): omit --source-ref to use the gate branch tip."
         )
     elif newest:
-        how = f"omit --source-ref to bind {newest}, or pass --source-ref {newest}."
+        how = f"pass --source-ref {newest} with --project-repo-path CHECKOUT."
     else:
         how = (
             f"omit --source-ref: creation then dispatches {target.workflow} "
-            f"on {target.branch} and binds the commit that run tests."
+            f"on {target.branch} and binds the commit that run tests if its tip has no run; "
+            "a failed tip must be fixed first."
         )
-    tested = (
-        f" The newest commit with its own passing or running run is {newest}."
-        if newest
-        else ""
-    )
     finding = (
         "has no run of its own" if state == "no_runs" else f"has run state {state}"
     )
@@ -270,7 +259,7 @@ def _untested(
         UNTESTED,
         f"release commit {lineage} {finding} in {target.workflow} on "
         f"{target.repo}@{target.branch}, so flow '{target.flow}' would block "
-        f"at its CI gate. Nothing was bound.{tested}\n  Recovery: {how}",
+        f"at its CI gate. Nothing was bound.\n  Recovery: {how}",
     )
 
 
@@ -305,14 +294,25 @@ def bind_tested_release_source(
     *,
     retry: bool = False,
 ) -> Optional[str]:
-    """Return the lineage to create the run with, or refuse by name."""
     if (release_lineage or "").strip():
         require_tested_lineage(project, flow, environment, release_lineage, retry=retry)
         return release_lineage
     target = ci_gate_target(project, flow, environment)
     if target is None:
         return release_lineage
-    selected = newest_tested_commit(target) or dispatch_branch_ci(target)
+    selected = gate_branch_tip(target)
+    own = _newest_run_by_commit(target, {"head_sha": selected}).get(selected)
+    state = _state(own)
+    if state == "no_runs":
+        selected = dispatch_branch_ci(target)
+    elif state not in _TESTED_STATES:
+        raise ReleaseSourceRefused(
+            "release_source_ci_failed",
+            f"gate branch tip {selected} on {target.repo}@{target.branch} "
+            f"has {target.workflow} run state {state}. Nothing was bound.\n"
+            f"  Recovery: fix {target.branch} and rerun CI, or name "
+            "--source-ref with a passing run and --project-repo-path CHECKOUT.",
+        )
     require_descends_from_previous_release(target, selected)
     return selected
 

@@ -1,9 +1,7 @@
 """Which gate-branch commits a release created without a source may bind.
 
-A release created without ``--source-ref`` binds a commit the CI gate can
-pass, and that commit must be a state the gate branch itself held. Only the
-branch's first-parent line from its tip qualifies: a second parent is a branch
-that was merged in, never a state of the gate branch. Only runs GitHub
+A release created without ``--source-ref`` binds the gate branch tip, or
+the commit tested by a new dispatch on that branch. Only runs GitHub
 recorded for the branch itself count: a merge-queue (``merge_group``) or pull
 request run tests a commit that is not, or not yet, on it.
 
@@ -43,6 +41,35 @@ def runs_by_commit(data: Any, branch: str) -> Dict[str, dict]:
         ):
             grouped.setdefault(str(run["head_sha"]), []).append(run)
     return {sha: newest_run(group) for sha, group in grouped.items()}
+
+
+def gate_branch_tip(target: "CiGateTarget") -> str:
+    """Read the current branch tip; an unreadable tip never selects history."""
+    from yoke_core.domain.deployment_run_ci_tested_source import (
+        UNVERIFIABLE,
+        ReleaseSourceRefused,
+        _FULL_SHA,
+        _read,
+    )
+
+    commits = _read(
+        target,
+        f"/repos/{target.repo}/commits",
+        {"sha": target.branch, "per_page": "1"},
+    )
+    tip = (
+        commits[0].get("sha")
+        if isinstance(commits, list) and commits and isinstance(commits[0], dict)
+        else None
+    )
+    if isinstance(tip, str) and _FULL_SHA.fullmatch(tip):
+        return tip
+    raise ReleaseSourceRefused(
+        UNVERIFIABLE,
+        f"GitHub named no valid tip for {target.repo}@{target.branch}. "
+        "Nothing was bound.\n  Recovery: confirm the gate branch exists "
+        "and GitHub is readable, then create again.",
+    )
 
 
 def first_parent_line(commits: Any) -> List[str]:
@@ -153,6 +180,7 @@ __all__ = [
     "FOREIGN_REF_EVENTS",
     "OFF_LINEAGE",
     "first_parent_line",
+    "gate_branch_tip",
     "previous_release",
     "require_descends_from_previous_release",
     "runs_by_commit",

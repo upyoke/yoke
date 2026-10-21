@@ -74,10 +74,11 @@ Itemless environment release (project-generic):
   # plane's own serving API, escalate the named refusal and recovery to its
   # operator. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
-  # With no --source-ref, a flow that waits for CI binds the newest commit
-  # on its gate branch's first-parent line that has its own branch CI run
-  # (passed or running), or dispatches that CI on the branch and binds the
-  # commit it tests; a commit off the previous release's lineage is refused
+  # With no --source-ref, a flow that waits for CI binds its gate branch tip.
+  # A passed or running branch CI run is reused; no run dispatches that CI
+  # and binds the commit it tests. Failed or cancelled tip CI refuses
+  # (release_source_ci_failed): fix the branch or name a passing source.
+  # A commit off the previous release's lineage is refused
   # (release_source_off_lineage) naming both commits. Read
   # the bound commit with `deployment-runs get RUN-ID release_lineage`
   # and give the release's paired run that same commit.
@@ -121,11 +122,12 @@ CREATE_DESCRIPTION = (
     "It reports all detectable blockers, including selected member flow "
     "mismatches, before committing a run ID. On a flow that waits for CI, "
     "the release commit must have its own run of the project's "
-    "ci_workflow_file: without --source-ref creation binds the newest such "
-    "commit on the gate branch (dispatching that workflow on the branch and "
-    "binding the commit it tests when no commit has a run), and an explicit "
-    "commit without one is "
-    "refused (release_source_untested) naming the newest that has one. "
+    "ci_workflow_file: without --source-ref creation binds the gate branch "
+    "tip, dispatching that workflow and binding the commit it tests if the "
+    "tip has no run. Failed or cancelled tip CI refuses "
+    "(release_source_ci_failed): fix the branch or name a passing source. "
+    "An explicit commit without its own usable run refuses "
+    "(release_source_untested). "
     "Commits made outside Yoke are carried without blocking release. An "
     "item a live or succeeded release already holds is not composed and not "
     "judged: it is reported as skipped, naming the run that holds it, "
@@ -164,7 +166,7 @@ WATCH_DEPLOY_DESCRIPTION = (
     "Run a Yoke deployment pipeline under a shared raw+progress "
     "watcher. For an environment release or an item-bound batch, "
     "resolve the flow's target, create the run (a CI-gated flow binds "
-    "its newest CI-tested commit unless --source-ref pins one), then "
+    "its gate branch tip unless --source-ref pins a tested commit), then "
     "drive it here through "
     "the same control-plane connection. Create checks composition; start "
     "revalidates it before stage dispatch. Verify the resolved environment rather than assuming "

@@ -216,3 +216,33 @@ def test_a_later_lineage_bind_names_the_untested_refusal():
         refusal = tested.tested_lineage_refusal(conn, "run-1", HEAD)
 
     assert refusal.startswith(f"Error: {tested.UNTESTED}: release commit {HEAD}")
+
+
+@pytest.mark.parametrize("commits", [[], {}, [{"sha": "bad"}], [None]])
+def test_default_unreadable_tip_refuses_without_dispatch(commits):
+    with (
+        mock.patch.object(tested, "ci_gate_target", return_value=TARGET),
+        mock.patch.object(tested, "_read", return_value=commits),
+        mock.patch.object(tested, "dispatch_branch_ci") as dispatch,
+        pytest.raises(tested.ReleaseSourceRefused) as refused,
+    ):
+        tested.bind_tested_release_source("platform", "flow", None, None)
+    assert refused.value.code == tested.UNVERIFIABLE
+    assert "confirm the gate branch exists" in str(refused.value)
+    dispatch.assert_not_called()
+
+
+def test_default_checks_lineage_of_dispatched_commit_after_branch_moves():
+    from yoke_core.domain import deployment_run_gate_branch_lineage as lineage
+
+    with (
+        mock.patch.object(tested, "ci_gate_target", return_value=TARGET),
+        mock.patch.object(tested, "_read", side_effect=_no_runs),
+        mock.patch.object(tested, "dispatch_branch_ci", return_value=OLDER),
+        mock.patch.object(lineage, "previous_release", return_value=("previous", HEAD)),
+        mock.patch.object(lineage, "_compare_status", return_value="behind") as compare,
+        pytest.raises(tested.ReleaseSourceRefused) as refused,
+    ):
+        tested.bind_tested_release_source("platform", "flow", None, None)
+    assert refused.value.code == lineage.OFF_LINEAGE
+    compare.assert_called_once_with(TARGET, HEAD, OLDER)
