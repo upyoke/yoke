@@ -121,7 +121,7 @@ CI's. Explicit dispatched paths without a merge base run exactly as named.
 
 `yoke_core.tools.ci_shard_sizing.selection_estimate` sizes a selection
 against the whole profile. It earns one shard per 60 profiled seconds, up
-to 8. It is full CI's work at 50% or more of the suite's profiled seconds
+to 16. It is full CI's work at 50% or more of the suite's profiled seconds
 (`FULL_CI_SHARE`). The dispatcher refuses that work before pushing. The plan
 job refuses it before any shard starts, and the dispatcher reports that run
 as the same named refusal, not a test failure. Each names the full QA case

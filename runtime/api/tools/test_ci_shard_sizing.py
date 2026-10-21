@@ -49,10 +49,10 @@ def test_a_selection_smaller_than_one_budget_stays_on_one_runner() -> None:
 
 
 def test_a_selection_larger_than_the_fan_out_is_capped_at_it() -> None:
-    assert ci_shards.SHARD_COUNT == 8
-    assert sizing.split_count(8 * 60.0, 5_000) == 8
-    assert sizing.split_count(8 * 60.0 + 1, 5_000) == 8
-    assert sizing.split_count(50_000.0, 20_000) == 8
+    assert ci_shards.SHARD_COUNT == 16
+    assert sizing.split_count(16 * 60.0, 5_000) == 16
+    assert sizing.split_count(16 * 60.0 + 1, 5_000) == 16
+    assert sizing.split_count(50_000.0, 20_000) == 16
 
 
 def test_a_shard_earned_by_a_remainder_still_has_tests_to_fill_it() -> None:

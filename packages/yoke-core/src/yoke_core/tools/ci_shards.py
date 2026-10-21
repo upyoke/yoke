@@ -33,7 +33,7 @@ from typing import Sequence
 
 # The number of shards the suite is cut into, per Python version. The workflow
 # matrix and pytest's --splits both derive from this and cannot disagree.
-SHARD_COUNT = 8
+SHARD_COUNT = 16
 
 # The three roots that are the full suite. A partial anchor silently demotes a
 # package's top-level conftest and collection fails.
