@@ -7,6 +7,6 @@
  "functions": ["agents.render.check", "agents.render.run", "agents.render_relationships.record"],
  "page": "contributing",
  "position": 2,
- "current": "CI repo contracts check generated inline blocks, manifest-backed wake claims and rendered Claude, Codex and Cursor agent surfaces against their canonical sources. Run the renderer named by each failure, commit its outputs and rerun verification; the installed pre-commit hook does not perform render checks.",
- "sources": ["packages/yoke-core/src/yoke_core/tools/ci_generated_surfaces.py"]
+ "current": "CI repo contracts check generated inline blocks, manifest-backed wake claims and rendered Claude, Codex and Cursor agent surfaces against their canonical sources. Run the renderer named by each failure, commit its outputs and rerun verification; the installed pre-commit hook does not perform render checks. Render relationship registration reads existing path-context values once and batch-writes changed values; unchanged rows retain their timestamps and provenance.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/ci_generated_surfaces.py", "packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py", "packages/yoke-core/src/yoke_core/domain/render_relationship_batch.py"]
 }
