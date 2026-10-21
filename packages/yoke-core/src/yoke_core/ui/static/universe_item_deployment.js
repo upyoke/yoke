@@ -1,7 +1,7 @@
 // Delivery is the item's completion-owned attribution. Run and QA standings
 // explain pending work; neither can revoke a completed environment delivery.
 import { deploymentRunHref } from "./universe_navigation.js";
-import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
+import { deliveryStateLabel, NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { relativeAge, relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
 
@@ -244,7 +244,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
   const awaiting = !runs.length || (environment && !runs.some((run) => runEnvironment(run) === environment));
   if (owesPendingDelivery(row) && flow && awaiting) {
     box.appendChild(environmentRow(documentNode, environment, {
-      symbol: "○", text: "not yet · next release",
+      symbol: "○", text: `${deliveryStateLabel("not deployed", environment)} · next release`,
     }, null, row));
   }
   card.appendChild(box);
@@ -252,16 +252,14 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
 }
 
 // Where an item's delivery stands, one environment per part, for a surface
-// too compact for the delivery box: "stage ✓ · prod deploying".
+// too compact for the delivery box: "✓ Live in stage · Deploying to prod".
 export function deliverySummary(row, deployments) {
   const runs = deliveryRuns(row, deployments)
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {
     const outcome = itemOutcome(run);
-    const environment = runEnvironment(run) || NO_ENVIRONMENT_LABEL;
-    if (outcome.finished) return `${environment} ✓`;
-    if (outcome.symbol === "✗") return `${environment} ✗`;
-    return `${environment} deploying`;
+    const state = outcome.finished ? "live" : outcome.symbol === "✗" ? "failed" : "deploying";
+    return deliveryStateLabel(state, runEnvironment(run));
   });
   const environment = String(row.completion_environment || "");
   if (
@@ -269,7 +267,7 @@ export function deliverySummary(row, deployments) {
     && environment
     && !runs.some((run) => runEnvironment(run) === environment)
   ) {
-    parts.push(`${environment} not yet`);
+    parts.push(deliveryStateLabel("not deployed", environment));
   }
   return parts.join(" · ");
 }

@@ -204,7 +204,7 @@ for (const band of BANDS) {
     });
     t.after(() => mounted.unmount());
     assert.equal(byClass(box, "item-deployment-environment")[0].textContent, "prod");
-    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ not yet · next release");
+    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ Merged · not in prod yet · next release");
     assert.equal(byClass(box, "item-deployment-placeholder")[0].textContent, "—");
     assert.equal(byClass(box, "item-deployment-run").length, 0);
   });
@@ -216,7 +216,7 @@ for (const band of BANDS) {
     ], { completion_environment: "prod" });
     t.after(() => mounted.unmount());
     assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["stage", "prod"]);
-    assert.equal(byClass(box, "item-deployment-outcome")[1].textContent, "○ not yet · next release");
+    assert.equal(byClass(box, "item-deployment-outcome")[1].textContent, "○ Merged · not in prod yet · next release");
   });
 
   test(`${band.key}: only the newest attempt in each environment is shown`, async (t) => {
@@ -322,7 +322,7 @@ test("recorded delivery stays visible and does not promise a next release", asyn
     });
     assert.equal(byClass(box, "item-deployment-environment")[0].textContent, "prod");
     assert.equal(byClass(box, "item-deployment-outcome")
-      .some((node) => node.textContent.includes("not yet")), false);
+      .some((node) => node.textContent.includes("Merged · not in")), false);
     mounted.unmount();
   }
 });
@@ -335,5 +335,5 @@ test("compact delivery summary joins runs by complete public ref", async () => {
   const runs = new Map([[publicRef, [{
     id: "run-public-summary", status: "executing", target_environment: "stage",
   }]]]);
-  assert.equal(deliverySummary({ public_ref: publicRef }, runs), "stage deploying");
+  assert.equal(deliverySummary({ public_ref: publicRef }, runs), "Deploying to stage");
 });

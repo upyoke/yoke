@@ -1,0 +1,10 @@
+{
+ "id": "deployment-state-labels",
+ "title": "Deployment state reads as plain English per environment",
+ "status": "observed",
+ "form": "State",
+ "verification": "Rendered component tests assert each state's exact text for two environment names across Frontier dependency cards, the compact delivery summary and the delivery box's pending row. Served browser proof remains a deployment obligation.",
+ "topics": ["deployments/shipping/member-progress", "frontier/frontier"],
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/deployment_environment_copy.js", "packages/yoke-core/src/yoke_core/ui/static/frontier_dependency_model.js", "packages/yoke-core/src/yoke_core/ui/static/universe_item_deployment.js"],
+ "position": 15
+}

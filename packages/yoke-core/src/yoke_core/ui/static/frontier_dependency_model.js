@@ -9,6 +9,8 @@
 // computing its own. Nothing here touches the DOM: the graph renderer and the
 // tests read the same model.
 
+import { deliveryStateLabel } from "./deployment_environment_copy.js";
+
 export const FRONTIER_GATE = { activation: "start", integration: "merge", closure: "close" };
 export const FRONTIER_FANOUT_LIMIT = 6;
 
@@ -54,13 +56,11 @@ export function frontierNever(edge, blocker) {
   return null;
 }
 
-const ENVIRONMENT_STATE = { live: "✓", deploying: "deploying", "not deployed": "not yet" };
-
 // Where a blocker stands in the environment one edge waits on, when the page
 // has no delivery reading of its own for that blocker.
 export function frontierEdgeDeploy(edge) {
   if (!edge.env) return "";
-  return `${edge.env.name} ${ENVIRONMENT_STATE[edge.env.delivery_state] || edge.env.delivery_state}`;
+  return deliveryStateLabel(edge.env.delivery_state, edge.env.name);
 }
 
 function ghost(ref, facts = {}) {

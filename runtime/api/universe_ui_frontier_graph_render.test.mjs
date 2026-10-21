@@ -129,7 +129,7 @@ test("Enter on a focused tile selects it", () => {
   const detail = byClass(section, "fdv-graph-detail")[0];
   assert.equal(ownTextContent(byClass(detail, "fdv-gate")[0]), "blocks close");
   assert.equal(ownTextContent(byClass(detail, "fdv-detail-copy")[0]),
-    "until it is live on prod · now release · stage ✓ · prod not yet");
+    "until it is live on prod · now release · ✓ Live in stage · Merged · not in prod yet");
 });
 
 test("the phone outline lists each chain once from its root", () => {
