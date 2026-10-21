@@ -17,6 +17,7 @@ is not listed a second time as landed without close-out.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_test_machines import ResetDebt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence, TypeVar
 
@@ -41,7 +42,7 @@ T = TypeVar("T")
 class ProjectRows:
     """One project's project-wide sections; empty for a seat that omits them."""
 
-    reset_debts: tuple[tuple[str, str], ...] = ()
+    reset_debts: tuple[ResetDebt, ...] = ()
     deployment_runs: tuple[DeploymentRunProgress, ...] = ()
     landed_open: tuple[LandedItem, ...] = ()
     undelivered: tuple[UndeliveredMessages, ...] = ()

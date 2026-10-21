@@ -203,3 +203,13 @@ with `/yoke idea`, naming the function and its p95.
 ## Related
 
 - [Steering report delivery](steering-report-delivery.md)
+
+## Test-machine reset debt
+
+A host with an owed reset and a live QA execution lease reads
+`reset owed after <execution id>`, with no recovery command. This includes
+companion hosts held by a walk. Let that execution finish its cleanup.
+When no live execution holds the host, the report reads `machine_needs_repair`
+and names the reset command and owed baseline. JSON `reset_debts` rows carry
+`execution_id` and a null `recovery` while held; unheld rows carry the recovery
+command and a null `execution_id`.

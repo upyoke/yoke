@@ -91,6 +91,7 @@ def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkey
         (
             machine,
             f"yoke test-machine reset --project 1 --machine {machine} --baseline shell-preconfigured",
+            None,
         ),
     )
     assert "machine_needs_repair" in reset_debt_lines(rows)[0]
