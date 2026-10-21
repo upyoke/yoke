@@ -116,7 +116,7 @@ def output_samples(samples, basis, variable=False):
     """Count synthetic output examples, including their terminating newlines."""
     return dict(lines=[min(len(s.splitlines()) for s in samples), max(len(s.splitlines()) for s in samples)],
                 bytes=[min(len(s.encode('utf-8')) for s in samples), max(len(s.encode('utf-8')) for s in samples)],
-                estimated=len(set(samples)) > 1, variable=variable, basis=basis)
+                estimated=True, variable=variable, basis=basis)
 
 
 def incoming_topic_size(title):
@@ -163,7 +163,7 @@ def rollup_output_sizes(nodes):
         nested = children.get(node['id'], [])
         if nested:
             parts = [measure(child) for child in nested]
-            size = dict(lines=[sum(p['lines'][i] for p in parts) for i in (0, 1)],
+            size = dict(aggregated=True, lines=[sum(p['lines'][i] for p in parts) for i in (0, 1)],
                         bytes=[sum(p['bytes'][i] for p in parts) for i in (0, 1)],
                         estimated=any(p['estimated'] for p in parts), variable=any(p['variable'] for p in parts),
                         planning=any(p.get('planning') for p in parts),
@@ -193,11 +193,12 @@ def rollup_output_sizes(nodes):
     for node in nodes:
         size = measure(node)
         prefix = 'Estimated' if size['estimated'] else 'Text'
-        if children.get(node['id']) and not node.get('source_size') and not node.get('message_estimate'):
+        if size.get('aggregated'):
             prefix = 'Total estimate' if size['estimated'] else 'Total'
         if size.get('planning'):
             prefix = 'Rough total' if children.get(node['id']) else 'Rough estimate'
-        label = f"{prefix} · {band(size['lines'])} lines · {band(size['bytes'])} B"
+        unit = 'line' if size['lines'] == [1, 1] else 'lines'
+        label = f"{prefix} · {band(size['lines'])} {unit} · {band(size['bytes'])} B"
         if size['variable']:
             label = ('Variable body · lines and bytes' if not size['bytes'][1]
                      else label + ' + variable body')
