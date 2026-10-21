@@ -1,7 +1,8 @@
 """Worktree-status pre-commit invariant.
 
 When the current branch is an item lane branch (its public ref
-``PREFIX-N`` or a recorded lane branch, in any project), the owning item's ``status`` MUST be in the implementation-phase set:
+``PREFIX-N`` or a recorded lane branch, in any project), the owning
+item's ``status`` MUST be in the implementation-phase set:
 
 - ``implementing`` — active code-writing.
 - ``reviewing-implementation`` — self-review and fix loop.
@@ -11,7 +12,7 @@ Committing on a lane branch while the item is still ``refined-idea``
 (or anything past ``polishing-implementation``) is a procedural miss:
 the implementation-entry transition was skipped, or polish/usher already
 moved the item beyond commit-eligible. The guard refuses the commit and
-points at ``/yoke implement YOK-N`` to enter the implementation lane.
+points at ``/yoke implement PREFIX-N`` to enter the implementation lane.
 
 This closes the procedural gap where a worktree branch can receive
 commits before the item enters an implementation-owned status, or after
