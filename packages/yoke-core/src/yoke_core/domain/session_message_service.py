@@ -57,7 +57,6 @@ from yoke_core.domain.session_message_launch_queue import (
     resolve_item_launch_mail,
     launch_confirmation,
     launch_snapshot,
-    launch_result,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
 from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
@@ -166,15 +165,6 @@ def preview_message(
         "confirmation_token": launch_confirmation(
             confirmation_token(selector, recipients, actor_recipients=actor_recipients),
             launch,
-        ),
-        **launch_result(
-            conn,
-            {
-                "selector_snapshot": launch_snapshot(
-                    _selector_snapshot(selector), launch
-                )
-            },
-            now=now,
         ),
         **({"steering_recipient": steering} if steering else {}),
     }
@@ -325,7 +315,7 @@ def send_message(
             else details.get("actor_recipients", [])
         )
         steering = stored_steering_recipient(conn, str(details["message_id"]))
-        queued = launch_result(conn, details, now=current)
+        queued = details.get("recipient_count", 0)
         result = {
             "message_id": details["message_id"],
             "recipients": selected,
@@ -334,7 +324,6 @@ def send_message(
                 len(selected) + len(selected_actors) + bool(steering) + bool(queued)
             ),
             "deduplicated": not created,
-            **queued,
         }
         if not created and details.get("body_sha256") != body_sha256(body):
             result["collapsed_differing_body"] = True

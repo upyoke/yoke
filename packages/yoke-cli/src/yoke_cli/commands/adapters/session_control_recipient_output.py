@@ -10,7 +10,6 @@ def display_recipients(
     session_recipients: Iterable[Mapping[str, Any]],
     actor_recipients: Iterable[Mapping[str, Any]],
     steering_recipient: Mapping[str, Any] | None = None,
-    launch_recipient: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Every party a message reached: sessions, people, and the seat role.
 
@@ -30,8 +29,6 @@ def display_recipients(
     rows.extend(dict(recipient) for recipient in actor_recipients)
     if steering_recipient is not None:
         rows.append(dict(steering_recipient))
-    if launch_recipient is not None:
-        rows.append(dict(launch_recipient))
     return rows
 
 
@@ -47,7 +44,6 @@ def recipient_count(message: Mapping[str, Any]) -> int:
         len(message.get("recipients") or [])
         + len(message.get("actor_recipients") or [])
         + (1 if message.get("steering_recipient") else 0)
-        + (1 if message.get("launch_recipient") else 0)
     )
 
 
@@ -59,10 +55,11 @@ def recipient_states(message: Mapping[str, Any]) -> set[Any]:
     rows = [
         *(message.get("recipients") or []),
         *(message.get("actor_recipients") or []),
-        *([message["launch_recipient"]] if message.get("launch_recipient") else []),
         *([steering] if steering else []),
     ]
-    return {row.get("state") or row.get("liveness") for row in rows}
+    return {row.get("state") or row.get("liveness") for row in rows} or (
+        {message["state"]} if message.get("state") else set()
+    )
 
 
 def recipient_party(row: Mapping[str, Any]) -> Any:
@@ -104,6 +101,7 @@ __all__ = [
     "recipient_states",
     "recipient_surface",
     "steering_summary",
+    "queued_launch_summary",
 ]
 
 
@@ -114,3 +112,19 @@ def message_sender(row: Mapping[str, Any]) -> Any:
         or row.get("sender_session_id")
         or row.get("sender_actor_label")
     )
+
+
+def queued_launch_summary(message: Mapping[str, Any]) -> str | None:
+    """Explain an existing launch address before it has a session receipt."""
+    snapshot = message.get("selector_snapshot") or {}
+    if not (
+        snapshot.get("anchor") == "launch" and snapshot.get("public_refs")
+    ) or message.get("recipients"):
+        return None
+    launch_id = snapshot["launch_id"]
+    reason = message.get("cancellation_reason") or (
+        "awaiting_work_claim"
+        if message.get("state") == "pending"
+        else message.get("state")
+    )
+    return f"{reason}: launch {launch_id}; inspect `yoke session-control launch get {launch_id}`. Cancel before resending to another worker."

@@ -22,7 +22,7 @@ from yoke_core.domain.session_message_receipt_expiry import (
     steering_settled_sql,
 )
 from yoke_core.domain.session_message_launch_queue import (
-    launch_result,
+    project_launch_mail,
     queued_message_clause,
 )
 from yoke_core.domain.session_message_types import (
@@ -108,7 +108,7 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         recipient["resolution_evidence"] = _decode(recipient["resolution_evidence"], [])
         recipient["routing_snapshot"] = _decode(recipient["routing_snapshot"], {})
     message["recipients"] = recipients
-    message.update(launch_result(conn, message))
+    message.update(project_launch_mail(conn, message))
     message["actor_recipients"] = actor_recipients_for_message(conn, message_id)
     steering = stored_steering_recipient(conn, message_id)
     if steering is not None:

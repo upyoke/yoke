@@ -72,7 +72,7 @@ def _caller_state(
     for row in details.get("actor_recipients") or []:
         if int(row["actor_id"]) == actor_id:
             return str(row.get("state") or "")
-    return ""
+    return str(details.get("state") or "")
 
 
 def get_message(

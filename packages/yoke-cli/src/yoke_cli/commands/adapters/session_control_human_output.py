@@ -22,6 +22,7 @@ from yoke_cli.commands.adapters.session_control_recipient_output import (
     display_recipients,
     message_sender,
     recipient_count,
+    queued_launch_summary,
     recipient_party,
     recipient_project,
     recipient_states,
@@ -187,11 +188,8 @@ def _write_recipients(
     *,
     actor_recipients: Iterable[Mapping[str, Any]] = (),
     steering_recipient: Mapping[str, Any] | None = None,
-    launch_recipient: Mapping[str, Any] | None = None,
 ) -> None:
-    rows = display_recipients(
-        recipients, actor_recipients, steering_recipient, launch_recipient
-    )
+    rows = display_recipients(recipients, actor_recipients, steering_recipient)
     columns: tuple[Column, ...] = (
         ("SESSION / ACTOR", recipient_party, None),
         ("PROJECT", recipient_project, 14),
@@ -212,7 +210,6 @@ def _message_state(message: Mapping[str, Any]) -> str:
 
 
 def _body_excerpt(message: Mapping[str, Any]) -> str:
-    """A compact row already carries its excerpt; a full message has prose."""
     if "body_excerpt" in message:
         return _fit(message["body_excerpt"], BODY_EXCERPT_CHARACTERS)
     return _fit(message.get("body"), BODY_EXCERPT_CHARACTERS)
@@ -224,8 +221,9 @@ def _write_message_detail(
     command = message.get("acknowledgement_command")
     if command:
         print(command, file=stdout)
-    if message.get("launch_recipient"):
-        print(message["launch_recipient"]["summary"], file=stdout)
+    summary = queued_launch_summary(message)
+    if summary:
+        print(summary, file=stdout)
     if with_body:
         message_id = message.get("message_id")
         print(
@@ -254,12 +252,13 @@ def _write_message_detail(
     if summary:
         fields.append(("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
+    if not recipients and message.get("recipient_count"):
+        return
     _write_recipients(
         recipients,
         stdout,
         actor_recipients=actor_recipients,
         steering_recipient=message.get("steering_recipient"),
-        launch_recipient=message.get("launch_recipient"),
     )
     write_attempts(message.get("attempts") or [], stdout)
     write_withheld_attempts(message, stdout)
@@ -276,8 +275,6 @@ def write_message_result(
             else:
                 duplicate = " (deduplicated)" if result.get("deduplicated") else ""
                 receipt = f"msg {message_id} queued for {result.get('recipient_count', 0)} recipient(s){duplicate}"
-                if result.get("launch_recipient"):
-                    receipt += "; " + result["launch_recipient"]["summary"]
             print(f"{receipt}; track: yoke messages get {message_id}", file=stdout)
             return
         fields: list[tuple[str, Any]] = [
@@ -293,12 +290,22 @@ def write_message_result(
         if summary:
             fields.append(("Steering", summary))
         write_summary("MESSAGE PREVIEW", fields, stdout)
+        if (
+            result.get("recipient_count")
+            and not result.get("recipients")
+            and not result.get("actor_recipients")
+            and not result.get("steering_recipient")
+        ):
+            print(
+                "Queued for the item's in-flight launch; delivery follows its worker's claim.",
+                file=stdout,
+            )
+            return
         _write_recipients(
             result.get("recipients") or [],
             stdout,
             actor_recipients=result.get("actor_recipients") or [],
             steering_recipient=result.get("steering_recipient"),
-            launch_recipient=result.get("launch_recipient"),
         )
         return
     if "messages" in result:

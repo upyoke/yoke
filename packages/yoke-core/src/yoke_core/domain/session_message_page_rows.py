@@ -22,7 +22,7 @@ from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_core.domain.actor_render import render_actor_names
-from yoke_core.domain.session_message_launch_queue import launch_recipient
+from yoke_core.domain.session_message_launch_queue import queued_mail_status
 from yoke_core.domain.session_message_reads import ENGINE_SENDER_LABEL
 from yoke_core.domain.session_message_receipt_expiry import project_due_receipts
 from yoke_core.domain.session_message_types import row_dict
@@ -140,9 +140,11 @@ def page_summaries(
     for message in messages.values():
         launch = launches.get(message["selector_snapshot"].get("launch_id"))
         if launch:
-            recipient = launch_recipient(conn, message, now=now, launch_row=launch)
+            recipient = queued_mail_status(conn, message, now=now, launch_row=launch)
             if recipient:
-                message["launch_recipient"] = recipient
+                message.update(state=recipient["state"], recipient_count=1)
+                if recipient["state"] == "cancelled":
+                    message["cancellation_reason"] = recipient["reason"]
         message.pop("selector_snapshot")
         sender = message["sender_actor_id"]
         message["sender_actor_label"] = (

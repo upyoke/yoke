@@ -99,9 +99,11 @@ def test_queued_before_registration_delivers_only_after_own_claim(monkeypatch, s
         conn, actor_id=10, selector=selector(public_refs=["ALP-1"]), now=NOW
     )
     assert preview["recipient_count"] == 1
-    assert preview["launch_recipient"]["launch_id"] == "launch"
     sent = send(conn, supplied_confirmation_token=preview["confirmation_token"])
-    assert sent["launch_recipient"]["launch_id"] == "launch"
+    assert (
+        message_details(conn, sent["message_id"])["selector_snapshot"]["launch_id"]
+        == "launch"
+    )
     assert sent["recipient_count"] == 1
     register(conn)
     assert lease_for_hook(conn, session_id="s4", hook_event=event, limit=10) is None
@@ -133,7 +135,7 @@ def test_pending_mail_is_listed_with_launch_and_disappears_from_other_sessions(
         row for row in page["messages"] if row["message_id"] == sent["message_id"]
     )
     assert row["recipient_count"] == 1
-    assert row["launch_recipient"]["state"] == "pending"
+    assert row["recipient_states"] == ["pending"]
     assert page["actionable_count"] == 1
     page = read_message_page(conn, actor_id=10, caller_session_id="s1", session_id="s1")
     assert sent["message_id"] not in {row["message_id"] for row in page["messages"]}
@@ -242,12 +244,10 @@ def test_cli_receipt_preview_and_read_name_queued_launch(monkeypatch):
     )
     output = StringIO()
     write_message_result(preview, output)
-    assert "launch launch" in output.getvalue()
+    assert "worker's claim" in output.getvalue()
     sent = send(conn)
     output = StringIO()
     write_message_result(sent, output)
-    assert "awaiting_work_claim" in output.getvalue()
-
     assert "queued for 1 recipient" in output.getvalue()
     output = StringIO()
     write_message_result(
@@ -329,5 +329,4 @@ def test_claim_arriving_during_send_resolves_to_new_holder(monkeypatch):
     )
     sent = send(conn)
     assert sent["recipients"][0]["session_id"] == "s4"
-    assert not sent.get("launch_recipient")
     monkeypatch.setattr(session_message_service, "resolve_recipients", real_resolve)

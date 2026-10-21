@@ -85,7 +85,7 @@ def message_intent_json(snapshot):
     return json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
 
 
-def launch_recipient(conn, details: dict[str, Any], *, now=None, launch_row=None):
+def queued_mail_status(conn, details: dict[str, Any], *, now=None, launch_row=None):
     """Project waiting and failed delivery from existing message/launch facts."""
     snapshot = details.get("selector_snapshot") or {}
     if (
@@ -119,19 +119,17 @@ def launch_recipient(conn, details: dict[str, Any], *, now=None, launch_row=None
         and parse_instant(row[2]) <= current
     ):
         state, reason = "expired", "launch_deadline_elapsed"
-    return {
-        **{key: snapshot[key] for key in ("launch_id", "project_id")},
-        "label": f"launch {launch_id}",
-        "state": state,
-        "reason": reason,
-        "summary": f"{reason}: launch {launch_id}; inspect `yoke session-control "
-        f"launch get {launch_id}`. Cancel this message before resending to another worker.",
-    }
+    return {"state": state, "reason": reason}
 
 
-def launch_result(conn, details, *, now=None):
-    recipient = launch_recipient(conn, details, now=now)
-    return {"launch_recipient": recipient} if recipient else {}
+def project_launch_mail(conn, details, *, now=None):
+    recipient = queued_mail_status(conn, details, now=now)
+    if recipient is None:
+        return {}
+    result = {"state": recipient["state"], "recipient_count": 1}
+    if recipient["state"] == "cancelled":
+        result["cancellation_reason"] = recipient["reason"]
+    return result
 
 
 def queued_launch_sql(marker):
