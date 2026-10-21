@@ -16,8 +16,11 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_cli.commands.adapters.deployment_execution_authority import (
+    door_execution_error,
+    driving_through_door,
     execution_connection_error,
 )
+from yoke_contracts.direct_database_access import paired_https_env
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
     ITEMLESS_RELEASE_RECIPE,
@@ -153,9 +156,13 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
 DEPLOY_PROGRESS_PATTERN = _build_deploy_progress_pattern()
 
 
-def deployment_connection_error(run_id: str) -> str | None:
-    """Mirror the execute adapter's ordinary/self-deploy distinction."""
-    refusal = execution_connection_error(run_id)
+def deployment_connection_error(run_id: str, door_https_env: str = "") -> str | None:
+    """Mirror the execute adapter's ordinary/self-deploy/door distinction."""
+    refusal = (
+        door_execution_error(run_id, door_https_env)
+        if door_https_env
+        else execution_connection_error(run_id)
+    )
     return f"watch_deploy: {refusal}" if refusal else None
 
 
@@ -281,10 +288,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         return _report_preflight_failure(
             "watch_deploy: missing run id", raw_path, progress_path
         )
-    refusal = deployment_connection_error(passthrough[0])
+    door_https_env = paired_https_env()
+    refusal = deployment_connection_error(passthrough[0], door_https_env)
     if refusal is not None:
         return _report_preflight_failure(refusal, raw_path, progress_path)
+    with driving_through_door(door_https_env):
+        return _drive(passthrough, raw_path, progress_path)
 
+
+def _drive(passthrough: list[str], raw_path: Path, progress_path: Path) -> int:
     capture = str(progress_path)
     run_id = passthrough[0]
     held = False

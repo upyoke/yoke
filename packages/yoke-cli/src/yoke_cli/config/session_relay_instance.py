@@ -213,6 +213,15 @@ def resolve_relay_instance(
                 f"{selected_environment!r} is direct database authority for a "
                 "hosted universe, whose relay runs on its https connection"
             )
+        served = machine_schema.same_universe_https_env(payload, selected_environment)
+        if served:
+            # Its https env serves the same universe, and a door refuses
+            # routine calls (use_https_env), relay claims included.
+            raise RelayInstanceError(
+                f"use_https_env: env {selected_environment!r} is a direct "
+                f"database door for the universe {served!r} serves; run the "
+                f"relay there: `yoke --env {served} relay install`"
+            )
 
     selected_home = _canonical(yoke_home or machine_config.yoke_home())
     if is_prod:

@@ -8,13 +8,10 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.deployment_execution_authority import (
     door_execution_error,
+    driving_through_door,
     execution_connection_error,
 )
-from yoke_contracts.direct_database_access import (
-    SELF_DEPLOY_EXECUTE_COMMAND,
-    direct_database_environment,
-    paired_https_env,
-)
+from yoke_contracts.direct_database_access import paired_https_env
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
 )
@@ -102,21 +99,16 @@ def deployment_runs_execute(args: List[str]) -> int:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "yoke_core.domain.deploy_pipeline_liveness_cli",
-            *args,
-        ],
-        check=False,
-        # A self-deploy driven through the door keeps it for its whole tree.
-        **(
-            {"env": direct_database_environment(SELF_DEPLOY_EXECUTE_COMMAND)}
-            if door_https_env
-            else {}
-        ),
-    )
+    with driving_through_door(door_https_env):
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "yoke_core.domain.deploy_pipeline_liveness_cli",
+                *args,
+            ],
+            check=False,
+        )
     return completed.returncode
 
 

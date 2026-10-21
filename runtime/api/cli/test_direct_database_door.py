@@ -173,13 +173,48 @@ def test_self_deploy_driver_inherits_the_declared_door(monkeypatch):
     monkeypatch.delenv(door.DECLARED_COMMAND_ENV, raising=False)
     monkeypatch.setattr(deployment_execute, "paired_https_env", lambda: SERVED_ENV)
     monkeypatch.setattr(deployment_execute, "door_execution_error", lambda *_a: None)
-    run = mock.Mock(return_value=SimpleNamespace(returncode=0))
+    inherited: list[str | None] = []
+
+    def run(*_args, **_kwargs):
+        inherited.append(os.environ.get(door.DECLARED_COMMAND_ENV))
+        return SimpleNamespace(returncode=0)
+
     monkeypatch.setattr(deployment_execute.subprocess, "run", run)
 
     assert deployment_execute.deployment_runs_execute(["run-1"]) == 0
 
-    env = run.call_args.kwargs["env"]
-    assert env[door.DECLARED_COMMAND_ENV] == door.SELF_DEPLOY_EXECUTE_COMMAND
+    assert inherited == [door.SELF_DEPLOY_EXECUTE_COMMAND]
+    assert door.DECLARED_COMMAND_ENV not in os.environ
+
+
+@pytest.mark.parametrize(
+    ("failure", "allowed"),
+    [
+        (authority._RunReadFailed("unreachable", code="https_transport_failed"), True),
+        (authority._RunReadFailed("no such run", code="not_found"), False),
+    ],
+)
+def test_unreachable_https_env_allows_the_door_with_a_note(failure, allowed, capsys):
+    connection = HttpsConnection(
+        api_url="https://control.example/v1", token="token", env=SERVED_ENV
+    )
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=connection,
+        ),
+        mock.patch.object(authority, "_run", side_effect=failure),
+    ):
+        refusal = authority.door_execution_error("run-1", SERVED_ENV)
+
+    note = capsys.readouterr().err
+    if allowed:
+        assert refusal is None
+        assert f"note: {SERVED_ENV!r} cannot be reached" in note
+        assert "self-deploy recovery" in note
+    else:
+        assert refusal == "no such run"
+        assert note == ""
 
 
 @pytest.mark.parametrize(
@@ -194,3 +229,46 @@ def test_explicit_launcher_declares_only_creation_bootstrap(argv, bootstrap):
     from yoke_core.tools import yoke_launcher
 
     assert yoke_launcher._is_creation_bootstrap(argv) is bootstrap
+
+
+def test_relay_refuses_a_non_prod_door_whose_https_env_serves_it(tmp_path):
+    import json
+
+    from yoke_cli.config.session_relay_instance import (
+        RelayInstanceError,
+        resolve_relay_instance,
+    )
+
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "stage",
+                "connections": {
+                    "stage": {
+                        "transport": "https",
+                        "api_url": "https://stage.example.test",
+                        "credential_source": {
+                            "kind": "token_file",
+                            "path": "~/.yoke/secrets/stage.token",
+                        },
+                    },
+                    "stage-db-admin": {
+                        "transport": "local-postgres",
+                        "credential_source": {
+                            "kind": "dsn_file",
+                            "path": "~/.yoke/secrets/stage-db-admin.dsn",
+                        },
+                    },
+                },
+                "projects": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RelayInstanceError, match="use_https_env") as raised:
+        resolve_relay_instance(
+            config_path=config, environment="stage-db-admin", yoke_home=tmp_path
+        )
+    assert "yoke --env stage relay install" in str(raised.value)

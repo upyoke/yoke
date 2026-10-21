@@ -4,19 +4,26 @@ A run whose target API serves the selected HTTPS control plane cannot be
 driven over that connection: the deploy replaces the API that holds the run
 state, so it is driven through the paired same-universe database connection.
 Execution refuses such a run over HTTPS, and through that database door
-refuses every other run, naming the https env that drives it. Creation over HTTPS stays allowed
-when this machine has that paired connection, and refuses without it: a run
+refuses every other run, naming the https env that drives it. Creation over
+HTTPS stays allowed when this machine has that paired connection, and refuses
+without it: a run
 created where nobody can drive it occupies its target (and may already have
 taken an older run over) with no driver.
 """
 
 from __future__ import annotations
 
-from typing import Callable, Mapping, Optional
+import sys
+from contextlib import nullcontext
+from typing import Callable, ContextManager, Mapping, Optional
 from urllib.parse import urlsplit
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.direct_database_access import USE_HTTPS_ENV
+from yoke_contracts.direct_database_access import (
+    SELF_DEPLOY_EXECUTE_COMMAND,
+    USE_HTTPS_ENV,
+    direct_database_command,
+)
 from yoke_cli.transport.dispatcher import call_dispatcher
 
 
@@ -66,6 +73,12 @@ def _call(function_id: str, target: TargetRef, payload: dict) -> Mapping[str, ob
     return response.result or {}
 
 
+class _RunReadFailed(RuntimeError):
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 def _run(run_id: str, relay_env: Optional[str] = None) -> Mapping[str, object]:
     response = call_dispatcher(
         function_id="deployment_runs.get",
@@ -75,8 +88,9 @@ def _run(run_id: str, relay_env: Optional[str] = None) -> Mapping[str, object]:
     )
     if not response.success:
         detail = response.error.message if response.error else "request failed"
-        raise RuntimeError(
-            f"could not resolve deployment execution authority for {run_id}: {detail}"
+        raise _RunReadFailed(
+            f"could not resolve deployment execution authority for {run_id}: {detail}",
+            code=response.error.code if response.error else "",
         )
     run = (response.result or {}).get("run")
     if not isinstance(run, Mapping):
@@ -153,27 +167,38 @@ def execution_connection_error(run_id: str) -> Optional[str]:
 def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
     """On a ``*-db-admin`` door, allow only a deploy replacing *https_env*'s API.
 
-    Every other run is driven over *https_env*, beside its database.
+    Every other run is driven over *https_env*, beside its database. When
+    *https_env* cannot be reached the door is allowed with a note: that is
+    the self-deploy recovery, re-driving a run whose new API is down.
     """
     from yoke_cli.commands.pulumi_stack_config_loader import (
         load_project_renderer_settings_snapshot,
     )
-    from yoke_cli.transport.https import resolve_https_connection
+    from yoke_cli.transport.https import TransportError, resolve_https_connection
+    from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 
     try:
         connection = resolve_https_connection(explicit_env=https_env)
+        if connection is None:
+            raise TransportError(f"{https_env!r} resolves to no https connection")
         run = _run(run_id, relay_env=https_env)
+    except (TransportError, _RunReadFailed) as exc:
+        if getattr(exc, "code", TRANSPORT_FAILED_CODE) != TRANSPORT_FAILED_CODE:
+            return str(exc)
+        print(
+            f"note: {https_env!r} cannot be reached ({exc}); driving {run_id} "
+            "through this direct database door as a self-deploy recovery",
+            file=sys.stderr,
+        )
+        return None
+    try:
         target_host = _target_api_host(
             load_project_renderer_settings_snapshot(str(run.get("project") or "")),
             str(run.get("target_environment") or ""),
         )
     except Exception as exc:  # noqa: BLE001 - render a stable CLI refusal
         return str(exc)
-    if (
-        connection is not None
-        and target_host
-        and _hostname(target_host) == _hostname(connection.api_url)
-    ):
+    if target_host and _hostname(target_host) == _hostname(connection.api_url):
         return None
     return (
         f"{USE_HTTPS_ENV}: deployment run {run_id} does not replace the API "
@@ -181,6 +206,13 @@ def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
         "its database, not through this direct database door — rerun with "
         f"`yoke --env {https_env} deployment-runs execute {run_id}`"
     )
+
+
+def driving_through_door(https_env: str) -> ContextManager[None]:
+    """Declare the self-deploy door for this process and every child it starts."""
+    if not https_env:
+        return nullcontext()
+    return direct_database_command(SELF_DEPLOY_EXECUTE_COMMAND)
 
 
 def creation_connection_error(
@@ -250,5 +282,6 @@ def creation_connection_error(
 __all__ = [
     "creation_connection_error",
     "door_execution_error",
+    "driving_through_door",
     "execution_connection_error",
 ]
