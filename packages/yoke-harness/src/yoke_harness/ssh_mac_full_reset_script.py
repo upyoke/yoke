@@ -94,9 +94,9 @@ restore_entry() {
   # ditto merges into it where cp -R stops on "File exists". ditto dereferences
   # a symlink named as its source, so a symlink or file keeps cp's exact copy.
   if [[ -d "$captured" && ! -L "$captured" ]]; then
-    /usr/bin/ditto "$captured" "$destination"
+    LC_ALL=en_US.UTF-8 /usr/bin/ditto "$captured" "$destination"
   else
-    /bin/cp -Rpf "$captured" "$target_dir"
+    LC_ALL=en_US.UTF-8 /bin/cp -Rpf "$captured" "$target_dir"
   fi
 }
 

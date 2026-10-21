@@ -107,8 +107,8 @@ copy_home() {
   (
     builtin cd -q -- "$home" || exit 1
     list_capture_entries |
-      /usr/bin/tar -cpf - --mac-metadata --no-xattrs --no-recursion --null -T - |
-      /usr/bin/tar -xpf - --mac-metadata --xattrs --acls -C "$destination"
+      LC_ALL=en_US.UTF-8 /usr/bin/tar -cpf - --mac-metadata --no-xattrs --no-recursion --null -T - |
+      LC_ALL=en_US.UTF-8 /usr/bin/tar -xpf - --mac-metadata --xattrs --acls -C "$destination"
   ) 2>>"$copy_error_log" || return 1
   # The reset treats any restore stderr as failure and this is its mirror: a
   # capture that could not read part of the home produces a baseline missing

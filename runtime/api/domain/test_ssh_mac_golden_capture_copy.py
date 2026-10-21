@@ -56,6 +56,7 @@ def _run_capture(home: Path, destination: Path, tmp_path: Path):
         capture_output=True,
         text=True,
         timeout=15,
+        env={**os.environ, "LANG": "en_ZZ.UTF-8", "LC_ALL": "en_ZZ.UTF-8"},
     )
 
 
@@ -69,7 +70,7 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     nested = home / ".cursor/projects/tmp"
     nested.mkdir(parents=True)
     (home / "regular.sock").write_text("ordinary user state")
-    odd_file = home / "name with\nnewline"
+    odd_file = home / "name with\nnewline 東京"
     odd_file.write_text("preserve names and contents")
     odd_file.chmod(0o640)
     subprocess.run(
@@ -255,3 +256,33 @@ def test_copy_diagnostics_preserve_multiline_paths_at_the_byte_limit():
         CAPTURE_PHASES["copy_home"], CAPTURE_PHASES["write_manifest"]
     )
     assert capture_failure_outcome(other_phase) is None
+
+
+def test_capture_tars_use_a_host_supported_utf8_locale():
+    script = render_golden_capture_script(
+        resolve_full_reset_path_contract(
+            resolve_path_state_contract(env={"HOME": "/Users/tester", "SHELL": "/bin/zsh"})
+        )
+    )
+    assert script.count("LC_ALL=en_US.UTF-8 /usr/bin/tar ") == 2
+
+
+def test_copy_failure_recovery_quotes_a_locale_diagnostic():
+    diagnostic = "tar: Failed to set default locale\n"
+    receipt = (
+        f"{CAPTURE_FAILURE_PREFIX}{CAPTURE_PHASES['copy_home']}\n"
+        f"{CAPTURE_COPY_STDERR_PREFIX}{base64.b64encode(diagnostic.encode()).decode()}\n"
+    )
+    phase, refusal = capture_failure_outcome(receipt)
+    assert phase == "copy_home"
+    assert refusal["copy_stderr"] == diagnostic
+    assert repr(diagnostic) in refusal["recovery"]
+    assert "LC_ALL=en_US.UTF-8" in refusal["recovery"]
+    assert "path named" not in refusal["recovery"]
+
+
+def test_reset_copy_tools_use_a_host_supported_utf8_locale():
+    from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+
+    assert 'LC_ALL=en_US.UTF-8 /usr/bin/ditto "$captured"' in FULL_RESET_SCRIPT
+    assert 'LC_ALL=en_US.UTF-8 /bin/cp -Rpf "$captured"' in FULL_RESET_SCRIPT

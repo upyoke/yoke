@@ -80,10 +80,15 @@ def capture_failure_outcome(stdout: str) -> tuple[str, dict[str, str] | None] | 
             return None
         if not stderr or len(stderr) > CAPTURE_COPY_STDERR_LIMIT:
             return None
+        diagnostic = stderr.decode("utf-8", errors="replace")
         return "copy_home", {
             "reason": "copy_home_failed",
-            "copy_stderr": stderr.decode("utf-8", errors="replace"),
-            "recovery": "Repair the path named by the copy error, then capture to a new destination.",
+            "copy_stderr": diagnostic,
+            "recovery": (
+                f"Home copy reported: {diagnostic!r}. "
+                "Repair the reported copy failure, then capture to a new destination. "
+                "For a locale warning, use LC_ALL=en_US.UTF-8 for both copy tools."
+            ),
         }
     if not detail.startswith(CAPTURE_REFUSAL_PREFIX):
         return None
