@@ -195,3 +195,9 @@ Clicking a node reflows its subtree to the viewport and hides neighboring trees.
 Nested nodes expand while their children have readable space; click a smaller
 node to give it the full viewport. Breadcrumbs and Whole map restore context.
 Node headings omit research-status and node-type labels.
+
+The explorer includes a persistent source navigator and a separate connection
+panel. Hover or keyboard-focus a visible node to highlight its connected sources;
+Show connections displays the named routes between visible groups. Collapsed
+children map their connections to the visible parent. Command nodes come from
+the registered command inventory, with teaching references attached where known.

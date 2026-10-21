@@ -9,7 +9,7 @@ const elements = new Map();
 const records = new Map();
 let roots = [], camera = {x: 0, y: 0, z: 1}, focus = null, drag = null;
 let scheduled = false;
-const palette = ['#28746a', '#b47b35', '#5d77a6', '#7c689a', '#557d46'];
+const palette = ['#487568', '#a37c46', '#657ca5', '#8972a0', '#737c4d'];
 const text = (tag, value, className = '') => {
   const el = document.createElement(tag);
   el.textContent = value;
@@ -22,13 +22,14 @@ function place(node, x, y, w, h, depth, color, focused = false) {
   if (!count) return;
   const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
   const rows = Math.ceil(count / cols);
-  const gap = focused ? 12 : w * .018, inset = focused ? 16 : w * .04;
+  const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
   const top = focused ? Math.min(110, h * .3) : h * .25;
   const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
   const ch = (h - top - inset - gap * (rows - 1)) / rows;
   node.children.forEach((child, i) => place(child,
     x + inset + (i % cols) * (cw + gap),
-    y + top + Math.floor(i / cols) * (ch + gap), cw, ch, depth + 1, color, focused));
+    y + top + Math.floor(i / cols) * (ch + gap), cw, focused && !child.children.length && !child.record && !child.document ? Math.min(ch, 230) : ch,
+    depth + 1, color, focused));
 }
 function screen(node) {
   return {x: node.x * camera.z + camera.x, y: node.y * camera.z + camera.y,
@@ -44,30 +45,34 @@ function zoom(factor, x = map.clientWidth / 2, y = map.clientHeight / 2) {
 }
 function fit(node) {
   // Reflow the selected subtree to the viewport instead of preserving a narrow tile.
-  place(node, 18, 62, map.clientWidth - 36, Math.max(240, map.clientHeight - 145),
+  place(node, 24, 62, map.clientWidth - 48, Math.max(240, map.clientHeight - 145),
     node.depth, node.color, true);
   camera = {z: 1, x: 0, y: 0};
 }
 function choose(node) {
   focus = node;
   node.reading = false;
+  updateConnections();
   fit(node);
   document.querySelector('#intro').hidden = true;
   updateTrail();
-  updateConnections();
+  updateSourceList();
   requestRender();
 }
 function home() {
   if (!roots.length) return;
   focus = null;
-  roots.forEach((node, i) => place(node, (i % 4) * 480,
-    Math.floor(i / 4) * 370, 440, 300, 0, palette[i % palette.length]));
-  const z = Math.min((map.clientWidth - 100) / 1880,
-    Math.max(200, map.clientHeight - 250) / (Math.ceil(roots.length / 4) * 370 - 70));
-  camera = {z, x: (map.clientWidth - 1880 * z) / 2, y: 175};
+  updateConnections();
+  const cols = map.clientWidth > 1150 ? 4 : map.clientWidth > 750 ? 3 : 2;
+  const gap = 22, rows = Math.ceil(roots.length / cols), inset = 36;
+  const w = (map.clientWidth - inset * 2 - gap * (cols - 1)) / cols;
+  const h = Math.max(135, (map.clientHeight - 250 - gap * (rows - 1)) / rows);
+  roots.forEach((node, i) => place(node, inset + i % cols * (w + gap),
+    165 + Math.floor(i / cols) * (h + gap), w, h, 0, palette[i % palette.length]));
+  camera = {z: 1, x: 0, y: 0};
   document.querySelector('#intro').hidden = false;
   updateTrail();
-  updateConnections();
+  updateSourceList();
   requestRender();
 }
 function updateTrail() {
@@ -85,32 +90,6 @@ function updateTrail() {
     trail.append(button);
   });
 }
-function updateConnections() {
-  const panel = document.querySelector('#connections');
-  panel.replaceChildren();
-  panel.hidden = !focus;
-  if (!focus) return;
-  const links = [];
-  // Ancestor connections also apply while reading a child instruction.
-  for (let node = focus; node; node = byId.get(node.parent)) {
-    for (const edge of node.connections || []) links.push({...edge, from: node});
-  }
-  byId.forEach(node => {
-    for (const edge of node.connections || []) {
-      if (edge.target === focus.id) links.push({target: node.id,
-        label: 'From ' + node.title + ' · ' + edge.label, from: node});
-    }
-  });
-  panel.hidden = links.length === 0;
-  panel.append(text('b', 'Connected steps and sources'));
-  links.forEach(edge => {
-    const target = byId.get(edge.target);
-    const button = text('button', edge.label + ' ↗');
-    button.title = target.title;
-    button.onclick = () => choose(target);
-    panel.append(button);
-  });
-}
 function requestRender() {
   if (scheduled) return;
   scheduled = true;
@@ -124,11 +103,20 @@ function makeNode(node) {
   const heading = text('div', '', 'node-head');
   heading.append(text('h2', node.title), text('p', node.summary, 'summary'));
   el.append(heading);
+  if (!node.parent) {
+    const preview = text('div', '', 'preview-children');
+    node.children.slice(0, 2).forEach(child => preview.append(text('span', child.title)));
+    el.append(preview);
+  }
+  el.onpointerenter = () => { hovered = node; requestRender(); };
+  el.onpointerleave = () => { if (hovered === node) hovered = null; requestRender(); };
+  el.onfocus = () => { hovered = node; requestRender(); };
+  el.onblur = () => { hovered = null; requestRender(); };
   if ((node.record || node.document) && node.children.length) {
-    const read = text('button', 'Read this node', 'read-node');
+    const read = text('button', 'Read details', 'read-node');
     read.onclick = () => {
       node.reading = !node.reading;
-      read.textContent = node.reading ? 'Show branches' : 'Read this node';
+      read.textContent = node.reading ? 'Show branches' : 'Read details';
       fillDetail(node, el);
       requestRender();
     };
@@ -200,6 +188,11 @@ async function fillDetail(node, el) {
     const link = text('a', 'Open ' + node.title + ' ↗');
     link.href = node.url; link.target = '_blank'; link.rel = 'noopener'; body.append(link);
   }
+  for (const edge of node.connections || []) {
+    const button = text('button', edge.label + ' →', 'continue-link');
+    button.onclick = () => choose(byId.get(edge.target));
+    body.append(button);
+  }
   if (node.related?.length) {
     body.append(text('b', 'Related teaching'));
     node.related.forEach(id => {
@@ -223,9 +216,9 @@ function render() {
     Object.assign(el.style, {left: `${s.x}px`, top: `${s.y}px`,
       width: `${s.w}px`, height: `${s.h}px`, zIndex: node.depth + 1});
     const child = node.children[0];
-    const roomForChildren = child && child.w * camera.z >= 150 && child.h * camera.z >= 85;
-    const expanded = focus === node || (focus ? roomForChildren || (!child && s.w > 300 && s.h > 220)
-      : s.w > 620 && s.h > 370);
+    const roomForChildren = child && child.w * camera.z >= 175 && child.h * camera.z >= 105;
+    const expanded = focus === node || (focus ? roomForChildren || (!child && s.w > 340 && s.h > 180)
+      : camera.z > 1.4 && s.w > 620 && s.h > 370);
     el.classList.toggle('expanded', expanded);
     el.classList.toggle('tiny', s.w < 190 || s.h < 110);
     el.classList.toggle('selected', focus === node);
@@ -237,7 +230,7 @@ function render() {
   }
   (focus ? [focus] : roots).forEach(visit);
   for (const [id, el] of elements) if (!visible.has(id)) el.hidden = true;
-  wires.replaceChildren();
+  drawConnections(visible);
   document.querySelector('#scale').textContent = `${Math.round(camera.z * 100)}%`;
   notice.textContent = focus ? `${focus.title} · ${focus.children.length} branches` : `${roots.length} teaching sources · zoom to reveal their contents`;
 }
@@ -285,6 +278,7 @@ window.addEventListener('resize', () => { if (focus) fit(focus); else home(); re
     });
     roots.forEach((node, i) => place(node, (i % 4) * 480,
       Math.floor(i / 4) * 370, 440, 300, 0, palette[i % palette.length]));
+    updateSourceList();
     home();
   } catch (error) {
     notice.textContent = 'Map could not load. Serve the checkout over localhost, rebuild the views, then reload.';

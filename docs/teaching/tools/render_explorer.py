@@ -2,6 +2,11 @@
 
 import json
 from pathlib import Path
+from functools import lru_cache
+
+from inventory import live_registries
+
+
 
 from explorer_sources import (
     SOURCES, BRANCHES, SURFACE_PARENTS, SURFACE_TITLES,
@@ -10,6 +15,12 @@ from explorer_sources import (
 )
 
 ROOT = 'explore/index.html'
+
+
+@lru_cache(maxsize=1)
+def registered_commands():
+    return tuple(live_registries()["commands"])
+
 
 
 def map_nodes(model):
@@ -100,6 +111,8 @@ def map_nodes(model):
             '', row['status'], row)
         for command in row.get('commands', []):
             commands.setdefault(command, []).append('topic:' + cid)
+    for command in registered_commands():
+        commands.setdefault(command, [])
     prefixes = {'yoke'}
     for command in commands:
         words = command.split()
@@ -127,7 +140,7 @@ def build_explorer(views, pages):
         chunks.append(name)
         views['explore/' + name] = json.dumps(nodes[offset:offset + 12], indent=1) + '\n'
     views['explore/manifest.json'] = json.dumps(chunks, indent=1) + '\n'
-    for asset in ('explorer.css', 'explorer.js'):
+    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
         views['explore/' + asset] = Path(__file__).with_name(asset).read_text()
     views[ROOT] = '''<!doctype html>
 <html lang="en">
@@ -136,18 +149,20 @@ def build_explorer(views, pages):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yoke · Context map</title>
 <link rel="stylesheet" href="explorer.css">
+<script src="explorer_graph.js" defer></script>
 <script src="explorer.js" defer></script>
 </head>
 <body>
-<header><div><b>yoke</b><span> / context map</span></div>
-<span class="review">Structure in review</span></header>
+<header><a class="brand" href="index.html" aria-label="Yoke context map"><span class="brand-mark">y</span>yoke<span class="brand-divider">/</span><span class="brand-name">Context map</span></a>
+<div class="header-actions"><button id="trace" aria-pressed="false">Show connections</button><span class="review">Design preview</span></div></header>
+<aside id="sources" aria-label="Teaching sources"><div class="rail-title">Explore</div><nav id="source-list"></nav><div class="rail-foot"><span class="live-dot"></span> A map of what teaches Yoke<br><small>Sources → instructions → connections</small></div></aside>
 <nav id="trail" aria-label="Map position"></nav>
 <div id="map" tabindex="0" role="region" aria-label="Zoomable context map">
 <svg id="wires" aria-hidden="true"></svg><div id="world"></div>
 </div>
-<aside id="intro"><h1>One map. Different depths.</h1>
-<p>Zoom into a source to see its branches. Keep going to read a teaching.</p>
-<p class="muted">Drag to pan · scroll to zoom · click a node to focus</p></aside>
+<aside id="intro"><h1>How Yoke learns to work.</h1>
+<p>Every instruction has a home. Explore the sources and follow what connects them.</p>
+<p class="muted">Select a source to explore inside. Hover to trace its connections.</p></aside>
 <div id="tools" aria-label="Map controls">
 <button id="out" aria-label="Zoom out">−</button>
 <output id="scale">100%</output>
@@ -156,7 +171,7 @@ def build_explorer(views, pages):
 </div>
 <aside id="connections" aria-label="Connections" hidden></aside>
 <p id="notice" role="status">Loading the context map…</p>
-<div id="future">Later: search will light up related context paths.</div>
+<div id="future">Drag to pan <span>·</span> Scroll to zoom <span>·</span> Esc to go back</div>
 <noscript>This spatial view needs JavaScript. Open the
 <a href="../index.html">research catalogue</a> instead.</noscript>
 </body></html>

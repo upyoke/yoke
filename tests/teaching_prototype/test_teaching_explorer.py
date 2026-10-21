@@ -108,3 +108,11 @@ def test_nested_groups_and_install_connections(explorer):
             node = nodes[node['parent']]
     assert nodes['teaching:setup-agent/05']['parent'].endswith('check-readiness-and-enter-a-project')
     assert nodes['skill:implement/implementing']['parent'] == 'skill:implement'
+
+
+def test_command_map_includes_registered_operations(explorer):
+    model, views, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    for command in renderer.registered_commands():
+        assert 'command:' + command in nodes
+    assert 'explore/explorer_graph.js' in views
