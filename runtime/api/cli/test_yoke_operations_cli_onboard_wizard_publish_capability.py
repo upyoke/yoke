@@ -119,7 +119,8 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
             await type_text(pilot, "/home/code/demo")
             await pilot.press("enter")
             await accept_project_details(pilot)
-            await pilot.press("enter")  # publish: Yes (preselected)
+            await pilot.press("up")  # publish: move from No to Yes
+            await pilot.press("enter")  # explicitly request publishing
             await app.workers.wait_for_complete()
             await pilot.press("down")  # manual recovery: disabled
             await pilot.press("enter")  # App publishing unavailable: disabled
