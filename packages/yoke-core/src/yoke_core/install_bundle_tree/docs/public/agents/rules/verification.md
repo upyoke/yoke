@@ -70,9 +70,9 @@ the same inputs belongs to this item. Failed trains use the recorded
   Do not use `path-claim-override` for a planned future claim;
   override is last resort and requires a live steering seat covering the project.
   Route it through `yoke say --steering` and read `yoke claims path override --help`.
-- A consumer test this item did not change that fails against a new producer source is evidence
-  against the producer. Never edit or weaken it; name the producer commit range or item and
-  route it to steering (`yoke say --steering`) or the producer's companion item.
+- Update a test this item's change made stale; never weaken a behavior assertion to pass.
+  Route a failure the change cannot explain to steering (`yoke say --steering`)
+  or the responsible item.
 - Record the failure, the claim action and the rerun evidence; never report green by pointing at
   future work.
 
