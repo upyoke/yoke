@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
+from explorer_types import describe_nodes
 
 
 
@@ -126,6 +127,7 @@ def map_nodes(model):
     by_id = {node['id']: node for node in nodes}
     for source, target, label in CONNECTIONS:
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
+    describe_nodes(nodes, set(registered_commands()))
     return nodes
 
 

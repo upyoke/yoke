@@ -123,3 +123,28 @@ document.addEventListener('DOMContentLoaded', () => {
     requestRender();
   };
 });
+
+const nodeIcons = {
+  group: 'M3 5h7l2 2h9v13H3z',
+  'command-group': 'M3 5h7l2 2h9v13H3z M7 11l3 3-3 3m6 0h4',
+  command: 'M3 4h18v16H3z M6 9l4 3-4 3m7 1h4',
+  file: 'M5 2h9l5 5v15H5z M14 2v6h5M8 12h8M8 16h6',
+  page: 'M3 4h18v16H3z M3 9h18M6 6.5h1m2 0h1',
+  concept: 'M12 2l10 10-10 10L2 12z M8 12h8',
+  hook: 'M13 2L5 13h6l-1 9 9-13h-7z',
+  reply: 'M3 4h18v13H9l-6 4z M7 8h10M7 12h7',
+  screen: 'M2 3h20v14H2z M8 22h8M12 17v5',
+  packet: 'M8 3H3v18h5M16 3h5v18h-5M8 8h8M8 12h8M8 16h5',
+  rule: 'M12 2l9 4v7c0 5-9 9-9 9S3 18 3 13V6z M8 12l3 3 5-6',
+  prompt: 'M4 6h6v7H5v5M14 6h6v7h-5v5',
+};
+function typeBadge(node) {
+  const badge = text('div', '', 'type-badge');
+  badge.title = node.type_hint;
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', nodeIcons[node.node_type] || nodeIcons.group);
+  icon.append(path); badge.append(icon, text('span', node.type_label));
+  return badge;
+}

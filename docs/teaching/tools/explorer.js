@@ -23,7 +23,7 @@ function place(node, x, y, w, h, depth, color, focused = false) {
   const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
   const rows = Math.ceil(count / cols);
   const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
-  const top = focused ? Math.min(110, h * .3) : h * .25;
+  const top = focused ? Math.min(140, h * .35) : h * .25;
   const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
   const ch = (h - top - inset - gap * (rows - 1)) / rows;
   node.children.forEach((child, i) => place(child,
@@ -97,11 +97,16 @@ function requestRender() {
 }
 function makeNode(node) {
   const el = text('article', '', 'node');
+  el.dataset.type = node.node_type;
   el.style.setProperty('--accent', node.color);
   el.tabIndex = 0;
   el.setAttribute('aria-label', node.title + '. Zoom into node');
   const heading = text('div', '', 'node-head');
-  heading.append(text('h2', node.title), text('p', node.summary, 'summary'));
+  heading.append(typeBadge(node), text('h2', node.title),
+    text('p', node.summary, 'summary'));
+  const context = text('div', node.type_hint, 'type-context');
+  context.title = node.type_hint;
+  el.append(context);
   el.append(heading);
   if (!node.parent) {
     const preview = text('div', '', 'preview-children');
@@ -224,6 +229,7 @@ function render() {
     el.classList.toggle('selected', focus === node);
     el.classList.toggle('leaf', !node.children.length);
     el.classList.toggle('reading', Boolean(node.reading));
+    el.classList.toggle('compact', s.h < 185);
     el.style.setProperty('--head-size', `${Math.min(28, Math.max(12, s.w * .058))}px`);
     if (expanded && !node.children.length) fillDetail(node, el);
     if (expanded && !node.reading) node.children.forEach(visit);

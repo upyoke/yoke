@@ -116,3 +116,22 @@ def test_command_map_includes_registered_operations(explorer):
     for command in renderer.registered_commands():
         assert 'command:' + command in nodes
     assert 'explore/explorer_graph.js' in views
+
+
+def test_node_types_distinguish_forms_and_summaries(explorer):
+    model, _, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    assert all(node['node_type'] and node['type_label'] and node['type_hint'] for node in nodes.values())
+    assert nodes['command:yoke']['type_label'] == 'Main help'
+    assert nodes['command:yoke actors']['type_label'] == 'Command group'
+    assert nodes['command:yoke actors role set']['type_label'] == 'Command'
+    assert nodes['command:yoke agents render']['type_label'] == 'Command + group'
+    assert nodes['skill:dash']['type_label'] == 'Skill file'
+    assert nodes['role:engineer']['type_label'] == 'Agent-role file'
+    assert nodes['branch:ask-agent']['type_label'] == 'Human request'
+    assert nodes['source:global-hooks']['node_type'] == 'hook'
+    assert nodes['teaching:global-hooks/01']['type_label'] == 'Hook guidance'
+    assert 'summary' in nodes['teaching:global-hooks/01']['type_hint']
+    assert nodes['branch:shared-setup']['type_label'] == 'Conceptual group'
+    assert nodes['teaching:packets-help/01']['type_label'] == 'Help guidance'
+    assert nodes['teaching:skills-roles/02']['type_label'] == 'Role guidance'

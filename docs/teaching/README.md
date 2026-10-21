@@ -201,3 +201,10 @@ panel. Hover or keyboard-focus a visible node to highlight its connected sources
 Show connections displays the named routes between visible groups. Collapsed
 children map their connections to the visible parent. Command nodes come from
 the registered command inventory, with teaching references attached where known.
+
+Node types describe content form, not review status. Every node carries a short
+label, icon and form-specific card treatment: pages, files, conceptual groups,
+concepts, CLI groups/commands, screens, replies, hooks, packets and scoped rules.
+Teaching records are explicitly summaries or guidance about those surfaces;
+they are not presented as captured runtime payloads. Skill and role files show
+their actual source path. A command that also has children is marked as both.
