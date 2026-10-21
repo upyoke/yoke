@@ -94,6 +94,43 @@ def test_installer_names_uv_shell_failure(monkeypatch):
         installer.run()
 
 
+def test_rerun_from_unreloaded_shell_succeeds_with_new_terminal_hint(monkeypatch):
+    # uv writes the startup files on the first install; a rerun from the same
+    # unreloaded shell then gets this refusal, which is the configured state.
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/local/bin:/usr/bin:/bin")
+    runner = RecordingRunner(
+        responses={
+            ("uv", "tool", "update-shell"): subprocess.CompletedProcess(
+                [],
+                2,
+                "",
+                "error: The executable directory /tmp/bin is not in PATH, "
+                "but the Bash configuration files are already up-to-date\n",
+            )
+        }
+    )
+    _, installer = _installer(monkeypatch, runner)
+    installer.run()
+    output = installer.stdout.getvalue()
+    assert "Yoke v1.2.3 is ready" in output
+    assert "Open a new terminal to use Yoke." in output
+
+
+@pytest.mark.parametrize(
+    ("inherited", "hint"),
+    [("/usr/bin:/bin", True), ("/tmp/bin:/usr/bin:/bin", False)],
+)
+def test_path_hint_follows_the_callers_path(monkeypatch, inherited, hint):
+    # The shim puts the bin dir on the installer's own PATH, so yoke always
+    # resolves there; only the caller's PATH decides whether the hint is needed.
+    monkeypatch.setenv("PATH", "/tmp/bin:/usr/bin:/bin")
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", inherited)
+    _, installer = _installer(monkeypatch, RecordingRunner())
+    installer.which = lambda _: "/tmp/bin/yoke"
+    installer.run()
+    assert ("Open a new terminal to use Yoke." in installer.stdout.getvalue()) is hint
+
+
 def test_shell_update_uses_inherited_path_and_absolute_uv(monkeypatch):
     module = load_installer()
     monkeypatch.setenv("PATH", "/temporary/bin:/usr/bin:/bin")

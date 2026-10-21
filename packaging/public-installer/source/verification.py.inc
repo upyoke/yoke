@@ -171,8 +171,13 @@ class InstallerVerification:
             )
 
 
-    def _advise_path(self) -> None:
-        if self.which("yoke") is not None:
+    def _advise_path(self, yoke_bin: str) -> None:
+        # The shim prepends the tool bin dir to the installer's own PATH, so
+        # only the PATH the user's shell handed over shows whether it can run yoke.
+        inherited = os.environ.get(
+            "YOKE_INSTALL_INHERITED_PATH", os.environ.get("PATH", "")
+        )
+        if os.path.dirname(yoke_bin) in inherited.split(os.pathsep):
             return
         print(
             self._say("Open a new terminal to use Yoke. If it is still missing, run:"),

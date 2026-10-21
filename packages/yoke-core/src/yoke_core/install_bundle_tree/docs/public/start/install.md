@@ -130,7 +130,11 @@ example, in a noninteractive shell without `SHELL`), the installer completes
 its checks using the installed executable's absolute path and prints
 `Add Yoke to PATH: export PATH=...` with the exact bin directory. Run that
 command in your shell; add the same directory to your shell's startup PATH to
-keep it available in future terminals. Other shell-update failures stop the
+keep it available in future terminals. If uv reports that the shell
+configuration is already up to date (a rerun from a terminal opened before the
+first install), the installer continues. Whenever the shell that ran the
+installer cannot find `yoke`, including with `--no-setup`, the installer prints
+`Open a new terminal to use Yoke.` Other shell-update failures stop the
 installer with `uv_shell_update_failed`.
 Open a new terminal. If you chose machine-only setup, the finish screen lists
 the projects your account can access and commands to file and browse work

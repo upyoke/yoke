@@ -116,7 +116,12 @@ class Installer(InstallerVerification, InstallerResolution):
         shell_unknown = bool(shell_update.returncode) and (
             "current shell could not be determined" in shell_update.stderr
         )
-        if shell_update.returncode and not shell_unknown:
+        # A rerun from a shell opened before the first install: uv already
+        # wrote the startup files, and a new terminal picks them up.
+        shell_configured = bool(shell_update.returncode) and (
+            UV_ALREADY_CONFIGURED in shell_update.stderr
+        )
+        if shell_update.returncode and not (shell_unknown or shell_configured):
             raise InstallError(
                 "uv_shell_update_failed: "
                 + shell_update.stderr.strip()
@@ -168,4 +173,4 @@ class Installer(InstallerVerification, InstallerResolution):
                 file=self.stdout,
             )
         else:
-            self._advise_path()
+            self._advise_path(yoke_bin)
