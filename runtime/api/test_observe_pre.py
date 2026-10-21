@@ -1,15 +1,14 @@
 """Tests for yoke_core.domain.observe_pre — PreToolUse hook engine.
 
 Covers parse_pre_event, write_pre_event, and process_stdin. Exercises the
-end-to-end insertion against the active test authority so the extracted
-module matches the behavior the previous shell heredoc delivered
-(tool_use_id / hook_event_name / turn_id / session_id columns).
+end-to-end insertion and tool, hook, turn and session identity columns.
 
 CLI subprocess coverage lives in test_observe_pre_cli.py.
 """
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 import json
 from pathlib import Path
 
@@ -279,7 +278,7 @@ class TestWritePreEvent:
         assert "observe-pre event write failed" in caplog.text
 
     def test_insert_without_events_table_is_silent(self, tmp_path):
-        with init_test_db(tmp_path, apply_schema=lambda: None):
+        with init_test_db(tmp_path, apply_schema=apply_empty_schema):
             envelope = parse_pre_event({"tool_use_id": "tu-noev"})
             assert envelope is not None
             assert write_pre_event(envelope) is True

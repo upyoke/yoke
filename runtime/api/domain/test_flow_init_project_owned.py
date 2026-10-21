@@ -6,7 +6,32 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.domain import db_backend, deployment_runs_schema_init
 from yoke_core.domain.flow_init import cmd_init as flow_cmd_init
+
+
+def _project_topology_schema() -> None:
+    conn = db_backend.connect()
+    try:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS projects ("
+            "id BIGINT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, "
+            "created_at TIMESTAMPTZ)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS items (id BIGINT PRIMARY KEY, status TEXT)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _deployment_clock_schema():
+    with db_backend.connect() as conn:
+        conn.execute("CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT)")
+        conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT)")
+        flow_cmd_init(conn)
+    deployment_runs_schema_init.cmd_init()
 
 
 def test_schema_init_does_not_seed_project_delivery_topology(
@@ -15,26 +40,13 @@ def test_schema_init_does_not_seed_project_delivery_topology(
     from runtime.api.fixtures.file_test_db import init_test_db
     from yoke_core.domain import db_backend
 
-    def _apply() -> None:
+
+    with init_test_db(tmp_path, apply_schema=_project_topology_schema):
         conn = db_backend.connect()
         try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS projects ("
-                "id BIGINT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, "
-                "created_at TIMESTAMPTZ)"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS items (id BIGINT PRIMARY KEY, status TEXT)"
-            )
             conn.execute("INSERT INTO projects (id, slug) VALUES (41, 'yoke')")
             conn.execute("INSERT INTO projects (id, slug) VALUES (43, 'platform')")
             conn.commit()
-        finally:
-            conn.close()
-
-    with init_test_db(tmp_path, apply_schema=_apply):
-        conn = db_backend.connect()
-        try:
             flow_cmd_init(conn)
             count = conn.execute("SELECT COUNT(*) FROM deployment_flows").fetchone()[0]
             assert int(count) == 0
@@ -53,16 +65,10 @@ def test_missing_deployment_clock_columns_converge_as_native_instants(
     stamp = parse_instant("2026-10-08T22:15:00.123456+05:45")
     clocks = ("current_stage_entered_at", "composition_frozen_at", "settling_at")
 
-    def apply_schema():
-        with db_backend.connect() as conn:
-            conn.execute("CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT)")
-            conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT)")
-            conn.execute("INSERT INTO projects VALUES (41, 'fixture')")
-            flow_cmd_init(conn)
-        deployment_runs_schema_init.cmd_init()
 
-    with init_test_db(tmp_path, apply_schema=apply_schema):
+    with init_test_db(tmp_path, apply_schema=_deployment_clock_schema):
         with db_backend.connect() as conn:
+            conn.execute("INSERT INTO projects VALUES (41, 'fixture')")
             conn.execute("SET TIME ZONE 'Asia/Kathmandu'")
             conn.execute(
                 "INSERT INTO deployment_flows (id, project_id, name, stages, created_at) "

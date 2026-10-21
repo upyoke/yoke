@@ -15,9 +15,7 @@ import pytest
 from yoke_contracts.levels import default_levels, levels_payload
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_contracts.glyph_contract import SAFE_GLYPH_EXAMPLES
-from yoke_core.domain import db_backend
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.projects_upsert import cmd_upsert
 from yoke_core.domain.session_routing_validation import (
@@ -34,21 +32,9 @@ _UNSAFE = "\U0001f3d7️"  # building construction + VS16
 
 @pytest.fixture
 def project_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-            conn.commit()
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 class TestProjectEmoji:

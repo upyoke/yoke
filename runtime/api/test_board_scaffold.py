@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 import json
 
 import psycopg
@@ -21,7 +22,7 @@ from runtime.api.fixtures.file_test_db import init_test_db
 
 @pytest.fixture
 def board_db_path(tmp_path):
-    with init_test_db(tmp_path, apply_schema=lambda: None) as path:
+    with init_test_db(tmp_path, apply_schema=apply_empty_schema) as path:
         yield path
 
 

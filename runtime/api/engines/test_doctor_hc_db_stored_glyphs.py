@@ -12,9 +12,7 @@ from copy import deepcopy
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
-from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.workflow_definition_codec import canonical_definition_json
 from yoke_core.engines.doctor_hc_db_stored_glyphs import (
     HC_SLUG,
@@ -27,18 +25,8 @@ _UNSAFE = "\U0001f3d7\ufe0f"  # building construction + VS16
 
 @pytest.fixture
 def conn():
-    db_name = pg_testdb.create_test_database()
-    try:
-        connection = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(connection)
-            seed_project_identities(connection)
-            connection.commit()
-            yield connection
-        finally:
-            connection.close()
-    finally:
-        pg_testdb.drop_test_database(db_name)
+    with pg_testdb.test_database() as connection:
+        yield connection
 
 
 def _run(conn):

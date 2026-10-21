@@ -5,8 +5,7 @@ from typing import Mapping
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend, project_github_binding_state, projects
+from yoke_core.domain import project_github_binding_state, projects
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -80,37 +79,16 @@ def _bind(
 
 @pytest.fixture
 def bound_yoke_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
     monkeypatch,
 ) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
         _bind(
             "externalwebapp",
@@ -191,24 +169,12 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
         assert upgraded_capability["repository_id"] == "4567"
         assert upgraded_capability["api_url"] == "https://api.github.com"
         assert upgraded_capability["ci_oidc_manage_provider"] is False
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_installation_refresh_preserves_intentional_disabled(
     monkeypatch,
 ) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
         _bind(
             "externalwebapp",
@@ -244,24 +210,12 @@ def test_installation_refresh_preserves_intentional_disabled(
         assert recovered["github_sync_mode"] == "disabled"
         assert recovered["binding"]["status"] == "active"
         assert recovered["automation"] == {"available": True, "reason": "bound"}
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_installation_permission_fanout_rolls_back_projection_failure(
     monkeypatch,
 ) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
         _bind(
             "externalwebapp",
@@ -302,24 +256,12 @@ def test_installation_permission_fanout_rolls_back_projection_failure(
             load_project_renderer_settings("yoke").capabilities["github"]["permissions"]
             == _FULL_PERMISSIONS
         )
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_repository_identity_cannot_bind_a_second_project_after_rename(
     monkeypatch,
 ) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
 
         with pytest.raises(
@@ -335,5 +277,3 @@ def test_repository_identity_cannot_bind_a_second_project_after_rename(
 
         assert cmd_project_github_binding_status("externalwebapp")["bound"] is False
         assert cmd_project_github_binding_status("yoke")["bound"] is True
-    finally:
-        pg_testdb.drop_test_database(db_name)

@@ -38,6 +38,19 @@ CREATE TABLE path_integrity_runs (
 """
 
 
+def _projects_only_schema() -> None:
+    seeded = db_backend.connect()
+    try:
+        seeded.execute(
+            "CREATE TABLE projects ("
+            "id TEXT PRIMARY KEY, name TEXT, created_at TIMESTAMPTZ)"
+        )
+        seeded.commit()
+    finally:
+        seeded.close()
+
+
+
 def _apply_path_integrity_schema() -> None:
     conn = db_backend.connect()
     try:
@@ -128,18 +141,8 @@ def test_pass_with_skipped_projects(conn):
 
 def test_passes_when_table_missing(tmp_path: Path):
     # Simulate a DB that has no path_integrity_runs table at all
-    def apply_schema() -> None:
-        seeded = db_backend.connect()
-        try:
-            seeded.execute(
-                "CREATE TABLE projects ("
-                "id TEXT PRIMARY KEY, name TEXT, created_at TIMESTAMPTZ)"
-            )
-            seeded.commit()
-        finally:
-            seeded.close()
 
-    with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_projects_only_schema) as db_path:
         c = connect_test_db(db_path)
         try:
             rec = _run_hc(c)

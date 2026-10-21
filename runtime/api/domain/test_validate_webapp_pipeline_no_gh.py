@@ -25,6 +25,15 @@ from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from runtime.api.fixtures.file_test_db import init_test_db
 
 
+def _apply_pipeline_schema() -> None:
+    conn = db_backend.connect()
+    try:
+        execute_schema_script(conn, _SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @contextlib.contextmanager
 def _init_db(
     db_dir: Path,
@@ -39,11 +48,9 @@ def _init_db(
     at the yielded path satisfies the ``ctx.control_plane_marker.is_file()``
     availability gate on Postgres (data lives in the DSN-pointed DB, not the file).
     """
-    def _apply() -> None:
+    def _seed_case() -> None:
         conn = db_backend.connect()
         try:
-            execute_schema_script(conn, _SCHEMA)
-            conn.commit()
             p = _p(conn)
             conn.execute(
                 "INSERT INTO projects "
@@ -140,7 +147,8 @@ def _init_db(
         finally:
             conn.close()
 
-    with init_test_db(db_dir, apply_schema=_apply) as db_path:
+    with init_test_db(db_dir, apply_schema=_apply_pipeline_schema) as db_path:
+        _seed_case()
         Path(db_path).touch()
         yield Path(db_path)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 from pathlib import Path
 
 import pytest
@@ -54,7 +55,7 @@ def _seed_refs(connection) -> None:
 @pytest.fixture
 def ref_db(tmp_path: Path):
     """Yield a database containing three project-local public item refs."""
-    with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
+    with init_test_db(tmp_path, apply_schema=apply_empty_schema) as db_path:
         connection = connect_test_db(db_path)
         try:
             _seed_refs(connection)

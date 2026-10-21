@@ -8,8 +8,6 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -26,11 +24,10 @@ from yoke_core.domain.projects_github_sync_mode_repair import (
 
 @pytest.fixture
 def project_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         conn = pg_testdb.connect_test_database(db_name)
         try:
-            initialize_test_schema(conn)
             # Model the nullable legacy setting this repair consumes.
             conn.execute(
                 "ALTER TABLE projects ALTER COLUMN github_sync_mode DROP NOT NULL"
@@ -39,13 +36,7 @@ def project_db(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def _verified() -> VerifiedProjectGitHubBinding:

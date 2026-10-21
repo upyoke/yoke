@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import io
 import os
-from contextlib import contextmanager
-from pathlib import Path
 
 import psycopg
 import pytest
 
+from runtime.api.domain._universe_import_test_helpers import (
+    _canonical_universe,
+    _exported_archive,
+)
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import json_helper
 from yoke_core.domain import universe_archive
-from yoke_core.domain import universe_export
 from yoke_core.domain import universe_import_credentials as credentials
 from yoke_core.domain import universe_import_cli as importer
 from yoke_core.domain import universe_portability
@@ -22,30 +23,11 @@ from yoke_core.domain.api_tokens import (
     hash_token,
     mint_token,
 )
-from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
 from yoke_core.domain.web_sessions import (
     WebSessionRevoked,
     mint_web_session,
     verify_web_session,
 )
-
-
-@contextmanager
-def _canonical_universe():
-    name = pg_testdb.create_test_database()
-    dsn = pg_testdb.dsn_for_test_database(name)
-    try:
-        run_init_chain_at_dsn(dsn, emit=lambda _line: None)
-        with psycopg.connect(dsn) as conn:
-            yield conn, dsn
-    finally:
-        pg_testdb.drop_test_database(name)
-
-
-def _exported_archive(source_dsn: str, tmp_path: Path) -> Path:
-    return Path(
-        universe_export.export_universe(dsn=source_dsn, out=tmp_path)["artifact"]
-    )
 
 
 def test_import_stream_rotates_every_credential_and_returns_one_admin(tmp_path):
@@ -164,28 +146,6 @@ def test_import_refuses_mismatched_receipt_before_touching_destination(tmp_path)
         pg_testdb.drop_test_database(target_name)
 
 
-def test_credential_handoff_rolls_back_as_one_transaction():
-    with _canonical_universe() as (conn, _dsn):
-        original = bootstrap_admin_token(conn)
-        replacement = None
-        with pytest.raises(RuntimeError, match="force rollback"):
-            with conn.transaction():
-                replacement = credentials.replace_imported_credentials(conn)
-                raise RuntimeError("force rollback")
-        assert replacement is not None
-        assert conn.execute(
-            "SELECT status FROM api_tokens WHERE token_hash = %s",
-            (hash_token(original.raw_token),),
-        ).fetchone() == ("active",)
-        assert (
-            conn.execute(
-                "SELECT 1 FROM api_tokens WHERE token_hash = %s",
-                (hash_token(replacement.raw_token),),
-            ).fetchone()
-            is None
-        )
-
-
 def test_staged_archive_is_private_and_removed_after_size_refusal(
     tmp_path, monkeypatch
 ):
@@ -199,57 +159,6 @@ def test_staged_archive_is_private_and_removed_after_size_refusal(
     with pytest.raises(universe_portability.ArchiveTooLargeError):
         importer._stage_archive(io.BytesIO(b"12345"), max_bytes=4)
     assert not staged.exists()
-
-
-def test_import_finalizer_requires_exactly_one_organization():
-    with _canonical_universe() as (conn, _dsn):
-        conn.execute(
-            "INSERT INTO organizations (slug, name, created_at) "
-            "VALUES ('second', 'Second', now())"
-        )
-        conn.commit()
-        with pytest.raises(
-            credentials.UniverseImportCredentialError, match="exactly one"
-        ):
-            credentials.replace_imported_credentials(conn)
-
-
-def test_recovery_revokes_every_prior_import_recovery_token():
-    with _canonical_universe() as (conn, dsn):
-        original = bootstrap_admin_token(conn)
-        imported = credentials.replace_imported_credentials(conn)
-        conn.commit()
-        recovered = importer.recover_credential(dsn=dsn)
-        recovered_again = importer.recover_credential(dsn=dsn)
-
-        rows = conn.execute(
-            "SELECT token_hash, status FROM api_tokens ORDER BY id"
-        ).fetchall()
-        by_hash = {str(row[0]): str(row[1]) for row in rows}
-        assert by_hash[hash_token(original.raw_token)] == "revoked"
-        assert by_hash[hash_token(imported.raw_token)] == "revoked"
-        assert by_hash[hash_token(str(recovered["raw_token"]))] == "revoked"
-        assert by_hash[hash_token(str(recovered_again["raw_token"]))] == "active"
-        assert recovered["revoked_token_count"] == 1
-        assert recovered_again["revoked_token_count"] == 1
-
-
-@pytest.mark.parametrize("slug", ("unsafe\nsummary", "a" * 129))
-def test_credential_handoff_rejects_unsafe_org_slug_before_rotation(slug):
-    with _canonical_universe() as (conn, _dsn):
-        original = bootstrap_admin_token(conn)
-        conn.execute("UPDATE organizations SET slug = %s", (slug,))
-        conn.commit()
-        with pytest.raises(
-            credentials.UniverseImportCredentialError,
-            match="bounded safe identifier",
-        ):
-            credentials.replace_imported_credentials(conn)
-        conn.rollback()
-        assert conn.execute(
-            "SELECT status FROM api_tokens WHERE token_hash = %s",
-            (hash_token(original.raw_token),),
-        ).fetchone() == ("active",)
 
 
 def test_archive_with_control_character_org_slug_rolls_back_before_output(tmp_path):

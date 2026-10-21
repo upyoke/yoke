@@ -44,7 +44,6 @@ from yoke_cli.config.local_universe_setup import LOCAL_ENV
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from runtime.api.engines.resync_local_mode_test_support import (
     PROJECT_REPO,
     local_user_authorization,
@@ -142,63 +141,62 @@ def local_universe(tmp_path, monkeypatch):
     the ONLY route to the universe is the machine config's ``local``
     connection (transport ``local-postgres``, dsn_file credential).
     """
-    db_name = pg_testdb.create_test_database()
-    dsn = pg_testdb.dsn_for_test_database(db_name)
-    try:
-        # Universe-creation phase: pin the authority directly, mirroring
-        # local_universe.pinned_authority during birth/bootstrap.
-        monkeypatch.setenv(db_backend.PG_DSN_ENV, dsn)
-        conn = db_backend.connect()
+    with pg_testdb.test_database() as database, monkeypatch.context() as monkeypatch:
+        db_name = database.info.dbname
+        dsn = pg_testdb.dsn_for_test_database(db_name)
         try:
-            initialize_test_schema(conn)
-            # A local universe holds only the user's own projects; blank
-            # the second seeded project's repo so the multi-project fetch
-            # loop skips it.
-            conn.execute("UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'")
-            seed_project_github_binding(conn, UNIVERSE_ONLY_TOKEN)
-            conn.commit()
+            # Universe-creation phase: pin the authority directly, mirroring
+            # local_universe.pinned_authority during birth/bootstrap.
+            monkeypatch.setenv(db_backend.PG_DSN_ENV, dsn)
+            conn = db_backend.connect()
+            try:
+                # A local universe holds only the user's own projects; blank
+                # the second seeded project's repo so the multi-project fetch
+                # loop skips it.
+                conn.execute("UPDATE projects SET github_repo = '' WHERE slug <> 'yoke'")
+                seed_project_github_binding(conn, UNIVERSE_ONLY_TOKEN)
+                conn.commit()
+            finally:
+                conn.close()
+
+            # Machine config: ONLY the local connection, authored through the
+            # same writer `yoke init --local` uses. Point the machine-home env at
+            # a per-test scratch home (the engines conftest pins it to a shared
+            # session-scoped stub; writing there would leak across tests).
+            monkeypatch.setenv(
+                "YOKE_MACHINE_HOME",
+                str(tmp_path / "machine-home"),
+            )
+            machine_config_writer.set_connection(
+                LOCAL_ENV,
+                transport=machine_contract.DEFAULT_TRANSPORT,
+                dsn=dsn,
+                prod=False,
+                replace=True,
+            )
+
+            # Engine-run phase: drop every ambient authority binding. From here
+            # on, reaching the universe REQUIRES the machine-config chain.
+            monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
+            monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
+            monkeypatch.delenv(DB_SECRET_ARN_ENV, raising=False)
+            monkeypatch.delenv(yoke_connected_env.DISABLE_ENV, raising=False)
+            monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
+            connected_env_readiness.reset_cache()
+
+            state_root = tmp_path / "state"
+            (state_root / "backlog").mkdir(parents=True)
+            monkeypatch.setenv("YOKE_ROOT", str(state_root))
+
+            config = json.loads(machine_runtime.config_path().read_text(encoding="utf-8"))
+            yield SimpleNamespace(
+                db_name=db_name,
+                dsn=dsn,
+                token=UNIVERSE_ONLY_TOKEN,
+                config=config,
+            )
         finally:
-            conn.close()
-
-        # Machine config: ONLY the local connection, authored through the
-        # same writer `yoke init --local` uses. Point the machine-home env at
-        # a per-test scratch home (the engines conftest pins it to a shared
-        # session-scoped stub; writing there would leak across tests).
-        monkeypatch.setenv(
-            "YOKE_MACHINE_HOME",
-            str(tmp_path / "machine-home"),
-        )
-        machine_config_writer.set_connection(
-            LOCAL_ENV,
-            transport=machine_contract.DEFAULT_TRANSPORT,
-            dsn=dsn,
-            prod=False,
-            replace=True,
-        )
-
-        # Engine-run phase: drop every ambient authority binding. From here
-        # on, reaching the universe REQUIRES the machine-config chain.
-        monkeypatch.delenv(db_backend.PG_DSN_ENV, raising=False)
-        monkeypatch.delenv(db_backend.PG_DSN_FILE_ENV, raising=False)
-        monkeypatch.delenv(DB_SECRET_ARN_ENV, raising=False)
-        monkeypatch.delenv(yoke_connected_env.DISABLE_ENV, raising=False)
-        monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
-        connected_env_readiness.reset_cache()
-
-        state_root = tmp_path / "state"
-        (state_root / "backlog").mkdir(parents=True)
-        monkeypatch.setenv("YOKE_ROOT", str(state_root))
-
-        config = json.loads(machine_runtime.config_path().read_text(encoding="utf-8"))
-        yield SimpleNamespace(
-            db_name=db_name,
-            dsn=dsn,
-            token=UNIVERSE_ONLY_TOKEN,
-            config=config,
-        )
-    finally:
-        connected_env_readiness.reset_cache()
-        pg_testdb.drop_test_database(db_name)
+            connected_env_readiness.reset_cache()
 
 
 def _seed_item(universe, item_id: int, github_issue) -> str:

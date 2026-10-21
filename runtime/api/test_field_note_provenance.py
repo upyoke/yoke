@@ -47,19 +47,21 @@ SESSION_PROJECT = "yoke"
 EXTERNAL_PROJECT = "externalwebapp"
 
 
+def _apply_isolated_db_schema() -> None:
+    schema.cmd_init()
+    conn = connect()
+    try:
+        seed_project_identities(conn)
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def isolated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Fresh schema with the baseline project rows the session row needs."""
 
-    def apply_schema() -> None:
-        schema.cmd_init()
-        conn = connect()
-        try:
-            seed_project_identities(conn)
-        finally:
-            conn.close()
 
-    with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_isolated_db_schema) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         # A born local universe records its operating actor, which is the
         # actor a note from an unregistered session is written as.

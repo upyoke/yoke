@@ -8,8 +8,7 @@ from collections.abc import Iterator
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend, projects
+from yoke_core.domain import projects
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -32,20 +31,9 @@ _PERMISSIONS = {
 
 @pytest.fixture
 def github_db(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def _bind_yoke() -> None:

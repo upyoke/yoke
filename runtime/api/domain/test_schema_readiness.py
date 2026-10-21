@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 from pathlib import Path
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
@@ -37,24 +38,29 @@ def test_full_production_schema_reports_ready(tmp_path: Path) -> None:
         assert _missing_on_test_db(db_path) == []
 
 
+def _apply_incomplete_schema():
+    _apply_tables(tuple(t for t in READINESS_TABLES if t != "strategy_docs"))
+
+
+def _apply_items_schema():
+    _apply_tables(("items",))
+
+
 def test_missing_table_is_reported(tmp_path: Path) -> None:
-    without_strategy_docs = tuple(
-        t for t in READINESS_TABLES if t != "strategy_docs"
-    )
     with init_test_db(
-        tmp_path, apply_schema=lambda: _apply_tables(without_strategy_docs)
+        tmp_path, apply_schema=_apply_incomplete_schema
     ) as db_path:
         assert _missing_on_test_db(db_path) == ["strategy_docs"]
 
 
 def test_empty_db_reports_all_tables_missing(tmp_path: Path) -> None:
-    with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
+    with init_test_db(tmp_path, apply_schema=apply_empty_schema) as db_path:
         assert _missing_on_test_db(db_path) == list(READINESS_TABLES)
 
 
 def test_explicit_table_subset_overrides_canonical_set(tmp_path: Path) -> None:
     with init_test_db(
-        tmp_path, apply_schema=lambda: _apply_tables(("items",))
+        tmp_path, apply_schema=_apply_items_schema
     ) as db_path:
         conn = connect_test_db(db_path)
         try:

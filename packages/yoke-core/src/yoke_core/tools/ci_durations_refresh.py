@@ -92,8 +92,33 @@ def _gh(arguments):
     return json.loads(result.stdout)
 
 
-def download_latest(repository: str, python: str, directory: Path) -> str:
+def profile_baseline(root: Path) -> str:
+    """The committed cost reset that an automatic measurement must include."""
+    result = subprocess.run(
+        ["git", "-C", str(root), "log", "-1", "--format=%H", "--", DURATIONS_PATH],
+        capture_output=True, text=True, timeout=30,
+    )
+    commit = result.stdout.strip()
+    if result.returncode or not commit:
+        raise ValueError(
+            "ci_profile_baseline_missing: commit the timing profile before "
+            "automatic refresh, or use --reports from a verified full run."
+        )
+    return commit
+
+
+def contains_baseline(root: Path, baseline: str, commit: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "--is-ancestor", baseline, commit],
+        capture_output=True, text=True, timeout=30,
+    )
+    # A missing revision cannot establish that the source includes the reset.
+    return result.returncode == 0
+
+
+def download_latest(root: Path, repository: str, python: str, directory: Path) -> str:
     """Read existing CI artifacts; no scheduler, commit, or credential mutation."""
+    baseline = profile_baseline(root)
     runs = _gh(
         [
             "run",
@@ -107,15 +132,23 @@ def download_latest(repository: str, python: str, directory: Path) -> str:
             "--limit",
             "50",
             "--json",
-            "databaseId",
+            "databaseId,headSha",
         ]
     )
     names = {f"pytest-output-{python}-{group}" for group in range(1, SHARD_COUNT + 1)}
     for run in runs:
+        if not contains_baseline(root, baseline, run.get("headSha", "")):
+            continue
         run_id = str(run["databaseId"])
-        artifacts = _gh(["api", f"repos/{repository}/actions/runs/{run_id}/artifacts"])
-        available = {a["name"] for a in artifacts["artifacts"] if not a["expired"]}
-        if not names <= available:
+        pages = _gh([
+            "api", "--paginate", "--slurp",
+            f"repos/{repository}/actions/runs/{run_id}/artifacts",
+        ])
+        available = {
+            a["name"] for page in pages for a in page["artifacts"]
+            if not a["expired"] and a["name"].startswith(f"pytest-output-{python}-")
+        }
+        if names != available:
             continue
         subprocess.run(
             [
@@ -137,8 +170,10 @@ def download_latest(repository: str, python: str, directory: Path) -> str:
         )
         return run_id
     raise ValueError(
-        "ci_profile_reports_unavailable: no complete retained CI report set; "
-        "run yoke-ci once without tree reuse, then refresh from its reports."
+        "ci_profile_reports_unavailable: no complete retained CI report set "
+        "whose source contains the committed timing baseline; retain that "
+        "baseline and refresh from a passing descendant run, or use --reports "
+        "from a verified full run after changing fixture costs."
     )
 
 
@@ -170,7 +205,9 @@ def main(argv=None) -> int:
                         "ci_profile_repository_required: pass --repository owner/repo."
                     )
                 directory = Path(temporary)
-                run_id = download_latest(args.repository, args.python, directory)
+                run_id = download_latest(
+                    args.target_root, args.repository, args.python, directory
+                )
             result = refresh(
                 args.target_root, sorted(directory.rglob("pytest-report.xml")),
                 reset=args.reset,

@@ -5,6 +5,12 @@ endpoint runs in parallel on every CI event, pull requests included, covering
 interpreter behavior while repository checks, documentation, generated files,
 path snapshots, and installed wheel scenarios stay on the newest leg.
 
+The full matrix uses sixteen shards per Python endpoint, with four xdist
+workers on the measured hosted runners. `ci_shards.SHARD_COUNT` owns the
+fan-out and selection cap; `.yoke/merge-queue.json` declares every required
+shard context. Change these together and verify coverage before applying
+the declaration to GitHub.
+
 `runtime/ci_test_selection.py` owns the interpreter-independent selection. Its
 collection hook runs before pytest-split, so every selected test belongs to
 exactly one shard. Local and newest-interpreter runs retain all tests. Explicit
@@ -16,6 +22,12 @@ with every shard, so matrix jobs cannot select against different profiles.
 Missing report telemetry prints a named reason and recovery while CI retains
 the committed profile; telemetry availability never decides whether tests run.
 There is no scheduled refresh or automated source commit.
+Automatic refresh only accepts runs whose source includes the commit that last
+changed `.test_durations`. A newer run from an older branch cannot overwrite a
+measured fixture-cost reset. This check needs Git history; unavailable source
+revisions are ineligible. If no compatible complete run is retained, every
+shard keeps using the committed baseline. An explicit `--reports` refresh names
+the verified measurements used to establish a new baseline.
 
 To refresh the committed baseline in a claimed source lane:
 
@@ -48,6 +60,24 @@ GitHub-sync test databases clone the existing per-worker production schema
 template rather than replaying schema DDL for every case; their project and
 actor seeds and connection-close isolation remain per case.
 
+Full CI builds portable product wheels once in `repo-contracts`, using its
+already prepared build interpreter. Selection CI builds them
+in its plan job and includes them beside the shared timing profile in the
+existing `ci-test-durations` artifact. The product directory contains exactly the four
+`py3-none-any` product wheels plus a manifest with the actual checkout commit,
+tree and wheel hashes. A PR's synthetic merge commit is the artifact identity.
+Each job verifies that identity before copying products into its own wheelhouse;
+a different commit is refused even if its tree matches. Third-party wheels
+are resolved separately for each job's interpreter and platform, and the
+core-only clean installation proof still runs. No virtualenv crosses jobs.
+
+`YOKE_CI_PRODUCT_WHEELS` selects the downloaded artifact. Missing, altered or
+incompatible artifacts refuse as `ci_product_wheels_invalid` and name the
+rebuild/download recovery; an explicit artifact never silently falls back to
+a local build. Without this variable, local tests retain their existing
+locked, per-run build. Repository contracts and portable-wheel construction
+remain required on reused trees; pytest and its per-job installations are skipped.
+
 Wheel smokes share one session virtual environment, synchronized across xdist
 workers with a file lock. The fixture proves the core-only dependency closure
 before installing the client, and creates its completion sentinel last.
@@ -57,6 +87,52 @@ The core-free scenario disables site loading and uses a filtered view of those
 installed packages on the same interpreter, retaining its engine-absence proof.
 The eight import-graph scenarios remain eight parametrized cases in
 `tests/import_graph/test_yoke_cli_wheel_smoke.py`.
+
+## Reproduce a timing comparison
+
+Save the completed run object from GitHub's
+[workflow run REST endpoint](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+as `RUN.json`. Save the complete `jobs` array and pagination envelope from the
+[workflow jobs REST endpoint](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run)
+as `JOBS.json`; include every page. Download `pytest-output-*` and
+`yoke-ci-coverage-*` artifacts from that same run. Then execute:
+
+```text
+yoke dev run -- python3 runtime/api/tools/ci_timing_report.py --run RUN.json --jobs JOBS.json --coverage COVERAGE.json --reports REPORT_DIRECTORY --output REPORT.json
+```
+
+The report refuses active, failed, mismatched, incomplete or duplicate evidence.
+It records actual checkout identity, endpoint pass/skip counts, each job's
+queue/setup/test/total seconds, observed concurrent jobs, CPU telemetry and
+slowest cases/files. Workflow elapsed time runs from creation through the last
+job completion. Runner-minute totals exclude queue time; the rounded estimate
+is consumption, not a billing invoice. A reused run has no new coverage artifact
+or complete JUnit set and cannot be represented as an executed full observation.
+
+## Measured fan-out tradeoff
+
+A matched-profile trial on 2026-10-21 measured the optimized fixture and wheel
+layout on both Python endpoints. Every run executed all required cases;
+the eight- and sixteen-shard trials each reported 47,694 cases on Python 3.11
+and 49,468 on Python 3.14, with 94 skips per endpoint.
+
+| Configuration | Workflow elapsed | Runner minutes | Peak concurrent jobs |
+| --- | ---: | ---: | ---: |
+| [Eight shards](https://github.com/upyoke/yoke/actions/runs/39640036607) | 14m32s | 173.98 | 17 |
+| [Sixteen shards](https://github.com/upyoke/yoke/actions/runs/39642454534) | 10m43s | 237.45 | 34 |
+
+Sixteen shards shortened elapsed time by 26% while increasing runner consumption
+by 36%. Shard queue delays were 2–3 seconds and 3–5 seconds respectively, so
+runner availability did not force two waves. Both used four-CPU hosted runners,
+with varying AMD EPYC models; this is an observed comparison, not a guaranteed
+runtime. The eight-minute target was not reached by this trial. Refresh weights
+from the chosen layout because per-worker setup and whole-file allocation change
+when the matrix grows; preserve genuine boot, migration and restore work.
+
+Runner consumption remains a cost measure even where GitHub's public-repository
+standard-runner policy makes compute free. Do not infer invoice charges or an
+account concurrency limit from these measurements. Repeat the report after
+material fixture or scheduling changes, using naturally triggered full runs.
 
 ## Change-scoped selections
 
@@ -76,7 +152,7 @@ CI's. Explicit dispatched paths without a merge base run exactly as named.
 
 `yoke_core.tools.ci_shard_sizing.selection_estimate` sizes a selection
 against the whole profile. It earns one shard per 60 profiled seconds, up
-to 8. It is full CI's work at 50% or more of the suite's profiled seconds
+to 16. It is full CI's work at 50% or more of the suite's profiled seconds
 (`FULL_CI_SHARE`). The dispatcher refuses that work before pushing. The plan
 job refuses it before any shard starts, and the dispatcher reports that run
 as the same named refusal, not a test failure. Each names the full QA case

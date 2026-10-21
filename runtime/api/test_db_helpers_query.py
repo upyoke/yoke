@@ -66,12 +66,14 @@ def mem_conn(tmp_path: Path):
             conn.close()
 
 
+def _apply_native_probe_schema():
+    apply_inline_ddl("CREATE TABLE native_probe (id INTEGER PRIMARY KEY, name TEXT);")
+
+
 def test_connect_test_db_returns_native_psycopg_row_family(tmp_path: Path) -> None:
     with init_test_db(
         tmp_path,
-        apply_schema=lambda: apply_inline_ddl(
-            "CREATE TABLE native_probe (id INTEGER PRIMARY KEY, name TEXT);"
-        ),
+        apply_schema=_apply_native_probe_schema,
     ) as path:
         conn = connect_test_db(path)
         try:

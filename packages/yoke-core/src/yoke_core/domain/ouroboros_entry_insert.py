@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from yoke_contracts.field_note_text import CATEGORY_PREFIX
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one
@@ -30,14 +31,15 @@ def cmd_insert_entry(
     target_project_id = (
         resolve_project_id(conn, target_project) if target_project else None
     )
-    existing = query_one(
-        conn,
-        "SELECT id FROM ouroboros_entries "
-        f"WHERE timestamp={p} AND agent={p} AND category={p} AND body={p}",
-        (timestamp, agent, category, body),
-    )
-    if existing:
-        return "Duplicate entry skipped"
+    if not category.startswith(CATEGORY_PREFIX):
+        existing = query_one(
+            conn,
+            "SELECT id FROM ouroboros_entries "
+            f"WHERE timestamp={p} AND agent={p} AND category={p} AND body={p}",
+            (timestamp, agent, category, body),
+        )
+        if existing:
+            return "Duplicate entry skipped"
 
     # Native id read: driver-side generated-id attributes are fragile to
     # intervening sequence touches. RETURNING is the unambiguous form.

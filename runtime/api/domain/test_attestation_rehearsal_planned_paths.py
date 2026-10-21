@@ -38,45 +38,47 @@ def _attestation(rehearsal_commands: List[str]) -> Dict[str, object]:
     }
 
 
+def _apply_conn_schema() -> None:
+    from yoke_core.domain import db_backend
+
+    seeded = db_backend.connect()
+    try:
+        execute_schema_script(
+            seeded,
+            """
+            CREATE TABLE items (
+              id INTEGER PRIMARY KEY,
+              project_id INTEGER,
+              project_sequence INTEGER,
+              db_mutation_profile TEXT,
+              db_compatibility_attestation TEXT
+            );
+            CREATE TABLE path_claims (
+              id INTEGER PRIMARY KEY,
+              owner_kind TEXT,
+              owner_item_id INTEGER,
+              state TEXT
+            );
+            CREATE TABLE path_claim_targets (
+              claim_id INTEGER NOT NULL,
+              target_id INTEGER NOT NULL
+            );
+            CREATE TABLE path_targets (
+              id INTEGER PRIMARY KEY,
+              path_string TEXT,
+              materialization_state TEXT NOT NULL DEFAULT 'observed'
+            );
+            """
+        )
+        seeded.commit()
+    finally:
+        seeded.close()
+
+
 @pytest.fixture
 def conn(tmp_path, monkeypatch):
-    def _apply_schema() -> None:
-        from yoke_core.domain import db_backend
 
-        seeded = db_backend.connect()
-        try:
-            execute_schema_script(
-                seeded,
-                """
-                CREATE TABLE items (
-                  id INTEGER PRIMARY KEY,
-                  project_id INTEGER,
-                  project_sequence INTEGER,
-                  db_mutation_profile TEXT,
-                  db_compatibility_attestation TEXT
-                );
-                CREATE TABLE path_claims (
-                  id INTEGER PRIMARY KEY,
-                  owner_kind TEXT,
-                  owner_item_id INTEGER,
-                  state TEXT
-                );
-                CREATE TABLE path_claim_targets (
-                  claim_id INTEGER NOT NULL,
-                  target_id INTEGER NOT NULL
-                );
-                CREATE TABLE path_targets (
-                  id INTEGER PRIMARY KEY,
-                  path_string TEXT,
-                  materialization_state TEXT NOT NULL DEFAULT 'observed'
-                );
-                """
-            )
-            seeded.commit()
-        finally:
-            seeded.close()
-
-    with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_conn_schema) as db_path:
         seeded = connect_test_db(db_path)
         try:
             yield seeded

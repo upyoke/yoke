@@ -21,9 +21,8 @@ from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.test_sessions import (
-    _apply_on_backend,
+    _apply_session_schema,
     _connect_with_backend_setup,
-    _create_schema,
     _insert_claimable_epic_task,
     _insert_claimable_items,
     _register,
@@ -119,7 +118,7 @@ def _writer(
 @contextlib.contextmanager
 def _bootstrap_db(tmp_path: Path):
     with init_test_db(
-        tmp_path, apply_schema=lambda: _apply_on_backend(_create_schema)
+        tmp_path, apply_schema=_apply_session_schema
     ) as db_path:
         conn = _connect_with_backend_setup(tmp_path)
         try:

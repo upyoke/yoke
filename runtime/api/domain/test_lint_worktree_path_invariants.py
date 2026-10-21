@@ -13,46 +13,48 @@ from yoke_core.domain import lint_worktree_path_invariants as mod
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
+def _apply_conn_schema() -> None:
+    c = db_backend.connect()
+    try:
+        c.execute(
+            """
+            CREATE TABLE harness_sessions (
+                session_id TEXT PRIMARY KEY,
+                current_item_id TEXT
+            )
+            """
+        )
+        # Minimal project-identity tables so public PREFIX-N refs in
+        # current_item_id resolve via prefix + project_sequence.
+        c.execute(
+            """
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY,
+                slug TEXT NOT NULL,
+                name TEXT NOT NULL,
+                public_item_prefix TEXT NOT NULL
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER,
+                project_sequence INTEGER
+            )
+            """
+        )
+        c.commit()
+    finally:
+        c.close()
+
+
 @pytest.fixture
 def conn(tmp_path: Path):
     """Backend-aware DB with the minimal harness_sessions shape the helper reads."""
-    def apply_schema() -> None:
-        c = db_backend.connect()
-        try:
-            c.execute(
-                """
-                CREATE TABLE harness_sessions (
-                    session_id TEXT PRIMARY KEY,
-                    current_item_id TEXT
-                )
-                """
-            )
-            # Minimal project-identity tables so public PREFIX-N refs in
-            # current_item_id resolve via prefix + project_sequence.
-            c.execute(
-                """
-                CREATE TABLE projects (
-                    id INTEGER PRIMARY KEY,
-                    slug TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    public_item_prefix TEXT NOT NULL
-                )
-                """
-            )
-            c.execute(
-                """
-                CREATE TABLE items (
-                    id INTEGER PRIMARY KEY,
-                    project_id INTEGER,
-                    project_sequence INTEGER
-                )
-                """
-            )
-            c.commit()
-        finally:
-            c.close()
 
-    with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_conn_schema) as db_path:
         c = connect_test_db(db_path)
         try:
             yield c

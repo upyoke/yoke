@@ -13,9 +13,8 @@ from runtime.api.domain.project_github_auth_test_support import (
     db_path as db_path,
 )
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_contracts.github_origin import validate_github_api_endpoint
-from yoke_core.domain import db_backend, project_github_auth as pga
+from yoke_core.domain import project_github_auth as pga
 from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfig
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
@@ -71,20 +70,8 @@ def _bind(project: str, verified: VerifiedProjectGitHubBinding) -> None:
 
 @pytest.fixture
 def binding_database(monkeypatch: pytest.MonkeyPatch):
-    db_name = pg_testdb.create_test_database()
-    conn = pg_testdb.connect_test_database(db_name)
-    try:
-        initialize_test_schema(conn)
-    finally:
-        conn.close()
-    monkeypatch.setenv(
-        db_backend.PG_DSN_ENV,
-        pg_testdb.dsn_for_test_database(db_name),
-    )
-    try:
-        yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
+    with pg_testdb.test_database() as conn:
+        yield conn.info.dbname
 
 
 def test_binding_rejects_installation_id_reuse_across_github_origins(
