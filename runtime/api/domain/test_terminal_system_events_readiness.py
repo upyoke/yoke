@@ -36,7 +36,12 @@ def test_missing_live_grant_refuses_by_name_before_capture(
     def probe(run):
         assert run is control._run
         calls.append("automation")
-        return TerminalAutomationProbe(code, "Terminal->System Events", 1)
+        return TerminalAutomationProbe(
+            code,
+            "Terminal->System Events",
+            1,
+            {"tcc_log": {"output": "pending consent"}},
+        )
 
     monkeypatch.setattr(ssh_mac_transport, "terminal_system_events_automation", probe)
     if operation == "verify":
@@ -66,6 +71,7 @@ def test_missing_live_grant_refuses_by_name_before_capture(
     diagnostic = evidence["capture_diagnostics"]
     assert diagnostic["error_reason"] == code
     assert diagnostic["detail"] == "Terminal->System Events"
+    assert diagnostic["tcc_log"]["output"] == "pending consent"
     assert "host" in diagnostic["recovery"]
     if outcome == "missing":
         assert "Privacy & Security > Automation" in diagnostic["recovery"]

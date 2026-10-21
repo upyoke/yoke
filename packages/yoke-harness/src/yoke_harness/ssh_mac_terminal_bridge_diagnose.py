@@ -131,6 +131,7 @@ def _probe_control_surfaces(
         TERMINAL_SYSTEM_EVENTS_CHECK,
         ok=automation.ok,
         observed={
+            **automation.diagnostics,
             "detail": automation.detail,
             "terminal_window_count": automation.terminal_windows,
         },

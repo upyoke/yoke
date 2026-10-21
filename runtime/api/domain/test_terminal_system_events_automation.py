@@ -57,7 +57,9 @@ def test_terminal_case_refuses_before_opening_its_window(
         "yoke_core.domain.ssh_mac_terminal_app_recipe."
         "terminal_system_events_automation",
         lambda _run: TerminalAutomationProbe(
-            MISSING, "automation_missing:Terminal->System Events: (-1743)"
+            MISSING,
+            "automation_missing:Terminal->System Events: (-1743)",
+            diagnostics={"tcc_log": {"output": "pending consent"}},
         ),
     )
     host = ScriptedMacHost()
@@ -76,6 +78,10 @@ def test_terminal_case_refuses_before_opening_its_window(
     assert not result.ok
     assert result.error_code == MISSING
     assert "-1743" in result.evidence["automation_detail"]
+    assert (
+        result.evidence["automation_diagnostics"]["tcc_log"]["output"]
+        == "pending consent"
+    )
     assert "Privacy & Security > Automation" in result.evidence["recovery"]
     assert not any("/tmp/yoke-qa-" in c for c in host.commands)
 
@@ -164,3 +170,102 @@ def test_another_failure_keeps_its_exit_code_and_is_not_a_denial(
 
     assert probe.error_code == FAILED
     assert "exit 125" in probe.detail
+
+
+def test_timeout_snapshots_process_and_tcc_before_stopping_tree(monkeypatch):
+    import base64
+    from types import SimpleNamespace
+    from yoke_harness import ssh_mac_gui_session as gui
+    from yoke_harness.ssh_mac_process_tree import ProcessTreeStop
+
+    order = []
+    ticks = iter((0, 16))
+    monkeypatch.setattr(gui.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(
+        gui, "open_terminal_app_window", lambda *a, **kw: SimpleNamespace(window_id=7)
+    )
+    monkeypatch.setattr(
+        gui,
+        "stop_process_tree",
+        lambda *a: order.append("stop") or ProcessTreeStop(True),
+    )
+    monkeypatch.setattr(
+        gui, "close_terminal_app_window", lambda *a, **kw: order.append("close") or True
+    )
+    monkeypatch.setattr(automation_probe, "read_terminal_window_count", lambda run: 2)
+
+    def run(command, **kwargs):
+        if "ps -o pid,etime,stat" in command:
+            order.append("ps")
+            assert kwargs["timeout"] == 5
+            return _completed_output("PID ELAPSED STAT\n123 00:30 S")
+        if "log show" in command:
+            order.append("tcc")
+            assert "--last 30s" in command and "com.apple.TCC" in command
+            assert "pipefail" in command and "tail -c 8192" in command
+            return _completed_output(
+                "-----BEGIN PRIVATE KEY-----hidden-----END PRIVATE KEY----- "
+                + "x" * 9000
+            )
+        if command.startswith("/usr/bin/base64"):
+            return _completed_output(
+                base64.b64encode(b"123").decode() if command.endswith(".pid") else ""
+            )
+        return _completed_output("")
+
+    probe = automation_probe.terminal_system_events_automation(run)
+    assert probe.error_code == TIMEOUT
+    assert order == ["ps", "tcc", "stop", "close"]
+    assert "123 00:30 S" in probe.diagnostics["system_events_process"]["output"]
+    log = probe.diagnostics["tcc_log"]["output"]
+    assert len(log) <= 512 and "hidden" not in log
+    assert "[REDACTED]" in log
+    assert automation_probe.AUTOMATION_PROBE_TIMEOUT_SECONDS == 15
+
+
+def _completed_output(stdout):
+    return subprocess.CompletedProcess([], 0, stdout, "")
+
+
+def test_unavailable_timeout_diagnostics_keep_named_recovery(monkeypatch):
+    monkeypatch.setattr(
+        automation_probe, "run_terminal_app_command", lambda *a, **kw: _completed(124)
+    )
+    monkeypatch.setattr(automation_probe, "read_terminal_window_count", lambda run: 1)
+
+    def unavailable(*a, **kw):
+        raise TimeoutError("private exception detail")
+
+    probe = automation_probe.terminal_system_events_automation(unavailable)
+    assert probe.error_code == TIMEOUT
+    for row in probe.diagnostics.values():
+        assert row["reason"] == "terminal_automation_diagnostic_unavailable"
+        assert "retry bridge-diagnose" in row["recovery"]
+        assert "private exception detail" not in str(row)
+
+
+def test_apple_event_timeout_keeps_diagnostics_before_window_cleanup(monkeypatch):
+    from yoke_harness import ssh_mac_gui_session as gui
+
+    order = []
+    monkeypatch.setattr(
+        gui,
+        "_drive_window",
+        lambda *a, **kw: _completed(1, "AppleEvent timed out (-1712)"),
+    )
+    monkeypatch.setattr(
+        gui, "close_terminal_app_window", lambda *a, **kw: order.append("close") or True
+    )
+    monkeypatch.setattr(automation_probe, "read_terminal_window_count", lambda run: 1)
+
+    def run(command, **kw):
+        if "ps -o pid,etime,stat" in command:
+            order.append("ps")
+        if "log show" in command:
+            order.append("tcc")
+        return _completed_output("snapshot")
+
+    result = automation_probe.terminal_system_events_automation(run)
+    assert result.error_code == TIMEOUT
+    assert order == ["ps", "tcc", "close"]
+    assert result.diagnostics["tcc_log"]["output"] == "snapshot"

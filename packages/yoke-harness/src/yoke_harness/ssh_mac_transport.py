@@ -32,7 +32,7 @@ from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 from yoke_harness.ssh_mac_sign_in_apps import quit_sign_in_apps
 from yoke_harness.ssh_mac_terminal_restart import (
-    quit_terminal_app,
+    quit_reset_apps,
     relaunch_terminal_app,
 )
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
@@ -50,8 +50,6 @@ from yoke_harness.ssh_mac_terminal_bridge_check import (
     verify_terminal_app_control,
 )
 from yoke_harness.test_machine_types import HostActionResult
-
-
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
 
@@ -165,6 +163,7 @@ class SshMacTransport(SshTestMachineTransport):
                 evidence["capture_diagnostics"] = named_failure(
                     error_code,
                     {
+                        **automation.diagnostics,
                         "detail": automation.detail,
                         "terminal_window_count": automation.terminal_windows,
                     },
@@ -213,7 +212,7 @@ class SshMacTransport(SshTestMachineTransport):
         quit_apps = quit_sign_in_apps(self._run, self._user)
         if not quit_apps.ok:
             return quit_apps
-        quit_terminal = quit_terminal_app(self._run, self._user)
+        quit_terminal = quit_reset_apps(self._run, self._user)
         evidence = {**quit_apps.evidence, **quit_terminal.evidence}
         if not quit_terminal.ok:
             return HostActionResult(False, evidence, quit_terminal.error_code)

@@ -148,6 +148,7 @@ class _GuiWindow:
     paths: tuple[str, ...]
     window_id: int | None = None
     keep_paths: bool = False
+    on_timeout: Callable[[], None] | None = None
 
 
 def _stop_timed_out_command(
@@ -158,11 +159,7 @@ def _stop_timed_out_command(
     window: _GuiWindow,
     timeout: int,
 ) -> subprocess.CompletedProcess[str]:
-    """Stop the command the wait gave up on and return what it had printed.
-
-    A command left running keeps writing into files the cleanup removed and
-    keeps whatever it holds, such as a setup lock, until its own wait ends.
-    """
+    """Stop the timed-out tree and retain its output and cleanup verdict."""
     pid_text = (_read_remote_text(run, pid_path) or "").strip()
     stop = (
         stop_process_tree(run, int(pid_text))
@@ -241,6 +238,8 @@ def _drive_window(
             break
         time.sleep(_BRIDGE_POLL_SECONDS)
     else:
+        if window.on_timeout is not None:
+            window.on_timeout()
         return _stop_timed_out_command(
             run, argv, pid_path=pid_path, window=window, timeout=timeout
         )
@@ -269,13 +268,10 @@ def run_terminal_app_command(
     timeout: int = 60,
     bounds: tuple[int, int, int, int] | None = None,
     on_window_open: Callable[[int], None] | None = None,
+    on_timeout: Callable[[], None] | None = None,
+    on_result: Callable[[subprocess.CompletedProcess[str]], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Execute argv through Terminal.app, preserving empty option values.
-
-    *on_window_open* receives the new window's id before the wait for the
-    command begins, for a command that holds its work until the caller has
-    checked where the window landed.
-    """
+    """Run argv; notify on window open and before stopping a timed-out tree."""
     normalized = tuple(str(value) for value in argv)
     if not normalized or not normalized[0]:
         raise ValueError("GUI-session command requires a non-empty executable")
@@ -284,7 +280,8 @@ def run_terminal_app_command(
     session = "/tmp/yoke-gui-session-" + uuid4().hex[:12]
     status_path, pid_path = f"{session}.exit", f"{session}.pid"
     window = _GuiWindow(
-        paths=(f"{session}.stdout", f"{session}.stderr", status_path, pid_path)
+        paths=(f"{session}.stdout", f"{session}.stderr", status_path, pid_path),
+        on_timeout=on_timeout,
     )
     # The command execs from a shell that first records its pid, so a timeout
     # can stop exactly the process tree this call started.
@@ -315,6 +312,8 @@ def run_terminal_app_command(
             bounds=bounds,
             on_window_open=on_window_open,
         )
+        if on_result is not None:
+            on_result(result)
     finally:
         # Closing first kills the wrapper shell, which would otherwise write
         # the exit status of a stopped command after the files were removed.

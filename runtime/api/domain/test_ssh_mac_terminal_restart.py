@@ -42,7 +42,7 @@ class TerminalHost:
 
     def __call__(self, command: str, *, timeout: int = 60) -> SimpleNamespace:
         self.commands.append(command)
-        if command.startswith("process_tree()"):
+        if "process_tree()" in command:
             self.running = not self.dies_when_killed
             return _done(0)
         if "to quit" in command:
@@ -78,7 +78,7 @@ def test_terminal_that_quits_is_not_killed() -> None:
         "windows_before_quit": 241,
         "quit": "graceful",
     }
-    assert not any(c.startswith("process_tree()") for c in host.commands)
+    assert not any("process_tree()" in c for c in host.commands)
 
 
 def test_a_quit_held_by_a_sheet_kills_the_window_processes_then_terminal() -> None:
@@ -88,7 +88,7 @@ def test_a_quit_held_by_a_sheet_kills_the_window_processes_then_terminal() -> No
 
     assert result.ok
     assert result.evidence["terminal_quit"]["quit"] == "forced"
-    kill = next(c for c in host.commands if c.startswith("process_tree()"))
+    kill = next(c for c in host.commands if "process_tree()" in c)
     assert "/usr/bin/pgrep -P" in kill
     assert "/bin/kill -KILL" in kill
     assert "/usr/bin/pgrep -x -u tester Terminal" in kill
@@ -160,7 +160,7 @@ def _reset(monkeypatch: pytest.MonkeyPatch, **outcomes: HostActionResult):
 
     for name in (
         "quit_sign_in_apps",
-        "quit_terminal_app",
+        "quit_reset_apps",
         "execute_full_test_machine_reset",
         "relaunch_terminal_app",
     ):
@@ -184,7 +184,7 @@ def test_reset_quits_terminal_first_and_relaunches_it_last(
     assert result.ok
     assert steps == [
         "quit_sign_in_apps",
-        "quit_terminal_app",
+        "quit_reset_apps",
         "execute_full_test_machine_reset",
         "relaunch_terminal_app",
     ]
@@ -196,10 +196,10 @@ def test_a_terminal_that_will_not_quit_stops_the_reset_before_the_clear(
 ) -> None:
     refused = HostActionResult(False, {"terminal_quit": {}}, TERMINAL_QUIT_NOT_PROVED)
 
-    result, steps = _reset(monkeypatch, quit_terminal_app=refused)
+    result, steps = _reset(monkeypatch, quit_reset_apps=refused)
 
     assert result.error_code == TERMINAL_QUIT_NOT_PROVED
-    assert steps == ["quit_sign_in_apps", "quit_terminal_app"]
+    assert steps == ["quit_sign_in_apps", "quit_reset_apps"]
 
 
 def test_a_failed_restore_keeps_its_error_and_skips_the_relaunch(
@@ -211,4 +211,38 @@ def test_a_failed_restore_keeps_its_error_and_skips_the_relaunch(
 
     assert result.error_code == "test_mac_reset_failed"
     assert "relaunch_terminal_app" not in steps
-    assert result.evidence["quit_terminal_app"] == "ok"
+    assert result.evidence["quit_reset_apps"] == "ok"
+
+
+@pytest.mark.parametrize(
+    "quits,killed,ok,kind",
+    [
+        (True, True, True, "graceful"),
+        (False, True, True, "forced"),
+        (False, False, False, "forced"),
+    ],
+)
+def test_reset_stops_system_events_even_after_terminal_quits(quits, killed, ok, kind):
+    from yoke_harness.ssh_mac_terminal_restart import quit_reset_apps
+
+    terminal = TerminalHost()
+    events = TerminalHost(quits=quits, dies_when_killed=killed)
+    order = []
+
+    def run(command, **kwargs):
+        app = "events" if "System Events" in command else "terminal"
+        order.append(app)
+        return (events if app == "events" else terminal)(command, **kwargs)
+
+    result = quit_reset_apps(run, "tester")
+    assert result.ok is ok
+    assert not terminal.running
+    assert events.running is (not ok)
+    assert result.evidence["terminal_quit"]["quit"] == "graceful"
+    assert result.evidence["system_events_quit"]["quit"] == kind
+    assert order.index("events") > max(
+        i for i, app in enumerate(order) if app == "terminal"
+    )
+    if not ok:
+        assert result.error_code == "test_machine_system_events_quit_not_proved"
+        assert "Activity Monitor" in result.evidence["recovery"]

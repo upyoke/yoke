@@ -118,6 +118,7 @@ def run_terminal_app_recipe(
             captures=captures,
             staged_files=staged,
             automation_detail=automation.detail,
+            automation_diagnostics=automation.diagnostics,
             recovery=TERMINAL_BRIDGE_RECOVERY[automation.error_code],
         )
     try:

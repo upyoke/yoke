@@ -8,6 +8,8 @@ import shlex
 import subprocess
 from types import SimpleNamespace
 
+from yoke_harness.test_machine_types import HostActionResult
+
 import pytest
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
@@ -64,6 +66,9 @@ class _Control:
             stderr="private-account@example.com expired OAuth token",
         )
         self.calls = []
+
+    def check_terminal_bridge(self):
+        return HostActionResult(True, {})
 
     def run_command(self, argv, *, timeout, **kwargs):
         self.calls.append((list(argv), timeout, kwargs))
