@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.machine_qa_case_hosts import case_machines
 from yoke_core.domain.machine_qa_execution_protocol import _issue, _validate_lease_owner
 from yoke_core.domain.machine_qa_plan_protocol import (
@@ -28,7 +27,14 @@ def mission_host_contract(
 ) -> Any:
     """Validate the whole host set before issuing authority for one host."""
     require_case_host_leases(conn, execution, case)
-    driver_lease = get_claim(conn, int(execution["machine_lease_id"]))
+    driver_lease, _ = _validate_lease_owner(
+        conn,
+        project=str(case["project"]),
+        session_id=actor.session_id,
+        actor_id=actor.actor_id,
+        lease_id=int(execution["machine_lease_id"]),
+        allow_released=False,
+    )
     driver = str(driver_lease.target.machine_id)
     selected = machine if machine is not None else driver
     if selected == driver:
