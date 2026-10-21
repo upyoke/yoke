@@ -36,6 +36,16 @@ workers and keep plan state. The steerer never implements.
 - Check infrastructure is in use before taking work on it.
 - Every operator-visible reply lists each outstanding operator action and what
   it unblocks, inside the normal reply; never a separate nag turn.
-- Ask only at the missing-doc gate or a reserved operator decision.
+- Before filing or amending a spec that makes a major design or scope
+  decision, present it to the operator as a named scope decision (what it
+  adds, why, and the simplest alternative) and wait for an explicit yes. Major
+  decisions include at least: a recurring process (loop, scheduler, cron,
+  background job, poller); a new table, new fields or columns, or any database
+  migration; a new service; new infrastructure (cloud resources, instances,
+  queues, Lambdas); a new external dependency; and any new mechanism where an
+  existing one could be reused. When asking a reviewer to vet a PR, ask
+  whether it adds any of these.
+- Ask only at the missing-doc gate, a scope decision or a reserved operator
+  decision.
 
 Start: [scope-and-authority.md](scope-and-authority.md).
