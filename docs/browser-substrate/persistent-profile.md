@@ -59,7 +59,8 @@ yoke browser authorize --identity admin --reset   # start that identity from emp
 
 Each site an identity declares carries its own signed-in check: a URL plus a
 selector only a signed-in page shows (the page must also show no sign-in wall,
-the same detection a case step uses), or the HTTP status a signed-in request
+the same detection a case step uses: a visible password field or a form with a
+Sign in button, never a Sign in link alone), or the HTTP status a signed-in request
 answers without following redirects. `verify` runs every check headless on the
 identity's profile and reports each site. `authorize` runs the same checks
 first: when every site is signed in it returns without a window. Otherwise it

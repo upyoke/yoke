@@ -1,8 +1,12 @@
 'use strict';
 
 /**
- * Detect a cookie-session authentication wall: a page whose visible
- * affordance is Sign in, rather than the screen a case asked for.
+ * Detect a cookie-session authentication wall: a page that asks for
+ * credentials, rather than the screen a case asked for.
+ *
+ * Only a visible password field or a form with a Sign in button counts. A
+ * Sign in link or a lone button is site navigation — readable public pages
+ * such as docs show one in their header — so it is not a wall.
  *
  * A navigate that lands here is still a successful navigate — login-form
  * cases start on this page on purpose. A wait_for, ready or assert that
@@ -22,8 +26,10 @@ async function pageShowsAuthenticationWall(page) {
   }
   try {
     const candidates = [
-      page.getByRole('link', { name: SIGN_IN_NAME }),
-      page.getByRole('button', { name: SIGN_IN_NAME }),
+      page.locator('input[type="password"]'),
+      page.locator('form').filter({
+        has: page.getByRole('button', { name: SIGN_IN_NAME }),
+      }),
     ];
     const visible = await Promise.all(
       candidates.map((loc) =>

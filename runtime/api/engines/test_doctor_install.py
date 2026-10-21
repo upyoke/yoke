@@ -82,6 +82,7 @@ def test_absent_harness_is_failed_evidence(monkeypatch):
 def test_dashboard_requires_matching_source_or_packaged_identity(
     monkeypatch, expected, served, version, installed, verdict
 ):
+    monkeypatch.setattr(checks, "active_https_connection", lambda: None)
     monkeypatch.setattr(checks, "dashboard_identity", lambda: (served, version))
     monkeypatch.setattr(
         checks, "collect_execution_provenance", lambda: {"source_sha": expected}
@@ -97,8 +98,30 @@ def test_stopped_dashboard_fails_with_restart(monkeypatch):
     def stopped():
         raise ValueError("DASHBOARD_NOT_RUNNING")
 
+    monkeypatch.setattr(checks, "active_https_connection", lambda: None)
     monkeypatch.setattr(checks, "dashboard_identity", stopped)
     assert run(checks.hc_dashboard_current_build)[0].result == "FAIL"
+
+
+def test_https_connection_dashboard_is_not_applicable_without_ui_advice(monkeypatch):
+    monkeypatch.setattr(
+        checks.machine_config,
+        "active_connection",
+        lambda: {
+            "env": "prod",
+            "transport": "https",
+            "api_url": "https://acme.upyoke.com/api",
+        },
+    )
+
+    def unreachable():
+        raise AssertionError("an https connection has no local dashboard to probe")
+
+    monkeypatch.setattr(checks, "dashboard_identity", unreachable)
+    result = run(checks.hc_dashboard_current_build)[0]
+    assert result.result == "N/A"
+    assert "https://acme.upyoke.com/" in result.detail
+    assert "yoke ui" not in result.detail
 
 
 @pytest.mark.parametrize(

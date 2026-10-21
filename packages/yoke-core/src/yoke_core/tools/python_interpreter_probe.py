@@ -188,7 +188,7 @@ def render_advisory(result: ProbeResult) -> str:
     resolved = result.resolved_python or "<unresolved>"
     origin = (
         "Apple's Python"
-        if resolved == APPLE_PYTHON_PATH
+        if sys.platform == "darwin" and resolved == APPLE_PYTHON_PATH
         else "not the interpreter Yoke's dependencies are installed for"
     )
     lines = [

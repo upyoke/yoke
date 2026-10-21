@@ -14,11 +14,11 @@ _LAST_SPAWN = None
 
 
 class NativeCapacityRefusal(ValueError):
-    def __init__(self, code):
+    def __init__(self, code, reading):
         self.code = code
         super().__init__(
-            f"{code}: no native was started. Recovery: free memory or swap "
-            "headroom (stop unused processes), then retry the launch. "
+            f"{code}: no native was started ({reading}). Recovery: free memory "
+            "or swap headroom (stop unused processes), then retry the launch. "
             "If the reading is unavailable, restore the OS capacity probe first."
         )
 
@@ -30,9 +30,10 @@ def native_spawn_admission(*, probe=None, clock=time.monotonic, sleeper=time.sle
     with _LOCK:
         if _LAST_SPAWN is not None:
             sleeper(max(0, NATIVE_SPAWN_STAGGER_SECONDS - (clock() - _LAST_SPAWN)))
-        code = (probe or observe_native_capacity)().refusal()
+        capacity = (probe or observe_native_capacity)()
+        code = capacity.refusal()
         if code:
-            raise NativeCapacityRefusal(code)
+            raise NativeCapacityRefusal(code, capacity.reading())
         yield
         _LAST_SPAWN = clock()
 
@@ -55,7 +56,7 @@ def run_admitted_adapter(context, adapter):
             "not_created" if context.job_kind == "launch" else "failed",
             evidence={
                 "result_code": exc.code,
-                "skip_reason": "Recovery: free memory/swap and retry launch; restore the OS probe if unreadable.",
+                "skip_reason": str(exc),
             },
         )
 

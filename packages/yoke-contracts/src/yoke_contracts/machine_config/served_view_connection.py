@@ -61,7 +61,7 @@ def view_serving_refusal(
             "machine-local universe only; that server serves its own "
             f"workbench — run `yoke ui up` on a self-host connection to "
             "open it with company or token sign-in, or open "
-            f"{_server_workbench_url(connection)} in a browser. {_switch_recipe(payload)}"
+            f"{server_workbench_url(connection)} in a browser. {_switch_recipe(payload)}"
         )
     if transport in POSTGRES_TRANSPORTS:
         return (
@@ -78,7 +78,7 @@ def view_serving_refusal(
     )
 
 
-def _server_workbench_url(connection: Mapping[str, Any]) -> str:
+def server_workbench_url(connection: Mapping[str, Any]) -> str:
     """The site root of an https connection's server, where its workbench is."""
     server = urlsplit(str(connection.get("api_url") or ""))
     if not server.netloc:
@@ -101,4 +101,4 @@ def _switch_recipe(payload: Optional[Mapping[str, Any]]) -> str:
     )
 
 
-__all__ = ["VIEW_SERVE_SUBCOMMAND", "view_serving_refusal"]
+__all__ = ["VIEW_SERVE_SUBCOMMAND", "server_workbench_url", "view_serving_refusal"]

@@ -37,7 +37,7 @@ function startSite() {
     response.writeHead(200, { 'Content-Type': 'text/html' });
     response.end(signedIn
       ? '<main><div id="account">Buyer</div></main>'
-      : '<main><button>Sign in</button></main>');
+      : '<main><form><input type="password"><button>Sign in</button></form></main>');
   });
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }

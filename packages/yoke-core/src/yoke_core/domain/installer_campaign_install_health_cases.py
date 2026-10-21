@@ -24,6 +24,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
             (checks, "resolve_harness_clis", lambda path: []),
         ]),
         "dashboard-stale": (checks.hc_dashboard_current_build, "DASHBOARD_BUILD_UNVERIFIED", [
+            (checks, "active_https_connection", lambda: None),
             (checks, "dashboard_identity", lambda: ("b" * 40, "")),
             (checks, "collect_execution_provenance", lambda: {"source_sha": "a" * 40}),
         ]),

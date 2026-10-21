@@ -2,7 +2,8 @@
 
 /**
  * Authentication-wall detection on wait_for / assert timeout, without
- * failing a navigate that lands on Sign in (login-form cases start there).
+ * failing a navigate that lands on Sign in (login-form cases start there),
+ * and without calling a readable page with a Sign in link a wall.
  *
  * Run: node tests/auth-wall.test.js
  */
@@ -118,19 +119,44 @@ async function testNavigateOntoSignInSucceeds() {
   await page.close();
 }
 
-async function testWaitForSignInLinkSucceeds() {
+async function testWaitForSignInButtonSucceeds() {
   console.log('\n## Test: wait_for the Sign in control succeeds on that page');
   const page = await context.newPage();
   await page.goto(fixtureUrl('sign-in-page.html'), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
     action: 'wait_for',
-    target: 'a',
+    target: 'button',
     timeout_ms: 1000,
   }, { baseUrl: baseUrl() });
 
-  assertEqual(result.success, true, 'wait_for a visible Sign in link succeeds');
+  assertEqual(result.success, true, 'wait_for a visible Sign in button succeeds');
   assertEqual(result.authenticationWall, true, 'successful wait_for still reports the wall');
+
+  await page.close();
+}
+
+async function testSignInLinkWithoutFormIsNotAWall() {
+  console.log('\n## Test: a readable page with only a Sign in link is not a wall');
+  const page = await context.newPage();
+
+  const navigated = await executeStep(page, {
+    action: 'navigate',
+    route: 'sign-in-link-page.html',
+  }, { baseUrl: baseUrl() });
+  assertEqual(navigated.success, true, 'navigate onto the readable page succeeds');
+  assertEqual(navigated.authenticationWall, undefined, 'navigate reports no wall');
+
+  const timedOut = await executeStep(page, {
+    action: 'wait_for',
+    target: '#non-existent',
+    timeout_ms: 200,
+  }, { baseUrl: baseUrl() });
+  assertEqual(timedOut.authenticationWall, undefined, 'timeout reports no wall');
+  assert(
+    !String(timedOut.error).includes('execution_target_unauthorized'),
+    'timeout on a readable page stays a selector timeout',
+  );
 
   await page.close();
 }
@@ -142,7 +168,8 @@ async function run() {
     await testWaitForTimeoutOnSignInPageIsUnauthorized();
     await testWaitForTimeoutWithoutSignInStaysTimeout();
     await testNavigateOntoSignInSucceeds();
-    await testWaitForSignInLinkSucceeds();
+    await testWaitForSignInButtonSucceeds();
+    await testSignInLinkWithoutFormIsNotAWall();
   } catch (err) {
     console.error('\nUnexpected error:', err);
     failCount++;
