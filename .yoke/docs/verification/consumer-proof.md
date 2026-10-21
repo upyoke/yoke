@@ -8,12 +8,21 @@ Consumer compatibility belongs to the configured release-time exact-pair gate.
 An item merge needs no separate consumer build or verification-only companion.
 Consumer code changes still require a linked companion in that project.
 
+Ordinary producer pull requests and main pushes run producer CI without
+starting hosted consumer integration. Automatic consumer checks run only for
+release candidates. This reduces Actions consumption and accepts discovering
+integration failures later; producer review, QA and merge checks still apply.
+
 ## Release proof
 
 Use the project's declared release workflow. Its existing consumer gate builds
 against the exact producer candidate and bound consumer commit before the
 release publishes its tag. A passing producer suite alone cannot prove that
 pair; the release gate owns this evidence and refuses a failed or unproven pair.
+With no prior result, the gate dispatches and awaits proof itself. Retries
+and simultaneous environment callers join proof for the same immutable pair;
+a changed producer or consumer commit needs its own proof. Missing, failed,
+cancelled, timed-out or mismatched evidence cannot publish a release.
 Do not create per-merge rosters, path policies or consumer-build requirements.
 
 Author acceptance criteria around that existing release gate. Record ordinary

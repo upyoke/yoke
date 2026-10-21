@@ -5,7 +5,7 @@
  "audience": "Maintainers",
  "page": "release-publication",
  "position": 2,
- "current": "Main-push attestations bind immutable artifact bytes to their exact source commit.",
- "desired": "Final main-bound release-pin proof binds exact producer and merged consumer SHAs. Branch/bootstrap proofs are baseline only. Recheck a durable passed pair before cross-environment reuse.",
+ "current": "Main-push attestations bind immutable artifact bytes to their exact source commit. Automatic consumer proof starts only at the release boundary and binds exact producer and consumer commits; ordinary main-push artifact attestations do not dispatch consumer integration. Stage and prod share proof for one immutable pair.",
+ "desired": "Preserve exact-pair proof before tagging and recheck durable successful evidence before cross-environment reuse. Accept about nine minutes of proof wait per release, within the bridge 120-minute limit; Platform checks run in parallel.",
  "sources": ["docs/releases/README.md", "runtime/api/tools/require_platform_consumer_compatibility.py", "packages/yoke-core/src/yoke_core/tools/promote_main_artifacts.py"]
 }

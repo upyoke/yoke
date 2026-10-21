@@ -20,7 +20,6 @@ from __future__ import annotations
 
 HOSTED_RELEASE_WORKFLOW_PATHS = frozenset(
     {
-        ".github/workflows/consumer-compatibility-advisory.yml",
         ".github/workflows/platform-release-bridge.yml",
         ".github/workflows/yoke-release.yml",
     }
@@ -30,9 +29,7 @@ HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS = (
     "runtime/api/domain/test_platform_release_bridge_cancellation.py",
     "runtime/api/domain/test_platform_release_bridge_workflow.py",
     "runtime/api/domain/test_release_notes_workflow.py",
-    "runtime/api/tools/test_consumer_compatibility_advisory.py",
     "runtime/api/tools/test_consumer_proof_bridge_steps.py",
-    "runtime/api/tools/test_consumer_proof_main_push.py",
     "runtime/api/tools/test_require_platform_consumer_compatibility.py",
 )
 

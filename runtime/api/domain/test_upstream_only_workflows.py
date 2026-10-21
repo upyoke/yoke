@@ -35,7 +35,6 @@ def _runs(condition, repository, event_name, comment="", pull_request=False):
     "workflow,job",
     [
         ("platform-release-bridge.yml", "dispatch-platform-release"),
-        ("consumer-compatibility-advisory.yml", "advisory"),
     ],
 )
 def test_hosted_jobs_run_only_in_upstream(repository, workflow, job):

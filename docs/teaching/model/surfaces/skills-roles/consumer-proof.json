@@ -3,7 +3,7 @@
  "title": "Consumer proof at release",
  "status": "observed",
  "form": "Do",
- "verification": "Source teaching requires release-time exact-pair proof and keeps per-merge consumer-build ACs out of intake and task generation; live release execution remains unclaimed.",
+ "verification": "Source teaching places automatic hosted consumer verification at release only, accepts later integration feedback, and retains full exact-pair proof and explicit diagnostics; live release execution and measured savings remain unclaimed.",
  "topics": ["contributing/building-and-publishing-yoke-releases/consumer-compatibility"],
  "sources": ["AGENTS.md", "runtime/agents/product-manager.md", "runtime/agents/architect/task-templates.md", ".agents/skills/yoke/conduct/dispatch-context-verify.md", "docs/public/verification/consumer-proof.md"]
 }
