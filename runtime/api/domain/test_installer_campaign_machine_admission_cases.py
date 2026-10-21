@@ -21,11 +21,11 @@ from yoke_core.domain.installer_campaign_execution_target import (
 from yoke_core.domain.installer_campaign_machine_admission_recipes import (
     ADMISSION_TEXT,
     APPROVAL_TEXT,
-    INVITE_SCREEN_TEXT,
     LOCAL_NOTICE,
     TEAM_SERVER_TEXT,
 )
 from yoke_core.domain.installer_campaign_regression_cases import recovery_cases
+from yoke_core.domain.machine_qa_admission_gate import INVITE_PROMPT
 from yoke_core.domain.machine_qa_fixture_validation import (
     validate_post_state_assertions,
     validate_setup_operations,
@@ -126,7 +126,7 @@ def test_journeys_wait_for_the_screens_setup_actually_shows() -> None:
         f'SelectionRow(\n                        "{value}",' in admission
         for value in ("own", "invite")
     )
-    assert f'"connect.invite_code",\n            STEP_CONNECT,\n            "{INVITE_SCREEN_TEXT}",' in admission
+    assert f'"connect.invite_code",\n            STEP_CONNECT,\n            "{INVITE_PROMPT}",' in admission
     # A prompt's guidance is never drawn, so no journey may wait for it.
     guidance = re.findall(
         r'guidance="([^"]+)"', "\n".join((team_server, admission, approval))

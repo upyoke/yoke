@@ -48,8 +48,6 @@ OWNER_HOME = shlex.quote(str(approver_home("self-hosted")))
 LOCAL_HOME = shlex.quote(str(mode_root("local") / "home"))
 TEAM_SERVER_TEXT = "Connect to your team server."
 ADMISSION_TEXT = "How should this machine join your team server?"
-# The invite input's title; its guidance line is never drawn on screen.
-INVITE_SCREEN_TEXT = "Enter invite code."
 APPROVAL_TEXT = ("Sign in and approve your machine.", MATCH_CODE_LABEL)
 LOCAL_NOTICE = "Reachable here only."
 AGENT_REACHED = f"{REACHED} github.machine"
@@ -199,7 +197,6 @@ __all__ = [
     "APPROVAL_TEXT",
     "COMPANY",
     "COMPANY_STEP",
-    "INVITE_SCREEN_TEXT",
     "INVITE_STEP",
     "LOCAL_HOME",
     "LOCAL_NOTICE",
