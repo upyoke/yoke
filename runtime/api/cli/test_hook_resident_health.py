@@ -75,6 +75,8 @@ def test_repeated_hooks_warn_once_and_preserve_fallback_verdict(
     event,
 ):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    # A fresh hook process: the budget counts from process start.
+    monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
     monkeypatch.delenv("YOKE_HOOK_CONFIG_OWNER", raising=False)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
     monkeypatch.setattr(health.time, "time", lambda: 1000.0)
@@ -118,6 +120,8 @@ def test_warning_lock_contention_does_not_block(tmp_path):
 
 def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, capsys):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    # A fresh hook process: the budget counts from process start.
+    monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
 
     def unavailable(*args, **kwargs):
@@ -157,6 +161,8 @@ def test_missing_unix_socket_transport_reaches_canonical_fallback(
     monkeypatch, tmp_path
 ):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    # A fresh hook process: the budget counts from process start.
+    monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 0.0)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)

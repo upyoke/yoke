@@ -267,11 +267,12 @@ def hook_evaluate(args: List[str]) -> int:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
     except Exception as exc:  # noqa: BLE001 — no infrastructure failure may block
-        cause = (
-            str(exc)
-            if isinstance(exc, HookBudgetExhausted)
-            else f"hook_infrastructure_unavailable: {type(exc).__name__}"
-        )
+        if isinstance(exc, HookBudgetExhausted):
+            cause = str(exc)
+        elif isinstance(exc, ImportError):
+            cause = f"hook_infrastructure_unavailable: ImportError: {exc}"
+        else:
+            cause = f"hook_infrastructure_unavailable: {type(exc).__name__}"
         text, code = infrastructure_reply(event, executor, cause), 0
     else:
         text = stdout.getvalue()

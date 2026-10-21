@@ -160,7 +160,7 @@ def test_actual_command_workdir_wins_over_managed_session(tmp_path, project_map)
     )
 
 
-def test_unknown_guard_refusal_remains_denied_in_remote_receipt(monkeypatch):
+def test_unknown_guard_scope_fails_open_in_remote_receipt(monkeypatch):
     from yoke_core.hooks import runner
     from yoke_core.hooks.remote_entry import evaluate_remote
 
@@ -168,10 +168,11 @@ def test_unknown_guard_refusal_remains_denied_in_remote_receipt(monkeypatch):
         runner, "chain_for", lambda *_a: ["yoke_core.domain.lint_new_guard"]
     )
     result = evaluate_remote("PreToolUse", "{}", "codex", None, 2000)
-    assert result.outcome == "denied"
-    assert result.denial_audit["check_id"] == "hook_scope_unavailable"
-    assert "hook_guard_scope_missing" in result.stdout
-    assert "declare machine" in result.stdout
+    # Scope failure is infrastructure: the call proceeds and the relay warns.
+    assert result.outcome == "completed"
+    assert result.denial_audit == {}
+    assert any("hook_guard_scope_missing" in marker for marker in result.degraded)
+    assert any("declare machine" in marker for marker in result.degraded)
 
 
 def test_empty_workspace_cannot_inherit_machine_project(project_map):

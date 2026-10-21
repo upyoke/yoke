@@ -201,7 +201,7 @@ def test_client_orientation_survives_an_unreachable_server(
     out = capsys.readouterr()
     assert rc == 0
     assert "## Yoke Orientation" in out.out
-    assert "degraded to no-op allow" in out.err
+    assert "NOT being enforced" in out.err
 
 
 def test_client_deny_is_not_diluted_by_orientation(
