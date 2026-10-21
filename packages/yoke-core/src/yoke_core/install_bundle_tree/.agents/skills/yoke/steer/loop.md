@@ -54,10 +54,12 @@ unclaimed scoped item this pass.
 
 For specs:
 
-- Each blocking case creates its own preconditions inside the release:
-  a throwaway walk to steering-stop, a fixture PR to eject, or short traffic.
-- Put evidence needing a real-world event or a long wait on the item as
-  "record the next real occurrence", outside blocking QA.
+- Blocking cases create release preconditions: a throwaway walk to stop,
+  a fixture PR to eject, or short traffic.
+- Put real-event or long-wait evidence on the item: "record the next real
+  occurrence", outside blocking QA.
+- Split missions by machine for parallel host queues; order a small
+  cross-machine mission after the single-machine ones.
 
 Take a temporary claim to write:
 

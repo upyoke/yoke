@@ -15,11 +15,12 @@ may author each shape. [Starting state and activity](case-attachment-rules.md) c
 Item and deployment-run cases use `qa.requirement.add`; the target selects
 the subject. Hold the item's work claim for an item case.
 
-- A blocking case creates its own preconditions inside the release: start
-  and steering-stop a throwaway walk, eject a fixture PR, or use a short
-  traffic window.
-- For evidence needing a real-world event or a long wait, record an item
-  note: "record the next real occurrence"; keep it outside blocking QA.
+- Blocking cases create release preconditions: a throwaway walk to stop,
+  a fixture PR to eject, or short traffic.
+- Put real-event or long-wait evidence on the item: "record the next real
+  occurrence", outside blocking QA.
+- Split missions by machine for parallel host queues; order a small
+  cross-machine mission after the single-machine ones.
 
 ```text
 yoke qa requirement add --item PREFIX-N \
