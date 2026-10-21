@@ -87,6 +87,8 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
             item_ref,
             "--project",
             str(row[1]),
+            "--resume-execution-id",
+            str(execution["id"]),
         ]
     )
     execution_id = str(execution["id"])

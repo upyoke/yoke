@@ -104,3 +104,16 @@ def test_case_cli_uses_plan_review_and_exit_semantics(monkeypatch, state, code):
     monkeypatch.setattr(plan_cli, "_qualify_review_dispatch", qualify)
     assert cli.run(["--requirement-id", "51"]) == code
     assert qualify.call_count == (1 if state == "awaiting_agent_review" else 0)
+
+
+def test_review_wake_resumes_the_frozen_execution_instead_of_the_whole_scope(test_db):
+    from runtime.api.domain.test_qa_plan_agent_review_wake import _owner
+    from runtime.api.domain.test_qa_capture_pending_review import _seed_pending
+    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import _bodies
+
+    _owner(test_db)
+    execution, _bundle, _requirement = _seed_pending(
+        test_db, "run-single-review-wake", "item"
+    )
+    [body] = _bodies(test_db, f"qa-plan-agent-review:{execution['id']}")
+    assert f"--resume-execution-id {execution['id']}" in body
