@@ -11,11 +11,6 @@ allowance. Empty => zero tolerance.
 from __future__ import annotations
 
 BASELINE: dict[str, dict[str, object]] = {
-    "runtime/api/domain/_test_check_path_claim_helpers.py": {
-        "count": 1,
-        "reason": "branch_name_convention",
-        "note": "synthetic worktree branch label in path-claim test helper",
-    },
     "packages/yoke-core/src/yoke_core/domain/item_landings_reconstruct.py": {
         "count": 3,
         "reason": "legacy_key_lookup",
