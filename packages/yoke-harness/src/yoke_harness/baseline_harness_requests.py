@@ -72,6 +72,28 @@ class HarnessRequest:
             "tool_call_event"
         ]
 
+    def timeout_rejection(self, stdout: str | bytes | None) -> dict[str, Any]:
+        """Keep only the count and last type of complete events before a timeout."""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        count, last = 0, None
+        for line in (stdout or "").splitlines():
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(event, dict):
+                count += 1
+                last = _token(event.get("type"))
+        record = self._reply_review("", 0)[1]
+        return {
+            **record,
+            "rejection": "probe_request_timed_out",
+            "event_count": count,
+            "event_types": [last] if count else [],
+            "harness_exit_code": 0,
+        }
+
     def reply_rejection(
         self, stdout: str, *, exit_code: int = 0
     ) -> dict[str, Any] | None:

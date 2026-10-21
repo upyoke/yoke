@@ -3,6 +3,7 @@
  "title": "QA machine baselines",
  "status": "observed",
  "audience": "Maintainers",
+ "summary": "Cursor baseline requests cap the first attempt at 50 seconds and retry once after a timeout or a tool-only rejection within the unchanged 110-second budget. Timeout evidence records complete stream-event count and last type without content; two timeouts retain probe_request_timed_out. Claude and Codex keep their existing request budgets.",
  "page": "test-and-evidence-contracts",
  "position": 7,
  "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packages/yoke-harness/src/yoke_harness/baseline_native_failures.py", "packages/yoke-harness/src/yoke_harness/standard_baseline_probes.py", "packages/yoke-harness/src/yoke_harness/golden_snapshot_retention.py", "runtime/api/domain/test_baseline_native_failures.py", "runtime/api/domain/test_standard_baseline_probe_retry.py"]

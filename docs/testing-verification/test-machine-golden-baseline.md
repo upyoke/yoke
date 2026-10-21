@@ -235,7 +235,15 @@ whose payload is only a read, grep, list, or glob inspection does not reject
 when the final result is success and the reply is exactly OK. Write, shell,
 and any other tool call still reject. When such a tool call is the only fault
 of an exact OK reply, the standard Cursor probe runs once more inside the same
-110-second budget, so a rare call does not fail the capture or restore. A
+110-second budget, so a rare call does not fail the capture or restore.
+The first Cursor attempt has a 50-second cap. A timeout also permits that
+single retry, using only the remaining budget; a second timeout fails with
+`probe_request_timed_out`. Each timeout prints a sanitized rejection record:
+`event_count` counts complete JSON event objects, and `event_types` holds
+only the last event's type (empty when none arrived). Partial lines and event
+content stay on the host. The failed probe row retains the final timeout's
+record; check the host network and provider status before retrying.
+A
 `tool_call` event type names its payload kind, such as
 `tool_call:shellToolCall`. `tool_use` stays true on a rejection
 record whenever a tool call was present. The failed probe row keeps the record, so an operator-run
