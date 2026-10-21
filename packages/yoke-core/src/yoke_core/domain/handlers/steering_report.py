@@ -162,7 +162,11 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             }
         elif project_id is not None:
             report = combined.sections[0].report
-            result = {**report_dict(report), "body": report_body(report)}
+            result = {
+                **report_dict(report),
+                "body": report_body(report, combined.slow_paths),
+                "slow_paths": [row.to_dict() for row in combined.slow_paths],
+            }
         else:
             result = combined_dict(combined)
         if payload.read_delta:

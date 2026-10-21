@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers.steering_report import handle_get
 from yoke_core.domain.steering_fleet_report import FleetReport
 from yoke_core.domain.steering_fleet_report_awaiting_seat import AwaitingSeatMessage
+from yoke_core.domain.steering_fleet_report_slow_paths import SlowPath
 
 _ALPHA_MAIL = (
     AwaitingSeatMessage(
@@ -157,6 +158,29 @@ def test_explicit_project_keeps_the_single_scope_payload(test_db, monkeypatch) -
     assert outcome.primary_success
     assert outcome.result_payload["project_id"] == PROJECT_ALPHA
     assert "scopes" not in outcome.result_payload
+
+
+def test_explicit_project_body_shows_over_budget_functions(
+    test_db, monkeypatch
+) -> None:
+    seed_standard_steering_world(test_db)
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+    _patch_report_dependencies(monkeypatch, test_db)
+    slow = SlowPath("deployment_runs.qa_stage.dispatch", 3, 41_000, 52_000)
+    monkeypatch.setattr(
+        "yoke_core.domain.steering_fleet_report_compose.read_slow_paths",
+        lambda *_args, **_kwargs: (slow,),
+    )
+
+    outcome = handle_get(_request(PROJECT_ALPHA))
+
+    assert outcome.primary_success
+    assert "## slow paths" in outcome.result_payload["body"]
+    assert (
+        "deployment_runs.qa_stage.dispatch  3 calls" in (outcome.result_payload["body"])
+    )
+    assert outcome.result_payload["slow_paths"] == [slow.to_dict()]
 
 
 def test_read_delta_is_durable_and_keeps_full_facts(test_db, monkeypatch) -> None:
