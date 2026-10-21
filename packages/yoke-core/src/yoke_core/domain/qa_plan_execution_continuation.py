@@ -291,16 +291,16 @@ def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:
     continuation command instead.
     """
     state = str(execution["state"])
-    base = (
-        "mission access requires awaiting_agent_review; execution "
-        f"{execution['id']} is {state!r}"
-    )
-    settled_by_sweep = (
-        state in TERMINAL_PLAN_EXECUTION_STATES
-        and str(execution.get("release_reason") or "") == STALE_PLAN_EXECUTION_REASON
-    )
-    if not settled_by_sweep:
+    base = f"mission access requires awaiting_agent_review; execution {execution['id']} is {state!r}"
+    if state not in TERMINAL_PLAN_EXECUTION_STATES:
         return base
+    if str(execution.get("release_reason") or "") != STALE_PLAN_EXECUTION_REASON:
+        return (
+            f"{base}, so no walker can reach it. Walk nothing and return this "
+            "refusal: the main owner judges the missions recorded before the "
+            "stop from their evidence, through the dispatch that `yoke qa plan "
+            f"review-begin` prints with this walk's subject flag and --execution-id {execution['id']}"
+        )
     return (
         f"{base} because the stale sweep settled it. The Test Machine still "
         "holds this walk's state; continue it, keeping that state and "

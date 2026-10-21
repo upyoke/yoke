@@ -179,8 +179,21 @@ def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
         result["subject"] = public_review_subject(conn, subject)
     except ValueError as exc:
         raise QaPlanReviewError(str(exc)) from exc
+    from yoke_core.domain.qa_plan_execution_schema import (
+        TERMINAL_PLAN_EXECUTION_STATES,
+    )
+
+    execution = query_one(
+        conn,
+        f"SELECT state FROM qa_plan_executions WHERE id={marker(conn)}",
+        (str(result["execution_id"]),),
+    )
     result["dispatch"] = dispatch_contract(
-        result, allowed_verdicts=allowed_verdicts, conn=conn
+        result,
+        allowed_verdicts=allowed_verdicts,
+        conn=conn,
+        missions_walkable=execution is not None
+        and str(execution["state"]) not in TERMINAL_PLAN_EXECUTION_STATES,
     )
     return result
 
