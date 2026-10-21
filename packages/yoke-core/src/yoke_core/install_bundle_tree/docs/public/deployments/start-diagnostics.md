@@ -280,6 +280,14 @@ failed is urgent and is forwarded immediately. Other watchers still emit timing 
 as they arrive. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
 
+Validation reads member workflow pins and skipped-candidate status in sets,
+interprets each distinct pinned workflow version once per set, and resolves
+refusal and rework labels together. Mutable statuses are read again on the
+locked pass; no validation result survives provisional rollback.
+The nested steps `validation_bound_sources`, `validation_custody`,
+`validation_carried_work`, `validation_enrollment_plan` and
+`validation_judgement` show where validation spends its time.
+
 Creation uses the same timing format for `create_source`,
 `create_provisional_composition`, `create_lock`, `create_locked_composition`,
 `create_takeover`, `create_validation`, `enrollment_members`,

@@ -184,19 +184,20 @@ def test_required_rendering_refuses_without_naming_the_storage_key():
     assert "items.id" not in message
 
 
-def test_deployment_validation_lists_an_unresolvable_item_generically():
+def test_deployment_validation_lists_an_unresolvable_item_generically(monkeypatch):
     """The refusal listing survives an entry whose identity will not render.
 
     Naming blockers is the whole point of the listing, so one unresolvable
     entry must not replace every other blocker with a lookup failure.
     """
-    from yoke_core.domain.deployment_runs_validation import _item_label
+    from yoke_core.domain import deployment_runs_batch_compatibility as validation
 
     conn = make_test_db()
     _seed(conn)
     missing = EXTERNAL_INTERNAL_ID + COLLIDING_INTERNAL_ID
 
-    label = _item_label(conn, missing, "status=implementing")
+    monkeypatch.setattr(validation, "unready_item_ids", lambda *a, **kw: [missing])
+    [label] = validation._not_delivery_ready(conn, [(missing, "implementing")])
 
     assert "unresolved item ref" in label
     assert "status=implementing" in label

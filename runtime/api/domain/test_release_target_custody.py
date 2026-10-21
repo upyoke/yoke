@@ -241,7 +241,7 @@ def test_production_holder_keeps_stage_owing_item_only_off_another_commit(
 
 
 def test_skip_notice_names_the_commit_a_production_holder_pinned(test_db):
-    from yoke_core.domain.deployment_run_skipped_candidates import _describe_held
+    from yoke_core.domain.deployment_run_skipped_candidates import _held_descriptions
     from yoke_core.domain.deployment_run_unheld_candidates import HeldCandidate
 
     item_id = 9720
@@ -251,9 +251,9 @@ def test_skip_notice_names_the_commit_a_production_holder_pinned(test_db):
     record = HeldCandidate(
         item_id=item_id, item_ref="YOK-1", run_id="run-prod", run_status="executing"
     )
-    line = _describe_held(test_db, "run-stage", record)
+    line = _held_descriptions(test_db, "run-stage", (record,))[0]
     assert line.startswith("YOK-1 held by run-prod (executing) on commit " + "a" * 40)
     assert "stage proof credits only against that commit" in line
-    assert _describe_held(test_db, "run-prod", record) == (
+    assert _held_descriptions(test_db, "run-prod", (record,))[0] == (
         "YOK-1 held by run-prod (executing)"
     )

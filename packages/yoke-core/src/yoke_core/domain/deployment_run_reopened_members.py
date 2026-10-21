@@ -16,7 +16,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
+from yoke_core.domain.workflow_registry import WorkflowRegistryError
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 from yoke_core.domain.schema_common import _get_columns, _table_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     COMPLETED_ITEM_STAGE_ID,
@@ -24,7 +27,6 @@ from yoke_core.domain.workflow_delivery_binding_validation import (
 )
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
-    load_item_workflow_runtime,
 )
 from yoke_core.domain.deployment_run_proposed_membership import run_items
 
@@ -36,6 +38,7 @@ def unready_item_ids(
     conn: Any, rows: Any, *, allow_completed: bool = False
 ) -> list[int]:
     """Items among ``(item_id, status)`` rows not delivery-ready for their pin."""
+    rows = list(rows)
     item_columns = set(_get_columns(conn, "items"))
     has_workflow_pins = (
         _table_exists(conn, "workflow_versions")
@@ -45,11 +48,17 @@ def unready_item_ids(
         }
         <= item_columns
     )
+    pinned = (
+        read_pinned_items(conn, (row[0] for row in rows)) if has_workflow_pins else {}
+    )
     unready: list[int] = []
     for item_id, status in rows:
         status_text = str(status)
         if has_workflow_pins:
-            runtime = load_item_workflow_runtime(conn, int(item_id))
+            item = pinned.get(int(item_id))
+            if item is None:
+                raise WorkflowRegistryError(ITEM_NOT_FOUND)
+            runtime = item.require_runtime(conn, int(item_id))
             if status_text in runtime.terminal_stage_ids or (
                 status_text in ENGINE_TERMINAL_STAGE_IDS
             ):
@@ -111,15 +120,16 @@ def set_aside_reopened_members(
             conn, f"SELECT item_id FROM {run_items()} WHERE run_id=%s", (run_id,)
         )
     }
+    ref = render_item_ref_lookup(conn, status_of)
     refused = [
-        f"{render_item_ref(conn, i)} (status={status_of[i]}; left delivery "
+        f"{ref(i)} (status={status_of[i]}; left delivery "
         "readiness after this run froze and containment of its current "
         f"candidate is undetermined: {unproven[i]})"
         for i in reopened
         if i in unproven and i in remaining
     ]
     refused += [
-        f"{render_item_ref(conn, i)} (status={status})"
+        f"{ref(i)} (status={status})"
         for i, status in status_of.items()
         if status in _CLOSED_STATUSES
     ]

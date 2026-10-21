@@ -47,37 +47,20 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
-from yoke_core.domain.deployment_run_member_targeting import run_environment_name
-from yoke_core.domain.deployment_run_project_sources import run_source_sha
+from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     HeldCandidate,
     resolve_candidate_custody,
 )
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.workflow_item_binding_validation import read_pinned_items
 from yoke_core.domain.workflow_delivery_binding_validation import (
     delivery_ready_for_stage,
 )
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
-    load_item_workflow_runtime,
 )
-
-
-def _rework_status(conn: Any, item_id: int) -> str:
-    """The status of a carried item back before its release stage, else ``''``."""
-    row = conn.execute(
-        "SELECT status FROM items WHERE id=%s", (int(item_id),)
-    ).fetchone()
-    if row is None:
-        return ""
-    status = str(row["status"] if hasattr(row, "keys") else row[0])
-    runtime = load_item_workflow_runtime(conn, int(item_id))
-    if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
-        return ""
-    if str(runtime.policies.get("delivery")) not in RELEASE_MEMBERSHIP_POLICIES:
-        return ""
-    return "" if delivery_ready_for_stage(runtime, status) else status
 
 
 def carried_items_in_rework(
@@ -100,18 +83,23 @@ def carried_items_in_rework(
         - exclude
     )
     found: list[tuple[int, str]] = []
-    for item_id in carried:
-        if status := _rework_status(conn, item_id):
+    for item_id, item in read_pinned_items(conn, carried).items():
+        runtime, status = item.require_runtime(conn, item_id), item.status
+        if (
+            status not in runtime.terminal_stage_ids
+            and status not in ENGINE_TERMINAL_STAGE_IDS
+            and str(runtime.policies.get("delivery")) in RELEASE_MEMBERSHIP_POLICIES
+            and not delivery_ready_for_stage(runtime, status)
+        ):
             found.append((item_id, status))
     return tuple(found)
 
 
-def _describe_blocked(conn: Any, dependent: int, blocker: int, reason: str) -> str:
+def _describe_blocked(
+    conn: Any, ref: Any, dependent: int, blocker: int, reason: str
+) -> str:
     """One skipped dependent, naming the release still holding its blocker."""
-    line = (
-        f"{render_item_ref(conn, dependent)} blocked by "
-        f"{render_item_ref(conn, blocker)} ({reason}"
-    )
+    line = f"{ref(dependent)} blocked by {ref(blocker)} ({reason}"
     if holding := blocker_holding_run(conn, blocker):
         run_id, state = holding
         line += (
@@ -121,27 +109,48 @@ def _describe_blocked(conn: Any, dependent: int, blocker: int, reason: str) -> s
     return line + ")"
 
 
-def _describe_held(conn: Any, run_id: str, record: HeldCandidate) -> str:
-    """One held landing; a holder on another environment names its commit.
-
-    A run on a different environment holds only when it pinned a different
-    commit for the item's project, because supplemental proof credits only
-    against the commit final delivery ships.
-    """
-    line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
-    environment = run_environment_name(conn, run_id)
-    if run_environment_name(conn, record.run_id) == environment:
-        return line
-    row = conn.execute(
-        "SELECT project_id FROM items WHERE id=%s", (int(record.item_id),)
-    ).fetchone()
-    project_id = int(row["project_id"] if hasattr(row, "keys") else row[0])
-    lineage = run_source_sha(conn, record.run_id, project_id) or "(unrecorded)"
-    return (
-        f"{line} on commit {lineage}, which this run does not ship; its "
-        f"{environment or 'supplemental'} proof credits only against that "
-        "commit, so compose a run on it to prove the item"
-    )
+def _held_descriptions(
+    conn: Any, run_id: str, held: tuple[HeldCandidate, ...]
+) -> list[str]:
+    """Read all holder environments and per-project source pins together."""
+    if not held:
+        return []
+    run_ids = sorted({run_id, *(record.run_id for record in held)})
+    runs = {
+        str(row["id"]): dict(row)
+        for row in conn.execute(
+            "SELECT dr.id,dr.project_id,dr.release_lineage,dr.bound_sources,e.name "
+            "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
+            "LEFT JOIN environments e ON "
+            "e.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
+            f"WHERE dr.id IN ({','.join('%s' for _ in run_ids)})",
+            tuple(run_ids),
+        ).fetchall()
+    }
+    item_ids = sorted({record.item_id for record in held})
+    projects = {
+        int(row[0]): int(row[1])
+        for row in conn.execute(
+            f"SELECT id,project_id FROM items WHERE id IN ({','.join('%s' for _ in item_ids)})",
+            tuple(item_ids),
+        ).fetchall()
+    }
+    environment = str(runs.get(run_id, {}).get("name") or "")
+    lines = []
+    for record in held:
+        line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
+        holder = runs.get(record.run_id, {})
+        if str(holder.get("name") or "") != environment:
+            lineage = (
+                recorded_source_sha(holder, projects[record.item_id]) or "(unrecorded)"
+            )
+            line += (
+                f" on commit {lineage}, which this run does not ship; its "
+                f"{environment or 'supplemental'} proof credits only against that "
+                "commit, so compose a run on it to prove the item"
+            )
+        lines.append(line)
+    return lines
 
 
 def skipped_candidate_notice(
@@ -184,34 +193,39 @@ def skipped_candidate_notice(
         [item_id for item_id in candidates if item_id in required],
         member_ids=members,
     )
+    ref = render_item_ref_lookup(
+        conn,
+        [i for i, _ in rework]
+        + [int(entry["item_id"]) for entry in removed]
+        + [i for dependent, blocker, _ in blocked for i in (dependent, blocker)],
+    )
     parts: list[str] = []
     if blocked:
         parts.append(
             "open dependencies on unshipped items; the first release after the blocker ships enrolls them: "
             + "; ".join(
-                _describe_blocked(conn, dependent, blocker, str(verdict.reason))
+                _describe_blocked(conn, ref, dependent, blocker, str(verdict.reason))
                 for dependent, blocker, verdict in blocked
             )
         )
     if held:
         parts.append(
             "held by a release that owes their delivery: "
-            + "; ".join(_describe_held(conn, run_id, record) for record in held)
+            + "; ".join(_held_descriptions(conn, run_id, held))
         )
     if rework:
         parts.append(
             "WARNING: merged into this candidate but not at release yet — "
             "wait for it or add-item once it reaches release: "
             + "; ".join(
-                f"{render_item_ref(conn, item_id)} (status={status})"
-                for item_id, status in rework
+                f"{ref(item_id)} (status={status})" for item_id, status in rework
             )
         )
     if removed:
         parts.append(
             "removed from this run: "
             + "; ".join(
-                f"{render_item_ref(conn, int(entry['item_id']))} "
+                f"{ref(int(entry['item_id']))} "
                 f"({entry.get('reason') or 'no reason recorded'})"
                 for entry in removed
             )
