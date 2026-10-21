@@ -59,7 +59,7 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node.related-node { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent); }
 .detail, .read-node { display: none; }
 .expanded > .read-node { display: block; position: absolute; right: 16px; top: 16px; font-size: 10px; padding: 5px 8px; }
-.node:has(> .read-node) > .node-head { padding-right: 95px; }
+.node.expanded:has(> .read-node) > .node-head { padding-right: 95px; }
 .node.reading.expanded .detail, .node.leaf.expanded .detail { display: block; height: 72%; overflow: auto; margin-top: 22px; padding: 0 20px 10px 0; font-size: 14px; line-height: 1.7; cursor: auto; max-width: 1000px; }
 .node.leaf.expanded { cursor: default; }
 .field { margin: 0 0 24px; }
@@ -117,7 +117,7 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node[data-type=screen] { --type-color: #9b784d; background: #fcfaf6; border-color: #e4dace; border-top: 3px solid #d5c3a9; }
 .node[data-type=packet] { --type-color: #588481; background: #f6faf9; border-inline: 3px double #b4d0ca; border-radius: 6px; }
 .node[data-type=rule] { --type-color: #a17459; background: #fcf8f5; border-left: 3px solid #d8bdaa; }
-.node.expanded > .node-head { max-height: 125px; }
+.node.expanded > .node-head { max-height: 165px; }
 .node.selected.expanded { box-shadow: none; border-color: transparent; }
 .node.tiny .type-badge { font-size: 9px; gap: 5px; margin-bottom: 6px; }
 .node.tiny .type-badge svg { width: 13px; height: 13px; flex-basis: 13px; }

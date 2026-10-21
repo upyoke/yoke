@@ -23,7 +23,7 @@ function place(node, x, y, w, h, depth, color, focused = false) {
   const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
   const rows = Math.ceil(count / cols);
   const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
-  const top = focused ? Math.min(140, h * .35) : h * .25;
+  const top = focused ? Math.min(node.message_estimate ? 180 : 140, h * .4) : h * .25;
   const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
   const ch = (h - top - inset - gap * (rows - 1)) / rows;
   node.children.forEach((child, i) => place(child,
