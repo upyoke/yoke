@@ -61,3 +61,36 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
     ) in error.message
     assert "also failed" not in error.message
     assert "release the named coordination lease" not in error.recovery_hint
+
+
+@pytest.mark.parametrize("operation", ["golden-capture", "reset", "verify", "screenshot"])
+@pytest.mark.parametrize("status, expected", [("error", 1), ("verified", 0)])
+def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, expected):
+    from types import SimpleNamespace
+
+    replies = iter([
+        FunctionCallResponse(success=True, function="test_machine.operation.begin",
+                             version="v1", result={"execution": {}}),
+        FunctionCallResponse(success=True, function="test_machine.operation.submit",
+                             version="v1", result={"status": status}),
+    ])
+    monkeypatch.setattr(adapter, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(adapter, "build_actor", lambda **kwargs: ActorContext(actor_id="2", session_id="holder"))
+    monkeypatch.setattr(adapter, "call_dispatcher", lambda **kwargs: next(replies))
+    emitted = []
+    monkeypatch.setattr(adapter, "emit_response",
+                        lambda response, **kwargs: emitted.append(response) or 0)
+    monkeypatch.setattr(adapter, "retain_screenshot", lambda payload: "retained.png")
+    monkeypatch.setattr(
+        "yoke_harness.test_machine_operations.execute_host_operation_contract",
+        lambda *args, **kwargs: SimpleNamespace(payload={}, cleanup_artifacts=lambda: None),
+    )
+    monkeypatch.setattr(
+        "yoke_harness.golden_snapshot_retention.retain_after_verified_capture",
+        lambda *args: None,
+    )
+    assert adapter._execute(
+        operation=operation, project="example", machine=None, baseline=None,
+        destination=None, probes_document=None, session_id=None, json_mode=True,
+    ) == expected
+    assert emitted[0].result["status"] == status

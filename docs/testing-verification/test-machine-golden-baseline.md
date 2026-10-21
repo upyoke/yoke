@@ -172,6 +172,12 @@ on macOS or the desktop Chromium on Linux and seals a new baseline, so no later 
 Only a diagnosed authentication failure or an unmet baseline setting calls for
 repairing that state; a generic native failure does not establish a login problem.
 
+Every test-machine operation exits nonzero when its receipt has `status: error`.
+macOS capture and restore copy tools use `LC_ALL=en_US.UTF-8`, independent
+of the controller locale forwarded by SSH. `golden_capture_copy_home_failed`
+quotes bounded `copy_stderr`; repair that reported cause and capture to a new
+destination. A locale warning names a locale problem, not a damaged path.
+
 A reset or capture receipt names what failed. Each check row's `name` and `ok`
 belong to the operation, never to nested evidence. A failed macOS reset keeps
 the first error code: a later failure, such as removing the uploaded reset
