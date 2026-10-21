@@ -15,6 +15,11 @@ MAX_POINTS = 800
 MIN_BUCKET_SECONDS = 60
 
 
+def p95_ms(durations: list[int]) -> int | None:
+    """The Performance chart's p95 of timed durations; None when there are none."""
+    return _percentile(durations, 0.95)
+
+
 def bucket_seconds(start: datetime, end: datetime, points: int) -> int:
     # Round upward in whole minutes using exact timedelta arithmetic. Numeric
     # seconds describe bucket resolution, never the observation's instant.
@@ -63,7 +68,7 @@ def aggregate(
                 ),
                 "sum_ms": sum(durations) if durations else None,
                 "avg_ms": sum(durations) / len(durations) if durations else None,
-                "p95_ms": _percentile(durations, 0.95),
+                "p95_ms": p95_ms(durations),
                 "resolution_seconds": seconds,
             }
         buckets.append(

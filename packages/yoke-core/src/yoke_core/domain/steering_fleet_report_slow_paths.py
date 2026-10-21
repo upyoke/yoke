@@ -31,7 +31,7 @@ from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.events_function_index import function_identity_sql
-from yoke_core.domain.hook_overhead import _percentile
+from yoke_core.domain.performance_metrics import p95_ms
 from yoke_core.domain.performance_observations import observation
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -76,7 +76,7 @@ def over_budget(observations: Iterable[dict[str, Any] | None]) -> tuple[SlowPath
         durations[value["operation"]].append(value["duration_ms"])
     rows = []
     for operation, values in durations.items():
-        p95, longest = _percentile(values, 0.95), max(values)
+        p95, longest = p95_ms(values), max(values)
         if p95 > SLOW_PATH_P95_MS or longest > SLOW_PATH_MAX_MS:
             rows.append(SlowPath(operation, len(values), p95, longest))
     return tuple(sorted(rows, key=lambda row: (-row.max_ms, row.operation)))
