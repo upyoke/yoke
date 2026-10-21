@@ -42,6 +42,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `qa.plan_execution.complete` | `qa_subject` |
 | `qa.plan_execution.heartbeat` | `qa_subject` |
 | `qa.plan_execution.pause` | `qa_subject` |
+| `qa.plan_execution.reconcile` | `steering` |
 | `qa.plan_execution.resume` | `qa_subject` |
 | `qa.plan_review.begin` | `qa_subject` |
 | `qa.plan_review.submit` | `qa_subject` |
@@ -99,6 +100,31 @@ and give a rationale; both items retain the receipt. Read
 item's current work-claim holder and writes a durable transfer receipt. Use
 `yoke qa plan adopt --help`, then [captured QA recovery](../verification/requirement-state.md)
 for the complete item/deployment recipe and continuation boundaries.
+
+## Reconcile a stranded execution
+
+`qa.plan_execution.reconcile` settles an execution its owner can no longer
+settle: the owner ended or stopped heartbeating, or its recovery receipt is
+invalid. Only a live steering seat covering the project may run it; other
+sessions are refused with `steering_seat_required`.
+
+```text
+yoke qa plan reconcile --project P --execution-id ID --reason TEXT
+```
+
+It refuses `qa_reconcile_execution_live` while the owner still heartbeats.
+A host lease that is still held needs recorded host recovery first. Without
+it, the command records cancellation and refuses
+`qa_reconcile_host_recovery_required`, naming the exact
+`yoke test-machine reset` command, or the `operator-release` command when the
+case declares no baseline. A released lease settles without host contact. A
+pending review passes to the caller, and `next_command` names its
+`review-begin`; otherwise the execution settles as aborted with no verdict.
+Each run writes a `qa_plan_execution_reconciliations` receipt with the
+caller, reason, prior state and owner, and released leases, atomically with
+the settlement. `qa_recovery_receipt_invalid`, `qa_abort_walk_end_required`
+for an ended owner, and adoption without a provable predecessor name this
+command with its arguments.
 
 ## Case execution and evidence
 

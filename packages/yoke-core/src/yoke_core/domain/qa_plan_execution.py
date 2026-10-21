@@ -28,6 +28,13 @@ from yoke_core.domain.qa_member_plan_execution import execute_serial_partitions
 _call_plan_function = call_plan_function
 
 
+def _checkout_project(checkout_path: Optional[str | Path]) -> str:
+    """The project a recovery command names when the caller passed none."""
+    from yoke_contracts.project_defaults import default_project_for_directory
+
+    return default_project_for_directory(checkout_path or Path.cwd()) or "P"
+
+
 @execute_serial_partitions
 def execute_plan(
     *,
@@ -97,6 +104,7 @@ def execute_plan(
             target=target,
             actor=resolved_actor,
             execution_id=resume_execution_id,
+            project=project or target.project_id or _checkout_project(checkout_path),
         )
     try:
         execution = _call_plan_function(

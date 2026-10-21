@@ -1,0 +1,11 @@
+{
+ "id": "operator-reconcile",
+ "title": "Operator reconciliation of a stranded execution",
+ "status": "observed",
+ "commands": ["yoke qa plan reconcile"],
+ "functions": ["qa.plan_execution.reconcile"],
+ "summary": "An execution whose owner ended or stopped heartbeating, or whose recovery receipt is invalid, has no owner left to abort, adopt or walk-end it. A live steering seat covering the project settles it with yoke qa plan reconcile --project P --execution-id ID --reason TEXT; other sessions are refused with steering_seat_required. A still-heartbeating execution refuses qa_reconcile_execution_live. A held host lease without recorded recovery records cancellation (marked as reconcile's, so the retry skips the staleness check the reset's lease heartbeat would fail) and refuses qa_reconcile_host_recovery_required with the exact yoke test-machine reset command for a declared baseline, or the coordination-claim operator-release command otherwise. A released lease settles without host contact. A pending review passes to the caller (review_handoff) and next_command names review-begin; otherwise the execution settles aborted with no verdict, under qa-plan-operator-reconciled. Every run writes a qa_plan_execution_reconciliations receipt with caller, reason, prior state and owner, and released leases. qa_recovery_receipt_invalid, qa_abort_walk_end_required for an ended owner, and unprovable adoption name the command with its arguments. Source tests are not deployed proof.",
+ "sources": ["docs/public/functions/qa.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_reconcile.py", "packages/yoke-core/src/yoke_core/domain/handlers/qa_plan_execution_reconcile.py", "runtime/api/domain/test_qa_plan_execution_reconcile.py", "runtime/api/domain/test_qa_plan_execution_reconcile_refusals.py"],
+ "page": "qa-host-cleanup",
+ "position": 5
+}

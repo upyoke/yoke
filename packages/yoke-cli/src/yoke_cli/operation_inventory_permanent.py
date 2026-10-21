@@ -131,6 +131,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke qa plan review-submit", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa plan review-begin", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa plan adopt", "qa.plan", REASON_TOOL_SHAPED),
+    _p("yoke qa plan reconcile", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa plan abort", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa browser setup", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser screenshot", "qa.browser", REASON_TOOL_SHAPED),

@@ -60,7 +60,10 @@ that host before teardown. Its original session runs `walk-end` on the held
 lease; finishing it releases the host and settles the execution aborted with
 `deployment-member-removed`, even after local failure. `walk-start` and
 `host-command` are refused with `mission_member_removed`, and no other abort
-releases that lease (`qa_abort_walk_end_required`).
+releases that lease (`qa_abort_walk_end_required`). When that session has
+ended, the refusal names
+[`yoke qa plan reconcile`](../functions/qa.md#reconcile-a-stranded-execution)
+for a steering seat instead.
 
 After a deployment run fails or otherwise ends, the original session can still
 run the dispatched `walk-end` command on its recorded host. Teardown removes

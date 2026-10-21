@@ -96,6 +96,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.plan_execution.complete": "next-release",
     "qa.plan_execution.abort": "next-release",
     "qa.plan_execution.adopt": "next-release",
+    "qa.plan_execution.reconcile": "next-release",
     "qa.plan_review.begin": "next-release",
     "qa.plan_review.submit": "next-release",
     "qa.requirement.transfer": "next-release",

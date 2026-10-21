@@ -315,8 +315,8 @@ Captured approvals, artifacts, cursor and review bundle identity stay intact.
 A live execution can continue using its original command plus
 `--resume-execution-id ID`; its source, unknown-action and host-custody checks
 still apply. Adoption never revives a released host lease or terminal execution;
-review an aborted execution's completed captures instead. Standalone executions
-without an owning item require project-operator reconciliation.
+review an aborted execution's completed captures instead. Steering settles one
+it cannot adopt: [reconcile](../functions/qa.md#reconcile-a-stranded-execution).
 
 This command requires a serving release carrying `qa.plan_execution.adopt`.
 A serving-floor refusal names the minimum release; ask the control-plane

@@ -14,6 +14,17 @@ from yoke_core.domain.qa_plan_execution_store import (
 from yoke_core.domain.sessions_queries_lookup import get_claim_for_work_unit
 
 
+def _reconcile_command(conn, execution):
+    from yoke_core.domain.qa_plan_execution_reconcile import (
+        execution_project,
+        reconcile_command,
+    )
+
+    return reconcile_command(
+        execution_project(conn, execution)[1], str(execution["id"])
+    )
+
+
 def adopt_execution(
     conn,
     execution_id,
@@ -41,8 +52,9 @@ def adopt_execution(
     )
     if owner_item is None:
         raise QaPlanExecutionStateError(
-            "qa_adoption_item_required: this execution has no owning item; "
-            "ask its project operator to reconcile standalone or shared QA ownership"
+            "qa_adoption_item_required: this execution has no owning item to "
+            "claim; a live steering seat covering the project settles it with "
+            f"`{_reconcile_command(conn, execution)}`"
         )
     claim = get_claim_for_work_unit(conn, item_id=str(owner_item))
     if claim is None or str(claim["session_id"]) != session_id:
@@ -89,7 +101,9 @@ def adopt_execution(
     )
     if previous is None:
         raise QaPlanExecutionStateError(
-            "qa_adoption_owner_unverified: predecessor session evidence is missing; ask steering to reconcile it before adoption"
+            "qa_adoption_owner_unverified: predecessor session evidence is "
+            "missing, so adoption cannot prove it ended; a live steering seat "
+            f"covering the project settles it with `{_reconcile_command(conn, execution)}`"
         )
     if not (previous["ended_at"] or previous["terminated_at"]):
         raise QaPlanExecutionStateError(

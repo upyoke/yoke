@@ -20,6 +20,28 @@ QA_PLAN_TABLES = {
             "item's current work holder are required; telemetry is not authority."
         ),
     },
+    "qa_plan_execution_reconciliations": {
+        "columns": [
+            ("id", "TEXT"),
+            ("execution_id", "TEXT"),
+            ("actor_id", "TEXT"),
+            ("session_id", "TEXT"),
+            ("reason", "TEXT"),
+            ("outcome", "TEXT"),
+            ("prior_state", "TEXT"),
+            ("prior_actor_id", "TEXT"),
+            ("prior_session_id", "TEXT"),
+            ("released_lease_ids", "TEXT"),
+            ("reconciled_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "Durable qa.plan_execution.reconcile receipts, committed atomically "
+            "with the settlement. A covering steering seat settles an execution "
+            "whose owner stopped reporting: released_lease_ids is a JSON list, "
+            "outcome is review_handoff (the caller owns the pending review) or "
+            "aborted (no verdict)."
+        ),
+    },
     "qa_plans": {
         "columns": [
             ("id", "INTEGER"),

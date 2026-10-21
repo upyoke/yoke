@@ -103,6 +103,29 @@ _MISSION_WALK_END = (
 )
 
 
+def _ended_owner_recovery(conn, execution):
+    """Name steering reconciliation when no session is left to run walk-end."""
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_plan_execution_reconcile import (
+        execution_project,
+        reconcile_command,
+    )
+
+    owner = query_one(
+        conn,
+        "SELECT ended_at,terminated_at FROM harness_sessions WHERE session_id=%s",
+        (str(execution.get("session_id") or ""),),
+    )
+    if owner is not None and not (owner["ended_at"] or owner["terminated_at"]):
+        return ""
+    _project_id, project = execution_project(conn, execution)
+    return (
+        f" Its original session {execution.get('session_id')} has ended, so no "
+        "walk-end can run: a live steering seat covering the project settles "
+        f"it with `{reconcile_command(project, str(execution['id']))}`."
+    )
+
+
 def require_host_restored(conn, execution, *, reason, commit):
     """Persist cancellation before refusing an unproven host release."""
     request = owed_host_abort(conn, execution, reason=reason)
@@ -110,7 +133,9 @@ def require_host_restored(conn, execution, *, reason, commit):
         return
     ordinal = int(request["ordinal"])
     if execution["roster"][ordinal].get("runner_id") == "agent_mission":
-        raise QaPlanExecutionStateError(_MISSION_WALK_END)
+        raise QaPlanExecutionStateError(
+            _MISSION_WALK_END + _ended_owner_recovery(conn, execution)
+        )
     if not commit:
         raise QaPlanExecutionStateError(
             "qa_abort_restore_required: in-flight host work must stop and record "

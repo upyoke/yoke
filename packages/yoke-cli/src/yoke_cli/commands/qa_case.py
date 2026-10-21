@@ -37,6 +37,10 @@ QA_PLAN_ADOPT_USAGE = (
     "yoke qa plan adopt (--item PREFIX-N | --deployment-run-id RUN) "
     "--execution-id ID --reason TEXT [--session-id S] [--json]"
 )
+QA_PLAN_RECONCILE_USAGE = (
+    "yoke qa plan reconcile --project P --execution-id ID --reason TEXT "
+    "[--session-id S] [--json]"
+)
 QA_PLAN_ABORT_USAGE = (
     "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN | --project P) "
     "--execution-id ID --reason TEXT [--project P] [--session-id S]"
@@ -107,6 +111,25 @@ def qa_plan_adopt(args: List[str]) -> int:
     ):
         return 0
     return _run_execution_module("yoke_core.domain.qa_plan_execution_adopt_cli", args)
+
+
+def qa_plan_reconcile(args: List[str]) -> int:
+    if show_delegate_help(
+        args,
+        QA_PLAN_RECONCILE_USAGE,
+        "Operator recovery for an execution whose owner stopped reporting or whose "
+        "recovery receipt is invalid. Requires a live steering seat covering the "
+        "project (yoke claims steering acquire --project P --reason TEXT); other "
+        "sessions are refused with steering_seat_required. A host lease still held "
+        "needs recorded host recovery first: the refusal names the exact reset or "
+        "release command. A pending review passes to the caller and the receipt "
+        "names its review-begin command; otherwise the execution settles as "
+        "aborted with no verdict. Every run writes a reconciliation receipt.",
+    ):
+        return 0
+    return _run_execution_module(
+        "yoke_core.domain.qa_plan_execution_reconcile_cli", args
+    )
 
 
 def qa_plan_abort(args: List[str]) -> int:
@@ -259,6 +282,7 @@ TOOL_COMMANDS = {
     ("qa", "case", "run"): qa_case_run,
     ("qa", "plan", "abort"): qa_plan_abort,
     ("qa", "plan", "adopt"): qa_plan_adopt,
+    ("qa", "plan", "reconcile"): qa_plan_reconcile,
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "review-begin"): qa_plan_review_begin,
     ("qa", "plan", "run"): qa_plan_run,
@@ -271,6 +295,7 @@ USAGE = {
     "yoke qa case run": QA_CASE_RUN_USAGE,
     "yoke qa plan abort": QA_PLAN_ABORT_USAGE,
     "yoke qa plan adopt": QA_PLAN_ADOPT_USAGE,
+    "yoke qa plan reconcile": QA_PLAN_RECONCILE_USAGE,
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan review-begin": QA_PLAN_REVIEW_BEGIN_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
