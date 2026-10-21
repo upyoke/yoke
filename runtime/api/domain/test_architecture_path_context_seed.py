@@ -214,3 +214,21 @@ def test_unmatched_paths_count_as_unclassified(conn) -> None:
         conn, 1, recorded_event_id=emit_event(conn, name="MapSeeded"),
     )
     assert result.unclassified == 1
+
+
+def test_unchanged_classifications_keep_provenance(conn) -> None:
+    _write_model(conn, _model())
+    targets = _snapshot_with(conn, ["src/billing/invoice.py"])
+    seed_architecture_path_context(conn, 1, recorded_event_id="first-refresh")
+    before = conn.execute(
+        "SELECT id, value, recorded_event_id, recorded_at FROM path_context_values "
+        "WHERE target_id = %s ORDER BY context_family",
+        (targets["src/billing/invoice.py"],),
+    ).fetchall()
+    seed_architecture_path_context(conn, 1, recorded_event_id="second-refresh")
+    after = conn.execute(
+        "SELECT id, value, recorded_event_id, recorded_at FROM path_context_values "
+        "WHERE target_id = %s ORDER BY context_family",
+        (targets["src/billing/invoice.py"],),
+    ).fetchall()
+    assert [tuple(row) for row in after] == [tuple(row) for row in before]

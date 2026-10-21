@@ -6,5 +6,6 @@
  "commands": ["yoke project snapshot sync", "yoke project-structure get", "yoke project-structure patch apply"],
  "functions": ["project.snapshot.ensure_at", "project.snapshot.sync", "project_structure.get", "project_structure.patch.apply"],
  "page": "architecture",
- "position": 0
+ "position": 0,
+ "summary": "Snapshot sync reuses the newest stored HEAD without repeating architecture, render relationship or derived-fact refreshes. A changed HEAD runs all three with per-step server log timings. Chunked finalize waits at least 60 seconds for its response; a lost finalize response never triggers an abort of server work."
 }

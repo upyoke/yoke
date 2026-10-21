@@ -23,6 +23,11 @@ from yoke_contracts.path_snapshot_chunks import (
 )
 
 
+# Finalize materializes contents and refreshes changed-HEAD context (up to 39s
+# observed); the short hook write budget only covers staging operations.
+FINALIZE_RESPONSE_TIMEOUT_S = 60.0
+
+
 def offer_begin(
     *,
     project: Optional[str],
@@ -197,9 +202,12 @@ def _dispatch_or_abort(
             timeout_s=timeout_s,
         )
     except Exception:
-        abort_chunk_upload(**abort)
+        if payload.operation != "finalize":
+            abort_chunk_upload(**abort)
         raise
-    if not response.success:
+    # A lost finalize response does not prove the server stopped. Leave its
+    # staging alone; completion or the existing retention policy removes it.
+    if not response.success and payload.operation != "finalize":
         abort_chunk_upload(**abort)
     return response
 
@@ -213,6 +221,8 @@ def dispatch_chunk_payload(
 ) -> FunctionCallResponse:
     raise_if_https_chunk_payload_too_large(payload)
     ensure_handlers_loaded()
+    if payload.operation == "finalize":
+        timeout_s = max(timeout_s or 0.0, FINALIZE_RESPONSE_TIMEOUT_S)
     return call_dispatcher(
         function_id="project.snapshot.sync",
         target=TargetRef(kind="global", project_id=project),

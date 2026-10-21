@@ -31,7 +31,6 @@ from yoke_core.domain.path_context import (
     ARCHITECTURE_EXEMPTION_FAMILIES,
     FAMILY_ARCHITECTURE_DOMAIN,
     FAMILY_ARCHITECTURE_LAYER,
-    put_context_value,
     remove_context_value,
 )
 
@@ -155,6 +154,33 @@ def _existing_direct_rows(
     return out
 
 
+def _write_classifications(conn: Any, changed: list, recorded_event_id: str) -> None:
+    """Persist resolved classifications in one round trip; preserve overrides."""
+    import json
+
+    from yoke_core.domain.db_helpers import instant_parameter, utc_now
+    from yoke_core.domain.path_context import PathContextError
+
+    if not changed:
+        return
+    if not isinstance(recorded_event_id, str) or not recorded_event_id.strip():
+        raise PathContextError("recorded_event_id must be a non-empty provenance string")
+    target_ids, families, values = zip(*changed)
+    conn.execute(
+        "INSERT INTO path_context_values "
+        "(target_id, context_family, entry_key, value, recorded_event_id, recorded_at) "
+        "SELECT v.target_id, v.family, '', v.value, %s, %s FROM "
+        "unnest(%s::bigint[], %s::text[], %s::text[]) AS v(target_id, family, value) "
+        "ON CONFLICT (target_id, context_family, entry_key) DO UPDATE "
+        "SET value=excluded.value, recorded_event_id=excluded.recorded_event_id, "
+        "recorded_at=excluded.recorded_at "
+        "WHERE path_context_values.value::jsonb ? 'glob' "
+        "AND path_context_values.value::jsonb IS DISTINCT FROM excluded.value::jsonb",
+        (recorded_event_id, instant_parameter(conn, utc_now()), list(target_ids),
+         list(families), [json.dumps(value, sort_keys=True) for value in values]),
+    )
+
+
 def seed_architecture_path_context(
     conn: Any,
     project_id: str | int,
@@ -172,6 +198,7 @@ def seed_architecture_path_context(
     )
     layer_rows = domain_rows = exemption_rows = 0
     unclassified = removed = operator_kept = 0
+    changed = []
     for target_id, path, _mod, _deps in entries:
         desired = _classify(path, exemptions, patterns)
         current = existing.get(target_id, {})
@@ -181,11 +208,7 @@ def seed_architecture_path_context(
                 operator_kept += 1
                 continue
             if row != value:
-                put_context_value(
-                    conn, target_id=target_id, context_family=family,
-                    entry_key="", value=value,
-                    recorded_event_id=recorded_event_id,
-                )
+                changed.append((target_id, family, value))
             if family == FAMILY_ARCHITECTURE_LAYER:
                 layer_rows += 1
             elif family == FAMILY_ARCHITECTURE_DOMAIN:
@@ -205,6 +228,7 @@ def seed_architecture_path_context(
                 removed += 1
         if not desired and not current:
             unclassified += 1
+    _write_classifications(conn, changed, recorded_event_id)
     conn.commit()
     return SeedResult(
         declared=True,

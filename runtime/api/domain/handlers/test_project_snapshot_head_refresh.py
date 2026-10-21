@@ -97,3 +97,29 @@ def test_returning_to_an_older_head_runs_the_side_work(side_work: list[str]) -> 
     _sync("a" * 40)
 
     assert "refresh_architecture_context" in side_work
+
+
+@pytest.mark.parametrize("already_stored", [True, False])
+def test_chunk_finalize_preserves_head_refresh_guard(side_work, already_stored):
+    from yoke_contracts.path_snapshot_chunks import PathSnapshotChunkSyncPayload
+    from yoke_core.domain import project_snapshot_chunk_uploads as chunks
+
+    _sync("a" * 40)
+    chunks.sync_chunk("demo", PathSnapshotChunkSyncPayload(
+        upload_id="repeat", operation="begin",
+        snapshot={"ref": "HEAD", "commit_sha": "b" * 40,
+                  "file_count": 1, "chunk_count": 1},
+    ), handler._sync)
+    chunks.sync_chunk("demo", PathSnapshotChunkSyncPayload(
+        upload_id="repeat", operation="append", chunk_index=0,
+        files=[{"path": "README.md", "line_count": 1}],
+    ), handler._sync)
+    if already_stored:
+        # A concurrent upload may store the same HEAD before this finalizes.
+        _sync("b" * 40)
+    side_work.clear()
+    result = chunks.sync_chunk("demo", PathSnapshotChunkSyncPayload(
+        upload_id="repeat", operation="finalize",
+    ), handler._sync)
+    assert result["status"] == "chunk_upload_finalized"
+    assert bool(side_work) is not already_stored
