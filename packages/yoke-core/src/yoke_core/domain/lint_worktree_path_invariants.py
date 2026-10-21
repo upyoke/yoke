@@ -10,8 +10,6 @@ rendering) live in the consumers:
   policy.
 * :mod:`yoke_core.domain.lint_session_cwd` — session cwd binding policy
   and orientation.
-* :mod:`yoke_core.domain.check_path_claim_coverage_at_commit` — pre-commit
-  path-claim coverage gate.
 
 Helpers are designed to be importable from those modules without a cyclic
 import: they depend only on :mod:`yoke_core.domain.db_helpers` and the

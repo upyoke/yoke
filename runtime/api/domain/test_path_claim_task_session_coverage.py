@@ -12,10 +12,6 @@ from runtime.api.domain.path_claim_task_test_support import (
     seed_worker_task,
 )
 from runtime.api.task_files_touched_test_support import declare_task_files
-from yoke_core.domain.check_path_claim_coverage_at_commit import _decide
-from yoke_core.domain.lint_worktree_path_invariants import (
-    WorktreeInvariantContext,
-)
 from yoke_core.domain.path_claim_active_claim_lookup import (
     resolve_active_claim_for_session,
 )
@@ -208,78 +204,6 @@ def test_live_edit_resolution_denies_sibling_task_in_worker_lane(
     )
     assert failure is not None
     assert failure.mode == OUT_OF_CLAIM
-
-
-def test_precommit_uses_worker_scope_and_integration_union(
-    test_db,
-    tmp_path,
-    monkeypatch,
-) -> None:
-    from yoke_core.domain import check_path_claim_coverage_at_commit as gate
-
-    item_id, _lanes, integration_path = _seed_lanes_and_claims(
-        test_db,
-        tmp_path,
-    )
-    worker_session = "commit-worker"
-    seed_session(
-        test_db,
-        session_id=worker_session,
-        item_id=item_id,
-        task_num=1,
-    )
-    monkeypatch.setattr(gate, "staged_files", lambda _root: ["src/two.py"])
-    worker_root = tmp_path / "worker-1"
-    worker_ctx = WorktreeInvariantContext(
-        session_id=worker_session,
-        item_id=item_id,
-        worktree_branch="task-1",
-        expected_worktree_root=str(worker_root),
-        actual_cwd=str(worker_root),
-        is_inside_worktree=True,
-    )
-    assert (
-        _decide(
-            ctx=worker_ctx,
-            repo_root=worker_root,
-            conn=test_db,
-            commit_message="",
-        )[0]
-        == 1
-    )
-
-    integration_ctx = WorktreeInvariantContext(
-        session_id=worker_session,
-        item_id=item_id,
-        worktree_branch=f"integrate-{item_id}",
-        expected_worktree_root=str(integration_path),
-        actual_cwd=str(integration_path),
-        is_inside_worktree=True,
-    )
-    monkeypatch.setattr(gate, "staged_files", lambda _root: ["src/done.py"])
-    assert (
-        _decide(
-            ctx=integration_ctx,
-            repo_root=integration_path,
-            conn=test_db,
-            commit_message="",
-        )[0]
-        == 0
-    )
-    monkeypatch.setattr(
-        gate,
-        "staged_files",
-        lambda _root: ["src/stopped.py"],
-    )
-    assert (
-        _decide(
-            ctx=integration_ctx,
-            repo_root=integration_path,
-            conn=test_db,
-            commit_message="",
-        )[0]
-        == 1
-    )
 
 
 def test_live_policy_resolution_error_returns_empty_coverage(

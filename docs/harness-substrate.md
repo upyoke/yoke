@@ -184,7 +184,7 @@ it. Hook registration is automatic; do not manually register a launch session.
 
 Path claims and file budget are independent effective policies; required scope
 never shrinks to current coverage. Reconcile overlap before override. Coverage
-protects edits at three boundaries:
+protects edits at two tool boundaries:
 
 1. Native Edit/Write/apply_patch PreToolUse validates target coverage.
 2. Bash guard parses redirect/copy/move/remove/in-place mutations. Plain reads
@@ -195,14 +195,17 @@ protects edits at three boundaries:
    re-entry; designed new scope uses `yoke claims path widen --claim-id ID
    --add-paths PATH --reason R --item PREFIX-N`. Narrative owners are
    `path_claim_bash_guard_narrative` and `worktree_preflight`.
-3. Pre-commit checks all staged files. `[no-path-claim-check]` records audit
-   evidence but retains denial; missed tool-level coverage cannot land a commit.
+
+The installed pre-commit hook checks authored-file limits and byte budgets.
+It does not check path claims or work-item status. Selected Dash path-claim
+posture also checks surveyed paths before activation and merged paths at
+completion.
 
 Rewrite ambiguous shell into parseable operations first. The Bash parser's
 `# lint:no-worktree-path-check` sentinel records `suppression_attempted` and allows
 that parser verdict, as defined by `path_claim_bash_parser` / `path_claim_bash_guard`.
 It does not grant claim, lane, filesystem or destructive-operation authority.
-Do not conflate its effect with the strict workspace-cwd or commit tokens.
+Do not conflate its effect with the strict workspace-cwd guard.
 
 ## Regeneration and installation ownership
 

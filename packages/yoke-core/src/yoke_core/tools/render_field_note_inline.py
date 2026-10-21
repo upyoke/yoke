@@ -5,7 +5,7 @@ Build-time mechanism that propagates the canonical text from
 surface (skill bodies, operator docs, the long-form
 ``runtime/agents/_shared/ouroboros-field-note.md``). Drift is
 structurally impossible: the :data:`INVENTORY` tuple is the contract, and
-``--check`` mode runs in the pre-commit hook + the
+``--check`` mode runs in CI and the
 ``HC-field-note-coherence`` doctor HC. The marker mechanics themselves
 live in :mod:`yoke_core.tools.generated_block_render`, shared with the
 harness wake-capability family.
@@ -115,7 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="render_field_note_inline",
         description=(
             "Render the field-note directive into every generated-block "
-            "marker file. Use --check in CI / pre-commit to fail on drift."
+            "marker file. Use --check in CI to fail on drift."
         ),
     )
     parser.add_argument(

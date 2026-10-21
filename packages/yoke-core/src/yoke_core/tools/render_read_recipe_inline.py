@@ -5,7 +5,7 @@ Build-time mechanism that propagates the canonical text from
 surfaces an agent reads *while deciding how to invoke a command* — the
 root rules file and the Engineer's large-output reference. Drift is structurally impossible: the
 :data:`INVENTORY` tuple is the contract, and ``--check`` mode runs in the
-pre-commit hook. The marker mechanics live in
+CI contract. The marker mechanics live in
 :mod:`yoke_core.tools.generated_block_render`, shared with the field-note
 and harness wake-capability families.
 
@@ -99,7 +99,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="render_read_recipe_inline",
         description=(
             "Render the narrow-read recipe into every generated-block "
-            "marker file. Use --check in CI / pre-commit to fail on drift."
+            "marker file. Use --check in CI to fail on drift."
         ),
     )
     parser.add_argument(

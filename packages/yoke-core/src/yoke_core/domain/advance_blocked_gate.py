@@ -6,12 +6,9 @@ set the item must not advance into ``implementing`` (or any later
 status) — the operator must run ``yoke items unblock YOK-N`` first, which
 restores the preserved lifecycle status without changing it.
 
-The pre-commit worktree status guard
-(:mod:`yoke_core.domain.check_worktree_status_invariant`) is
-intentionally NOT changed: blocked is a routing/dispatch hold, not a
-filesystem hold. An item that is already in a worktree can keep
-committing while blocked; only the next status forward-transition is
-refused by this gate.
+Blocked is a routing/dispatch hold, not a filesystem hold. An item already
+in a worktree can keep committing while blocked; only the next status
+forward-transition is refused by this gate.
 """
 
 from __future__ import annotations

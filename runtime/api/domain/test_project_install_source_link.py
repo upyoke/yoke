@@ -182,10 +182,6 @@ class TestSourceLinkGitHooks:
         # so source-link mode routes through the launcher too — the
         # module-invocation form is gone.
         assert 'exec "$yoke_bin" git pre-commit' in git_hooks.PRE_COMMIT_SHIM
-        assert (
-            "python3 -m yoke_core.domain.git_pre_commit"
-            not in git_hooks.PRE_COMMIT_SHIM
-        )
 
     def test_preserves_foreign_pre_commit_hook(self, checkout):
         _git_init(checkout)

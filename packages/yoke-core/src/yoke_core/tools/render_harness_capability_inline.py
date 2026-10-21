@@ -269,7 +269,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Render harness wake capability into every generated-block "
             "marker surface, and refuse wake claims written elsewhere "
             "without naming the owning manifest fact. Use --check in CI / "
-            "pre-commit to fail on drift."
+            "CI to fail on drift."
         ),
     )
     parser.add_argument(

@@ -11,7 +11,7 @@ against the symbol leaking back into reader hot paths via a future
 regression.
 
 The helper is a static-scan surface — it does not run as a runtime hook.
-Doctor HCs, pre-commit gates, and dedicated regression tests consume it.
+Doctor HCs, CI contracts, and dedicated regression tests consume it.
 
 The allowlist below is the single canonical Python constant for
 this rule. Sibling code paths import :data:`REPO_ROOT_REFERENCE_ALLOWLIST`
