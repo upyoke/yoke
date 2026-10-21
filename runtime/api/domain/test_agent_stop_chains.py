@@ -102,7 +102,7 @@ class TestProcessDispatchChains:
         assert ctx.auto_committed is True
         assert ctx.auto_commit_file_count == 1
 
-    def test_unreadable_db_still_auto_commits_without_item(self, tmp_path: Path):
+    def test_unreadable_db_commits_nothing(self, tmp_path: Path):
         project_root = tmp_path / "repo"
         project_root.mkdir()
         wt = _dirty_lane(tmp_path, "BUZ-42")
@@ -116,7 +116,27 @@ class TestProcessDispatchChains:
         )
 
         assert ctx.item_id == ""
-        assert ctx.auto_committed is True
+        assert ctx.auto_committed is False
+
+    @pytest.mark.parametrize("name", ["app-2", "python-3", "NOPE-42", "YOK-43"])
+    def test_ref_shaped_folder_without_item_commits_nothing(
+        self, tmp_path: Path, lane_db, name
+    ):
+        """A name shaped like a ref that no project item owns is not a lane."""
+        project_root = tmp_path / "repo"
+        project_root.mkdir()
+        wt = _dirty_lane(tmp_path, name)
+
+        ctx = process_dispatch_chains(
+            db_path=lane_db,
+            script_dir=str(tmp_path / "scripts"),
+            project_root=str(project_root),
+            agent_dir=str(wt),
+            session_id="sess-1",
+        )
+
+        assert ctx.item_id == ""
+        assert ctx.auto_committed is False
 
     def test_non_lane_directory_is_noop(self, tmp_path: Path, lane_db):
         project_root = tmp_path / "repo"

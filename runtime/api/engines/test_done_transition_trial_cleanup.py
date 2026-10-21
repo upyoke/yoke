@@ -114,3 +114,14 @@ class TestCleanupTrialBranches:
         assert "trial/YOK-600" not in listing
         commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
         assert any("branch -D trial/YOK-60" in command for command in commands)
+
+    def test_sweep_preserves_trial_with_unknown_prefix(self, dt_db, tmp_path):
+        project_repo = tmp_path / "repo"
+        project_repo.mkdir()
+
+        with mock.patch.object(done_transition, "_run_git") as run_git:
+            run_git.return_value = mock.Mock(returncode=0, stdout="  trial/NOPE-5\n")
+            assert done_transition._cleanup_trial_branches(project_repo) is False
+
+        commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
+        assert not any("branch -D" in command for command in commands)
