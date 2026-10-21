@@ -1,5 +1,6 @@
 """Installation readiness and safe evaluator retirement."""
 
+import signal
 import subprocess
 from unittest.mock import Mock
 
@@ -94,15 +95,54 @@ def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_pa
     monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
     monkeypatch.setattr(client, "_open_start_lock", lambda path: None)
     monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
+    monkeypatch.setattr(lifecycle, "_KILL_SECONDS", 0.001)
     with pytest.raises(
-        lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_STOP_TIMEOUT"
-    ):
+        lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_LOCK_HELD"
+    ) as failure:
         lifecycle.stop_resident()
+    assert "close the harness sessions" in str(failure.value)
+
+
+def test_a_resident_ignoring_sigterm_is_killed(monkeypatch, tmp_path):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, "t0")])
+    sent: list[int] = []
+    monkeypatch.setattr(
+        lifecycle,
+        "process_start_time",
+        lambda pid: None if signal.SIGKILL in sent else "t0",
+    )
+    monkeypatch.setattr(lifecycle.os, "kill", lambda pid, signum: sent.append(signum))
+    monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
+    lifecycle.stop_resident(require_lock_release=False)
+    assert sent == [signal.SIGTERM, signal.SIGKILL]
+
+
+def test_an_unkillable_resident_is_named_with_its_pid(monkeypatch, tmp_path):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [(123, "t0")])
+    monkeypatch.setattr(lifecycle, "process_start_time", lambda pid: "t0")
+    monkeypatch.setattr(lifecycle.os, "kill", lambda pid, signum: None)
+    monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
+    monkeypatch.setattr(lifecycle, "_KILL_SECONDS", 0.001)
+    with pytest.raises(lifecycle.ResidentLifecycleError) as failure:
+        lifecycle.stop_resident()
+    assert "YOKE_HOOK_RESIDENT_STOP_TIMEOUT" in str(failure.value)
+    assert "123" in str(failure.value) and "after SIGKILL" in str(failure.value)
+
+
+def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
+    # A live hook's new resident holds the start lock once the old one exits.
+    monkeypatch.setattr(client, "_open_start_lock", lambda path: None)
+    monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
+    lifecycle.stop_resident(require_lock_release=False)
 
 
 def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths: None)
+    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(
         client,
@@ -117,7 +157,7 @@ def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
 
 def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths: None)
+    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(lifecycle, "_START_SECONDS", 0)
     with pytest.raises(

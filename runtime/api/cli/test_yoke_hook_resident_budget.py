@@ -227,3 +227,28 @@ def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
     assert "hook_budget_exhausted: YOKE_HOOK_RESIDENT_TIMEOUT" in err
     assert "yoke hook resident restart" in err
     assert str(tmp_path / "resident.log") in err
+
+
+def test_a_loading_resident_keeps_the_default_stop_signal(paths, monkeypatch) -> None:
+    import signal
+
+    from yoke_harness import hook_resident
+
+    seen: list = []
+
+    def load(_server) -> None:
+        seen.append(signal.getsignal(signal.SIGTERM))
+        raise RuntimeError("stop after observing the load-time handler")
+
+    before = signal.getsignal(signal.SIGTERM)
+    monkeypatch.setattr(hook_resident._ResidentServer, "load_evaluator", load)
+    lock_fd = os.open(paths.lock, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        with pytest.raises(RuntimeError):
+            hook_resident._serve(paths.socket, lock_fd)
+    finally:
+        os.close(lock_fd)
+        signal.signal(signal.SIGTERM, before)
+    # A stop during the slow import ends the process instead of waiting it out.
+    assert seen == [before]
+    assert not paths.socket.exists()

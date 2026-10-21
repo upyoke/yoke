@@ -87,9 +87,9 @@ and prove it with a dry evaluation, so a first session meets a warm evaluator;
 otherwise the client starts it on demand. It binds its socket before importing
 the evaluator, so callers during a cold start queue and are answered once it
 loads. It retires after ten idle minutes; a request for a different installed
-revision closes acceptance and re-execs, naming both revisions. In-flight
-handlers join before close; shutdown drains observations once for two seconds,
-warns on timeout, and continues.
+revision closes acceptance and re-execs, naming both revisions. Shutdown lets
+in-flight evaluations finish for up to five seconds, drains observations once for
+two seconds, warns on timeout, and continues.
 
 Socket/protocol/startup/crash failures use the canonical in-process evaluator,
 limited to the budget left. A named stderr warning is rate-limited across
@@ -111,6 +111,11 @@ wait (`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two
 seconds, the hook skips the fallback: `hook_budget_exhausted` with reason, log and
 `yoke hook resident restart`: lifecycle events degrade to an allow with that
 warning, tool events refuse.
+
+`yoke hook resident stop` and `restart` send SIGTERM, then SIGKILL after ten
+seconds to residents proven by their start time; a resident still loading exits
+at once. A failure names a still-running pid or a held start lock, each with its
+own recovery. A restart accepts a resident a live hook launched meanwhile.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies
