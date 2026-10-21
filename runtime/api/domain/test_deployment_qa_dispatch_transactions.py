@@ -182,3 +182,21 @@ def test_unpublished_prepared_input_returns_the_named_stage_failure(
     assert "deployment_qa_release_unpublished" in reason
     assert "publish Yoke" in reason
     assert "re-run the QA stage" in reason
+
+
+def test_server_idle_timeout_is_resumable_without_a_failed_rollback():
+    from runtime.api.domain.test_session_less_actor_binding import _entry, _request
+    from yoke_core.domain.function_connection_loss import (
+        name_connection_loss,
+        CONNECTION_LOST_CODE,
+    )
+
+    def timed_out(*args):
+        raise psycopg.errors.IdleInTransactionSessionTimeout(
+            "terminating connection due to idle-in-transaction timeout"
+        )
+
+    outcome = name_connection_loss(_entry(), _request(), timed_out)
+    assert outcome.error.code == CONNECTION_LOST_CODE
+    assert "IdleInTransactionSessionTimeout" in outcome.error.message
+    assert "Re-read" in outcome.error.recovery_hint

@@ -203,6 +203,8 @@ def looks_like_connection_failure(exc: BaseException) -> bool:
         import psycopg
     except Exception:  # noqa: BLE001
         return False
+    if isinstance(exc, psycopg.errors.IdleInTransactionSessionTimeout):
+        return True
     if not isinstance(exc, (psycopg.OperationalError, psycopg.InterfaceError)):
         return False
     text = str(exc).lower()
