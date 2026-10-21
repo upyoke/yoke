@@ -27,11 +27,18 @@ so a table it creates stays convergeable by the serving build. The phase
 reads the catalog first and runs only the statements whose object is missing,
 so a release with no schema change takes no table locks; it commits one table
 at a time, so it never holds one table's lock while waiting on another's.
+Every run on one control plane converges the same database, so one driver
+at a time holds the release-start schema lock; a second driver waits, then
+finds every object present. A driver still waiting after two minutes refuses
+as `release_start_schema_lock_unavailable`, naming the run that holds the
+lock. A concurrent creation of the same object, such as by a booting server,
+is retried; one that persists refuses as
+`release_start_schema_convergence_failed` without blaming grants.
 Each statement waits at most the run-lock timeout; a busy table is retried
 with backoff and then refuses as `release_start_schema_lock_unavailable`,
 naming the table, and any other failure refuses as
-`release_start_schema_convergence_failed`, each naming the re-drive step,
-before anything about the run changes. A re-drive of a run that already
+`release_start_schema_convergence_failed`. Each refusal names the re-drive
+step and comes before anything about the run changes. A re-drive of a run that already
 started skips the phase: its first start converged the schema and its
 candidate is frozen. A driver relaying through HTTPS skips this step,
 because the serving build answers every call.
