@@ -39,7 +39,7 @@ def _wire(
         ladder, "independent_member_delivery_ready", lambda _c, **_kw: False
     )
     monkeypatch.setattr(ladder, "item_merge_identity", lambda _c, _i: merge_sha)
-    monkeypatch.setattr(ladder, "_project_id", lambda _c, _i: 1)
+    monkeypatch.setattr(ladder, "_item_delivery_context", lambda _c, _i: (1, None))
     monkeypatch.setattr(ladder, "succeeded_flow_runs", lambda _c, **_kw: list(runs))
     monkeypatch.setattr(
         ladder, "succeeded_persistent_runs", lambda _c, **_kw: list(persistent_runs)
