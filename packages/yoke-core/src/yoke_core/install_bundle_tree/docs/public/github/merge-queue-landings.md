@@ -18,11 +18,12 @@ status; nothing is armed or enqueued. Wait for the predecessor's landing
 notice, then re-run the same command. A gate that cannot be read refuses with
 `integration_dependency_gate_unavailable` rather than landing.
 
-The existing landing observer reads the registered pull request during relay
-upkeep. A waiting worker's `merge_queue.landing.observe` call returns the
-stored landing record without reading GitHub while that record is newer than
-two refresh intervals. When no relay sweep has kept it current, for example on
-a single-machine install with no relay running, the call refreshes the project
+A background job reads the registered pull request about once a minute, in
+the Yoke API server or, for a machine-local universe, in its standing relay.
+Relay claims never read GitHub. A waiting worker's
+`merge_queue.landing.observe` call returns the stored landing record without reading GitHub while that record is newer than
+two refresh intervals. When that job has not kept it current, for example on
+a machine-local universe with no relay running, the call refreshes the project
 from GitHub itself, so a merge is reported within about two refresh intervals. A recorded admission or a pending observation that GitHub armed or
 queued that same pull request requires a full queue read even after GitHub
 clears merge-when-ready. This distinguishes a stopped landing from a pull

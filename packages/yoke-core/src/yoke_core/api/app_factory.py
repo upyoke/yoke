@@ -83,8 +83,11 @@ def create_app() -> FastAPI:
         register_all_handlers()
         await attest_github_app_runtime_identity_with_hard_deadline()
         from yoke_core.api.health_refresh import health_refresh_lifespan
+        from yoke_core.domain.pending_github_observation_job import (
+            pending_github_observation_job,
+        )
 
-        with health_refresh_lifespan():
+        with health_refresh_lifespan(), pending_github_observation_job():
             yield
 
     build_sha = os.environ.get("YOKE_BUILD_SHA", "")

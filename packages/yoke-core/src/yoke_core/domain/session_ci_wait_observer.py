@@ -4,7 +4,9 @@ A session dispatches a CI run through a watcher, ends its turn, and the
 watcher dies with it. Nothing in that process survives to read the
 conclusion, so the verdict the session stopped for reaches it only if
 something on the control-plane side goes and gets it. That is this sweep:
-relay upkeep calls it on every poll, it reads each pending wait's run, and
+the pending GitHub observation job calls it once a minute
+(:mod:`yoke_core.domain.pending_github_observation_job`), it reads each
+pending wait's run, and
 a concluded run becomes one message carrying the verdict
 (:mod:`yoke_core.domain.session_ci_wait_notice`).
 
@@ -15,7 +17,7 @@ already received success or failure marks the wait notified, so this sweep
 must not send that session the result it printed. A run whose conclusion is
 already recorded is never read again — only its notice is retried. And no
 single run is read more often than the shared GitHub poll floor, so a fast
-relay cadence cannot turn a handful of waits into a rate-limit budget.
+job cadence cannot turn a handful of waits into a rate-limit budget.
 """
 
 from __future__ import annotations
