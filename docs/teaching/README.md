@@ -25,23 +25,22 @@ that shared page so independent model edits can land together.
 
 ### Human reading view
 
-Open `views/explore/index.html` after building to browse context sources by
-when they enter the journey: Start, Enter a session, and Work. Each source
-opens its own surface tree; each teaching has a separate detail page with
-status, evidence and a link to its canonical JSON. The command-help source
-has a command tree derived from model references, validated against the live
-registry. Topics also open one level at a time; large lists are paginated.
+Open `views/explore/index.html` after building for the single-page context
+map. Drag to pan, scroll to zoom, or click a node to focus it. Zooming reveals
+nested sources, surfaces, teachings, command branches and concept branches
+in place; leaf detail loads the canonical record. Whole map and Up one level
+move the camera without opening another page.
 
-This reading view is being reviewed alongside the research catalogue. Its
-source groups are editorial navigation in `tools/explorer_sources.py`, not
-new teaching authorities. New surfaces must be assigned to a group; the
-build reports `EXPLORER_SOURCE` otherwise. Superseded proposals stay under
-Earlier proposals. Availability never establishes actual context receipt.
+Source groups in `tools/explorer_sources.py` are editorial navigation, not
+new authorities. New surfaces must be assigned to a group; the build reports
+`EXPLORER_SOURCE` otherwise. Node status stays attached, including superseded
+proposals. Availability never establishes actual context receipt.
 
-Serve the checkout root over loopback to review source links as well as the
-generated pages: `python3 -m http.server 8765 --bind 127.0.0.1` from the
-checkout, then open `/docs/teaching/views/explore/index.html`. This is a local
-design review; it does not publish the prototype or prove product delivery.
+Serve the checkout root over loopback: `python3 -m http.server 8765 --bind
+127.0.0.1` from the checkout, then open
+`/docs/teaching/views/explore/index.html`. This is a local design review, not
+product-delivery proof. Search highlighting across related context chains is
+reserved for after the operator locks the map structure.
 
 ### Source access
 
