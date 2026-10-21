@@ -174,7 +174,7 @@ def test_a_selection_at_the_share_threshold_is_full_ci_work(tmp_path) -> None:
     reason = sizing.selection_estimate(root, ["picked/"]).full_ci_reason
 
     assert reason.startswith("selection_exceeds_full_ci_share: ")
-    assert "10% of the suite's 10000s" in reason
+    assert f"{sizing.FULL_CI_SHARE:.0%} of the suite's 10000s" in reason
 
 
 def test_a_near_full_selection_is_full_ci_work(tmp_path) -> None:

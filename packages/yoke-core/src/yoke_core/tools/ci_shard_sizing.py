@@ -31,9 +31,11 @@ from yoke_core.tools.ci_shards import DURATIONS_PATH, SHARD_COUNT
 MIN_SHARD_PROFILE_SECONDS = 60.0
 
 # A selection at or above this share of the suite's profiled seconds is full
-# CI's work: it saves too little runner time to be worth a second run beside
-# the full suite every pull request already gets.
-FULL_CI_SHARE = 0.70
+# CI's work: it saves too little wall and runner time to be worth a second run
+# beside the full suite every pull request already gets. Measured on the shared
+# layout against a 16.4-minute full CI median: a 4% selection took 6.2 minutes
+# and a 68% selection 14.7 minutes, so half the suite still finishes well ahead.
+FULL_CI_SHARE = 0.50
 
 
 def normalize_profile_target(root: Path, target: str) -> str | None:

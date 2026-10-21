@@ -112,7 +112,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
             "Before pushing, it also defers to full CI: while the project's "
             "full CI run for the same commit is running or green it creates "
             "no selection run and follows that run instead; a selection at "
-            "or above 10% of the suite's profiled seconds, or no faster than "
+            "or above 50% of the suite's profiled seconds, or no faster than "
             "full CI, is refused with the full gate's command. Run selections "
             "before the QA case, never after. "
             "Filtered -k/-m and --collect-only runs remain available. "
