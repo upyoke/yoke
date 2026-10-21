@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 
 from runtime.api.domain.test_qa_release_channel_target import _target
 from yoke_cli.config import (
@@ -20,6 +21,7 @@ from yoke_core.domain.installer_campaign_execution_target import (
 from yoke_core.domain.installer_campaign_machine_admission_recipes import (
     ADMISSION_TEXT,
     APPROVAL_TEXT,
+    INVITE_SCREEN_TEXT,
     LOCAL_NOTICE,
     TEAM_SERVER_TEXT,
 )
@@ -124,6 +126,14 @@ def test_journeys_wait_for_the_screens_setup_actually_shows() -> None:
         f'SelectionRow(\n                        "{value}",' in admission
         for value in ("own", "invite")
     )
-    assert "Enter invite code." in admission and "The invite is a secret." in admission
+    assert f'"connect.invite_code",\n            STEP_CONNECT,\n            "{INVITE_SCREEN_TEXT}",' in admission
+    # A prompt's guidance is never drawn, so no journey may wait for it.
+    guidance = re.findall(
+        r'guidance="([^"]+)"', "\n".join((team_server, admission, approval))
+    )
+    for case in _admission():
+        for action in case["method_config"]["actions"]:
+            for marker in action.get("ready_text", ()):
+                assert not any(marker in text for text in guidance), marker
     assert APPROVAL_TEXT[0] in approval
     assert LOCAL_REACHABILITY_NOTICE.startswith(LOCAL_NOTICE)

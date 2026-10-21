@@ -196,11 +196,11 @@ The fixture never approves, invites a machine or redeems anything; the gates do.
 machines, active credentials, linked identities and consumed teammate invites
 with the baseline recorded at start: `owner-admitted`, `teammate-admitted`
 (an org role for the teammate and, on `self-hosted`, exactly one invite
-consumed by the new machine) or
-`nothing-admitted`.
-A mismatch fails as `machine_admission_state_mismatch` with the changed rows;
-start, birth and cleanup failures name their reason and recovery in the
-operation row. Cleanup stops the server, removes the cluster and the root.
+consumed by the new machine) or `nothing-admitted`. A mismatch fails as
+`machine_admission_state_mismatch` with the changed rows and
+`new_issued_invites` (0 means the invite never reached this universe), and the
+case keeps the journey's evidence; other failures name reason and recovery in
+the operation row. Cleanup stops the server, removes the cluster and root.
 
 ## Machine admission journeys
 

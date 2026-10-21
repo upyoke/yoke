@@ -15,6 +15,7 @@ from yoke_core.domain.installer_campaign_machine_admission_recipes import (
     AGENT_REACHED,
     COMPANY,
     COMPANY_STEP,
+    INVITE_SCREEN_TEXT,
     INVITE_STEP,
     LOCAL_HOME,
     LOCAL_NOTICE,
@@ -91,9 +92,7 @@ TEAMMATE_INVITE_HUMAN = wizard_case(
         transition(
             "enter-invite", *CHOOSE_BACKLOG_KEYS, ready_text=("Enter invite code",)
         ),
-        action(
-            "invite-code", ready_text=("Enter invite code.", "The invite is a secret.")
-        ),
+        action("invite-code", ready_text=(INVITE_SCREEN_TEXT,)),
         agent_gate(
             "teammate-enters-invite", ADMISSION_INVITE_ENTRY, MACHINE_GITHUB_TEXT[0]
         ),
@@ -122,10 +121,7 @@ TEAMMATE_INVITE_AGENT = agent_case(
         transition(
             "handoff-invite", *CHOOSE_BACKLOG_KEYS, ready_text=("Enter invite code",)
         ),
-        action(
-            "handoff-invite-code",
-            ready_text=("Enter invite code.", "The invite is a secret."),
-        ),
+        action("handoff-invite-code", ready_text=(INVITE_SCREEN_TEXT,)),
         agent_gate(
             "teammate-redeems-privately", ADMISSION_INVITE_ENTRY, MACHINE_GITHUB_TEXT[0]
         ),
