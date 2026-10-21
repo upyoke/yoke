@@ -25,24 +25,9 @@ from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import done_transition_deploy_reads as reads
 
 
-def _apply_deploy_schema() -> None:
-    """Full core schema + the deployment_runs tables the guards read."""
-    from yoke_core.domain import deployment_runs_schema, schema
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_seed_test_helpers import seed_project_identities
-
-    schema.cmd_init()
-    conn = connect()
-    try:
-        seed_project_identities(conn)
-    finally:
-        conn.close()
-    deployment_runs_schema.cmd_init()
-
-
 @pytest.fixture
 def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    with init_test_db(tmp_path, _apply_deploy_schema) as db_path:
+    with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         yield db_path
 

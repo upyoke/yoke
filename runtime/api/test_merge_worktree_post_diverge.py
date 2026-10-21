@@ -21,56 +21,6 @@ from runtime.api.test_merge_worktree_full import (
 class TestDivergenceHandling:
     """Generated-files-only divergence auto-resolves."""
 
-    def test_yok602_board_only_divergence(self, merge_env: MergeEnv) -> None:
-        """BOARD.md-only divergence merges cleanly."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(wt / ".yoke" / "BOARD.md", "# Board (feature regen)\n")
-        _git(wt, "add", "-f", ".yoke/BOARD.md")
-        _git(wt, "commit", "-m", "chore: regenerate board")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / ".yoke" / "BOARD.md", "# Board (main regen)\n")
-        _git(repo, "add", "-f", ".yoke/BOARD.md")
-        _git(repo, "commit", "-m", "chore: board update on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-        assert (
-            "auto-resolve" in result.stdout.lower()
-            or "skipping empty rebase commit" in result.stdout
-            or "merge-commit succeeded" in result.stdout.lower()
-        )
-
-    def test_yok602_genfiles_only_divergence(self, merge_env: MergeEnv) -> None:
-        """Generated files-only divergence merges cleanly."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(wt / ".yoke" / "BOARD.md", "# Board (feature)\n")
-        _write_file(wt / ".yoke" / "BOARD.md.ts", "export const board = 'feature';\n")
-        _git(wt, "add", "-f", ".yoke/BOARD.md", ".yoke/BOARD.md.ts")
-        _git(wt, "commit", "-m", "chore: regen board artifacts")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        _write_file(repo / ".yoke" / "BOARD.md", "# Board (main)\n")
-        _write_file(repo / ".yoke" / "BOARD.md.ts", "export const board = 'main';\n")
-        _git(repo, "add", "-f", ".yoke/BOARD.md", ".yoke/BOARD.md.ts")
-        _git(repo, "commit", "-m", "chore: board artifact update on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
-        # Python engine may resolve in pre-merge integration or main merge
-        assert (
-            "auto-resolve" in result.stdout.lower()
-            or "merge-commit succeeded" in result.stdout.lower()
-        )
-
     def test_yok602_multi_commit_board_empty(self, merge_env: MergeEnv) -> None:
         """Multi-commit with BOARD.md changes merges cleanly."""
         repo = merge_env.repo

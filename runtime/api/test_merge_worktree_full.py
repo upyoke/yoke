@@ -217,11 +217,10 @@ def merge_env(tmp_path: Path, request) -> MergeEnv:
 
     from yoke_core.domain import db_backend
 
-    from runtime.api.fixtures.file_test_db import init_test_db
+    from runtime.api.fixtures.file_test_db import apply_booted_schema, init_test_db
     from runtime.api.merge_worktree_test_repository import copy_repository
-    from yoke_core.domain.environment_bootstrap import run_bootstrap
 
-    database = init_test_db(tmp_path, apply_schema=run_bootstrap)
+    database = init_test_db(tmp_path, apply_schema=apply_booted_schema)
     database.__enter__()
     request.addfinalizer(lambda: database.__exit__(None, None, None))
     copy_repository(tmp_path, request, TEST_BRANCH)

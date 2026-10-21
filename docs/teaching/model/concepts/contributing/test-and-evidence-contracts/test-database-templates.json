@@ -1,9 +1,9 @@
 {
  "id": "test-database-templates",
- "title": "Stable production-schema templates, reset isolation and per-test seeds",
+ "title": "Stable production-schema templates, seeded clones, reset isolation and per-test seeds",
  "status": "observed",
  "audience": "Maintainers",
- "sources": ["docs/testing-verification/test-database-templates.md", "runtime/api/fixtures/file_test_db.py", "runtime/api/fixtures/production_schema.py", "runtime/api/test_fixture_schema_ddl_apply.py", "runtime/api/fixtures/pg_reusable_db.py", "runtime/api/fixtures/test_file_test_db_templates.py", "runtime/api/test_sessions.py", "runtime/api/sessions_api_stale_test_helpers.py", "runtime/api/merge_worktree_test_repository.py", "runtime/api/domain/_path_snapshots_test_helpers.py", "runtime/api/domain/test_epic_amend.py"],
+ "sources": ["docs/testing-verification/test-database-templates.md", "runtime/api/fixtures/file_test_db.py", "runtime/api/fixtures/production_schema.py", "runtime/api/test_fixture_schema_ddl_apply.py", "runtime/api/fixtures/pg_reusable_db.py", "runtime/api/fixtures/test_file_test_db_templates.py", "runtime/api/test_sessions.py", "runtime/api/sessions_api_stale_test_helpers.py", "runtime/api/merge_worktree_test_repository.py", "runtime/api/domain/_path_snapshots_test_helpers.py", "runtime/api/domain/test_epic_amend.py", "runtime/api/test_backlog.py", "runtime/api/domain/_universe_import_test_helpers.py"],
  "page": "test-and-evidence-contracts",
  "position": 7
 }

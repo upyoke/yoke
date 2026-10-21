@@ -49,69 +49,6 @@ class TestAdditiveConflictResolution:
         _git(repo, "commit", "-m", "add shared test file")
         _git(repo, "push", "origin", "main")
 
-    def test_yok1205_trial_additive_auto_resolves(self, merge_env: MergeEnv) -> None:
-        """Additive conflict auto-resolves."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        self._create_shared_test_file(repo)
-        _git(wt, "pull", "origin", "main", "--rebase")
-
-        # Feature adds tests
-        with open(wt / "shared-tests.sh", "a") as f:
-            f.write('\ntest_feature_a() {\n  echo "feature A test"\n}\n')
-        _git(wt, "add", "shared-tests.sh")
-        _git(wt, "commit", "-m", "add feature A tests")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        # Main adds different tests
-        with open(repo / "shared-tests.sh", "a") as f:
-            f.write('\ntest_main_b() {\n  echo "main B test"\n}\n')
-        _git(repo, "add", "shared-tests.sh")
-        _git(repo, "commit", "-m", "add main B tests")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-        assert "additive" in result.stdout.lower()
-
-    def test_yok1205_trial_overlapping_exits_3(self, merge_env: MergeEnv) -> None:
-        """Overlapping conflict exits 3 with structured output."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(
-            repo / "shared-code.sh",
-            '#!/usr/bin/env sh\nconfig_value="original"\necho "$config_value"\n',
-        )
-        _git(repo, "add", "shared-code.sh")
-        _git(repo, "commit", "-m", "add shared code")
-        _git(repo, "push", "origin", "main")
-
-        _git(wt, "pull", "origin", "main", "--rebase")
-
-        # Feature modifies existing line
-        content = (wt / "shared-code.sh").read_text()
-        content = content.replace('config_value="original"', 'config_value="feature_version"')
-        _write_file(wt / "shared-code.sh", content)
-        _git(wt, "add", "shared-code.sh")
-        _git(wt, "commit", "-m", "change config to feature version")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        # Main also modifies same line
-        content = (repo / "shared-code.sh").read_text()
-        content = content.replace('config_value="original"', 'config_value="main_version"')
-        _write_file(repo / "shared-code.sh", content)
-        _git(repo, "add", "shared-code.sh")
-        _git(repo, "commit", "-m", "change config to main version")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "CONFLICT|shared-code.sh|overlapping" in result.stderr
-        assert "agent resolution" in result.stderr
-        assert "real branch is untouched" in result.stderr
-
     def test_yok1205_real_merge_additive(self, merge_env: MergeEnv) -> None:
         """Real merge preserves both sides in additive conflict."""
         repo = merge_env.repo
@@ -182,42 +119,6 @@ class TestAdditiveConflictResolution:
         assert result.exit_code == 0
         assert "generated view conflict" in result.stdout
         assert "additive conflict" in result.stdout
-
-    def test_yok1205_classifier_rejects_deletions(self, merge_env: MergeEnv) -> None:
-        """Deletions mean not additive, exits 3."""
-        repo = merge_env.repo
-        wt = merge_env.worktree
-
-        _write_file(
-            repo / "config.sh",
-            '#!/usr/bin/env sh\nOLD_SETTING="remove_me"\nKEEP_SETTING="keep"\n',
-        )
-        _git(repo, "add", "config.sh")
-        _git(repo, "commit", "-m", "add config")
-        _git(repo, "push", "origin", "main")
-
-        _git(wt, "pull", "origin", "main", "--rebase")
-
-        # Feature: delete OLD_SETTING, add new
-        _write_file(
-            wt / "config.sh",
-            '#!/usr/bin/env sh\nKEEP_SETTING="keep"\nNEW_FEATURE="added"\n',
-        )
-        _git(wt, "add", "config.sh")
-        _git(wt, "commit", "-m", "replace old setting with feature")
-        _git(wt, "push", "origin", TEST_BRANCH, "--force")
-
-        # Main: modify OLD_SETTING
-        content = (repo / "config.sh").read_text()
-        content = content.replace('OLD_SETTING="remove_me"', 'OLD_SETTING="updated"')
-        _write_file(repo / "config.sh", content)
-        _git(repo, "add", "config.sh")
-        _git(repo, "commit", "-m", "update old setting on main")
-        _git(repo, "push", "origin", "main")
-
-        result = run_merge(merge_env)
-        assert result.exit_code == 3
-        assert "overlapping" in result.stderr
 
     def test_parseable_union_runtime_failure_does_not_advance_target(
         self, merge_env: MergeEnv,

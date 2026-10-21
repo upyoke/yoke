@@ -15,7 +15,6 @@ from yoke_core.domain.schema_common import (
     _get_columns,
     _get_columns_with_types,
     _get_indexes,
-    _table_create_sql,
     _table_exists,
 )
 from yoke_core.domain.schema_init_tables import create_path_registry_tables
@@ -91,12 +90,6 @@ class TestSchema:
         ).lower()
         assert "kind text not null check" not in constraints
         assert "check(kind in" not in constraints
-
-    def test_path_targets_has_no_autoincrement(self, fresh_db):
-        ddl = _table_create_sql(fresh_db, "path_targets")
-        if ddl is None:
-            pytest.skip("AUTOINCREMENT is SQLite DDL text, not a Postgres catalog fact")
-        assert "AUTOINCREMENT" not in ddl.upper()
 
     def test_path_targets_no_timestamp_defaults(self, fresh_db):
         for column in ("created_at", "materialization_updated_at"):

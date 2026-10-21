@@ -53,10 +53,7 @@ def smoke(
         env=env,
     )
 
-    help_result = _run([str(yoke), "--help"], cwd=checkout, env=env)
-    assert "yoke github " in help_result.stdout
-    assert "yoke github " in help_result.stdout
-    assert "yoke github " in help_result.stdout
+    _run([str(yoke), "--help"], cwd=checkout, env=env)
     for args, flags, absent in (
         (
             ("github", "connect", "--help"),

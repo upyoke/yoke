@@ -101,7 +101,6 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_inventory.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
     "runtime/api/test_parity_db_router_item_list.py",
-    "runtime/api/test_parity_render.py",
     "runtime/api/test_service_client_item_list.py",
     "runtime/api/test_service_client_items.py",
 )

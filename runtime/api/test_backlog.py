@@ -24,6 +24,7 @@ from runtime.api.fixtures.file_test_db import (
     apply_test_schema,
     connect_test_db,
     init_test_db,
+    seeded_schema,
 )
 
 
@@ -32,8 +33,8 @@ from runtime.api.fixtures.file_test_db import (
 # ---------------------------------------------------------------------------
 
 
-def _apply_backlog_fixture_schema() -> None:
-    """Build the fixture schema, project identities and canonical human.
+def _seed_backlog_fixture() -> None:
+    """Seed project identities, the canonical human and its owner role.
 
     Database permissions belong to the template baseline. The consuming
     fixture records its machine-local operating actor after every checkout.
@@ -49,7 +50,6 @@ def _apply_backlog_fixture_schema() -> None:
         seed_project_identities,
     )
 
-    apply_test_schema()
     conn = db_backend.connect()
     try:
         seed_project_identities(conn)
@@ -64,6 +64,9 @@ def _apply_backlog_fixture_schema() -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+_apply_backlog_fixture_schema = seeded_schema(apply_test_schema, _seed_backlog_fixture)
 
 
 @pytest.fixture

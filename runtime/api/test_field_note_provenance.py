@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import schema
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.file_test_db import init_test_db
@@ -29,7 +28,6 @@ from yoke_core.domain.ouroboros_entries import get_entry_row, list_entry_rows
 from yoke_core.domain.ouroboros_field_note_provenance import DEFAULT_AUTHOR
 from yoke_core.domain.project_seed_test_helpers import (
     SEED_PROJECT_IDS,
-    seed_project_identities,
 )
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_contracts.api.function_call import (
@@ -47,21 +45,12 @@ SESSION_PROJECT = "yoke"
 EXTERNAL_PROJECT = "externalwebapp"
 
 
-def _apply_isolated_db_schema() -> None:
-    schema.cmd_init()
-    conn = connect()
-    try:
-        seed_project_identities(conn)
-    finally:
-        conn.close()
-
-
 @pytest.fixture
 def isolated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Fresh schema with the baseline project rows the session row needs."""
 
 
-    with init_test_db(tmp_path, apply_schema=_apply_isolated_db_schema) as db_path:
+    with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         # A born local universe records its operating actor, which is the
         # actor a note from an unregistered session is written as.

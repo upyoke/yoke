@@ -33,10 +33,8 @@ from yoke_core.domain.migration_apply_contract import (
 from yoke_core.domain.migration_apply_resolve import (
     _load_migration_module,
 )
-from yoke_core.domain.migration_history import (
-    resolve_migration_path,
-    validate_psycopg_migration_sql,
-)
+from yoke_core.domain.migration_history import resolve_migration_path
+from yoke_core.domain.migration_psycopg_sql import validate_psycopg_migration_sql
 from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
 )

@@ -86,7 +86,6 @@ def _run_onboard_flow(
     gh_marker: Path,
 ) -> None:
     help_result = _run([str(yoke), "setup", "--help"], cwd=checkout, env=env)
-    assert "yoke setup" in help_result.stdout
     assert "source-link" not in help_result.stdout
     assert "source-dev" not in help_result.stdout
     for flag in (

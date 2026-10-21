@@ -1,8 +1,7 @@
 """Shared service-client subprocess helper for parity tests.
 
 The parity tests proper live in split sibling modules
-(``test_parity_render``, ``test_parity_render_board``,
-``test_parity_db_router_*``, ``test_parity_service_client_*``). Their strict
+(``test_parity_db_router_*``, ``test_parity_service_client_*``). Their strict
 project-identity schemas and seed data live in
 ``parity_service_client_project_fixture`` and
 ``parity_db_router_test_fixtures``. This module intentionally only exports

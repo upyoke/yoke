@@ -109,7 +109,9 @@ a local build. Without this variable, local tests retain their existing
 locked, per-run build. Repository contracts and portable-wheel construction
 remain required on reused trees; pytest and its per-job installations are skipped.
 
-Wheel smokes share one session virtual environment, synchronized across xdist
+Every file that uses `product_venv` or `product_wheelhouse` is scheduled as
+one unit, so a single shard pays the product installation. Wheel smokes share
+one session virtual environment, synchronized across xdist
 workers with a file lock. The fixture proves the core-only dependency closure
 before installing the client, and creates its completion sentinel last.
 Each scenario retains its own checkout, machine configuration, environment,

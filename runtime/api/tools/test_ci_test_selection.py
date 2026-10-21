@@ -69,3 +69,19 @@ def test_short_expensive_files_start_before_long_cheap_files():
     )
     selection._FileSplitter(splitter).pytest_collection_modifyitems(config, items)
     assert items == [expensive, *cheap]
+
+
+def test_product_wheel_files_share_one_shard():
+    wheel = [
+        _item(f"tests/test_wheel_{name}.py::test_case", ["product_venv"])
+        for name in "ab"
+    ] + [_item("tests/test_wheel_c.py::test_case", ["product_wheelhouse"])]
+    plain = [_item(f"tests/test_plain_{name}.py::test_case") for name in "ab"]
+    items = wheel + plain
+    durations = {item.nodeid: 5 for item in items}
+    groups = [selection.file_group(items, durations, 3, n)[0] for n in (1, 2, 3)]
+    wheel_files = {item.nodeid.split("::", 1)[0] for item in wheel}
+    assert [group for group in groups if group & wheel_files] == [wheel_files]
+    assert set().union(*groups) == wheel_files | {
+        "tests/test_plain_a.py", "tests/test_plain_b.py"
+    }

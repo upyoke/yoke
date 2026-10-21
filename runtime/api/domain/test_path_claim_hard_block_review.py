@@ -13,29 +13,9 @@ from typing import Iterator
 
 import pytest
 
-from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
-from yoke_core.domain import db_backend
 from yoke_core.domain import path_claim_hard_block_review as review
-from yoke_core.domain import schema, shepherd_init
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-
-
-def _apply_canonical_schema() -> None:
-    """Build the full production schema + shepherd tables on the test DB.
-
-    Zero-arg ``apply_schema`` strategy for :func:`init_test_db`:
-    ``schema.cmd_init`` resolves its own connection from the repointed
-    ``YOKE_PG_DSN``, then ``shepherd_init`` layers its tables
-    (``item_dependencies`` etc.) onto a backend-factory connection.
-    """
-    schema.cmd_init()
-    conn = db_backend.connect()
-    try:
-        seed_project_identities(conn)
-        shepherd_init.cmd_init(conn)
-    finally:
-        conn.close()
 
 
 def _open(db_path: str):
@@ -103,7 +83,7 @@ def _insert_item(
 
 @pytest.fixture
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict]:
-    with init_test_db(tmp_path, apply_schema=_apply_canonical_schema) as db_path:
+    with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         conn = _open(db_path)
         try:

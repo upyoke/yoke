@@ -249,36 +249,3 @@ def item_query_env():
     with init_test_db(Path(tmp_dir), apply_schema=_apply_item_query_schema) as db_path:
         yield {"db_path": db_path, "tmp_dir": tmp_dir}
     shutil.rmtree(tmp_dir, ignore_errors=True)
-
-
-# ---------------------------------------------------------------------------
-# parity_env — render-parity fixture (test_parity_render, test_parity_render_board)
-# ---------------------------------------------------------------------------
-#
-# The render parity modules compare the FastAPI API surface against the
-# service_client.py subprocess over one shared dataset. Both surfaces resolve
-# their connection through the backend factory, so a single per-test database —
-# a disposable Postgres database — backs BOTH: the API dependency overrides read
-# it, and the subprocess inherits the same repointed DSN. There is no separate
-# seeded database and no startup-gate decoy; parity is measured against one
-# authority.
-#
-# The builder is ``make_read_parity_env``, shared with the
-# test_parity_service_client_* cluster; it applies the strict project-identity
-# parity fixture from ``parity_service_client_project_fixture``.
-
-
-@pytest.fixture()
-def parity_env():
-    """Postgres-backed render-parity environment.
-
-    Yields ``{"db_path", "tmp_dir", "client"}`` from :func:`make_read_parity_env`
-    so the in-process FastAPI ``TestClient`` and the service_client subprocess
-    read the same disposable per-test Postgres database.
-    """
-    from runtime.api.parity_service_client_test_helpers import (
-        make_read_parity_env,
-    )
-
-    with make_read_parity_env() as env:
-        yield env

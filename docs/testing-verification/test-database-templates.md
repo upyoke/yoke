@@ -43,6 +43,16 @@ removing a task must retire its file scope and bindings in the same transaction.
 Session creation supplies explicit project authority; source CLI tests must map
 the workspace or pass the resolved project ID to the lifecycle helper.
 
+A flavor that only adds rows or tables to an existing schema starts from that
+schema's template. Bind `seeded_schema(apply_test_schema, seed)` or
+`seeded_schema(apply_booted_schema, seed)` at module level: its template is a
+clone of the base template, and only `seed` runs when it is built. A fixture
+that needs nothing beyond `schema.cmd_init` and the baseline test projects
+uses the default flavor instead of rebuilding the same schema.
+`apply_booted_schema` runs the production init chain without test seeds; use
+it, or `booted_universe_database()` for a fresh disposable clone, where a test
+needs a born universe rather than the test projects.
+
 Other schema callables retain separate flavors by callable identity.
 Different functions with the same name remain separate. Callable objects and
 closures retain their identity for the worker's lifetime. Use a distinct
@@ -99,9 +109,9 @@ built once per test module. Each copy rewrites its Git pointers and origin
 URL to its own directory. Automatic maintenance and garbage collection are
 disabled in the template's repository and bare origin so a background Git
 process cannot change files while the template is copied. Database setup
-templates the complete production `environment_bootstrap.run_bootstrap` chain,
-including domain tables such as `item_dependencies`; `schema.cmd_init` alone
-supplies only the shared core. Per-test project, machine and merge-item seeds
+uses the booted template — the complete production init chain, including
+domain tables such as `item_dependencies`; `schema.cmd_init` alone supplies
+only the shared core. Per-test project, machine and merge-item seeds
 still use each test's paths.
 
 Use the watcher for focused checks and record CI's shard wall times when

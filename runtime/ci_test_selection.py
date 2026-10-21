@@ -5,13 +5,17 @@ from dataclasses import dataclass
 
 import pytest
 
+#: Tests using the installed product environment. Their files share one
+#: shard so the product install that ``product_venv`` builds runs once.
+PRODUCT_WHEEL_FIXTURES = frozenset({"product_venv", "product_wheelhouse"})
+PRODUCT_WHEEL_UNIT = "product wheel files"
+
 
 def version_independent(node_id: str, fixtures=()) -> bool:
     path = node_id.split("::", 1)[0]
     name = path.rsplit("/", 1)[-1]
     return (
-        "product_wheelhouse" in fixtures
-        or "product_venv" in fixtures
+        not PRODUCT_WHEEL_FIXTURES.isdisjoint(fixtures)
         or path.startswith("tests/teaching_prototype/")
         or name.endswith("_docs.py")
         or "_teaching" in name
@@ -69,14 +73,30 @@ def file_weights(items, durations):
     return weights
 
 
+def scheduling_units(items):
+    """Map each file to its indivisible unit: itself, or the product wheel files."""
+    units = {}
+    for item in items:
+        filename = item.nodeid.split("::", 1)[0]
+        units.setdefault(filename, filename)
+        if not PRODUCT_WHEEL_FIXTURES.isdisjoint(item.fixturenames):
+            units[filename] = PRODUCT_WHEEL_UNIT
+    return units
+
+
 def file_group(items, durations, splits, group):
     """Reuse least-duration scheduling with indivisible file fixture groups."""
     from pytest_split.algorithms import LeastDurationAlgorithm
 
-    weights = file_weights(items, durations)
-    files = [_File(name) for name in weights]
-    selected = LeastDurationAlgorithm()(splits, files, weights)[group - 1]
-    names = {file.nodeid for file in selected.selected}
+    units = scheduling_units(items)
+    weights = {}
+    for filename, weight in file_weights(items, durations).items():
+        weights[units[filename]] = weights.get(units[filename], 0) + weight
+    selected = LeastDurationAlgorithm()(
+        splits, [_File(unit) for unit in weights], weights
+    )[group - 1]
+    chosen = {unit.nodeid for unit in selected.selected}
+    names = {filename for filename, unit in units.items() if unit in chosen}
     return names, selected.duration
 
 

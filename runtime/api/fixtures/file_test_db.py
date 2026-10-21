@@ -7,6 +7,11 @@ that same template. Other callables retain their own schema and seed data.
 Tests receive reusable clones reset after checkout. Nested contexts receive
 independent template clones that are dropped on exit.
 
+:func:`seeded_schema` builds a flavor from a clone of a base flavor's template,
+so seeds over the production or booted schema never replay initialization.
+:func:`booted_universe_database` clones the booted template for tests that
+need a production-booted universe without test seeds.
+
 ``YOKE_PG_DSN`` points at the checkout only for its context's lifetime.
 :func:`connect_test_db` opens that native authority; the yielded path token
 passes through consumers but does not select a database. Per-test machine
@@ -57,6 +62,39 @@ def _apply_production_schema() -> None:
         conn.close()
 
 
+def apply_booted_schema() -> None:
+    """Initialize through the production chain only, without test seeds."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
+
+    run_init_chain_at_dsn(os.environ[db_backend.PG_DSN_ENV], emit=lambda _line: None)
+
+
+class _SeededSchema:
+    """A flavor whose template clones *base*'s template, then applies *seed*."""
+
+    def __init__(self, base, seed):
+        self.base = base
+        self.seed = seed
+        self.__module__ = seed.__module__
+        self.__qualname__ = seed.__qualname__
+
+    def __call__(self) -> None:
+        _schema_strategy(self.base)()
+        self.seed()
+
+
+def seeded_schema(base, seed):
+    """Return a flavor built as a clone of *base*'s template plus *seed*.
+
+    *base* is ``apply_test_schema``, ``apply_booted_schema`` or another
+    flavor. Only *seed* runs when the template is built; calling the flavor
+    directly applies *base* and then *seed*. Bind the result at module level:
+    its identity is the flavor.
+    """
+    return _SeededSchema(base, seed)
+
+
 def _schema_strategy(apply_schema):
     from yoke_core.domain import schema
 
@@ -75,10 +113,15 @@ def _schema_template_db(strategy) -> str:
 
     key = id(strategy)
     if key not in _SCHEMA_TEMPLATES:
-        name = pg_testdb.create_test_database(pooled=False)
+        build = strategy
+        base = None
+        if isinstance(strategy, _SeededSchema):
+            build = strategy.seed
+            base = _schema_template_db(_schema_strategy(strategy.base))
+        name = pg_testdb.create_test_database(template=base, pooled=False)
         try:
             with _repointed_dsn(name):
-                strategy()
+                build()
         except BaseException:
             pg_testdb.drop_test_database(name, pooled=False)
             raise
@@ -129,6 +172,20 @@ def init_test_db(tmp_path: Path, apply_schema=None):
         finally:
             if reusable is None:
                 pg_testdb.drop_test_database(name)
+
+
+@contextlib.contextmanager
+def booted_universe_database() -> Iterator[str]:
+    """Yield a fresh clone of the booted-universe template, dropped on exit."""
+    from runtime.api.fixtures import pg_testdb
+
+    name = pg_testdb.create_test_database(
+        template=_schema_template_db(apply_booted_schema)
+    )
+    try:
+        yield name
+    finally:
+        pg_testdb.drop_test_database(name)
 
 
 def apply_empty_schema() -> None:
@@ -183,11 +240,14 @@ def connect_test_db(path: str):
 
 
 __all__ = [
+    "apply_booted_schema",
     "apply_test_schema",
     "apply_empty_schema",
     "apply_inline_ddl",
     "apply_sql_script",
+    "booted_universe_database",
     "connect_test_db",
     "init_test_db",
     "iter_sql_script_statements",
+    "seeded_schema",
 ]

@@ -11,31 +11,10 @@ import contextlib
 import pytest
 from pathlib import Path
 
-from yoke_core.domain import db_backend, schema, shepherd
+from yoke_core.domain import db_backend
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-
-
-def _apply_render_body_schema() -> None:
-    """``apply_schema`` strategy for the render_body suites.
-
-    The legacy helper built the schema in two steps: ``schema.cmd_init()`` for
-    the production tables, then ``shepherd.cmd_init(conn)`` for the shepherd /
-    dependency tables this family exercises. Both initialization paths now use
-    backend-aware schema helpers, so the fixture does not install compatibility
-    introspection objects.
-    """
-    from yoke_core.domain import db_backend
-
-    schema.cmd_init()
-    conn = db_backend.connect()
-    try:
-        seed_project_identities(conn)
-        shepherd.cmd_init(conn)
-    finally:
-        conn.close()
 
 
 @contextlib.contextmanager
@@ -47,7 +26,7 @@ def _init_db(tmp_path: Path):
     DB operation (connect, seed, render) must therefore run inside the ``with``
     block.
     """
-    with init_test_db(tmp_path, apply_schema=_apply_render_body_schema) as path:
+    with init_test_db(tmp_path) as path:
         yield path
 
 

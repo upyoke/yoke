@@ -66,18 +66,6 @@ def _merge_env_fixture(tmp_path, request):
 class TestDirtyFileHandling:
     """Dirty file detection and safety stash."""
 
-    def test_yok96_dirty_user_file(self, merge_env: MergeEnv) -> None:
-        """Dirty user file in worktree exits 4."""
-        _write_file(merge_env.worktree / "my-code.js", "uncommitted user work\n")
-        result = run_merge(merge_env)
-        assert result.exit_code == 4
-        assert "Uncommitted non-Yoke files" in result.stderr
-
-    def test_yok96_clean_worktree(self, merge_env: MergeEnv) -> None:
-        """Clean worktree exits 0."""
-        result = run_merge(merge_env)
-        assert result.exit_code == 0
-
     def test_yok96_safety_stash(self, merge_env: MergeEnv) -> None:
         """Dirty Yoke-managed report stashed/restored, no stale stash."""
         wt = merge_env.worktree

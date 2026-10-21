@@ -36,6 +36,7 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleResolutionError,
 )
 from yoke_core.domain.migration_content_identity import raw_content_sha256
+from yoke_core.domain.migration_psycopg_sql import validate_psycopg_migration_sql
 
 #: New histories are taught ``NNNN_slug.py``. Established project histories
 #: may already use another stable zero-padded width; accept three or more
@@ -48,79 +49,10 @@ ENTRY_NAME_PATTERN = re.compile(r"^(\d{3,})_([a-z0-9][a-z0-9_]*)$")
 #: name is an error, not a silent skip, because a migration that quietly
 #: fails to be discovered is the exact failure this history exists to remove.
 _NON_ENTRY_PREFIXES = ("_", "test_")
-_PSYCOPG_PERCENT_TOKEN = re.compile(r"%(?:%|[sbt]|\([^)]+\)[sbt])")
 
 
 class HistoryError(MigrationApplyError):
     """The migration history itself is malformed."""
-
-
-def _contains_bare_percent(sql: str) -> bool:
-    position = 0
-    while True:
-        position = sql.find("%", position)
-        if position < 0:
-            return False
-        token = _PSYCOPG_PERCENT_TOKEN.match(sql, position)
-        if token is None:
-            return True
-        position = token.end()
-
-
-def _literal_sql_fragments(node: ast.expr) -> tuple[str, ...]:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return (node.value,)
-    if isinstance(node, ast.JoinedStr):
-        return tuple(
-            part.value
-            for part in node.values
-            if isinstance(part, ast.Constant) and isinstance(part.value, str)
-        )
-    return ()
-
-
-def validate_psycopg_migration_sql(
-    directory: Path,
-    *,
-    override_path: Path | None = None,
-    override_source: bytes | None = None,
-) -> None:
-    """Reject bare percent tokens in parameterized SQL before psycopg runs it."""
-    for source_path in sorted(directory.glob("*.py")):
-        if source_path.name.startswith("test_"):
-            continue
-        raw = (
-            override_source
-            if source_path == override_path and override_source is not None
-            else source_path.read_bytes()
-        )
-        try:
-            tree = ast.parse(raw.decode("utf-8"), filename=str(source_path))
-        except (SyntaxError, UnicodeDecodeError):
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call) or not node.args:
-                continue
-            if not isinstance(node.func, ast.Attribute) or node.func.attr not in {
-                "execute",
-                "executemany",
-            }:
-                continue
-            has_params = len(node.args) > 1 or any(
-                keyword.arg in {"params", "parameters"} for keyword in node.keywords
-            )
-            statement = node.args[0]
-            has_bare_percent = any(
-                _contains_bare_percent(fragment)
-                for fragment in _literal_sql_fragments(statement)
-            )
-            if has_params and has_bare_percent:
-                raise ModuleContractError(
-                    f"migration authoring check failed at "
-                    f"{source_path.name}:{statement.lineno}: parameterized "
-                    "execute() SQL contains a bare '%'; use '%%' for a literal "
-                    "percent, or omit the params argument for parameter-free SQL"
-                )
 
 
 @dataclass(frozen=True)
@@ -337,5 +269,4 @@ __all__ = [
     "ordered_entries",
     "require_sequence_order_only",
     "resolve_migration_path",
-    "validate_psycopg_migration_sql",
 ]
