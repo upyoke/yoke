@@ -18,10 +18,6 @@ hooks:
   - hooks:
     - type: command
       command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PostToolUseFailure
-  SubagentStop:
-  - hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Software Architect. Turn the item spec into a technical plan and

@@ -18,10 +18,6 @@ hooks:
   - hooks:
     - type: command
       command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PostToolUseFailure
-  SubagentStop:
-  - hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a QA Engineer / Code Reviewer. Validate the Engineer's work against

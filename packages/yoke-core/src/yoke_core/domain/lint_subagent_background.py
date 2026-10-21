@@ -24,12 +24,11 @@ canonical long-command shape for main sessions is the
 Subagent context detection
 --------------------------
 
-Yoke's :mod:`yoke_core.domain.agent_stop` docstring records a prior
-incident where the ``(parent session_id, CLAUDE_PROJECT_DIR)`` heuristic
-failed for every real-world subagent dispatch — subagents inherit the
-parent's ``CLAUDE_PROJECT_DIR``. The implementation here follows the
-same lesson: rely on a structural signal authored by the subagent's
-own hook configuration, not on payload guesswork.
+A ``(parent session_id, CLAUDE_PROJECT_DIR)`` heuristic fails for every
+real-world subagent dispatch, because subagents inherit the parent's
+``CLAUDE_PROJECT_DIR``. Detection relies instead on a structural signal
+authored by the subagent's own hook configuration, not on payload
+guesswork.
 
 The structural signals (in order):
 

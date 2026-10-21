@@ -223,8 +223,6 @@ active/deprecated status. It has no timestamp columns; lifecycle observations
 belong in the ledger. Consult the generated [full catalog](event-catalog.md)
 instead of maintaining another roster here.
 
-`HarnessSessionStopped` is emitted by the agent-stop lifecycle hook; its context includes `stop_reason` with the live values `completed`, `auto_committed`, and `unexpected_stop`.
-
 `HookGuardrailEvaluated`, `HookExecutionFailed`, and `HookDispatchTelemetry` are runner-native emissions from `yoke_core.hooks.telemetry` (see `emit_hook_guardrail_evaluated`, `emit_hook_execution_failed`, `emit_hook_dispatch_telemetry`). `HookDispatchDeduplicated` joins them from `yoke_core.hooks.dispatch_dedup`, emitted by the run half that owns the telemetry tail when a harness delivered one lifecycle event twice. Those four are the only hook-runner telemetry names that exist as registered events.
 
 Ordinary in-process and relayed chains flush these three together over ONE shared connection (`hook_emit_connection`) and pass `transactional=True`; that explicit batch boundary commits before it closes. A resident read-only chain uses the observation endpoint's ordered, idempotent batch instead. Normal `emit_event(conn=...)` calls commit successful rows themselves, so closing or rolling back the caller connection cannot silently discard an event. Use `transactional=True` only when the event must ride the caller's state transaction, whose owner then commits or rolls back both together.

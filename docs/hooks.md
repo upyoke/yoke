@@ -14,7 +14,6 @@ owners. Load this contributor reference when changing or diagnosing hooks.
 | Pre-tool observer (emits `HarnessToolCallStarted`, whose captured instant is the start endpoint PostToolUse measures `duration_ms` from) | `yoke_core.domain.observe_pre` |
 | Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, measures `duration_ms` between the two captured endpoints) | `yoke_core.domain.observe` for `PostToolUse` |
 | DB error annotation | `yoke_core.domain.db_error_hook` |
-| Subagent stop (item-worktree auto-commit safety net, `HarnessSessionStopped`) | `yoke_core.domain.agent_stop` |
 | Emergency status repair | `yoke_core.engines.repair_status` |
 
 The `yoke hook evaluate` CLI is the stable boundary project hook configs call; the spelling is identical on every transport. Other Python modules above are internal policy/telemetry owners executed behind the runner, not copy-paste hook config commands.
@@ -26,10 +25,7 @@ chain checkpoint. They do not drain claims. The keep-alive hold is how a
 session that legitimately holds nothing — one whose whole job is to be a live
 wake target — survives this path: `yoke sessions keepalive hold <session-id>
 --reason ...` leases it against idle reaping, and the lease expires on its own
-rather than pinning the session forever. `SubagentStop` has a different local
-responsibility: it can safety-net auto-commit uncommitted work in a `YOK-N`
-item worktree and then emits `HarnessSessionStopped`; it does not terminate
-the parent session or release its claims.
+rather than pinning the session forever.
 
 ## Transport and resident
 
@@ -291,9 +287,9 @@ Claude hook schema is all-or-nothing: malformed entries disable the entire
 settings file. Use nested `{hooks: [{type, command}]}`, not flat `{type, command}`.
 If hooks appear dead, inspect CLI startup for `Settings Error`.
 
-`SubagentStop` frontmatter invokes local `yoke_core.domain.agent_stop` directly,
-so HTTPS does not carry that auto-commit of client Git state. Harnesses using the
-shared runner fall back through `SubagentStop -> session_dispatch`.
+Subagent frontmatter carries no `SubagentStop` hook, and no harness config wires
+one: a worker commits every completed change before it returns. A delivered
+`SubagentStop` still routes through the shared runner to `session_dispatch`.
 
 `session_dispatch` is a client-home policy. On HTTPS the client runs its
 machine-local SessionStart duties through `yoke_harness.hooks.session_lifecycle`:
@@ -343,8 +339,3 @@ Codex has no distinct `PostToolUseFailure`; its PostToolUse payload supplies Bas
 failure telemetry. Events use `yoke_core.domain.events`; guardrails refuse
 unregistered names with registry-add recovery. See [event contract](event-contract.md)
 and [generated event catalog](event-catalog.md).
-
-`agent_stop` emits `HarnessSessionStopped` with `stop_reason=completed`,
-`auto_committed` (safety-net commit), or `unexpected_stop` (no clean terminal state
-and no auto-commit). The same event carries item/optional task identity, final
-task status and auto-commit metadata.

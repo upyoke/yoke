@@ -18,10 +18,6 @@ hooks:
   - hooks:
     - type: command
       command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PostToolUseFailure
-  SubagentStop:
-  - hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Boss: review the assigned spec, PRD, or plan from PM, Architect,

@@ -249,5 +249,5 @@ class TestPortableOwnerReferences:
     def test_hook_docs_preserve_claim_ownership_at_session_end(self):
         text = _read(REPO / "docs" / "hooks.md")
         assert "They do not drain claims." in text
-        assert "item-worktree auto-commit" in text
-        assert "HarnessSessionStopped" in text
+        assert "carries no `SubagentStop` hook" in text
+        assert "auto-commit" not in text

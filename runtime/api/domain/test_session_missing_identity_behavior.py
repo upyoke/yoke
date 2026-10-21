@@ -1,6 +1,6 @@
 """What each surface records when no session identity resolves.
 
-Three surfaces used to mint ``<epoch>-<pid>`` when the chain came back
+Two surfaces used to mint ``<epoch>-<pid>`` when the chain came back
 empty. The value looked like a session id, joined to no
 ``harness_sessions`` row, and made "no identity" indistinguishable from
 a real one in the event log. Each now declares an outcome instead, and
@@ -10,21 +10,18 @@ reintroduce an invented id.
 * generic event telemetry records the empty string every other domain
   emitter records (also exercised end-to-end in
   ``test_emit_event_sections``);
-* the epic-task cascade records the same empty string;
-* the fail-open Stop hook records the ``"unknown"`` sentinel the hook
-  helpers already resolve to, because it must still run its auto-commit.
+* the epic-task cascade records the same empty string.
 """
 
 from __future__ import annotations
 
 import ast
 from typing import List
-from unittest.mock import patch
 
 import pytest
 
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
-from yoke_core.domain import agent_stop, emit_event, epic_cascade
+from yoke_core.domain import emit_event, epic_cascade
 from runtime.api.domain.test_session_env_chain_ownership import (
     REPO_ROOT,
     source_files,
@@ -48,30 +45,6 @@ def test_event_emitter_still_honours_an_explicit_session(no_ambient_session):
 
 def test_cascade_records_the_empty_session(no_ambient_session):
     assert epic_cascade._resolve_session_id() == ""
-
-
-def test_stop_hook_records_the_unknown_sentinel(tmp_path, monkeypatch):
-    db_path = tmp_path / "yoke.db"
-    db_path.write_text("seed\n", encoding="utf-8")
-    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
-
-    with patch(
-        "yoke_core.hooks.helpers.find_project_root", return_value=str(tmp_path),
-    ), patch(
-        "yoke_core.hooks.helpers.resolve_yoke_db", return_value=str(db_path),
-    ), patch(
-        "yoke_core.hooks.helpers.get_session_id", return_value="unknown",
-    ), patch(
-        "yoke_core.domain.agent_stop._read_session_id_from_hook_stdin",
-        return_value="",
-    ), patch(
-        "yoke_core.domain.agent_stop.process_dispatch_chains",
-    ) as chains, patch(
-        "yoke_core.domain.agent_stop.emit_harness_session_stopped",
-    ):
-        agent_stop.run_hook()
-
-    assert chains.call_args.kwargs["session_id"] == "unknown"
 
 
 def _mints_a_session_id(tree: ast.AST) -> List[int]:

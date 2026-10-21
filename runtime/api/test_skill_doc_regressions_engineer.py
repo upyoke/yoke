@@ -11,7 +11,6 @@ import pytest
 
 from runtime.api.skill_doc_regressions_test_helpers import (
     AGENTS,
-    REPO,
     SKILLS,
     _read,
     _read_dispatch_context,
@@ -35,13 +34,6 @@ class TestEngineerSubmissionGate:
             "dispatch_context": SKILLS / "conduct" / "dispatch-context.md",
             "prompts": SKILLS / "conduct" / "dispatch-context-prompts.md",
             "submission_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
-            "hooks_doc": REPO / "docs" / "hooks.md",
-            "event_contract": REPO / "docs" / "event-contract.md",
-            "event_catalog": REPO / "docs" / "event-catalog.md",
-            "logging_standard": REPO
-            / "docs"
-            / "structured-logging-standard"
-            / "agent-session-pattern.md",
         }
 
     def test_engineer_defines_submission_checks_block(self, docs):
@@ -126,17 +118,3 @@ class TestEngineerSubmissionGate:
         """Remediation bounded to 20 turns."""
         text = _read_dispatch_context(docs["dispatch_context"])
         assert "max 20 turns" in text
-
-    def test_agent_session_stopped_docs_describe_stop_reason(self, docs):
-        """Stop_reason is documented across the live event docs."""
-        assert "stop_reason" in _read(docs["hooks_doc"])
-        assert "stop_reason" in _read(docs["event_contract"])
-        assert "stop_reason" in _read(docs["event_catalog"])
-        assert "stop_reason" in _read(docs["logging_standard"])
-
-    def test_agent_session_stopped_logging_example_uses_agent_stop(self, docs):
-        """structured logging example should match the live Python owner."""
-        text = _read(docs["logging_standard"])
-        assert '"hook": "agent_stop"' in text
-        assert '"hook": "on-agent-stop.sh"' not in text
-        assert "exit_reason" not in text

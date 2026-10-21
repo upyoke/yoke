@@ -47,9 +47,9 @@ Route a required override with `yoke say --steering`; read
    Diagnose failed tests in isolation; fix current-item regressions.
 5. Commit coherent units, then immediately check `git -C {worktree-path} status
    --porcelain`. Stage/commit omitted related generated/test/config/untracked
-   files before next unit. Write required progress note. No task-dirty exit;
-   crash auto-commit is only a safety net. Low turns: commit partial work and
-   say what remains.
+   files before next unit. Write required progress note. No task-dirty exit:
+   nothing commits for you. Low turns: commit partial work and say what
+   remains.
 6. Verify every AC and all pre-submit checks before claiming completion.
 
 ## Verification execution
