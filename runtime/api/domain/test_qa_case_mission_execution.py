@@ -16,12 +16,16 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 
 
+MEMBER_ID = 7
+MEMBER_REF = f"EX-{MEMBER_ID}"
+
+
 def mission_case(**overrides):
     return {
         "requirement_id": 51,
         "runner_id": "agent_mission",
         "project": "example",
-        "public_ref": "EX-7",
+        "public_ref": MEMBER_REF,
         "workflow_transition_id": "reviewing-implementation",
         "starting_state": "as_is",
         **overrides,
@@ -35,7 +39,7 @@ def test_case_routes_exact_mission_into_plan_execution(monkeypatch, deployment):
         case.update(
             deployment_run_id="release-run",
             deployment_stage="item-qa",
-            deployment_member_ref="EX-7",
+            deployment_member_ref=MEMBER_REF,
             deployment_member_item_id=7,
         )
     monkeypatch.setattr(cases, "fetch_case_execution_context", lambda *a, **k: case)
@@ -47,10 +51,10 @@ def test_case_routes_exact_mission_into_plan_execution(monkeypatch, deployment):
     assert selected["requirement_id"] == 51
     assert selected["base_url"] == "https://example.test"
     if deployment:
-        assert selected["deployment_member"] == "EX-7"
+        assert selected["deployment_member"] == MEMBER_REF
         assert selected["deployment_stage"] == "item-qa"
     else:
-        assert selected["public_ref"] == "EX-7"
+        assert selected["public_ref"] == MEMBER_REF
 
 
 def test_inherit_refuses_before_starting_an_execution(monkeypatch):
@@ -141,7 +145,7 @@ def test_client_never_materializes_or_runs_siblings_from_an_invalid_reply(monkey
         plans.execute_plan(
             deployment_run_id="release-run",
             deployment_stage="item-qa",
-            deployment_member="EX-7",
+            deployment_member=MEMBER_REF,
             project="example",
             requirement_id=51,
         )
