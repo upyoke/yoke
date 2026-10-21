@@ -23,21 +23,10 @@ def explorer(monkeypatch):
     return loaded, views, render_explorer
 
 
-def test_every_surface_teaching_and_concept_is_a_node(explorer):
+def test_map_contains_sources_instead_of_research_proposals(explorer):
     model, _, renderer = explorer
     nodes = {node['id']: node for node in renderer.map_nodes(model)}
-    from explorer_sources import EXCLUDED_SURFACES
-    for kind, table in [('surface', model.surfaces), ('teaching', model.teaching),
-                        ('topic', model.concepts)]:
-        for rid, row in table.items():
-            if kind == 'surface' and rid in EXCLUDED_SURFACES:
-                assert f'{kind}:{rid}' not in nodes
-                continue
-            if kind == 'teaching' and (row['owner'] in EXCLUDED_SURFACES
-                                        or row['status'] == 'superseded'):
-                assert f'{kind}:{rid}' not in nodes
-                continue
-            assert f'{kind}:{rid}' in nodes
+    assert not any(key.startswith(('surface:', 'teaching:', 'topic:')) for key in nodes)
     for node in nodes.values():
         assert not node['parent'] or node['parent'] in nodes
         assert all(target in nodes for target in node.get('related', []))
@@ -45,13 +34,19 @@ def test_every_surface_teaching_and_concept_is_a_node(explorer):
     assert 'surface:workbench-cues' not in nodes
 
 
-def test_commands_have_a_hierarchy_and_related_concepts(explorer):
+def test_public_docs_match_the_actual_files_and_category_titles(explorer):
     model, _, renderer = explorer
     nodes = {node['id']: node for node in renderer.map_nodes(model)}
-    assert nodes['command:yoke']['parent'] == 'source:help'
-    for cid, concept in model.concepts.items():
-        for command in concept.get('commands', []):
-            assert f'topic:{cid}' in nodes['command:' + command]['related']
+    repo = TOOLS.parents[2]
+    for path in (repo / 'docs/public').rglob('*.md'):
+        key = 'doc:' + path.relative_to(repo).as_posix()
+        assert key in nodes
+        assert nodes[key]['document'].endswith(path.relative_to(repo).as_posix())
+    assert nodes['docs-category:start']['title'] == 'Get started'
+    assert nodes['doc:docs/public/start/install.md']['parent'] == 'docs-category:start'
+    assert nodes['doc:docs/public/index.md']['parent'] == 'source:docs'
+    assert 'overview & contents' in nodes['doc:docs/public/index.md']['title']
+    assert 'doc:docs/public/start/index.md' in nodes['doc:docs/public/index.md']['related']
 
 
 def test_single_page_and_complete_bounded_data_chunks(explorer):
@@ -85,11 +80,11 @@ def test_agreed_sources_and_shared_documentation(explorer):
         'homepage', 'docs', 'setup', 'global-hooks', 'project-hooks', 'rules',
         'skills', 'roles', 'help', 'feedback', 'packets', 'instructions', 'project')}
     assert nodes['branch:web-docs']['related'] == nodes['branch:installed-docs']['related']
-    assert nodes['topics']['parent'] == 'branch:doc-content'
+    assert 'topics' not in nodes
     assert nodes['role:engineer']['parent'] == 'source:roles:build'
     assert nodes['skill:dash']['parent'] == 'branch:project-skills:implement-and-deliver'
     assert nodes['skill:yoke-global']['parent'] == 'source:skills'
-    assert nodes['surface:resume-context']['parent'] == 'branch:skill-guidance'
+    assert 'branch:skill-guidance' not in nodes
 
 
 def test_nested_groups_and_install_connections(explorer):
@@ -106,7 +101,7 @@ def test_nested_groups_and_install_connections(explorer):
             assert node['id'] not in seen
             seen.add(node['id'])
             node = nodes[node['parent']]
-    assert nodes['teaching:setup-agent/05']['parent'].endswith('check-readiness-and-enter-a-project')
+    assert any(n['title'] == 'Where should this Yoke universe live?' for n in nodes.values())
     assert nodes['skill:implement/implementing']['parent'] == 'skill:implement'
 
 
@@ -130,8 +125,26 @@ def test_node_types_distinguish_forms_and_summaries(explorer):
     assert nodes['role:engineer']['type_label'] == 'Agent-role file'
     assert nodes['branch:ask-agent']['type_label'] == 'Human request'
     assert nodes['source:global-hooks']['node_type'] == 'hook'
-    assert nodes['teaching:global-hooks/01']['type_label'] == 'Hook guidance'
-    assert 'summary' in nodes['teaching:global-hooks/01']['type_hint']
-    assert nodes['branch:shared-setup']['type_label'] == 'Conceptual group'
-    assert nodes['teaching:packets-help/01']['type_label'] == 'Help guidance'
-    assert nodes['teaching:skills-roles/02']['type_label'] == 'Role guidance'
+    assert nodes['hook:global:orientation']['type_label'] == 'Startup message'
+    assert nodes['doc:docs/public/start/install.md']['type_label'] == 'Document'
+    assert nodes['packet:main_agent:core']['type_label'] == 'Packet topic'
+    assert nodes['instruction:shipped']['type_label'] == 'Instruction text'
+
+
+def test_setup_pairs_and_source_excerpts_are_real(explorer):
+    model, _, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    prompts = [n for n in nodes.values() if n['id'].startswith('prompt:') and n.get('related')]
+    assert prompts
+    for prompt in prompts:
+        peer = nodes[prompt['related'][0]]
+        assert peer['title'] == prompt['title']
+        assert peer['document_lines'] == prompt['document_lines']
+    for node in nodes.values():
+        if node.get('document_lines'):
+            start, end = node['document_lines']
+            path = TOOLS.parent / 'views/explore' / node['document']
+            assert 0 <= start < end <= len(path.read_text().splitlines())
+    assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
+    assert any(n['type_label'] == 'Reply field' for n in nodes.values())
+    assert nodes['hook-event:PreToolUse:Bash']['parent'] == 'hook-event:PreToolUse'

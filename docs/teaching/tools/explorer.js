@@ -117,7 +117,7 @@ function makeNode(node) {
   el.onpointerleave = () => { if (hovered === node) hovered = null; requestRender(); };
   el.onfocus = () => { hovered = node; requestRender(); };
   el.onblur = () => { hovered = null; requestRender(); };
-  if ((node.record || node.document) && node.children.length) {
+  if ((node.record || node.document || node.body) && node.children.length) {
     const read = text('button', 'Read details', 'read-node');
     read.onclick = () => {
       node.reading = !node.reading;
@@ -179,12 +179,23 @@ async function fillDetail(node, el) {
       el.dataset.loaded = '';
     }
   }
+  if (node.body) body.append(text('div', node.body, 'document'));
   if (node.document) {
     try {
       const response = await fetch(node.document);
       if (!response.ok) throw Error(response.status);
-      const content = (await response.text()).replace(/^---[\s\S]*?---\n/, '');
-      body.append(text('div', content, 'document'));
+      let content = await response.text();
+      if (node.document_lines) content = content.split('\n').slice(...node.document_lines).join('\n');
+      content = content.replace(/^---[\s\S]*?---\n/, '');
+      const container = node.source_only ? text('details', '', 'research') : body;
+      if (node.source_only) {
+        container.append(text('summary', 'Source definition'));
+        body.append(container);
+      }
+      container.append(text('div', content, 'document'));
+      const source = text('a', 'Open source file ↗');
+      source.href = node.document; source.target = '_blank'; source.rel = 'noopener';
+      container.append(source);
     } catch (error) {
       body.append(text('p', 'Document could not load. Serve the checkout root and reload.'));
     }
@@ -199,7 +210,7 @@ async function fillDetail(node, el) {
     body.append(button);
   }
   if (node.related?.length) {
-    body.append(text('b', 'Related teaching'));
+    body.append(text('b', 'Connected sources'));
     node.related.forEach(id => {
       const target = byId.get(id);
       if (!target) return;
@@ -210,6 +221,7 @@ async function fillDetail(node, el) {
   }
 }
 function render() {
+  if (!roots.length) return;
   const visible = new Set();
   function visit(node) {
     const s = screen(node);

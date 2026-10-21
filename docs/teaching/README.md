@@ -27,8 +27,8 @@ that shared page so independent model edits can land together.
 
 Open `views/explore/index.html` after building for the single-page context
 map. Drag to pan, scroll to zoom, or click a node to focus it. Zooming reveals
-nested sources, surfaces, teachings, command branches and concept branches
-in place; leaf detail loads the canonical record. Whole map and Up one level
+nested sources, actual files, named sections, setup questions, hook events and
+command branches in place; leaf detail opens the corresponding source. Whole map and Up one level
 move the camera without opening another page.
 
 The top level separates homepage, public docs, setup, global/project hooks,
@@ -38,11 +38,11 @@ link to shared content; agent replies and terminal screens sit under setup.
 Dashboard teaching stays with the dashboard prototype. Instructions for
 resuming work sit under Skills; changing work state is not teaching content.
 Abandoned proposals are omitted from this reading view but remain in the
-research catalogue. Research notes sit beneath plain-language explanations.
+research catalogue. Research proposals stay in the separate catalogue, outside the source map.
 
 Source groups in `tools/explorer_sources.py` are editorial navigation, not
 new authorities. New surfaces must be assigned to a group; the build reports
-`EXPLORER_SOURCE` otherwise. Included nodes retain their recorded status. Availability never establishes actual context receipt.
+`EXPLORER_SOURCE` otherwise. The explorer reads source definitions, not captured session data. Availability never establishes actual context receipt.
 
 Serve the checkout root over loopback: `python3 -m http.server 8765 --bind
 127.0.0.1` from the checkout, then open
@@ -101,8 +101,7 @@ canonical formatting. Rebuild and check afterwards.
 Commands, functions and skills are never copied here. Concept records name
 them, and the check resolves every name against the live registries. The
 command crosswalk and documentation graph read live state, so they are written
-only to the untracked `live/` directory; generated views depend on the model
-alone and are also untracked. The stylesheet source lives in `tools/style.css`.
+only to the untracked `live/` directory; the explorer also reads concrete repository inventories. All generated views are untracked. The stylesheet source lives in `tools/style.css`.
 
 ## Record status
 
@@ -186,15 +185,23 @@ views. CI runs this build validation through
 The homepage contains the agent request and install command. Named connections
 lead from that command to agent and interactive setup; the connection panel
 also shows incoming routes and the connections inherited from a parent source.
-Setup, hooks, rules, feedback and working guidance group individual instructions
-by purpose. Skills group by work type, roles by responsibility, and nested skills
-sit below their parent procedure. Public topics and command help retain their
-existing trees. These connections describe context routes, not live execution.
+Public docs follow the actual directories, category index headings and document
+names in `docs/public`, including the root overview and contents. Project docs
+show this repository's current documentation, excluding public docs, archives
+and teaching research. Rules, skills and roles expose their files and named
+sections. Setup questions and literal answer choices are extracted from
+`SetupPrompt` definitions; dynamic values remain in the folded source definition.
+Hooks show orientation blocks, registered events, tool matchers and handlers.
+Packets show the registered roles, topics and table references. Command results
+show the shared envelope and declared response models with their actual fields.
+Scoped instructions show the shipped text and the command that reads privately
+scoped instructions; no private records or live session payloads are copied.
+These connections describe source routes, not proof of live delivery.
 
 Clicking a node reflows its subtree to the viewport and hides neighboring trees.
 Nested nodes expand while their children have readable space; click a smaller
 node to give it the full viewport. Breadcrumbs and Whole map restore context.
-Node headings omit research-status and node-type labels.
+Node headings omit research-status labels.
 
 The explorer includes a persistent source navigator and a separate connection
 panel. Hover or keyboard-focus a visible node to highlight its connected sources;
@@ -205,6 +212,5 @@ the registered command inventory, with teaching references attached where known.
 Node types describe content form, not review status. Every node carries a short
 label, icon and form-specific card treatment: pages, files, conceptual groups,
 concepts, CLI groups/commands, screens, replies, hooks, packets and scoped rules.
-Teaching records are explicitly summaries or guidance about those surfaces;
-they are not presented as captured runtime payloads. Skill and role files show
-their actual source path. A command that also has children is marked as both.
+Research teaching records do not appear as source nodes. Files show their actual
+source path; code definitions are folded beneath the visible content or fields. A command that also has children is marked as both.
