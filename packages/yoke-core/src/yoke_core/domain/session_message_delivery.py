@@ -92,23 +92,16 @@ def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
     they already show a due receipt as expired
     (:mod:`yoke_core.domain.session_message_receipt_expiry`). Returns the
     number of session receipts expired.
+
+    The work is bounded by the due receipts alone. Settled QA wait and
+    review wakes are withdrawn by the event that settles them, never here:
+    acknowledge and relay claim call this inside their own request.
     """
     now = parse_instant(utc_now() if now is None else now)
     _begin_mutation(conn)
     try:
-        stamp = now
-        count = _expire_rows(conn, now=stamp)
-        expire_due_actor_recipients(conn, now=stamp)
-        from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
-            withdraw_deployment_qa_wait_wakes,
-        )
-
-        withdraw_deployment_qa_wait_wakes(conn, now=stamp)
-        from yoke_core.domain.qa_plan_settled_review import (
-            withdraw_settled_agent_review_wakes,
-        )
-
-        withdraw_settled_agent_review_wakes(conn, now=stamp)
+        count = _expire_rows(conn, now=now)
+        expire_due_actor_recipients(conn, now=now)
         conn.commit()
         return count
     except Exception:

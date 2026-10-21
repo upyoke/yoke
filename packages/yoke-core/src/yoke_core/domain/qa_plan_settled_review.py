@@ -255,62 +255,48 @@ def settled_review_run_result(execution: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _pending_review_wakes(
-    conn: Any, *, execution_id: str | None
-) -> list[tuple[str, str]]:
+def _pending_review_wakes(conn: Any, *, execution_id: str) -> list[str]:
     if not _table_exists(conn, "session_messages"):
         return []
     placeholder = marker(conn)
-    if execution_id is None:
-        match_sql = f"m.idempotency_key LIKE {placeholder}"
-        match_param: tuple[str, ...] = (f"{REVIEW_WAKE_PREFIX}%",)
-    else:
-        # A stopped walk's review wakes under ``ID:owner`` or ``ID:MEMBER``.
-        match_sql = (
-            f"(m.idempotency_key={placeholder} "
-            f"OR m.idempotency_key LIKE {placeholder})"
-        )
-        match_param = (
-            f"{REVIEW_WAKE_PREFIX}{execution_id}",
-            f"{REVIEW_WAKE_PREFIX}{execution_id}:%",
-        )
+    # A stopped walk's review wakes under ``ID:owner`` or ``ID:MEMBER``.
     rows = conn.execute(
-        "SELECT m.message_id, m.idempotency_key FROM session_messages m "
-        f"WHERE m.cancelled_at IS NULL AND {match_sql} "
+        "SELECT m.message_id FROM session_messages m "
+        f"WHERE m.cancelled_at IS NULL AND (m.idempotency_key={placeholder} "
+        f"OR m.idempotency_key LIKE {placeholder}) "
         "AND EXISTS (SELECT 1 FROM session_message_recipients r "
         "WHERE r.message_id=m.message_id AND r.state IN ('pending','injected'))",
-        match_param,
+        (
+            f"{REVIEW_WAKE_PREFIX}{execution_id}",
+            f"{REVIEW_WAKE_PREFIX}{execution_id}:%",
+        ),
     ).fetchall()
-    found = []
-    for row in rows:
-        found.append(
-            (str(_value(row, "message_id", 0)), str(_value(row, "idempotency_key", 1)))
-        )
-    return found
+    return [str(_value(row, "message_id", 0)) for row in rows]
 
 
 def withdraw_settled_agent_review_wakes(
     conn: Any,
     *,
-    execution_id: str | None = None,
+    execution_id: str,
     now: datetime | str | None = None,
 ) -> int:
-    """Cancel review wakes whose execution already has a verdict batch."""
+    """Cancel this execution's review wakes once it has a verdict batch.
+
+    The review submission that persists the batch calls this; no request
+    path sweeps every open review wake.
+    """
     if not _review_tables(conn):
+        return 0
+    if not execution_has_persisted_verdict_batch(conn, execution_id):
         return 0
     current = parse_instant(utc_now() if now is None else now)
     withdrawn = 0
-    for message_id, key in _pending_review_wakes(conn, execution_id=execution_id):
-        if not key.startswith(REVIEW_WAKE_PREFIX):
-            continue
-        target_id = key[len(REVIEW_WAKE_PREFIX) :].split(":", 1)[0]
-        if not target_id or not execution_has_persisted_verdict_batch(conn, target_id):
-            continue
+    for message_id in _pending_review_wakes(conn, execution_id=execution_id):
         cancel_message_rows(
             conn,
             message_id=message_id,
             actor_id=None,
-            reason=settled_review_wake_reason(target_id),
+            reason=settled_review_wake_reason(execution_id),
             cancelled_at=current,
         )
         withdrawn += 1
