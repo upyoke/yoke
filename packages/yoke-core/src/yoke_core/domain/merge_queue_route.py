@@ -141,7 +141,7 @@ def land_item_through_merge_queue(
     )
     if drift.drifted:
         return QueueLandingOutcome(
-            ok=False, exit_code=1, error=drift.refusal(ctx.project or "")
+            ok=False, exit_code=1, error=drift.refusal(ctx.project or "", branch=target)
         )
     warnings.extend(drift.unreadable)
 

@@ -9,6 +9,18 @@ request. A headless worker receives `landing_pending=true` and waits for the
 control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
+Merge preflight refuses when the lane's `.yoke/merge-queue.json` differs from
+live enforcement rules. It reads the gate branch's declaration before teaching
+recovery: when `origin/main` already matches live, update this lane from
+`origin/main`, re-verify, and retry the merge. Never apply a stale lane's
+declaration: that would change the rules for every pull request. When the gate
+branch also differs from live, run `yoke github merge-queue apply --project P`
+from an up-to-date checkout of that branch, then retry. Projects targeting a
+branch other than main use that gate branch. `gate_declaration_unverified`
+means the gate declaration or live rules could not be compared: restore read
+access and a valid declaration on the gate branch, then retry without applying
+from the lane.
+
 Before it selects a route, the command asks the item's integration dependency
 gate (`merge.preflight.dependency_gate`). Queue admission only sees
 predecessors that are queue members, so this gate is what keeps an item from
