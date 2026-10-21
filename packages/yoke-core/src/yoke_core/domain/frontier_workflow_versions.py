@@ -13,12 +13,17 @@ exactly the statuses ``frontier_classify.classify_next_action`` maps to
 ``SKIP`` plus the ``failed`` stage the scan drops right after — and nothing
 else, so a status the definition does not recognize still reaches the
 classifier and still raises rather than vanishing from the board.
+
+The dependency kernel's batch gate scan
+(:func:`yoke_core.domain.dependency_planning.evaluate_batch_gates`) reads its
+blockers' definitions the same way, and renders the same clause over
+dependents to leave out the ones already at a terminal stage.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, FrozenSet, List, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Tuple
 
 from .workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
@@ -68,15 +73,22 @@ class FrontierWorkflowVersions:
             self.runtimes[version_id] = runtime
         return runtime
 
-    def skip_clause(self, marker: str) -> Tuple[str, List[Any]]:
+    def skip_clause(
+        self,
+        marker: str,
+        *,
+        alias: str = "i",
+        statuses: Callable[[WorkflowRuntime], FrozenSet[str]] = skipped_statuses,
+    ) -> Tuple[str, List[Any]]:
         """Render the ``AND NOT (...)`` clause excluding discarded statuses.
 
-        Versions sharing a skip set share one clause, so the rendered SQL
-        stays short even on a project with many published versions.
+        ``alias`` names the scanned items table and ``statuses`` the stages
+        each version discards. Versions sharing a skip set share one clause,
+        so the rendered SQL stays short even with many published versions.
         """
         groups: Dict[FrozenSet[str], List[int]] = {}
         for version_id, runtime in self.runtimes.items():
-            groups.setdefault(skipped_statuses(runtime), []).append(version_id)
+            groups.setdefault(statuses(runtime), []).append(version_id)
 
         fragments: List[str] = []
         params: List[Any] = []
@@ -86,8 +98,8 @@ class FrontierWorkflowVersions:
             version_marks = ", ".join(marker for _ in version_ids)
             status_marks = ", ".join(marker for _ in ordered_statuses)
             fragments.append(
-                f" AND NOT (i.workflow_version_id IN ({version_marks})"
-                f" AND i.status IN ({status_marks}))"
+                f" AND NOT ({alias}.workflow_version_id IN ({version_marks})"
+                f" AND {alias}.status IN ({status_marks}))"
             )
             params.extend(version_ids)
             params.extend(ordered_statuses)

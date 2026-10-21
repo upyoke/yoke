@@ -29,9 +29,20 @@ from .dependency_planning_results import (
     PlanResult,
 )
 from .dependency_planning_telemetry import emit_batch_gate_evaluated
-from .dependency_satisfaction import evaluate_persisted_satisfaction
+from .dependency_planning_order import topological_sort
+from .dependency_satisfaction import (
+    DeployedEnvironmentFact,
+    evaluate_persisted_satisfaction,
+    evaluate_satisfaction,
+    read_deployed_environment_fact,
+)
 from .dependency_workflow_context import workflow_from_joined_values
+from .frontier_workflow_versions import (
+    FrontierWorkflowVersions,
+    load_frontier_workflow_versions,
+)
 from .item_ref_columns import render_column_item_ref, resolve_column_item_ref
+from .item_terminal_resources import terminal_stage_ids
 from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
@@ -55,7 +66,9 @@ WHERE d.dependent_item_id = {p} AND d.gate_point = {p}
 """
 
 
-def _batch_deps_sql(conn: Any, project_ids: Optional[Sequence[int]]) -> str:
+def _batch_deps_sql(
+    conn: Any, project_ids: Optional[Sequence[int]], live_clause: str = ""
+) -> str:
     p = _p(conn)
     holes = ", ".join(p for _ in project_ids or ()) or "NULL"
     scope = "" if project_ids is None else f" AND di.project_id IN ({holes})"
@@ -64,13 +77,11 @@ SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
-       bi.workflow_id, bi.workflow_version_id, wv.version,
-       wv.definition_json, wv.definition_digest, d.id, d.created_at
+       bi.workflow_id, bi.workflow_version_id, d.id, d.created_at
 FROM item_dependencies d
 LEFT JOIN items di ON di.id = d.dependent_item_id
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
-LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
-WHERE d.gate_point = {p}{scope}
+WHERE d.gate_point = {p}{scope}{live_clause}
 """
 
 
@@ -166,6 +177,8 @@ def evaluate_batch_gates(
     project: Optional[str] = None,
     emit_events: bool = True,
     project_ids: Optional[Sequence[int]] = None,
+    live_dependents: bool = False,
+    versions: Optional[FrontierWorkflowVersions] = None,
 ) -> Dict[str, List[BlockerDetail]]:
     """Batch-evaluate all dependencies at a gate point. Returns a dict
     mapping ``dependent_item`` -> list of ``BlockerDetail`` for each item
@@ -176,14 +189,27 @@ def evaluate_batch_gates(
     telemetry write so pure reads (e.g. a browser poll) leave no event
     rows behind; the default preserves emission for every existing caller.
     ``project_ids`` limits the read to edges whose dependent is in them.
+    ``live_dependents`` leaves out edges whose dependent sits at a terminal
+    stage of its pinned workflow: a finished item has nothing left to gate.
+    Each workflow version is decoded once per call (``versions`` lends one
+    the caller already read), and each deployed fact is read once per call.
     """
     GatePoint.from_db(gate_point)
+    if versions is None:
+        versions = load_frontier_workflow_versions(conn)
+    live_clause, live_params = (
+        versions.skip_clause(_p(conn), alias="di", statuses=terminal_stage_ids)
+        if live_dependents
+        else ("", [])
+    )
     cursor = conn.cursor()
     cursor.execute(
-        _batch_deps_sql(conn, project_ids), (gate_point, *(project_ids or ()))
+        _batch_deps_sql(conn, project_ids, live_clause),
+        (gate_point, *(project_ids or ()), *live_params),
     )
 
     blocks: Dict[str, List[BlockerDetail]] = {}
+    deployed: Dict[Tuple[int, str], Optional[DeployedEnvironmentFact]] = {}
     all_rows = cursor.fetchall()
     total_rows = len(all_rows)
     for row in all_rows:
@@ -198,30 +224,28 @@ def evaluate_batch_gates(
             blk_merged_at,
             workflow_id,
             workflow_version_id,
-            workflow_version,
-            definition_json,
-            definition_digest,
             dependency_id,
             dependency_created_at,
         ) = row
 
-        merge_fact = True if blk_merged_at else None
-        result = evaluate_persisted_satisfaction(
-            conn,
-            blocking_item_id=blk_item,
-            satisfaction=sat,
-            blocking_status=blk_status,
-            blocking_worktree=blk_worktree,
-            blocking_merged=merge_fact,
+        if blk_item is not None and (blk_item, sat) not in deployed:
+            deployed[(blk_item, sat)] = read_deployed_environment_fact(
+                conn, blocking_item_id=int(blk_item), satisfaction=sat
+            )
+        result = evaluate_satisfaction(
+            sat,
+            blk_status,
+            blk_worktree,
+            True if blk_merged_at else None,
+            deployed.get((blk_item, sat)),
+            workflow=None
+            if workflow_version_id is None
+            else versions.runtime_for(
+                conn,
+                {"workflow_id": workflow_id, "workflow_version_id": workflow_version_id},
+            ),
             blocking_merged_at=blk_merged_at,
             dependency_created_at=dependency_created_at,
-            workflow=workflow_from_joined_values(
-                workflow_id,
-                workflow_version_id,
-                workflow_version,
-                definition_json,
-                definition_digest,
-            ),
         )
 
         if not result.satisfied:
@@ -247,43 +271,6 @@ def evaluate_batch_gates(
         )
 
     return blocks
-
-
-def _topological_sort(
-    items: List[str],
-    edges: List[Tuple[str, str]],
-) -> Tuple[List[str], List[str]]:
-    """Kahn's topological sort. ``edges`` are (blocker, dependent) pairs;
-    blocker must come before dependent. Returns
-    ``(ordered_items, cycle_items)`` — if ``cycle_items`` is non-empty the
-    sort was incomplete.
-    """
-    item_set = set(items)
-    # Only consider edges between items in the candidate set
-    relevant_edges = [(b, d) for b, d in edges if b in item_set and d in item_set]
-
-    # Build adjacency and in-degree
-    adj: Dict[str, List[str]] = {i: [] for i in items}
-    in_degree: Dict[str, int] = {i: 0 for i in items}
-    for blocker, dependent in relevant_edges:
-        adj[blocker].append(dependent)
-        in_degree[dependent] = in_degree.get(dependent, 0) + 1
-
-    # Initialize queue with zero in-degree items
-    queue = sorted([i for i in items if in_degree[i] == 0])
-    ordered: List[str] = []
-
-    while queue:
-        node = queue.pop(0)
-        ordered.append(node)
-        for neighbor in sorted(adj.get(node, [])):
-            in_degree[neighbor] -= 1
-            if in_degree[neighbor] == 0:
-                queue.append(neighbor)
-        queue.sort()  # deterministic
-
-    cycle_items = [i for i in items if i not in set(ordered)]
-    return ordered, cycle_items
 
 
 def plan_candidate_set(
@@ -336,7 +323,7 @@ def plan_candidate_set(
             ordering_edges.append((blk_item, dep_item))
 
     # Topological sort of eligible items
-    ordered, cycle_items = _topological_sort(eligible, ordering_edges)
+    ordered, cycle_items = topological_sort(eligible, ordering_edges)
 
     return PlanResult(
         gate_point=gate_point,

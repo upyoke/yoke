@@ -89,6 +89,8 @@ def compute_frontier(
         project=_canonical_project_label(conn, project_scope),
         emit_events=emit_events,
         project_ids=project_scope,
+        live_dependents=True,
+        versions=workflow_versions,
     )
 
     # Planning still keys blocker details by the public PREFIX-N token;
@@ -118,6 +120,8 @@ def compute_frontier(
         project=_canonical_project_label(conn, project_scope),
         emit_events=emit_events,
         project_ids=project_scope,
+        live_dependents=True,
+        versions=workflow_versions,
     )
     landing_details: Dict[int, List[Dict[str, Any]]] = remap_ref_keys_to_internal(
         conn,

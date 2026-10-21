@@ -177,7 +177,9 @@ def list_frontier(
         }
         # Each gate is evaluated once per read; the dependency edges reuse it.
         gate_blocks = {
-            gate: evaluate_batch_gates(conn, gate_point=gate, emit_events=False)
+            gate: evaluate_batch_gates(
+                conn, gate_point=gate, emit_events=False, live_dependents=True
+            )
             for gate in BLOCKING_GATE_POINTS
         }
         for gate_point in _LATER_GATE_POINTS:
