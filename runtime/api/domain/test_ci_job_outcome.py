@@ -244,7 +244,7 @@ def test_selection_run_never_relays_failed_logs_for_a_not_started_run(
         "yoke_core.domain.session_ci_wait_record.resolve_received_wait",
         lambda **_k: "",
     )
-    monkeypatch.setattr(report, "relay_failed_log", lambda **k: relayed.append(k))
+    monkeypatch.setattr(report, "relay_failed_log", lambda **k: relayed.append(k) or "")
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_lane.github_actions_authority",
         contextlib.nullcontext,

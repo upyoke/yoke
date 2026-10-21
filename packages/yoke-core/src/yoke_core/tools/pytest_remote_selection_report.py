@@ -10,9 +10,14 @@ wait that delivers its verdict.
 
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
+
 from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
 from yoke_core.tools.pytest_remote_selection import (
     EXIT_CANCELLED,
+    EXIT_REFUSED,
     EXIT_TIMED_OUT,
     EXIT_UNREACHABLE,
     LOCAL_FLAG,
@@ -34,25 +39,58 @@ def say(message: str) -> None:
     print(f"{PREFIX} {message}", flush=True)
 
 
-def relay_failed_log(*, project: str, repo: str, run_id: str) -> None:
+def _failed_log_report(stdout: str) -> str:
+    """The report text from the adapter's JSON envelope, saved or inline.
+
+    A long report is written to a file and the envelope names it
+    (``saved_response``); reading only stdout relayed that pointer instead
+    of the failure region.
+    """
+    try:
+        envelope = json.loads(stdout)
+        saved = envelope.get("saved_response")
+        if saved:
+            envelope = json.loads(Path(saved).read_text(encoding="utf-8"))
+    except (OSError, ValueError, AttributeError):
+        return ""
+    response = envelope.get("response", envelope)
+    result = response.get("result") if isinstance(response, dict) else None
+    return str((result or {}).get("output") or "").strip()
+
+
+def relay_failed_log(*, project: str, repo: str, run_id: str) -> str:
     """Print every failed job's failure region so each shard's FAILED lines land.
 
     A sharded selection fails in several jobs at once, and the read below
     reports each of them separately, so the capture carries every failing
-    shard rather than whichever one sorted last.
+    shard rather than whichever one sorted last. Returns the report text,
+    empty when it could not be read.
     """
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
-    result = _github_actions("failed-log", repo, run_id, project=project, timeout=180)
-    text = (result.stdout or "").strip()
+    result = _github_actions(
+        "failed-log", repo, run_id, "--json", project=project, timeout=180
+    )
+    text = _failed_log_report(result.stdout or "")
     if result.returncode != 0 or not text:
         detail = (result.stderr or "").strip() or "no output"
         say(
             f"failed-job logs unavailable ({detail}); inspect with "
             f"`yoke github-actions failed-log {repo} {run_id} --project {project}`"
         )
-        return
+        return ""
     print(text, flush=True)
+    return text
+
+
+#: The plan job's refusal line (yoke_core.tools.ci_selection_plan).
+_PLAN_REFUSAL = re.compile(r"Error: ci_selection_plan: (selection_\w+: [^\n]*)")
+
+
+def plan_refusal(log: str) -> str:
+    """The plan job's named refusal in a failed run's report; empty if none."""
+    match = _PLAN_REFUSAL.search(log)
+    return match.group(1).strip() if match else ""
 
 
 def record_wait(
@@ -148,11 +186,16 @@ def follow(
     )
     if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
         say(warning)
+    log = ""
     if conclusion not in ("success", CI_JOB_NOT_STARTED):
-        relay_failed_log(project=project, repo=repo, run_id=run_id)
+        log = relay_failed_log(project=project, repo=repo, run_id=run_id)
     exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)
     recovery = ""
-    if conclusion == CI_JOB_NOT_STARTED:
+    if conclusion == "failure" and (refusal := plan_refusal(log)):
+        # The plan refused before any shard started: no test ran or failed.
+        conclusion, exit_code = "refused_by_plan", EXIT_REFUSED
+        recovery = f"; {refusal}"
+    elif conclusion == CI_JOB_NOT_STARTED:
         recovery = f"; {REDISPATCH_RECOVERY}, or re-run with {LOCAL_FLAG}"
     elif conclusion not in ("success", "failure"):
         recovery = (
@@ -171,6 +214,7 @@ __all__ = [
     "CONCLUSION_EXIT",
     "await_conclusion",
     "follow",
+    "plan_refusal",
     "record_wait",
     "relay_failed_log",
     "say",

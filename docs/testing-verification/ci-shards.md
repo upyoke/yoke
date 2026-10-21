@@ -77,10 +77,11 @@ CI's. Explicit dispatched paths without a merge base run exactly as named.
 `yoke_core.tools.ci_shard_sizing.selection_estimate` sizes a selection
 against the whole profile. It earns one shard per 60 profiled seconds, up
 to 8. It is full CI's work at 50% or more of the suite's profiled seconds
-(`FULL_CI_SHARE`), or when each of its shards would carry no less than a
-full CI shard. The dispatcher refuses that work before pushing, and the
-plan job refuses it before any shard starts. Each names the full QA case
-command. Raise `FULL_CI_SHARE` only with measured selection and full CI
+(`FULL_CI_SHARE`). The dispatcher refuses that work before pushing. The plan
+job refuses it before any shard starts, and the dispatcher reports that run
+as the same named refusal, not a test failure. Each names the full QA case
+command. A dispatched path outside every root is also named to pytest, so
+it still runs. Raise `FULL_CI_SHARE` only with measured selection and full CI
 durations recorded on the item that changes it.
 
 ## Identical-tree coverage reuse

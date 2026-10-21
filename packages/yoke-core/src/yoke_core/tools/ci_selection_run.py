@@ -96,19 +96,31 @@ def pytest_command(
 def root_collection(
     root: Path, selected: Sequence[str], passthrough: Sequence[str]
 ) -> tuple[list[str], list[str], Path]:
-    """``(roots, options, selection_file)`` for an impacted selection.
+    """``(paths, options, selection_file)`` for an impacted selection.
 
     The dispatched positional targets join the selection file rather than
-    the command line, so pytest walks only the roots full CI walks.
+    the command line, so pytest walks only the roots full CI walks. A
+    target outside every root is never reached by that walk, so it is also
+    named on the command line: a selected test is never silently dropped.
     """
     from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
 
     targets, options = split_args(passthrough)
     roots = list(resolve_test_roots(str(root)))
+    prefixes = tuple(anchor.rstrip("/") for anchor in roots)
+    outside = [
+        target
+        for target in dict.fromkeys((*selected, *targets))
+        if not any(
+            (path := target.partition("::")[0].rstrip("/")) == prefix
+            or path.startswith(f"{prefix}/")
+            for prefix in prefixes
+        )
+    ]
     handle, name = tempfile.mkstemp(prefix="yoke-ci-selection-", suffix=".txt")
     with os.fdopen(handle, "w", encoding="utf-8") as selection:
         selection.write("".join(f"{path}\n" for path in (*selected, *targets)))
-    return roots, ["-p", COLLECT_PLUGIN, *options], Path(name)
+    return [*roots, *outside], ["-p", COLLECT_PLUGIN, *options], Path(name)
 
 
 def collects_anything(
@@ -193,7 +205,7 @@ def run_selection(
         env = {**os.environ, SELECTION_FILE_ENV: str(selection_file)}
         print(
             f"ci_selection_run: collecting {len(selected)} selected paths from "
-            f"the test roots {' '.join(paths)}; selection file {selection_file}",
+            f"{' '.join(paths)}; selection file {selection_file}",
             flush=True,
         )
     elif not has_positional_args(passthrough):

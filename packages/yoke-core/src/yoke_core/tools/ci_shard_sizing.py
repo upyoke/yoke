@@ -138,9 +138,9 @@ def split_count(profiled_seconds: float, profiled_tests: int) -> int:
 class SelectionEstimate:
     """One sizing of a selection against the full suite, from one profile.
 
-    Selection shards and full CI shards share one runner setup and collect
-    from the same roots, so their wall times differ only by the profiled
-    test seconds each shard carries: comparing those compares the runs.
+    The share of the suite's profiled seconds is the threshold: selection
+    and full CI shards share one runner setup and collection roots, so a
+    selection below FULL_CI_SHARE finishes ahead of full CI.
     """
 
     seconds: float
@@ -160,8 +160,6 @@ class SelectionEstimate:
         """Why full CI answers this selection instead; empty when it runs.
 
         With no profile there is nothing to compare, so the selection runs.
-        The per-shard rule can only fire once FULL_CI_SHARE exceeds one
-        full CI shard's share of the suite (1 / SHARD_COUNT).
         """
         if self.suite_seconds <= 0:
             return ""
@@ -170,12 +168,6 @@ class SelectionEstimate:
                 "selection_exceeds_full_ci_share: the selection profiles at "
                 f"{self.seconds:.0f}s, {self.share:.0%} of the suite's "
                 f"{self.suite_seconds:.0f}s (threshold {FULL_CI_SHARE:.0%})"
-            )
-        if self.seconds / self.shards >= self.suite_seconds / SHARD_COUNT:
-            return (
-                f"selection_not_faster_than_full_ci: each of its {self.shards} "
-                f"shards carries {self.seconds / self.shards:.0f}s; full CI's "
-                f"carry {self.suite_seconds / SHARD_COUNT:.0f}s"
             )
         return ""
 
