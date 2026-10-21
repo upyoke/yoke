@@ -92,16 +92,11 @@ def abort_abandoned_holders(
         finish_plan_execution,
     )
 
-    wanted = {int(row["requirement_id"]) for row in roster}
     aborted = False
-    for execution in live_stage_executions(
-        conn, deployment_run_id=deployment_run_id, deployment_stage=deployment_stage
+    for locked in _locked_roster_holders(
+        conn, roster, deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage, session_id=session_id,
     ):
-        if str(execution["session_id"]) == str(session_id) or not wanted & {
-            int(case["requirement_id"]) for case in execution["roster"]
-        }:
-            continue
-        locked = lock_plan_execution(conn, str(execution["id"]))
         if locked["state"] in LIVE_PLAN_EXECUTION_STATES and (
             plan_execution_is_abandoned(conn, locked)
         ):
@@ -112,24 +107,45 @@ def abort_abandoned_holders(
     return aborted
 
 
-def admit_stage_roster(conn, roster, *, deployment_run_id, deployment_stage, session_id):
-    """Check live custody under the run lock, then retire abandoned holders.
+def _locked_roster_holders(conn, roster, *, deployment_run_id, deployment_stage, session_id):
+    """Lock overlapping live rows before deciding custody or abandonment."""
+    wanted = {int(row["requirement_id"]) for row in roster}
+    for execution in live_stage_executions(
+        conn, deployment_run_id=deployment_run_id, deployment_stage=deployment_stage
+    ):
+        if str(execution["session_id"]) == str(session_id) or not wanted & {
+            int(case["requirement_id"]) for case in execution["roster"]
+        }:
+            continue
+        locked = lock_plan_execution(conn, str(execution["id"]))
+        if locked["state"] in LIVE_PLAN_EXECUTION_STATES:
+            yield locked
 
-    Only live holders matter here; historical execution progress never
-    invalidates the unlocked roster read. An abort commits, so the caller
-    must read again and reacquire the run lock before repeating admission.
+
+def admit_stage_roster(conn, roster, *, deployment_run_id, deployment_stage, session_id):
+    """Refuse held custody or abort abandoned holders under their row locks.
+
+    An abort commits, so the caller must read again and reacquire the run
+    lock before repeating admission. Execution history never invalidates
+    the unlocked roster read.
     """
-    scope = dict(
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        session_id=session_id,
+    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
+    from yoke_core.domain.qa_plan_execution_lifecycle import (
+        STALE_PLAN_EXECUTION_REASON, finish_plan_execution,
     )
-    held = held_requirements(conn, **scope)
-    for row in roster:
-        holder = held.get(int(row["requirement_id"]))
-        if holder is not None:
-            raise StageRosterHeld(holder)
-    return abort_abandoned_holders(conn, roster, **scope)
+
+    aborted = False
+    for locked in _locked_roster_holders(
+        conn, roster, deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage, session_id=session_id,
+    ):
+        if not plan_execution_is_abandoned(conn, locked):
+            raise StageRosterHeld(locked)
+        finish_plan_execution(
+            conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+        )
+        aborted = True
+    return aborted
 
 
 __all__ = [

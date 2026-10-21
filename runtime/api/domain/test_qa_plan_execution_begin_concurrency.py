@@ -138,3 +138,38 @@ def test_retirement_rechecks_custody_after_reacquiring_the_run_lock(test_db, mon
         (run_id,),
     ).fetchall()
     assert [row[0] for row in rows] == [raced[0]["id"]]
+
+
+def test_admission_checks_owner_lifetime_with_the_execution_locked(test_db, monkeypatch):
+    import psycopg
+
+    from yoke_core.domain import qa_plan_execution_authority as authority
+    from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
+
+    run_id, members = "run-begin-owner-lifetime", (9851, 9852)
+    _seed_stage_wide(test_db, run_id, members)
+    owner = _stage_wide_begin(test_db, run_id, session="live-owner")
+    probe = connect_test_database(test_db.info.dbname)
+    checked = []
+
+    def live_owner(conn, execution):
+        with pytest.raises(psycopg.errors.LockNotAvailable):
+            probe.execute(
+                "SELECT id FROM qa_plan_executions WHERE id=%s FOR UPDATE NOWAIT",
+                (execution["id"],),
+            )
+        probe.rollback()
+        checked.append(execution["id"])
+        return False
+
+    monkeypatch.setattr(authority, "plan_execution_is_abandoned", live_owner)
+    try:
+        with pytest.raises(StageRosterHeld):
+            admit_stage_roster(
+                test_db, owner["roster"], deployment_run_id=run_id,
+                deployment_stage="item-qa", session_id="competing-owner",
+            )
+    finally:
+        test_db.rollback()
+        probe.close()
+    assert checked == [owner["id"]]
