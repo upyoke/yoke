@@ -97,8 +97,12 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
             "os": "linux",
             "runner_materialized": result.returncode == 0,
         }
-        if result.returncode:
-            return HostActionResult(False, evidence, SSH_UNAVAILABLE)
+        if result.returncode or self.os != "linux":
+            return HostActionResult(
+                result.returncode == 0,
+                evidence,
+                SSH_UNAVAILABLE if result.returncode else None,
+            )
         memory = check_linux_memory(self._run, secret_values=self.secret_values)
         return HostActionResult(
             memory.ok, {**evidence, **memory.evidence}, memory.error_code

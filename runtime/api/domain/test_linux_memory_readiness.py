@@ -27,6 +27,7 @@ def test_linux_verify_proves_total_ram_before_baseline_work(observed, ok):
     calls = []
     control = object.__new__(SshLinuxHostOperations)
     control._host, control._user = "host.invalid", "tester"
+    control.os = "linux"
     control.secret_values = ()
 
     def run(command, **kwargs):
