@@ -46,10 +46,15 @@ def test_backlog_rendering_bounds_status_comment_sync(monkeypatch):
     )
 
 
-def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
+def test_status_comment_forwards_budget_to_issue_read_and_comment(monkeypatch):
     from yoke_core.domain import backlog_github_comments as comments
 
     calls: dict[str, object] = {}
+    auth = ProjectGithubAuth(
+        project="yoke",
+        repo="upyoke/yoke",
+        token="tok",
+    )
 
     class FakeBacklogGithubSync:
         def _dry_run(self):
@@ -59,36 +64,17 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
             calls["sync_skip"] = (project, operation)
             return False
 
-        def _github_auth_available(self, project):
-            calls["github_auth_project"] = project
-            return True
+        def _issue_write_auth(self, project, public_ref, op_name, **kwargs):
+            calls["auth"] = (project, public_ref, op_name)
+            return auth
 
-        def _validate_issue_in_repo(self, public_ref, issue_num, **kwargs):
-            calls["validate"] = (public_ref, issue_num, kwargs)
-            return True
+        def _fetch_validated_issue(self, public_ref, issue_num, **kwargs):
+            calls["read"] = (public_ref, issue_num, kwargs)
+            return SimpleNamespace(labels=(), state="OPEN")
 
     def fake_post_comment(**kwargs):
         calls["comment"] = kwargs
         return SimpleNamespace(id=1, body="ok", html_url="", user_login="")
-
-    def fake_ensure_label(name, color, repo, project, **kwargs):
-        calls["ensure"] = (name, color, repo, project, kwargs)
-
-    def fake_add_labels(repo, issue_number, labels, **kwargs):
-        calls["add"] = (repo, issue_number, labels, kwargs)
-
-    def fake_remove_label(repo, issue_number, label, **kwargs):
-        calls["remove"] = (repo, issue_number, label, kwargs)
-
-    auth = ProjectGithubAuth(
-        project="yoke",
-        repo="upyoke/yoke",
-        token="tok",
-    )
-
-    def fake_resolve_auth(project, *, required_permissions):
-        calls["auth"] = (project, required_permissions)
-        return auth
 
     monkeypatch.setattr(comments, "_bgs", lambda: FakeBacklogGithubSync())
     monkeypatch.setattr(comments, "_open_conn", lambda conn: (conn, False))
@@ -99,12 +85,7 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
         "_item_context",
         lambda item_id, conn: ("#4619", "yoke", "upyoke/yoke"),
     )
-    monkeypatch.setattr(comments, "_label_colors", lambda: {"status": "C5DEF5"})
-    monkeypatch.setattr(comments, "resolve_project_github_auth", fake_resolve_auth)
     monkeypatch.setattr(comments.github_rest, "post_comment", fake_post_comment)
-    monkeypatch.setattr(comments, "_ensure_label", fake_ensure_label)
-    monkeypatch.setattr(comments._label_rest, "add_labels", fake_add_labels)
-    monkeypatch.setattr(comments._label_rest, "remove_label", fake_remove_label)
 
     rc = comments.post_comment(
         "YOK-1902",
@@ -118,17 +99,14 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
     )
 
     assert rc == 0
-    expected_budget = {"timeout_seconds": 5.0, "max_attempts": 1}
-    validate_kwargs = calls["validate"][2]  # type: ignore[index]
-    assert validate_kwargs == expected_budget | {"project": "yoke", "stderr": validate_kwargs["stderr"]}
-    assert calls["auth"] == ("yoke", GITHUB_ISSUES_WRITE_PERMISSION_LEVELS)
+    read_kwargs = calls["read"][2]  # type: ignore[index]
+    assert read_kwargs["timeout_seconds"] == 5.0
+    assert read_kwargs["max_attempts"] == 1
+    assert read_kwargs["auth"] is auth
+    assert calls["auth"] == ("yoke", "YOK-1902", "post_comment")
     assert calls["comment"]["timeout_seconds"] == 5.0  # type: ignore[index]
     assert calls["comment"]["max_attempts"] == 1  # type: ignore[index]
-    assert calls["ensure"][4] == expected_budget  # type: ignore[index]
-    assert calls["add"][3]["timeout_seconds"] == 5.0  # type: ignore[index]
-    assert calls["add"][3]["max_attempts"] == 1  # type: ignore[index]
-    assert calls["remove"][3]["timeout_seconds"] == 5.0  # type: ignore[index]
-    assert calls["remove"][3]["max_attempts"] == 1  # type: ignore[index]
+    assert calls["comment"]["auth"] is auth  # type: ignore[index]
 
 
 def test_rest_comment_and_label_helpers_forward_budget(monkeypatch):
@@ -149,7 +127,7 @@ def test_rest_comment_and_label_helpers_forward_budget(monkeypatch):
             body={"id": 1, "body": "ok", "html_url": "", "user": {"login": "bot"}},
         )
 
-    def fake_target_for(project, *, required_permissions, db_path=None):
+    def fake_target_for(project, *, required_permissions, db_path=None, auth=None):
         target_calls.append((project, db_path, required_permissions))
         return SimpleNamespace(owner="o", repo="r", token="t")
 

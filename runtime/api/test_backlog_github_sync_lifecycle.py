@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 from runtime.api.backlog_github_sync_test_helpers import (
     GH_PATCH,
+    issue_access,
+    issue_with,
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
@@ -22,13 +24,6 @@ from yoke_core.domain import (
     backlog_rendering,
     github_rest,
 )
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
-
-
-def _ok_auth(project: str = "externalwebapp") -> ProjectGithubAuth:
-    return ProjectGithubAuth(
-        project=project, repo=f"org/{project}", token="ghs_fake",
-    )
 
 
 def _issue(number: int = 60, state: str = "OPEN") -> github_rest.Issue:
@@ -41,27 +36,16 @@ def _issue(number: int = 60, state: str = "OPEN") -> github_rest.Issue:
 
 
 class TestPostComment:
-    def test_posts_comment_and_updates_label(self):
+    def test_posts_comment_without_touching_labels(self):
         db = _make_db()
         insert_item(db, id=30, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#50")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            autospec=True,
-            return_value=True,
-        ), patch.object(
-            backlog_github_comments, "resolve_project_github_auth",
-            return_value=_ok_auth(),
-        ), patch.object(
-            backlog_github_comments, "_ensure_label",
-        ), patch.object(
+        with issue_access(issue_with("status:idea", number=50)) as (resolve, _), patch.object(
             backlog_github_comments.github_rest, "post_comment",
-        ) as post_comment, patch.object(
-            backlog_github_comments._label_rest, "add_labels",
-        ) as add_labels, patch.object(
-            backlog_github_comments._label_rest, "remove_label",
-        ) as remove_label:
+        ) as post_comment, patch(
+            "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
+        ) as label_calls:
             rc = backlog_github_sync.post_comment(30, "idea", "implementing", conn=db, stdout=stdout)
 
         assert rc == 0
@@ -69,11 +53,9 @@ class TestPostComment:
         post_comment.assert_called_once()
         assert "`idea` → `implementing`" in post_comment.call_args.kwargs["body"]
         assert post_comment.call_args.kwargs["number"] == 50
-        add_labels.assert_called_once()
-        assert add_labels.call_args.args[1] == 50
-        assert add_labels.call_args.args[2] == ["status:implementing"]
-        remove_label.assert_called_once()
-        assert remove_label.call_args.args[2] == "status:idea"
+        assert post_comment.call_args.kwargs["auth"] is resolve.return_value
+        # The status label belongs to sync_labels; the comment makes no label call.
+        label_calls.assert_not_called()
         db.close()
 
     def test_issue_validation_failure_is_nonzero(self):
@@ -84,13 +66,7 @@ class TestPostComment:
         )
         stderr = io.StringIO()
 
-        with patch(
-            f"{GH_PATCH}._github_auth_available", return_value=True,
-        ), patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            autospec=True,
-            return_value=False,
-        ):
+        with issue_access(None):
             rc = backlog_github_sync.post_comment(
                 31, "idea", "implementing", conn=db, stderr=stderr,
             )
@@ -133,26 +109,13 @@ class TestCloseIssue:
         insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            autospec=True,
-            return_value=True,
-        ), patch.object(
-            backlog_github_state_sync, "resolve_project_github_auth",
-            return_value=_ok_auth(),
-        ), patch.object(
-            backlog_github_state_sync, "_ensure_label",
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_labels",
-            return_value=["status:implementing"],
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_state",
-            return_value="OPEN",
-        ), patch.object(
+        with issue_access(issue_with("status:implementing", number=60)) as (resolve, _), patch.object(
+            backlog_github_state_sync._label_rest, "ensure_label",
+        ) as ensure, patch.object(
             backlog_github_state_sync._label_rest, "add_labels",
-        ), patch.object(
+        ) as add_labels, patch.object(
             backlog_github_state_sync._label_rest, "remove_label",
-        ), patch.object(
+        ) as remove_label, patch.object(
             backlog_github_state_sync.github_rest, "set_issue_state",
             return_value=_issue(state="CLOSED"),
         ) as set_state:
@@ -160,41 +123,33 @@ class TestCloseIssue:
 
         assert rc == 0
         assert "Closed: EXT-40 -> #60" in stdout.getvalue()
+        assert remove_label.call_args.args[2] == "status:implementing"
+        assert ensure.call_args.args[0] == "status:done"
+        assert add_labels.call_args.args[2] == ["status:done"]
         set_state.assert_called_once()
         assert set_state.call_args.kwargs["state"] == "closed"
         assert set_state.call_args.kwargs["number"] == 60
+        assert set_state.call_args.kwargs["auth"] is resolve.return_value
         assert "comment" not in set_state.call_args.kwargs
         db.close()
 
-    def test_already_closed_is_noop(self):
+    def test_already_closed_with_its_label_makes_no_label_call(self):
         db = _make_db()
         insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stdout = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True
-        ), patch.object(
-            backlog_github_state_sync, "resolve_project_github_auth",
-            return_value=_ok_auth(),
-        ), patch.object(
-            backlog_github_state_sync, "_ensure_label",
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_labels",
-            return_value=["status:done"],
-        ), patch.object(
-            backlog_github_state_sync, "_get_issue_state",
-            return_value="CLOSED",
-        ), patch.object(
-            backlog_github_state_sync._label_rest, "add_labels",
-        ), patch.object(
-            backlog_github_state_sync._label_rest, "remove_label",
-        ), patch.object(
+        with issue_access(
+            issue_with("status:done", number=60, state="CLOSED")
+        ), patch(
+            "yoke_core.domain.backlog_github_label_sync_rest.request_with_retry",
+        ) as label_calls, patch.object(
             backlog_github_state_sync.github_rest, "set_issue_state",
         ) as set_state:
             rc = backlog_github_sync.close_issue(40, conn=db, stdout=stdout)
 
         assert rc == 0
         assert "already closed" in stdout.getvalue()
+        label_calls.assert_not_called()
         set_state.assert_not_called()
         db.close()
 

@@ -11,6 +11,8 @@ mock-process plumbing.
 from __future__ import annotations
 
 import subprocess
+from contextlib import contextmanager
+from unittest.mock import patch
 
 # Patch targets used across every split file. ``backlog_github_sync`` is
 # the stable module that re-exports every public sync function from
@@ -86,6 +88,8 @@ __all__ = [
     "GH_PATCH",
     "GH_DEDUP_PATCH",
     "completed_process",
+    "issue_access",
+    "issue_with",
     "make_db",
 ]
 
@@ -124,3 +128,28 @@ def fake_issue(
             else html_url
         ),
     )
+
+
+def issue_with(*labels: str, number: int = 55, state: str = "OPEN"):
+    """A validated issue as the one issue read returns it."""
+    from yoke_core.domain import github_rest
+
+    return github_rest.Issue(
+        number=number, title="title", state=state, labels=tuple(labels)
+    )
+
+
+@contextmanager
+def issue_access(issue, *, auth=None):
+    """Stub the one write-auth resolve and the validating issue read.
+
+    ``issue=None`` makes the read fail validation; ``auth=None`` defaults
+    to the fake ``org/externalwebapp`` auth.
+    """
+    with patch(
+        f"{GH_PATCH}._issue_write_auth",
+        return_value=auth or item_auth_resolver("externalwebapp"),
+    ) as resolve, patch(
+        f"{GH_PATCH}._fetch_validated_issue", return_value=issue,
+    ) as fetch:
+        yield resolve, fetch

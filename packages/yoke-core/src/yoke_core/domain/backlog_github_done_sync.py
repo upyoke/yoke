@@ -20,9 +20,6 @@ from yoke_core.domain.public_item_target import public_item_target
 import sys
 from typing import Any, Optional, TextIO
 
-from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-)
 from yoke_core.domain import control_plane_transport
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_body_writer as _writer
@@ -44,29 +41,10 @@ from yoke_core.domain.backlog_github_fetch import (
     _resolve_item_id,
     _status_display_label,
 )
-from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 from yoke_core.domain.project_attribution import resolved_project
-
-
-def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str], str]:
-    """Fetch labels + state for an issue via typed REST."""
-    try:
-        resolve_project_github_auth(project)
-    except Exception:  # noqa: BLE001
-        return [], "UNKNOWN"
-    try:
-        issue = github_rest.get_issue(
-            project=project,
-            number=issue_num,
-        )
-    except github_rest.RestTransportError:
-        return [], "UNKNOWN"
-    if issue is None:
-        return [], "UNKNOWN"
-    return list(issue.labels), issue.state or "UNKNOWN"
 
 
 DONE_SYNC_FUNCTION_ID = "items.github_done_sync"
@@ -139,7 +117,7 @@ def sync_done_item(
         if context is None:
             print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
-        github_issue, project, repo = context
+        github_issue, project, _ = context
         issue_num_str = github_issue.lstrip("#")
         if not issue_num_str or issue_num_str == "null":
             return 0
@@ -150,21 +128,15 @@ def sync_done_item(
             gh_project, "sync-done-item", conn=conn, out=stdout
         ):
             return 0
-        try:
-            auth = resolve_project_github_auth(
-                gh_project,
-                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"Error: project '{gh_project}' has no usable GitHub App auth "
-                f"for sync-done-item: {exc}",
-                file=stderr,
-            )
+        auth = _bgs()._issue_write_auth(
+            gh_project, public_ref, "sync_done_item", stderr=stderr
+        )
+        if auth is None:
             return 1
-        if not _bgs()._validate_issue_in_repo(
-            public_ref, str(issue_num), project=gh_project, stderr=stderr
-        ):
+        issue = _bgs()._fetch_validated_issue(
+            public_ref, str(issue_num), auth=auth, stderr=stderr
+        )
+        if issue is None:
             print(f"Error: sync_done_item skipped for {public_ref}", file=stderr)
             return 1
 
@@ -184,7 +156,7 @@ def sync_done_item(
         if fields is None:
             return 0
 
-        existing_labels, state = _issue_snapshot(issue_num, repo, gh_project)
+        existing_labels, state = list(issue.labels), issue.state
         colors = _label_colors()
         source_label = github_attribution_name(
             actor_name_or_passthrough(conn, fields["source"])
@@ -222,8 +194,11 @@ def sync_done_item(
                 add_labels.append(want)
 
         for label in add_labels:
-            _bgs()._ensure_label(
-                label, label_colors.get(label, colors["status"]), repo, gh_project
+            _label_rest.ensure_label(
+                label,
+                label_colors.get(label, colors["status"]),
+                auth.repo,
+                token=auth.token,
             )
 
         from yoke_core.domain.render_body import build_body
@@ -283,6 +258,7 @@ def sync_done_item(
                     project=gh_project,
                     number=issue_num,
                     state="closed",
+                    auth=auth,
                 )
             except github_rest.RestTransportError as exc:
                 print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)

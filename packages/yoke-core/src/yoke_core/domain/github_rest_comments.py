@@ -33,10 +33,12 @@ def _parse_comment(payload: Any):
 
 
 def _target_for(
-    project: str, *, required_permissions, db_path: Optional[str] = None,
+    project: str, *, required_permissions, db_path: Optional[str] = None, auth=None,
 ):
-    from yoke_core.domain.github_rest import resolve_target
+    from yoke_core.domain.github_rest import Target, resolve_target
 
+    if auth is not None:
+        return Target.from_auth(auth)
     return resolve_target(
         project,
         db_path=db_path,
@@ -56,12 +58,14 @@ def post_comment(
     db_path: Optional[str] = None,
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
+    auth=None,
 ):
     """POST /repos/{owner}/{repo}/issues/{number}/comments."""
     tgt = _target_for(
         project,
         db_path=db_path,
         required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        auth=auth,
     )
     resp = request_with_retry(
         RestRequest(

@@ -9,6 +9,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
+from yoke_core.domain.backlog_github_transport import _emit_auth_warning
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
 from yoke_core.domain.backlog_github_fetch import (
@@ -21,33 +22,12 @@ from yoke_core.domain.backlog_github_fetch import (
     _resolve_item_id,
     _status_display_label,
 )
-from yoke_core.domain.backlog_github_label_sync import (
-    _ensure_label,
-    _get_issue_labels,
-    _get_issue_state,
-)
+from yoke_core.domain.backlog_github_label_sync import _get_issue_state
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
-    repair_command_hint,
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_attribution import resolved_project
-
-
-def _emit_auth_warning(
-    public_ref: str,
-    op_name: str,
-    exc: ProjectGithubAuthError,
-    *,
-    stderr: TextIO,
-) -> None:
-    """Surface typed auth diagnostic without silent swallow."""
-    print(
-        f"Warning: {op_name} skipped for {public_ref} — "
-        f"sync_warning={exc.__class__.__name__}: {exc}",
-        file=stderr,
-    )
-    print(f"  Repair: {repair_command_hint(exc, exc.project)}", file=stderr)
 
 
 def close_issue(
@@ -81,7 +61,7 @@ def close_issue(
         if context is None:
             print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
-        github_issue, project, repo = context
+        github_issue, project, _ = context
         issue_num_str = github_issue.lstrip("#")
         if not issue_num_str or issue_num_str == "null":
             print(f"{public_ref} not synced to GitHub, skipping close", file=stdout)
@@ -90,45 +70,39 @@ def close_issue(
         gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "close-issue", conn=conn, out=stdout):
             return 0
-        if not _bgs()._github_auth_available(gh_project):
-            print(
-                f"Error: project '{gh_project}' has no usable GitHub App auth",
-                file=stderr,
-            )
+        auth = _bgs()._issue_write_auth(
+            gh_project, public_ref, "close_issue", stderr=stderr
+        )
+        if auth is None:
             return 1
-        colors = _label_colors()
-        if not _bgs()._validate_issue_in_repo(
-            public_ref,
-            str(issue_num),
-            project=gh_project,
-            stderr=stderr,
-        ):
+        issue = _bgs()._fetch_validated_issue(
+            public_ref, str(issue_num), auth=auth, stderr=stderr
+        )
+        if issue is None:
             print(
                 f"Warning: close_issue skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
             return 1
-        auth = resolve_project_github_auth(
-            gh_project,
-            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-        )
-        # Ensure status label is correct
+        # Ensure status label is correct; a label already on the issue exists.
         fields = _item_fields(item_pk, ["status"], conn=conn)
         cur_status = fields.get("status", "") if fields else ""
         if cur_status and cur_status != "null":
             want_label = f"status:{_status_display_label(cur_status)}"
-            _ensure_label(want_label, colors["status"], repo, gh_project)
-            existing = _get_issue_labels(str(issue_num), repo, gh_project)
-            for label in existing:
+            for label in issue.labels:
                 if label.startswith("status:") and label != want_label:
                     _label_rest.remove_label(
                         auth.repo, issue_num, label, token=auth.token
                     )
-            _label_rest.add_labels(auth.repo, issue_num, [want_label], token=auth.token)
-        # Check if already closed
-        state = _get_issue_state(str(issue_num), repo, gh_project)
-        if state == "CLOSED":
+            if want_label not in issue.labels:
+                _label_rest.ensure_label(
+                    want_label, _label_colors()["status"], auth.repo, token=auth.token
+                )
+                _label_rest.add_labels(
+                    auth.repo, issue_num, [want_label], token=auth.token
+                )
+        if issue.state == "CLOSED":
             print(
                 f"Closed: {public_ref} -> {github_issue} (already closed)", file=stdout
             )
@@ -139,17 +113,13 @@ def close_issue(
                 project=gh_project,
                 number=issue_num,
                 state="closed",
+                auth=auth,
             )
         except github_rest.RestTransportError as exc:
             print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)
             return 1
         print(f"Closed: {public_ref} -> {github_issue}", file=stdout)
         return 0
-    except ProjectGithubAuthError as exc:
-        _emit_auth_warning(
-            locals().get("public_ref", str(item_id)), "close_issue", exc, stderr=stderr
-        )
-        return 1
     finally:
         _close_if_owned(conn, owns_conn)
 

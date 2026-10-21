@@ -10,20 +10,10 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 from yoke_core.domain import backlog_github_label_sync_rest as rest
 from yoke_core.domain.project_github_auth import (
+    ProjectGithubAuth,
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
-
-
-def get_issue_labels(
-    issue_num: str, project: str, *, resolver=resolve_project_github_auth
-) -> list[str]:
-    """Fetch labels from the verified project repository."""
-    try:
-        auth = resolver(project, required_permissions=ISSUES_READ)
-    except ProjectGithubAuthError:
-        return []
-    return rest.fetch_issue_labels(auth.repo, int(issue_num), token=auth.token)
 
 
 def get_issue_state(
@@ -73,13 +63,10 @@ def reconcile_category(
     want: str,
     existing: list[str],
     issue_num: str,
-    project: str,
+    auth: ProjectGithubAuth,
     color: str,
-    *,
-    resolver=resolve_project_github_auth,
 ) -> None:
-    """Reconcile one label category in the verified repository."""
-    auth = resolver(project, required_permissions=ISSUES_WRITE)
+    """Reconcile one label category on the issue with a resolved ``auth``."""
     has_correct = False
     for label in existing:
         if not label.startswith(prefix):

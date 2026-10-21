@@ -2,7 +2,7 @@
 
 Verifies the auth-error contract: when the typed REST surface raises
 :class:`ProjectGithubAuthError` (the canonical resolver's typed
-diagnostic), :func:`post_comment` translates the exception into a
+diagnostic) from the one write-auth resolve, :func:`post_comment` translates the exception into a
 non-zero return + typed-stderr diagnostic carrying the exception
 class name and a concrete repair hint. No silent swallow.
 """
@@ -14,9 +14,9 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.backlog_github_sync_test_helpers import GH_PATCH, make_db as _make_db
+from runtime.api.backlog_github_sync_test_helpers import make_db as _make_db
 from runtime.api.conftest import insert_item
-from yoke_core.domain import backlog_github_comments, backlog_github_sync
+from yoke_core.domain import backlog_github_sync, backlog_github_transport
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
     MissingRepoBinding,
@@ -35,10 +35,8 @@ class TestPostCommentAuthTranslation:
         insert_item(db, id=30, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#50")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-        ), patch.object(
-            backlog_github_comments, "resolve_project_github_auth",
+        with patch.object(
+            backlog_github_transport, "resolve_project_github_auth",
             side_effect=MissingRepoBinding(
                 "externalwebapp", "project 'externalwebapp' has no GitHub App repository binding",
             ),
@@ -58,10 +56,8 @@ class TestPostCommentAuthTranslation:
         insert_item(db, id=31, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#51")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-        ), patch.object(
-            backlog_github_comments, "resolve_project_github_auth",
+        with patch.object(
+            backlog_github_transport, "resolve_project_github_auth",
             side_effect=MissingCapability("externalwebapp", "no github capability for project 'externalwebapp'"),
         ):
             rc = backlog_github_sync.post_comment(

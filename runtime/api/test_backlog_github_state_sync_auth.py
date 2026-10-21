@@ -17,7 +17,11 @@ import pytest
 
 from runtime.api.backlog_github_sync_test_helpers import GH_PATCH, make_db as _make_db
 from runtime.api.conftest import insert_item
-from yoke_core.domain import backlog_github_state_sync, backlog_github_sync
+from yoke_core.domain import (
+    backlog_github_state_sync,
+    backlog_github_sync,
+    backlog_github_transport,
+)
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
     MissingRepoBinding,
@@ -41,10 +45,8 @@ class TestCloseIssueAuthTranslation:
         insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stderr = io.StringIO()
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-        ), patch.object(
-            backlog_github_state_sync, "resolve_project_github_auth",
+        with patch.object(
+            backlog_github_transport, "resolve_project_github_auth",
             side_effect=MissingRepoBinding(
                 "externalwebapp", "project 'externalwebapp' has no GitHub App repository binding",
             ),

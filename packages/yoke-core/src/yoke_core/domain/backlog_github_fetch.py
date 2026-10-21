@@ -2,8 +2,7 @@
 
 Contains only helpers that do NOT call typed REST (so they can be imported
 by ``backlog_github_sync.py`` without dragging in mock-test patch surfaces).
-Functions that call typed REST (``_get_issue_labels``, ``_get_issue_state``,
-``_repo_labels``) live in ``backlog_github_label_sync.py`` and consume the
+Functions that call typed REST (``_get_issue_state``, ``_repo_labels``) live in ``backlog_github_label_sync.py`` and consume the
 typed surface via the canonical ``_label_rest`` import.
 """
 
@@ -275,7 +274,7 @@ def _repo_args(repo: str) -> list[str]:
     return ["-R", repo] if repo else []
 
 
-# _get_issue_labels, _get_issue_state, _repo_labels live in
+# _get_issue_state, _repo_labels live in
 # backlog_github_label_sync.py because they call the typed REST surface
 # via the canonical _label_rest module; this module stays pure-DB so
 # the import graph does not pull in the network layer.
