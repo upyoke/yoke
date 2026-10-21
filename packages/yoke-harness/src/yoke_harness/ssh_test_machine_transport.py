@@ -41,11 +41,12 @@ SSH_TIMEOUT_DIAGNOSTIC = "host_control subprocess timed out"
 SSH_UNAVAILABLE_DIAGNOSTIC = "host_control subprocess unavailable"
 SSH_REUSE_WARNING = (
     "host_control_ssh_stale_socket: SSH master unavailable; "
-    "retrying once with a fresh connection. If repeated, wait 30 seconds for "
+    "OpenSSH will open a fresh connection before executing the command. "
+    "If repeated, wait 30 seconds for "
     "the master to expire and retry the host command."
 )
-# These messages precede remote execution. Never retry an ambiguous disconnect:
-# a command may already have run, including commands with destructive effects.
+# OpenSSH already falls back on these pre-execution errors. Never replay the
+# command: a later exit 255 may belong to a command that actually ran.
 _STALE_SOCKET_ERRORS = (
     "mux_client_hello_exchange:",
     "mux_client_request_session: session request failed:",
@@ -134,28 +135,33 @@ class SshTestMachineTransport:
             argv[1:1] = ["-vvv", "-E", str(debug_log)]
         started = time.monotonic()
         try:
+            control_path = getattr(self, "_control_path", None)
+            warned = False
+            if control_path is not None and control_path.exists():
+                # A control request never executes a remote command. It also
+                # exposes ECONNREFUSED, which auto mode logs only at DEBUG.
+                try:
+                    probe = subprocess.run(
+                        argv[:1] + ["-O", "check"] + argv[1:-1],
+                        capture_output=True, encoding="utf-8",
+                        errors="backslashreplace", timeout=min(5, timeout / 2),
+                        check=False,
+                    )
+                    warned = probe.returncode != 0
+                except subprocess.TimeoutExpired:
+                    warned = True
+                if warned:
+                    print(SSH_REUSE_WARNING, file=sys.stderr)
             result = subprocess.run(
-                argv,
-                input=input_text,
-                encoding="utf-8",
-                errors="backslashreplace",
-                capture_output=True,
-                timeout=timeout,
+                argv, input=input_text, encoding="utf-8",
+                errors="backslashreplace", capture_output=True,
+                timeout=max(0.001, timeout - (time.monotonic() - started)),
                 check=False,
             )
-            stale = any(marker in result.stderr for marker in _STALE_SOCKET_ERRORS)
-            if stale:
+            if not warned and any(
+                marker in result.stderr for marker in _STALE_SOCKET_ERRORS
+            ):
                 print(SSH_REUSE_WARNING, file=sys.stderr)
-            if stale and result.returncode == 255:
-                # Options use the first supplied value, so prepend overrides.
-                argv[1:1] = ["-o", "ControlMaster=no", "-o", "ControlPath=none"]
-                result = subprocess.run(
-                    argv, input=input_text, encoding="utf-8",
-                    errors="backslashreplace", capture_output=True,
-                    timeout=max(0.001, timeout - (time.monotonic() - started)),
-                    check=False,
-                )
-                result.stderr = SSH_REUSE_WARNING + "\n" + result.stderr
             return result
         except subprocess.TimeoutExpired as exc:
             stderr = _partial_output(exc.stderr, self.secret_values)

@@ -81,7 +81,7 @@ GUI commands continue using their existing display without this access repair.
 Host-control SSH commands share a per-machine connection on the executing
 workstation. Its private socket lives under Yoke's configured scratch root;
 the master expires after 30 idle seconds. A diagnosed stale socket reports
-`host_control_ssh_stale_socket` and retries once on a fresh connection before
+`host_control_ssh_stale_socket`; OpenSSH opens a fresh connection before
 remote execution. If it repeats, wait 30 seconds and retry. Other disconnects
 are not retried because the remote command may already have run.
 `host_control_ssh_socket_unavailable` asks you to configure a short writable

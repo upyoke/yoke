@@ -58,8 +58,9 @@ def test_long_socket_path_teaches_recovery(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("diagnostic", transport._STALE_SOCKET_ERRORS)
-def test_stale_master_retries_once_fresh_with_warning(tmp_path, monkeypatch, capsys, diagnostic):
+def test_stale_master_warns_before_native_fallback_executes_once(tmp_path, monkeypatch, capsys, diagnostic):
     instance = control(tmp_path, monkeypatch)
+    instance._control_path.touch()
     calls = []
 
     def run(argv, **kwargs):
@@ -72,10 +73,12 @@ def test_stale_master_retries_once_fresh_with_warning(tmp_path, monkeypatch, cap
     result = instance._run("click once", input_text="payload", timeout=20)
     assert result.returncode == 0 and result.stdout == "receipt"
     assert len(calls) == 2
-    assert calls[1][0][1:5] == ["-o", "ControlMaster=no", "-o", "ControlPath=none"]
+    assert calls[0][0][1:3] == ["-O", "check"]
+    assert calls[0][0][-1] == "tester@test-host"
+    assert calls[1][0][-1] == "click once"
+    assert "ControlMaster=auto" in calls[1][0]
     assert calls[1][1]["input"] == "payload"
-    assert calls[1][1]["timeout"] <= calls[0][1]["timeout"]
-    assert "host_control_ssh_stale_socket" in result.stderr
+    assert calls[1][1]["timeout"] <= 20
     assert "host_control_ssh_stale_socket" in capsys.readouterr().err
 
 
@@ -99,7 +102,7 @@ def test_ambiguous_disconnects_and_remote_failures_never_replay(tmp_path, monkey
     assert result.returncode == code and result.stderr == diagnostic
 
 
-def test_second_stale_failure_is_not_retried(tmp_path, monkeypatch):
+def test_native_fallback_result_is_never_replayed(tmp_path, monkeypatch):
     instance = control(tmp_path, monkeypatch)
     calls = []
 
@@ -109,4 +112,22 @@ def test_second_stale_failure_is_not_retried(tmp_path, monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", run)
     assert instance._run("read").returncode == 255
+    assert len(calls) == 1
+
+
+def test_live_master_check_does_not_execute_remote_command(tmp_path, monkeypatch, capsys):
+    instance = control(tmp_path, monkeypatch)
+    instance._control_path.touch()
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, "receipt", "")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    assert instance._run("capture desktop").stdout == "receipt"
     assert len(calls) == 2
+    assert calls[0][1:3] == ["-O", "check"]
+    assert "capture desktop" not in calls[0]
+    assert calls[1][-1] == "capture desktop"
+    assert capsys.readouterr().err == ""

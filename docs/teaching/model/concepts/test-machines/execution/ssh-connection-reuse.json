@@ -3,6 +3,6 @@
  "title": "Host SSH connection reuse",
  "status": "observed",
  "page": "host-ssh-connection-reuse",
- "summary": "Host control shares a per-host, user and credential OpenSSH master through a private socket under the executing workstation's Yoke scratch root. The master persists for 30 idle seconds. A diagnosed pre-execution stale-socket failure warns host_control_ssh_stale_socket and retries once without sharing; ambiguous disconnects never retry remote commands. Socket setup failures name host_control_ssh_socket_unavailable and ask for a short writable temp_root. Source behavior awaits live timing proof.",
+ "summary": "Host control shares a per-host, user and credential OpenSSH master through a private socket under the executing workstation's Yoke scratch root. The master persists for 30 idle seconds. A diagnosed pre-execution stale-socket failure warns host_control_ssh_stale_socket and OpenSSH falls back to a fresh connection before execution; the transport never replays remote commands, including exit 255 after native fallback. Socket setup failures name host_control_ssh_socket_unavailable and ask for a short writable temp_root. Source behavior awaits live timing proof.",
  "sources": ["packages/yoke-harness/src/yoke_harness/ssh_test_machine_transport.py", "docs/public/verification/test-machine-desktop.md", "runtime/api/domain/test_ssh_connection_reuse.py"]
 }
