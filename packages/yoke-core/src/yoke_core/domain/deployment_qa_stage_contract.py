@@ -188,16 +188,16 @@ def deployment_qa_stage_subject(
             batch = run_member_rows(conn, str(run_id)) if not require_active else None
             if batch is not None:
                 return batch
-            member_filter = (
-                "" if presentation_active() else f" AND dri.item_id={_p(conn)}"
-            )
+            # An active-stage check re-reads only its own member under the
+            # lock: each frozen snapshot is large, so reading every member's
+            # per check moved the whole run's snapshots once per member.
+            whole_run = presentation_active() and not require_active
+            member_filter = "" if whole_run else f" AND dri.item_id={_p(conn)}"
             cursor = conn.execute(
                 "SELECT dri.item_id,dri.requirement_snapshot,i.project_id "
                 "FROM deployment_run_items dri JOIN items i ON i.id=dri.item_id "
                 f"WHERE dri.run_id={_p(conn)}{member_filter}",
-                (str(run_id),)
-                if presentation_active()
-                else (str(run_id), int(member_item_id)),
+                (str(run_id),) if whole_run else (str(run_id), int(member_item_id)),
             )
             rows = [_row(cursor, value) for value in cursor.fetchall()]
             return {int(row["item_id"]): row for row in rows}
