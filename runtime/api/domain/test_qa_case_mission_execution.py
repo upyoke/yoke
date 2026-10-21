@@ -71,6 +71,7 @@ def test_single_roster_is_durable_and_other_requirements_are_unchanged():
         before = conn.execute(
             "SELECT * FROM qa_requirements WHERE id=%s", (first,)
         ).fetchone()
+        before = dict(before)
         execution = begin_plan_execution(
             conn,
             item_id=4801,
@@ -217,6 +218,7 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     before = test_db.execute(
         "SELECT * FROM qa_requirements WHERE id=%s", (sibling,)
     ).fetchone()
+    before = dict(before)
     execution = begin_plan_execution(
         test_db,
         item_id=item_id,
