@@ -33,8 +33,18 @@ At `--timeout-seconds` (default 60, at most 900) a `--gui-session` command's
 whole process tree is stopped; a Yoke `setup`, `connect` or `onboard` that may
 wait on approval needs 600+.
 
+Use `--machine NAME` before `--` to command a companion declared in the
+case's `method_config.machines`; omitting it targets the retained driver.
+Every declared host must still have its execution-owned lease. An outside
+host is refused with `mission_machine_not_declared`, naming the allowed set.
+Companion commands use that host's lease without resetting it or staging
+mission secrets. Self-host setup creates its first-boot token on that host;
+keep it in the bundle's owner-only secrets directory and remove the bundle
+when the walk finishes. Mission scratch and `walk-start`/`walk-end` stay on
+the driver.
+
 Missions are walked one at a time, in bundle order, because they share the
-plan's one Test Machine. The walker dispatch carries the scratch path and two
+plan's retained hosts. The walker dispatch carries the scratch path and two
 commands. `walk-start` runs before any other host command: it re-reaches the
 baseline the docket proved, since later cases ran (never in a continuation),
 restores declared OS packages and creates the `0700` scratch. `walk-end`:

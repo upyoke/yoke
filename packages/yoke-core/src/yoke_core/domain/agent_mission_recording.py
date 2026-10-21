@@ -186,9 +186,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
     from yoke_core.domain.machine_qa_execution_protocol import MachineQaProtocolError
-    from yoke_core.domain.machine_qa_plan_protocol import (
-        continue_plan_host_control_execution,
-    )
+    from yoke_core.domain.agent_mission_host_access import mission_host_contract
     from yoke_core.domain.qa_plan_execution_continuation import (
         mission_access_refusal,
     )
@@ -236,24 +234,13 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             raise ValueError("mission case has no active plan machine lease")
         ordinal, case = matches[0]
         _assert_current_snapshot(conn, case)
-        from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
-
-        require_case_host_leases(conn, execution, case)
-        arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
-        contract = continue_plan_host_control_execution(
+        contract = mission_host_contract(
             conn,
-            project=str(case["project"]),
-            session_id=request.actor.session_id,
-            actor_id=request.actor.actor_id,
-            lease_id=int(execution["machine_lease_id"]),
-            baselines=arguments["baselines"],
-            cases=arguments["cases"],
-            plan_execution_id=arguments["plan_execution_id"],
-            continues_execution_id=arguments["continues_execution_id"],
-            roster_digest=arguments["roster_digest"],
-            ordinal=arguments["ordinal"],
-            case_position=arguments["case_position"],
-            baseline_position=arguments["baseline_position"],
+            execution,
+            case,
+            ordinal=ordinal,
+            actor=request.actor,
+            machine=parsed.machine,
         )
         heartbeat_plan_execution(conn, execution)
         run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)

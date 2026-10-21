@@ -90,7 +90,8 @@ def test_mission_host_command_rejects_injected_remote_argument() -> None:
     popen.assert_not_called()
 
 
-def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
+@pytest.mark.parametrize("machine", [None, "companion-lab"])
+def test_host_command_forwards_python_probe_argv_exactly(capsys, machine) -> None:
     response = SimpleNamespace(
         success=True,
         error=None,
@@ -113,7 +114,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
         mock.patch(
             "yoke_core.domain.qa_composed_dispatch.call_qa_function",
             return_value=response,
-        ),
+        ) as access,
         mock.patch(
             "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         ),
@@ -131,6 +132,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
                 "exec-1",
                 "--requirement-id",
                 "9",
+                *(["--machine", machine] if machine else []),
                 "--",
                 *command,
             ]
@@ -139,6 +141,8 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
     assert code == 0
     assert json.loads(capsys.readouterr().out)["command_arity"] == len(command)
     assert execute.call_args.kwargs["argv"] == command
+
+    assert access.call_args.kwargs["payload"].get("machine") == machine
 
 
 def test_host_command_result_does_not_echo_sensitive_argv(capsys) -> None:

@@ -20,6 +20,8 @@ from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_
 
 
 def mission_manages_packages(contract: Any) -> bool:
+    if not contract.cases:
+        return False
     case = contract.cases[0]
     return bool(case.host_baseline or case.method_config.get("host_starting_state"))
 

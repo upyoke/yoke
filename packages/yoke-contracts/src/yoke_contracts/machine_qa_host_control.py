@@ -55,4 +55,5 @@ HostControlOperation = Literal[
     "screenshot",
     "case",
     "plan_case",
+    "host_command",
 ]

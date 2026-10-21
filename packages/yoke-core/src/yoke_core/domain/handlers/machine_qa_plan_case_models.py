@@ -77,6 +77,7 @@ class AgentMissionAccessRequest(BaseModel):
 
     execution_id: str = Field(min_length=1)
     requirement_id: int = Field(ge=1)
+    machine: str | None = Field(default=None, min_length=1)
     cleanup: Literal["begin", "finish"] | None = None
     lease_id: int | None = Field(default=None, ge=1)
     run_id: int | None = Field(default=None, ge=1)
