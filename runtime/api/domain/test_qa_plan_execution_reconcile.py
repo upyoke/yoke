@@ -149,8 +149,8 @@ def test_live_execution_refuses_and_names_abort():
 
 def test_held_lease_refuses_with_reset_until_reset_receipt(
     test_db,
-    failed_restore,
-    monkeypatch,  # noqa: F811
+    failed_restore,  # noqa: F811
+    monkeypatch,
 ):
     execution = failed_restore
     lease_id = int(execution["machine_lease_id"])

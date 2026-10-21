@@ -36,8 +36,8 @@ def test_invalid_recovery_receipt_names_reconcile(tmp_path):
 
 
 def test_walk_end_refusal_names_reconcile_only_when_owner_ended(
-    removed_mission,
-    test_db,  # noqa: F811
+    removed_mission,  # noqa: F811
+    test_db,
 ):
     request, _, _original = removed_mission
     execution_id = request.payload["execution_id"]
