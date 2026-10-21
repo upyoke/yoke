@@ -1,0 +1,11 @@
+{
+ "id": "release-preconditions",
+ "title": "Design a case that can finish in its release",
+ "status": "observed",
+ "audience": "both",
+ "when": "Writing specs or authoring blocking QA cases.",
+ "need": "Create the needed conditions inside the release: steering-stop a throwaway walk, eject a fixture PR, or use a short traffic window. Record outside-event or long-wait evidence on the item as \"record the next real occurrence\", outside blocking QA.",
+ "surface": "Case attachment Authoring; Steer spec-writing rules",
+ "review": "Source teaching inspected; live receiving proof is not claimed.",
+ "sources": ["docs/public/verification/case-attachment.md", ".agents/skills/yoke/steer/loop.md"]
+}

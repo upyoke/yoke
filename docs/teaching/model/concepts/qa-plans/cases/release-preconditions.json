@@ -1,0 +1,8 @@
+{
+ "id": "release-preconditions",
+ "title": "Blocking case preconditions",
+ "status": "observed",
+ "page": "qa-cases",
+ "summary": "Blocking cases create their own preconditions within the release. Evidence needing a real-world event or a long wait stays on the item as \"record the next real occurrence\", outside blocking QA.",
+ "sources": ["docs/public/verification/case-attachment.md", ".agents/skills/yoke/steer/loop.md"]
+}

@@ -12,8 +12,14 @@ may author each shape. [Starting state and activity](case-attachment-rules.md) c
 
 ## Authoring
 
-Item and deployment-run cases are the same registered write,
-`qa.requirement.add`, distinguished by the target it names.
+Item and deployment-run cases use `qa.requirement.add`; the target selects
+the subject. Hold the item's work claim for an item case.
+
+- A blocking case creates its own preconditions inside the release: start
+  and steering-stop a throwaway walk, eject a fixture PR, or use a short
+  traffic window.
+- For evidence needing a real-world event or a long wait, record an item
+  note: "record the next real occurrence"; keep it outside blocking QA.
 
 ```text
 yoke qa requirement add --item PREFIX-N \
@@ -22,20 +28,13 @@ yoke qa requirement add --item PREFIX-N \
   --instructions "..." --expected-outcome "..." --method-config '{...}'
 ```
 
-An item case is item-claim-gated: the calling session must hold the item's
-active work claim. `--workflow-transition` is required and names a stage in
-the item's pinned workflow. `verification` binds to a stage that carries or
-precedes a `qa_verification` gate (Dash review: `reviewing-implementation`).
-`post_deploy` and `manual_acceptance` bind to the pinned release wait or
-`done` — authoring refuses those phases on the review transition and names
-`--workflow-transition release` (or `--deployment-run`) as the recovery.
-A row already recorded against a pre-release stage rebinds in place rather
-than being replaced: `yoke qa requirement update --requirement-id N --field
-workflow_transition_id --value release` revalidates the new binding exactly
-as a fresh attachment would, so a rebind can only land where a create could.
-Until it does, no deployment run can admit the row, and the item's `done`
-transition keeps blocking on it.
-Do not guess the phase from a URL or environment name.
+`--workflow-transition` is required and names a pinned workflow stage.
+`verification` binds at or before its `qa_verification` gate (Dash:
+`reviewing-implementation`); `post_deploy` and `manual_acceptance` bind at
+the pinned release wait or `done`. Choose by phase, rather than URL or environment name.
+A wrong pre-release binding blocks admission and completion; rebind the
+existing row with `yoke qa requirement update --requirement-id N --field
+workflow_transition_id --value release`. The same creation rules apply.
 
 When item QA needs another item's shipped fix, record the wait on the existing
 dependency edge before retrying:
