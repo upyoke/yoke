@@ -2,7 +2,9 @@
 
 Rows: `human-interview`; step 3 `scaffold-install`, `documentation-context-setup`.
 
-Reuse the saved profile unless `profile_changed`. Choose for the first work:
+Reuse the saved profile unless `profile_changed`. The profile is a free-form,
+non-empty JSON object; keys and values are examples, not fixed options.
+For example: `{"tests": "npm test", "database": "none"}`. Confirm choices for the first work:
 
 - Delivery: persistent environment (needs hosting), merge-only, or no default.
 - Tests: surveyed command, scaffold suite, review-only, attested no-tests, or stop.
