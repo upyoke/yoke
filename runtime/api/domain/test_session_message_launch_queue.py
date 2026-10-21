@@ -312,3 +312,22 @@ def test_postgres_queue_read_and_claim_binding(admission, monkeypatch):
         conn, session_id="worker", hook_event="PostToolUse", limit=10
     )
     assert sent["message_id"] in {row["message_id"] for row in lease["messages"]}
+
+
+def test_claim_arriving_during_send_resolves_to_new_holder(monkeypatch):
+    from yoke_core.domain import session_message_service
+
+    conn = world(monkeypatch)
+    real_resolve = session_message_service.resolve_recipients
+
+    def claim_during_resolution(*args, **kwargs):
+        claim(conn)
+        return []
+
+    monkeypatch.setattr(
+        session_message_service, "resolve_recipients", claim_during_resolution
+    )
+    sent = send(conn)
+    assert sent["recipients"][0]["session_id"] == "s4"
+    assert not sent.get("launch_recipient")
+    monkeypatch.setattr(session_message_service, "resolve_recipients", real_resolve)

@@ -20,14 +20,16 @@ from yoke_core.domain.work_claim_holder import holder_session_for_item
 from yoke_core.domain.work_claim_target_sql import scope_text_sql
 
 
-def pending_item_launch(conn, selector, recipients, *, now):
+def resolve_item_launch_mail(conn, selector, recipients, *, now):
     """An unheld, directly addressed item may wait for its steering launch."""
     if recipients or len(selector.public_refs) != 1:
-        return None
+        return recipients, None
     ref = selector.public_refs[0]
     item_id, project_id = _resolve_item_ref(conn, ref)
+    from yoke_core.domain.session_message_selectors import resolve_recipients
+
     if holder_session_for_item(conn, item_id).get("holder_session_id"):
-        return None
+        return resolve_recipients(conn, selector, now=now), None
     p = placeholder(conn)
     canonical_ref = render_item_ref(conn, item_id, required=True)
     row = conn.execute(
@@ -37,8 +39,12 @@ def pending_item_launch(conn, selector, recipients, *, now):
         (project_id, f"{assignment_name_prefix(canonical_ref)} %"),
     ).fetchone()
     if row is None:
-        return None
+        return recipients, None
     launch_id, state, deadline = row
+    if state == "succeeded":
+        fresh = resolve_recipients(conn, selector, now=now)
+        if fresh:
+            return fresh, None
     direct = not any(
         value for key, value in selector.model_dump().items() if key != "public_refs"
     )
@@ -53,7 +59,7 @@ def pending_item_launch(conn, selector, recipients, *, now):
             f"Inspect `yoke session-control launch get {launch_id}`; "
             f"retry `yoke say --item {canonical_ref} --stdin` after staffing.",
         )
-    return {"launch_id": str(launch_id), "project_id": project_id}
+    return recipients, {"launch_id": str(launch_id), "project_id": project_id}
 
 
 def launch_confirmation(token, launch):

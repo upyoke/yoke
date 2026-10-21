@@ -54,7 +54,7 @@ from yoke_core.domain.session_message_terminal import (
     resolve_terminal_report_item,
 )
 from yoke_core.domain.session_message_launch_queue import (
-    pending_item_launch,
+    resolve_item_launch_mail,
     launch_confirmation,
     launch_snapshot,
     launch_result,
@@ -130,10 +130,10 @@ def preview_message(
     actor_recipients = resolve_actor_recipients(
         conn, selector, sender_actor_id=actor_id
     )
-    launch = (
-        pending_item_launch(conn, selector, recipients, now=now)
+    recipients, launch = (
+        resolve_item_launch_mail(conn, selector, recipients, now=now)
         if not address and not actor_recipients
-        else None
+        else (recipients, None)
     )
     if address is None and launch is None:
         require_recipients(recipients, selector, actor_recipients=actor_recipients)
@@ -230,10 +230,10 @@ def send_message(
         actor_recipients = resolve_actor_recipients(
             conn, selector, sender_actor_id=actor_id
         )
-        launch = (
-            pending_item_launch(conn, selector, recipients, now=current)
+        recipients, launch = (
+            resolve_item_launch_mail(conn, selector, recipients, now=current)
             if not address and not actor_recipients
-            else None
+            else (recipients, None)
         )
         if address is None and launch is None:
             require_recipients(recipients, selector, actor_recipients=actor_recipients)
