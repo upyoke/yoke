@@ -39,7 +39,7 @@ def relay_denial_audit(connection: HttpsConnection, audit: dict) -> None:
             http_request,
             timeout_seconds=3.0,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             response_limit_bytes=4096,
             sensitive_values=(connection.token,),
             opener=urllib.request.urlopen,

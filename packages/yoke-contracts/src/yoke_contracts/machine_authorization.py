@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 import urllib.parse
+
+from yoke_contracts.private_network_http import allows_http_host
 import re
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -89,14 +91,14 @@ def authorization_origin(value: str) -> str:
     if (
         not (
             parsed.scheme == "https"
-            or (parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "::1"})
+            or (parsed.scheme == "http" and allows_http_host(parsed.hostname or ""))
         )
         or not parsed.hostname
         or parsed.username
         or parsed.password
     ):
         raise HostedMachineAuthorizationError(
-            "authorization_origin_invalid: use HTTPS, or numeric loopback HTTP for a local server"
+            "authorization_origin_invalid: use HTTPS, or private-network HTTP for a self-hosted server"
         )
     if parsed.path or parsed.query or parsed.fragment:
         raise HostedMachineAuthorizationError(

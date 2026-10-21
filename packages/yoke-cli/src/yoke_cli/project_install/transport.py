@@ -192,7 +192,7 @@ def _fetch_bundle_https(connection, project_id: int) -> Dict[str, Any]:
             request,
             timeout_seconds=_FETCH_TIMEOUT_S,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             response_limit_bytes=BUNDLE_JSON_RESPONSE_LIMIT_BYTES,
             sensitive_values=(connection.token,),
             opener=urllib.request.urlopen,

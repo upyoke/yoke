@@ -95,7 +95,7 @@ def _request_door(api_url: str, token: str | None = None) -> Any:
             request,
             timeout_seconds=ONBOARD_JSON_REQUEST_TIMEOUT_SECONDS,
             replay_safe=token is None,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(token,) if token is not None else (),
             opener=urllib.request.urlopen,
         )

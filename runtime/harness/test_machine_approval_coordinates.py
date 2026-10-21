@@ -54,7 +54,7 @@ def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
     "uri",
     [
         "http://example.invalid/connect",
-        "http://192.168.1.4/connect",
+        "http://192.169.1.4/connect",
         "https://example.invalid/connect/K7F2",
         "https://user:password@example.invalid/connect",
         "https://example.invalid/anything",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import queue
 import socket
 import threading
@@ -11,6 +10,8 @@ import urllib.request
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
+
+from yoke_contracts.private_network_http import allows_http_host
 
 from yoke_cli.transport.pre_resolved_https_connection import (
     PreResolvedHTTPHandler,
@@ -53,37 +54,22 @@ def open_https_caller_owned(
     return response
 
 
-def open_loopback_http_caller_owned(
+def open_private_http_caller_owned(
     request: urllib.request.Request,
     *,
     deadline: float,
     handlers: Iterable[Any],
     clock: Callable[[], float],
 ) -> Any:
-    """Open numeric-loopback HTTP synchronously under one absolute deadline."""
+    """Open private HTTP synchronously after deadline-bounded DNS preflight."""
     parsed = urllib.parse.urlsplit(request.full_url)
-    if parsed.scheme.lower() != "http" or not parsed.hostname:
-        raise ResponseOpenError("loopback requests require a plain HTTP URL")
-    try:
-        address = ipaddress.ip_address(parsed.hostname)
-        port = parsed.port or 80
-    except ValueError as exc:
+    if parsed.scheme.lower() != "http" or not allows_http_host(parsed.hostname or ""):
         raise ResponseOpenError(
-            "loopback requests require a numeric loopback address"
-        ) from exc
-    if not address.is_loopback:
-        raise ResponseOpenError("loopback requests require a numeric loopback address")
-    if address.version == 4:
-        family = socket.AF_INET
-        sockaddr: tuple[Any, ...] = (str(address), port)
-    else:
-        family = socket.AF_INET6
-        sockaddr = (str(address), port, 0, 0)
-    address_book = {
-        (_host_key(parsed.hostname), port): [
-            (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", sockaddr)
-        ]
-    }
+            "public_http_refused: use HTTPS or a private-network HTTP address"
+        )
+    target = _ConnectionTarget(parsed.hostname, parsed.port or 80)
+    addresses = _resolve_target(target, deadline=deadline, clock=clock)
+    address_book = {(_host_key(target.host), target.port): addresses}
     http_handler = PreResolvedHTTPHandler(
         address_book=address_book,
         deadline=deadline,
@@ -192,6 +178,6 @@ def _close(value: Any) -> None:
 __all__ = [
     "ResponseOpenDeadlineError",
     "ResponseOpenError",
-    "open_loopback_http_caller_owned",
+    "open_private_http_caller_owned",
     "open_https_caller_owned",
 ]

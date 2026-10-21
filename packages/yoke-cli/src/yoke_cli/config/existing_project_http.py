@@ -57,7 +57,7 @@ def call_function(
             request,
             timeout_seconds=_TIMEOUT_S,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(token,),
             opener=urllib.request.urlopen,
         )

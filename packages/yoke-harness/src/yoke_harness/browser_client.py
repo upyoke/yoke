@@ -122,7 +122,7 @@ def daemon_request(
             request,
             timeout_seconds=timeout,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             response_limit_bytes=DEFAULT_JSON_RESPONSE_LIMIT_BYTES,
             sensitive_values=(selected.token,),
             opener=urlopen,

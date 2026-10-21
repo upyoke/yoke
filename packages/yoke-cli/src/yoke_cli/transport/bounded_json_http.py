@@ -3,7 +3,7 @@
 The transport distinguishes replay-safe reads from caller-owned mutations:
 GET/HEAD opens may be fenced in a daemon worker, while POST opens stay on the
 calling thread after a deadline-bounded DNS-only HTTPS preflight.  Plain HTTP
-is restricted to numeric loopback addresses and bypasses ambient proxies.
+is restricted to private-network addresses and bypasses ambient proxies.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def request_json(
     *,
     timeout_seconds: float,
     replay_safe: bool,
-    allow_loopback_http: bool = False,
+    allow_private_http: bool = False,
     response_limit_bytes: int = DEFAULT_JSON_RESPONSE_LIMIT_BYTES,
     sensitive_values: Iterable[str] = (),
     opener: Callable[..., Any] | None = None,
@@ -142,7 +142,7 @@ def request_json(
             request,
             deadline=deadline,
             replay_safe=replay_safe,
-            allow_loopback_http=allow_loopback_http,
+            allow_private_http=allow_private_http,
             opener=opener,
         )
         with opened as response:

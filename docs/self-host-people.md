@@ -67,7 +67,12 @@ list; set up a team server with `yoke self-host init` when you need shared acces
 If a server predates the admission commands, connect with an explicit token
 (`yoke connect <server> --token-stdin`) or ask its operator to upgrade.
 
-Use HTTPS for network servers (numeric loopback HTTP is permitted locally).
+HTTPS works for all servers. HTTP permits numeric loopback, private IPs in
+10/8, 172.16/12, 192.168/16, 100.64/10 (Tailscale), fd00::/8 and `*.ts.net`.
+For example, `yoke connect http://100.101.102.103:8765` reaches a server
+initialized with `--listen 100.101.102.103`. Every private HTTP connection
+warns that the machine token travels unencrypted: safe on Tailscale or a VPN;
+use TLS on a shared LAN. Public HTTP stays refused; use HTTPS.
 The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
 See [Machine authorization](public/cli/machine-authorization.md) for
 expiry, retry, and single-use credential delivery.

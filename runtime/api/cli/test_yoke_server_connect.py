@@ -251,7 +251,7 @@ def test_connect_rejects_non_http_scheme(
     assert not (machine_home / "config.json").exists()
 
 
-def test_connect_rejects_non_loopback_plain_http(
+def test_connect_rejects_public_plain_http(
     monkeypatch,
     machine_home,
     token_stdin,
@@ -261,7 +261,7 @@ def test_connect_rejects_non_loopback_plain_http(
 
     assert commands.connect(["http://yoke.internal", "--token-stdin"]) == 1
 
-    assert "numeric loopback" in capsys.readouterr().err
+    assert "public_http_refused" in capsys.readouterr().err
     assert calls == []
     assert not (machine_home / "config.json").exists()
 

@@ -51,7 +51,7 @@ def test_loopback_post_header_trickle_obeys_absolute_deadline() -> None:
             request,
             timeout_seconds=0.08,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
         )
 
     assert time.monotonic() - started < 0.5

@@ -105,8 +105,17 @@ is hidden. Hosted Platform tenants continue through Platform's
 fleet-coordinated download route instead of this self-host boundary.
 
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
-serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
-`0.0.0.0:8765`) and put TLS in front — see the operator notes below.
+serve your network, pass `--listen ADDRESS` at init, for example
+`yoke self-host init --admin-name "Your Name" --listen 100.101.102.103 --start`.
+This writes `YOKE_API_PUBLISH=100.101.102.103:8765` in `.env`; teammates run
+`yoke connect http://100.101.102.103:8765`. Use a LAN or Tailscale IP;
+`--listen 0.0.0.0` binds all IPv4 interfaces, so teammates substitute the
+server's reachable private IP. IPv6 binds are supported too.
+Private HTTP permits 10/8, 172.16/12, 192.168/16, 100.64/10, fd00::/8 and
+`*.ts.net`; public HTTP is refused with HTTPS recovery. Each connect warns
+that the machine token travels unencrypted: safe on Tailscale or a VPN;
+use TLS on a shared LAN. Existing bundles keep their `.env` with
+`--protect-existing`; edit `YOKE_API_PUBLISH` there and restart to change it.
 Docker bypasses ufw/firewalld for published ports; bind to `127.0.0.1`
 behind a TLS reverse proxy, or restrict access upstream. `yoke self-host init`
 warns when the configured publish address is beyond loopback, including on
@@ -328,5 +337,5 @@ leaves the machine unconfigured, which `yoke status` then reports.
   `yoke universe export` for portable archives and retain regular Postgres or
   volume snapshots for infrastructure-level recovery before upgrades and on a
   schedule.
-- **TLS is yours.** Put remote access behind a TLS proxy and declare its peers
+- **TLS is yours.** Use TLS for public access or shared LANs and declare proxy peers
   in `YOKE_API_TRUSTED_PROXIES`; publish the API only where intended.

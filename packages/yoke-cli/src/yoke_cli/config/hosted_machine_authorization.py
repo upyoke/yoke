@@ -320,7 +320,7 @@ def _post_json(
             request,
             timeout_seconds=timeout_seconds,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=sensitive_values,
             opener=opener,
         )

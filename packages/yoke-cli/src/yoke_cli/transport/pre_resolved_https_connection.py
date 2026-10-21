@@ -48,7 +48,7 @@ class PreResolvedHTTPSHandler(urllib.request.HTTPSHandler):
 
 
 class PreResolvedHTTPHandler(urllib.request.HTTPHandler):
-    """Plain-HTTP handler for an already validated numeric loopback target."""
+    """Plain-HTTP handler for an already validated private-network target."""
 
     def __init__(
         self,

@@ -41,7 +41,7 @@ def download_artifact(url: str, destination: Path) -> int:
             request,
             deadline=deadline,
             replay_safe=True,
-            allow_loopback_http=False,
+            allow_private_http=False,
             opener=None,
         )
         with response:

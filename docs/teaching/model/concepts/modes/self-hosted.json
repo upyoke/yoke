@@ -1,8 +1,10 @@
 {
  "id": "self-hosted",
  "title": "Self-hosted",
- "status": "draft-copy",
- "commands": ["yoke self-host init"],
+ "status": "observed",
+ "commands": ["yoke self-host init", "yoke connect"],
  "page": "modes",
- "position": 2
+ "position": 2,
+ "summary": "Loopback remains the default. self-host init --listen publishes a numeric LAN, Tailscale or wildcard bind through YOKE_API_PUBLISH. Connect permits declared private-network HTTP and *.ts.net with a warning on every command; public HTTP requires HTTPS.",
+ "sources": ["docs/self-host.md", "docs/self-host-people.md"]
 }

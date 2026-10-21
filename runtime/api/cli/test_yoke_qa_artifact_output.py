@@ -52,7 +52,7 @@ def test_authorized_download_is_bounded_and_atomic(tmp_path) -> None:
 
     assert target.read_bytes() == b"PNG"
     assert target.stat().st_mode & 0o777 == 0o600
-    assert opened.call_args.kwargs["allow_loopback_http"] is False
+    assert opened.call_args.kwargs["allow_private_http"] is False
 
 
 def test_authorized_download_rejects_a_redirected_final_url(tmp_path) -> None:

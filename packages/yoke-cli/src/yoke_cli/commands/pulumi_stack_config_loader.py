@@ -31,7 +31,7 @@ def load_pulumi_stack_config(project: str, stack: str) -> Mapping[str, Any]:
             request,
             timeout_seconds=30.0,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(connection.token,),
         )
         if not isinstance(response.payload, Mapping):
@@ -65,7 +65,7 @@ def load_project_renderer_settings_snapshot(project: str) -> Mapping[str, Any]:
             request,
             timeout_seconds=30.0,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(connection.token,),
         )
         if not isinstance(response.payload, Mapping):

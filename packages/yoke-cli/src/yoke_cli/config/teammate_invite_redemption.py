@@ -71,7 +71,7 @@ def redeem(
             request,
             timeout_seconds=15,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(code,),
         )
     except BoundedJsonHttpStatusError as exc:

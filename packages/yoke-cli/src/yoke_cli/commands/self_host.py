@@ -25,16 +25,14 @@ from yoke_cli.commands.self_host_teardown import (
     TOOL_SHAPED_USAGE as _TEARDOWN_USAGE,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.self_host import bundle, env_file, first_boot_token
+from yoke_cli.self_host import bundle, env_file
+from yoke_cli.self_host.init_output import print_summary as _print_summary
 from yoke_cli.self_host import prerequisites, upgrade, runtime
-from yoke_contracts.self_host_bootstrap_output import (
-    connect_url_from_publish_spec,
-)
 
 AdapterFn = Callable[[List[str]], int]
 
 INIT_USAGE = (
-    "yoke self-host init --admin-name NAME [--dir D] [--port N] [--image REF] "
+    "yoke self-host init --admin-name NAME [--dir D] [--port N] [--listen ADDRESS] [--image REF] "
     "[--force | --protect-existing] [--github-app-private-key PATH] [--start] [--json]"
 )
 UPGRADE_USAGE = "yoke self-host upgrade [--dir D] [--channel C] [--yes] [--json]"
@@ -89,10 +87,15 @@ def self_host_init(args: List[str]) -> int:
         type=int,
         default=None,
         help=(
-            "Host API port for the loopback publish spec written to .env "
-            f"(default {bundle.DEFAULT_API_PORT}). Edit YOKE_API_PUBLISH in "
-            ".env to serve beyond loopback."
+            "Host API port written to .env "
+            f"(default {bundle.DEFAULT_API_PORT}); use --listen to serve your network."
         ),
+    )
+    parser.add_argument(
+        "--listen",
+        default=None,
+        metavar="ADDRESS",
+        help="Published numeric bind address (default 127.0.0.1); use a LAN or Tailscale IP, or 0.0.0.0 for all IPv4 interfaces.",
     )
     parser.add_argument(
         "--image",
@@ -147,13 +150,14 @@ def self_host_init(args: List[str]) -> int:
             "existing bundle and database credentials are preserved"
         )
     if parsed.protect_existing and (
-        parsed.port is not None
+        parsed.listen is not None
+        or parsed.port is not None
         or parsed.image is not None
         or parsed.admin_name is not None
     ):
         return usage_error(
             "--protect-existing preserves .env; do not combine it with "
-            "--port, --image, or --admin-name (edit YOKE_ADMIN_NAME in .env "
+            "--listen, --port, --image, or --admin-name (edit YOKE_ADMIN_NAME in .env "
             "before first boot instead)"
         )
     try:
@@ -167,6 +171,7 @@ def self_host_init(args: List[str]) -> int:
             report = bundle.write_bundle(
                 directory=parsed.directory,
                 port=parsed.port,
+                listen=parsed.listen,
                 image=parsed.image,
                 admin_name=parsed.admin_name,
                 force=parsed.force,
@@ -178,6 +183,10 @@ def self_host_init(args: List[str]) -> int:
     except (bundle.SelfHostBundleError, runtime.SelfHostRuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    if parsed.listen is None and not parsed.protect_existing:
+        report["listen_hint"] = (
+            "Use --listen ADDRESS to let teammates reach this server over a private network."
+        )
     if parsed.json_mode:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
@@ -259,31 +268,6 @@ def self_host_upgrade(args: List[str]) -> int:
     else:
         _print_upgrade_summary(report)
     return 0
-
-
-def _print_summary(report: Dict[str, object]) -> None:
-    directory = report.get("directory")
-    if report.get("mode") == "protect-existing":
-        print(f"self-host bundle protected: {directory}")
-        state = "updated" if report.get("gitignore_changed") else "already current"
-        print(f"secret ignore rules: {state}")
-        print("database credentials: preserved (not regenerated)")
-        if report.get("github_app_private_key_installed"):
-            print("GitHub App private key: installed atomically as mode 0600")
-        return
-    print(f"self-host bundle written: {directory}")
-    print(f"server image: {report.get('image')}")
-    print(f"api publish: {report.get('publish')}")
-    print(f"first admin: {report.get('admin_name')}")
-    token_file = first_boot_token.token_drop_path(str(directory))
-    connect_url = connect_url_from_publish_spec(str(report.get("publish") or ""))
-    print("next steps:")
-    print(f"  1. yoke self-host init --dir {directory} --protect-existing --start")
-    print("  2. first boot writes the reusable administrator token to:")
-    print(f"       {token_file}")
-    print("  3. connect this machine's CLI; keep that owner-only file, since")
-    print("     rerunning `yoke setup` on this host reconnects with it:")
-    print(f"       yoke connect {connect_url} --token-stdin < {token_file}")
 
 
 def _print_upgrade_preview(plan: upgrade.UpgradePlan) -> None:
