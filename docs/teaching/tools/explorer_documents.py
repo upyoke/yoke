@@ -53,13 +53,40 @@ def add_documents(add):
     for name in ('README.md', 'CONTRIBUTING.md'):
         if (REPO / name).is_file():
             document(add, 'doc:' + name, REPO / name, 'source:project')
-    for name, title in (
-        ('packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md', 'AGENTS.md · installed Yoke rules'),
-        ('AGENTS.md', 'AGENTS.md · this repository'),
-    ):
-        path = REPO / name
-        node = document(add, 'rules:' + name, path, 'source:rules', 'Rules file', title)
-        add_sections(add, node, path)
+    add_rules(add)
+
+
+def rule_topics(add, path, start, end, scope):
+    lines = path.read_text().splitlines()
+    headings = [(i, re.sub(r'^#+ ', '', line)) for i, line in enumerate(lines)
+                if start <= i < end and re.match(r'^#{1,2} ', line)
+                and line != '# Yoke — Project Rules']
+    if not headings or headings[0][0] > start:
+        headings.insert(0, (start, 'Rule loading and field notes'))
+    for index, (first, title) in enumerate(headings):
+        last = headings[index + 1][0] if index + 1 < len(headings) else end
+        content = re.sub(r'<!--.*?-->', '', '\n'.join(lines[first:last]), flags=re.S).strip()
+        if not content:
+            continue
+        relative = path.relative_to(REPO).as_posix()
+        node = add('rules-topic:' + scope + ':' + str(first), title, 'source:rules',
+                   'Shipped by Yoke' if scope == 'shared' else 'Added by the Yoke repository')
+        node.update(document='../../../../' + relative, document_lines=[first, last],
+                    guidance_scope=scope, form=('file', 'Rules topic', relative))
+
+
+def add_rules(add):
+    shipped = REPO / 'packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md'
+    project = REPO / 'AGENTS.md'
+    template = shipped.read_text().splitlines()
+    local = project.read_text().splitlines()
+    begin = '<!-- BEGIN YOKE MANAGED BLOCK -->'
+    end = '<!-- END YOKE MANAGED BLOCK -->'
+    # The shipped preamble also contains portable field-note guidance.
+    rule_topics(add, shipped, 0, template.index(end), 'shared')
+    if local[:local.index(begin)] != template[:template.index(begin)]:
+        rule_topics(add, project, 0, local.index(begin), 'repository')
+    rule_topics(add, project, local.index(end) + 1, len(local), 'repository')
 
 
 def add_sections(add, node, path):

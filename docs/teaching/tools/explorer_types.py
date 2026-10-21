@@ -54,3 +54,23 @@ def describe_nodes(nodes, commands):
         elif key.startswith('branch:') and key.split(':', 1)[1] in BRANCH_TYPES:
             kind, label, hint = BRANCH_TYPES[key.split(':', 1)[1]]
         node.update(node_type=kind, type_label=label, type_hint=hint)
+
+
+def describe_scope(nodes):
+    """Scope is separate from form: a document can be shared or repo-specific."""
+    by_id = {node['id']: node for node in nodes}
+    labels = {'shared': 'All Yoke projects', 'repository': 'Yoke repo only',
+              'mixed': 'Shared + repo rules'}
+
+    def scope(node):
+        if 'guidance_scope' in node:
+            return node['guidance_scope']
+        if node['id'] == 'source:rules':
+            return 'mixed'
+        if node['id'] == 'source:project':
+            return 'repository'
+        return scope(by_id[node['parent']]) if node['parent'] else 'shared'
+
+    for node in nodes:
+        value = scope(node)
+        node.update(guidance_scope=value, scope_label=labels[value])

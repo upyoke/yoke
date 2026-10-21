@@ -152,3 +152,26 @@ def test_setup_pairs_and_source_excerpts_are_real(explorer):
     assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
     assert any(n['type_label'] == 'Reply field' for n in nodes.values())
     assert nodes['hook-event:PreToolUse:Bash']['parent'] == 'hook-event:PreToolUse'
+
+
+def test_rules_combine_shared_topics_and_only_local_additions(explorer):
+    model, _, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    topics = [n for n in nodes.values() if n['parent'] == 'source:rules']
+    assert topics and all(n['id'].startswith('rules-topic:') for n in topics)
+    assert len([n for n in topics if n['title'] == 'Standing authority']) == 1
+    assert {n['title'] for n in topics if n['guidance_scope'] == 'repository'} == {
+        'Control-Plane Authority — Hard Rule (this installation)',
+        'Yoke Repo Internals', 'Source-Dev Doctrine'}
+    assert any(n['title'] == 'Rule loading and field notes' and
+               n['guidance_scope'] == 'shared' for n in topics)
+    local = (TOOLS.parents[2] / 'AGENTS.md').read_text().splitlines()
+    end = local.index('<!-- END YOKE MANAGED BLOCK -->')
+    for node in topics:
+        if node['guidance_scope'] == 'repository':
+            assert node['document_lines'][0] > end
+    assert nodes['source:rules']['guidance_scope'] == 'mixed'
+    assert nodes['doc:docs/source-dev-doctrine.md']['guidance_scope'] == 'repository'
+    assert nodes['doc:docs/public/start/install.md']['guidance_scope'] == 'shared'
+    assert nodes['skill:dash']['guidance_scope'] == 'shared'
+    assert all(n['scope_label'] for n in nodes.values())

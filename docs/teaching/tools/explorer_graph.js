@@ -146,5 +146,12 @@ function typeBadge(node) {
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('d', nodeIcons[node.node_type] || nodeIcons.group);
   icon.append(path); badge.append(icon, text('span', node.type_label));
+  const scope = text('span', '', 'scope-badge');
+  const scopeIcon = icon.cloneNode(true);
+  scopeIcon.querySelector('path').setAttribute('d', node.guidance_scope === 'repository'
+    ? 'M5 3v12a4 4 0 004 4h10M5 7h10V3m0 4v5'
+    : 'M12 2a10 10 0 100 20 10 10 0 000-20M2 12h20M12 2c-6 6-6 14 0 20 6-6 6-14 0-20');
+  scope.append(scopeIcon, text('span', node.scope_label));
+  badge.append(scope);
   return badge;
 }

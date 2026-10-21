@@ -6,14 +6,14 @@ SOURCES = (
     ('setup', 'Install and setup', 'Instructions, questions and recovery while getting Yoke ready.'),
     ('global-hooks', 'Global hook messages', 'What Yoke tells the agent outside a Yoke project.'),
     ('project-hooks', 'Project hook messages', 'What Yoke tells the agent at events inside a Yoke project.'),
-    ('rules', 'Project rules (AGENTS.md)', 'Standing Yoke and project rules loaded by the harness.'),
+    ('rules', 'AGENTS.md', 'Shared Yoke rules, plus this repository’s additions outside the managed block.'),
     ('skills', 'Skills', 'Procedures the agent reads when using a Yoke skill.'),
     ('roles', 'Agent role instructions', 'Responsibilities and working instructions for each assigned role.'),
     ('help', 'Command help', 'The help tree: root, command groups, then individual operations.'),
     ('feedback', 'Command results and error messages', 'Outcome explanations, next steps and recovery instructions.'),
     ('packets', 'Context packets', 'Focused references the agent requests before particular work.'),
     ('instructions', 'Scoped execution instructions', 'Saved rules delivered when their project or work scope applies.'),
-    ('project', 'Project documentation', 'The project’s own guides, conventions, architecture notes and runbooks.'),
+    ('project', 'Project documentation', 'Yoke repository guides and runbooks, shown as project-specific examples.'),
 )
 
 # id, title, parent, summary: intermediate branches are navigation, not new facts.

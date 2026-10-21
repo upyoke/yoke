@@ -124,3 +124,11 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node.compact .preview-children { display: none; }
 .node.compact:not(.expanded) .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .node.selected > .node-head h2 { font-size: 28px; }
+
+/* Audience scope remains visible alongside the content form. */
+.type-badge { flex-wrap: wrap; }
+.scope-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 5px; padding: 3px 6px; background: #e8f1eb; color: #32674d; font-size: 10px; }
+.scope-badge svg { width: 13px; height: 13px; flex-basis: 13px; }
+.node[data-scope=repository] { border-left: 4px solid #9370b0; background: #f8f4fc; --type-color: #795594; }
+.node[data-scope=repository] .scope-badge { color: #70488c; background: #eee2f5; }
+.node[data-scope=mixed] .scope-badge { color: #5b597b; background: #ecebf3; }

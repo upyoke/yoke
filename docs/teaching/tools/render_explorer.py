@@ -5,7 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
-from explorer_types import describe_nodes
+from explorer_types import describe_nodes, describe_scope
 from explorer_documents import add_documents, add_sections, connect_document_links, document
 from explorer_runtime import add_setup, add_packets
 from explorer_messages import add_hooks, add_replies
@@ -120,6 +120,7 @@ def map_nodes(model):
     nodes = list({node['id']: node for node in nodes}.values())
     nodes.sort(key=lambda n: (n['id'] != 'doc:docs/public/index.md', n.get('order', 0)))
     by_id = {node['id']: node for node in nodes}
+    by_id['source:rules']['document'] = '../../../../AGENTS.md'
     by_id['source:homepage']['url'] = 'https://upyoke.com'
     by_id['branch:web-docs']['url'] = 'https://upyoke.com/docs'
     for location in ('web-docs', 'installed-docs'):
@@ -128,6 +129,7 @@ def map_nodes(model):
     for source, target, label in CONNECTIONS:
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
     describe_nodes(nodes, set(registered_commands()))
+    describe_scope(nodes)
     return nodes
 
 

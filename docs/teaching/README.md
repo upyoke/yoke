@@ -216,3 +216,14 @@ label, icon and form-specific card treatment: pages, files, conceptual groups,
 concepts, CLI groups/commands, screens, replies, hooks, packets and scoped rules.
 Research teaching records do not appear as source nodes. Files show their actual
 source path; code definitions are folded beneath the visible content or fields. A command that also has children is marked as both.
+
+The AGENTS.md source opens directly onto shared topics and repository additions,
+with no duplicate file level. Shared topics come from the shipped template;
+repository topics come only from outside the local managed block. This includes
+level-one headings and the shipped preamble, not just level-two sections.
+Audience scope is independent of content form: green globe labels mean All Yoke
+projects; purple branch labels mean Yoke repo only. Repository documentation
+inherits the latter; product docs, skills, roles and runtime definitions retain
+the shared label. A shared label describes distribution, not unconditional
+applicability of every instruction. Private user/project instructions are not
+invented or loaded into this map.

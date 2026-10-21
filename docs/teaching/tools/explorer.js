@@ -98,6 +98,7 @@ function requestRender() {
 function makeNode(node) {
   const el = text('article', '', 'node');
   el.dataset.type = node.node_type;
+  el.dataset.scope = node.guidance_scope;
   el.style.setProperty('--accent', node.color);
   el.tabIndex = 0;
   el.setAttribute('aria-label', node.title + '. Zoom into node');
@@ -186,7 +187,7 @@ async function fillDetail(node, el) {
       if (!response.ok) throw Error(response.status);
       let content = await response.text();
       if (node.document_lines) content = content.split('\n').slice(...node.document_lines).join('\n');
-      content = content.replace(/^---[\s\S]*?---\n/, '');
+      content = content.replace(/^---[\s\S]*?---\n/, '').replace(/<!--[\s\S]*?-->/g, '');
       const container = node.source_only ? text('details', '', 'research') : body;
       if (node.source_only) {
         container.append(text('summary', 'Source definition'));
