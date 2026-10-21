@@ -98,6 +98,7 @@ def _run_pair(conn: Any, *, previous: str, candidate: str) -> None:
         "Release admission",
         "",
         RELEASE_STAGES,
+        target_tier="ephemeral",
         status="disabled",
     )
     insert_run(

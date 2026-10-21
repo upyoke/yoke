@@ -54,6 +54,11 @@ def _failed_run(db_path: str, *, run_id: str, member_ids: tuple[int, ...]) -> No
             current_stage="deploy",
             release_lineage=LINEAGE,
             completed_at=iso8601_now(),
+            target_tier="ephemeral",
+        )
+        conn.execute(
+            "UPDATE deployment_flows SET target_tier=%s WHERE id=%s",
+            ("ephemeral", "retry-flow"),
         )
         for item_id in member_ids:
             insert_item(conn, id=item_id, workflow_id="dash", status="release")

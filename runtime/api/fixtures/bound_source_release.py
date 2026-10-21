@@ -121,6 +121,7 @@ def two_project_release(
         "Carrier",
         "",
         stages if stages is not None else bound_stages(),
+        target_tier="ephemeral",
         status="disabled",
     )
     cmd_create(
