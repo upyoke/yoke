@@ -29,6 +29,10 @@ def _seed(conn, status):
         (ITEM,),
     )
     conn.execute("UPDATE deployment_runs SET status=%s WHERE id=%s", (status, RUN))
+    if status == "created":
+        conn.execute(
+            "UPDATE deployment_runs SET composition_frozen_at=NULL WHERE id=%s", (RUN,)
+        )
     conn.commit()
     insert_steering_claim(conn, SESSION, project_id=1)
 
