@@ -253,7 +253,6 @@ Restoring missing or changed packages requires the recorded versions to remain
 available; a failed restore names apt access and journal reconciliation and
 blocks execution. Continuations preserve the existing walk and journal.
 
-
 ## Stop host work safely
 
 ```text
@@ -261,17 +260,18 @@ yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
 
-The owner can abort after its run ends, failed or not; the reason records the
-run status, and a settled execution reports its state. A steering seat's abort
-of another session's live execution records a stop: `stop_request` names the
-owner, whose runner stops at its next case or heartbeat and settles. Without a
-seat it refuses with `qa_execution_stop_requires_steering`.
+`shared_qa_wake_unavailable` warns that the follow-up stage-wait read failed;
+a committed abort or shared-stage settlement still succeeds. Inspect
+`yoke deployment-runs get RUN`; ask the control-plane operator to re-drive its QA stage.
+
+Owners can abort ended runs, recording run status; settled walks report state.
+A steering abort returns `stop_request`; the live owner stops at its next case or
+heartbeat. Without a seat, `qa_execution_stop_requires_steering` refuses.
 
 An in-flight host abort first records cancellation. Until the interrupted
-case's cleanup proof is recorded, it refuses with `qa_abort_restore_pending`
-and retains host custody. Keep the owning runner connected: heartbeat replies
-carry cancellation, the runner stops before its next step, finishes fixture
-cleanup and submits `starting_state_restore` evidence. A case with a declared
+case's cleanup proof is recorded, `qa_abort_restore_pending` retains custody.
+Keep the owner connected: heartbeat replies carry cancellation; the runner stops
+before its next step, cleans up and submits `starting_state_restore` evidence. A case with a declared
 baseline must prove `restored: true` for that baseline. An `as_is` case or a
 chain without a declared baseline records that there is no starting state to
 restore; that cleanup receipt permits release with `restored: false`.
@@ -279,10 +279,9 @@ Other roster cases do not impose their baselines on the interrupted case.
 Blocking resets finish before the runner acts on cancellation. Retry abort
 only after cleanup proof is recorded; success confirms the lease is released.
 
-If cleanup or a required restore fails, or the runner is gone, custody stays
-held. Stop the old runner before recovery. The lease-holding session or a live
-steering seat covering the project can reset each retained machine to the
-interrupted case's declared baseline:
+Failed cleanup, failed restore or a lost runner retains custody. Stop the old
+runner; the lease holder or a project steering seat can reset retained machines
+to the interrupted case's baseline:
 
 ```text
 yoke test-machine reset --project P --machine NAME --baseline BASELINE
@@ -321,12 +320,10 @@ yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
     --project P --resume-execution-id EXECUTION_ID
 ```
 
-Keep the original scope and source arguments; omit `--member` for a run-scoped
-stage. This re-enters the exact live cursor with frozen candidate and custody
-validation, without rematerializing cases or allocating another campaign.
-A lost reply is an unknown outcome, not permission to abort or replay an action.
-Follow the [check-in recovery contract](standalone-plans.md#recover-a-lost-check-in-response)
-for pause receipts, saved recording evidence and refusal recovery.
+Keep the scope and source arguments; omit `--member` for run-scoped stages.
+Resume preserves the cursor, frozen candidate and custody, without new cases.
+For a lost reply, follow [check-in recovery](standalone-plans.md#recover-a-lost-check-in-response)
+with its pause receipts and saved evidence; do not abort or replay the action.
 
 ## Related
 
