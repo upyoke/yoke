@@ -1,0 +1,9 @@
+{
+ "id": "mission-execution",
+ "title": "Bounded mission work",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source guidance only; runtime speedup remains unproven.",
+ "topics": ["agents/roles/qa-walker", "qa-methods/extended/exploratory-missions"],
+ "sources": ["runtime/agents/qa-walker.md", "docs/public/verification/exploration.md", "docs/public/verification/case-attachment.md", ".agents/skills/yoke/steer/loop.md"]
+}

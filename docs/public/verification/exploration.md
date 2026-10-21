@@ -4,15 +4,9 @@
 [Yoke](../index.md) > [Verification](index.md) > Exploratory missions
 <!-- /yoke:breadcrumbs -->
 
-An exploratory mission is one materialized QA case whose sequence is chosen by
-an agent at execution time. The case states the territory and good outcome in
-prose. It does not script the intermediate commands, browser actions, desktop
-interactions, or investigation branches.
-
-Use the `exploratory-mission` method when discovery and cross-substrate judgment
-are the point. Use a Command, Browser check, or Machine check when the expected
-sequence and assertions are deterministic; those methods are faster, cheaper,
-and repeatable.
+An exploratory mission states territory and a good outcome; its walker chooses
+the sequence at runtime. Use `exploratory-mission` for discovery and judgment;
+use Command, Browser check or Machine check for deterministic assertions.
 
 ## Contract
 
@@ -26,21 +20,18 @@ The Machine QA Pack method has these immutable properties:
 | required capabilities | `browser-control`, <!-- qa:test-machine-capability -->`test-machine` |
 | case config | `{"executor":"informed_subagent"}` |
 
-Capability declarations are provisioning authority, and the two kinds above
-resolve differently. <!-- qa:test-machine-capability -->`test-machine` is a project registration: materialization
-resolves it against the project capability rows, and admission refuses a
-mission whose project has registered no Test Machine. `browser-control` needs no project
-capability row, because this method's own runner is declared to supply it on
-the host the mission walks: admission admits the mission, and the walker
-uses the managed browser for named identities or when the walk installed Yoke;
-otherwise it drives the host browser, as the dispatch contract below describes.
-The Test Machine connection comes from the `QA_HOST:` coordination lease
-recorded on `qa_plan_executions.machine_lease_id`; the mission does not open
-an undeclared host or browser path.
+<!-- qa:test-machine-capability -->`test-machine` resolves against project
+registrations; admission refuses without one. The runner supplies
+`browser-control` without a project capability row. Walkers use managed browsers
+for named identities or when the walk installed Yoke; otherwise the host browser.
+The connection comes from the `QA_HOST:` lease recorded on
+`qa_plan_executions.machine_lease_id`, never an undeclared access path.
 
 ## Authoring Shape
 
-Write one case with broad instructions and an observable good outcome:
+Write territory and an observable outcome; split by machine so separate host
+queues run in parallel. Order a small cross-machine mission after the
+single-machine missions; declare its host set below.
 
 ```json
 {
@@ -149,13 +140,16 @@ While parked, the execution retains and heartbeats its Test Machine lease. The
 returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 
 - the item, work claim, Progress Log, and the human-request route;
-- dispatching each case's informed subagent walker with its
-  `walker_dispatches[].prompt` passed unchanged as the walker's instruction
-  (on a resumed walk, add only the Progress Log excerpt and resume state);
+- starting a fresh walker per chunk: one source case or a small same-host group,
+  with `walker_dispatches[].prompt` unchanged plus a compact handoff of host
+  state, held windows, proven facts and evidence ids; never resume a large
+  walker history;
 - combining walker returns into the primary written report;
-- choosing and submitting the final verdict for every bundled case.
+- retaining leases and choosing/submitting each bundled case's final verdict.
 
-The walker never issues the verdict. Its turn returns one status:
+Walkers run host-command calls foreground with tool yield at or above the
+call timeout (`yield_time_ms` uses milliseconds), never short-yield polling.
+They return one status, never a verdict:
 
 - `WALK_STATUS: COMPLETE` — the walk reached a natural stopping point;
 - `WALK_STATUS: HOST_WAIT` — submit only `host_wait` through the current bundle; [host turns](deployment-plan-execution.md#shared-host-turns-and-starting-state) owns queue/resume authority;
@@ -218,12 +212,9 @@ eligible host; a global pin cannot represent a roster using several hosts.
 Correction-ready commands also omit the pin; scheduling recovers each corrected
 case's failed attempt host from its requirement replacement history.
 
-A continuation is an ordinary new execution over the same roster, recording
-its own runs, with one difference: it reaches no host baseline, so the host
-keeps the state the settled walk built. Because the projections that paint a
-QA failure read a requirement's latest run, the continuation's own run
-supersedes the swept `error` without rewriting it — the prior run stays as
-history with its `stale-heartbeat` reason.
+A continuation records new runs over the same roster without resetting hosts.
+Its latest runs supersede the swept `error`; the prior runs retain their
+`stale-heartbeat` history.
 
 The flag is refused unless the subject's most recent execution is terminal,
 ended with `release_reason` `stale-heartbeat`, ran at least one
