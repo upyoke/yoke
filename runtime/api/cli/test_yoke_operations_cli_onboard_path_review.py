@@ -1,6 +1,7 @@
 """Review and Apply coverage for installer-owned PATH repair."""
 
 from __future__ import annotations
+from types import SimpleNamespace
 
 
 from yoke_cli.commands.adapters import onboard_apply
@@ -13,7 +14,7 @@ from yoke_cli.config import path_doctor
 def _plan() -> dict:
     return {
         "shell": "zsh",
-        "targets": [{"surface": "shell", "path": "uv tool update-shell"}],
+        "targets": [{"surface": "shell", "path": "yoke path fix --yes"}],
     }
 
 
@@ -22,7 +23,7 @@ def test_review_names_uv_shell_setup():
         {"plan": {"steps": onboard_path_plan.steps(_plan())}}
     )
     assert len(grouped["machine"]) == 1
-    assert "uv tool update-shell" in grouped["machine"][0]
+    assert "yoke path fix --yes" in grouped["machine"][0]
 
 
 def test_apply_delegates_and_reports_real_login(monkeypatch, tmp_path):
@@ -33,16 +34,19 @@ def test_apply_delegates_and_reports_real_login(monkeypatch, tmp_path):
     monkeypatch.setattr(
         path_doctor,
         "update_shell",
-        lambda: calls.append("uv tool update-shell") or "updated",
+        lambda: calls.append("yoke path fix --yes") or "updated",
     )
     monkeypatch.setattr(
         path_doctor,
         "verify_fresh_login",
         lambda *_args: [path_doctor.ToolResolution("yoke", "/tmp/bin/yoke")],
     )
+    monkeypatch.setattr(
+        path_doctor, "diagnose", lambda: SimpleNamespace(needs_fix=False, contexts=())
+    )
     report = {}
     onboard_apply_path.apply(_plan(), progress=None, report=report)
-    assert calls == ["uv tool update-shell"]
+    assert calls == ["yoke path fix --yes"]
     assert report["path_repair"]["login_verified"] is True
 
 

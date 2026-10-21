@@ -1,10 +1,10 @@
-"""Serializable uv shell-setup action for direct fix and onboarding."""
+"""Serializable owned shell-setup action for direct fix and onboarding."""
 
 from __future__ import annotations
 from typing import Any, Iterable
 from yoke_cli.config import path_doctor
 
-UPDATE_SHELL_COMMAND = "uv tool update-shell"
+UPDATE_SHELL_COMMAND = "yoke path fix --yes"
 
 
 def build(diagnosis: path_doctor.PathDiagnosis) -> dict[str, Any]:
@@ -28,7 +28,7 @@ def verification_ok(resolved: Iterable[Any], plan: dict[str, Any]) -> bool:
 
 
 def target_description(target: dict[str, Any], plan: dict[str, Any]) -> str:
-    return f"Run {UPDATE_SHELL_COMMAND}: uv adds its tool directory to your shell configuration."
+    return f"Run {UPDATE_SHELL_COMMAND}: Yoke repairs its owned PATH blocks for login, interactive and SSH shells."
 
 
 def description_lines(plan: dict[str, Any]) -> list[str]:

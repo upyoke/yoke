@@ -53,8 +53,10 @@ yoke uninstall --no-backup --projects ~/work/app --yes
 ```
 
 `--projects` accepts all, none, or comma-separated registered checkout paths.
-`--yes` never selects data loss or a project choice for you. The command leaves
-uv, the PATH line in your shell profile, and the GitHub App installed; remove
+`--yes` never selects data loss or a project choice for you.
+Yoke removes its marked PATH blocks from all supported startup files, including
+`.zshenv` and `.bashrc`, and preserves unrelated shell text. It leaves
+uv, user-owned PATH entries, and the GitHub App installed; remove
 the App in GitHub settings if desired. Push the removal commits made in the
 chosen checkouts. Project-owned edits and strategy documents are preserved by
 the existing project uninstall.

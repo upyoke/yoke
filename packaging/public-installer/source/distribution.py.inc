@@ -195,10 +195,6 @@ def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[s
             return _run_isolated_install(list(command), env)
         except (OSError, subprocess.SubprocessError) as exc:
             raise InstallError(f"cli_release_install_failed: {exc}; repair uv and rerun the installer") from exc
-    if list(command) == ["uv", "tool", "update-shell"]:
-        uv = shutil.which("uv") or "uv"
-        command = [uv, "tool", "update-shell"]
-        env["PATH"] = env.pop("YOKE_INSTALL_INHERITED_PATH", env.get("PATH", ""))
     return subprocess.run(
         list(command),
         check=False,

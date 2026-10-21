@@ -124,24 +124,19 @@ imports use the dashboard portability panel.
 
 ## After onboard
 
-The installer runs `uv tool update-shell`; uv chooses the shell configuration to
-update, including bash and fish. If uv cannot determine the current shell (for
-example, in a noninteractive shell without `SHELL`), the installer completes
-its checks using the installed executable's absolute path and prints
-`Add Yoke to PATH: export PATH=...` with the exact bin directory. Run that
-command in your shell; add the same directory to your shell's startup PATH to
-keep it available in future terminals. If uv reports that the shell
-configuration is already up to date (a rerun from a terminal opened before the
-first install), the installer continues. Whenever the shell that ran the
-installer cannot find `yoke`, including with `--no-setup`, the installer prints
-`Open a new terminal to use Yoke.` Other shell-update failures stop the
-installer with `uv_shell_update_failed`.
-Open a new terminal. If you chose machine-only setup, the finish screen lists
-the projects your account can access and commands to file and browse work
-from any folder, plus your hosted dashboard link (or the team server's own
-URL, where `yoke ui up` opens its workbench). Run `yoke setup`
-when you want to prepare a project's code on this machine. Once that project
-is wired, open Claude Code, Codex, or Cursor in its folder and run `/yoke onboard`.
+The installer runs `yoke path fix --yes` and verifies every installed supported
+shell: zsh, bash and fish. Yoke prepends marked, idempotent PATH blocks in
+`.zshenv` and `.zprofile`, Bash's selected login file and `.bashrc`, and fish's
+`config.fish`. `ZDOTDIR`, `XDG_CONFIG_HOME`, and the configured tool bin directory
+are respected. The `.bashrc` block precedes interactive-only guards so SSH
+commands can find Yoke. Open a new terminal after installation.
+
+Plain `bash -c` inherits PATH from its parent: the check starts it from a fresh
+login/interactive shell. A completely stripped Bash environment reads no user
+startup file; supply PATH or BASH_ENV explicitly in that case. Yoke preserves
+an existing BASH_ENV setting. Zsh and fish read their startup files for direct
+non-login commands. Uninstall removes Yoke's marked blocks and preserves other
+shell content, including PATH entries owned by the user or another tool.
 
 ```bash
 yoke status          # machine, env, credentials, checkouts
@@ -236,14 +231,9 @@ appears; otherwise the checkout keeps teaching the previous release.
 - [Remove Yoke](uninstall.md)
 - [Get started](index.md)
 
-If a fresh login shell cannot find `yoke`, run `uv tool update-shell`, check any
-shell configuration that overrides PATH, and open a new terminal. If uv cannot
-determine your shell, use the installer's printed `export PATH=...` command.
-`yoke path verify` probes your actual login shell; `yoke path fix` delegates
-configuration to uv. Yoke does not write its own shell startup blocks.
-
-Project install and refresh never move an existing machine project mapping.
-Git resolves linked worktrees to their main checkout, including lanes outside
-that checkout. To deliberately move routing, run `yoke project register
-/absolute/checkout --project-id N --reassign` from a session holding project
-N's live steering seat (`yoke claims steering acquire --project N`).
+Run `yoke path check --json` to see login, interactive, non-login and SSH
+results for each installed supported shell. Any unresolved or shadowed Yoke
+sets `needs_fix=true` and exits nonzero with a named context and recovery.
+Run `yoke path fix --yes`, open a new terminal, and retry `yoke path verify`.
+If repair still fails, check the named shell startup files for PATH overrides
+and file permissions. Setup uses the same repair and verification.

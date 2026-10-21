@@ -1,5 +1,5 @@
 Open a new terminal to use Yoke.
 To add it later, run:
-  uv tool update-shell
+  yoke path fix --yes
 
 Run yoke setup in a terminal, or yoke setup --agent from an agent.

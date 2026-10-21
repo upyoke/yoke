@@ -1,4 +1,4 @@
-"""Regression coverage for uv-owned shell configuration."""
+"""Regression coverage for owned shell configuration."""
 
 from __future__ import annotations
 import os
@@ -28,7 +28,6 @@ def _uv_update(home, shell, monkeypatch):
     yoke = bindir / "yoke"
     yoke.write_text("#!/bin/sh\nexit 0\n")
     yoke.chmod(0o755)
-    monkeypatch.setattr(doctor, "verify_fresh_login", lambda **kw: [])
     original = doctor.shutil.which
     monkeypatch.setattr(
         doctor.shutil,
@@ -46,8 +45,8 @@ def test_uv_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
     bashrc.write_text("export BASHRC_KEPT=yes\n")
     env = _uv_update(tmp_path, "bash", monkeypatch)
     assert not (tmp_path / ".bash_profile").exists()
-    assert profile.read_text().startswith("export PROFILE_KEPT=yes\n")
-    assert bashrc.read_text().startswith("export BASHRC_KEPT=yes\n")
+    assert "export PROFILE_KEPT=yes\n" in profile.read_text()
+    assert "export BASHRC_KEPT=yes\n" in bashrc.read_text()
     for file, variable in ((profile, "PROFILE_KEPT"), (bashrc, "BASHRC_KEPT")):
         result = subprocess.run(
             [
@@ -79,8 +78,8 @@ def test_uv_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
 def test_uv_adds_tool_directory_to_fish(tmp_path, monkeypatch):
     env = _uv_update(tmp_path, "fish", monkeypatch)
     config = tmp_path / ".config/fish/config.fish"
-    assert f'fish_add_path "{tmp_path / ".local/bin"}"' in config.read_text()
-    assert not (tmp_path / ".zprofile").exists()
+    assert "set -gx PATH" in config.read_text()
+    assert (tmp_path / ".zshenv").exists()
     fish = shutil.which("fish")
     if fish:
         env["SHELL"] = fish

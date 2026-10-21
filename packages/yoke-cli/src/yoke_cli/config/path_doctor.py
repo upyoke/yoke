@@ -1,9 +1,10 @@
-"""Diagnose real shell PATH state and delegate tool-directory setup to uv."""
+"""Diagnose real shell PATH state and repair owned startup entries."""
 
 from __future__ import annotations
 
 import os
 import shutil
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,11 +36,6 @@ from yoke_cli.config.path_state_contract import (
 
 
 _VERIFY_TIMEOUT_S = 10
-# uv exits non-zero when the tool directory is missing from the current PATH
-# but every startup file it manages already adds it.
-_UV_ALREADY_CONFIGURED = "configuration files are already up-to-date"
-# sshd starts the remote command with SSH_CLIENT set and no SHLVL; bash reads
-# ~/.bashrc for a non-interactive command only then.
 _SSH_CLIENT_PROBE = "127.0.0.1 0 22"
 
 
@@ -72,38 +68,16 @@ class PathDiagnosis:
     login_needs_fix: bool = False
     managed_path_dirs: tuple[str, ...] = ()
     harness_clis: tuple[HarnessCliResolution, ...] = ()
+    contexts: tuple[dict, ...] = ()
 
 
 def update_shell(*, env: dict[str, str] | None = None) -> str:
-    """Let uv select and update the user's shell configuration."""
+    """Repair owned shell PATH blocks using the shared startup-file contract."""
+    from yoke_cli.config.path_state_contract import write_shell_path
+
     environ = dict(os.environ if env is None else env)
-    uv = shutil.which("uv", path=environ.get("PATH"))
-    if not uv:
-        uv = str(Path(tool_bin_dir(environ)) / "uv")
-    if not any(
-        row.name == "yoke" and row.path for row in verify_fresh_login(env=environ)
-    ):
-        environ = _probe_env_without_managed_paths((tool_bin_dir(environ),), environ)
-    try:
-        result = terminal_detached_process.run(
-            [uv, "tool", "update-shell"],
-            capture_output=True,
-            text=True,
-            timeout=_VERIFY_TIMEOUT_S,
-            env=environ,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise OSError(
-            f"uv_shell_update_failed: {exc}; run `uv tool update-shell`."
-        ) from exc
-    if result.returncode and _UV_ALREADY_CONFIGURED in result.stderr:
-        return f"Shell startup files already add {tool_bin_dir(environ)} to PATH.\n"
-    if result.returncode:
-        raise OSError(
-            f"uv_shell_update_failed: {result.stderr.strip()}; "
-            "run `uv tool update-shell` and check shell-file permissions."
-        )
-    return result.stdout + result.stderr
+    changed = write_shell_path(env=environ)
+    return "Shell PATH updated: " + (", ".join(changed) or "already configured") + "\n"
 
 
 def _probe_env_without_managed_paths(
@@ -126,6 +100,7 @@ def _verify_shell(
     *,
     env: dict[str, str] | None = None,
     managed_path_dirs: Sequence[str] | None = None,
+    child_shell: bool = False,
 ) -> list[ToolResolution]:
     environ = dict(os.environ if env is None else env)
     path_dirs = tuple(managed_path_dirs or (tool_bin_dir(environ),))
@@ -139,6 +114,9 @@ def _verify_shell(
     separator = "; or true; " if sh == "fish" else " || true; "
     script = separator.join(f"command -v {tool}" for tool in PATH_TOOLS)
     script += "; or true" if sh == "fish" else " || true"
+    if child_shell:
+        script = shlex.join([shell_path, "-c", script])
+        flag = "-lic"
     # An interactive `-i` shell enables job control and would otherwise make
     # itself the terminal's foreground job, stopping setup's wizard.
     try:
@@ -178,9 +156,7 @@ def verify_ssh_command(
     environ = dict(os.environ if env is None else env)
     environ.setdefault("SSH_CLIENT", _SSH_CLIENT_PROBE)
     environ.pop("SHLVL", None)
-    return _verify_shell(
-        "-c", shell, env=environ, managed_path_dirs=managed_path_dirs
-    )
+    return _verify_shell("-c", shell, env=environ, managed_path_dirs=managed_path_dirs)
 
 
 def _resolves_required_tools(
@@ -230,7 +206,10 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     preferred_yoke = _preferred_yoke_path(bindir)
     yoke_shadowed_by = _shadowing_yoke_path(current_resolved, bindir=bindir)
 
-    startup = default_startup_file(shell, home_path)
+    startup_home = (
+        Path(environ.get("ZDOTDIR") or home_path) if shell == "zsh" else home_path
+    )
+    startup = default_startup_file(shell, startup_home)
     startup_text = startup.read_text() if startup.exists() else ""
     managed_block_present = MANAGED_BEGIN in startup_text
     future_adds_bin = bindir in startup_text
@@ -245,7 +224,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     login_needs_fix = (
         not future_ok or bool(yoke_shadowed_by) or bool(future_yoke_shadowed_by)
     )
-    ssh_startup = default_ssh_startup_file(shell, home_path)
+    ssh_startup = default_ssh_startup_file(shell, startup_home)
     ssh_adds_bin = False
     ssh_managed_block_present = False
     ssh_resolved: list[ToolResolution] = []
@@ -263,6 +242,9 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     else:
         ssh_yoke_shadowed_by = ""
 
+    from yoke_cli.config.path_shell_contexts import diagnose_contexts
+
+    contexts = diagnose_contexts(environ, path_dirs)
     return PathDiagnosis(
         current_shell=shell,
         tool_bin_dir=bindir,
@@ -272,7 +254,9 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         future_adds_bin=future_adds_bin,
         managed_block_present=managed_block_present,
         future_resolved=future_resolved,
-        needs_fix=login_needs_fix,
+        needs_fix=login_needs_fix
+        or ssh_needs_fix
+        or any(row["needs_fix"] for row in contexts),
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else "",
         ssh_adds_bin=ssh_adds_bin,
         ssh_managed_block_present=ssh_managed_block_present,
@@ -285,6 +269,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         login_needs_fix=login_needs_fix,
         managed_path_dirs=path_dirs,
         harness_clis=harness_clis,
+        contexts=contexts,
     )
 
 

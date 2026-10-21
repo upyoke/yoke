@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "human",
  "when": "Opening setup or retrying Install",
- "need": "Check required tools and repair shell PATH automatically. On failure, name the cause and offer Retry Install. Keep shell-file changes in Review and the final summary, including changes made before a failed attempt.",
+ "need": "Check required tools and repair owned shell PATH blocks automatically for login, interactive, non-login and SSH contexts. Plain bash -c inherits PATH from a fresh parent; stripped environments must supply PATH or BASH_ENV. Uninstall removes only marked blocks. On failure, name the cause and offer Retry Install. Keep shell-file changes in Review and the final summary, including changes made before a failed attempt.",
  "disclosure": "at failure and completion",
  "surface": "Setup Install recovery and finish summary",
  "review": "Scripted source tests cover automatic advance, failure, retry and shell receipts. Installer campaign waits for the next real screen without Install confirmation keys; deployed proof remains release-bound.",

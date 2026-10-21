@@ -168,4 +168,4 @@ def test_advise_path_points_at_uv_shell_setup(monkeypatch) -> None:
 
     installer._advise_path("/tmp/bin/yoke")
 
-    assert "uv tool update-shell" in output.getvalue()
+    assert "yoke path fix --yes" in output.getvalue()

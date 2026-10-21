@@ -183,4 +183,4 @@ class InstallerVerification:
             self._say("Open a new terminal to use Yoke. If it is still missing, run:"),
             file=self.stdout,
         )
-        print(self._say("uv tool update-shell"), file=self.stdout)
+        print(self._say("yoke path fix --yes"), file=self.stdout)
