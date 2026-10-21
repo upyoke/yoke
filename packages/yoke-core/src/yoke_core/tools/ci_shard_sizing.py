@@ -33,7 +33,7 @@ MIN_SHARD_PROFILE_SECONDS = 60.0
 # A selection at or above this share of the suite's profiled seconds is full
 # CI's work: it saves too little runner time to be worth a second run beside
 # the full suite every pull request already gets.
-FULL_CI_SHARE = 0.10
+FULL_CI_SHARE = 0.70
 
 
 def normalize_profile_target(root: Path, target: str) -> str | None:
