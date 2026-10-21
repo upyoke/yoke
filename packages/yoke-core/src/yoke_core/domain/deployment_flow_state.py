@@ -93,8 +93,6 @@ def require_flow_for_new_run(
         raise ValueError(
             f"deployment flow '{flow_id}' is {status} and cannot start new runs"
         )
-    if not target_tier:
-        raise MergeOnlyRunRefused(flow_id)
     version_row = conn.execute(
         f"SELECT definition_schema_version FROM deployment_flows WHERE id={_p(conn)}",
         (flow_id,),
