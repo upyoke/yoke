@@ -9,6 +9,7 @@ const elements = new Map();
 const records = new Map();
 let roots = [], camera = {x: 0, y: 0, z: 1}, focus = null, drag = null;
 let scheduled = false;
+const navigation = [];
 const palette = ['#487568', '#a37c46', '#657ca5', '#8972a0', '#737c4d'];
 const text = (tag, value, className = '') => {
   const el = document.createElement(tag);
@@ -49,7 +50,9 @@ function fit(node) {
     node.depth, node.color, true);
   camera = {z: 1, x: 0, y: 0};
 }
-function choose(node) {
+function choose(node, remember = true) {
+  if (!node) return;
+  if (remember && focus && focus !== node) navigation.push(focus);
   focus = node;
   node.reading = false;
   updateConnections();
@@ -62,6 +65,7 @@ function choose(node) {
 function home() {
   if (!roots.length) return;
   focus = null;
+  navigation.length = 0;
   updateConnections();
   const cols = map.clientWidth > 1150 ? 4 : map.clientWidth > 750 ? 3 : 2;
   const gap = 22, rows = Math.ceil(roots.length / cols), inset = 36;
@@ -74,21 +78,6 @@ function home() {
   updateTrail();
   updateSourceList();
   requestRender();
-}
-function updateTrail() {
-  const trail = document.querySelector('#trail');
-  trail.replaceChildren();
-  const all = text('button', 'Whole map');
-  all.onclick = home;
-  trail.append(all);
-  const chain = [];
-  for (let n = focus; n; n = byId.get(n.parent)) chain.unshift(n);
-  chain.forEach(node => {
-    trail.append(text('span', '/'));
-    const button = text('button', node.title);
-    button.onclick = () => choose(node);
-    trail.append(button);
-  });
 }
 function requestRender() {
   if (scheduled) return;
@@ -301,6 +290,7 @@ window.addEventListener('resize', () => { if (focus) fit(focus); else home(); re
       if (node.parent) byId.get(node.parent).children.push(node);
       else roots.push(node);
     });
+    expandRepresentations();
     roots.forEach((node, i) => place(node, (i % 4) * 480,
       Math.floor(i / 4) * 370, 440, 300, 0, palette[i % palette.length]));
     updateSourceList();

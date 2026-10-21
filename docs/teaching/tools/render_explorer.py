@@ -136,6 +136,10 @@ def map_nodes(model):
     describe_scope(nodes)
     describe_sizes(nodes)
     describe_message_estimates(nodes)
+    for alias, target in (('branch:install-human', 'branch:terminal-setup'),
+                          ('branch:install-agent', 'branch:agent-setup')):
+        by_id[alias]['represents'] = target
+        by_id[alias]['connections'] = []
     rollup_output_sizes(nodes)
     return nodes
 

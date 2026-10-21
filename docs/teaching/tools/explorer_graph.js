@@ -25,6 +25,7 @@ function updateConnections() {
   panel.replaceChildren();
   const links = [], seen = new Set();
   if (focus) {
+    seen.add(focus.canonical || focus.id);
     for (let node = focus; node; node = byId.get(node.parent)) {
       for (const edge of node.connections || []) {
         if (seen.has(edge.target)) continue;
@@ -175,4 +176,45 @@ function appendSizes(heading, node) {
     badge.title = `${size.chars.toLocaleString()} characters · UTF-8 bytes; variable deliveries may differ`;
     heading.append(badge);
   }
+}
+
+// A representation carries the real subtree in its current place in the map.
+function expandRepresentations() {
+  function copy(source, parent, ancestors) {
+    if (ancestors.has(source.id)) return null;
+    const next = new Set(ancestors).add(source.id);
+    const node = {...source, id: parent.id + '::' + source.id, parent: parent.id,
+      canonical: source.canonical || source.id, children: []};
+    node.children = source.children.map(child => copy(child, node, next)).filter(Boolean);
+    byId.set(node.id, node);
+    return node;
+  }
+  [...byId.values()].filter(node => node.represents).forEach(node => {
+    const target = byId.get(node.represents);
+    if (!target || target === node) return;
+    node.canonical = target.id;
+    node.children = target.children.map(child => copy(child, node, new Set([target.id]))).filter(Boolean);
+    node.connections = target.connections;
+  });
+}
+
+function updateTrail() {
+  const trail = document.querySelector('#trail');
+  trail.replaceChildren();
+  if (navigation.length) {
+    const back = text('button', '← Back to ' + navigation[navigation.length - 1].title);
+    back.onclick = () => choose(navigation.pop(), false);
+    trail.append(back);
+  }
+  const all = text('button', 'Whole map');
+  all.onclick = home;
+  trail.append(all);
+  const chain = [];
+  for (let n = focus; n; n = byId.get(n.parent)) chain.unshift(n);
+  chain.forEach(node => {
+    trail.append(text('span', '/'));
+    const button = text('button', node.title);
+    button.onclick = () => choose(node);
+    trail.append(button);
+  });
 }

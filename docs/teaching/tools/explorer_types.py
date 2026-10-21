@@ -157,7 +157,11 @@ def rollup_output_sizes(nodes):
             node['output_size'] = dict(lines=[source['lines']] * 2, bytes=[source['bytes']] * 2,
                                        estimated=False, variable=False, basis='Exact UTF-8 guidance text. Includes its nested sections once.')
 
+    by_id = {node['id']: node for node in nodes}
+
     def measure(node):
+        if node.get('represents'):
+            node['output_size'] = measure(by_id[node['represents']])
         if node.get('output_size'):
             return node['output_size']
         nested = children.get(node['id'], [])
@@ -196,7 +200,7 @@ def rollup_output_sizes(nodes):
         if size.get('aggregated'):
             prefix = 'Total estimate' if size['estimated'] else 'Total'
         if size.get('planning'):
-            prefix = 'Rough total' if children.get(node['id']) else 'Rough estimate'
+            prefix = 'Rough total' if children.get(node['id']) or node.get('represents') else 'Rough estimate'
         unit = 'line' if size['lines'] == [1, 1] else 'lines'
         label = f"{prefix} · {band(size['lines'])} {unit} · {band(size['bytes'])} B"
         if size['variable']:

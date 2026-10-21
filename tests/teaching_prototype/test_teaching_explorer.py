@@ -251,3 +251,14 @@ def test_encounter_order_and_hook_lifecycle(explorer):
     assert next(n for n in nodes if n['parent'] == 'source:roles:plan-and-design')['id'] == 'role:product-manager'
     docs = [n['id'] for n in nodes if n['parent'] == 'branch:doc-content']
     assert docs[:2] == ['doc:docs/public/index.md', 'docs-category:start']
+
+
+def test_install_modes_represent_real_setup_subtrees(explorer):
+    model, _, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    for alias, target in (('branch:install-human', 'branch:terminal-setup'),
+                          ('branch:install-agent', 'branch:agent-setup')):
+        assert nodes[alias]['represents'] == target
+        assert any(node['parent'] == target for node in nodes.values())
+        assert nodes[alias]['message_estimate'] == nodes[target]['message_estimate']
+        assert not nodes[alias]['connections']
