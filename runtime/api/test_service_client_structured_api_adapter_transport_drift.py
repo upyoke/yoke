@@ -45,6 +45,7 @@ def test_https_function_not_registered_adds_the_local_env_rerun(
             "connections": {
                 "prod": {"transport": "https"},
                 "prod-db-admin": {"transport": "local-postgres"},
+                "sandbox": {"transport": "local-postgres"},
             }
         },
     )
@@ -61,9 +62,12 @@ def test_https_function_not_registered_adds_the_local_env_rerun(
     assert "env 'prod' does not serve function 'strategy.doc.create'" in (
         response.error.message
     )
-    assert "yoke --env prod-db-admin strategy doc create" in (
+    # The paired door refuses routine calls (use_https_env), so the rerun
+    # names a machine-local universe instead.
+    assert "yoke --env sandbox strategy doc create" in (
         response.error.recovery_hint or ""
     )
+    assert "--env prod-db-admin" not in (response.error.recovery_hint or "")
 
 
 def test_unknown_local_function_keeps_original_server_error(monkeypatch) -> None:

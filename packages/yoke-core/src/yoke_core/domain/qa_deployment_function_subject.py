@@ -96,6 +96,15 @@ def _checkin_project(conn, execution_id, member_id):
 def resolve_run_qa_subject(
     conn: Any, request: FunctionCallRequest
 ) -> tuple[int, str, int | None]:
+    """Return (project, slug, member), resolved once per execution request."""
+    from yoke_core.domain.qa_request_subjects import run_subject_once
+
+    return run_subject_once(request, lambda: _resolve_run_qa_subject(conn, request))
+
+
+def _resolve_run_qa_subject(
+    conn: Any, request: FunctionCallRequest
+) -> tuple[int, str, int | None]:
     """Return (project, slug, member) from the run's real QA subject.
 
     The execution row owns the subject after begin. For materialization and

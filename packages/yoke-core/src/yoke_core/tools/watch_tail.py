@@ -40,6 +40,7 @@ fallback.
 from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.direct_database_access import paired_https_env
 from yoke_core.api.service_client_structured_api_adapter import (
     call_dispatcher,
 )
@@ -87,6 +88,8 @@ def _live_driver(path: Path):
             function_id=FOR_CAPTURE_FUNCTION_ID,
             target=TargetRef(kind="global"),
             payload={"progress_capture": str(path)},
+            # A read-only helper: on a *-db-admin door it asks the paired https env.
+            relay_env=paired_https_env() or None,
         )
         payload = (response.result or {}).get("driver") if response.success else None
         if not isinstance(payload, dict):

@@ -24,7 +24,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
-from yoke_contracts import qa_evidence_plane
+from yoke_contracts import direct_database_access, qa_evidence_plane
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -136,8 +136,10 @@ def call_dispatcher(
     than quietly dispatched here. For a non-prod local-postgres universe that
     in-process dispatch IS the product path — the credentials in the
     active connection, not the transport mechanics, are the authority
-    boundary. Prod-flagged postgres connections are operator-only by
-    doctrine: the client-side handler pre-load declines them (see
+    boundary; a ``*-db-admin`` door refuses routine functions (see
+    :mod:`yoke_contracts.direct_database_access`). Prod-flagged postgres
+    connections are operator-only by doctrine: the client-side handler
+    pre-load declines them (see
     :func:`yoke_cli.commands._helpers.ensure_handlers_loaded`).
     """
 
@@ -155,13 +157,7 @@ def call_dispatcher(
 
     refused = public_item_request_error(request)
     if refused is not None:
-        return FunctionCallResponse(
-            success=False,
-            function=function_id,
-            version=request.version,
-            request_id=request.request_id,
-            error=refused,
-        )
+        return _refusal(request, refused)
     if local_only:
         return _redact_response(
             _call_local(request, _local_dispatch, client_local=True),
@@ -220,6 +216,9 @@ def call_dispatcher(
             ),
             sensitive_values,
         )
+    refused = direct_database_access.use_https_env_error(function_id)
+    if refused is not None:
+        return _redact_response(_refusal(request, refused), sensitive_values)
     return _redact_response(
         _call_local(request, _local_dispatch),
         sensitive_values,
@@ -322,16 +321,21 @@ def _error_response(
     *,
     recovery_hint: str | None = None,
 ) -> FunctionCallResponse:
+    return _refusal(
+        request,
+        FunctionError(code=code, message=message, recovery_hint=recovery_hint),
+    )
+
+
+def _refusal(
+    request: FunctionCallRequest, error: FunctionError
+) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=False,
         function=request.function,
         version=request.version,
         request_id=request.request_id,
-        error=FunctionError(
-            code=code,
-            message=message,
-            recovery_hint=recovery_hint,
-        ),
+        error=error,
     )
 
 

@@ -11,7 +11,7 @@ hand.
 
 So the pull request is recorded when it is opened
 (:mod:`yoke_core.domain.merge_queue_landing_pending`), and this observer
-reads GitHub for every non-terminal item that has one. Relay upkeep and a
+reads GitHub for every non-terminal item that has one. A background job and a
 waiting lane both call it, while the project cadence row makes those callers
 share one GitHub sweep. A merge stamps the item's landing facts and current
 PR receipt identity atomically, then notifies whoever owns the lane

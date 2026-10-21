@@ -4,7 +4,8 @@ Beginning a deployment member's execution reads facts whose count grows with
 the run's members and plan groups. Those reads run before the
 ``deployment_runs`` row lock. :func:`begin_inputs` digests what they depended
 on first; :func:`admit_member` takes the lock and compares the digest again,
-so a change committed in between is caught and the reads repeat under it.
+so a change committed in between is caught and the reads repeat unlocked
+(:func:`admit_current_roster`).
 """
 
 from __future__ import annotations
@@ -64,6 +65,37 @@ def admit_member(
     else:
         lock_member_admission(conn, run_id, member)
     return inputs is None or begin_inputs(conn, run_id, stage) == inputs
+
+
+def admit_current_roster(conn, run_id, stage, member, inputs, prepared, prepare):
+    """Lock the run for this begin once its unlocked roster read still holds.
+
+    A member's begin hands a change back to its router as
+    :class:`BeginInputsChanged`, and the router reads again unlocked. A
+    stage-wide begin releases the lock itself and reads again unlocked, at
+    most ``RUN_READ_ATTEMPTS`` times, then refuses as ``run_busy``
+    (``run_read_changed``). Returns the roster to write, or the answer that
+    replaces starting one.
+    """
+    from yoke_core.domain.deployment_runs_lock import (
+        RUN_READ_ATTEMPTS,
+        DeploymentRunChanging,
+    )
+
+    for attempt in range(1, RUN_READ_ATTEMPTS + 1):
+        if admit_member(conn, run_id, stage, member, inputs):
+            return prepared
+        if member is not None:
+            raise BeginInputsChanged(run_id)
+        # Every write before this commits, so the rollback releases only the lock.
+        conn.rollback()
+        if attempt == RUN_READ_ATTEMPTS:
+            break
+        inputs = begin_inputs(conn, run_id, stage)
+        prepared = prepare()
+        if not isinstance(prepared, PreparedRoster):
+            return prepared
+    raise DeploymentRunChanging(str(run_id))
 
 
 @dataclass(frozen=True)
@@ -166,6 +198,7 @@ def prepare_roster(
 __all__ = [
     "BeginInputsChanged",
     "PreparedRoster",
+    "admit_current_roster",
     "admit_member",
     "begin_inputs",
     "prepare_roster",

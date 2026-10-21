@@ -132,9 +132,7 @@ def handle_plan_execution_begin(
                 start_identity_expectation,
             )
 
-            result[START_IDENTITY_FIELD] = start_identity_expectation(
-                conn, execution
-            )
+            result[START_IDENTITY_FIELD] = start_identity_expectation(conn, execution)
     except QaPlanRosterDischarged as exc:
         conn.rollback()
         return _error(DISCHARGED_BEGIN_CODE, str(exc), "$.payload")
@@ -165,7 +163,10 @@ def _owned_execution(
 
     conn = connect()
     try:
-        if request.function == "qa.plan_execution.heartbeat":
+        if request.function in {
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.pause",
+        }:
             from yoke_core.domain.qa_plan_execution_reentry import bound_checkin_queries
 
             bound_checkin_queries(conn)

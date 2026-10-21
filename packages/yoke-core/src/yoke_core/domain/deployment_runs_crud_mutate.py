@@ -15,9 +15,9 @@ from yoke_core.domain import (
 from yoke_core.domain.deployment_run_create_write import (
     CompositionRefused,
     cmd_create_run,
-    cmd_next_id,
     create_run,
 )
+from yoke_core.domain.deployment_run_id_allocation import cmd_next_id
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
@@ -32,6 +32,7 @@ from yoke_core.domain.deployment_run_membership_removals import (
     clear_membership_removal,
 )
 from yoke_core.domain.deployment_runs_lock import (
+    bounded_run_write,
     lock_run,
     lock_run_with_stable_membership,
 )
@@ -146,7 +147,11 @@ def cmd_update(
 
             return start_run(conn, run_id, candidate_containment)
         if field == "status":
-            status, item_ids = lock_run_with_stable_membership(conn, run_id)
+            try:
+                with bounded_run_write(conn, run_id):
+                    status, item_ids = lock_run_with_stable_membership(conn, run_id)
+            except ValueError as exc:
+                return f"Error: {exc}"
             if status is None:
                 return f"Error: deployment run '{run_id}' not found"
             if value not in VALID_STATUSES:

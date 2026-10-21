@@ -59,6 +59,7 @@ class SteeringReportGetResponse(BaseModel):
     level_overrides: List[Dict[str, Any]] = Field(default_factory=list)
     scopes: List[Dict[str, Any]] = Field(default_factory=list)
     reset_debts: List[Dict[str, Any]] = Field(default_factory=list)
+    slow_paths: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 def _error(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -145,6 +146,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             now=now,
             project_id=project_id,
             include_inventory=payload.full or payload.read_delta,
+            reuse_schedule=True,
         )
         if not combined.sections:
             return _claim_required(project_id)
@@ -160,7 +162,11 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             }
         elif project_id is not None:
             report = combined.sections[0].report
-            result = {**report_dict(report), "body": report_body(report)}
+            result = {
+                **report_dict(report),
+                "body": report_body(report, combined.slow_paths),
+                "slow_paths": [row.to_dict() for row in combined.slow_paths],
+            }
         else:
             result = combined_dict(combined)
         if payload.read_delta:

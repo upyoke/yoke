@@ -22,6 +22,7 @@ from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindi
 
 _RUN_MEMBERSHIP_LOCK_RETRIES = 5
 _BOUNDED_WRITE = ContextVar("deployment_bounded_write", default=False)
+_HELD_RUN = ContextVar("deployment_run_lock_held", default=None)
 
 #: How long a caller lets the run row settle before refusing. Long enough to
 #: ride out an ordinary concurrent mutation, far short of any client's
@@ -33,6 +34,11 @@ RUN_ROW_LOCK_TIMEOUT_MS = 2000
 RUN_BUSY_CODE = "run_busy"
 
 _LOCK_SAVEPOINT = "yoke_run_row_lock"
+_READ_CHECK_SAVEPOINT = "yoke_run_read_check"
+
+#: How many unlocked reads a writer takes of a run that keeps changing before
+#: it refuses rather than read again.
+RUN_READ_ATTEMPTS = 3
 
 
 def _select_status(conn, run_id: str, suffix: str) -> Optional[str]:
@@ -63,6 +69,9 @@ def lock_run(conn, run_id: str) -> Optional[str]:
     nothing further to wait for; otherwise it waited outside this savepoint
     and its lock timeout escaped as a raw ``LockNotAvailable``.
     """
+    held = _HELD_RUN.get()
+    if run_lock_is_held(conn, run_id):
+        return held[2]
     if not db_backend.connection_is_postgres(conn):
         return _select_status(conn, run_id, "")
 
@@ -83,6 +92,61 @@ def lock_run(conn, run_id: str) -> Optional[str]:
     conn.execute(f"RELEASE SAVEPOINT {_LOCK_SAVEPOINT}")
     conn.execute("SELECT set_config('lock_timeout', %s, true)", (str(previous),))
     return status
+
+
+def run_lock_is_held(conn, run_id: str) -> bool:
+    """Whether an enclosing :func:`run_lock_held` covers this run on ``conn``."""
+    held = _HELD_RUN.get()
+    return held is not None and held[0] is conn and held[1] == str(run_id)
+
+
+@contextmanager
+def run_lock_held(conn, run_id: str):
+    """Answer :func:`lock_run` from the lock this transaction already holds.
+
+    A cohort writer takes the run once, then writes each member through
+    helpers that each lock the run again; inside this block those re-locks
+    cost nothing. The caller must hold the run's locks on ``conn`` for the
+    whole block and must not commit or roll back inside it.
+    """
+    token = _HELD_RUN.set((conn, str(run_id), _select_status(conn, str(run_id), "")))
+    try:
+        yield
+    finally:
+        _HELD_RUN.reset(token)
+
+
+def lock_current_read(conn, run_id: str, read, *, holds, prepared=None, items=()):
+    """Lock the run once an unlocked read of it is still current; return that read.
+
+    ``read`` runs with no run lock held, so its run-wide queries and any git
+    or HTTP source read it makes never hold the row. The workflow bindings of
+    ``items`` are locked first, in the same order every run writer takes
+    them, and released with the run lock between reads. Under the lock only
+    ``holds(answer)`` runs, a cheap check (a run fingerprint) that nothing the
+    read depended on changed. A changed run releases the lock (a savepoint
+    rollback, so the caller's own transaction survives) and reads again, at
+    most :data:`RUN_READ_ATTEMPTS` times, then refuses as
+    :class:`DeploymentRunChanging`.
+    """
+    answer = read() if prepared is None else prepared
+    for _attempt in range(RUN_READ_ATTEMPTS):
+        conn.execute(f"SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+        try:
+            lock_item_workflow_bindings(conn, items)
+            lock_run(conn, run_id)
+            current = holds(answer)
+        except BaseException:
+            conn.execute(f"ROLLBACK TO SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+            conn.execute(f"RELEASE SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+            raise
+        if current:
+            conn.execute(f"RELEASE SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+            return answer
+        conn.execute(f"ROLLBACK TO SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+        conn.execute(f"RELEASE SAVEPOINT {_READ_CHECK_SAVEPOINT}")
+        answer = read()
+    raise DeploymentRunChanging(run_id)
 
 
 def _run_item_ids(conn, run_id: str) -> tuple[int, ...]:
@@ -140,6 +204,24 @@ class DeploymentRunBusy(RuntimeError):
         self.run_id = run_id
         self.holder = holder
         super().__init__(format_run_busy_refusal(run_id, holder))
+
+
+class DeploymentRunChanging(DeploymentRunBusy):
+    """The run changed under every unlocked read; answered as ``run_busy`` too."""
+
+    def __init__(self, run_id: str) -> None:
+        self.run_id = run_id
+        self.holder = None
+        RuntimeError.__init__(
+            self,
+            f"{RUN_BUSY_CODE}: deployment run {run_id!r} changed between each of "
+            f"{RUN_READ_ATTEMPTS} unlocked reads and its run row lock "
+            "(run_read_changed), so this request refused rather than read again "
+            "under the lock; nothing was written. Recover by retrying the same "
+            "command once the run's other writers settle: the deploy driver "
+            "retries on its next check and `yoke watch` wrappers retry with "
+            f"backoff; re-run `yoke watch deploy -- {run_id}` if its driver stopped.",
+        )
 
 
 def format_run_busy_refusal(run_id: str, holder: Optional[RunRowLockHolder]) -> str:
@@ -228,12 +310,17 @@ def bounded_run_write(conn, run_id: str):
 
 __all__ = [
     "RUN_BUSY_CODE",
+    "RUN_READ_ATTEMPTS",
     "RUN_ROW_LOCK_TIMEOUT_MS",
     "DeploymentRunBusy",
+    "DeploymentRunChanging",
     "RunRowLockHolder",
     "bounded_run_write",
     "format_run_busy_refusal",
+    "lock_current_read",
     "lock_run",
     "lock_run_with_stable_membership",
+    "run_lock_held",
+    "run_lock_is_held",
     "run_row_lock_holder",
 ]

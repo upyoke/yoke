@@ -7,6 +7,8 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain.steering_fleet_report_test_machines import (
@@ -65,6 +67,7 @@ from yoke_core.domain.steering_fleet_report_sections import (
     unlisted_holders,
 )
 from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
+from yoke_core.domain.steering_fleet_report_slow_paths import SlowPath, slow_path_lines
 from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_section
 from yoke_core.domain.steering_fleet_report_waiting_chains import waiting_chain_section
 
@@ -294,13 +297,14 @@ def scope_inner_body(
     return label_text("\n".join(work).strip(), report.session_labels)
 
 
-def report_body(report: FleetReport) -> str:
-    """The steerer-facing text of one report."""
+def report_body(report: FleetReport, slow_paths: Sequence[SlowPath] = ()) -> str:
+    """The steerer-facing text of one report, and any over-budget functions."""
     lines = [
         REPORT_BEGIN,
         _project_header(report),
         REPORT_PREAMBLE,
         "",
+        *slow_path_lines(slow_paths),
         *_scope_work_lines(report, ProjectRows.of(report)),
         *test_machine_lines(report.test_machines),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),

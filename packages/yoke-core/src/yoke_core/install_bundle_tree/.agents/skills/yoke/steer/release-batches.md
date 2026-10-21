@@ -10,9 +10,10 @@ yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --environment 
 yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
 ```
 
-Stage uses production's exact `release_lineage`. Retry a lost create with the
-same key. Re-drive an interrupted run with the same `watch deploy`; recreating
-it is not recovery. Stacked migrations follow `databases.md`.
+CONTROL_PLANE is https; a database env refuses `use_https_env`. Stage
+uses production's exact `release_lineage`. Retry a lost create with its
+key; re-drive with the same `watch deploy`. Migrations:
+`databases.md`.
 
 ## Member QA
 

@@ -1,6 +1,6 @@
 """Creation of a deployment run: lineage, flow status, and who may create.
 
-Creating a run takes no coordination claim: the global create advisory
+Creating a run takes no coordination claim: a per-project create advisory
 lock serializes creation and target occupancy serializes deploys, so any
 authorized session may create a run.
 """

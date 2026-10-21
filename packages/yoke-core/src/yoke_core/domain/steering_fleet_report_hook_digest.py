@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
 from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
+from yoke_core.domain.steering_fleet_report_slow_paths import slow_path_lines
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
@@ -45,6 +46,7 @@ def combined_hook_digest(combined: CombinedFleetReport) -> str:
                 "",
             ]
         )
+    parts.extend(slow_path_lines(combined.slow_paths))
     shared = rows_per_section([section.report for section in combined.sections])
     for section, rows in zip(combined.sections, shared):
         digest = scope_actionable_digest(section.report, rows)

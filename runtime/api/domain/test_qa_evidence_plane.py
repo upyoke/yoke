@@ -115,7 +115,7 @@ class TestDispatcherRouting:
         assert response.error is not None
         assert response.error.code == "evidence_plane_unresolved"
 
-    @pytest.mark.parametrize("function_id", ["qa.run.add", "qa.artifact.get"])
+    @pytest.mark.parametrize("function_id", ["db.read.run", "operator.data_repair.run"])
     def test_non_evidence_operations_stay_on_the_door(self, monkeypatch, function_id):
         _select(monkeypatch, ADMIN_ENV, CONFIG_WITH_PLANE)
         calls = self._resolved(monkeypatch)

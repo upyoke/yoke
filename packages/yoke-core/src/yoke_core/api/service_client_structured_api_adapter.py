@@ -91,25 +91,23 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
         from yoke_core.domain import machine_config
         from yoke_contracts.machine_config.schema import (
             local_postgres_envs,
-            same_universe_db_admin_env,
+            same_universe_https_env,
         )
 
         config = machine_config.load_config()
-        retry_envs = local_postgres_envs(config)
+        # A database door whose https env serves its universe refuses routine
+        # calls (use_https_env), so only a machine-local universe can run them.
+        retry_envs = [
+            env
+            for env in local_postgres_envs(config)
+            if not same_universe_https_env(config, env)
+        ]
         inventory_envs = local_postgres_envs(config, include_prod=True)
     except Exception:
         return ""
-    try:
-        # The active env's own admin sibling first: rerunning against a
-        # different local universe answers about rows the caller never
-        # asked about. An unresolvable active env only costs the preference,
-        # never the hint.
-        sibling = same_universe_db_admin_env(config, machine_config.active_env())
-    except Exception:  # noqa: BLE001 - no resolvable pairing is not a failure
-        sibling = ""
-    if not sibling and not retry_envs:
+    if not retry_envs:
         return ""
-    env = sibling or retry_envs[0]
+    env = retry_envs[0]
     if cli_invocation.startswith("yoke "):
         recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
     else:

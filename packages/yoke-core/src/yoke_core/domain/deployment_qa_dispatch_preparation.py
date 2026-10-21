@@ -31,6 +31,15 @@ def _read_missing(conn, stage, *, run_id, members):
 
 
 def prepare_members(conn, stage, *, run_id, members):
+    """Materialize every member still owing cases; return per-member errors.
+
+    The cohort is read as one set, unlocked, then written under one run lock.
+    """
+    from yoke_core.domain import deployment_qa_stage_materialization as materialization
+    from yoke_core.domain.deployment_qa_materialization_write import (
+        write_prepared_cohort,
+    )
+
     rows = conn.execute(
         "SELECT DISTINCT deployment_member_item_id FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_stage=%s AND method_id IS NOT NULL",
@@ -40,25 +49,23 @@ def prepare_members(conn, stage, *, run_id, members):
         row[0] if not hasattr(row, "keys") else row["deployment_member_item_id"]
         for row in rows
     }
-    reads, errors = _read_missing(
-        conn, stage, run_id=run_id, members=[m for m in members if m not in existing]
-    )
-    for member in (m for m in members if m not in existing):
-        read = reads.get(member)
-        try:
-            from yoke_core.domain.deployment_qa_stage_materialization import (
-                materialize_deployment_qa_stage,
-            )
+    missing = [member for member in members if member not in existing]
+    if not missing:
+        return {}
 
-            materialize_deployment_qa_stage(
-                conn,
-                deployment_run_id=run_id,
-                deployment_stage=str(stage["name"]),
-                deployment_member_item_id=member,
-                prepared_read=read,
-                advance_projection=True,
-            )
-            errors.pop(member, None)
-        except (LookupError, ValueError) as exc:
-            errors[member] = exc
-    return errors
+    def write(member, read):
+        materialization.materialize_deployment_qa_stage(
+            conn,
+            deployment_run_id=run_id,
+            deployment_stage=str(stage["name"]),
+            deployment_member_item_id=member,
+            prepared_read=read,
+            commit=False,
+        )
+
+    return write_prepared_cohort(
+        conn,
+        run_id=run_id,
+        read=lambda: _read_missing(conn, stage, run_id=run_id, members=missing),
+        write=write,
+    )

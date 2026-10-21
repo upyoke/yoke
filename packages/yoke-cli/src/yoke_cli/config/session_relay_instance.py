@@ -161,6 +161,28 @@ def prod_https_environments(payload: Mapping[str, object]) -> tuple[str, ...]:
     )
 
 
+def door_relay_refusal(instance: RelayInstance) -> str:
+    """Why a relay must not be installed or served on *instance*, or ``""``.
+
+    A paired ``*-db-admin`` door's https env serves the same universe, and a
+    door refuses routine calls (``use_https_env``), relay claims included.
+    Status and uninstall stay available so an earlier relay can be moved.
+    """
+    try:
+        payload = machine_config.load_config(instance.config_path)
+    except Exception:  # noqa: BLE001 - resolution already validated the config
+        return ""
+    served = machine_schema.same_universe_https_env(payload, instance.environment)
+    if not served:
+        return ""
+    return (
+        f"use_https_env: env {instance.environment!r} is a direct database door "
+        f"for the universe {served!r} serves, so its relay runs there. Move "
+        f"it: `yoke --env {instance.environment} relay uninstall`, then "
+        f"`yoke --env {served} relay install`"
+    )
+
+
 def resolve_relay_instance(
     *,
     config_path: str | Path | None = None,
@@ -251,6 +273,7 @@ __all__ = [
     "RELAY_STATE_DIR_ENV",
     "RELAY_LOGOUT_BEHAVIOR",
     "RelayInstance",
+    "door_relay_refusal",
     "RelayInstanceError",
     "prod_https_environments",
     "resolve_relay_instance",

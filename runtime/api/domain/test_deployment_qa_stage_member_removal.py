@@ -8,6 +8,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
+from yoke_core.domain import deployment_qa_dispatch_preparation as preparation
 from yoke_core.domain import deployment_qa_stage_gate as gate
 from yoke_core.domain import deployment_qa_stage_materialization as materialization
 from yoke_core.domain.deployment_qa_stage_dispatch import (
@@ -50,30 +51,40 @@ def _ready_run(conn):
 
 @pytest.mark.parametrize("boundary", ["materialize", "gate"])
 def test_removed_member_does_not_fail_live_stage(test_db, monkeypatch, boundary):
+    """A removal committed while dispatch reads (unlocked) or gates its members."""
     stage = _ready_run(test_db)
-    module = materialization if boundary == "materialize" else gate
-    name = (
-        "materialize_deployment_qa_stage"
-        if boundary == "materialize"
-        else "deployment_qa_stage_status"
-    )
-    original = getattr(module, name)
     visited = []
 
-    def remove_during_dispatch(conn, **kwargs):
-        member = kwargs.get("deployment_member_item_id", kwargs.get("member_item_id"))
+    def remove(conn, member):
         visited.append(member)
-        if member == REMOVED:
+        if member == REMOVED and visited.count(REMOVED) == 1:
             remove_member_on(conn, RUN, member, reason="member awaits next release")
             conn.commit()
-        return original(conn, **kwargs)
 
-    monkeypatch.setattr(module, name, remove_during_dispatch)
+    if boundary == "materialize":
+        original = preparation._read_member
+
+        def remove_during_read(conn, run_id, stage, member):
+            remove(conn, member)
+            return original(conn, run_id, stage, member)
+
+        monkeypatch.setattr(preparation, "_read_member", remove_during_read)
+    else:
+        original = gate.deployment_qa_stage_status
+
+        def remove_during_gate(conn, **kwargs):
+            remove(conn, kwargs["member_item_id"])
+            return original(conn, **kwargs)
+
+        monkeypatch.setattr(gate, "deployment_qa_stage_status", remove_during_gate)
     assert materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=RUN) == (
         0,
         "",
     )
-    assert visited == ([REMOVED] if boundary == "materialize" else [REMOVED, REMAINING])
+    if boundary == "materialize":
+        assert set(visited) == {REMOVED}  # only the member still owing cases
+    else:
+        assert visited == [REMOVED, REMAINING]
     assert (
         test_db.execute(
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (RUN,)
@@ -87,17 +98,17 @@ def test_removed_member_does_not_fail_live_stage(test_db, monkeypatch, boundary)
 
 def test_unrecorded_missing_member_still_fails_live_stage(test_db, monkeypatch):
     stage = _ready_run(test_db)
-    original = materialization.materialize_deployment_qa_stage
+    original = preparation._read_member
 
-    def disappear(conn, **kwargs):
+    def disappear(conn, run_id, stage, member):
         conn.execute(
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
             (RUN, REMOVED),
         )
         conn.commit()
-        return original(conn, **kwargs)
+        return original(conn, run_id, stage, member)
 
-    monkeypatch.setattr(materialization, "materialize_deployment_qa_stage", disappear)
+    monkeypatch.setattr(preparation, "_read_member", disappear)
     code, reason = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=RUN)
     assert code == 1
     assert "not an attached member" in reason

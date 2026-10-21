@@ -13,6 +13,9 @@ from yoke_core.domain.deployment_start_timing import (
 )
 from typing import List, Optional
 
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    self_deploy_door,
+)
 from yoke_core.domain import deploy_pipeline
 from yoke_core.domain.deploy_pipeline_control_plane import (
     DeploymentControlPlaneError,
@@ -98,7 +101,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Execute the deployment pipeline inside a bounded liveness scope."""
     argv = list(sys.argv[1:] if argv is None else argv)
     run_id = argv[0] if argv and str(argv[0]).startswith("run-") else ""
-    finish_reexec(run_id)
+    refusal, door = self_deploy_door(run_id)
+    if refusal:
+        print(f"error: {refusal}", file=sys.stderr)
+        return 2
+    with door:
+        finish_reexec(run_id)
+        return _drive(argv, run_id)
+
+
+def _drive(argv: List[str], run_id: str) -> int:
     held = False
     try:
         if run_id:

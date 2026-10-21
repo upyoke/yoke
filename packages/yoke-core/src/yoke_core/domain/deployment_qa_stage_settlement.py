@@ -66,18 +66,40 @@ def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] 
     )
 
 
+SETTLED_OUTCOMES = frozenset({"passed", "discharged", "rejected", "blocked"})
+
+
 def settle_subject(
     conn: Any, *, run_id: str, stage: str, member: int | None
 ) -> dict[str, Any]:
     """Converge acceptance and request the existing run's continuation."""
+    status, released = settle_acceptance(
+        conn, run_id=run_id, stage=stage, member=member
+    )
+    if str(status.get("outcome") or "") not in SETTLED_OUTCOMES:
+        return status
+    return continue_settled_stage(
+        conn,
+        run_id=run_id,
+        stage=stage,
+        member=member,
+        status=status,
+        released=released,
+    )
+
+
+def settle_acceptance(
+    conn: Any, *, run_id: str, stage: str, member: int | None
+) -> tuple[dict[str, Any], bool]:
+    """Converge one subject's acceptance; True when a failure released its member."""
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 
     status = deployment_qa_stage_status(
         conn, run_id=run_id, stage_name=stage, member_item_id=member
     )
     outcome = str(status.get("outcome") or "")
-    if outcome not in {"passed", "discharged", "rejected", "blocked"}:
-        return status
+    if outcome not in SETTLED_OUTCOMES:
+        return status, False
     conn.commit()
     released = False
     if outcome == "blocked" and member is not None:
@@ -93,6 +115,20 @@ def settle_subject(
             print(
                 f"Run {run_id} stage {stage!r} member {render_item_ref(conn, member)}: {handoff}"
             )
+    return status, released
+
+
+def continue_settled_stage(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: str,
+    member: int | None,
+    status: dict[str, Any],
+    released: bool,
+) -> dict[str, Any]:
+    """Request the run's continuation after a subject settled, or report why not."""
+    outcome = str(status.get("outcome") or "")
     completion_failure = ""
     if released or outcome in {"passed", "discharged"}:
         from yoke_core.domain.deployment_run_auto_completion import (
@@ -205,8 +241,11 @@ def continuation_message(
 
 
 __all__ = [
+    "SETTLED_OUTCOMES",
     "continuation_message",
+    "continue_settled_stage",
     "members_still_owing",
+    "settle_acceptance",
     "settle_execution",
     "settle_subject",
 ]

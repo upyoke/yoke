@@ -8,7 +8,8 @@ execution's end — and nothing else re-reads the refused member, so it sat at
 release wait until somebody noticed.
 
 Each of those writes calls :func:`after_record_settled` once its record is
-committed. It re-runs the same acceptance close-out
+committed; a waiver owes the call to the background replay in
+:mod:`yoke_core.domain.qa_settlement_followups` instead. It re-runs the same acceptance close-out
 (:func:`notify_item_qa_accepted`) for every executing run whose item QA has
 already accepted the member, and replays any settling run the item held
 open. There is no separate hold: the refused member is found again from the

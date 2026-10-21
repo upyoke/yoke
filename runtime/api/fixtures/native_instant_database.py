@@ -13,6 +13,7 @@ BORN_NATIVE_AFTER_HISTORY = frozenset(
     | {("machine_authorization_codes", "decided_at")}
     | {("qa_plan_execution_adoptions", "adopted_at")}
     | {("qa_plan_execution_reconciliations", "reconciled_at")}
+    | {("qa_settlement_followups", c) for c in ("requested_at", "attempted_at")}
     | {
         ("teammate_invite_codes", column)
         for column in (

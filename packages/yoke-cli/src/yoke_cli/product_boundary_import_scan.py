@@ -30,11 +30,13 @@ _BOUNDARY_FACT_SOURCES = (
     ("runtime", "api", "test_installer_package_boundaries.py"),
     ("runtime", "api", "dynamic_authority_import_allowlist.py"),
     ("runtime", "api", "dynamic_authority_import_allowlist_cli.py"),
+    ("runtime", "api", "dynamic_authority_import_allowlist_relay.py"),
 )
 _DYNAMIC_AUTHORITY_IMPORT_SYMBOLS = frozenset(
     {
         "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS",
         "CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS",
+        "RELAY_DYNAMIC_AUTHORITY_IMPORTS",
     }
 )
 

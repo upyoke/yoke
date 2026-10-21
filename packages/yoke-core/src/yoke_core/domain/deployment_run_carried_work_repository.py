@@ -49,6 +49,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.repository_compare_pages import compare_page
 from yoke_core.domain.repository_content_equivalence import (
     blob_sha,
     content_already_present,
@@ -263,6 +264,13 @@ class RepositoryProviderSource:
         cached = self._compare_pages.get((base, head, page))
         if cached is not None:
             return cached
+        body = compare_page(
+            self.location, base, head, page, lambda: self._read_page(base, head, page)
+        )
+        self._compare_pages[(base, head, page)] = body
+        return body
+
+    def _read_page(self, base: str, head: str, page: int) -> Mapping[str, Any]:
         request = RestRequest(
             method="GET",
             path=f"/repos/{self.location}/compare/{base}...{head}",
@@ -280,7 +288,6 @@ class RepositoryProviderSource:
         body = response.body
         if not isinstance(body, Mapping):
             raise unreadable_body()
-        self._compare_pages[(base, head, page)] = body
         return body
 
 

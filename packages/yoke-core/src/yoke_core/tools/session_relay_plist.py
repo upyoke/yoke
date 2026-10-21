@@ -13,7 +13,9 @@ import sys
 from typing import Callable, Mapping, Sequence
 
 from yoke_cli.config import machine_config
+from yoke_contracts.direct_database_access import USE_HTTPS_ENV
 from yoke_cli.config.session_relay_instance import (
+    door_relay_refusal,
     PROD_RELAY_LABEL,
     RelayInstance,
     resolve_relay_instance,
@@ -237,6 +239,8 @@ def install_relay_launchd(
         environment=environment,
         yoke_home=yoke_home,
     )
+    if refusal := door_relay_refusal(selected):
+        raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
     paths = relay_launchd_paths(home=home, instance=selected)
     source_env = os.environ if environ is None else environ
     try:

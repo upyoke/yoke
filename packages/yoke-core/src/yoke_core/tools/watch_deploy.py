@@ -17,6 +17,7 @@ from typing import Sequence
 
 from yoke_cli.commands.adapters.deployment_execution_authority import (
     execution_connection_error,
+    self_deploy_door,
 )
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
@@ -282,9 +283,16 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             "watch_deploy: missing run id", raw_path, progress_path
         )
     refusal = deployment_connection_error(passthrough[0])
+    door_refusal, door = self_deploy_door(passthrough[0])
+    if refusal is None and door_refusal:
+        refusal = f"watch_deploy: {door_refusal}"
     if refusal is not None:
         return _report_preflight_failure(refusal, raw_path, progress_path)
+    with door:
+        return _drive(passthrough, raw_path, progress_path)
 
+
+def _drive(passthrough: list[str], raw_path: Path, progress_path: Path) -> int:
     capture = str(progress_path)
     run_id = passthrough[0]
     held = False

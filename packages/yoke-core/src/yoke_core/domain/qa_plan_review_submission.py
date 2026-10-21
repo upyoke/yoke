@@ -270,16 +270,19 @@ def submit_plan_review(
                 validated,
             )
         )
-        from yoke_core.domain.qa_plan_settled_review import (
-            withdraw_settled_agent_review_wakes,
-        )
-
-        withdraw_settled_agent_review_wakes(conn, execution_id=str(execution["id"]))
         conn.commit()
     except Exception:
         conn.rollback()
         execution.update(execution_before)
         raise
+    from yoke_core.domain.qa_plan_settled_review import (
+        withdraw_settled_agent_review_wakes,
+    )
+
+    # The verdicts are durable before the owner's review wakes are withdrawn,
+    # so the message writes never hold the execution and bundle locks.
+    withdraw_settled_agent_review_wakes(conn, execution_id=str(execution["id"]))
+    conn.commit()
     if created_run_ids:
         try:
             _emit_review_events(

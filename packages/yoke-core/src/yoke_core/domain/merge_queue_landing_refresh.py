@@ -1,4 +1,4 @@
-"""Server-side cadence shared by relay and waiter landing observations."""
+"""Server-side cadence shared by background and waiter landing observations."""
 
 from __future__ import annotations
 

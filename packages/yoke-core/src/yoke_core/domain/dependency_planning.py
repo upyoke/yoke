@@ -18,7 +18,7 @@ items are found by :mod:`dependency_cycles`.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import db_backend
 from .dependencies import GatePoint
@@ -55,8 +55,10 @@ WHERE d.dependent_item_id = {p} AND d.gate_point = {p}
 """
 
 
-def _batch_deps_sql(conn: Any) -> str:
+def _batch_deps_sql(conn: Any, project_ids: Optional[Sequence[int]]) -> str:
     p = _p(conn)
+    holes = ", ".join(p for _ in project_ids or ()) or "NULL"
+    scope = "" if project_ids is None else f" AND di.project_id IN ({holes})"
     return f"""
 SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
@@ -65,9 +67,10 @@ SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest, d.id, d.created_at
 FROM item_dependencies d
+LEFT JOIN items di ON di.id = d.dependent_item_id
 LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
-WHERE d.gate_point = {p}
+WHERE d.gate_point = {p}{scope}
 """
 
 
@@ -162,6 +165,7 @@ def evaluate_batch_gates(
     session_id: Optional[str] = None,
     project: Optional[str] = None,
     emit_events: bool = True,
+    project_ids: Optional[Sequence[int]] = None,
 ) -> Dict[str, List[BlockerDetail]]:
     """Batch-evaluate all dependencies at a gate point. Returns a dict
     mapping ``dependent_item`` -> list of ``BlockerDetail`` for each item
@@ -171,11 +175,13 @@ def evaluate_batch_gates(
     ``emit_events=False`` suppresses the ``DependencyGateEvaluated``
     telemetry write so pure reads (e.g. a browser poll) leave no event
     rows behind; the default preserves emission for every existing caller.
+    ``project_ids`` limits the read to edges whose dependent is in them.
     """
     GatePoint.from_db(gate_point)
-
     cursor = conn.cursor()
-    cursor.execute(_batch_deps_sql(conn), (gate_point,))
+    cursor.execute(
+        _batch_deps_sql(conn, project_ids), (gate_point, *(project_ids or ()))
+    )
 
     blocks: Dict[str, List[BlockerDetail]] = {}
     all_rows = cursor.fetchall()
@@ -320,7 +326,7 @@ def plan_candidate_set(
     # Build ordering edges from ALL deps at this gate point
     # (not just unsatisfied — satisfied deps still define order among eligible items)
     cursor = conn.cursor()
-    cursor.execute(_batch_deps_sql(conn), (gate_point,))
+    cursor.execute(_batch_deps_sql(conn, None), (gate_point,))
     ordering_edges: List[Tuple[str, str]] = []
     for row in cursor.fetchall():
         dep_item = row[0]

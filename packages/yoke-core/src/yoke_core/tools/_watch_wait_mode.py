@@ -29,6 +29,7 @@ caller that cannot be woken is not.
 from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.direct_database_access import paired_https_env
 from yoke_core.api.service_client_structured_api_adapter import (
     build_actor,
     call_dispatcher,
@@ -155,6 +156,8 @@ def _current_session_row() -> Mapping[str, Any] | None:
         payload={"session_id": actor.session_id},
         actor=actor,
         intent="choose watcher wait mode from the caller's harness",
+        # A read-only helper: on a *-db-admin door it asks the paired https env.
+        relay_env=paired_https_env() or None,
     )
     if not response.success:
         return None

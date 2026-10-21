@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deployment_start_timing import emit_records
@@ -168,9 +169,22 @@ def update_run_field(
         )
 
 
+#: Runs whose serving build answered the QA read without a fingerprint.
+_FINGERPRINT_UNSERVED: set[str] = set()
+
+
 def qa_fingerprint(run_id: str, stage: Dict[str, Any]) -> str:
+    """The run's QA fingerprint; a changed value makes the QA wait re-dispatch.
+
+    A serving build older than this driver ignores ``fingerprint_only`` and
+    answers without a fingerprint. The driver then answers a fresh value on
+    every poll, so the wait re-dispatches each poll as it did before the
+    read existed, and stops asking that build.
+    """
     if stage.get("step_runner") != "qa":
         return ""
+    if run_id in _FINGERPRINT_UNSERVED:
+        return f"unserved:{uuid.uuid4().hex}"
     try:
         result = _call(
             "deployment_runs.execution.qa_pending", run_id, {"fingerprint_only": True}
@@ -181,14 +195,8 @@ def qa_fingerprint(run_id: str, stage: Dict[str, Any]) -> str:
         ) from exc
     fingerprint = result.get("fingerprint")
     if not isinstance(fingerprint, str) or not fingerprint:
-        raise DeploymentOutcomeUnknown(
-            run_id,
-            "deployment_runs.execution.qa_pending",
-            "",
-            "qa_fingerprint_unavailable: the control plane does not provide the cheap QA "
-            "fingerprint read; upgrade the serving control plane before re-driving this run "
-            "over HTTPS. A self-deploy uses its declared local admin connection.",
-        )
+        _FINGERPRINT_UNSERVED.add(run_id)
+        return f"unserved:{uuid.uuid4().hex}"
     return fingerprint
 
 

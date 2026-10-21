@@ -169,8 +169,8 @@ another computer does not replace the session machine's relay. Repair the
 named status refusal; `yoke relay install` repairs missing service setup.
 Keep the machine awake and connected while waiting.
 
-Yoke records the session that dispatched a CI run. Relay upkeep checks pending
-runs and queues the verdict when that session's turn has ended; the session
+Yoke records the session that dispatched a CI run. A background job checks
+pending runs about once a minute and queues the verdict when that session's turn has ended; the session
 machine's relay delivers the supported wake. A session still watching the run
 receives its result through that watcher. Wake support depends on the harness
 and surface; keep following a live watcher's continuation handle until it exits.

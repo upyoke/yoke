@@ -149,6 +149,16 @@ def _block_live_github_rest_calls(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _forget_repository_compare_pages():
+    """Keep one test's faked comparison pages out of the next test."""
+    from yoke_core.domain.repository_compare_pages import forget_compare_pages
+
+    forget_compare_pages()
+    yield
+    forget_compare_pages()
+
+
+@pytest.fixture(autouse=True)
 def _forbid_real_browser_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fail a test that would spawn the real Browser QA daemon.
 
@@ -249,6 +259,22 @@ def _forget_test_environment_declarations():
     read_settings.cache_clear()
     yield
     read_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _forget_reused_steering_schedules():
+    """Keep one test's schedule pass out of the next test's steering report.
+
+    A steering report pull reuses a project's schedule for a few seconds,
+    keyed by database authority; tests reuse one database per worker.
+    """
+    from yoke_core.domain.steering_fleet_report_schedule_cache import (
+        forget_reused_schedules,
+    )
+
+    forget_reused_schedules()
+    yield
+    forget_reused_schedules()
 
 
 @pytest.fixture(autouse=True)

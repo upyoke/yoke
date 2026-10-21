@@ -47,8 +47,8 @@ def _dispatch(conn, stage, *, run_id, status):
             return_value=status,
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
         mock.patch.object(
             dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
@@ -155,8 +155,8 @@ def test_a_report_failure_does_not_fail_the_stage(test_db: Any, capsys) -> None:
             return_value=_status(OUTCOME_PASSED, accepted=True),
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
         mock.patch.object(
             result_notice_mod,
@@ -170,3 +170,38 @@ def test_a_report_failure_does_not_fail_the_stage(test_db: Any, capsys) -> None:
 
     assert rc == 0
     assert "could not report" in capsys.readouterr().out
+
+
+def test_a_result_already_reported_is_not_sent_again(test_db: Any) -> None:
+    """The sent notice is the record; a new target attempt still reports."""
+    from yoke_core.domain.deployment_qa_result_notice import (
+        qa_result_idempotency_key,
+    )
+
+    _run(test_db, "run-report-6")
+    _member(test_db, "run-report-6", 9616)
+    test_db.execute(
+        "INSERT INTO session_messages(message_id,body,body_sha256,"
+        "selector_snapshot,idempotency_key,created_at,expires_at) "
+        "VALUES ('reported-9616','sent','sha','{}',%s,NOW(),NOW())",
+        (
+            qa_result_idempotency_key(
+                "run-report-6", "item-qa", 9616, OUTCOME_PASSED, "digest-9"
+            ),
+        ),
+    )
+    test_db.commit()
+    stage = {"name": "item-qa", "scope": "item", "notification": _NOTIFICATION}
+    passed = _status(OUTCOME_PASSED, accepted=True)
+
+    (rc, _diag), report = _dispatch(
+        test_db, stage, run_id="run-report-6", status=passed
+    )
+
+    assert rc == 0
+    report.assert_not_called()
+    retried = {**passed, "target_digest": "digest-10"}
+    (_rc, _diag), report = _dispatch(
+        test_db, stage, run_id="run-report-6", status=retried
+    )
+    assert report.call_args.kwargs["target_digest"] == "digest-10"

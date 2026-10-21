@@ -113,11 +113,11 @@ def _stale(record: Any, refresh: LandingRefresh, *, now: datetime) -> bool:
 def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
     """Return this lane's durable record, reading GitHub only when it is stale.
 
-    Relay upkeep keeps records current on the shared project cadence, so a
-    fresh record answers without any GitHub read. When no relay sweep has
-    kept it current (no relay running, or a single-machine install), this
-    call refreshes the project inline, so a waiter never waits on a record
-    nobody refreshes.
+    The pending GitHub observation job keeps records current on the shared
+    project cadence, so a fresh record answers without any GitHub read. When
+    nothing has kept it current (a machine-local universe whose relay is not
+    running), this call refreshes the project inline, so a waiter never waits
+    on a record nobody refreshes.
     """
     if request.target.item_id is None:
         return _error("target_invalid", "landing.observe requires target.public_ref")

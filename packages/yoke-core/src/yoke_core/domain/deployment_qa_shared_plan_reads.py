@@ -230,3 +230,35 @@ def _read_formed_group_plan_ids(conn: Any, run_id: str, stage_name: str) -> set[
             (run_id, stage_name),
         )
     }
+
+
+def attaching_members(
+    conn: Any, run_id: str, plan_id: int, member_item_id: int | None = None
+) -> list[int]:
+    """Members whose live attachment or frozen selection names this plan.
+
+    The filter is the cheap superset of the members that select the plan:
+    each one returned is still resolved through its stage and target, but
+    a member that never attached the plan costs no per-member reads.
+    """
+    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
+
+    snapshot = "COALESCE(NULLIF(m.requirement_snapshot,''),'{}')::jsonb"
+    member_filter = "" if member_item_id is None else " AND m.item_id=%s"
+    rows = query_rows(
+        conn,
+        "SELECT m.item_id FROM deployment_run_items m JOIN items i ON i.id=m.item_id "
+        "JOIN qa_plans p ON p.project_id=i.project_id "
+        f"WHERE m.run_id=%s AND p.id=%s{member_filter} AND ("
+        "EXISTS (SELECT 1 FROM qa_plan_item_attachments a WHERE a.item_id=m.item_id "
+        "AND a.plan_id=p.id AND a.qa_phase='post_deploy' "
+        f"AND {live_item_attachment_sql(conn, 'a')}) "
+        f"OR jsonb_path_exists({snapshot},'$.plans[*].plan.id ? (@ == $plan)',"
+        "jsonb_build_object('plan',p.id)) "
+        f"OR jsonb_path_exists({snapshot},'$.requirements[*].plan_id ? (@ == $plan)',"
+        "jsonb_build_object('plan',p.id))) ORDER BY m.item_id",
+        (run_id, plan_id)
+        if member_item_id is None
+        else (run_id, plan_id, int(member_item_id)),
+    )
+    return [int(row["item_id"]) for row in rows]

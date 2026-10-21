@@ -53,6 +53,9 @@ landed item already listed as a run member is not repeated, and each waiting
 run member is one line with its blocker count — the per-requirement detail
 is `yoke deployment-runs stages RUN`.
 
+`## slow paths` appears only when a registered function was over budget in the
+last hour (p95 over 5 s or any call over 30 s); relay long-polls do not count.
+
   yoke steering report get
   yoke steering report get --project yoke
   yoke steering report get --json

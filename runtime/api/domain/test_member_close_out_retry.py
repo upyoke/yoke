@@ -2,8 +2,9 @@
 
 The member's item QA is accepted on its executing run, but its own capture
 has no verdict, so the done write refuses. The refusal notice names that
-record. Settling it — a verdict or a waiver, each through its ordinary write —
-re-runs the same close-out, and the member reaches done without a re-drive.
+record. Settling it — a verdict through its ordinary write, or a waiver
+through the follow-up it owes the background replay — re-runs the same
+close-out, and the member reaches done without a re-drive.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     item_qa_accepted_idempotency_key,
 )
 from yoke_core.domain.qa_requirement_ops import waive_requirement
+from yoke_core.domain.qa_settlement_followups import replay_settlement_followups
 from yoke_core.domain.qa_run_execution_evidence import commit_settled_verdict
 from yoke_core.domain.qa_run_verdict_record import update_qa_run
 
@@ -87,6 +89,9 @@ def test_settling_the_blocker_closes_the_member(test_db, monkeypatch, settle) ->
         commit_settled_verdict(test_db, capture_id)
     else:
         waive_requirement(test_db, requirement_id, "not needed here", force=True)
+        # The waive answers before the close-out; the queue worker runs it.
+        assert _status(test_db, MEMBER_A) == "release"
+        assert replay_settlement_followups(test_db)["replayed"] == [MEMBER_A]
 
     assert _status(test_db, MEMBER_A) == "done"
     assert _status(test_db, MEMBER_B) == "release"

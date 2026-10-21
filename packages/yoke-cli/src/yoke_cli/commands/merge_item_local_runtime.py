@@ -10,7 +10,7 @@ loading the engine. Ordinary hosted merge does not substitute a paired admin.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import importlib
 import sys
 from typing import Any, Callable, Iterator, List, Optional
@@ -20,6 +20,11 @@ from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.direct_database_access import (
+    ADMIN_MERGE_COMMAND,
+    direct_database_command,
+    paired_https_env,
+)
 from yoke_contracts.github_auth_transience import TransientGitHubAuthError
 from yoke_contracts.github_origin import GitHubApiEndpoint
 from yoke_contracts.machine_config.schema import (
@@ -215,7 +220,15 @@ def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
     transport = str(connection.get("transport") or "").strip()
     if transport in POSTGRES_TRANSPORTS:
         _confirm_selected_control_plane(selected)
-        yield selected, selected
+        # An explicitly selected *-db-admin door is a declared direct-database
+        # merge, so the engine's routine calls (close-out sync) stay on it.
+        door = (
+            direct_database_command(ADMIN_MERGE_COMMAND)
+            if paired_https_env()
+            else nullcontext()
+        )
+        with door:
+            yield selected, selected
         return
     if transport == TRANSPORT_HTTPS:
         yield selected, selected
@@ -237,8 +250,8 @@ def run(argv: List[str]) -> int:
         return int(merge_cli.main(argv))
 
     with machine_github_user_authority():
-        claim_lookup = _work_claim_lookup(argv)
         with same_universe_control_plane_authority() as (selected, _authority):
+            claim_lookup = _work_claim_lookup(argv)
             merge_cli = importlib.import_module(
                 "yoke_core.domain.standalone_item_merge_cli"
             )

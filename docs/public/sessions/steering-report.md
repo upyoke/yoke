@@ -14,7 +14,9 @@ plan limits for stranded-session detection. Machine values load once per request
 and project membership filters those shared inputs. Session rows name their
 person and machine; unavailable identity is explicit, and command IDs stay intact.
 Repeated SQL reads share one request-local answer across sections and held seats;
-the next report reads fresh state. Waiter, machine-count and candidate-claim
+the next report reads fresh state, except that a `yoke steering report get` pull
+reuses a project's schedule pass for up to 15 seconds, so a claim taken or
+released inside that window shows on a later pull. Waiter, machine-count and candidate-claim
 inputs load in sets before classification.
 
 ## Scope and available work
@@ -182,6 +184,18 @@ Abandoned launch: delivered mandate but no claim/outbound message/completed
 call, native gone; show session/closed age/exit/last line, restaff unstarted work.
 Rows expire after six hours.
 
+
+## Slow paths
+
+`## slow paths` names registered functions over their latency budget in the last
+hour: p95 over 5 s, or any call over 30 s. Each row shows the function, its timed
+calls, p95 and longest call. It reads `YokeFunctionCalled` timings for the held
+projects and unattributed calls, classified as the Performance page does; relay
+long-polls and watcher wall time are intentional waits and never count. The
+section appears only when a function is over budget, and a newly slow function
+changes the report fingerprint, so the next wake shows it. It is diagnostic and
+never actionable: missing or unreadable events leave it out. File the slow path
+with `/yoke idea`, naming the function and its p95.
 
 ## Related
 

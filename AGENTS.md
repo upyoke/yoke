@@ -77,7 +77,8 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 <!-- END YOKE MANAGED BLOCK -->
 <!-- KEEP IN SYNC: hand-copied, identical in the yoke and platform repos. Edit both together. -->
 ## Control-Plane Authority — Hard Rule (this installation)
-- **Non-testing control-plane operations run on prod** (`prod` / `prod-db-admin`) for every target environment: releases, receipts, deployment-run and delivery records, GitHub relays. **Stage only tests the live control plane:** nothing real routes through or depends on it; `stage-db-admin` holds disposable rehearsal state only.
+- **Non-testing control-plane operations run on prod** for every target environment: releases, receipts, deployment-run and delivery records, GitHub relays. **Stage only tests the live control plane:** nothing real routes through or depends on it; `stage-db-admin` holds disposable rehearsal state only.
+- **Use `--env prod` for routine operations.** `prod-db-admin` is only for `db read`, migration rehearsal, driving prod's self-deploy and an explicit admin merge; anything else refuses `use_https_env`.
 - **Yoke releases ship Platform** (via its pin). Merged PLAT items ride the next Yoke release; start a Platform flow only when none is in flight.
 - **Platform's database (`yoke_platform`) is read-only here:** `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage: `platform-stage-registry-db-admin`; connections: `yoke env list`).
 # Yoke Repo Internals

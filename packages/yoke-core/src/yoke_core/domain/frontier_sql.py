@@ -26,12 +26,15 @@ WHERE 1=1
 
 FRONTIER_ITEMS_SQL_SUFFIX = " ORDER BY i.id"
 
+#: ``{scope}`` is the frontier's ``AND i.project_id IN (...)`` clause, so the
+#: count reads only edges whose blocker is in the requested projects.
 UNBLOCKS_COUNT_SQL = """
 SELECT
     d.blocking_item_id,
     COUNT(DISTINCT d.dependent_item_id) AS unblocks
 FROM item_dependencies d
-WHERE d.gate_point = 'activation'
+JOIN items i ON i.id = d.blocking_item_id
+WHERE d.gate_point = 'activation'{scope}
 GROUP BY d.blocking_item_id
 """
 

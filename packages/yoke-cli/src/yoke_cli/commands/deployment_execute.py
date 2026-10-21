@@ -54,7 +54,8 @@ def deployment_runs_execute(args: List[str]) -> int:
             "Ordinary external delivery works over HTTPS. A serving-API "
             "self-deploy is refused on HTTPS and names the paired local "
             "*-db-admin connection that keeps run state writable while the "
-            "API is replaced. Every Yoke self-release run, the stage run "
+            "API is replaced; that connection refuses every other run with "
+            "use_https_env and names the https env that drives it. Every Yoke self-release run, the stage run "
             "over HTTPS included, freezes the driver at the run's "
             "release_lineage, so the release's own code drives, rehearses "
             "and migrates and a merge landing mid-run cannot mix source. "
@@ -89,6 +90,8 @@ def deployment_runs_execute(args: List[str]) -> int:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
 
+    # On a *-db-admin door the engine checks and declares the self-deploy
+    # door itself, so a driver this adapter starts needs nothing from it.
     completed = subprocess.run(
         [
             sys.executable,
