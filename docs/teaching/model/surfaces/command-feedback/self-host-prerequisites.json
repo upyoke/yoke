@@ -1,0 +1,9 @@
+{
+ "id": "self-host-prerequisites",
+ "title": "Install Docker with Compose before self-host initialization.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source checks Docker and docker compose version before either init write path. Regression tests cover present, missing, failed and timed-out checks, plain/JSON output and unchanged bundles; released proof remains pending.",
+ "topics": ["modes/self-hosted/compose-bundle"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "packages/yoke-cli/src/yoke_cli/commands/self_host.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/self-host.md"]
+}

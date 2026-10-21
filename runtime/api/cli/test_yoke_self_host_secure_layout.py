@@ -199,3 +199,6 @@ def test_group_writable_bundle_refusal_names_recovery(tmp_path, capsys):
     error = capsys.readouterr().err
     assert "not group/world writable" in error
     assert f"chmod go-w {target}" in error
+
+
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")

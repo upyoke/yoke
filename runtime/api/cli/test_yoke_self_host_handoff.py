@@ -193,3 +193,6 @@ def test_import_receipt_requires_successful_container_exit(
         ):
             runtime.import_universe(target, recover=True)
     assert calls == [("docker", "wait"), ("docker", "rm")]
+
+
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")

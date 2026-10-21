@@ -1,0 +1,12 @@
+{
+ "id": "self-host-prerequisites",
+ "title": "Self-host init finds Docker or Compose unavailable",
+ "status": "observed",
+ "audience": "both",
+ "when": "Initializing or protecting a self-host bundle without a working Docker Compose plugin.",
+ "need": "Init refuses before changing the bundle, names the missing prerequisite and links the official Docker install guide. Install Docker (with Compose) and run yoke self-host init again; Yoke does not install these dependencies.",
+ "disclosure": "at prerequisite refusal",
+ "surface": "self-host init stderr and self-host guide prerequisites",
+ "review": "Candidate regression tests cover absent Docker, unavailable Compose, process errors and timeouts without writes. Released-host proof remains pending.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/self-host.md"]
+}

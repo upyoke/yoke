@@ -118,3 +118,6 @@ def test_private_key_source_swap_after_open_reads_original_descriptor(
     installed = target / "secrets" / "github-app-private-key.pem"
     assert installed.read_text(encoding="utf-8") == _PRIVATE_KEY
     assert source.read_text(encoding="utf-8") == "not a private key\n"
+
+
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")

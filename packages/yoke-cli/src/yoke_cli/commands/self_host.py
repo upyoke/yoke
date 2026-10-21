@@ -26,7 +26,7 @@ from yoke_cli.commands.self_host_teardown import (
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.self_host import bundle, env_file, first_boot_token
-from yoke_cli.self_host import upgrade, runtime
+from yoke_cli.self_host import prerequisites, upgrade, runtime
 from yoke_contracts.self_host_bootstrap_output import (
     connect_url_from_publish_spec,
 )
@@ -157,6 +157,7 @@ def self_host_init(args: List[str]) -> int:
             "before first boot instead)"
         )
     try:
+        prerequisites.check()
         if parsed.protect_existing:
             report = bundle.protect_existing_bundle(
                 directory=parsed.directory,

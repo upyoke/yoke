@@ -13,6 +13,14 @@ import pytest
 from yoke_cli.transport.https import relay_https
 
 
+@pytest.fixture()
+def installed_self_host_prerequisites(monkeypatch):
+    """Bundle tests exercise file behavior without depending on host Docker."""
+    from yoke_cli.self_host import prerequisites
+
+    monkeypatch.setattr(prerequisites, "check", lambda: None)
+
+
 @pytest.fixture(autouse=True)
 def _default_onboard_rich_glyphs(monkeypatch):
     """Keep wizard rendering tests independent of the runner's ambient TERM."""

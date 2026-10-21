@@ -22,7 +22,7 @@ from yoke_cli.self_host import bundle, first_boot_token, teardown
 
 
 @pytest.fixture()
-def target(tmp_path) -> Path:
+def target(tmp_path, installed_self_host_prerequisites) -> Path:
     directory = tmp_path / "yoke-server"
     assert commands.self_host_init(["--admin-name=Ada", f"--dir={directory}"]) == 0
     first_boot_token.token_drop_path(directory).write_text("delivered credential\n")

@@ -7,7 +7,14 @@ hosted platform.
 
 ## Quickstart
 
-On the server host (needs Docker with the compose plugin):
+Install [Docker with Compose](https://docs.docker.com/get-started/get-docker/)
+on the server host first, then verify `docker compose version` succeeds.
+Docker Desktop includes Compose; Docker Engine installations need the Compose
+plugin. Init checks this prerequisite before writing or changing the bundle.
+If Docker or Compose is missing, install Docker (with Compose) and run
+`yoke self-host init` again; Yoke does not install them for you.
+
+On the server host:
 
 ```bash
 # 1. Install the CLI (also how engineer machines install it later).
