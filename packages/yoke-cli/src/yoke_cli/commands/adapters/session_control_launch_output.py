@@ -159,22 +159,32 @@ def _write_launch_page(result: Mapping[str, Any], stdout: TextIO) -> None:
     history is the newest window of a larger set, so its heading names the
     matching total rather than letting the row count imply one.
     """
+    from yoke_cli.transport.output_limit import full_output_requested, registered_read_requested
+
+    compact = registered_read_requested() and not full_output_requested()
+    columns = (
+        tuple(column for column in _LIST_COLUMNS if column[0] in {
+            "LAUNCH", "STATE / RESULT", "ITEM", "SELECTED", "CREATED (UTC)",
+        }) if compact else _LIST_COLUMNS
+    )
     history = list(result.get("history") or [])
     matched = result.get("history_matched_count")
     write_table(
         "OPERATIONAL LAUNCHES",
-        _LIST_COLUMNS,
+        columns,
         result.get("operational") or [],
         stdout,
         empty="No unfinished or actionable launches.",
     )
     write_table(
         f"COMPLETED HISTORY ({len(history)} of {matched} matching)",
-        _LIST_COLUMNS,
+        columns,
         history,
         stdout,
         empty="No completed launches found.",
     )
+    if compact:
+        print("More columns: --full; one launch: yoke session-control launch get LAUNCH-ID --full", file=stdout)
     next_cursor = result.get("next_cursor")
     if next_cursor:
         print(f"More history: --cursor {next_cursor}", file=stdout)

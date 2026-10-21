@@ -9,6 +9,8 @@ yoke --help
 yoke items --help
 yoke items get --help
 yoke items get APP-7 status title
+yoke deployment-runs get RUN-ID status current_stage
+yoke session-control launch list --project example
 ```
 
 Yoke plans, builds, verifies and delivers software with people and agents.
@@ -34,6 +36,14 @@ their own meanings.
 Routine reads use command-specific summary fields and pages. Use the named
 field, page or `--full` recipe for detail. JSON output and write receipts
 always retain their complete selected result, warnings and recovery.
+
+`deployment-runs get RUN-ID` shows status, current stage and membership counts.
+Select named fields (`status current_stage`, `member_items membership_removals`)
+for detail; use `--include-member-closure` for member completion blockers, or
+`--full` for the complete run. `launch list` shows compact operational and
+history rows, with full launch IDs and continuation cursors; `--full` adds
+placement, model and registered-session columns. Read one launch with
+`yoke session-control launch get LAUNCH-ID --full`.
 
 An unusually large registered human read over 28,000 UTF-8 bytes refuses with
 `read_output_limit_exceeded` before printing any partial answer. Narrow its

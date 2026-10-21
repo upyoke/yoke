@@ -14,7 +14,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef, FunctionError
 
-DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD ...] [--include-member-closure] [--session-id S] [--json]"
+DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD ...] [--full] [--include-member-closure] [--session-id S] [--json]"
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
     "[--relevance overview] [--limit N] [--cursor CURSOR] [--session-id S] [--json]"
@@ -80,7 +80,7 @@ def deployment_runs_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs get",
         description=DEPLOYMENT_RUNS_GET_USAGE
-        + " Computed fields: member_items (attached members, removed ones"
+        + " Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
         " excluded) and membership_removals (reason, removed_at, later_run_id)."
         " carried_work is recorded at composition freeze; before that get"
         " derives it live and it stays unrecorded.",
@@ -96,6 +96,7 @@ def deployment_runs_get(args: List[str]) -> int:
         action="store_true",
         help="Read expensive per-member settlement diagnostics explicitly.",
     )
+    add_full_arg(parser, "the complete run and membership detail")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_GET_USAGE)
@@ -103,7 +104,12 @@ def deployment_runs_get(args: List[str]) -> int:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result, stdout)
+        from yoke_cli.commands.adapters.deployment_run_output import write_run_summary
+
+        if parsed.fields or parsed.full or parsed.include_member_closure:
+            write_human(response.result, stdout)
+        else:
+            write_run_summary(response.result or {}, stdout)
 
     return dispatch_and_emit(
         function_id="deployment_runs.get",
