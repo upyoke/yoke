@@ -277,7 +277,9 @@ def test_copy_failure_recovery_quotes_a_locale_diagnostic():
     assert phase == "copy_home"
     assert refusal["copy_stderr"] == diagnostic
     assert repr(diagnostic) in refusal["recovery"]
-    assert "LC_ALL=en_US.UTF-8" in refusal["recovery"]
+    assert "already set LC_ALL=en_US.UTF-8" in refusal["recovery"]
+    assert "host lacks that locale" in refusal["recovery"]
+    assert "locale -a on the host" in refusal["recovery"]
     assert "path named" not in refusal["recovery"]
 
 
@@ -286,3 +288,19 @@ def test_reset_copy_tools_use_a_host_supported_utf8_locale():
 
     assert 'LC_ALL=en_US.UTF-8 /usr/bin/ditto "$captured"' in FULL_RESET_SCRIPT
     assert 'LC_ALL=en_US.UTF-8 /bin/cp -Rpf "$captured"' in FULL_RESET_SCRIPT
+
+
+def test_copy_recovery_limits_its_excerpt_and_preserves_full_diagnostics():
+    diagnostic = "copy failure: " + "x" * (CAPTURE_COPY_STDERR_LIMIT - 14)
+    receipt = (
+        f"{CAPTURE_FAILURE_PREFIX}{CAPTURE_PHASES['copy_home']}\n"
+        f"{CAPTURE_COPY_STDERR_PREFIX}{base64.b64encode(diagnostic.encode()).decode()}\n"
+    )
+    phase, refusal = capture_failure_outcome(receipt)
+    assert phase == "copy_home"
+    assert refusal["copy_stderr"] == diagnostic
+    assert "'copy failure: " in refusal["recovery"]
+    assert "..." in refusal["recovery"]
+    assert "receipt field copy_stderr" in refusal["recovery"]
+    assert len(refusal["recovery"]) < 1000
+    assert diagnostic not in refusal["recovery"]
