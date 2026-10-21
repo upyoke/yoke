@@ -153,17 +153,18 @@ def _connect_with_backend_setup(tmp_path):
     return c
 
 
+def _apply_session_schema():
+    _apply_on_backend(_create_schema)
+
+
+def _apply_ownership_schema():
+    _apply_on_backend(_build_ownership_schema)
+
+
 @pytest.fixture
 def conn(tmp_path):
-    """Backend-aware connection with the session schema; per-test DB on both engines.
-
-    The stale/reclaim paths derive SQL dialect from the backend factory and
-    re-raise constraint hits as ``SessionError`` only when the conn's error type
-    matches the backend, so a raw in-memory SQLite conn under the Postgres
-    default uses the wrong dialect; :func:`init_test_db` keeps the engine
-    matched on both.
-    """
-    with init_test_db(tmp_path, apply_schema=lambda: _apply_on_backend(_create_schema)):
+    """Isolated native session schema with per-case machine identity."""
+    with init_test_db(tmp_path, apply_schema=_apply_session_schema):
         c = _connect_with_backend_setup(tmp_path)
         try:
             yield c
@@ -293,7 +294,7 @@ def ownership_conn(tmp_path):
     scheduler coherence check reads. See :func:`conn` for the backend rationale.
     """
     with init_test_db(
-        tmp_path, apply_schema=lambda: _apply_on_backend(_build_ownership_schema)
+        tmp_path, apply_schema=_apply_ownership_schema
     ):
         c = _connect_with_backend_setup(tmp_path)
         insert_item(

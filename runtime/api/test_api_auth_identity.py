@@ -9,7 +9,6 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.test_api_helpers import _install_overrides
 from yoke_core.api.main import app
@@ -22,7 +21,6 @@ def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
         db_path = stack.enter_context(
             init_test_db(
                 Path(tmp_dir),
-                apply_schema=_apply_fixture_ddl_from_active_db,
             )
         )
         stack.enter_context(_install_overrides(db_path))
@@ -47,13 +45,3 @@ def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
     assert "yoke" in projects
     assert projects["yoke"]["public_item_prefix"] == "YOK"
     assert {"admin", "owner"} <= set(projects["yoke"]["roles"])
-
-
-def _apply_fixture_ddl_from_active_db() -> None:
-    from yoke_core.domain import db_backend
-
-    conn = db_backend.connect()
-    try:
-        initialize_test_schema(conn)
-    finally:
-        conn.close()

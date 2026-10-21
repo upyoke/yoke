@@ -63,12 +63,16 @@ _SCHEMA = """
 """
 
 
+def _apply_schema() -> None:
+    apply_inline_ddl(_SCHEMA)
+
 @contextlib.contextmanager
 def _board_db(tmp_path: Path, seed_sql: str):
     with init_test_db(
         tmp_path,
-        apply_schema=lambda: apply_inline_ddl(_SCHEMA + seed_sql),
+        apply_schema=_apply_schema,
     ) as db_path:
+        apply_inline_ddl(seed_sql)
         db = BoardDB(db_path)
         try:
             yield db

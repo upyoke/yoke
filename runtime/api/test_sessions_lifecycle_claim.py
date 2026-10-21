@@ -17,8 +17,7 @@ _STALE_TS_WITH_HOLDINGS = (
 ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 from runtime.api.test_sessions import (
-    _apply_on_backend,
-    _create_schema,
+    _apply_session_schema,
     _register,
     conn,  # noqa: F401  (pytest fixture)
 )
@@ -209,7 +208,7 @@ class TestClaimWork:
                 return getattr(self._inner, name)
 
         with init_test_db(
-            tmp_path, apply_schema=lambda: _apply_on_backend(_create_schema)
+            tmp_path, apply_schema=_apply_session_schema
         ):
             db_path = str(tmp_path / "claim-race.db")
             seed = connect_test_db(db_path)
