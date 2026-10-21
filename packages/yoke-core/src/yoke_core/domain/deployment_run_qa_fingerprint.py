@@ -19,7 +19,9 @@ def _digest(select: str, order: str) -> str:
     return f"(SELECT md5(COALESCE(string_agg(t::text,'|' ORDER BY {order}),'')) FROM ({select}) t)"
 
 
-def run_qa_fingerprint(conn: Any, run_id: str) -> str:
+def run_qa_fingerprint(
+    conn: Any, run_id: str, *, include_progress: bool = False
+) -> str:
     """The digest of every fact a QA writer's unlocked read depended on."""
     # A table a schema has not created yet holds no facts to change.
     present = {
@@ -29,6 +31,9 @@ def run_qa_fingerprint(conn: Any, run_id: str) -> str:
             "qa_requirements",
             "qa_runs",
             "deployment_stage_receipts",
+            "qa_plan_executions",
+            "qa_artifacts",
+            "decision_requests",
         )
     }
     parts = [
@@ -38,8 +43,8 @@ def run_qa_fingerprint(conn: Any, run_id: str) -> str:
             "t.status",
         ),
         _digest(
-            "SELECT item_id,requirement_snapshot FROM deployment_run_items "
-            "WHERE run_id=%s",
+            "SELECT m.item_id,m.requirement_snapshot,i.status FROM deployment_run_items m "
+            "JOIN items i ON i.id=m.item_id WHERE m.run_id=%s",
             "t.item_id",
         ),
     ]
@@ -55,18 +60,52 @@ def run_qa_fingerprint(conn: Any, run_id: str) -> str:
         parts.append(
             _digest(
                 # Whole rows: any column a schema carries is a fact read.
-                "SELECT * FROM qa_requirements WHERE deployment_run_id=%s",
+                (
+                    "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
+                    "OR (deployment_run_id IS NULL AND item_id IN "
+                    "(SELECT item_id FROM deployment_run_items WHERE run_id=%s))"
+                )
+                if include_progress
+                else "SELECT * FROM qa_requirements WHERE deployment_run_id=%s",
                 "t.id",
             )
         )
         if present["qa_runs"]:
             parts.append(
                 _digest(
-                    "SELECT r.id FROM qa_runs r JOIN qa_requirements q "
+                    "SELECT r.* FROM qa_runs r JOIN qa_requirements q "
                     "ON q.id=r.qa_requirement_id WHERE q.deployment_run_id=%s",
                     "t.id",
                 )
             )
+    if include_progress and present["qa_plan_executions"]:
+        parts.append(
+            _digest(
+                "SELECT * FROM qa_plan_executions WHERE deployment_run_id=%s", "t.id"
+            )
+        )
+    if (
+        include_progress
+        and present["qa_artifacts"]
+        and present["qa_runs"]
+        and present["qa_requirements"]
+    ):
+        parts.append(
+            _digest(
+                "SELECT a.* FROM qa_artifacts a JOIN qa_runs r ON r.id=a.qa_run_id "
+                "JOIN qa_requirements q ON q.id=r.qa_requirement_id WHERE q.deployment_run_id=%s",
+                "t.id",
+            )
+        )
+    if include_progress and present["decision_requests"]:
+        parts.append(
+            _digest(
+                "SELECT d.* FROM decision_requests d JOIN deployment_run_items m "
+                "ON d.subject_type='item_transition' AND d.subject_key=m.item_id::text || ':done' "
+                "WHERE m.run_id=%s",
+                "t.id",
+            )
+        )
     if present["deployment_stage_receipts"]:
         parts.append(
             _digest(
@@ -75,9 +114,8 @@ def run_qa_fingerprint(conn: Any, run_id: str) -> str:
                 "t.id",
             )
         )
-    row = conn.execute(
-        f"SELECT md5(concat_ws(',',{','.join(parts)}))", (str(run_id),) * len(parts)
-    ).fetchone()
+    sql = f"SELECT md5(concat_ws(',',{','.join(parts)}))"
+    row = conn.execute(sql, (str(run_id),) * sql.count("%s")).fetchone()
     return str(row[0])
 
 

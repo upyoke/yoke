@@ -21,6 +21,8 @@ hear it.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+
 from yoke_contracts.timestamps import parse_instant, utc_now
 
 from collections.abc import Mapping
@@ -220,6 +222,7 @@ def report_stage_result(
     target_tier: str,
     revision: str,
     target_digest: str,
+    subject: str | None = None,
 ) -> None:
     """Report a settled result to the audience the stage configured.
 
@@ -232,7 +235,7 @@ def report_stage_result(
         return
     from yoke_core.domain.project_identity import render_item_ref
 
-    subject = (
+    subject = subject or (
         render_item_ref(conn, member)
         if member is not None
         else "the whole release batch"
@@ -253,7 +256,7 @@ def report_stage_result(
         )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 - degrade, don't abort
-        conn.rollback()
+        rollback_after_error(conn, exc)
         print(
             f"Warning: could not report run {run_id!r} stage "
             f"{str(stage['name'])!r} result to its notification audience: {exc}"

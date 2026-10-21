@@ -214,12 +214,12 @@ the SQLSTATE and the current `deployment_runs` lock holder. Members settled
 before the interruption keep their result, the run stays `executing` at its QA
 stage, and the driver re-dispatches that stage inside its bounded QA wait.
 
-The scoped-QA wait announces its poll and status cadence and its deadline,
-then prints `Still waiting for scoped QA` with elapsed time and blocker count
-every four polls (one minute by default). Each re-dispatch gets only the time
-left on that deadline: a dispatch still unanswered then, blocked on a lock or a
-hung connection, ends the wait as a timeout that says the last dispatch had no
-answer. When the bounded scoped-QA wait ends with blockers, the driver returns
+The scoped-QA wait polls a run fingerprint every 15 seconds and re-dispatches
+only when QA facts change, plus once at the deadline. It announces its poll
+and status cadence and deadline, then prints `Still waiting for scoped QA` with elapsed time and blocker count
+every four polls (one minute by default). Each fingerprint read or re-dispatch
+gets only the time left on that deadline: a read or dispatch still unanswered
+then ends the wait with a named timeout. When the bounded scoped-QA wait ends with blockers, the driver returns
 awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
 it explicitly reports that fresh QA details are unavailable and retains the
 last known blocker diagnostic. That read failure does not change the established
@@ -280,3 +280,21 @@ execution keeps its streamed driver timings. Nested phase durations overlap
 and must not be added as independent wall time. A missing response or end marker
 does not authorize another create; keep the request's idempotency key and
 reconcile the existing attempt.
+
+An unchanged fingerprint retains the previous blocker result. A dispatch reads gate facts
+once across the run's members; acceptance writes re-check their own subject
+under the run lock. The local driver resolves its actor at startup and reuses
+that binding until it exits. A closed database connection, including a failed
+actor lookup, reports `control_plane_connection_lost`; a lost write answer
+leaves the run resumable with its pending receipt preserved. Restore the
+control-plane connection, inspect the run and its driver capture, then re-drive
+the same run using `yoke watch deploy -- RUN-ID`.
+
+Before a dispatch begins its database writes, it resolves each project's
+immutable release pin and published installer record with autocommit reads,
+so Git, GitHub contents and HTTP work hold no database transaction open. The
+answers are reused for that dispatch. A newly changed source input refuses as
+`deployment_qa_source_inputs_changed`; re-drive the same QA stage to refresh
+its inputs. If a connection drops while handling another error, the driver
+reports both the original error and the rollback loss as a resumable connection
+loss. An idle-in-transaction timeout is named as the original cause.

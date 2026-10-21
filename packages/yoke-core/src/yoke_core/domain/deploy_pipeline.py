@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.deploy_pipeline_unknown_outcome import preserve_unknown_outcome
+from yoke_core.domain.deployment_driver_identity import driver_identity_operation
 
 import json
 import sys
@@ -53,7 +54,6 @@ from yoke_core.domain.release_start_schema import (
     converge_release_start_schema,
 )
 
-
 EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = deploy_pipeline_failure.EXIT_STAGE_FAILED
 EXIT_AWAITING_APPROVAL = 2
@@ -69,6 +69,7 @@ def _finalize(*args, sd, members):
 
 @preserve_unknown_outcome
 @timed_pipeline
+@driver_identity_operation
 def run_pipeline(
     primary_arg: str,
     *,
@@ -79,7 +80,6 @@ def run_pipeline(
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> int:
-    """Execute the deployment pipeline.  Returns exit code."""
     sd = sd or _resolve_script_dir()
 
     if not primary_arg.startswith("run-"):
@@ -262,6 +262,7 @@ def run_pipeline(
             stage_receipt.dispatch_step_runner_with_receipt,
             stage,
             timeout_seconds=timeout_min * 60,
+            fingerprint=lambda: control_plane.qa_fingerprint(run_id, stage),
             stages=stages,
             run_id=run_id,
             member_items=member_items,

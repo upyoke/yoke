@@ -38,15 +38,20 @@ def local_connection_or_none(connect: Callable[[], Any]) -> Optional[Any]:
     """Open a direct connection, or report that there is no local authority.
 
     Runs under :func:`local_authority_exempt` because attempting the direct
-    connection IS this function's job: a refusal here would answer the
-    question the attempt is asking. So the attempt runs for real, and any
-    failure means the same thing — no local authority — and returns None so
-    the caller relays.
+    connection IS this function's job. A missing local authority returns
+    None so the caller relays. A database outage is not absent authority:
+    database and connection failures propagate, preserving the named cause
+    instead of becoming an absent actor or empty result.
     """
     try:
         with local_authority_exempt():
             return connect()
-    except Exception:  # noqa: BLE001 - no local authority is the relay's cue
+    except Exception as exc:  # noqa: BLE001 - no local authority is the relay's cue
+        from yoke_core.domain.connected_env_readiness import is_connection_unavailable_error
+        from yoke_core.domain import db_backend
+
+        if is_connection_unavailable_error(exc) or isinstance(exc, db_backend.operational_error_types()):
+            raise
         return None
 
 

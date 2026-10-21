@@ -9,10 +9,22 @@ the control plane can address their recipients.
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+from yoke_core.domain.deployment_qa_dispatch_inputs import (
+    dispatch_input_operation,
+    run_context,
+)
+
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref, resolve_project_slug
+from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.deployment_qa_presentation_reads import (
+    presentation_operation,
+    uncached_presentation,
+)
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
@@ -30,24 +42,6 @@ from yoke_core.domain.deployment_qa_stage_wake import (
 DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION = "deployment_runs.qa_stage.dispatch"
 
 
-def _run_context(conn: Any, run_id: str) -> tuple[int | None, str, str]:
-    """This run's project, configured target tier, and revision."""
-    row = conn.execute(
-        "SELECT project_id, target_tier, release_lineage "
-        "FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return None, "", ""
-    get = (lambda key, i: row[key]) if hasattr(row, "keys") else (lambda key, i: row[i])
-    project_id = get("project_id", 0)
-    return (
-        int(project_id) if project_id is not None else None,
-        str(get("target_tier", 1) or ""),
-        str(get("release_lineage", 2) or ""),
-    )
-
-
 def _notify_stage_wait(
     conn: Any,
     *,
@@ -63,16 +57,9 @@ def _notify_stage_wait(
     target_digest: str,
     label: str,
 ) -> None:
-    """Wake the right recipient for one waiting subject, and log the miss.
+    """Wake this waiting subject; notification misses preserve its QA status.
 
-    A wake failure is not a QA-status failure: the stage is genuinely
-    still waiting either way, so a notification hiccup degrades to "not
-    woken" rather than aborting the dispatch and losing the wait result
-    already computed.
-
-    ``names_cases`` decides whether the recipe the notice prints carries
-    ``--plan``: only the subject that materialized nothing is being asked
-    to select cases, and the two waits below are exactly that distinction.
+    names_cases selects the recovery recipe for existing versus missing cases.
     """
     if item_scoped and member is not None:
         no_recipient = "no live claim holder and no covering project steering seat"
@@ -111,7 +98,7 @@ def _notify_stage_wait(
                 "manually."
             )
     except Exception as exc:  # noqa: BLE001 - degrade, don't abort
-        conn.rollback()
+        rollback_after_error(conn, exc)
         print(
             f"Warning: could not wake a recipient for run {run_id!r} stage "
             f"{stage_name!r} ({label}): {exc}"
@@ -119,6 +106,7 @@ def _notify_stage_wait(
 
 
 @composition_operation
+@dispatch_input_operation
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
@@ -128,16 +116,9 @@ def materialize_and_gate_deployment_qa_stage(
     the database that serves this control plane. Schema facts are read once
     for the whole walk; each member's reads are batched across the run.
     """
-    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
-        notify_item_qa_accepted,
-    )
-    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
-    from yoke_core.domain.deployment_qa_stage_materialization import (
-        QaCasesNotSelectedError,
-        materialize_deployment_qa_stage,
-    )
+    from yoke_core.domain.deployment_qa_dispatch_inputs import prepare_release_inputs
 
-    project_id, target_tier, revision = _run_context(conn, run_id)
+    project_id, target_tier, revision = run_context(conn, run_id)
     if stage.get("scope") == "item":
         rows = conn.execute(
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
@@ -151,25 +132,50 @@ def materialize_and_gate_deployment_qa_stage(
             return (1, refusal) if refusal else (0, item_qa.NO_MEMBER_OWES_TARGET)
     else:
         members = [None]
+    from yoke_core.domain.deployment_qa_dispatch_preparation import prepare_members
+
+    try:
+        prepare_release_inputs(conn, stage, run_id=run_id)
+    except (LookupError, ValueError) as exc:
+        rollback_after_error(conn, exc)
+        return 1, str(exc)
+    errors = prepare_members(conn, stage, run_id=run_id, members=members)
+    return _gate_members(
+        conn,
+        stage,
+        run_id=run_id,
+        members=members,
+        errors=errors,
+        project_id=project_id,
+        target_tier=target_tier,
+        revision=revision,
+    )
+
+
+@presentation_operation
+@run_presentation
+def _gate_members(
+    conn, stage, *, run_id, members, errors, project_id, target_tier, revision
+):
+    from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+        notify_item_qa_accepted,
+    )
+    from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        QaCasesNotSelectedError,
+    )
+
+    item_refs = render_item_ref_lookup(conn, (m for m in members if m is not None))
+    project_slug = (
+        resolve_project_slug(conn, project_id) if project_id is not None else ""
+    )
     waiting: list[str] = []
     accepted: list[int] = []
     failure = ""
     for member in members:
         try:
-            existing = conn.execute(
-                "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s "
-                "AND deployment_stage=%s "
-                "AND COALESCE(deployment_member_item_id,0)=%s "
-                "AND method_id IS NOT NULL LIMIT 1",
-                (run_id, str(stage["name"]), member or 0),
-            ).fetchone()
-            if existing is None:
-                materialize_deployment_qa_stage(
-                    conn,
-                    deployment_run_id=run_id,
-                    deployment_stage=str(stage["name"]),
-                    deployment_member_item_id=member,
-                )
+            if member in errors:
+                raise errors[member]
             status = deployment_qa_stage_status(
                 conn,
                 run_id=run_id,
@@ -178,16 +184,7 @@ def materialize_and_gate_deployment_qa_stage(
                 notify_acceptance=False,
             )
         except QaCasesNotSelectedError as exc:
-            # The default story, not a failure: this stage names no cases
-            # and nobody has selected any yet. It is a durable wait, and
-            # the agent responsible for the subject is the one who can end
-            # it — so wake them instead of failing the stage out from
-            # under them.
-            label = (
-                f"member {render_item_ref(conn, member)}"
-                if member is not None
-                else "run"
-            )
+            label = f"member {item_refs(member)}" if member is not None else "run"
             waiting.append(f"{label}: {exc}")
             if project_id is not None:
                 _notify_stage_wait(
@@ -215,16 +212,10 @@ def materialize_and_gate_deployment_qa_stage(
                 ).fetchone()
                 if attached is None:
                     continue
-            # Every other refusal is a real stage failure: an invalid
-            # pinned plan, an unresolvable target identity, a permission
-            # denial. None of those becomes truer by waiting. Members
-            # accepted earlier on this pass still close out below.
             failure = str(exc)
-            conn.rollback()
+            rollback_after_error(conn, exc)
             break
-        label = (
-            f"member {render_item_ref(conn, member)}" if member is not None else "run"
-        )
+        label = f"member {item_refs(member)}" if member is not None else "run"
         if project_id is not None:
             report_stage_result(
                 conn,
@@ -233,6 +224,9 @@ def materialize_and_gate_deployment_qa_stage(
                 member=member,
                 project_id=project_id,
                 outcome=str(status.get("outcome") or ""),
+                subject=item_refs(member)
+                if member is not None
+                else "the whole release batch",
                 target_tier=target_tier,
                 revision=revision,
                 target_digest=str(status.get("target_digest") or ""),
@@ -241,8 +235,7 @@ def materialize_and_gate_deployment_qa_stage(
             for reason in status["reasons"]:
                 print(f"Run {run_id!r} stage {stage['name']!r} {label}: {reason}")
             if member is not None:
-                # Commit the result now; close out after the walk, so a slow
-                # close-out never holds a later member's wake.
+                # Wake every waiting owner before closing accepted members.
                 conn.commit()
                 accepted.append(member)
         if not status["accepted"]:
@@ -269,7 +262,7 @@ def materialize_and_gate_deployment_qa_stage(
                         run_id=run_id,
                         stage_name=str(stage["name"]),
                         item_ids=(member,),
-                        project_slug=resolve_project_slug(conn, project_id),
+                        project_slug=project_slug,
                     )
                 ):
                     for miss in wake_manual_requirement_owners(
@@ -292,9 +285,10 @@ def materialize_and_gate_deployment_qa_stage(
                         label=label,
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
-    for member in accepted:
-        notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
-        conn.commit()
+    with uncached_presentation():
+        for member in accepted:
+            notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
+            conn.commit()
     if failure:
         return 1, failure
     if waiting:
@@ -315,8 +309,7 @@ def dispatch_deployment_qa_stage(
         redispatch_after_connection_loss,
     )
 
-    # A lost answer is re-sent (the dispatch is idempotent); past the last
-    # send it stops the driver resumably, never as a failed stage.
+    # Lost idempotent dispatches retry, then stop the driver resumably.
     response = redispatch_after_connection_loss(
         lambda: call_dispatcher(
             function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,

@@ -85,6 +85,8 @@ CONNECTION_FAILURE_MARKERS = (
     "consuming input failed",
     "eof detected",
     "the connection is lost",
+    "the connection is closed",
+    "idle-in-transaction timeout",
 )
 
 # SSH options proven from the live operator tunnel. BatchMode keeps it
@@ -201,7 +203,9 @@ def looks_like_connection_failure(exc: BaseException) -> bool:
         import psycopg
     except Exception:  # noqa: BLE001
         return False
-    if not isinstance(exc, psycopg.OperationalError):
+    if isinstance(exc, psycopg.errors.IdleInTransactionSessionTimeout):
+        return True
+    if not isinstance(exc, (psycopg.OperationalError, psycopg.InterfaceError)):
         return False
     text = str(exc).lower()
     return any(marker in text for marker in CONNECTION_FAILURE_MARKERS)

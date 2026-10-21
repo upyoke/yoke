@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from contextvars import copy_context
 from typing import Any
 
 from yoke_contracts.designed_wait import (
@@ -44,7 +45,12 @@ def _dispatch_within(
         except BaseException as exc:  # noqa: BLE001 - re-raised on the caller
             outcome["error"] = exc
 
-    worker = threading.Thread(target=run, name="deployment-qa-dispatch", daemon=True)
+    worker = threading.Thread(
+        target=copy_context().run,
+        args=(run,),
+        name="deployment-qa-dispatch",
+        daemon=True,
+    )
     worker.start()
     worker.join(max(0.0, seconds))
     if worker.is_alive():
@@ -63,13 +69,14 @@ def dispatch_until_qa_resolves(
     dispatch: Callable[..., tuple[int, str]],
     *args: Any,
     timeout_seconds: float,
+    fingerprint: Callable[[], str],
     poll_interval_seconds: float = DEFAULT_POLL_INTERVAL_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
     write: Callable[[str], None] = _print_now,
     **kwargs: Any,
 ) -> tuple[int, str]:
-    """Re-dispatch while scoped QA is pending, bounded by ``timeout_seconds``.
+    """Dispatch on changed QA facts and at the deadline while scoped QA is pending.
 
     The first dispatch is immediate and unbounded: it runs whatever stage
     the driver is on. Once that stage answers scoped-QA pending, each
@@ -77,6 +84,7 @@ def dispatch_until_qa_resolves(
     call ends the wait with its timeout and recovery rather than silence.
     A zero timeout preserves a deliberate single-probe caller.
     """
+    observed = fingerprint()
     result = dispatch(*args, **kwargs)
     if result[0] != AWAITING_SCOPED_QA:
         return result
@@ -100,11 +108,20 @@ def dispatch_until_qa_resolves(
     unanswered = ""
     while monotonic() < deadline:
         sleep(min(interval, max(0.0, deadline - monotonic())))
-        answer = _dispatch_within(deadline - monotonic(), dispatch, args, kwargs)
+
+        def poll():
+            nonlocal observed
+            current = fingerprint()
+            if current != observed:
+                observed = current
+                return dispatch(*args, **kwargs)
+            return result
+
+        # At the deadline attempt dispatch directly, without another read.
+        check = (lambda: dispatch(*args, **kwargs)) if monotonic() >= deadline else poll
+        answer = _dispatch_within(deadline - monotonic(), check, (), {})
         if answer is None:
-            unanswered = (
-                "; the last QA dispatch had no answer when the deadline passed"
-            )
+            unanswered = "; the last QA dispatch or fingerprint read had no answer when the deadline passed"
             break
         result = answer
         if result[0] != AWAITING_SCOPED_QA:

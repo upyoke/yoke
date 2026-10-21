@@ -42,6 +42,9 @@ def run_presentation(function):
 
     @wraps(function)
     def run(conn, *args, run_id, **kwargs):
+        outer = _MEMBERS.get()
+        if outer is not None and outer[0] is conn and str(run_id) in outer[2]:
+            return function(conn, *args, run_id=run_id, **kwargs)
         rows = query_rows(
             conn,
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",

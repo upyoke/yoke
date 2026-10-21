@@ -74,6 +74,11 @@ def _from_provider(conn: Any, project_id: int, sha: str, path: str) -> bytes:
         path=f"/repos/{auth.repo}/contents/{path}",
         query={"ref": sha},
     )
+    from yoke_core.domain.deployment_qa_dispatch_inputs import (
+        require_transaction_free_source_read,
+    )
+
+    require_transaction_free_source_read()
     try:
         body = request_with_retry(request, token=auth.token).body
     except RestNotFoundError as exc:
@@ -94,6 +99,11 @@ def read_project_file(conn: Any, project_id: int, sha: str, path: str) -> bytes:
     """``path`` at ``sha``; raises ``ProjectFileAbsent`` or ``ProjectFileUnreadable``."""
     from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
+    from yoke_core.domain.deployment_qa_dispatch_inputs import (
+        require_transaction_free_source_read,
+    )
+
+    require_transaction_free_source_read()
     reasons: list[str] = []
     checkout = checkout_for_project_id(int(project_id))
     if checkout is not None:

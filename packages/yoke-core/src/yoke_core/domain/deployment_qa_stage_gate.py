@@ -158,17 +158,18 @@ def _settle_stage_status(
     Every read happens first, as one set per fact across the run's members;
     the run row lock covers only each acceptance write.
     """
-    return _write_status(
+    read = _read_settlement(
         conn,
-        _read_settlement(
-            conn,
-            subject=subject,
-            target=target,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-        ),
+        subject=subject,
+        target=target,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
     )
+    from yoke_core.domain.deployment_qa_presentation_reads import uncached_presentation
+
+    with uncached_presentation():
+        return _write_status(conn, read)
 
 
 @presentation_operation

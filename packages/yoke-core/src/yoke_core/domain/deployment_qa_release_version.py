@@ -72,6 +72,11 @@ def release_records_url(installer_base_url: str, version: str) -> str:
 
 
 def _fetch(url: str) -> bytes:
+    from yoke_core.domain.deployment_qa_dispatch_inputs import (
+        require_transaction_free_source_read,
+    )
+
+    require_transaction_free_source_read()
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
     with urllib.request.urlopen(request, timeout=_FETCH_TIMEOUT_SECONDS) as response:
         return response.read()
