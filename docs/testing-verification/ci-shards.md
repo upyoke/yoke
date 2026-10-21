@@ -74,6 +74,26 @@ installed packages on the same interpreter, retaining its engine-absence proof.
 The eight import-graph scenarios remain eight parametrized cases in
 `tests/import_graph/test_yoke_cli_wheel_smoke.py`.
 
+## Reproduce a timing comparison
+
+Save one completed run with `gh run view RUN --repo OWNER/REPO --json
+status,conclusion,databaseId,url,headSha,createdAt,jobs`, and save its raw jobs
+from `gh api 'repos/OWNER/REPO/actions/runs/RUN/jobs?per_page=100'` (include all
+pages if the workflow grows beyond that). Download `pytest-output-*` and
+`yoke-ci-coverage-*` artifacts from that same run. Then execute:
+
+```text
+yoke dev run -- python3 runtime/api/tools/ci_timing_report.py --run RUN.json --jobs JOBS.json --coverage COVERAGE.json --reports REPORT_DIRECTORY --output REPORT.json
+```
+
+The report refuses active, failed, mismatched, incomplete or duplicate evidence.
+It records actual checkout identity, endpoint pass/skip counts, each job's
+queue/setup/test/total seconds, observed concurrent jobs, CPU telemetry and
+slowest cases/files. Workflow elapsed time runs from creation through the last
+job completion. Runner-minute totals exclude queue time; the rounded estimate
+is consumption, not a billing invoice. A reused run has no new coverage artifact
+or complete JUnit set and cannot be represented as an executed full observation.
+
 ## Change-scoped selections
 
 `yoke-tests-selection.yml` runs a change-scoped selection with the same
