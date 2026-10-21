@@ -164,7 +164,6 @@ jobs:
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       YOKE_CI_PYTHON_SCOPE: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest && 'all' || 'interpreter' }}
-      YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
       PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}-${{ matrix.shard }}
     strategy:
@@ -201,6 +200,8 @@ jobs:
 
       - name: Run pytest
         id: pytest
+        env:
+          YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
         if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
