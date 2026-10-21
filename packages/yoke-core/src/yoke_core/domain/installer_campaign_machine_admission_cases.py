@@ -22,6 +22,7 @@ from yoke_core.domain.installer_campaign_machine_admission_recipes import (
     OWNER_STEP,
     SERVER,
     TEAM_SERVER_TEXT,
+    WIZARD_CHROME_TEXT,
     admission_case,
     agent_case,
     agent_gate,
@@ -109,12 +110,12 @@ TEAMMATE_INVITE_AGENT = agent_case(
     expect="teammate-admitted",
     answers=(_URL_ANSWER, "connect.machine_admission=invite"),
     actions=[
+        # The full-screen wizard replaces the agent's handoff lines as soon as it
+        # opens, so its own first screen is what proves the handoff happened.
         action(
             "invite-handoff",
-            ready_text=(
-                "Question: Enter invite code.",
-                "Handing this step to the person",
-            ),
+            ready_text=(TEAM_SERVER_TEXT, WIZARD_CHROME_TEXT),
+            ready_timeout_seconds=180,
         ),
         transition("handoff-url", "Enter", ready_text=(TEAM_SERVER_TEXT,)),
         action("handoff-admission", ready_text=(ADMISSION_TEXT,)),

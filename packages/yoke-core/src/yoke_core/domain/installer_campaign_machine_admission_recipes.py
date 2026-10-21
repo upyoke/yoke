@@ -47,6 +47,8 @@ COMPANY = api_url("self-hosted-company-sign-in")
 OWNER_HOME = shlex.quote(str(approver_home("self-hosted")))
 LOCAL_HOME = shlex.quote(str(mode_root("local") / "home"))
 TEAM_SERVER_TEXT = "Connect to your team server."
+# Key hints only the full-screen wizard draws; the agent driver never prints them.
+WIZARD_CHROME_TEXT = "^c quit"
 ADMISSION_TEXT = "How should this machine join your team server?"
 APPROVAL_TEXT = ("Sign in and approve your machine.", MATCH_CODE_LABEL)
 LOCAL_NOTICE = "Reachable here only."
@@ -205,6 +207,7 @@ __all__ = [
     "OWNER_STEP",
     "SERVER",
     "TEAM_SERVER_TEXT",
+    "WIZARD_CHROME_TEXT",
     "admission_case",
     "agent_case",
     "agent_gate",
