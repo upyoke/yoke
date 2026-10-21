@@ -5,6 +5,8 @@
     "surface_id": "codex-cli",
     "executable": "codex",
     "quota_source": "codex_account_rate_limits",
+    "launch_environment": {},
+    "background_time_limit": "Designed deferral: no equivalent unattended background time limit is documented. Codex uses long-lived exec_command sessions and write_stdin continuations; no Claude timeout variable is applied. Docs checked 2026-10-20: https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
     "version_args": [
       "--version"
     ],

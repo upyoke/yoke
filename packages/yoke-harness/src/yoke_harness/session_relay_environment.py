@@ -6,6 +6,11 @@ import json
 import os
 from typing import Mapping
 
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.harness_cli_manifest import (
+    HARNESS_CLI_MANIFESTS,
+    harness_cli_manifest,
+)
 from yoke_contracts.session_identity import ACTOR_ROLE_ENV_VAR, AMBIENT_ENV_VARS
 from yoke_contracts.machine_config.paths import CONFIG_FILE_ENV
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
@@ -15,6 +20,7 @@ from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 _PARENT_HARNESS_ENV = frozenset(
     (
         *AMBIENT_ENV_VARS,
+        *(name for manifest in HARNESS_CLI_MANIFESTS for name, _ in manifest.launch_environment),
         ACTOR_ROLE_ENV_VAR,
         RESUME_ATTEMPT_ENV,
         LAUNCH_CONTEXT_ENV,
@@ -60,6 +66,8 @@ def native_session_environment(
     env = dict(os.environ if environ is None else environ)
     for name in _PARENT_HARNESS_ENV:
         env.pop(name, None)
+    manifest = harness_cli_manifest(canonical_harness_id(executor))
+    env.update(manifest.launch_environment)
     env["SHELL"] = _NATIVE_AUTOMATION_SHELL
     env["YOKE_EXECUTOR"] = executor
     if provider:

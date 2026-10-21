@@ -10,18 +10,18 @@ Shared rules: `AGENTS.md`. Hooks, session end and recovery:
   disables all hooks.
 - A transient SessionEnd never releases claims. On a `SESSION_ENDED` refusal, run its recovery.
 - `AskUserQuestion` needs at least two options; prefer inline chat.
-- Claude keeps the Bash cwd between calls (sticky cwd); still use absolute paths.
+- Bash keeps sticky cwd; use absolute paths.
 
 ## Long commands and waits
 
 - Main session: run `yoke watch <wrapper> --print-streaming-pair ...` first; it runs nothing.
   Run the command it prints. Unknown waits run in-turn.
-- A handed-back call still runs. Reading the background task's output is how you continue the
-  call, not how you end the turn: keep reading until the command exits and you have its
-  outcome, because a turn that ends there kills the watcher it was holding. Never relaunch
-  beside it or poll it.
-- A relay-launched worker has no second chance here: prepare by naming the continuation before
-  the command starts.
+- Relay launches set `BASH_DEFAULT_TIMEOUT_MS=3600000` before Claude starts; subagents inherit
+  it. A foreground timeout alone does not extend a moved call's background lifetime.
+- Explicit background Bash uses `run_in_background: true, timeout: 3600000`; subagents use
+  foreground Bash. Missing launch setting: ask the launcher to relaunch before a long wait.
+  Exporting inside Bash is too late. A time-limit notice means incomplete work.
+- Preserve handed-back calls and captures without duplicates; use the long-command rules.
 - Holding a work claim, never Stop after arming Monitor. Run `yoke sessions touch --mode parked`
   first; your next tool call clears it.
 - Subagents run long commands foreground in one Bash call, never background Bash plus Monitor.

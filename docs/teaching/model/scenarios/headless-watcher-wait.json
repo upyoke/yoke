@@ -1,0 +1,10 @@
+{
+ "id": "headless-watcher-wait",
+ "title": "A relay worker holds a long watcher wait",
+ "status": "observed",
+ "situations": ["A relay-launched Claude worker or its subagent waits longer than twenty minutes."],
+ "coverage": "partial",
+ "current": "Configure BASH_DEFAULT_TIMEOUT_MS=3600000 before the native worker starts. Keep in-turn watcher calls foreground with the documented timeout; the inherited setting protects moved commands. Explicit background calls use timeout: 3600000. If the launch setting is missing, relaunch through the launcher before starting long work; a Bash export is too late. Preserve any running call and its capture instead of duplicating it.",
+ "questions": ["Has a released relay-launched headless worker completed a wait longer than twenty minutes?"],
+ "sources": ["docs/public/agents/rules/claude-long-commands.md", "runtime/harness/manifest-native-cli.md"]
+}

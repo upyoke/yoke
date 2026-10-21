@@ -57,9 +57,11 @@ HEADLESS_CONTINUATION_DIRECTIVE = (
     "harness moves this call to a background task or hands back a "
     "continuation handle, the command is still running: continue that same "
     "call through the harness continuation surface until it exits. Reading "
-    "the background task's output continues the call; only ending the turn "
-    "kills this watcher and the child it holds. Never start a second "
-    "invocation beside a live one."
+    "the background task's output continues the call; it does not extend "
+    "the harness's background time limit. Read the harness manifest's "
+    "cli.launch_environment and long-command rules before starting the wait. "
+    "A background-time-limit notice means incomplete work. Never start a "
+    "second invocation beside a live one."
 )
 
 

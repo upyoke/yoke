@@ -182,3 +182,43 @@ def test_explicit_launch_markers_can_select_a_shared_config() -> None:
         environ={"YOKE_MACHINE_CONFIG_FILE": "/operator/config.json"},
     )
     assert environment["YOKE_MACHINE_CONFIG_FILE"] == "/shared/config.json"
+
+
+def test_headless_launch_uses_manifest_environment_over_inherited_timeout() -> None:
+    from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+
+    manifest = harness_cli_manifest("claude-code")
+    assert dict(manifest.launch_environment) == {"BASH_DEFAULT_TIMEOUT_MS": "3600000"}
+    for executor in ("claude-code", "claude-cli"):
+        environment = native_session_environment(
+            executor=executor,
+            environ={"BASH_DEFAULT_TIMEOUT_MS": "600000"},
+        )
+        assert environment["BASH_DEFAULT_TIMEOUT_MS"] == "3600000"
+
+
+def test_launch_environment_is_driven_by_the_selected_manifest(monkeypatch) -> None:
+    from dataclasses import replace
+    from yoke_contracts import harness_cli_manifest as registry
+
+    manifest = registry.harness_cli_manifest("cursor")
+    monkeypatch.setitem(
+        registry.HARNESS_CLI_BY_ID,
+        "cursor",
+        replace(manifest, launch_environment=(("NATIVE_WAIT_MS", "4200000"),)),
+    )
+    environment = native_session_environment(executor="cursor", environ={})
+    assert environment["NATIVE_WAIT_MS"] == "4200000"
+
+
+def test_other_harnesses_defer_the_claude_background_limit() -> None:
+    from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+
+    for executor in ("codex", "cursor"):
+        manifest = harness_cli_manifest(executor)
+        assert not manifest.launch_environment
+        assert "Designed deferral" in manifest.background_time_limit
+        environment = native_session_environment(
+            executor=executor, environ={"BASH_DEFAULT_TIMEOUT_MS": "3600000"}
+        )
+        assert "BASH_DEFAULT_TIMEOUT_MS" not in environment

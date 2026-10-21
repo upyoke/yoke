@@ -1,0 +1,9 @@
+{
+ "id": "headless-command-time-limit",
+ "title": "Headless command lifetime is configured before launch",
+ "status": "observed",
+ "form": "Manifest, rule and lint repair",
+ "verification": "Claude launch environment declares BASH_DEFAULT_TIMEOUT_MS=3600000 through the shared native environment builder. A foreground timeout does not extend moved background lifetime. Explicit background calls set their own timeout; subagents inherit the process setting and use foreground Bash. Codex and Cursor defer this Claude-only setting because no equivalent limit is documented. Released relay wait evidence is still required.",
+ "topics": ["verification/watchers/continuation-without-duplicate-work"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/harness_cli_manifest.py", "packages/yoke-harness/src/yoke_harness/session_relay_environment.py", "packages/yoke-core/src/yoke_core/domain/lint_headless_watcher_timeout.py", "runtime/harness/test_session_relay_environment.py", "runtime/api/domain/test_lint_headless_watcher_timeout.py", "docs/public/agents/rules/claude-long-commands.md", "runtime/api/tools/headless_relay_wait_probe.py"]
+}
