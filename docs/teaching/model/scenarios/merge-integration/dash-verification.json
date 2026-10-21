@@ -1,0 +1,12 @@
+{
+ "id": "dash-verification",
+ "title": "Verified Dash work follows its lane",
+ "status": "observed",
+ "audience": "agent",
+ "when": "All selected verification cases pass for a Dash item",
+ "need": "With a lane, follow the merge skill: merge records the landing and advances the stage. Without a lane, take the declared lifecycle transition and follow laneless close-out.",
+ "disclosure": "current cue",
+ "surface": "Dash verification skill",
+ "review": "Source recipe distinguishes laned merge from laneless transition; installed receiving proof is pending.",
+ "sources": [".agents/skills/yoke/dash/verify.md", ".agents/skills/yoke/dash/merge.md", ".agents/skills/yoke/dash/close-out.md"]
+}
