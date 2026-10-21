@@ -1,6 +1,16 @@
 # Installer campaign maintenance
 
-Internal: for maintainers of the Yoke source repository.
+## Recipes and missions
+
+The campaign uses missions for `cold-start-hosted`, `second-machine-join`,
+`review-frame`, `connect-wait` and `welcome-frame` (`agent_mission`).
+Carry expected text and end-state checks into their prose. Walkers choose
+how to proceed and evidence every workaround in ranked findings; reviewers
+must not pass a workaround touching the tested behavior, such as CLI approval
+replacing browser approval. Password, 2FA and payment require a human handoff.
+Retire hosted-connect in favor of its separate mission. Machine state,
+install-health, issue-sync, uninstall, stale-reinstall, outside-project,
+prepare and Command checks stay deterministic. Live release proof remains required.
 
 ## Keep the installer campaign current
 
@@ -35,19 +45,12 @@ yoke qa plan get installer-campaign --project P --full --json > /tmp/installer-p
 yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan-after.json --check
 ```
 
-Read `PLAN_ID` from the first receipt, review the exported differences before
-replacing cases, then require `matches_source=true` and an empty difference list
-from the fresh receipt. The checker compares every authored case field, including
-nested method configuration, while excluding storage ids and historical proof.
-`--check` exits nonzero on drift and names the recovery. Drift before the
-carrying release boots is expected. The source exporter performs no DB writes;
-the registered replacement records the installation in the function-call ledger.
-The exporter fetches the repository's default branch from the remote recorded
-as tracking it, including when several remotes are configured, and requires
-the exact source commit to be its ancestor before writing `--cases-file`; its
-receipt names `source_revision`. Uncommitted source, an unmerged lane commit, or an
-unreadable upstream refuses as `qa_plan_source_unmerged_or_unverified` and teaches
-“sync after merge.” A lane may run `--check` to compare without publishing cases.
+Read `PLAN_ID` from the receipt and review differences before replacing cases.
+Require `matches_source=true` with no differences; `--check` names drift recovery.
+The exporter writes no DB state; replacement records its source in the ledger.
+The exporter verifies source ancestry against the tracked default branch and
+records `source_revision`. Dirty, unmerged or unreadable source refuses as
+`qa_plan_source_unmerged_or_unverified`: sync after merge. A lane may use `--check`.
 Use item-scoped or run-bound correction cases for lane proof; never copy lane
 definitions into the shared saved plan through the raw replacement adapter.
 The export document carries `source_revision` alongside `cases`; replacement
@@ -61,8 +64,7 @@ forward: the source revision must equal or descend from the plan's recorded
 revision. An older revision refuses `qa_plan_source_revision_regression`, and a
 recorded revision the repository cannot prove refuses
 `qa_plan_source_ancestry_unverified`; both name the two revisions and write
-nothing. Export again from current main and sync. A source-bound plan cannot
-be edited or replaced without source provenance. Older serving builds refuse
+nothing. Export again from current main and sync. A source-bound plan requires source provenance for every replacement. Older serving builds refuse
 source-proven sync as `qa_plan_source_binding_unavailable` before any write.
 Existing execution snapshots keep their original definitions and evidence; any
 `requirements_behind_plan` returned by replacement need their named refresh path
@@ -81,11 +83,10 @@ Omit a single-host pin for that scope. Standalone executions retain one host
 lease; use a one-host saved plan for focused iteration, not a claimed full
 multi-host pass. Preserve the baseline and every unperformed case as evidence.
 
-The six recovery cases cover a published predecessor reinstall, local-to-hosted
-with and without a backup, a distinct joining machine, explicit uninstall and
-late harness discovery. Preparation failures preserve their named reason and
-recovery. The late-harness fixture uses a disposable `CODEX_HOME`, preserving
-the executable outside discovery and restoring it even when setup fails.
+Recovery covers predecessor reinstall, local-to-hosted with/without backup,
+a distinct joining machine, uninstall and late harness discovery. Preparation
+failures preserve named reasons and recovery. Late-harness uses a disposable
+`CODEX_HOME`, preserving the executable and restoring it even on setup failure.
 It reruns public machine-only setup after the harness becomes available and
 checks native execution and unattended permissions. Codex hooks live in a
 project's `.codex/hooks.json`, not the disposable `CODEX_HOME`; project hook
@@ -204,7 +205,7 @@ the operation row. Cleanup stops the server, removes the cluster and root.
 
 ## Machine admission journeys
 
-Positions 30-37 run own-machine approval, teammate invite, company sign-in and
+Positions 28-35 run own-machine approval, teammate invite, company sign-in and
 local refusal, each in the full-screen wizard and in agent mode
 (`machine_qa_setup_agent_driver` plays the agent). Each starts the fixture
 above and ends with its state assertion. No step waits on a person. The run
@@ -217,12 +218,12 @@ signs in as the fixture teammate and the browser gate approves the machine.
 
 ## Local universe birth
 
-State checks inherit directly from the journey that creates their subject:
-`token-perms` follows the hosted cold-start Apply, and `universe-born` follows
-the local Apply handoff. Token existence, secrets-directory mode 700 and each
-token's mode 600 are separate checks with named output; they never print token
-contents. A pending browser authorization or pre-Apply Review is not a token
-creation prerequisite.
+The cold-start mission checks token existence, secrets-directory mode 700 and
+each token mode 600 before walk-end restores the host, without reading contents.
+Its findings record token-file-exists, secrets-directory-mode-700 and
+token-file-modes-600 separately. The deterministic `universe-born` check inherits
+the local Apply handoff. Pending authorization and pre-Apply Review do not prove
+token creation.
 
 The Review inspection selects "Show all changes" and captures the actual
 pending-write names, including reuse of the token already saved by browser

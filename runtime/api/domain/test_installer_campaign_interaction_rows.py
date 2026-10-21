@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 from runtime.api.domain.installer_campaign_test_support import (
-    action_signature,
-    action_window,
-    selection_keys,
     terminal_configs,
 )
 from yoke_cli.config import onboard_machine_github
@@ -69,34 +66,13 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
         "fresh-host",
         "shell-preconfigured",
     ]
-    cold_configs = cold["method_config"]["baseline_configs"]
-    assert set(cold_configs) == {"fresh-host", "shell-preconfigured"}
-    assert all(
-        "Sign in and choose an organization." in config["expected_text"]
-        and "Setup complete." in config["expected_text"]
-        and "Next: bring your existing work into Yoke." in config["expected_text"]
-        and "terminal_exit_code:0" in config["post_checks"]
-        for config in cold_configs.values()
-    )
-    assert (
-        cold_configs["fresh-host"]["expected_text"]
-        == cold_configs["shell-preconfigured"]["expected_text"]
-    )
-    for config in cold_configs.values():
-        actions = {action["step"]: action for action in config["actions"]}
-        assert "destination-picker" not in actions
-        assert "YOKE_ONBOARD_DESTINATION=" in cold["entry_surface"]
-        assert HOSTED_STAGE_PLATFORM_URL in cold["entry_surface"]
-        assert actions["browser-approval"].get("keys", []) == []
-        assert actions["review"].get("keys", []) == []
-
-    hosted = cases["hosted-connect"]
-    assert HOSTED_STAGE_PLATFORM_URL in hosted["entry_surface"]
-    assert (
-        "Sign in and choose an organization."
-        in (hosted["method_config"]["expected_text"])
-    )
-    assert hosted["required_completion"] == "machine-github"
+    assert cold["method_id"] == "exploratory-mission"
+    for text in ("Sign in and choose an organization.", "Setup complete.",
+                 "Next: bring your existing work into Yoke.", "exit code 0"):
+        assert text in cold["expected_outcome"]
+    assert "YOKE_ONBOARD_DESTINATION=" in cold["entry_surface"]
+    assert HOSTED_STAGE_PLATFORM_URL in cold["entry_surface"]
+    assert "hosted-connect" not in cases
 
     path = cases["path-repair"]
     assert path["method_config"]["execution_mode"] == "ssh-command"
@@ -137,154 +113,37 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
     )
 
 
-def test_hosted_actions_pin_send_before_capture_transitions() -> None:
+def test_obstacle_cases_are_missions_with_boundary_and_workaround_evidence():
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
-    backlog_keys = selection_keys(
-        MACHINE_GITHUB_ROWS,
-        onboard_machine_github.CHOICE_SKIP,
-    )
-    machine_only_keys = selection_keys(MODE_ROWS, PROJECT_MODE_MACHINE_ONLY)
-    approval_to_review = [
-        ("browser-approval", ()),
-        ("operator-browser-approval", ("Enter",)),
-        ("machine-github", ()),
-        ("machine-github-backlog", backlog_keys),
-        ("project-mode", ()),
-        ("project-mode-machine-only", machine_only_keys),
-        ("review", ()),
-    ]
-    for config in cases["cold-start-hosted"]["method_config"][
-        "baseline_configs"
-    ].values():
-        assert (
-            action_window(
-                config,
-                first="browser-approval",
-                last="review",
-            )
-            == approval_to_review
-        )
-        actions = {action["step"]: action for action in config["actions"]}
-        approval = actions["operator-browser-approval"]
-        assert approval["operator_gate"] == "machine_browser_approval"
-        assert approval["completion_text"] == ["Connect GitHub?"]
-        assert approval["gate_timeout_seconds"] == 600
-        assert "wait_seconds" not in approval
-        assert actions["machine-github-backlog"]["ready_text"] == ["Connect GitHub?"]
-        assert actions["project-mode"]["ready_timeout_seconds"] == 45
-        assert actions["project-mode-machine-only"]["ready_timeout_seconds"] == 45
-        assert actions["review"]["ready_text"] == [
-            "Review what Yoke will save.",
-            "Apply",
-        ]
-        assert actions["review"]["ready_timeout_seconds"] == 45
-        assert "wait_seconds" not in actions["apply"]
-        assert actions["apply-complete"]["ready_text"] == [
-            "Setup complete.",
-            "Everything in the Review plan was applied.",
-            "Report:",
-        ]
-        assert actions["apply-complete"]["ready_timeout_seconds"] == 180
-
-    hosted_config = cases["hosted-connect"]["method_config"]
-    assert action_signature(hosted_config) == [
-        ("browser-approval", ()),
-        ("operator-browser-approval", ("Enter",)),
-        ("machine-github", ()),
-    ]
-    hosted_actions = {action["step"]: action for action in hosted_config["actions"]}
-    assert (
-        hosted_actions["operator-browser-approval"]["operator_gate"]
-        == "machine_browser_approval"
-    )
-    assert "wait_seconds" not in hosted_actions["operator-browser-approval"]
-    assert hosted_actions["browser-approval"]["ready_timeout_seconds"] == 180
-    assert "Match code:" in hosted_actions["browser-approval"]["ready_text"]
-
-    handoff_actions = {
-        action["step"]: action
-        for action in cases["apply-handoff"]["method_config"]["actions"]
-    }
-    assert "wait_seconds" not in handoff_actions["apply"]
-    assert handoff_actions["apply-complete"]["ready_timeout_seconds"] == 180
-    assert hosted_actions["machine-github"]["ready_text"] == ["Connect GitHub?"]
-
-    connect_wait_config = cases["connect-wait"]["method_config"]
-    assert action_signature(connect_wait_config) == [
-        ("connect-wait", ()),
-    ]
-    connect_wait_actions = {
-        action["step"]: action for action in connect_wait_config["actions"]
-    }
-    assert connect_wait_actions["connect-wait"]["ready_timeout_seconds"] == 180
-    assert "Match code:" in connect_wait_actions["connect-wait"]["ready_text"]
-
-    review_config = cases["review-frame"]["method_config"]
-    assert action_signature(review_config) == [
-        ("browser-approval", ()),
-        ("operator-browser-approval", ("Enter",)),
-        ("machine-github", ()),
-        ("machine-github-backlog", backlog_keys),
-        ("review-frame", ()),
-        ("show-all-changes", ("Down", "Enter")),
-        ("pending-write-list", ()),
-        ("review-controls", ("Down",)),
-        ("expanded-review-controls", ()),
-        ("back-before-apply", ("Escape",)),
-    ]
-    assert all(
-        step not in {"project-mode", "project-mode-machine-only"}
-        for step, _keys in action_signature(review_config)
-    )
-    review_actions = {action["step"]: action for action in review_config["actions"]}
-    assert review_actions["browser-approval"]["ready_timeout_seconds"] == 180
-    assert "Match code:" in review_actions["browser-approval"]["ready_text"]
-    assert review_actions["review-frame"]["ready_text"] == [
-        "Review what Yoke will save.",
-        "Apply",
-    ]
+    keys = {"welcome-frame", "cold-start-hosted", "connect-wait", "review-frame",
+            "second-machine-join"}
+    assert {case["case_key"] for case in cases.values()
+            if case["method_id"] == "exploratory-mission"} == keys
+    for key in keys:
+        case = cases[key]
+        assert case["method_config"]["executor"] == "informed_subagent"
+        assert "actions" not in case["method_config"]
+        assert "workaround" in case["instructions"]
+        assert "evidence" in case["instructions"]
+        assert "yoke machines approve" in case["instructions"]
+        assert "2FA" in case["instructions"] and "payment" in case["instructions"]
+        assert "Traceback" in case["expected_outcome"]
 
 
 def test_inspection_and_machine_state_cases_are_semantic() -> None:
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
 
     assert cases["welcome-frame"]["host_baselines"] == []
-    assert cases["welcome-frame"]["method_config"]["setup_operations"] == []
-    assert cases["welcome-frame"]["method_config"]["actions"] == [
-        {
-            "step": "welcome-frame",
-            "wait_seconds": 3,
-        }
-    ]
-    assert cases["welcome-frame"]["method_config"]["capture_checkpoints"] == [
-        "welcome-frame"
-    ]
-    assert "Installing uv" in (cases["welcome-frame"]["method_config"]["expected_text"])
+    assert "Installing uv" in cases["welcome-frame"]["expected_outcome"]
+    assert "Exit code 1" in cases["welcome-frame"]["expected_outcome"]
     welcome_entry = cases["welcome-frame"]["entry_surface"]
     assert "HOME=/var/empty" in welcome_entry
     assert "XDG_BIN_HOME=/var/empty/.local/bin" in welcome_entry
     assert "PATH=/usr/bin:/bin:/usr/sbin:/sbin" in welcome_entry
-    assert cases["connect-wait"]["method_config"]["capture_checkpoints"] == [
-        "connect-wait"
-    ]
-    assert cases["review-frame"]["method_config"]["capture_checkpoints"] == [
-        "browser-approval",
-        "review-frame",
-        "pending-write-list",
-        "expanded-review-controls",
-    ]
-    assert (
-        "Review what Yoke will save."
-        in (cases["review-frame"]["method_config"]["expected_text"])
-    )
-    review_actions = {
-        action["step"]: action
-        for action in cases["review-frame"]["method_config"]["actions"]
-    }
-    assert review_actions["machine-github"].get("keys", []) == []
-    assert review_actions["machine-github-backlog"]["keys"] == ["Down", "Enter"]
-    assert review_actions["review-frame"].get("keys", []) == []
-
+    assert "authorization still pending" in cases["connect-wait"]["expected_outcome"]
+    assert "Match code:" in cases["connect-wait"]["expected_outcome"]
+    assert "Review what Yoke will save." in cases["review-frame"]["expected_outcome"]
+    assert "end before Apply" in cases["review-frame"]["expected_outcome"]
     path_configs = cases["path-on-shell"]["method_config"]["baseline_configs"]
     assert set(path_configs) == {"fresh-host", "shell-preconfigured"}
     assert all(len(config["assertions"]) == 2 for config in path_configs.values())
@@ -296,15 +155,9 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
         in (path_configs["shell-preconfigured"]["assertions"][0]["argv"][-1])
     )
 
-    token_command = "\n".join(
-        check["argv"][-1]
-        for check in cases["token-perms"]["method_config"]["assertions"]
-    )
-    assert "*.token(N)" in token_command
-    assert "'%Lp'" in token_command
-    assert "600" in token_command
-    assert "read" not in token_command
-
+    assert "token-perms" not in cases
+    assert "mode 700" in cases["cold-start-hosted"]["expected_outcome"]
+    assert "mode 600" in cases["cold-start-hosted"]["expected_outcome"]
     universe_assertions = cases["universe-born"]["method_config"]["assertions"]
     assert "yoke local-postgres status --json" in universe_assertions[0]["argv"][-1]
     assert "local.dsn" in universe_assertions[1]["argv"][-1]
@@ -332,13 +185,17 @@ def test_product_rows_and_action_boundaries_select_the_intended_targets() -> Non
     assert handoff_actions["review"].get("keys", []) == []
 
 
-def test_successful_install_has_no_confirmation_keystroke():
+def test_missions_keep_the_original_visible_text_checks():
+    from yoke_core.domain.installer_campaign_current_text_cases import (
+        CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+    )
+
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
-    for config in cases["cold-start-hosted"]["method_config"][
-        "baseline_configs"
-    ].values():
-        actions = config["actions"]
-        assert actions[0]["step"] == "installer-running"
-        assert actions[1]["step"] == "browser-approval"
-        assert all(not action.get("keys") for action in actions[:2])
-        assert actions[1]["ready_timeout_seconds"] == 180
+    for source in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES:
+        if source["case_key"] not in {"cold-start-hosted", "welcome-frame",
+                                      "connect-wait", "review-frame"}:
+            continue
+        mission = cases[source["case_key"]]
+        for config in terminal_configs(source):
+            for text in config["expected_text"]:
+                assert text in mission["expected_outcome"]

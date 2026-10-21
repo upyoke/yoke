@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-from yoke_core.domain.installer_campaign_current_text_cases import (
-    CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+from yoke_core.domain.installer_campaign_mission_cases import (
+    INSTALLER_CAMPAIGN_CASES,
 )
 from yoke_core.domain.installer_campaign_machine_admission_cases import (
     MACHINE_ADMISSION_CASES,
@@ -62,7 +62,7 @@ def installer_campaign_cases_for_target(
         primary_machine=primary_machine, joining_machine=joining_machine
     )
     cases = _fill_template(
-        list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES)
+        list(INSTALLER_CAMPAIGN_CASES)
         + list(recovery)
         + list(MACHINE_ADMISSION_CASES),
         fields,
@@ -71,7 +71,8 @@ def installer_campaign_cases_for_target(
     for case in cases:
         if case["case_key"] not in {row["case_key"] for row in recovery}:
             case["method_config"]["machine"] = primary_machine
-    for case in cases:
+    for position, case in enumerate(cases, 1):
+        case["position"] = position
         require_case_target(case, target)
     return cases
 

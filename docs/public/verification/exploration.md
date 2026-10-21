@@ -86,10 +86,10 @@ Standalone execution needs the chain in its own plan; see
 Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals. A mission that can only be judged after real production traffic, such as a real failed wake that a relay then claimed, sets `wake_path: manual` with a one-line `wake_evidence`; its owner is woken to confirm that evidence before running it ([cases that wait for real traffic](standalone-plans.md#cases-that-wait-for-real-traffic)).
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
-`installer-exploration` deliberately replaces the territory of the ten-case
-scripted installer campaign with one agent-chosen mission.
+`installer-exploration` deliberately replaces the territory of the
+installer campaign with one agent-chosen mission.
 
-The scripted campaign uses one environment-neutral source template. Generation
+The campaign combines deterministic checks and missions in one environment-neutral template. Generation
 fills its application and installer addresses, release channel, and display name
 from the plan's bound environment through `{{app_url}}`, `{{installer_base_url}}`,
 `{{release_channel}}`, and `{{environment_display_name}}`. Each plan tests one environment;
@@ -154,8 +154,13 @@ The walker never issues the verdict. Its turn returns one status:
 The walker does every step an agent physically can: it drives the leased
 GUI/desktop session (opening harnesses, choosing permission modes, typing codes
 into wizards), approves machine-connect and device codes in the host's already
-signed-in browser or with `yoke machines approve CODE`, and follows approval
-links. Only entering a password or credential it may not type is a human gate.
+signed-in browser, and follows approval links. It answers consent prompts, selects
+the declared identity's email in Google's chooser and dismisses stray sheets.
+It records every workaround with evidence in the existing ranked findings.
+A workaround must preserve the tested behavior: CLI machine approval cannot
+replace browser approval when that is the assertion. The reviewer must not pass
+a case whose workaround touched the behavior under test; rerun it preserving
+that boundary. Real password, 2FA and payment steps are human gates.
 There it returns `WALK_STATUS: HUMAN_GATE` naming exactly that one entry, why,
 observed state, and resume point, then stops. It never sends Fleet mail. The parent
 records that on the Progress Log and reads this run for host, browser

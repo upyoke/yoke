@@ -1,60 +1,27 @@
-"""The isolated welcome probe accepts only its diagnosed write refusal."""
-
-from subprocess import CompletedProcess
-
-import pytest
+"""The welcome mission requires the diagnosed refusal, not an arbitrary exit."""
 
 from runtime.api.domain.test_qa_release_channel_target import _target
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
 )
-from yoke_core.domain.ssh_mac_terminal_recipe_support import run_command_recipe
 
 
-def _welcome():
-    return next(
-        case
-        for case in installer_campaign_cases_for_target(_target("prod"), primary_machine="primary-test", joining_machine="joining-test")
-        if case["case_key"] == "welcome-frame"
+def test_welcome_mission_preserves_the_isolated_refusal_proof():
+    case = next(
+        case for case in installer_campaign_cases_for_target(
+            _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
+        ) if case["case_key"] == "welcome-frame"
     )
-
-
-def _run(text, code):
-    case = _welcome()
-    return run_command_recipe(
-        lambda command, **kwargs: CompletedProcess(command, code, text, ""),
-        entry_surface=case["entry_surface"],
-        config=case["method_config"],
-        staged=[],
-        secret_values=[],
-    )
-
-
-def test_read_only_home_refusal_proves_welcome_and_recovery():
-    text = (
-        "Your operating system for software delivery\nInstalling uv\n"
-        "mkdir: /var/empty/.local: Operation not permitted\n"
-        "uv installation failed. Install uv manually with the shown command, "
-        "then rerun: curl -fsSL https://upyoke.com/install | sh\n"
-    )
-    result = _run(text, 1)
-    assert result.ok
-    assert result.evidence["assertion_failures"] == []
-
-
-@pytest.mark.parametrize("code", [0, 2, 127])
-def test_other_exit_codes_do_not_pass_the_refusal_probe(code):
-    text = "\n".join(_welcome()["method_config"]["expected_text"])
-    result = _run(text, code)
-    assert not result.ok
-    assert result.error_code == "terminal_recipe_assertion_failed"
-
-
-def test_unrelated_download_failure_does_not_pass_with_exit_one():
-    result = _run(
-        "Your operating system for software delivery\nInstalling uv\n"
-        "curl: Could not resolve host\n",
-        1,
-    )
-    assert not result.ok
-    assert result.evidence["assertion_failures"]
+    assert case["method_id"] == "exploratory-mission"
+    assert case["starting_state"] == "as_is"
+    assert "HOME=/var/empty" in case["entry_surface"]
+    assert "XDG_BIN_HOME=/var/empty/.local/bin" in case["entry_surface"]
+    assert "PATH=/usr/bin:/bin:/usr/sbin:/sbin" in case["entry_surface"]
+    assert "do not change the real home" in case["instructions"]
+    assert "unrelated download failure" in case["instructions"]
+    for text in (
+        "Your operating system for software delivery", "Installing uv",
+        "uv installation failed. Install uv manually", "then rerun: curl -fsSL",
+        "Exit code 1 is expected only", "manual-install recovery",
+    ):
+        assert text in case["expected_outcome"]

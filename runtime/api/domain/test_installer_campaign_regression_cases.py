@@ -31,6 +31,8 @@ from runtime.api.domain.test_qa_release_channel_target import _target
 
 def test_every_recovery_recipe_satisfies_its_method_contract():
     for case in INSTALLER_RECOVERY_CASES:
+        if case["method_id"] == "exploratory-mission":
+            continue
         validate_machine_method_config(
             case["method_id"],
             case["method_config"],
@@ -326,25 +328,17 @@ def test_hosted_ready_marker_follows_successful_exit_and_real_backup_check(
     ]
 
 
-@pytest.mark.parametrize("installer_status", [0, 7])
-def test_second_machine_accepts_metadata_and_keeps_parent_shell(
-    tmp_path, installer_status
-):
-    from yoke_core.domain import installer_campaign_regression_cases as recipes
-
-    config = tmp_path / ".yoke" / "config.json"
-    config.parent.mkdir()
-    config.write_text('{"distribution": {}}')
-    entry = recipes.SECOND_MACHINE_JOIN["entry_surface"].replace(
-        recipes.PUBLIC_INSTALL, f"/bin/sh -c 'exit {installer_status}'"
+def test_second_machine_is_a_mission_with_both_physical_hosts():
+    cases = installer_campaign_cases_for_target(
+        _target("prod"), primary_machine="primary-test", joining_machine="joining-test"
     )
-    result = subprocess.run(
-        ["/bin/bash", "-c", entry + "; printf '%s\\n' parent-shell-alive"],
-        env={"HOME": str(tmp_path)},
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
-    assert result.returncode == 0
-    assert "parent-shell-alive" in result.stdout
-    assert ("second-machine-join-ready" in result.stdout) == (installer_status == 0)
+    case = next(row for row in cases if row["case_key"] == "second-machine-join")
+    assert case["method_id"] == "exploratory-mission"
+    assert case["method_config"] == {
+        "executor": "informed_subagent", "machine": "joining-test",
+        "machines": ["primary-test", "joining-test"],
+    }
+    assert "distinct" in case["instructions"]
+    assert "both host bundles" in case["instructions"]
+    assert "shared project facts" in case["expected_outcome"]
+    assert "exit code is 0" in case["expected_outcome"]

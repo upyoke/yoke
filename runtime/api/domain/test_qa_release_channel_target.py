@@ -99,19 +99,11 @@ def test_projected_installer_cases_remain_executable(environment: str) -> None:
         primary_machine="primary-test",
         joining_machine="joining-test",
     )
-    hosted = next(case for case in cases if case["case_key"] == "cold-start-hosted")
-    for config in hosted["method_config"]["baseline_configs"].values():
-        actions = {action["step"]: action for action in config["actions"]}
-        assert actions["project-mode"]["ready_timeout_seconds"] == 45
-        assert actions["project-mode-machine-only"]["keys"] == [
-            "Down",
-            "Down",
-            "Down",
-            "Down",
-            "Enter",
-        ]
-        assert actions["review"]["ready_timeout_seconds"] == 45
     for case in cases:
+        if case["method_id"] == "exploratory-mission":
+            from yoke_core.domain.qa_method_config_validation import validate_method_config
+            assert validate_method_config("agent-mission", case["method_config"])
+            continue
         for baseline in case.get("host_baselines") or [None]:
             config = validate_machine_method_config(
                 case["method_id"],
@@ -206,22 +198,25 @@ def test_self_hosted_distribution_binding_accepts_local_http_target() -> None:
 
 
 def test_campaign_environments_differ_only_in_bound_template_values() -> None:
-    from yoke_core.domain.installer_campaign_current_text_cases import (
-        CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+    from yoke_core.domain.installer_campaign_mission_cases import (
+        INSTALLER_CAMPAIGN_CASES,
     )
     from yoke_core.domain.installer_campaign_machine_admission_cases import (
         MACHINE_ADMISSION_CASES,
     )
     from yoke_core.domain.installer_campaign_regression_cases import recovery_cases
 
-    baseline = deepcopy(list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES))
+    baseline = deepcopy(list(INSTALLER_CAMPAIGN_CASES))
     admission = deepcopy(list(MACHINE_ADMISSION_CASES))
     for case in baseline + admission:
         case["method_config"]["machine"] = "primary-test"
     recovery = recovery_cases(
         primary_machine="primary-test", joining_machine="joining-test"
     )
-    template = json.dumps(baseline + list(recovery) + admission)
+    template_cases = baseline + list(recovery) + admission
+    for position, case in enumerate(template_cases, 1):
+        case["position"] = position
+    template = json.dumps(template_cases)
     for environment, display_name in (("prod", "Production"), ("stage", "Stage")):
         target = _target(environment)
         endpoints = target["endpoints"]
@@ -296,7 +291,7 @@ def test_campaign_unknown_template_field_names_the_recovery(monkeypatch) -> None
 
     monkeypatch.setattr(
         binding,
-        "CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES",
+        "INSTALLER_CAMPAIGN_CASES",
         ({"instructions": "{{misspelled_address}}"},),
     )
     with pytest.raises(
