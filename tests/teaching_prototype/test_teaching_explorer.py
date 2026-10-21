@@ -151,7 +151,14 @@ def test_setup_pairs_and_source_excerpts_are_real(explorer):
             assert 0 <= start < end <= len(path.read_text().splitlines())
     assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
     assert any(n['type_label'] == 'Reply field' for n in nodes.values())
-    assert nodes['hook-event:PreToolUse:Bash']['parent'] == 'hook-event:PreToolUse'
+    assert nodes['hook-event:PreToolUse']['parent'] == 'source:project-hooks'
+    assert nodes['hook-event:global:PreToolUse']['parent'] == 'source:global-hooks'
+    assert 'shared-hook-events' not in nodes
+    global_modules = {n['hook_module'] for n in nodes.values() if n.get('hook_mode') == 'global'}
+    assert 'yoke_core.domain.lint_local_privacy' in global_modules
+    assert 'yoke_core.domain.lint_main_commit' not in global_modules
+    assert nodes['hook:global:orientation']['node_type'] == 'reply'
+    assert nodes['hook:global:orientation:identity']['node_type'] == 'section'
 
 
 def test_rules_combine_shared_topics_and_only_local_additions(explorer):

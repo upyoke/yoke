@@ -131,6 +131,8 @@ const nodeIcons = {
   file: 'M5 2h9l5 5v15H5z M14 2v6h5M8 12h8M8 16h6',
   page: 'M3 4h18v16H3z M3 9h18M6 6.5h1m2 0h1',
   concept: 'M12 2l10 10-10 10L2 12z M8 12h8',
+  section: 'M5 6h14M5 10h14M5 14h10M5 18h7',
+  action: 'M4 12h16M14 6l6 6-6 6',
   hook: 'M13 2L5 13h6l-1 9 9-13h-7z',
   reply: 'M3 4h18v13H9l-6 4z M7 8h10M7 12h7',
   screen: 'M2 3h20v14H2z M8 22h8M12 17v5',
@@ -152,7 +154,7 @@ function typeBadge(node) {
     ? 'M5 3v12a4 4 0 004 4h10M5 7h10V3m0 4v5'
     : 'M12 2a10 10 0 100 20 10 10 0 000-20M2 12h20M12 2c-6 6-6 14 0 20 6-6 6-14 0-20');
   scope.append(scopeIcon, text('span', node.scope_label));
-  badge.append(scope);
+  if ((!node.hook_context || node.node_type === 'hook') && node.node_type !== 'section') badge.append(scope);
   return badge;
 }
 

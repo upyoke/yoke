@@ -4,7 +4,7 @@ import ast
 import re
 from inventory import live_registries
 from explorer_documents import REPO
-from explorer_runtime import CORE, source_node, literal
+from explorer_runtime import CORE, source_node, literal, add_reply_fields, HOOK_DESCRIPTIONS
 
 CONTRACTS = 'packages/yoke-contracts/src/yoke_contracts/'
 HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'
@@ -12,74 +12,115 @@ HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'
 
 def add_hooks(add):
     from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING
+    from yoke_contracts.hook_runner.guard_scope import applicable_chain, guard_scope
 
-    messages = {}
+    messages, copies = {}, []
+    events = {
+        'PreToolUse': 'Before a tool runs', 'PostToolUse': 'After a tool runs',
+        'PostToolUseFailure': 'When a tool fails', 'PermissionRequest': 'When permission is requested',
+        'SessionStart': 'When a session starts', 'SessionEnd': 'When a session ends',
+        'UserPromptSubmit': 'When you send a prompt', 'Stop': 'When the agent stops',
+    }
+    names = {
+        'lint_shell_backtick_search': 'Check shell searches',
+        'lint_local_privacy': 'Protect private local data',
+        'lint_unmatched_path_glob': 'Check file patterns',
+        'session_message_delivery': 'Incoming messages',
+        'session_launch_attestation': 'Launch instructions',
+        'session_broker_wake': 'Wake request', 'heartbeat': 'Update session activity',
+        'observe_pre': 'Record tool activity', 'observe': 'Record tool results',
+        'session_dispatch': 'Register or update the session',
+        'session_resume_block': 'Resume context',
+    }
+    templates = {'session_launch_attestation': 'render_launch_instructions',
+                 'session_broker_wake': '_render'}
     for scope in ('global', 'project'):
+        prefix = 'hook-event:' + ('global:' if scope == 'global' else '')
+        other = 'hook-event:' + ('' if scope == 'global' else 'global:')
+        for event, matchers in HOOK_ORDERING.items():
+            parent = prefix + event
+            add(parent, events[event], 'source:' + scope + '-hooks', event).update(
+                form=('hook', 'Hook', event),
+                connections=[{'target': other + event,
+                              'label': 'Inside a project' if scope == 'global' else 'Outside a project'}])
+            modules = {}
+            for matcher, chain in matchers.items():
+                for module in applicable_chain(list(chain), None if scope == 'global' else 1):
+                    modules.setdefault(module, []).append(matcher)
+            for module, tools in modules.items():
+                path = REPO / 'packages/yoke-core/src' / (module.replace('.', '/') + '.py')
+                if not path.is_file():
+                    continue
+                stem = module.rsplit('.', 1)[-1]
+                description = (ast.get_docstring(ast.parse(path.read_text())) or '').split('\n')[0]
+                description = HOOK_DESCRIPTIONS.get(stem, description)
+                condition = 'When applicable' if '_default' in tools else 'Tools: ' + ', '.join(tools)
+                kind = 'rule' if guard_scope(module) else 'action'
+                if stem in templates or stem in ('session_message_delivery', 'session_resume_block'):
+                    kind = 'reply'
+                node = add(parent + ':' + module, names.get(stem, stem.replace('_', ' ')),
+                           parent, condition + '. ' + description)
+                node.update(document='../../../../' + path.relative_to(REPO).as_posix(),
+                            source_only=True, hook_module=module, hook_mode=scope, order=1 if kind == 'action' else 0,
+                            form=(kind, {'rule': 'Check', 'action': 'Background action',
+                                         'reply': 'Message'}[kind], condition))
+                if event == 'SessionEnd' and stem == 'session_launch_attestation':
+                    node.update(title='Record launch outcome', summary='Record an unbound launch when its session ends; no launch instructions are delivered.',
+                                form=('action', 'Background action', 'SessionEnd'))
+                elif stem in templates:
+                    copies.append((node, 'hook-block:' + templates[stem]))
         path = REPO / CORE / ('global_orientation.py' if scope == 'global' else 'session_orientation.py')
         name = 'render_global_orientation' if scope == 'global' else 'render_orientation'
         row = next(r for r in ast.parse(path.read_text()).body
                    if isinstance(r, ast.FunctionDef) and r.name == name)
         node = source_node(add, 'hook:' + scope + ':orientation', 'Yoke Orientation',
-                           'source:' + scope + '-hooks',
-                           'First prompt in Claude/Codex; session start in Cursor.',
-                           path, row, 'hook', 'Startup message')
+                           prefix + 'UserPromptSubmit', 'First prompt in Claude and Codex.',
+                           path, row, 'reply', 'Startup message')
+        node['order'] = -1
         messages[node['id']] = node
-        node['body'] = ('Session identity, current folder, project selection and writing rules.'
-                        if scope == 'global' else
-                        'Session identity, checkout, setup facts and the main-session startup block.')
-    add('shared-hook-events', 'Shared hook event chains', 'source:project-hooks',
-        'One registry used inside and outside projects; each handler checks applicability.').update(
-            form=('group', 'Shared definitions', 'Global and project hooks'),
-            related=['hook-global-events'])
-    for event, matchers in HOOK_ORDERING.items():
-        parent = 'hook-event:' + event
-        node = add(parent, event, 'shared-hook-events',
-                   'Registered hook event; applicability depends on harness, tool and scope.')
-        node['form'] = ('hook', 'Hook event', event)
-        for matcher, modules in matchers.items():
-            key = parent + ':' + matcher
-            node = add(key, 'All matching tools' if matcher == '_default' else matcher,
-                       parent, 'Checks and deliveries in their registered order.')
-            node['form'] = ('group', 'Tool matcher', event + ' · ' + matcher)
-            for module in modules:
-                path = REPO / 'packages/yoke-core/src' / (module.replace('.', '/') + '.py')
-                if not path.is_file():
-                    continue
-                title = module.rsplit('.', 1)[-1].replace('_', ' ')
-                tree = ast.parse(path.read_text())
-                summary = (ast.get_docstring(tree) or '').split('\n')[0]
-                child = add(key + ':' + module, title, key, summary)
-                child.update(document='../../../../' + path.relative_to(REPO).as_posix(),
-                             source_only=True, form=('hook', 'Hook handler', module))
-    # Explicit context blocks are easier to recognize than the handler filenames.
-    blocks = (
+        cursor = add(node['id'] + ':cursor', 'Yoke Orientation', prefix + 'SessionStart',
+                     'At session start in Cursor.')
+        cursor.update(order=-1, form=('reply', 'Startup message', 'Cursor session start'))
+        copies.append((cursor, node['id']))
+    for name, function, title in (
         (CORE + 'main_agent_packet.py', 'render_main_agent_block', 'Main-session startup block'),
         (HOOKS + 'session_launch_attestation.py', 'render_launch_instructions', 'Launch instructions'),
         (HOOKS + 'session_broker_wake.py', '_render', 'Wake message'),
-    )
-    for name, function, title in blocks:
+    ):
         path = REPO / name
         row = next(r for r in ast.parse(path.read_text()).body
                    if isinstance(r, ast.FunctionDef) and r.name == function)
-        node = source_node(add, 'hook-block:' + function, title, 'source:project-hooks',
-                           (ast.get_docstring(row) or '').split('\n')[0], path, row,
-                           'hook', 'Context block')
-        messages[node['id']] = node
         if function == 'render_main_agent_block':
+            node = source_node(add, 'hook-block:' + function, title,
+                               'hook:project:orientation:startup', 'Instructions included in project orientation.',
+                               path, row, 'reply', 'Message')
             node['related'] = ['source:packets']
-    add_message_sections(add, messages)
-    add('hook-global-events', 'Shared hook event chains', 'source:global-hooks',
-        'The shared runner uses the same registered event chains; checks apply according to scope.').update(
-            related=['shared-hook-events'],
-            connections=[{'target': 'shared-hook-events', 'label': 'Same event registry'}],
-            form=('hook', 'Shared event chains', 'Machine and project applicability is checked at runtime'))
-
-    for event in HOOK_ORDERING:
-        add('hook-event-reference:' + event, event, 'hook-global-events',
-            'Same registered chain as project hooks; not every handler applies outside a project.').update(
-                form=('hook', 'Shared event reference', event),
-                related=['hook-event:' + event],
-                connections=[{'target': 'hook-event:' + event, 'label': 'Shared definition'}])
+        else:
+            node = next(n for n, template in copies if template == 'hook-block:' + function)
+        messages['hook-block:' + function] = node
+    # Reuse message definitions while displaying their contents in each event and mode.
+    sections = []
+    def collect(key, title, parent=None, summary=''):
+        node = dict(id=key, title=title, parent=parent, summary=summary)
+        sections.append(node)
+        return node
+    add_message_sections(collect, messages)
+    for node in sections:
+        if node['parent'] in messages:
+            node['parent'] = messages[node['parent']]['id']
+        add(node['id'], node['title'], node['parent'], node['summary']).update(node)
+    for destination, template in copies:
+        original = messages[template]
+        if destination['id'] == original['id']:
+            continue
+        destination['connections'] = [{'target': original['id'], 'label': 'Same message format'}]
+        for section in sections:
+            if section['parent'] != original['id']:
+                continue
+            child = dict(section, id=destination['id'] + ':' + section['id'].rsplit(':', 1)[-1],
+                         parent=destination['id'])
+            child.pop('connections', None)
+            add(child['id'], child['title'], child['parent'], child['summary']).update(child)
 
 
 def add_message_sections(add, messages):
@@ -142,11 +183,8 @@ def add_message_sections(add, messages):
     }
     for parent, rows in sections.items():
         for key, title, body in rows:
-            source = messages[parent]
             node = add(parent + ':' + key, title, parent, body)
-            node.update(body=body,
-                        connections=[{'target': source['id'], 'label': 'Contained in message'}],
-                        form=('hook', 'Message section', 'From the delivered message'))
+            node.update(form=('section', 'Text section', 'Part of the message above'))
             if key == 'startup':
                 node['related'] = ['hook-block:render_main_agent_block']
             if key == 'reads':
@@ -156,19 +194,6 @@ def add_message_sections(add, messages):
                   'hook:global:orientation:writing', 'Exact text included by the renderer.')
     writing.update(document='../../../../' + CONTRACTS + 'user_writing_rules.py',
                    source_only=True, form=('file', 'Shared instruction source', 'user_writing_rules.py'))
-
-
-def add_reply_fields(add, parent, path, row):
-    for field in row.body:
-        if not isinstance(field, ast.AnnAssign) or not isinstance(field.target, ast.Name):
-            continue
-        name = field.target.id
-        description = ''
-        if isinstance(field.value, ast.Call):
-            description = next((literal(k.value) for k in field.value.keywords
-                                if k.arg == 'description'), '') or ''
-        node = add(parent + ':' + name, name, parent, description)
-        node['form'] = ('reply', 'Reply field', ast.unparse(field.annotation))
 
 
 def reply_commands():

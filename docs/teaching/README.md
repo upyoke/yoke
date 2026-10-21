@@ -228,9 +228,10 @@ the shared label. A shared label describes distribution, not unconditional
 applicability of every instruction. Private user/project instructions are not
 invented or loaded into this map.
 
-Hook message cards expose their concrete message sections. Global event references
-link to the same event-chain definitions used by project hooks; individual handlers
-still decide applicability. Message bodies are descriptions of templates, not live
+Hook message cards expose their concrete message sections. Both hook views show events directly, with their messages, checks and background
+actions nested inside. Global contents use the runtime applicability filter;
+project and global event cards link as two views of the same hook. Message sections
+use a neutral text style, distinct from purple event containers. Message bodies are descriptions of templates, not live
 session captures. File-backed cards show exact UTF-8 byte and line counts (character
 counts on hover). “Definition” counts measure implementation source, not a generated
 runtime message; excerpt counts use the linked line range. Group totals are omitted

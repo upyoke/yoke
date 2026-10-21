@@ -151,3 +151,29 @@ def add_packets(add):
     node.update(form=('command', 'Read scoped rules', 'Content depends on the selected workflow and project'),
                 related=['command:yoke workflow execution-instruction resolve',
                          'doc:docs/public/projects/execution-instructions.md'])
+
+
+def add_reply_fields(add, parent, path, row):
+    for field in row.body:
+        if not isinstance(field, ast.AnnAssign) or not isinstance(field.target, ast.Name):
+            continue
+        name = field.target.id
+        description = ''
+        if isinstance(field.value, ast.Call):
+            description = next((literal(k.value) for k in field.value.keywords
+                                if k.arg == 'description'), '') or ''
+        node = add(parent + ':' + name, name, parent, description)
+        node['form'] = ('reply', 'Reply field', ast.unparse(field.annotation))
+
+
+
+HOOK_DESCRIPTIONS = {
+    'session_dispatch': 'Keeps the session registration and lifecycle state up to date.',
+    'session_resume_block': 'If a paused session resumes, show its pending resume notice once.',
+    'session_message_delivery': 'If messages are waiting, deliver them when this harness can show them to the agent.',
+    'session_launch_attestation': 'If this session was launched with instructions, show the sender, instructions and acknowledgement command.',
+    'session_broker_wake': 'If another session needs waking, supply one command to run once; do not forward the request.',
+    'heartbeat': 'Records that this session is still active. Usually adds no message.',
+    'observe_pre': 'Records the tool activity for Yoke. Usually adds no message.',
+    'observe': 'Records the tool result for Yoke. Usually adds no message.',
+}

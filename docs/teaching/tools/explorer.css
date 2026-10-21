@@ -134,3 +134,9 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node[data-scope=mixed] .scope-badge { color: #5b597b; background: #ecebf3; }
 
 .source-size { font-size: 11px; font-variant-numeric: tabular-nums; color: #62746c; margin: 8px 0 0; }
+
+/* Events are containers; their contents have a separate visual vocabulary. */
+.node[data-type=hook] { border-top: 4px solid #876499; border-left: 1px solid #d5c9df; }
+.node[data-type=section] { --type-color: #77877f; background: #fffefa; border: 1px solid #e5e6de; border-radius: 4px; box-shadow: none; }
+.node[data-type=section] .scope-badge { display: none; }
+.node[data-type=action] { --type-color: #76818b; background: #f3f5f6; border: 1px dashed #cdd4da; box-shadow: none; }

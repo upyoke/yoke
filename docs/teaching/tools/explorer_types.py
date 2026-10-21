@@ -74,6 +74,12 @@ def describe_scope(nodes):
     for node in nodes:
         value = scope(node)
         node.update(guidance_scope=value, scope_label=labels[value])
+        root = node
+        while root.get('parent'):
+            root = by_id[root['parent']]
+        if root['id'] in ('source:global-hooks', 'source:project-hooks'):
+            node['hook_context'] = root['id']
+            node['scope_label'] = 'Outside projects' if root['id'] == 'source:global-hooks' else 'Inside a project'
 
 
 def describe_sizes(nodes):
@@ -135,9 +141,17 @@ def describe_message_estimates(nodes):
     examples['hook-block:render_launch_instructions'] = (
         [launch], 'Empty instructions body with synthetic IDs; add the actual body size. No fixed upper bound.')
     for node in nodes:
-        if node['id'] not in examples:
+        if node.get('node_type') == 'action':
             continue
-        samples, assumptions = examples[node['id']]
+        key = node['id']
+        module = node.get('hook_module', '').rsplit('.', 1)[-1]
+        key = {'session_launch_attestation': 'hook-block:render_launch_instructions',
+               'session_broker_wake': 'hook-block:_render'}.get(module, key)
+        if key.endswith(':cursor'):
+            key = key.removesuffix(':cursor')
+        if key not in examples:
+            continue
+        samples, assumptions = examples[key]
         counts = [len(sample.encode('utf-8')) for sample in samples]
         low, high = min(counts), max(counts)
         amount = f'{low:,}–{high:,} B' if low != high else f'{low:,} B + variable content'
