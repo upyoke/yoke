@@ -43,7 +43,7 @@ def test_case_routes_exact_mission_into_plan_execution(monkeypatch, deployment):
             deployment_member_item_id=7,
         )
     monkeypatch.setattr(cases, "fetch_case_execution_context", lambda *a, **k: case)
-    expected = {"execution_id": "single-mission", "state": "awaiting_agent_review"}
+    expected = {"execution_id": "single-mission", "state": "walking"}
     execute = Mock(return_value=expected)
     monkeypatch.setattr(missions, "execute_plan", execute)
     assert cases.execute_case(51, base_url="https://example.test") == expected
@@ -159,6 +159,7 @@ def test_client_never_materializes_or_runs_siblings_from_an_invalid_reply(monkey
 def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     test_db, tmp_path, monkeypatch
 ):
+    from runtime.api.domain import test_qa_execution_walk_states as walk_states
     from runtime.api.domain.test_agent_mission_qa import (
         ACTOR,
         _materialize_mission,
@@ -249,7 +250,12 @@ def test_single_mission_reaches_review_and_verdict_with_sibling_untouched(
     assert ready.primary_success, ready.error
     current = select_plan_execution(test_db, execution["id"], lock=True)
     bundle = begin_plan_review(test_db, current)
-    assert current["state"] == "awaiting_agent_review"
+    walk_states.assert_walking_proof(test_db, current)
+    walk_states.record_handback(
+        ACTOR, selected, ready.result_payload["result"]["run_id"]
+    )
+    current = select_plan_execution(test_db, execution["id"], lock=True)
+    assert current["state"] == "awaiting_walk_review"
     assert len(bundle["dispatch"]["walker_dispatches"]) == 1
     assert get_claim(test_db, int(contract["lease_id"])).is_active
     result = submit_plan_review(
