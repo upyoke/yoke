@@ -13,6 +13,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.transport import function_version_skew
 from yoke_cli.transport import https as https_transport
 from yoke_cli.transport import local_github_dispatch
+from yoke_cli.transport import self_deploy_relay
 from yoke_cli.transport.installed_cli_staleness import (
     warn_if_behind_active_connection,
 )
@@ -128,19 +129,16 @@ def call_dispatcher(
 ) -> FunctionCallResponse:
     """Build a request envelope and route it via the active transport.
 
-    Routing is connection-keyed: an https active connection relays the
-    envelope to the server; any other connection dispatches in-process
-    through the engine. *relay_env* names a different connection to relay
-    through — the caller has decided which plane must run this operation,
-    so a named env that resolves to no https connection is refused rather
-    than quietly dispatched here. For a non-prod local-postgres universe that
-    in-process dispatch IS the product path — the credentials in the
-    active connection, not the transport mechanics, are the authority
-    boundary; a ``*-db-admin`` door refuses routine functions (see
-    :mod:`yoke_contracts.direct_database_access`). Prod-flagged postgres
-    connections are operator-only by doctrine: the client-side handler
-    pre-load declines them (see
-    :func:`yoke_cli.commands._helpers.ensure_handlers_loaded`).
+    Routing is connection-keyed: an https connection relays the envelope to
+    the server; any other connection dispatches in-process through the
+    engine, which for a non-prod local-postgres universe IS the product path.
+    *relay_env* names a different connection to relay through; a named env
+    with no https connection is refused, not dispatched here. A ``*-db-admin``
+    door refuses routine functions, except that a self-deploy driver sends
+    each call to the paired https env first and keeps the door as fallback
+    (see :mod:`yoke_contracts.direct_database_access`). Prod-flagged postgres
+    connections are operator-only: the client-side handler pre-load declines
+    them (see :func:`yoke_cli.commands._helpers.ensure_handlers_loaded`).
     """
 
     request = build_request(
@@ -172,6 +170,29 @@ def call_dispatcher(
             return _redact_response(
                 _error_response(request, exc.code, str(exc)), sensitive_values
             )
+
+    def relay(https: Any, attempts: Optional[int] = max_attempts) -> Any:
+        handshake = https_transport.ServerHandshake()
+        timeout = {} if timeout_s is None else {"timeout_s": timeout_s}
+        response = https_transport.relay_https(
+            request, https, handshake=handshake, max_attempts=attempts, **timeout
+        )
+        engine_version = getattr(handshake, "engine_version", "") or ""
+        warn_if_behind_active_connection(env=https.env, server_version=engine_version)
+        return _apply_version_skew_gate(
+            response, request, https, handshake, _function_hint
+        )
+
+    self_deploy_env = (
+        "" if relay_env else direct_database_access.self_deploy_https_env(function_id)
+    )
+    if self_deploy_env:
+        # One https attempt: the door, not a retry ladder, answers a down API.
+        answer = self_deploy_relay.relay_or_door(
+            request, self_deploy_env, lambda https: relay(https, 1),
+            lambda: _call_local(request, _local_dispatch),
+        )
+        return _redact_response(answer, sensitive_values)
     try:
         # Only a caller that named a plane changes how the connection is
         # resolved; the ordinary path keeps the plain call it always made.
@@ -199,30 +220,14 @@ def call_dispatcher(
             sensitive_values,
         )
     if https is not None:
-        handshake = https_transport.ServerHandshake()
-        relay_kwargs: Dict[str, Any] = {"handshake": handshake}
-        if timeout_s is not None:
-            relay_kwargs["timeout_s"] = timeout_s
-        if max_attempts is not None:
-            relay_kwargs["max_attempts"] = max_attempts
-        response = https_transport.relay_https(request, https, **relay_kwargs)
-        warn_if_behind_active_connection(
-            env=https.env,
-            server_version=getattr(handshake, "engine_version", "") or "",
-        )
-        return _redact_response(
-            _apply_version_skew_gate(
-                response, request, https, handshake, _function_hint
-            ),
-            sensitive_values,
-        )
+        return _redact_response(relay(https), sensitive_values)
     refused = direct_database_access.use_https_env_error(function_id)
-    if refused is not None:
-        return _redact_response(_refusal(request, refused), sensitive_values)
-    return _redact_response(
-        _call_local(request, _local_dispatch),
-        sensitive_values,
+    answer = (
+        _call_local(request, _local_dispatch)
+        if refused is None
+        else _refusal(request, refused)
     )
+    return _redact_response(answer, sensitive_values)
 
 
 def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:
@@ -232,13 +237,10 @@ def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:
 def _resolve_session_id() -> Optional[str]:
     """Resolve the caller's harness session via the canonical ambient chain.
 
-    Everything past the env chain is load-bearing on the https transport:
-    the remote server cannot inspect the caller's process tree, so the
-    client MUST stamp the session here. Delegating to the shared
-    :func:`yoke_contracts.session_identity.resolve_ambient_session_id`
-    keeps the client resolver in lockstep with the engine core — an
-    env-only copy here silently dropped the ancestry fallback and denied
-    every mutating CLI call from a harness with no session env var.
+    The remote server cannot inspect the caller's process tree, so on https
+    the client MUST stamp the session here, through the same shared resolver
+    the engine uses (an env-only copy denied every mutating call from a
+    harness with no session env var).
     """
     try:
         home = machine_config.yoke_home()
