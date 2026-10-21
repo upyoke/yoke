@@ -1,10 +1,10 @@
 """Deployment runner dispatch for scoped QA stages.
 
 Scoped QA writes and notices use the registered connection-keyed dispatcher:
-local authority dispatches in-process; HTTPS drivers relay to the serving build.
-An unsupported serving build refuses without fallback. The server-side
-implementation takes the caller's live connection and sends both notices where
-the control plane can address their recipients.
+local authority dispatches in-process; HTTPS drivers, self-deploys included,
+relay to the serving build, which a self-deploy alone backs with its database
+door. The server-side implementation takes the caller's live connection and
+sends both notices where the control plane can address their recipients.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_qa_result_notice import report_stage_result
 from yoke_core.domain.deployment_qa_reported_results import reported_stage_results
+from yoke_core.domain.deployment_qa_reported_results import sent_stage_waits
 from yoke_core.domain.deployment_qa_stage_prerequisites import (
     prior_stage_refusals_once,
 )
@@ -176,6 +177,7 @@ def _gate_members(
         resolve_project_slug(conn, project_id) if project_id is not None else ""
     )
     reported = reported_stage_results(conn, run_id=run_id, stage=stage)
+    woken = sent_stage_waits(conn, run_id=run_id, stage=stage)
     waiting: list[str] = []
     accepted: list[int] = []
     failure = ""
@@ -193,7 +195,7 @@ def _gate_members(
         except QaCasesNotSelectedError as exc:
             label = f"member {item_refs(member)}" if member is not None else "run"
             waiting.append(f"{label}: {exc}")
-            if project_id is not None:
+            if project_id is not None and not woken(member, ""):
                 _notify_stage_wait(
                     conn,
                     run_id=run_id,
@@ -278,7 +280,7 @@ def _gate_members(
                         conn, manual, project_id=project_id
                     ):
                         print(f"Run {run_id} stage {stage['name']!r} {label}: {miss}")
-                else:
+                elif not woken(member, digest):
                     _notify_stage_wait(
                         conn,
                         run_id=run_id,

@@ -188,16 +188,14 @@ def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
     assert "Staff it manually" in out
 
 
-def test_a_same_run_repeat_dispatch_re_attempts_notify_every_poll(
+def test_a_repeat_poll_with_an_unchanged_wait_sends_no_wait_notice(
     test_db: Any,
 ) -> None:
-    """The pipeline re-polls a waiting stage repeatedly within one run;
-    dispatch tries to notify on every poll (the real recipient/message
-    path, not mocked) rather than remembering "already tried once" for
-    itself. A second attempt with different reasons text is a harmless
-    dedupe at the message layer -- covered directly in
-    test_deployment_qa_stage_wake_delivery.py -- not a dispatch-level
-    collision."""
+    """The pipeline re-polls a waiting stage repeatedly within one run. The
+    first poll wakes the holder through the real recipient/message path; a
+    later poll of the same wait (same run, stage, member and target) finds
+    that stored notice and sends nothing, even when the reasons text moved.
+    A cancelled notice no longer counts, so the next poll sends it again."""
     _project(test_db)
     _run(test_db, "run-wake-6")
     item_id = 9606
@@ -211,49 +209,42 @@ def test_a_same_run_repeat_dispatch_re_attempts_notify_every_poll(
     )
     stage = {"name": "item-qa", "scope": "item"}
     key = stage_wait_idempotency_key("run-wake-6", "item-qa", item_id)
+    send = dispatch_mod.notify_item_scoped_qa_wait
 
-    with (
-        mock.patch(
-            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
-            return_value={
-                "accepted": False,
-                "reasons": ["2 of 3 requirements outstanding"],
-                "request_id": None,
-            },
-        ),
-        mock.patch(
-            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
-            return_value={},
-        ),
-    ):
-        first = materialize_and_gate_deployment_qa_stage(
-            test_db, stage, run_id="run-wake-6"
-        )
+    def poll(outstanding: str) -> tuple[tuple[int, str], int]:
+        status = {"accepted": False, "reasons": [outstanding], "request_id": None}
+        with (
+            mock.patch(
+                "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
+                return_value=status,
+            ),
+            mock.patch(
+                "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+                return_value={},
+            ),
+            mock.patch.object(
+                dispatch_mod, "notify_item_scoped_qa_wait", wraps=send
+            ) as notify,
+        ):
+            result = materialize_and_gate_deployment_qa_stage(
+                test_db, stage, run_id="run-wake-6"
+            )
+        return result, notify.call_count
 
-    with (
-        mock.patch(
-            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
-            return_value={
-                "accepted": False,
-                "reasons": ["1 of 3 requirements outstanding"],
-                "request_id": None,
-            },
-        ),
-        mock.patch(
-            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
-            return_value={},
-        ),
-    ):
-        second = materialize_and_gate_deployment_qa_stage(
-            test_db, stage, run_id="run-wake-6"
-        )
+    first, first_sends = poll("2 of 3 requirements outstanding")
+    second, second_sends = poll("1 of 3 requirements outstanding")
 
     assert first[0] == -4 and second[0] == -4
-    assert "2 of 3" in first[1]
-    assert "1 of 3" in second[1]
-    # Both polls attempted delivery; the message store kept exactly the
-    # first one under the stable (run, stage, item) key.
+    assert "2 of 3" in first[1] and "1 of 3" in second[1]
+    assert (first_sends, second_sends) == (1, 0)
     assert _recipients(test_db, key) == [HOLDER_A]
+
+    test_db.execute(
+        "UPDATE session_messages SET cancelled_at=%s WHERE idempotency_key=%s",
+        ("2026-09-14T01:00:00Z", key),
+    )
+    test_db.commit()
+    assert poll("1 of 3 requirements outstanding")[1] == 1
 
 
 def test_a_wake_failure_degrades_without_losing_the_wait_result(
