@@ -93,6 +93,11 @@ manual background polling. Local commands serve setup, runner status and evidenc
 
 Use dispatch's exact `yoke qa mission host-command ... -- ARGV...`; it resolves
 QA_HOST from execution and bounds argv without exposing capability secrets.
+For a companion in `method_config.machines`, add `--machine NAME` before
+`--`; omitting it commands the driver. All declared leases must remain held.
+Walk setup, scratch and teardown stay on the driver. Companion commands stage
+no mission secrets; self-host creates its first-boot token on that host in
+its bundle's owner-only secrets directory. Remove that bundle after the walk.
 Never bypass the lease with SSH or copy credentials into shell. For macOS login
 keychain/window-server commands add `--gui-session`: Terminal bridge is the route,
 not SSH or `launchctl asuser`. Call host-command directly, never from your own
