@@ -54,6 +54,7 @@ from yoke_core.domain.session_wake_meter import refuse_exhausted_wake
 
 
 SESSION_WAKE_RESULT_WAIT_SECONDS = 10.0
+_UNCLAIMED_WAIT_SECONDS = 1.0
 _RESULT_POLL_SECONDS = 0.25
 
 
@@ -170,8 +171,10 @@ def wait_for_session_wake_result(
     *,
     wait_seconds: float = SESSION_WAKE_RESULT_WAIT_SECONDS,
 ) -> dict[str, Any]:
-    """Read back the first relay result without exceeding function-call timeout."""
-    deadline = monotonic() + max(0.0, float(wait_seconds))
+    """Wait briefly for a claim, then read its result within the total bound."""
+    started = monotonic()
+    deadline = started + max(0.0, float(wait_seconds))
+    claim_deadline = min(deadline, started + _UNCLAIMED_WAIT_SECONDS)
     latest = dict(result)
     while True:
         details = message_details(conn, str(result["message_id"]))
@@ -198,7 +201,7 @@ def wait_for_session_wake_result(
             }
             if attempt.get("result_code"):
                 return latest
-        remaining = deadline - monotonic()
+        remaining = (deadline if attempts else claim_deadline) - monotonic()
         if remaining <= 0:
             return latest
         conn.commit()
