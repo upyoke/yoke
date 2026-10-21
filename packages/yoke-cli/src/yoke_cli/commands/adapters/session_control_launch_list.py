@@ -7,6 +7,7 @@ from typing import Any, get_args, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_full_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
@@ -18,7 +19,7 @@ from yoke_contracts.session_control.models import LaunchState
 LAUNCH_LIST_USAGE = (
     "yoke session-control launch list --project P [--state STATE] "
     "[--surface SURFACE] [--machine MACHINE] [--item PREFIX-N] [--limit N] "
-    "[--cursor CURSOR] [--json]"
+    "[--cursor CURSOR] [--full] [--json]"
 )
 
 
@@ -54,7 +55,8 @@ def session_launch_list(args: List[str]) -> int:
         prog="yoke session-control launch list",
         description=LAUNCH_LIST_USAGE
         + " The ITEM column is the item an assignment launch staffs, read from "
-        "its session name (PREFIX-N: title).",
+        "its session name (PREFIX-N: title). Defaults to compact rows; --full "
+        "shows placement, model and registered-session columns.",
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--state", choices=get_args(LaunchState), default=None)
@@ -71,6 +73,7 @@ def session_launch_list(args: List[str]) -> int:
         default=None,
         help="continuation cursor from a previous page's next_cursor",
     )
+    add_full_arg(parser, "all launch table columns; get LAUNCH-ID --full for one launch")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LAUNCH_LIST_USAGE)
