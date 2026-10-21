@@ -1,0 +1,11 @@
+{
+ "id": "stopped-mission-review",
+ "title": "Reviewing missions after a stopped walk",
+ "status": "observed",
+ "commands": ["yoke qa plan review-begin", "yoke qa plan review-submit", "yoke qa mission walk-start"],
+ "functions": ["qa.plan_review.begin", "qa.plan_review.submit", "test_machine.mission.access"],
+ "summary": "A mission recorded as needs_review before its execution was aborted or errored stays in the review bundle for completed captures. The stopped execution has no host lease, so the bundle's dispatch sends no walker and names each mission case to judge from its recorded evidence only; a walker that still runs walk-start is refused agent_mission_access_failed naming review-begin. The owner submits the mission verdicts through the same review-submit as every other case, and they settle the capture runs while the execution stays terminal. A docket holding only setup and restore receipts is not product proof. Source tests are not deployed proof.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_plan_review_dispatch.py", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_continuation.py", "runtime/api/domain/test_qa_aborted_mission_review.py", "docs/public/verification/exploration-evidence.md"],
+ "page": "qa-evidence",
+ "position": 7
+}

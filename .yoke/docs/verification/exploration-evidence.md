@@ -213,7 +213,14 @@ withdrawn in the same transaction, carrying the execution's state and its
 another live execution is still walking is retained; the subject-state
 contract refuses to withdraw a decision whose subject has not ended.
 
-Termination preserves [review authority for completed captures](requirement-state.md). An execution whose owner has
+Termination preserves [review authority for completed captures](requirement-state.md),
+missions included. A stopped execution has no host lease, so its review bundle
+dispatches no walker and `walk-start` refuses with `agent_mission_access_failed`
+naming `review-begin`. The owner judges each mission recorded before the stop
+from its recorded evidence and submits through the same `review-submit`; a
+docket holding only setup and restore receipts is not product proof.
+
+An execution whose owner has
 stopped reporting progress is reaped into `aborted` with `release_reason`
 `stale-heartbeat` after 30 minutes without a heartbeat — unless its owning
 session is live and parked, which is a declared hold rather than an absence

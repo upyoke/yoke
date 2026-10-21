@@ -10,10 +10,38 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
+def _recorded_mission_clause(cases: list[Mapping[str, Any]], execution_id: str) -> str:
+    """Teach the reviewer of a stopped execution how to judge its missions."""
+    missions = [
+        str(int(case["requirement_id"]))
+        for case in cases
+        if case.get("capture_runner") == "agent_mission"
+    ]
+    if not missions:
+        return ""
+    return (
+        f" Execution {execution_id} stopped, so no walker can reach its Test "
+        f"Machine: judge mission case(s) {', '.join(missions)} only from the "
+        "mission evidence recorded before the stop. A docket that holds only "
+        "setup and restore receipts carries no product proof."
+    )
+
+
 def dispatch_contract(
-    bundle: Mapping[str, Any], *, allowed_verdicts: tuple[str, ...], conn: Any = None
+    bundle: Mapping[str, Any],
+    *,
+    allowed_verdicts: tuple[str, ...],
+    conn: Any = None,
+    missions_walkable: bool = True,
 ) -> dict[str, Any]:
-    if any(case.get("capture_runner") == "agent_mission" for case in bundle["cases"]):
+    """Dispatch walkers for a live mission bundle; otherwise review the captures.
+
+    A stopped execution has no host lease, so its recorded missions are judged
+    from their captured evidence like every other case.
+    """
+    if missions_walkable and any(
+        case.get("capture_runner") == "agent_mission" for case in bundle["cases"]
+    ):
         from yoke_core.domain.agent_mission_review import (
             agent_mission_dispatch_contract,
         )
@@ -61,6 +89,7 @@ def dispatch_contract(
             f"rationale for each of the {len(cases)} cases. Do not infer a "
             "verdict from capture status. "
             + inconclusive_verdict_guidance(allowed_verdicts)
+            + _recorded_mission_clause(cases, str(bundle["execution_id"]))
             + " Use only the "
             "supplied artifact-read commands for bytes that are not directly "
             "available — each lands the file and reports its path under the "
