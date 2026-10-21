@@ -10,16 +10,19 @@ from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_
 from yoke_core.domain.qa_plan_execution_abort_reason import ABORT_REASON_MAX_LENGTH
 
 EPILOG = (
-    "Requires a live steering seat covering the project; other sessions are "
-    "refused with steering_seat_required (yoke claims steering acquire --project "
-    "P --reason TEXT). Refuses qa_reconcile_execution_live while the owner still "
-    "heartbeats. A held host lease without recorded recovery refuses "
-    "qa_reconcile_host_recovery_required, records cancellation and names the "
-    "exact yoke test-machine reset or operator-release command; run it, then "
-    "retry. A pending review passes to the caller (outcome review_handoff, or "
-    "aborted when cancellation was recorded) and next_command names its "
-    "review-begin; otherwise the execution settles as aborted with no verdict. "
-    "The receipt row lives in qa_plan_execution_reconciliations."
+    "A session needs a live steering seat covering the project; other sessions "
+    "are refused with steering_seat_required (yoke claims steering acquire "
+    "--project P --reason TEXT). A call without a session needs the "
+    "control-plane organization administrator. Never settles an active walk "
+    "(qa_reconcile_runner_driven names yoke qa plan abort), a parked owner's "
+    "walk, or one still heartbeating. A held host lease without recorded "
+    "recovery refuses qa_reconcile_host_recovery_required, records "
+    "cancellation and names the exact yoke test-machine reset or "
+    "operator-release command; run it, then retry. A pending review with a "
+    "judgeable capture passes to the caller (outcome review_handoff) and "
+    "next_command names its review-begin; otherwise the review closes and the "
+    "execution settles aborted with no verdict. The receipt row lives in "
+    "qa_plan_execution_reconciliations."
 )
 
 

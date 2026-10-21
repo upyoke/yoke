@@ -25,6 +25,30 @@ class PlanExecutionReconcileResponse(BaseModel):
     next_command: str | None = None
 
 
+def _require_operator(conn, request, project_id):
+    """A session needs a covering steering seat; no session needs org admin."""
+    if request.actor.session_id:
+        from yoke_core.domain.session_steering_authority import require_operator_seat
+
+        require_operator_seat(
+            conn,
+            caller_session_id=request.actor.session_id,
+            project_id=project_id,
+            action="QA execution reconciliation",
+        )
+        return
+    from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN, PermissionDenied
+    from yoke_core.domain.control_plane_authority import (
+        require_control_plane_permission,
+    )
+
+    if not str(request.actor.actor_id or "").isdigit():
+        raise PermissionDenied("no authenticated actor")
+    require_control_plane_permission(
+        conn, actor_id=int(request.actor.actor_id), permission_key=PERM_ORG_ADMIN
+    )
+
+
 def handle_execution_reconcile(request):
     parsed = _parse(PlanExecutionReconcileRequest, request.payload)
     if isinstance(parsed, HandlerOutcome):
@@ -39,15 +63,33 @@ def handle_execution_reconcile(request):
     from yoke_core.domain.project_identity import resolve_project_id
     from yoke_core.domain.qa_plan_execution_reconcile import reconcile_execution
 
+    from yoke_core.domain.actor_permissions import PermissionDenied
+    from yoke_core.domain.sessions_analytics_core import SessionError
+
     conn = connect()
     try:
+        project_id = resolve_project_id(conn, str(request.target.project_id))
+        _require_operator(conn, request, project_id)
         result = reconcile_execution(
             conn,
             parsed.execution_id,
-            project_id=resolve_project_id(conn, str(request.target.project_id)),
+            project_id=project_id,
             actor_id=request.actor.actor_id,
-            session_id=request.actor.session_id,
+            session_id=request.actor.session_id or None,
             reason=parsed.reason,
+        )
+    except SessionError as exc:
+        conn.rollback()
+        return _error(exc.code, exc.message, "$.actor")
+    except PermissionDenied:
+        conn.rollback()
+        return _error(
+            "operator_permission_required",
+            "operator_permission_required: a call without a session must come "
+            "from the control-plane organization administrator; otherwise run "
+            "it from a session holding a steering seat (yoke claims steering "
+            "acquire --project P --reason TEXT). Nothing changed.",
+            "$.actor",
         )
     except (LockNotAvailable, QueryCanceled):
         conn.rollback()
@@ -84,11 +126,12 @@ def register(registry):
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "steering_seat_required",
+            "control_plane_operator_without_session",
             "stale_owner_required",
             "host_recovery_proof_required",
             "durable_reconciliation_receipt",
         ],
         adapter_status="live",
-        claim_required_kind="steering",
-        ambient_session_required=True,
+        claim_required_kind=None,
+        ambient_session_required=False,
     )

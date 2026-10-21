@@ -18,17 +18,19 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, query_one, utc_now
-from yoke_core.domain.qa_plan_execution_abort_reason import (
-    ABORT_REASON_MAX_LENGTH,
-    REASON_DETAIL_SEPARATOR,
-)
-from yoke_core.domain.qa_plan_execution_abort_state import (
-    abort_request,
-    host_cleanup_proven,
-    record_abort_request,
+from yoke_core.domain.qa_plan_execution_abort_reason import REASON_DETAIL_SEPARATOR
+from yoke_core.domain.qa_plan_execution_abort_state import abort_request
+from yoke_core.domain.qa_plan_execution_reconcile_hosts import (
+    RECONCILED_REASON,
+    held_leases,
+    host_recovery_proven,
+    host_recovery_refusal,
+    reconcile_pending,
+    recovery_request,
 )
 from yoke_core.domain.qa_plan_execution_authority import (
     PLAN_EXECUTION_STALE_SECONDS,
+    owning_session_is_parked,
     plan_execution_is_stale,
 )
 from yoke_core.domain.qa_plan_execution_schema import TERMINAL_PLAN_EXECUTION_STATES
@@ -36,9 +38,6 @@ from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     lock_plan_execution,
 )
-
-#: The code a reconciled execution's release reason opens with.
-RECONCILED_REASON = "qa-plan-operator-reconciled"
 
 
 def reconcile_command(project: str, execution_id: str) -> str:
@@ -68,90 +67,33 @@ def _pending_bundle_id(conn: Any, execution_id: str) -> str | None:
     return None if row is None else str(row["id"])
 
 
-def _held_leases(conn: Any, execution: dict[str, Any]) -> list[Any]:
-    from yoke_core.domain.coordination_claims import get_claim
-    from yoke_core.domain.qa_plan_host_leases import execution_host_leases
+def _valid_capture(conn: Any, bundle_id: str) -> bool:
+    """Whether the pending review has at least one capture a reviewer can judge.
 
-    leases = {lease.id: lease for lease in execution_host_leases(conn, execution)}
-    primary = execution.get("machine_lease_id")
-    if primary is not None:
-        claim = get_claim(conn, int(primary))
-        if claim.is_active:
-            leases[claim.id] = claim
-    return sorted(leases.values(), key=lambda lease: int(lease.id))
-
-
-def _recovery_request(conn: Any, execution: dict[str, Any], reason: str) -> dict:
-    """Record cancellation, marked as reconcile's, so steering may reset hosts.
-
-    An existing cancellation keeps its reason, ordinal and request time.
+    A case without artifacts, or one its runner marked degraded (a mission
+    whose walker never attached proof), gives a reviewer nothing to read.
     """
-    request = abort_request(execution)
-    if request and request.get("reconcile"):
-        return request
-    if not request:
-        detail = f"{RECONCILED_REASON}{REASON_DETAIL_SEPARATOR}{reason}"
-        ordinal = min(int(execution["cursor_ordinal"]), len(execution["roster"]) - 1)
-        request = {"reason": detail[:ABORT_REASON_MAX_LENGTH], "ordinal": ordinal}
-    record_abort_request(conn, execution, {**request, "reconcile": True})
-    conn.commit()
-    return abort_request(execution)
+    from yoke_core.domain.qa_mission_stop_settlement import mission_review_cases
+    from yoke_core.domain.qa_plan_review import _json_object
+
+    row = query_one(
+        conn, "SELECT bundle_json FROM qa_plan_review_bundles WHERE id=%s", (bundle_id,)
+    )
+    cases = mission_review_cases(
+        conn, _json_object(row["bundle_json"]).get("cases") or []
+    )
+    return any(
+        case.get("artifacts") and not case.get("capture_degraded_reason")
+        for case in cases
+    )
 
 
-def _reconcile_pending(execution: dict[str, Any]) -> bool:
-    """Whether an earlier reconcile already recorded this cancellation.
-
-    The reset that run asked for borrows the execution's lease and renews its
-    heartbeat, so its retry cannot prove staleness again; the first run did.
-    """
-    return bool((abort_request(execution) or {}).get("reconcile"))
-
-
-def _host_recovery_proven(conn: Any, execution: dict, request: dict) -> bool:
-    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
-
-    ordinal = int(request["ordinal"])
-    case = execution["roster"][ordinal]
-    if case.get("runner_id") == "agent_mission" and mission_restores_recorded(
-        conn, execution
-    ):
-        return True
-    return host_cleanup_proven(conn, execution, ordinal)
-
-
-def _host_recovery_refusal(
-    execution: dict, request: dict, leases: list[Any], project: str
-) -> QaPlanExecutionStateError:
-    case = execution["roster"][int(request["ordinal"])]
-    baseline = case.get("host_baseline")
-    if baseline and case.get("starting_state") != "as_is":
-        lead = "reset each held host to the interrupted case's declared baseline"
-        steps = [
-            f"yoke test-machine reset --project {project} --machine "
-            f"{lease.target.machine_id} --baseline {baseline}"
-            for lease in leases
-        ]
-    else:
-        lead = (
-            "release each held lease deliberately, because this case declares "
-            "no baseline to reset to; manual release records the reset the "
-            "next holder owes"
-        )
-        steps = [
-            "yoke claims coordination-claim operator-release "
-            + ("" if lease.key.startswith("QA_HOST:") else f"--project {project} ")
-            + f"--key {lease.key} --claim-id {lease.id} --holder-session-id "
-            f'{lease.session_id} --reason "<why>"'
-            for lease in leases
-        ]
-    return QaPlanExecutionStateError(
-        f"qa_reconcile_host_recovery_required: execution {execution['id']} still "
-        f"holds lease(s) {', '.join(str(lease.id) for lease in leases)} and no "
-        "host recovery is recorded. Cancellation is recorded, so a covering "
-        f"steering seat may now {lead}: "
-        + "; ".join(f"`{step}`" for step in steps)
-        + f". Then retry `{reconcile_command(project, str(execution['id']))}`. "
-        "Nothing else changed."
+def _close_unreviewable(conn: Any, bundle_id: str, actor_id, session_id) -> None:
+    """Close a review with no judgeable capture; it records no verdict."""
+    conn.execute(
+        "UPDATE qa_plan_review_bundles SET state='completed',reviewer_actor_id=%s,"
+        "reviewer_session_id=%s,reviewed_at=%s WHERE id=%s AND state='pending'",
+        (actor_id, session_id, instant_parameter(conn, utc_now()), bundle_id),
     )
 
 
@@ -169,10 +111,14 @@ def reconcile_execution(
     *,
     project_id: int,
     actor_id: str | None,
-    session_id: str,
+    session_id: str | None,
     reason: str,
 ) -> dict[str, Any]:
-    """Settle one stranded execution and write its receipt atomically."""
+    """Settle one stranded execution and write its receipt atomically.
+
+    A session-less control-plane operator may settle but cannot take over a
+    review, because review-begin needs an owning session.
+    """
     execution = lock_plan_execution(conn, execution_id)
     owner_project_id, project = execution_project(conn, execution)
     if owner_project_id != int(project_id):
@@ -188,17 +134,34 @@ def reconcile_execution(
             f"qa_reconcile_already_settled: execution {execution_id} is already "
             f"{state} with no pending review; there is nothing to reconcile."
         )
+    flag = _subject_flag(conn, execution, project)
+    if state == "active":
+        raise QaPlanExecutionStateError(
+            f"qa_reconcile_runner_driven: execution {execution_id} is active, so "
+            "its runner may still be driving the host; reconciliation never "
+            "settles a runner-driven walk. Stop it with `yoke qa plan abort "
+            f"{flag} --execution-id {execution_id} --reason TEXT`: a steering "
+            "seat's abort records a stop its runner obeys, and once silent for "
+            f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes any session may "
+            "abandon it. Nothing changed."
+        )
+    if owning_session_is_parked(conn, execution):
+        raise QaPlanExecutionStateError(
+            f"qa_reconcile_owner_parked: session {execution.get('session_id')} "
+            f"is parked and still holds execution {execution_id}. Ask it to "
+            "unpark and settle its own walk, or end that session, then retry. "
+            "Nothing changed."
+        )
     if (
         not terminal
-        and not _reconcile_pending(execution)
+        and not reconcile_pending(execution)
         and not plan_execution_is_stale(execution)
     ):
         raise QaPlanExecutionStateError(
             f"qa_reconcile_execution_live: execution {execution_id} is still "
             f"reporting progress from session {execution.get('session_id')}. "
             "Stop a live walk with `yoke qa plan abort "
-            f"{_subject_flag(conn, execution, project)} --execution-id "
-            f"{execution_id} --reason TEXT`, or retry "
+            f"{flag} --execution-id {execution_id} --reason TEXT`, or retry "
             f"reconciliation after {PLAN_EXECUTION_STALE_SECONDS // 60} minutes "
             "without a heartbeat. Nothing changed."
         )
@@ -210,24 +173,49 @@ def reconcile_execution(
     prior = (state, execution.get("actor_id"), execution.get("session_id"))
     released: list[int] = []
     if not terminal:
-        leases = _held_leases(conn, execution)
-        if leases:
-            request = _recovery_request(conn, execution, reason)
-            if not _host_recovery_proven(conn, execution, request):
-                raise _host_recovery_refusal(execution, request, leases, project)
-            from yoke_core.domain.coordination_claims import release
+        hosts, review_leases = held_leases(conn, execution)
+        if hosts:
+            request = recovery_request(conn, execution, reason)
+            if not host_recovery_proven(conn, execution, request):
+                raise host_recovery_refusal(
+                    execution,
+                    request,
+                    hosts,
+                    project,
+                    reconcile_command(project, execution_id),
+                )
+        if bundle_id is None and any(
+            case.get("verdict_path") == "agent" for case in execution["roster"]
+        ):
+            from yoke_core.domain.qa_plan_review import begin_plan_review
 
-            for lease in leases:
-                release(conn, int(lease.id), settle_reason, commit=False)
-                released.append(int(lease.id))
+            begin_plan_review(conn, execution, completed_captures_only=True)
+            bundle_id = _pending_bundle_id(conn, execution_id)
+    hand_off = bundle_id is not None and _valid_capture(conn, bundle_id)
+    if hand_off and not session_id:
+        conn.rollback()
+        raise QaPlanExecutionStateError(
+            f"qa_reconcile_review_needs_session: execution {execution_id} has a "
+            "judgeable capture, and handing its review over assigns it to a "
+            "session. Rerun from a session holding a steering seat covering "
+            f"project {project}. Nothing changed."
+        )
+    if not terminal:
+        from yoke_core.domain.coordination_claims import release
+
+        for lease in hosts + review_leases:
+            release(conn, int(lease.id), settle_reason, commit=False)
+            released.append(int(lease.id))
         execution["machine_lease_id"] = None
+    if bundle_id is not None and not hand_off:
+        _close_unreviewable(conn, bundle_id, actor_id, session_id)
+    owner = (actor_id, session_id) if session_id else (prior[1], prior[2])
     conn.execute(
         "UPDATE qa_plan_executions SET actor_id=%s,session_id=%s,"
         "machine_lease_id=%s WHERE id=%s",
-        (actor_id, session_id, execution.get("machine_lease_id"), execution_id),
+        (*owner, execution.get("machine_lease_id"), execution_id),
     )
-    execution.update(actor_id=actor_id, session_id=session_id)
-    hand_off = bundle_id is not None and (terminal or not abort_request(execution))
+    execution.update(actor_id=owner[0], session_id=owner[1])
     outcome = "review_handoff" if hand_off else "aborted"
     conn.execute(
         "INSERT INTO qa_plan_execution_reconciliations "
@@ -246,7 +234,7 @@ def reconcile_execution(
             instant_parameter(conn, utc_now()),
         ),
     )
-    if hand_off:
+    if terminal or (hand_off and not abort_request(execution)):
         conn.commit()
     else:
         from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
