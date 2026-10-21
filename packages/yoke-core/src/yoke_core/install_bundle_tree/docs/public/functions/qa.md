@@ -42,7 +42,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `qa.plan_execution.complete` | `qa_subject` |
 | `qa.plan_execution.heartbeat` | `qa_subject` |
 | `qa.plan_execution.pause` | `qa_subject` |
-| `qa.plan_execution.reconcile` | `steering` |
+| `qa.plan_execution.reconcile` | `none` |
 | `qa.plan_execution.resume` | `qa_subject` |
 | `qa.plan_review.begin` | `qa_subject` |
 | `qa.plan_review.submit` | `qa_subject` |
@@ -105,26 +105,30 @@ for the complete item/deployment recipe and continuation boundaries.
 
 `qa.plan_execution.reconcile` settles an execution its owner can no longer
 settle: the owner ended or stopped heartbeating, or its recovery receipt is
-invalid. Only a live steering seat covering the project may run it; other
-sessions are refused with `steering_seat_required`.
+invalid. A session needs a live steering seat covering the project; other
+sessions are refused with `steering_seat_required`. A call without a session
+needs the control-plane organization administrator.
 
 ```text
 yoke qa plan reconcile --project P --execution-id ID --reason TEXT
 ```
 
-It refuses `qa_reconcile_execution_live` while the owner still heartbeats.
-A host lease that is still held needs recorded host recovery first. Without
-it, the command records cancellation and refuses
+It never settles an `active` walk (`qa_reconcile_runner_driven` names
+`yoke qa plan abort`), a walk whose owner is parked
+(`qa_reconcile_owner_parked`), or one still heartbeating
+(`qa_reconcile_execution_live`). A held host lease needs recorded host
+recovery first: the command records cancellation and refuses
 `qa_reconcile_host_recovery_required`, naming the exact
-`yoke test-machine reset` command, or the `operator-release` command when the
-case declares no baseline. A released lease settles without host contact. A
-pending review passes to the caller, and `next_command` names its
-`review-begin`; otherwise the execution settles as aborted with no verdict.
-Each run writes a `qa_plan_execution_reconciliations` receipt with the
-caller, reason, prior state and owner, and released leases, atomically with
-the settlement. `qa_recovery_receipt_invalid`, `qa_abort_walk_end_required`
-for an ended owner, and adoption without a provable predecessor name this
-command with its arguments.
+`yoke test-machine reset` command, or `operator-release` when the case
+declares no baseline. A mission's own review lease and released leases need
+no proof. A pending review with a judgeable capture (artifacts, not
+degraded) passes to the caller, and `next_command` names its `review-begin`.
+Otherwise the review closes and the execution settles as aborted with no
+verdict. Each run writes a `qa_plan_execution_reconciliations` receipt with
+the caller, reason, prior state and owner, and released leases, atomically
+with the settlement. `qa_recovery_receipt_invalid`,
+`qa_abort_walk_end_required` for an ended owner, and adoption without a
+provable predecessor name this command with its arguments.
 
 ## Case execution and evidence
 

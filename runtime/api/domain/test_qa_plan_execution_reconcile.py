@@ -8,11 +8,7 @@ from runtime.api.domain.test_qa_abort_reset import failed_restore, operation  # 
 from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.coordination_claims import acquire, get_claim, release
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.handlers.machine_qa_operation import (
@@ -22,7 +18,6 @@ from yoke_core.domain.handlers.machine_qa_operation import (
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.qa_plan_execution_authority import require_plan_execution_owner
 from yoke_core.domain.qa_plan_execution_reconcile import reconcile_execution
-from yoke_core.domain.qa_plan_execution_state import set_plan_machine_lease
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     lock_plan_execution,
@@ -43,15 +38,41 @@ def _stale(conn, execution_id):
     conn.commit()
 
 
-def _reconcile(conn, execution_id):
+def _reconcile(conn, execution_id, session_id=STEERING):
     return reconcile_execution(
         conn,
         execution_id,
         project_id=resolve_project_id(conn, "yoke"),
         actor_id="2",
-        session_id=STEERING,
+        session_id=session_id,
         reason=REASON,
     )
+
+
+def _awaiting_review(conn, item_id):
+    """A full captured walk whose review bundle is pending."""
+    execution, requirement, capture = captured_plan_review(conn, item_id)
+    create_governed_tables(conn)
+    bundle = begin_plan_review(conn, execution)
+    return lock_plan_execution(conn, execution["id"]), bundle, capture
+
+
+def _without_artifacts(conn, bundle_id):
+    """The prod shape: a mission walker that never attached its proof."""
+    row = query_one(
+        conn, "SELECT bundle_json FROM qa_plan_review_bundles WHERE id=%s", (bundle_id,)
+    )
+    payload = json.loads(row["bundle_json"])
+    for case in payload["cases"]:
+        case["artifacts"] = []
+        case["capture_degraded_reason"] = (
+            "agent_mission_docket:walker_artifacts_not_yet_attached"
+        )
+    conn.execute(
+        "UPDATE qa_plan_review_bundles SET bundle_json=%s WHERE id=%s",
+        (json.dumps(payload), bundle_id),
+    )
+    conn.commit()
 
 
 def _receipt(conn, reconciliation_id):
@@ -62,15 +83,18 @@ def _receipt(conn, reconciliation_id):
     )
 
 
-def test_orphan_with_released_lease_settles_without_host_contact():
+def test_orphan_without_judgeable_capture_aborts_with_no_verdict():
     with test_database() as conn:
-        execution, _requirement, _capture = captured_plan_review(conn, 4931)
-        create_governed_tables(conn)
+        execution, bundle, capture = _awaiting_review(conn, 4931)
+        _without_artifacts(conn, bundle["bundle_id"])
         register_session_actor(conn, execution["session_id"])
         lease = acquire(
             conn, make_qa_admission_target("reconcile-orphan"), execution["session_id"]
         )
-        set_plan_machine_lease(conn, execution, lease_id=lease.id)
+        conn.execute(
+            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            (lease.id, execution["id"]),
+        )
         release(conn, lease.id, "owner session ended")
         conn.execute(
             "UPDATE harness_sessions SET ended_at=CURRENT_TIMESTAMP WHERE session_id=%s",
@@ -83,30 +107,39 @@ def test_orphan_with_released_lease_settles_without_host_contact():
         settled = lock_plan_execution(conn, execution["id"])
         assert receipt["outcome"] == "aborted"
         assert receipt["released_lease_ids"] == []
+        assert receipt["review_bundle_id"] is None
+        assert receipt["next_command"] is None
         assert settled["state"] == "aborted"
         assert settled["machine_lease_id"] is None
         assert settled["session_id"] == STEERING
         assert settled["release_reason"].startswith("qa-plan-operator-reconciled")
+        closed = query_one(
+            conn,
+            "SELECT state,reviewer_session_id FROM qa_plan_review_bundles WHERE id=%s",
+            (bundle["bundle_id"],),
+        )
+        assert closed["state"] == "completed"
+        assert closed["reviewer_session_id"] == STEERING
+        assert not query_one(
+            conn,
+            "SELECT 1 FROM qa_plan_review_verdicts WHERE bundle_id=%s",
+            (bundle["bundle_id"],),
+        )
+        verdict = query_one(conn, "SELECT verdict FROM qa_runs WHERE id=%s", (capture,))
+        assert verdict["verdict"] is None
         audit = _receipt(conn, receipt["reconciliation_id"])
-        assert audit["prior_state"] == "active"
-        assert audit["prior_session_id"] == execution["session_id"]
+        assert audit["prior_state"] == "awaiting_agent_review"
+        assert audit["prior_session_id"] == "review-session"
         assert audit["session_id"] == STEERING
         assert audit["reason"] == REASON
         assert json.loads(audit["released_lease_ids"]) == []
-        # Aborting opened the review its completed capture owes; a later
-        # reconcile only passes that review on and never reopens the walk.
-        assert receipt["next_command"].startswith("yoke qa plan review-begin")
-        again = _reconcile(conn, execution["id"])
-        assert again["outcome"] == "review_handoff"
-        assert again["review_bundle_id"] == receipt["review_bundle_id"]
-        assert lock_plan_execution(conn, execution["id"])["state"] == "aborted"
+        with pytest.raises(QaPlanExecutionStateError, match="qa_reconcile_already"):
+            _reconcile(conn, execution["id"])
 
 
 def test_lost_review_passes_to_the_caller_for_review_begin():
     with test_database() as conn:
-        execution, _requirement, capture = captured_plan_review(conn, 4932)
-        create_governed_tables(conn)
-        bundle = begin_plan_review(conn, execution)
+        execution, bundle, capture = _awaiting_review(conn, 4932)
         _stale(conn, execution["id"])
 
         receipt = _reconcile(conn, execution["id"])
@@ -134,14 +167,24 @@ def test_lost_review_passes_to_the_caller_for_review_begin():
         assert audit["prior_session_id"] == "review-session"
 
 
-def test_live_execution_refuses_and_names_abort():
+def test_active_walk_is_never_settled_from_outside():
     with test_database() as conn:
         execution, _requirement, _capture = captured_plan_review(conn, 4933)
         create_governed_tables(conn)
+        _stale(conn, execution["id"])
+        with pytest.raises(QaPlanExecutionStateError) as refused:
+            _reconcile(conn, execution["id"])
+        assert "qa_reconcile_runner_driven" in str(refused.value)
+        assert "yoke qa plan abort --item " in str(refused.value)
+        assert lock_plan_execution(conn, execution["id"])["state"] == "active"
+
+
+def test_heartbeating_review_refuses_as_live():
+    with test_database() as conn:
+        execution, _bundle, _capture = _awaiting_review(conn, 4934)
         with pytest.raises(QaPlanExecutionStateError) as refused:
             _reconcile(conn, execution["id"])
         assert "qa_reconcile_execution_live" in str(refused.value)
-        assert "yoke qa plan abort --item " in str(refused.value)
         assert lock_plan_execution(conn, execution["id"])["session_id"] == (
             "review-session"
         )
@@ -154,6 +197,10 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
 ):
     execution = failed_restore
     lease_id = int(execution["machine_lease_id"])
+    # A walk parked in a host wait has no runner driving it but keeps its host.
+    test_db.execute(
+        "UPDATE qa_plan_executions SET state='waiting' WHERE id=%s", (execution["id"],)
+    )
     _stale(test_db, execution["id"])
     with pytest.raises(QaPlanExecutionStateError) as refused:
         _reconcile(test_db, execution["id"])
@@ -168,7 +215,7 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
         in message
     )
     assert get_claim(test_db, lease_id).is_active
-    assert lock_plan_execution(test_db, execution["id"])["state"] == "active"
+    assert lock_plan_execution(test_db, execution["id"])["state"] == "waiting"
 
     steering = ActorContext(actor_id="2", session_id=STEERING)
     monkeypatch.setattr(
@@ -195,29 +242,3 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
     assert receipt["released_lease_ids"] == [lease_id]
     assert not get_claim(test_db, lease_id).is_active
     assert lock_plan_execution(test_db, execution["id"])["state"] == "aborted"
-
-
-def test_dispatch_refuses_a_caller_without_a_steering_seat():
-    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-    from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
-    from yoke_core.domain.yoke_function_registry import lookup
-
-    register_all_handlers()
-    entry = lookup("qa.plan_execution.reconcile")
-    assert entry.claim_required_kind == "steering"
-    with test_database() as conn:
-        create_governed_tables(conn)
-        register_session_actor(conn, "ordinary-session")
-        conn.commit()
-        refused = verify_claim(
-            entry,
-            FunctionCallRequest(
-                function="qa.plan_execution.reconcile",
-                actor=ActorContext(actor_id="2", session_id="ordinary-session"),
-                target=TargetRef(kind="global", project_id="yoke"),
-                payload={"execution_id": "unknown", "reason": REASON},
-            ),
-        )
-    assert refused is not None
-    assert refused.error.code == "steering_seat_required"
-    assert "yoke claims steering acquire --project" in refused.error.message

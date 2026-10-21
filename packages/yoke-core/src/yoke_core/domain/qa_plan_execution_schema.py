@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_execution_reconciliations (
     id TEXT PRIMARY KEY,
     execution_id TEXT NOT NULL REFERENCES qa_plan_executions(id),
     actor_id TEXT,
-    session_id TEXT NOT NULL,
+    session_id TEXT,
     reason TEXT NOT NULL,
     outcome TEXT NOT NULL CHECK(outcome IN ('review_handoff','aborted')),
     prior_state TEXT NOT NULL,
