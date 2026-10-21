@@ -152,7 +152,9 @@ class ObservationQueue:
     def _run(self) -> None:
         while True:
             with self._condition:
-                if self._stopping and not self._entries:
+                # Telemetry is disposable: once close() stops the queue,
+                # anything drain() could not deliver is left behind.
+                if self._stopping:
                     return
                 wait_for = self._due_wait_locked(time.monotonic())
                 if wait_for is None:
@@ -164,11 +166,14 @@ class ObservationQueue:
                 self._force = False
             self._flush_once()
             with self._condition:
-                attempts = self._attempts if self._failure else 0
-            if attempts:
-                time.sleep(
-                    retry_delay_seconds(attempts, OBSERVATION_FLUSH_INTERVAL_SECONDS)
-                )
+                if self._failure:
+                    # Back off on the condition so close() cuts the wait short.
+                    self._condition.wait_for(
+                        lambda: self._stopping,
+                        timeout=retry_delay_seconds(
+                            self._attempts, OBSERVATION_FLUSH_INTERVAL_SECONDS
+                        ),
+                    )
 
     def _batch(self) -> list[PendingTelemetry]:
         with self._condition:
