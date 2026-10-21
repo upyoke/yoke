@@ -11,9 +11,8 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
 from yoke_core.domain.qa_plan_execution_begin_admission import (
-    BeginInputsChanged,
     PreparedRoster,
-    admit_member,
+    admit_current_roster,
     begin_inputs,
     prepare_roster,
 )
@@ -86,7 +85,8 @@ def begin_plan_execution(
     A member-scoped begin reads its roster before the run lock. ``_run_inputs``
     is the :func:`begin_inputs` digest its router took before reading; when it
     no longer holds under the lock, :class:`BeginInputsChanged` sends the
-    router back to release the lock and read again unlocked.
+    router back to release the lock and read again unlocked; a stage-wide
+    begin does the same itself (:func:`admit_current_roster`).
     """
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(
@@ -173,14 +173,17 @@ def begin_plan_execution(
     prepared = prepare()
     if not isinstance(prepared, PreparedRoster):
         return prepared
-    if locks_run and not admit_member(
-        conn, str(deployment_run_id), deployment_stage, admitted, run_inputs
-    ):
-        if admitted is not None:
-            raise BeginInputsChanged(deployment_run_id)
-        prepared = prepare()  # read again, now under the run lock
+    if locks_run:
+        prepared = admit_current_roster(
+            conn,
+            str(deployment_run_id),
+            deployment_stage,
+            admitted,
+            run_inputs,
+            prepared,
+            prepare,
+        )
         if not isinstance(prepared, PreparedRoster):
-            conn.rollback()
             return prepared
     existing_id = live_plan_execution_id(
         conn,
@@ -257,12 +260,17 @@ def begin_plan_execution(
         prepared = prepare()
         if not isinstance(prepared, PreparedRoster):
             return prepared
-        if locks_run and not admit_member(
-            conn, str(deployment_run_id), deployment_stage, admitted, inputs
-        ):
-            prepared = prepare()
+        if locks_run:
+            prepared = admit_current_roster(
+                conn,
+                str(deployment_run_id),
+                deployment_stage,
+                admitted,
+                inputs,
+                prepared,
+                prepare,
+            )
             if not isinstance(prepared, PreparedRoster):
-                conn.rollback()
                 return prepared
 
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
