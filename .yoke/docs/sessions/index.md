@@ -59,6 +59,11 @@ expiries the receipt keeps the charge and records the `relay_lease_expired`
 escalation; Fleet shows it as `last attempt failed (relay_lease_expired)`.
 Recover with `yoke session-control session wake SESSION-ID` once the relay
 reports again.
+
+An explicit `yoke session-control session wake SESSION-ID` returns its queued
+receipt after about one second if no relay or broker claims it. A claimed
+attempt can wait up to ten seconds total for its result. A queued or unfinished
+receipt includes `yoke messages get MESSAGE-ID` to inspect later delivery.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
 that exact process and retires Fleet's old `native_turn_running` label.
