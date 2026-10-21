@@ -30,6 +30,7 @@ from yoke_core.domain.observe_anomaly import detect_anomalies
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
 from yoke_core.domain.observe_parsing import parse_hook_event
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.lane_ref_test_support import add_minimal_item
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -310,13 +311,15 @@ class TestDispatcherWrapperAttribution(unittest.TestCase):
             shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_service_client_adapter_resolves_item_id(self):
-        # service_client db-claim-amend --item YOK-1761 path.
+        # service_client db-claim-amend --item YOK-1761 path. YOK-1761 is
+        # item 9176: the ref resolves through its project's sequence.
+        add_minimal_item(self.db_path, 9176, project_id=1, sequence=1761)
         cmd = (
             "python3 -m yoke_core.api.service_client db-claim-amend "
             "--item YOK-1761 --reason test --state none"
         )
         item_id, flags, _src = _run_observe(_bash_payload(cmd, "tu-svc"), self.db_path)
-        self.assertEqual(item_id, "1761")
+        self.assertEqual(item_id, "9176")
         self.assertNotIn("unattributed", flags)
 
     def test_curl_envelope_post_resolves_item_id(self):

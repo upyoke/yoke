@@ -53,6 +53,24 @@ def seed_item(
     )
 
 
+def add_minimal_item(
+    db_path: str, item_id: int, *, project_id: int, sequence: int
+) -> None:
+    """Create a bare ``items`` table holding one row, for schemas without one."""
+    conn = connect_test_db(db_path)
+    try:
+        conn.execute(
+            "CREATE TABLE items (id INTEGER PRIMARY KEY, "
+            "project_id INTEGER, project_sequence INTEGER)"
+        )
+        conn.execute(
+            "INSERT INTO items VALUES (%s, %s, %s)", (item_id, project_id, sequence)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @contextlib.contextmanager
 def lane_ref_db(tmp_path: Any) -> Iterator[str]:
     """Yield a DB where ``YOK-60`` is item 600 and ``BUZ-60`` is item 800.
@@ -79,4 +97,10 @@ def lane_ref_db(tmp_path: Any) -> Iterator[str]:
         yield db_path
 
 
-__all__ = ["BUZZ_PROJECT_ID", "lane_ref_db", "seed_buzz_project", "seed_item"]
+__all__ = [
+    "BUZZ_PROJECT_ID",
+    "add_minimal_item",
+    "lane_ref_db",
+    "seed_buzz_project",
+    "seed_item",
+]
