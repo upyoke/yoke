@@ -157,7 +157,8 @@ Routine screen/DOM reads, command output and intermediate states guide work but
 are disposable. Attach only deliberate proof of findings/necessary human gates,
 within dispatch's runtime artifact limit, using its exact artifact-add recipe;
 never create a parallel run. Prefer minimal proof for highest-ranked findings.
-Attach bytes, not test-host paths: walk-end restores files, and target handles
+Attach setup-blocker evidence as `diagnostic` so a setup-only stop settles
+without human review. Attach bytes, not test-host paths: walk-end restores files, and target handles
 are refused. Never expose credentials/tokens/secret files/unredacted arguments;
 verify presence/permissions without reading secret content.
 

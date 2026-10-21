@@ -65,7 +65,7 @@ def _case(key, driver, *, machines=None, inherit=False):
     }
 
 
-def _seed(conn, tmp_path, monkeypatch, cases):
+def _seed(conn, tmp_path, monkeypatch, cases, *, separate_plans=True):
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
         conn,
@@ -75,19 +75,28 @@ def _seed(conn, tmp_path, monkeypatch, cases):
         base_settings=None,
     )
     seed_qa_session(conn, *SESSIONS)
-    plan = create_plan(
-        conn, project="yoke", slug="shared-hosts", infer_target_environment=False
-    )
-    replace_plan_cases(
-        conn,
-        plan_id=int(plan["id"]),
-        cases=[{**case, "position": index} for index, case in enumerate(cases, 1)],
-    )
-    stages = _stages(int(plan["id"]))
+    groups = []
+    for case in cases:
+        if not groups or (separate_plans and case["starting_state"] != "inherit"):
+            groups.append([])
+        groups[-1].append(case)
+    plans = []
+    for index, group in enumerate(groups):
+        plan = create_plan(
+            conn, project="yoke", slug=f"shared-hosts-{index}",
+            infer_target_environment=False,
+        )
+        replace_plan_cases(
+            conn, plan_id=int(plan["id"]),
+            cases=[{**case, "position": i} for i, case in enumerate(group, 1)],
+        )
+        plans.append(int(plan["id"]))
+    stages = _stages(plans[0])
     stages[1].pop("cases")
     _seed_run(conn, run_id=RUN, stages=stages, members=MEMBERS)
     for member in MEMBERS:
-        _attach(conn, member, int(plan["id"]))
+        for plan_id in plans:
+            _attach(conn, member, plan_id)
         _materialize(conn, member)
 
 

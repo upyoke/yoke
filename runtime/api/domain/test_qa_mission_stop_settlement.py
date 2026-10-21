@@ -80,3 +80,11 @@ def test_stopped_mission_keeps_real_proof_reviewable(test_db):
     )
     bundle = begin_plan_review(test_db, execution, completed_captures_only=True)
     assert [case["capture_run_id"] for case in bundle["cases"]] == [run_id]
+
+
+def test_setup_stop_guidance_names_diagnostic_evidence():
+    from yoke_core.domain.qa_mission_stop_settlement import stopped_mission_guidance
+
+    guidance = stopped_mission_guidance("--item example", "execution")
+    assert "attach blocker evidence as `diagnostic`" in guidance
+    assert "without human review" in guidance

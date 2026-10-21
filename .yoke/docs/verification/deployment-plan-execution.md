@@ -90,8 +90,8 @@ must finish or abort it before retrying; conversion makes no partial changes.
 When a deployment member's cases require several Test Machines, the scoped
 command executes one immutable roster per machine group, each with its own
 lease in that host's FIFO and the same run, stage and frozen target. Sessions
-walk a stage-wide roster's groups concurrently, one live execution each: begin
-skips a group another session holds and aborts an abandoned holder.
+walk separate plans concurrently, one live execution each. Begin skips held
+groups and aborts abandoned holders. Plan order holds across machine groups.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints
