@@ -106,18 +106,27 @@ executable = next((p for x in {executables!r} if (p := shutil.which(x, path=sear
 if not executable: sys.exit(EXIT['probe_executable_missing'])
 request = harness_request([executable])
 deadline = time.monotonic() + 110
-def attempt():
+def attempt(limit=None):
+    remaining = deadline - time.monotonic()
+    if request.name == 'Cursor' and remaining <= 0:
+        sys.exit(EXIT['probe_request_timed_out'])
+    timeout = min(limit, remaining) if limit is not None else max(1, remaining)
     try:
-        return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=max(1, deadline - time.monotonic()))
-    except subprocess.TimeoutExpired:
+        return subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        if request.name == 'Cursor':
+            print(json.dumps(request.timeout_rejection(exc.stdout)))
+            return None
         sys.exit(EXIT['probe_request_timed_out'])
     except OSError:
         sys.exit(EXIT['probe_launch_failed'])
-result = attempt()
-# Cursor ask mode cannot disable tools: an exact OK whose only fault is one
-# tool call retries once inside the same budget, so a rare call does not fail.
-if result.returncode == 0 and request.only_tool_call_rejected(result.stdout):
-    result = attempt()
+result = attempt(50 if request.name == 'Cursor' else None)
+# One Cursor retry shares the original deadline, whether a stall or a tool
+# call consumed the first attempt. Other harnesses retain one full attempt.
+if result is None or (result.returncode == 0 and request.only_tool_call_rejected(result.stdout)):
+    result = attempt(deadline - time.monotonic())
+if result is None:
+    sys.exit(EXIT['probe_request_timed_out'])
 if result.returncode != 0:
     refusal = request.native_refusal(result.stdout, result.stderr)
     rejection = request.reply_rejection(result.stdout, exit_code=result.returncode)

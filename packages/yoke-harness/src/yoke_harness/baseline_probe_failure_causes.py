@@ -182,6 +182,7 @@ def with_reply_rejection(
     parses on the host and prints only its record, which is re-validated.
     """
     if failure["cause"] not in {
+        REQUEST_TIMED_OUT.cause,
         REPLY_UNANSWERED.cause,
         HARNESS_EXIT_NONZERO.cause,
         "cursor_workspace_trust_required",
@@ -193,6 +194,8 @@ def with_reply_rejection(
             record["harness_exit_code"] = exit_code
     else:
         record = read_rejection_record(stdout)
+    if failure["cause"] == REQUEST_TIMED_OUT.cause and record is None:
+        return failure
     if record is None:
         return {**failure, "reason": f"{failure['reason']} {REJECTION_RECORD_MISSING}"}
     return {
