@@ -57,9 +57,10 @@ AUTHORITY_DATABASE = (
 AUTHORITY_TRANSPORT = (
     "Reaches the control plane through the evaluating process's own route: "
     "the CLI dispatcher with its machine config, credentials, engine "
-    "handshake, install identity and relay telemetry. These describe the "
-    "process making the call; the request's session and project come from "
-    "the hook payload.",
+    "handshake, install identity, relay telemetry and whether the process "
+    "declared a direct-database command for its connection. These describe "
+    "the process making the call; the request's session and project come "
+    "from the hook payload.",
     (
         "yoke_cli.commands._helpers:client_project_context",
         "yoke_cli.config.checkout_context:_git_toplevel",
@@ -71,6 +72,7 @@ AUTHORITY_TRANSPORT = (
         "yoke_cli.transport.https_credentials:resolve_token",
         "yoke_cli.transport.relay_telemetry:drain",
         "yoke_cli.transport.source_build_skew:_git",
+        "yoke_contracts.direct_database_access:use_https_env_error",
         "yoke_contracts.install_binding:_module_path",
         "yoke_contracts.install_binding:_owning_distribution",
         "yoke_contracts.install_binding:is_yoke_source_checkout",

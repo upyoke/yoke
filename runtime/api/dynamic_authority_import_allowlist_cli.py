@@ -8,7 +8,12 @@ where there is room, and both halves are read as one roster.
 
 from __future__ import annotations
 
+from runtime.api.dynamic_authority_import_allowlist_relay import (
+    RELAY_DYNAMIC_AUTHORITY_IMPORTS,
+)
+
 CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
+    **RELAY_DYNAMIC_AUTHORITY_IMPORTS,
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
         "yoke_core.engines.doctor_install",
@@ -225,27 +230,6 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ): (
         "client_local_machine_state",
         "manage the machine-local relay native supervisor without engine authority",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
-        "yoke_core.tools.session_relay_release",
-    ): (
-        "client_local_machine_state",
-        "inspect and enforce the environment-pinned release in relay-local state",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
-        "yoke_core.tools.session_relay_release_install",
-    ): (
-        "client_local_machine_state",
-        "atomically install the environment's served release for the standing relay",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
-        "yoke_core.tools.session_relay_local_install",
-    ): (
-        "client_local_machine_state",
-        "resolve the installed launcher a local-universe relay runs instead of a release",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/lane_tree.py",

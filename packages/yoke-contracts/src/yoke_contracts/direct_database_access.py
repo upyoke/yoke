@@ -8,7 +8,8 @@ Only operations that need the database itself stay on the door, and this
 module is the one place they are listed: diagnostic and repair functions by
 id, and operator commands whose whole process (children included) needs the
 door — schema convergence rehearsal, a deploy that replaces the API serving
-its own run, and creation bootstrap from a reviewed source checkout.
+its own run, creation bootstrap from a reviewed source checkout, and an
+explicitly selected admin merge.
 
 Client-side by construction: the answer comes from this machine's declared
 connections, so a CLI-only install can apply it before dispatch.
@@ -46,12 +47,17 @@ SELF_DEPLOY_EXECUTE_COMMAND = "deployment-runs execute"
 #: launcher, when the serving API predates a merged creation fix.
 CREATION_BOOTSTRAP_COMMAND = "deployment-runs create"
 
+#: Source-dev self-maintenance: a merge whose operator explicitly selected
+#: the door, for when the serving build cannot merge its own repair.
+ADMIN_MERGE_COMMAND = "merge item"
+
 #: Operator commands whose whole process runs through the database door.
 DIRECT_DATABASE_COMMANDS = frozenset(
     {
         MIGRATION_REHEARSE_COMMAND,
         SELF_DEPLOY_EXECUTE_COMMAND,
         CREATION_BOOTSTRAP_COMMAND,
+        ADMIN_MERGE_COMMAND,
     }
 )
 
@@ -130,6 +136,7 @@ def use_https_env_error(function_id: str) -> Optional[FunctionError]:
 
 
 __all__ = [
+    "ADMIN_MERGE_COMMAND",
     "CREATION_BOOTSTRAP_COMMAND",
     "DECLARED_COMMAND_ENV",
     "DIRECT_DATABASE_COMMANDS",

@@ -300,3 +300,21 @@ def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
         pytest.raises(session_relay_instance.RelayInstanceError, match="relay uninstall"),
     ):
         session_control_relay_release.serve_release_daemon()
+
+
+def test_explicit_admin_merge_holds_the_door(select, monkeypatch):
+    from yoke_cli.commands import merge_item_local_runtime as local_runtime
+
+    select(ADMIN_ENV, PAIRED)
+    monkeypatch.setattr(local_runtime.machine_config, "active_env", lambda: ADMIN_ENV)
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_connection",
+        lambda: PAIRED["connections"][ADMIN_ENV],
+    )
+    monkeypatch.setattr(local_runtime, "_confirm_selected_control_plane", lambda _e: None)
+
+    with local_runtime.same_universe_control_plane_authority() as selection:
+        assert selection == (ADMIN_ENV, ADMIN_ENV)
+        assert door.use_https_env_error("items.github_sync") is None
+    assert door.use_https_env_error("items.github_sync") is not None
