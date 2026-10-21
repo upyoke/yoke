@@ -177,13 +177,16 @@ A mission that needs state that must survive — a sign-in, a session opened thr
 
 ## Holding a Walk, and Continuing a Settled One
 
-A walker told to hold is parked (`yoke sessions touch --mode parked --reason
-"..."`), and a parked session stops heartbeating its execution. That silence is
-a declared wait, not an absence, so a live parked owner's execution is exempt
-from the stale sweep below and keeps its mission. The exemption lasts exactly
-as long as the session: if the park outlives it — a sleep, a reload, an
-explicit end — the sweep settles the execution and terminal settlement stamps
-its unreviewed capture with an `error` verdict.
+A queued walk in `waiting` keeps its queue place while its owning session
+has not ended, whatever the session's mode or heartbeat age. Waiting walks
+cannot heartbeat. Only the owner's recorded session end makes one abandoned;
+the sweep settles it with the existing `stale-heartbeat` reason.
+
+Active walks keep the 30-minute heartbeat rule. A walker told to hold can park
+(`yoke sessions touch --mode parked --reason "..."`); a live parked owner
+protects its active walk from the stale sweep. An ended owner provides no
+such protection. Terminal settlement stamps an unreviewed capture with an
+`error` verdict.
 
 That verdict records the execution, not a judgment on the walk, and the Test
 Machine still holds every bit of state the walk built. The way back in is a

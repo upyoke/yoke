@@ -97,20 +97,35 @@ def owning_session_is_parked(conn: Any, execution: Mapping[str, Any]) -> bool:
     return session_is_parked(row["mode"] if hasattr(row, "keys") else row[0])
 
 
+def owning_session_has_ended(conn: Any, execution: Mapping[str, Any]) -> bool:
+    """Require durable session-end evidence before abandoning a queued walk."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    session_id = str(execution.get("session_id") or "")
+    if not session_id or not _table_exists(conn, "harness_sessions"):
+        return False
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return conn.execute(
+        "SELECT 1 FROM harness_sessions "
+        f"WHERE session_id={marker} AND ended_at IS NOT NULL",
+        (session_id,),
+    ).fetchone() is not None
+
+
 def plan_execution_is_abandoned(
     conn: Any,
     execution: Mapping[str, Any],
     *,
     now: datetime | None = None,
 ) -> bool:
-    """Report whether a non-progressing execution has actually been left.
+    """Queued walks follow session lifetime; active walks follow progress.
 
-    Silence means two different things. An execution whose owner is gone has
-    been abandoned and must be settled, or every decision it raised waits
-    forever. An execution whose owner parked is silent because a person told
-    it to hold, and settling that one destroys a walk that is still coming
-    back. Only the first is abandoned.
+    Waiting cannot heartbeat, and a wake can change the owner's mode. Only
+    an explicit session end abandons a waiting execution. Other states keep
+    the heartbeat rule and the live parked-owner exemption.
     """
+    if execution.get("state") == "waiting":
+        return owning_session_has_ended(conn, execution)
     if not plan_execution_is_stale(execution, now=now):
         return False
     return not owning_session_is_parked(conn, execution)
@@ -220,7 +235,7 @@ def plan_execution_abort_authority(
 
     ``owner``: the owning session stops its own walk. ``abandon``: nobody is
     holding the execution any more -- its owner stopped heartbeating and did
-    not park -- so any caller on the subject may settle it. ``steering``: a
+    not park, or its queued owner ended -- so a caller may settle it. ``steering``: a
     live steering seat stops a walk another session still drives; the stop
     goes through the runner, which cleans up its host and settles it.
     """
@@ -238,7 +253,7 @@ def plan_execution_abort_authority(
     if same_owner(execution, actor_id=actor_id, session_id=session_id):
         return "owner"
     parked = owning_session_is_parked(conn, execution)
-    if not parked and plan_execution_is_stale(execution, now=now):
+    if plan_execution_is_abandoned(conn, execution, now=now):
         return "abandon"
     if steering_seat_covers(conn, execution, session_id=session_id):
         return "steering"
@@ -247,6 +262,8 @@ def plan_execution_abort_authority(
     holding = (
         "is parked and still holding this walk"
         if parked
+        else "is waiting with a live owner"
+        if execution.get("state") == "waiting"
         else "is still reporting progress"
     )
     _fail(
@@ -257,7 +274,8 @@ def plan_execution_abort_authority(
         f"{steering_authority_message(execution_project_id(conn, execution))} "
         "Then rerun this abort: it records a stop that the owning runner obeys "
         "at its next case or heartbeat. Without a seat, ask the owning session "
-        "to abort its own execution; any session may abandon it after "
+        "to abort its own execution. A waiting walk may be abandoned only "
+        "after its owning session ends; other walks may be abandoned after "
         f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat "
         "unless its owner is parked"
     )
