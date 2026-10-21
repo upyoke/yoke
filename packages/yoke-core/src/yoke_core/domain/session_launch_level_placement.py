@@ -39,6 +39,7 @@ from yoke_core.domain.quota_pool_order import pool_preference, read_pool_order
 from yoke_core.domain.session_launch_level_candidate import (
     LevelCandidate,
     LevelPlacement,
+    placement_refusal,
 )
 from yoke_core.domain.session_launch_level_pools import (
     WorkerCounts,
@@ -136,6 +137,7 @@ def _candidates(
     machine_id: str | None,
     now: datetime,
     eligibility: LaunchEligibilityPort,
+    surface: str | None,
 ) -> list[LevelCandidate]:
     limits = load_plan_limits(conn, project_id=project_id, now=now)
     workers = live_workers(conn)
@@ -143,7 +145,7 @@ def _candidates(
     weighed: list[LevelCandidate] = []
     records = current_model_records(conn)
     native = {}
-    for surface in SURFACE_EFFORT_LEVELS:
+    for surface in ([surface] if surface else SURFACE_EFFORT_LEVELS):
         snapshot, denials = filter_by_machine_access(
             conn,
             eligibility(
@@ -260,17 +262,6 @@ def _reason(chosen: LevelCandidate, rule: str, open_: list[LevelCandidate]) -> s
     return f"most headroom per worker: {chosen.label} at {headroom}{window}"
 
 
-def _refusal(level: Level, weighed: list[LevelCandidate]) -> str:
-    blocked = "; ".join(f"{c.label}: {c.blocked}" for c in weighed)
-    return compose_refusal(
-        f"No {level.name} option has capacity",
-        evaluated=blocked or "the level has no options",
-        recovery=(
-            "Relaunch at another level with --level, wait for a named reset, "
-            "or launch an exact selection with --surface"
-        ),
-    )
-
 
 def place_level(
     conn: Any,
@@ -282,6 +273,7 @@ def place_level(
     now: datetime,
     eligibility: LaunchEligibilityPort,
     excluded_models: tuple[str, ...] = (),
+    surface: str | None = None,
 ) -> LevelPlacement:
     """Weigh every option of ``level`` and choose one, or say why none fits."""
     now = as_utc(now)
@@ -298,6 +290,7 @@ def place_level(
         machine_id=pin.machine_id,
         now=now,
         eligibility=eligibility,
+        surface=surface,
     )
     if excluded_models:
         from yoke_core.domain.session_capacity_recovery import (
@@ -316,7 +309,7 @@ def place_level(
     open_ = [candidate for candidate in weighed if candidate.blocked is None]
     if not open_:
         return LevelPlacement(
-            wanted.name, source, tuple(weighed), None, None, _refusal(wanted, weighed)
+            wanted.name, source, tuple(weighed), None, None, placement_refusal(wanted, weighed, surface=surface)
         )
     chosen, rule = _choose(open_, read_pool_order(conn))
     reason = _reason(chosen, rule, open_)

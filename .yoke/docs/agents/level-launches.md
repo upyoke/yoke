@@ -66,7 +66,18 @@ UTC; an option's `headroom_percent` is its binding pool's split. The
 stored launch keeps the level as its ask, and `launch retry` places the
 level again. `--machine` narrows placement to one machine.
 
-An explicit `--surface` (with `--model`, `--reasoning-effort`,
+On an item-bound create, `--surface S` without `--model` uses the live
+effective stage level and restricts placement to S. It never records an item
+level override. Omit effort/context knobs with a surface-only request;
+name `--model` to customize them. A surface-only request with explicit effort
+or context refuses `launch_model_required` instead of discarding those values.
+The stored request and retries retain S; a replay with a
+different surface refuses `idempotency_conflict`. If no option qualifies,
+`level_no_capacity` names the blockers and the explicit launch flags
+`--surface S --model MODEL --reasoning-effort EFFORT`. A missing stage level
+refuses `launch_model_required` with the same flags.
+
+An explicit `--surface` with `--model` (plus `--reasoning-effort`,
 `--context-window` as needed) still launches exactly as asked and is
 recorded as `selection: override`. A level and explicit knobs are exclusive
 (`level_selection_conflict`). `level` is a new argument of the launch

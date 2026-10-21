@@ -80,6 +80,7 @@ def preview_level_launch(
         now=now,
         eligibility=eligibility,
         excluded_models=request.excluded_models,
+        surface=request.executor_surface or None,
     )
     chosen = placement.chosen
     if chosen is None:
@@ -106,6 +107,7 @@ def preview_level_launch(
     )
     return placed, replace(
         preview,
+        requested_surface=request.executor_surface,
         placement_reason=(
             f"level {placement.level}: {placement.reason}"
             if preview.launchable

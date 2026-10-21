@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from yoke_contracts.levels import Level
+from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.session_launch_level_pools import PoolCheck
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 
@@ -68,6 +70,27 @@ class LevelPlacement:
             "reason": self.reason,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
         }
+
+
+def placement_refusal(
+    level: Level, weighed: list[LevelCandidate], *, surface: str | None
+) -> str:
+    blocked = "; ".join(f"{c.label}: {c.blocked}" for c in weighed)
+    return compose_refusal(
+        f"No {level.name} option has capacity" + (f" on {surface}" if surface else ""),
+        evaluated=blocked or (
+            f"no level options are available on {surface}"
+            if surface else "the level has no options"
+        ),
+        recovery=(
+            f"Repeat launch create with --surface {surface} --model MODEL "
+            "--reasoning-effort EFFORT using a qualifying selection from "
+            "`yoke settings get levels`, or repair the named capacity or eligibility blocker."
+            if surface else
+            "Relaunch at another level with --level, wait for a named reset, "
+            "or launch an exact selection with --surface"
+        ),
+    )
 
 
 __all__ = ["LevelCandidate", "LevelPlacement"]
