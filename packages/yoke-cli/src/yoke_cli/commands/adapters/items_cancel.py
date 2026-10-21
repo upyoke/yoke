@@ -88,7 +88,11 @@ def _build_parser() -> Any:
             "seat close merged work that cannot finish. It preserves merge "
             "evidence and records the actor, session, prior status and reason "
             "in resolution_comment in the same transaction. It does not "
-            "undo the code merge or mark the item delivered."
+            "undo the code merge or mark the item delivered. Live deployment "
+            "run membership refuses merged_item_live_deployment_run: first "
+            "use yoke deployment-runs remove-item RUN ITEM --reason TEXT "
+            "for each named run, then retry abandonment. Removal obeys its "
+            "own gates; if unavailable, finish or cancel the run first."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

@@ -1,0 +1,11 @@
+{
+ "id": "merged-abandonment",
+ "title": "Abandon a merged member of a live release",
+ "status": "observed",
+ "audience": "both",
+ "when": "An operator abandons merged work still listed in a created or executing deployment run.",
+ "need": "Read the named run and remove the item with deployment-runs remove-item and a reason before retrying items cancel --abandon-merged. Removal remains audited and obeys its existing gates; finish or cancel the run if removal is unavailable. The refusal leaves the item and membership unchanged.",
+ "disclosure": "current cue",
+ "surface": "items cancel help, lifecycle manual and merged_item_live_deployment_run refusal",
+ "sources": ["docs/public/workflows/lifecycle.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/items_cancel.py", "runtime/api/domain/test_merged_item_abandonment_membership.py"]
+}
