@@ -144,6 +144,10 @@ implementation/domain capability until a public adapter is registered; do
 not teach a fake public listing command for it. `yoke qa requirement waive`
 and `yoke qa run get` are registered public adapters.
 
+A waiver may land at any time, even while a live walk runs the case. The walk
+keeps the case: it runs, records its result beside the waiver, and the walk
+moves on. The waiver keeps governing the gate.
+
 **When to use which mutator.** `requirement-update` changes the *policy* or
 *executable config* of an existing requirement — tighten a success policy,
 move a requirement between `blocking` and `non_blocking`, bind it to a

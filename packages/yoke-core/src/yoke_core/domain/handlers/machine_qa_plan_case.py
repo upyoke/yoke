@@ -87,7 +87,11 @@ def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     # An amendment that landed after the roster froze is named here rather
     # than surfacing as an anonymous snapshot change.
     require_current_requirement(conn, requirement_id)
-    current = get_case_execution_context(conn, requirement_id=requirement_id)
+    # A waiver changes no definition: the frozen case still runs and records
+    # beside the waiver, which keeps governing the gate.
+    current = get_case_execution_context(
+        conn, requirement_id=requirement_id, include_waived=True
+    )
     row = query_one(
         conn,
         "SELECT case_position,baseline_position FROM qa_requirements "

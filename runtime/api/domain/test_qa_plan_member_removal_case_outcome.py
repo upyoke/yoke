@@ -37,7 +37,7 @@ CASE = {
 
 
 def _host_failure() -> machine_qa_plan_case_execution.MachinePlanCaseDispatchError:
-    """The error the case's catch-all raises when its heartbeat is refused."""
+    """The error the case's catch-all raises for a local host failure."""
     code, message, recovery = host_control_failure(
         RuntimeError("QA plan execution cannot heartbeat"),
         phase="plan_case_local_execution",

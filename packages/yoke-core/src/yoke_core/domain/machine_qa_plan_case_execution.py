@@ -23,6 +23,7 @@ class MachinePlanCaseDispatchError(RuntimeError):
         error_code: str | None = None,
         recovery_hint: str | None = None,
     ) -> None:
+        self.reason = message
         rendered = f"{message} ({error_code})" if error_code else message
         if recovery_hint:
             rendered += f". Recovery: {recovery_hint}"
@@ -30,6 +31,20 @@ class MachinePlanCaseDispatchError(RuntimeError):
         self.host_contact_possible = host_contact_possible
         self.error_code = error_code
         self.recovery_hint = recovery_hint
+
+
+def _case_failure(exc: Exception, *, phase: str) -> MachinePlanCaseDispatchError:
+    """Keep a server refusal's own reason; name a local failure by phase only."""
+    if isinstance(exc, MachinePlanCaseDispatchError):
+        code, message, recovery = exc.error_code, exc.reason, exc.recovery_hint
+    else:
+        code, message, recovery = host_control_failure(exc, phase=phase)
+    notes = "; ".join(getattr(exc, "__notes__", ()))
+    return MachinePlanCaseDispatchError(
+        f"{message}; {notes}" if notes else message,
+        error_code=code,
+        recovery_hint=recovery,
+    )
 
 
 def _waiting_case(
@@ -189,16 +204,7 @@ def execute_plan_machine_case(
         from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
 
         uncertain = communication_unknown(exc) is not None
-        code, message, recovery = host_control_failure(
-            exc,
-            phase="plan_case_local_execution",
-        )
-        notes = "; ".join(getattr(exc, "__notes__", ()))
-        raise MachinePlanCaseDispatchError(
-            f"{message}; {notes}" if notes else message,
-            error_code=code,
-            recovery_hint=recovery,
-        ) from exc
+        raise _case_failure(exc, phase="plan_case_local_execution") from exc
     finally:
         if submission is not None and not uncertain:
             submission.cleanup_artifacts()
@@ -321,15 +327,7 @@ def execute_plan_agent_mission_case(
             payload={**request, **prepared},
         )
     except Exception as exc:
-        code, message, recovery = host_control_failure(
-            exc,
-            phase="agent_mission_preparation",
-        )
-        raise MachinePlanCaseDispatchError(
-            message,
-            error_code=code,
-            recovery_hint=recovery,
-        ) from exc
+        raise _case_failure(exc, phase="agent_mission_preparation") from exc
     result = submitted.get("result")
     if not isinstance(result, dict) or (
         int(result.get("requirement_id") or 0) != requirement_id
