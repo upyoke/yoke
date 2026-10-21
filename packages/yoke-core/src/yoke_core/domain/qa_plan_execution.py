@@ -68,6 +68,7 @@ def execute_plan(
         deployment_member=deployment_member,
         plan=plan,
         project=project,
+        **({"requirement_id": requirement_id} if requirement_id is not None else {}),
     )
     resolved_actor = execution_actor(actor)
     begin_payload.update(
