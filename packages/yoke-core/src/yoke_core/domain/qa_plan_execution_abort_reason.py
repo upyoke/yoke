@@ -12,6 +12,7 @@ that gained a diagnosis from silently reading as unrecognized.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 ABORT_REASON_MAX_LENGTH = 200
@@ -29,11 +30,34 @@ CASE_FAILED_REASON = "qa-plan-case-failed"
 MEMBER_REMOVED_REASON = "deployment-member-removed"
 #: Separates the code a reason opens with from the diagnosis behind it.
 REASON_DETAIL_SEPARATOR = ": "
+#: A diagnosis opens with the raised error's own code, as ``[error_code]``.
+_ERROR_CODE = re.compile(r"\[([\w.:-]+)\]")
 
 
 def abort_reason_code(reason: Any) -> str:
     """Return the stable code a recorded abort reason opens with."""
     return str(reason or "").split(REASON_DETAIL_SEPARATOR, 1)[0]
+
+
+def error_abort_reason(code: str, error: BaseException) -> str:
+    """Join *code*, the error's own ``error_code`` when it has one, and its text.
+
+    The error code rides inside the reason the abort payload already
+    carries, so every serving build accepts it unchanged.
+    """
+    error_code = getattr(error, "error_code", None)
+    detail = " ".join(str(error).split())
+    if error_code:
+        detail = f"[{error_code}] {detail}".rstrip()
+    reason = f"{code}{REASON_DETAIL_SEPARATOR}{detail}" if detail else code
+    return reason[:ABORT_REASON_MAX_LENGTH]
+
+
+def abort_reason_error_code(reason: Any) -> str:
+    """Return the raised error's code a reason carries, else the reason's code."""
+    _code, _, detail = str(reason or "").partition(REASON_DETAIL_SEPARATOR)
+    match = _ERROR_CODE.match(detail)
+    return match.group(1) if match else abort_reason_code(reason)
 
 
 def member_removed(execution: Any) -> bool:
@@ -88,7 +112,9 @@ __all__ = [
     "REASON_DETAIL_SEPARATOR",
     "UNUSABLE_BEGIN_REASON",
     "abort_reason_code",
+    "abort_reason_error_code",
     "case_failed_reason",
+    "error_abort_reason",
     "member_removal_pending",
     "member_removed",
 ]
