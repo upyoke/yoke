@@ -1,0 +1,11 @@
+{
+ "id": "setup-stop",
+ "title": "A mission stops before product proof",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A prerequisite blocks a mission before it captures product proof.",
+ "need": "Attach blocker evidence as diagnostic, finish walk-end and abort with blocked_on_precondition plus the prerequisite and recovery. Diagnostics and restore receipts alone settle as mission_setup_blocked/error without human review. Resolve the prerequisite before a fresh run.",
+ "disclosure": "current cue",
+ "surface": "Mission stop guidance and QA Walker",
+ "sources": ["runtime/agents/qa-walker.md", "packages/yoke-core/src/yoke_core/domain/qa_mission_stop_settlement.py", "runtime/api/domain/test_qa_mission_stop_settlement.py"]
+}

@@ -3,7 +3,7 @@
 A stage-wide roster (a deployment stage without a member) splits into machine
 groups, and each session walks its own live execution over disjoint groups.
 A requirement frozen into another session's live roster is held: a begin
-skips its group and waits only when every owed requirement is held. An
+skips its group and waits when no ordered case can start. An
 abandoned holder holds nothing; begin aborts it under the run lock before it
 freezes a roster over the same requirements.
 """
@@ -25,14 +25,14 @@ from yoke_core.domain.qa_plan_execution_store import (
 
 
 class StageRosterHeld(QaPlanExecutionStateError):
-    """Every requirement this begin owes is in another session's live roster."""
+    """Another live roster holds cases that must settle before more work starts."""
 
     def __init__(self, execution: dict[str, Any]) -> None:
         self.execution = execution
         super().__init__(
             f"stage_roster_held: live QA plan execution {execution['id']} of "
-            f"session {execution['session_id']} holds every requirement this "
-            "stage still owes here. Keep the work claim, park, and rerun the "
+            f"session {execution['session_id']} holds cases this "
+            "stage must settle before more work can start. Keep the work claim, park, and rerun the "
             "same scoped QA command after that execution settles."
         )
 

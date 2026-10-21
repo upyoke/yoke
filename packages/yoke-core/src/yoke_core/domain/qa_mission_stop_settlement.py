@@ -95,7 +95,7 @@ def settle_stopped_mission_dockets(
 def stopped_mission_guidance(subject_flag: str, execution_id: str) -> str:
     """Teach the same terminal recovery where mission owners choose a verdict."""
     return (
-        "If setup stops a mission before product proof, finish walk-end "
+        "If setup stops a mission before product proof, attach blocker evidence as `diagnostic`, finish walk-end "
         "and abort this execution with `yoke qa plan abort "
         f"{subject_flag} --execution-id {execution_id} --reason "
         "'blocked_on_precondition: <prerequisite and recovery>'` "

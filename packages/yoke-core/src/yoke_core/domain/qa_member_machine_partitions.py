@@ -44,7 +44,8 @@ def member_machine_partition(
     A stage-wide roster's groups run concurrently, one live execution per
     session: a group holding a requirement another session's live roster
     holds is claimed, and :class:`StageRosterHeld` refuses when no owed
-    group is free.
+    group is free. Cases from one plan keep their position order across
+    groups; unrelated plans can still run concurrently.
     """
 
     from yoke_core.domain.qa_plan_chain_hosts import chain_host_groups
@@ -179,7 +180,17 @@ def member_machine_partition(
             deployment_stage=deployment_stage,
         )
     claimed = {host_group(row) for row in roster if int(row["requirement_id"]) in held}
-    free = [row for row in pending if host_group(row) not in claimed]
+    free = [
+        row
+        for row in pending
+        if host_group(row) not in claimed
+        and not any(
+            earlier["plan_id"] == row["plan_id"]
+            and earlier["case_position"] < row["case_position"]
+            and host_group(earlier) != host_group(row)
+            for earlier in pending
+        )
+    ]
     if held and not free:
         raise StageRosterHeld(next(iter(held.values())))
     selected_hosts = next(

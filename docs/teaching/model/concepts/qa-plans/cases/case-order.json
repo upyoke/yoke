@@ -1,7 +1,8 @@
 {
  "id": "case-order",
  "title": "Case order",
- "status": "draft-copy",
+ "status": "observed",
  "page": "qa-cases",
- "position": 5
+ "position": 5,
+ "summary": "Pending cases keep plan position order across machine groups; unrelated plans may run concurrently. A later group waits until earlier cases on other groups settle."
 }
