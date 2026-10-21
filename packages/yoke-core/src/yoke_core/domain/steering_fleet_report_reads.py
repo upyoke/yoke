@@ -160,8 +160,10 @@ def read_project_facts(
         ),
     )
     inventory = request.include_inventory
-    # One evaluation of the waiting graph feeds both dependency sections.
-    live = live_blocking_edges(conn)
+    # One evaluation of the waiting graph feeds both dependency sections of
+    # every scope: it spans all projects, because a chain or loop that
+    # crosses projects is one chain to each project it touches.
+    live = request.cached(("live_blocking_edges",), lambda: live_blocking_edges(conn))
     work = (
         reused_scope_work(conn, project_id=project_id, session_id=session_id)
         if request.reuse_schedule

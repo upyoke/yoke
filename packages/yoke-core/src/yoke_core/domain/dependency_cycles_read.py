@@ -4,8 +4,8 @@ Satisfaction is decided by the shared dependency kernel
 (:func:`evaluate_batch_gates`). An edge counts while it is unsatisfied and
 its dependent is not terminal: a finished or abandoned item has nothing left
 to hold back, and a loop through one is a blocker that will never clear, not
-a deadlock. Each read evaluates every gate once and can hand the caller the
-evaluation it already holds.
+a deadlock. Each read evaluates every gate once, over live dependents only,
+and can hand the caller the evaluation it already holds.
 """
 
 from __future__ import annotations
@@ -97,7 +97,8 @@ def live_blocking_edges(
     """Every unsatisfied blocking edge whose dependent is not terminal.
 
     ``gate_blocks`` maps each gate point to an evaluation the caller already
-    holds; a missing gate is evaluated here. An edge whose blocker no longer
+    holds, which must cover every live dependent; a missing gate is evaluated
+    here over live dependents only. An edge whose blocker no longer
     resolves to an item is kept with ``blocker`` unset.
     """
     pending: List[tuple[str, BlockerDetail]] = []
@@ -105,7 +106,7 @@ def live_blocking_edges(
         blocks = (gate_blocks or {}).get(gate_point)
         if blocks is None:
             blocks = evaluate_batch_gates(
-                conn, gate_point=gate_point, emit_events=False
+                conn, gate_point=gate_point, emit_events=False, live_dependents=True
             )
         for dependent_ref in sorted(blocks):
             pending.extend((dependent_ref, detail) for detail in blocks[dependent_ref])
