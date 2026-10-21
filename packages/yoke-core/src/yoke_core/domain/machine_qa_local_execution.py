@@ -291,8 +291,9 @@ def execute_agent_mission_host_command(
     timeout_seconds: int,
 ) -> dict[str, Any]:
     """Run one lease-authorized walker command and return redacted output."""
-    contract = HostControlExecutionContract.model_validate(raw_contract)
-    if contract.operation != "host_command":
+    if raw_contract.get("operation") == "host_command":
+        contract = HostControlExecutionContract.model_validate(raw_contract)
+    else:
         contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     from yoke_harness.qa_host_package_fixture import record_host_packages
@@ -306,7 +307,7 @@ def execute_agent_mission_host_command(
     finally:
         packages = (
             record_host_packages(execution.control)
-            if contract.cases and _mission_manages_packages(contract)
+            if _mission_manages_packages(contract)
             else {}
         )
     context_failure = (
