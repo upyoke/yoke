@@ -218,21 +218,27 @@ def notify_items_qa_accepted(
 ) -> None:
     """:func:`notify_item_qa_accepted` for a dispatch's accepted members.
 
-    Routes are read once for the batch, after the acceptances were written
-    and before any close-out writes, instead of one run-wide read per
-    member. Each member's close-out or notice commits on its own.
+    Routes are read in one fresh pass after the acceptances were written,
+    instead of one run-wide read per member. A close-out changes run state
+    a later member's route reads, so the remaining routes are read again
+    after each one; a notice changes nothing a route reads. Each member's
+    close-out or notice commits on its own.
     """
     now = parse_instant(utc_now() if now is None else now)
     if not run_id or not item_ids:
         return
     _withdraw_waits(conn, run_id=str(run_id), item_ids=item_ids, now=now)
     conn.commit()
-    routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=item_ids)
-    for item_id in item_ids:
-        _close_or_notify(
+    pending = tuple(int(item_id) for item_id in item_ids)
+    routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=pending)
+    for index, item_id in enumerate(pending):
+        outcome = _close_or_notify(
             conn, run_id=str(run_id), item_id=item_id, route=routes[item_id], now=now
         )
         conn.commit()
+        rest = pending[index + 1 :]
+        if outcome == "closed" and rest:
+            routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=rest)
 
 
 def _close_or_notify(
