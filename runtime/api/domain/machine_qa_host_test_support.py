@@ -127,7 +127,7 @@ def configure_test_machine(
     )
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",
-        lambda: OpenFixtureConnection(conn),
+        lambda *_args, **_kwargs: OpenFixtureConnection(conn),
     )
 
 

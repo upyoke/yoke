@@ -10,10 +10,12 @@ from yoke_core.domain.handlers import machine_qa_plan_case as _plan_case
 from yoke_core.domain.handlers import machine_qa_operation as _operation
 from yoke_contracts.machine_qa_execution import TEST_MACHINE_OPERATIONS
 from yoke_core.domain import agent_mission_recording as _agent_mission
+from yoke_core.domain import agent_mission_project_disposal as _project_disposal
 
 
 def register(registry) -> None:
     _agent_mission.register(registry)
+    _project_disposal.register(registry)
     registry.register(
         "test_machine.plan_case.begin",
         _plan_case.handle_plan_case_begin,

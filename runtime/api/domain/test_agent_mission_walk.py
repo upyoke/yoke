@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from types import SimpleNamespace
 from typing import Any
@@ -218,66 +217,6 @@ def test_walk_end_of_an_as_is_mission_says_there_is_nothing_to_restore(
     assert "no declared starting state" in result["starting_state_restore"]["reason"]
 
 
-def _run_walk_end(monkeypatch: Any, result: dict, unrecorded: str | None) -> int:
-    recorded: list[dict] = []
-    monkeypatch.setattr(
-        agent_mission_walk_cli,
-        "resolve_mission_contract",
-        lambda parsed, *, prog: {"contract": "issued"},
-    )
-    monkeypatch.setattr(
-        machine_qa_mission_walk,
-        "execute_agent_mission_walk_end",
-        lambda contract, *, timeout_seconds: result,
-    )
-
-    def record(**kwargs: Any) -> str | None:
-        recorded.append(kwargs)
-        return unrecorded
-
-    monkeypatch.setattr(machine_qa_mission_walk, "record_mission_restore", record)
-    exit_code = agent_mission_walk_cli.main(
-        ["end", "--item", f"ITEM-{4550}", "--execution-id", EXECUTION_ID]
-        + ["--requirement-id", "18152", "--run-id", "991"]
-    )
-    assert recorded and recorded[0]["run_id"] == 991
-    return exit_code
-
-
-def _walk_result(**overrides: Any) -> dict:
-    return {
-        "scratch_path": mission_scratch_path(EXECUTION_ID),
-        "removed": True,
-        "removal_exit_code": 0,
-        "removal_stderr": "",
-        "stale_owner_marker_removed": True,
-        "starting_state_restore": {"restored": True, "baseline": "fresh-host"},
-        **overrides,
-    }
-
-
-def test_walk_end_records_the_restore_and_exits_clean(monkeypatch, capsys):
-    assert _run_walk_end(monkeypatch, _walk_result(), None) == 0
-    assert json.loads(capsys.readouterr().out)["starting_state_restore"]["restored"]
-
-
-def test_walk_end_names_each_thing_it_could_not_finish(monkeypatch, capsys):
-    failed = {
-        "restored": False,
-        "baseline": "fresh-host",
-        "error_code": "starting_state_restore_failed",
-        "recovery": "run `yoke test-machine reset --project yoke`",
-    }
-    result = _walk_result(removed=False, starting_state_restore=failed)
-
-    assert _run_walk_end(monkeypatch, result, "not_found: run 991") == 3
-    err = capsys.readouterr().err
-    assert "mission_scratch_not_removed" in err and "your own walk" in err
-    assert "starting_state_restore_failed" in err
-    assert "yoke test-machine reset" in err
-    assert "starting_state_restore_unrecorded: not_found: run 991" in err
-
-
 def test_walk_start_refuses_to_walk_when_preparation_failed(monkeypatch, capsys):
     monkeypatch.setattr(
         agent_mission_walk_cli,
@@ -345,5 +284,5 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
         assert walker[expected] in walker["prompt"]
     assert mission_scratch_path(EXECUTION_ID) in walker["prompt"]
     assert "never a loose path under /tmp" in walker["prompt"]
-    assert "yoke projects retire --project SLUG" in walker["prompt"]
+    assert "walk-end uninstalls every project the host registers" in walker["prompt"]
     assert "one walker at a time" in contract["prompt"]

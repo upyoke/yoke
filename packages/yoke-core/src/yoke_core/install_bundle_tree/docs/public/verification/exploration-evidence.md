@@ -99,10 +99,28 @@ scratch, records starting-state restore, releases its cleanup lease and settles
 a pending abort with the run status in the release reason. Other sessions
 cannot take over this cleanup path.
 
-The lease holder owns every Yoke project it creates: it appends each slug to
-the item's Progress Log as created, so a replacement can finish the cleanup,
-and before returning retires each with its own control-plane CLI (`yoke
-projects retire --project SLUG --reason ...`), never Yoke on the Test Machine.
+A walk creates Yoke projects only by installing them on the Test Machine, and
+`walk-end` disposes of them on a finished or aborted walk, before it removes
+scratch, restores the host or releases a cleanup lease. It reads the host's
+`~/.yoke/config.json`, force-removes each mapped checkout's linked worktrees
+and runs `yoke project uninstall` there. Then
+`test_machine.mission.dispose_projects`, which refuses an ended execution,
+records an intent receipt naming every candidate, keeps only projects created
+while the execution was live that the walking actor administers, releases
+their claims, cancels their open items, retires them and records the result.
+Both receipts are `fixture_project_disposal` artifacts on the run, so a rerun
+after the restore still reaches the candidates. Any other project is left
+untouched. A blocker exits non-zero with `fixture_projects_unreadable`,
+`fixture_project_uninstall_failed`, `fixture_project_not_disposed` or
+`fixture_project_disposal_failed`; resolve it and rerun `walk-end`. Without a
+recorded receipt the host stays unrestored, and an aborted walk keeps its
+cleanup lease (`mission_cleanup_deferred`) until disposal settles; that
+message names the `yoke claims work release --claim-id <lease>` command that
+gives up the host and aborts the execution when the blocker cannot be
+resolved. An id this control plane lacks settles as `not_found`. A project the
+walking actor does not administer settles too: walk-end names it in
+`fixture_project_left_for_administrator` with the `yoke projects retire`
+command an administrator runs.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

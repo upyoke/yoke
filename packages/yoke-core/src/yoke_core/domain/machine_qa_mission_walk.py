@@ -4,8 +4,10 @@ A mission is walked after its plan's other cases have run, so the Test
 Machine it needs is put in place when the walk begins, not when the plan
 recorded its docket: ``walk-start`` resets to the mission's declared
 baseline, restores its declared OS packages and stages its scratch.
-``walk-end`` removes the scratch and restores the declared baseline, and
-records that restore on the mission's run.
+``walk-end`` first uninstalls every Yoke project the walk registered on the
+host (the control plane disposes of them before anything is restored), then
+removes the scratch, restores the declared baseline, and records that
+restore on the mission's run.
 """
 
 from __future__ import annotations
@@ -20,6 +22,10 @@ from yoke_core.domain.machine_qa_chain_restore import (
     STARTING_STATE_RESTORE,
     restore_chain_start,
 )
+from yoke_core.domain.machine_qa_fixture_projects import (
+    FixtureProjectDiscoveryError,
+    uninstall_host_projects,
+)
 from yoke_core.domain.machine_qa_local_execution import _execution, _mission_contract
 from yoke_core.domain.machine_qa_mission_scratch import (
     create_mission_scratch,
@@ -27,6 +33,8 @@ from yoke_core.domain.machine_qa_mission_scratch import (
 )
 from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
+
+FIXTURE_PROJECTS = "fixture_projects"
 
 
 def execute_agent_mission_walk_start(raw_contract: dict[str, Any]) -> dict[str, Any]:
@@ -36,6 +44,30 @@ def execute_agent_mission_walk_start(raw_contract: dict[str, Any]) -> dict[str, 
         execution_factory=_execution,
         scratch_factory=create_mission_scratch,
     )
+
+
+def execute_agent_mission_project_uninstall(
+    raw_contract: dict[str, Any],
+    *,
+    timeout_seconds: int = 60,
+) -> dict[str, Any]:
+    """Uninstall every project the host registers, before any restore."""
+    contract = _mission_contract(raw_contract)
+    execution = _execution(contract)
+    try:
+        fixture_projects = {
+            "host_projects": uninstall_host_projects(
+                execution.control, timeout_seconds=timeout_seconds
+            ),
+            "error": None,
+        }
+    except FixtureProjectDiscoveryError as exc:
+        fixture_projects = {"host_projects": [], "error": str(exc)}
+    redacted = redact_machine_qa_value(
+        fixture_projects, tuple(execution.material.secrets.values())
+    )
+    ensure_secret_free_result(redacted)
+    return redacted
 
 
 def execute_agent_mission_walk_end(
@@ -106,6 +138,8 @@ def record_mission_restore(
 
 
 __all__ = [
+    "FIXTURE_PROJECTS",
+    "execute_agent_mission_project_uninstall",
     "mission_walk_unfinished",
     "execute_agent_mission_walk_end",
     "execute_agent_mission_walk_start",
