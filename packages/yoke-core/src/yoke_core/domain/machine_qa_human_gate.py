@@ -88,7 +88,7 @@ def run_human_action_gate_with_io(
         action=action,
         progress_callback=progress_callback,
         evidence=evidence,
-        code=None,
+        scope_after=None,
         timeout_recovery=(
             f"Nobody finished the password entry for step {step} within "
             f"{timeout_seconds} seconds. Rerun the case when the person is "

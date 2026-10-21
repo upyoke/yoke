@@ -269,10 +269,14 @@ def await_gate_completion(
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     evidence: dict[str, Any],
-    code: str | None,
+    scope_after: str | None,
     timeout_recovery: str,
 ) -> OperatorGateResult:
-    """Read the terminal until the step completes, is denied, exits or expires."""
+    """Read the terminal until the step completes, is denied, exits or expires.
+
+    With *scope_after*, only text after its last occurrence counts, so output a
+    reused terminal kept from an earlier screen or case cannot complete the step.
+    """
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
     started = time.monotonic()
@@ -281,7 +285,9 @@ def await_gate_completion(
     while True:
         transcript = read_transcript()
         gate_transcript = (
-            current_gate_transcript(transcript, code) if code else transcript
+            current_gate_transcript(transcript, scope_after)
+            if scope_after
+            else transcript
         )
         now = time.monotonic()
         evidence["waited_seconds"] = int(now - started)

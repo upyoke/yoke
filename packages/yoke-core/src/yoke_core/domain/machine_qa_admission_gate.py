@@ -37,6 +37,8 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
 RunYoke = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 _MATCH_CODE = re.compile(MATCH_CODE_PATTERN)
 _OWNER_MODE = "self-hosted"
+# The wizard's invite prompt; the journey continues only after it.
+INVITE_PROMPT = "Enter invite code."
 _COMMAND_TIMEOUT_SECONDS = 120
 
 
@@ -157,10 +159,10 @@ def run_admission_gate_with_io(
         "timeout_seconds": int(float(action["gate_timeout_seconds"])),
     }
     transcript = read_transcript()
-    code: str | None = None
     if gate == ADMISSION_OWNER_APPROVAL:
-        code, failed = _approve_owner_code(transcript, evidence, run_yoke)
+        scope_after, failed = _approve_owner_code(transcript, evidence, run_yoke)
     else:
+        scope_after = INVITE_PROMPT
         failed = _enter_invite_code(transcript, evidence, run_yoke, send_keys)
     if failed is not None:
         return gate_exit_result(action, transcript, read_exit_code) or failed
@@ -178,7 +180,7 @@ def run_admission_gate_with_io(
         action=action,
         progress_callback=progress_callback,
         evidence=evidence,
-        code=code,
+        scope_after=scope_after,
         timeout_recovery=(
             "The journey did not continue after the owner's step. Read the "
             "transcript for where setup stopped, then rerun the case."
