@@ -40,6 +40,7 @@
           "required_status_checks": [
             {"context": "repo-contracts"},
             {"context": "reuse-coverage"},
+            {"context": "product_wheels"},
             {"context": "build"},
             {"context": "attest-validated-release-provenance"},
             {"context": "container"},
