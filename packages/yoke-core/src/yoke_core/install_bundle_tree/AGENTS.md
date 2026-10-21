@@ -35,8 +35,8 @@ Each message to the user is one or two sentences unless they ask for more. Write
   Update the surface that owns a changed behavior; delete text the change makes wrong.
 - Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case owns the
   full run.
-- A verification failure in this item belongs to this item. Never edit or weaken an unchanged
-  consumer test that fails against new producer code; route it to the producer.
+- A verification failure in this item belongs to this item.
+  Update a test this item's change made stale; never weaken a behavior assertion to pass.
 - Never discard changes, stashes or files without user authority.
 - Write items only through typed `yoke` item commands. Never hand-edit generated views.
 - File bugs through `/yoke idea` or a field note. Find the root cause; describe a failure as a
