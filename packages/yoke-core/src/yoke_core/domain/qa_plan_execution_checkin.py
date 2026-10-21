@@ -40,16 +40,35 @@ def communication_unknown(error):
     return None
 
 
+class QaPlanStopRequested(QaPlanExecutionError):
+    """A recorded stop request: the walk stops and its runner settles it."""
+
+
+def checkin_refused(error):
+    """Whether a check-in refusal ends the walk without aborting it.
+
+    A recorded stop is not a refusal: the runner aborts the execution so the
+    request settles instead of leaving it live.
+    """
+    return isinstance(error, QaPlanExecutionError) and not isinstance(
+        error, QaPlanStopRequested
+    )
+
+
 def stop_if_told(checked, execution):
     """Stop the walk when its check-in says the walk must not go on.
 
-    An operator abort stops it outright. A moved roster digest means a case
-    this walk has not reached was corrected after it began; the copy this
-    walker holds is stale, and resuming reads the corrected one.
+    A recorded stop -- the owner's host abort, a steering seat's stop, or a
+    member removal -- stops it outright, and the runner then aborts the
+    execution itself so its host is cleaned up and the execution settles. A
+    moved roster digest means a case this walk has not reached was corrected
+    after it began; the copy this walker holds is stale, and resuming reads
+    the corrected one.
     """
     if checked.get("abort_requested"):
-        raise QaPlanExecutionError(
-            "qa_host_abort_requested: stop this walk; inspect restore evidence and retry abort"
+        raise QaPlanStopRequested(
+            "qa_stop_requested: a stop is recorded for this execution; this walk "
+            "stopped and aborts it under the recorded reason"
         )
     current = checked.get("roster_digest")
     if current and current != execution.get("roster_digest"):

@@ -60,6 +60,8 @@ class PlanExecutionStateResponse(BaseModel):
     results: list[dict[str, Any]]
     #: Absent from servers that only accept results at the cursor.
     host_free_cases_ahead: bool = False
+    #: Present when a steering seat's abort recorded a stop for the runner.
+    stop_request: dict[str, Any] | None = None
 
 
 class SharedExecutionWaitResponse(BaseModel):

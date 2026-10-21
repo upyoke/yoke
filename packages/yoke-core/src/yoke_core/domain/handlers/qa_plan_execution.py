@@ -13,7 +13,6 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
-from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
 from yoke_core.domain.handlers.qa_plan_execution_models import (
     PlanExecutionBeginRequest,
     PlanExecutionStateRequest,
@@ -160,7 +159,7 @@ def _owned_execution(
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_execution_state import (
         lock_plan_execution,
-        require_plan_execution_abandon_authority,
+        plan_execution_abort_authority,
         require_plan_execution_owner,
     )
 
@@ -184,7 +183,7 @@ def _owned_execution(
             "session_id": request.actor.session_id,
         }
         if abandoning:
-            require_plan_execution_abandon_authority(conn, execution, **subject)
+            plan_execution_abort_authority(conn, execution, **subject)
         else:
             require_plan_execution_owner(
                 execution,
@@ -301,18 +300,21 @@ def _finish_execution(
             finish_plan_execution,
             plan_execution_view,
         )
+        from yoke_core.domain.qa_plan_execution_stop import stop_plan_execution
 
-        reason = (
-            "qa-plan-execution-complete" if complete else str(getattr(parsed, "reason"))
-        )
-        finish_plan_execution(
-            conn,
-            execution,
-            state="completed" if complete else "aborted",
-            reason=reason if complete else abort_reason(conn, execution, reason),
-        )
-        result = plan_execution_view(conn, execution)
-        result["release_reason"] = execution.get("release_reason")
+        if complete:
+            finish_plan_execution(
+                conn, execution, state="completed", reason="qa-plan-execution-complete"
+            )
+            result = plan_execution_view(conn, execution)
+        else:
+            result = stop_plan_execution(
+                conn,
+                execution,
+                actor_id=request.actor.actor_id,
+                session_id=request.actor.session_id,
+                reason=str(getattr(parsed, "reason")),
+            )
     except ValueError as exc:
         conn.rollback()
         return _error("plan_execution_finish_failed", str(exc), "$.payload")

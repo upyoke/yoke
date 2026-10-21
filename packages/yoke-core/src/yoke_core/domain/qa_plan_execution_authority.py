@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
-from typing import Any, Mapping
+from typing import Any, Mapping, NoReturn
 
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
@@ -48,7 +48,7 @@ def require_member_attached(conn: Any, run_id: str | None, member: int | None) -
         )
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 
     raise QaPlanExecutionStateError(message)
@@ -206,7 +206,7 @@ def require_plan_execution_owner(
             _fail(str(exc))
 
 
-def require_plan_execution_abandon_authority(
+def plan_execution_abort_authority(
     conn: Any,
     execution: Mapping[str, Any],
     *,
@@ -215,17 +215,20 @@ def require_plan_execution_abandon_authority(
     actor_id: str | None,
     session_id: str,
     now: datetime | None = None,
-) -> None:
-    """Let any caller on the subject abandon an execution nobody is holding.
+) -> str:
+    """Name how this caller may stop an execution, or refuse.
 
-    Running an execution stays bound to the session that owns it. Abandoning
-    one is the opposite need: the session that owned a stranded execution is
-    by definition the session that is no longer there, so requiring it leaves
-    the row unsettleable by every registered surface. An execution that is
-    still reporting progress -- or whose owner parked it on instruction --
-    keeps its owner-only guard.
+    ``owner``: the owning session stops its own walk. ``abandon``: nobody is
+    holding the execution any more -- its owner stopped heartbeating and did
+    not park -- so any caller on the subject may settle it. ``steering``: a
+    live steering seat stops a walk another session still drives; the stop
+    goes through the runner, which cleans up its host and settles it.
     """
     from yoke_core.domain.qa_plan_execution_store import same_owner
+    from yoke_core.domain.qa_plan_execution_stop import (
+        execution_project_id,
+        steering_seat_covers,
+    )
 
     require_plan_execution_subject(
         execution,
@@ -233,30 +236,39 @@ def require_plan_execution_abandon_authority(
         deployment_run_id=deployment_run_id,
     )
     if same_owner(execution, actor_id=actor_id, session_id=session_id):
-        return
-    if owning_session_is_parked(conn, execution):
-        _fail(
-            "QA plan execution belongs to session "
-            f"{str(execution.get('session_id') or '')!r}, which is parked and "
-            "still holding this walk; abandoning it is not open to another "
-            "session. Ask that session to unpark and finish or abort its own "
-            "execution, or end it, then retry"
-        )
-    if not plan_execution_is_stale(execution, now=now):
-        _fail(
-            "QA plan execution is still reporting progress and belongs to a "
-            "different actor or session; abandoning it is only open to another "
-            "session once it has stopped heartbeating for "
-            f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes"
-        )
+        return "owner"
+    parked = owning_session_is_parked(conn, execution)
+    if not parked and plan_execution_is_stale(execution, now=now):
+        return "abandon"
+    if steering_seat_covers(conn, execution, session_id=session_id):
+        return "steering"
+    from yoke_core.domain.session_steering_authority import steering_authority_message
+
+    holding = (
+        "is parked and still holding this walk"
+        if parked
+        else "is still reporting progress"
+    )
+    _fail(
+        "qa_execution_stop_requires_steering: QA plan execution "
+        f"{execution.get('id')} belongs to session "
+        f"{str(execution.get('session_id') or '')!r}, which {holding}. Stopping "
+        "it from another session "
+        f"{steering_authority_message(execution_project_id(conn, execution))} "
+        "Then rerun this abort: it records a stop that the owning runner obeys "
+        "at its next case or heartbeat. Without a seat, ask the owning session "
+        "to abort its own execution; any session may abandon it after "
+        f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes without a heartbeat "
+        "unless its owner is parked"
+    )
 
 
 __all__ = [
     "PLAN_EXECUTION_STALE_SECONDS",
     "owning_session_is_parked",
+    "plan_execution_abort_authority",
     "plan_execution_is_abandoned",
     "plan_execution_is_stale",
-    "require_plan_execution_abandon_authority",
     "require_plan_execution_owner",
     "require_plan_execution_subject",
 ]

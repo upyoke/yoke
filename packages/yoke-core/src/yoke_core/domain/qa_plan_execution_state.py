@@ -8,7 +8,7 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import (
     PLAN_EXECUTION_STALE_SECONDS,
-    require_plan_execution_abandon_authority,
+    plan_execution_abort_authority,
     require_plan_execution_owner,
 )
 from yoke_core.domain.qa_plan_execution_continuation import skips_host_baseline
@@ -147,9 +147,9 @@ __all__ = [
     "finish_plan_execution",
     "heartbeat_plan_execution",
     "lock_plan_execution",
+    "plan_execution_abort_authority",
     "plan_execution_view",
     "reap_stale_plan_executions",
-    "require_plan_execution_abandon_authority",
     "require_plan_execution_owner",
     "select_plan_execution",
     "set_plan_machine_lease",

@@ -22,8 +22,24 @@ REASON_HELP = (
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan abort",
-        description="Stop an ordered QA execution. In-flight host work retains custody until restore proof is recorded.",
-        epilog="qa_abort_restore_pending means cancellation is recorded: keep the runner connected through cleanup, then retry. Failed restoration retains the lease and names operator recovery. See yoke qa plan run --help.",
+        description=(
+            "Stop an ordered QA execution. In-flight host work retains custody "
+            "until restore proof is recorded. The owner stops its own execution. "
+            "A live steering seat stops another session's live execution: the "
+            "receipt reads outcome stop_requested, and the owner's runner stops "
+            "at its next case or heartbeat, cleans up its host and settles it. "
+            "Any session may abandon an execution whose owner has not "
+            "heartbeated for 30 minutes and is not parked."
+        ),
+        epilog=(
+            "qa_abort_restore_pending means cancellation is recorded: keep the "
+            "runner connected through cleanup, then retry. Failed restoration "
+            "retains the lease and names operator recovery. "
+            "qa_execution_stop_requires_steering means another session still "
+            "drives the walk: acquire a steering seat with yoke claims steering "
+            "acquire --project P --reason TEXT and rerun, or ask the owner. "
+            "See yoke qa plan run --help."
+        ),
     )
     subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
@@ -87,6 +103,8 @@ def run(args: List[str]) -> int:
     }
     if result.get("standalone_plan_id") is not None:
         receipt["standalone_plan_id"] = result["standalone_plan_id"]
+    if result.get("stop_request") is not None:
+        receipt["stop_request"] = result["stop_request"]
     print(dumps_compact(receipt))
     return 0
 

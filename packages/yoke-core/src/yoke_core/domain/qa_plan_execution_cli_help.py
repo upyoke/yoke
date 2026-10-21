@@ -166,6 +166,10 @@ Stopping a host case
 --reason holds at most 200 characters: a code and a short diagnosis. Put the
 full rationale in the Progress Log or an artifact and cite it.
 
+Another session's live execution stops only from a live steering seat. The
+abort then records a stop request (receipt stop_request) and the owning runner
+stops at its next case check-in or host heartbeat, cleans up and settles it.
+
 An in-flight host abort records cancellation and returns qa_abort_restore_pending
 while custody remains held. Keep the runner connected: it stops between steps,
 finishes cleanup, restores the declared starting baseline and records proof.
