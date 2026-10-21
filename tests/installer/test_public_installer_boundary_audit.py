@@ -156,7 +156,8 @@ def test_product_boundary_audit_rejects_source_dev_authority() -> None:
         raise AssertionError("expected product-boundary audit failure")
 
 
-def test_advise_path_points_at_uv_shell_setup() -> None:
+def test_advise_path_points_at_uv_shell_setup(monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/bin:/bin")
     installer_mod = load_installer()
     output = io.StringIO()
     installer = installer_mod.Installer(
@@ -165,6 +166,6 @@ def test_advise_path_points_at_uv_shell_setup() -> None:
         stdout=output,
     )
 
-    installer._advise_path()
+    installer._advise_path("/tmp/bin/yoke")
 
     assert "uv tool update-shell" in output.getvalue()

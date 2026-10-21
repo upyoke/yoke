@@ -110,9 +110,9 @@ def test_helper_does_not_probe_local_core_runtime() -> None:
         return f"/bin/{name}"
 
     installer = installer_mod.Installer(options(installer_mod), which=which)
-    installer._advise_path()
+    installer._advise_path("/bin/yoke")
 
-    assert checked == ["yoke"]
+    assert checked == []
     shim = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
     assert "docker" not in shim
     assert "colima" not in shim

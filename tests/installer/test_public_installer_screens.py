@@ -63,38 +63,6 @@ def _installed_yoke_path(tmp_path: Path, monkeypatch) -> str:
     return str(yoke_bin)
 
 
-def test_advise_path_silent_when_yoke_on_path() -> None:
-    # When yoke is already on PATH for this process, the path advice stays
-    # silent — the setup that follows implies it.
-    installer_mod = load_installer()
-    output = io.StringIO()
-    installer = installer_mod.Installer(
-        _options(installer_mod),
-        which=lambda name: f"/usr/bin/{name}",
-        stdout=output,
-    )
-
-    installer._advise_path()
-
-    assert output.getvalue() == ""
-
-
-def test_advise_path_uses_absolute_remediation_when_off_path() -> None:
-    # Skipping PATH prints an absolute-path remediation that works without
-    # yoke on PATH yet.
-    installer_mod = load_installer()
-    output = io.StringIO()
-    installer = installer_mod.Installer(
-        _options(installer_mod),
-        which=lambda name: None,
-        stdout=output,
-    )
-
-    installer._advise_path()
-
-    assert "uv tool update-shell" in output.getvalue()
-
-
 def test_display_version_normalizes_dev_build() -> None:
     installer_mod = load_installer()
     assert installer_mod._display_version("0.1.1.dev16368+g8be5987c") == (

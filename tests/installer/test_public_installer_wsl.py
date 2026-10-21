@@ -27,7 +27,7 @@ def test_installer_runs_wsl_setup_before_ready(monkeypatch):
     monkeypatch.setattr(installer, "_product_boundary_audit", lambda **kw: None)
     monkeypatch.setattr(installer, "_repair_credential_helper", lambda binary: None)
     monkeypatch.setattr(installer, "_record_distribution", lambda binary: None)
-    monkeypatch.setattr(installer, "_advise_path", lambda: None)
+    monkeypatch.setattr(installer, "_advise_path", lambda yoke_bin: None)
     installer.run()
     assert ["/bin/yoke", "wsl", "setup"] in runner.commands
     assert "is ready" in output.getvalue()
@@ -90,7 +90,7 @@ def test_lifetime_warning_allows_installer_to_finish(monkeypatch, unavailable):
     monkeypatch.setattr(installer, "_product_boundary_audit", lambda **kw: None)
     monkeypatch.setattr(installer, "_repair_credential_helper", lambda binary: None)
     monkeypatch.setattr(installer, "_record_distribution", lambda binary: None)
-    monkeypatch.setattr(installer, "_advise_path", lambda: None)
+    monkeypatch.setattr(installer, "_advise_path", lambda yoke_bin: None)
     monkeypatch.setattr(wsl_systemd, "is_wsl", lambda: True)
     monkeypatch.setattr(wsl_systemd, "_setup_systemd", lambda **kw: "already_running")
     monkeypatch.setattr(
