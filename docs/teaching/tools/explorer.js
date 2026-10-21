@@ -24,7 +24,7 @@ function place(node, x, y, w, h, depth, color, focused = false) {
   const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
   const rows = Math.ceil(count / cols);
   const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
-  const top = focused ? Math.min(node.message_estimate ? 180 : 140, h * .4) : h * .25;
+  const top = focused ? 210 : h * .25;
   const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
   const ch = (h - top - inset - gap * (rows - 1)) / rows;
   node.children.forEach((child, i) => place(child,
@@ -228,6 +228,7 @@ function render() {
     const expanded = focus === node || (focus ? roomForChildren || (!child && s.w > 340 && s.h > 180)
       : camera.z > 1.4 && s.w > 620 && s.h > 370);
     el.classList.toggle('expanded', expanded);
+    el.classList.toggle('branches-visible', Boolean(expanded && roomForChildren && !node.reading));
     el.classList.toggle('tiny', s.w < 190 || s.h < 110);
     el.classList.toggle('selected', focus === node);
     el.classList.toggle('leaf', !node.children.length);
@@ -235,7 +236,7 @@ function render() {
     el.classList.toggle('compact', s.h < 185);
     el.style.setProperty('--head-size', `${Math.min(28, Math.max(12, s.w * .058))}px`);
     if (expanded && !node.children.length) fillDetail(node, el);
-    if (expanded && !node.reading) node.children.forEach(visit);
+    if (expanded && roomForChildren && !node.reading) node.children.forEach(visit);
   }
   (focus ? [focus] : roots).forEach(visit);
   for (const [id, el] of elements) if (!visible.has(id)) el.hidden = true;

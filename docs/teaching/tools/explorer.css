@@ -48,7 +48,7 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .preview-children span { font-size: 9px; color: #84907d; background: #f3f5ef; border-radius: 5px; padding: 4px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node.expanded { background: color-mix(in srgb, var(--accent) 3%, #fafbf6); box-shadow: none; padding: 22px; }
 .node.selected.expanded { border-color: transparent; background: #f7f8f4c9; border-radius: 16px; }
-.node.expanded > .count, .node.expanded > .preview-children { display: none; }
+.node.branches-visible > .count, .node.expanded > .preview-children { display: none; }
 .node.expanded > .node-head { max-height: 88px; overflow: hidden; }
 .node.expanded > .node-head h2 { font-size: clamp(15px, var(--head-size), 23px); }
 .node.selected > .node-head h2 { font-family: Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: -.8px; }
