@@ -79,7 +79,7 @@ Record the obligation before either side merges, and the merges carry it:
 2. Prepare the run:
 
    ```bash
-   yoke --env prod-db-admin deployment-runs start-for-item YOK-N --prepare
+   yoke --env prod deployment-runs start-for-item YOK-N --prepare
    ```
 
    The run is durable at `created`, names no lineage — the merge commit does
@@ -92,8 +92,11 @@ Record the obligation before either side merges, and the merges carry it:
 4. Execute the run you were handed. Nothing deploys until you do:
 
    ```bash
-   yoke --env prod-db-admin watch deploy -- RUN-ID
+   yoke --env prod watch deploy -- RUN-ID
    ```
+
+   A Production run replaces the API serving its own run, so `prod` refuses
+   it and names `prod-db-admin`, its only driver connection; rerun it there.
 
 Re-running `yoke merge item YOK-N` after any interruption is safe and is the
 recovery: continuation re-reads the run row and the dependency edges every

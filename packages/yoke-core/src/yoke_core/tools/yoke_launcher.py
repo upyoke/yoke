@@ -3,7 +3,9 @@
 
 Ordinary commands use the immutable released CLI launcher.
 YOKE_SOURCE_DEV=1 explicitly opts an operator into YOKE_HOME source imports;
-claimed-lane checks use ``yoke dev run`` instead.
+claimed-lane checks use ``yoke dev run`` instead. A ``deployment-runs create``
+through it is the declared creation bootstrap, so it keeps a ``*-db-admin``
+database door its https env would otherwise take over.
 """
 
 from __future__ import annotations
@@ -84,7 +86,25 @@ def main() -> int:
         )
         return 2
 
-    return int(cli_main(sys.argv[1:]) or 0)
+    argv = sys.argv[1:]
+    if _is_creation_bootstrap(argv):
+        from yoke_contracts.direct_database_access import (
+            CREATION_BOOTSTRAP_COMMAND,
+            direct_database_command,
+        )
+
+        with direct_database_command(CREATION_BOOTSTRAP_COMMAND):
+            return int(cli_main(argv) or 0)
+    return int(cli_main(argv) or 0)
+
+
+def _is_creation_bootstrap(argv: list[str]) -> bool:
+    """Whether *argv* is ``deployment-runs create``, the one bootstrap here."""
+    words = [arg for arg in argv if not arg.startswith("-")]
+    return any(
+        words[index : index + 2] == ["deployment-runs", "create"]
+        for index in range(len(words))
+    )
 
 
 if __name__ == "__main__":

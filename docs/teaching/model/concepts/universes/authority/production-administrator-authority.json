@@ -1,7 +1,10 @@
 {
  "id": "production-administrator-authority",
  "title": "Production administrator authority",
- "status": "draft-copy",
+ "status": "observed",
  "page": "universes",
- "position": 2
+ "position": 2,
+ "text": "A *-db-admin connection runs each handler on the operator's machine against the database over a tunnel, 10-75x slower than its paired https env. Routine operations use --env <https env>; any other registered call through the door refuses use_https_env and names that env. The door keeps only db read diagnostics, doctor, migration content identity, operator data repair, migration rehearsal, driving a self-deploy of the paired API and creation bootstrap, listed once in yoke_contracts.direct_database_access.",
+ "functions": ["db.read.run", "doctor.run.run", "migration.content_identity.verify", "operator.data_repair.run"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/direct_database_access.py", "docs/source-dev-doctrine.md", "runtime/api/cli/test_direct_database_door.py"]
 }

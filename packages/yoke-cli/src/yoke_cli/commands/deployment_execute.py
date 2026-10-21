@@ -7,7 +7,13 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.deployment_execution_authority import (
+    door_execution_error,
     execution_connection_error,
+)
+from yoke_contracts.direct_database_access import (
+    SELF_DEPLOY_EXECUTE_COMMAND,
+    direct_database_environment,
+    paired_https_env,
 )
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
@@ -54,7 +60,8 @@ def deployment_runs_execute(args: List[str]) -> int:
             "Ordinary external delivery works over HTTPS. A serving-API "
             "self-deploy is refused on HTTPS and names the paired local "
             "*-db-admin connection that keeps run state writable while the "
-            "API is replaced. Every Yoke self-release run, the stage run "
+            "API is replaced; that connection refuses every other run with "
+            "use_https_env and names the https env that drives it. Every Yoke self-release run, the stage run "
             "over HTTPS included, freezes the driver at the run's "
             "release_lineage, so the release's own code drives, rehearses "
             "and migrates and a merge landing mid-run cannot mix source. "
@@ -85,7 +92,13 @@ def deployment_runs_execute(args: List[str]) -> int:
     if not args or not args[0].startswith("run-"):
         print("error: deployment-runs execute requires RUN-ID", file=sys.stderr)
         return 2
-    if refusal := execution_connection_error(args[0]):
+    door_https_env = paired_https_env()
+    refusal = (
+        door_execution_error(args[0], door_https_env)
+        if door_https_env
+        else execution_connection_error(args[0])
+    )
+    if refusal:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
 
@@ -97,6 +110,12 @@ def deployment_runs_execute(args: List[str]) -> int:
             *args,
         ],
         check=False,
+        # A self-deploy driven through the door keeps it for its whole tree.
+        **(
+            {"env": direct_database_environment(SELF_DEPLOY_EXECUTE_COMMAND)}
+            if door_https_env
+            else {}
+        ),
     )
     return completed.returncode
 

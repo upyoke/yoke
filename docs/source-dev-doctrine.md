@@ -29,10 +29,10 @@ Each section names the owner that holds the detail.
 
 ## Database authority
 
-- HTTPS `prod` owns normal registered operations. The paired `prod-db-admin` connection reaches
-  the same control plane directly and is for source-dev/operator work only. Every real record
-  stays on prod, including stage-targeted receipts. Stage is disposable test state. List
-  connections with `yoke env list`.
+- HTTPS `prod` owns registered operations. Paired `prod-db-admin` runs handlers locally over
+  a tunnel; any call outside `yoke_contracts.direct_database_access` refuses
+  `use_https_env`. Every real record stays on prod, including stage receipts. Stage is
+  disposable. Connections: `yoke env list`.
 - Raw query is read-only. A sanctioned row repair with no domain command uses
   `yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run` from a
   live steering seat after the operator approves the digest; then rerun without `--dry-run`.
@@ -60,9 +60,9 @@ Each section names the owner that holds the detail.
   [source-dev delivery](../.agents/skills/yoke/steer/source-dev-delivery.md).
 - A release is two concurrent runs on one lineage. Create both over HTTPS `prod`. Create
   production without `--source-ref`, then pass its `release_lineage` to stage as `--source-ref`.
-  Production drives on paired `prod-db-admin`; stage drives on HTTPS. Done needs production
-  delivery and every owed stage proof. This concurrency holds only because stage here tests the
-  live control plane.
+  Production drives on `prod-db-admin` (it replaces its own API); stage on `prod`. Done needs
+  production delivery and every owed stage proof. This concurrency holds only because stage
+  here tests the live control plane.
 - A correction merged during a stage run needs a new stage/production pair on the corrected
   commit; the old stage receipt does not prove it.
 - Author item QA against production. A case targets stage only with a declared `stage_reason`.

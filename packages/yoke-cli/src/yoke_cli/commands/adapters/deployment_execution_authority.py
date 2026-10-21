@@ -3,7 +3,8 @@
 A run whose target API serves the selected HTTPS control plane cannot be
 driven over that connection: the deploy replaces the API that holds the run
 state, so it is driven through the paired same-universe database connection.
-Execution refuses such a run over HTTPS. Creation over HTTPS stays allowed
+Execution refuses such a run over HTTPS, and through that database door
+refuses every other run, naming the https env that drives it. Creation over HTTPS stays allowed
 when this machine has that paired connection, and refuses without it: a run
 created where nobody can drive it occupies its target (and may already have
 taken an older run over) with no driver.
@@ -15,6 +16,7 @@ from typing import Callable, Mapping, Optional
 from urllib.parse import urlsplit
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.direct_database_access import USE_HTTPS_ENV
 from yoke_cli.transport.dispatcher import call_dispatcher
 
 
@@ -64,11 +66,12 @@ def _call(function_id: str, target: TargetRef, payload: dict) -> Mapping[str, ob
     return response.result or {}
 
 
-def _run(run_id: str) -> Mapping[str, object]:
+def _run(run_id: str, relay_env: Optional[str] = None) -> Mapping[str, object]:
     response = call_dispatcher(
         function_id="deployment_runs.get",
         target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
         payload={"fields": ["project", "target_environment"]},
+        relay_env=relay_env,
     )
     if not response.success:
         detail = response.error.message if response.error else "request failed"
@@ -147,6 +150,39 @@ def execution_connection_error(run_id: str) -> Optional[str]:
     )
 
 
+def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
+    """On a ``*-db-admin`` door, allow only a deploy replacing *https_env*'s API.
+
+    Every other run is driven over *https_env*, beside its database.
+    """
+    from yoke_cli.commands.pulumi_stack_config_loader import (
+        load_project_renderer_settings_snapshot,
+    )
+    from yoke_cli.transport.https import resolve_https_connection
+
+    try:
+        connection = resolve_https_connection(explicit_env=https_env)
+        run = _run(run_id, relay_env=https_env)
+        target_host = _target_api_host(
+            load_project_renderer_settings_snapshot(str(run.get("project") or "")),
+            str(run.get("target_environment") or ""),
+        )
+    except Exception as exc:  # noqa: BLE001 - render a stable CLI refusal
+        return str(exc)
+    if (
+        connection is not None
+        and target_host
+        and _hostname(target_host) == _hostname(connection.api_url)
+    ):
+        return None
+    return (
+        f"{USE_HTTPS_ENV}: deployment run {run_id} does not replace the API "
+        f"serving {https_env!r}, so it is driven over that https env beside "
+        "its database, not through this direct database door — rerun with "
+        f"`yoke --env {https_env} deployment-runs execute {run_id}`"
+    )
+
+
 def creation_connection_error(
     command: str,
     *,
@@ -211,4 +247,8 @@ def creation_connection_error(
     )
 
 
-__all__ = ["creation_connection_error", "execution_connection_error"]
+__all__ = [
+    "creation_connection_error",
+    "door_execution_error",
+    "execution_connection_error",
+]

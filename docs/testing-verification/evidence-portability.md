@@ -9,8 +9,10 @@ reads and writes through `prod` — so a hosted Inbox or Shipping view shows the
 screenshots. A door with no paired https connection refuses with
 `evidence_plane_unresolved` and names the `yoke connection set` repair, and
 a local write through such a door refuses with `evidence_not_portable`. An
-unreachable relay refuses instead of falling back to a local store. Unrelated
-admin operations, including metadata-only `qa.artifact.get`, stay direct. A
+unreachable relay refuses instead of falling back to a local store. Other
+routine operations, including metadata-only `qa.artifact.get`, refuse a door
+with a paired https connection as `use_https_env`; only the direct-database
+operations in `yoke_contracts.direct_database_access` stay on it. A
 local universe keeps storing and reading evidence on its own disk; a
 self-hosted universe uses its own declared serving connection.
 

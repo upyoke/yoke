@@ -57,6 +57,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from yoke_contracts.direct_database_access import (
+    MIGRATION_REHEARSE_COMMAND,
+    direct_database_command,
+)
 from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import db_helpers, db_backend
@@ -186,12 +190,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not session_id:
                 raise MigrationApplyError(AMBIENT_RESOLUTION_FAILED)
             worktree_path = _source_worktree_path(item_id, session_id)
-            if worktree_path is None:
-                result = rehearse(item_id, session_id=session_id)
-            else:
-                result = rehearse(
-                    item_id, session_id=session_id, worktree_path=worktree_path
-                )
+            # Rehearsal reads and records through the database door it was
+            # selected on, so its registered calls stay there too.
+            with direct_database_command(MIGRATION_REHEARSE_COMMAND):
+                if worktree_path is None:
+                    result = rehearse(item_id, session_id=session_id)
+                else:
+                    result = rehearse(
+                        item_id, session_id=session_id, worktree_path=worktree_path
+                    )
             print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
     except (CoordinationClaimHeldError, MigrationApplyError) as exc:
