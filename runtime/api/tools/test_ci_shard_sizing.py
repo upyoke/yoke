@@ -153,12 +153,9 @@ def test_a_small_selection_runs_and_names_its_size(tmp_path) -> None:
     root = _suite(tmp_path, selected=90.0, rest=9_910.0)
     estimate = sizing.selection_estimate(root, ["picked/"])
 
-    assert (estimate.seconds, estimate.tests, estimate.suite_seconds) == (
-        90.0,
-        1,
-        10_000.0,
-    )
-    assert estimate.share == 0.009
+    assert (estimate.seconds, estimate.tests) == (90.0, 1)
+    assert round(estimate.suite_seconds, 6) == 10_000.0
+    assert round(estimate.share, 6) == 0.009
     assert estimate.full_ci_reason == ""
     assert estimate.summary() == (
         "profiled_tests=1 profiled_seconds=90 suite_seconds=10000 "

@@ -21,13 +21,17 @@ _EXPECTED_ACTIONS = {
     "actions/upload-artifact",
     "actions/download-artifact",
 }
-_WORKFLOWS = ("yoke-ci.yml", "browser-runtime-tests.yml")
+_WORKFLOWS = (
+    "workflows/yoke-ci.yml",
+    "workflows/browser-runtime-tests.yml",
+    "actions/yoke-test-runner/action.yml",
+)
 
 
 def test_ci_actions_use_immutable_revisions() -> None:
     found: set[str] = set()
     for workflow in _WORKFLOWS:
-        text = (_ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+        text = (_ROOT / ".github" / workflow).read_text(encoding="utf-8")
         for action, revision in _REMOTE_USE.findall(text):
             assert action in _EXPECTED_ACTIONS, f"unreviewed CI action: {action}"
             assert len(revision) == 40
