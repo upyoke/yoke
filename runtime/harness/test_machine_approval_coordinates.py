@@ -10,6 +10,7 @@ from yoke_contracts.machine_authorization import MATCH_CODE_ALPHABET, MATCH_CODE
 from yoke_harness import ssh_linux_browser_approval as chromium
 from yoke_harness import ssh_mac_browser_approval as safari
 from yoke_harness.machine_browser_approval import approval_tab_urls, approval_url
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 
 
 @pytest.mark.parametrize("path", ["/connect", "/machine"])
@@ -120,6 +121,7 @@ def _safari(monkeypatch, *, response, observed):
         lambda *_args, **_kwargs: None,
         verification_url=ENTRY,
         user_code="K7F2",
+        declared_accounts=DeclaredAccounts(),
     )
     return outcome, scripts
 
@@ -142,7 +144,10 @@ def _chromium(monkeypatch, *, response, observed):
 
     monkeypatch.setattr(chromium, "_host", host)
     outcome = chromium.approve_machine_in_desktop_chromium(
-        object(), verification_url=ENTRY, user_code="K7F2"
+        object(),
+        verification_url=ENTRY,
+        user_code="K7F2",
+        declared_accounts=DeclaredAccounts(),
     )
     return outcome, calls
 
@@ -268,9 +273,13 @@ def test_invalid_context_never_reaches_the_browser(
             lambda *_a, **_k: None,
             verification_url=verification_url,
             user_code=user_code,
+            declared_accounts=DeclaredAccounts(),
         ),
         "Chromium": lambda: chromium.approve_machine_in_desktop_chromium(
-            object(), verification_url=verification_url, user_code=user_code
+            object(),
+            verification_url=verification_url,
+            user_code=user_code,
+            declared_accounts=DeclaredAccounts(),
         ),
     }[driver]
     result = approve()

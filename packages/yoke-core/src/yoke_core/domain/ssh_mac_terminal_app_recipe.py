@@ -14,6 +14,7 @@ from yoke_core.domain.machine_qa_admission_gate import yoke_runner
 from yoke_core.domain.machine_qa_human_gate import run_operator_gate_with_io
 from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_BRIDGE_RECOVERY,
@@ -77,6 +78,7 @@ def run_terminal_app_recipe(
     terminal_size: tuple[int, int] | None,
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
+    declared_accounts: DeclaredAccounts,
     yoke_bin: str,
 ) -> HostActionResult:
     """Run one recipe in the same Terminal.app surface a person operates."""
@@ -181,6 +183,7 @@ def run_terminal_app_recipe(
                         run,
                         verification_url=url,
                         user_code=code,
+                        declared_accounts=declared_accounts,
                     ),
                     run_yoke=yoke_runner(run, yoke_bin),
                     terminal_location="the Terminal.app window on the test machine",

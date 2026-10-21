@@ -36,7 +36,9 @@ def checkpoint(control, rows, terminal=None):
     return None
 
 
-def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, progress):
+def run_operator_gate(
+    control, terminal, action, rows, allowed_operator_urls, declared_accounts, progress
+):
     """Run the action's typed gate in the tmux session; refuse with its reason."""
     gate = run_operator_gate_with_io(
         read_transcript=terminal.transcript,
@@ -49,7 +51,10 @@ def run_operator_gate(control, terminal, action, rows, allowed_operator_urls, pr
         allowed_base_urls=allowed_operator_urls,
         browser="Chromium",
         approve_browser=lambda url, code: approve_machine_in_desktop_chromium(
-            control, verification_url=url, user_code=code
+            control,
+            verification_url=url,
+            user_code=code,
+            declared_accounts=declared_accounts,
         ),
         # Only admission gates run yoke, so only they need the resolved binary.
         run_yoke=lambda arguments: yoke_runner(

@@ -11,6 +11,7 @@ import subprocess
 import pytest
 
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 
 ENTRY_URL = "https://app.stage.upyoke.com/connect?user_code=K7F2"
 REDIRECT_URL = "https://app.stage.upyoke.com/orgs/acme/machine-approval/K7F2"
@@ -52,6 +53,7 @@ def test_approval_targets_the_exact_code_tab_and_visible_button(starting_url) ->
         run,
         verification_url="https://app.stage.upyoke.com/connect",
         user_code="K7F2",
+        declared_accounts=DeclaredAccounts(),
     )
 
     assert result.ok is True
@@ -110,6 +112,7 @@ def test_approval_refuses_noncanonical_or_unrelated_tabs(starting_url) -> None:
         run,
         verification_url="https://app.stage.upyoke.com/connect",
         user_code="K7F2",
+        declared_accounts=DeclaredAccounts(),
     )
     assert result.error_code == "machine_browser_tab_missing"
     assert starting_url not in commands[1]
@@ -211,6 +214,7 @@ def test_missing_confirmation_records_where_the_poll_stopped():
         run,
         verification_url="https://app.stage.upyoke.com/connect",
         user_code="K7F2",
+        declared_accounts=DeclaredAccounts(),
     )
 
     assert result.error_code == "machine_browser_approval_navigation_missing"

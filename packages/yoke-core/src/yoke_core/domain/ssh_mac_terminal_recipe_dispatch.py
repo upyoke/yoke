@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_core.domain.host_control_runner import HostActionResult
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 from yoke_core.domain.ssh_mac_terminal_recipe_cleanup import (
@@ -34,6 +35,7 @@ def execute_terminal_recipe(
     terminal_size: tuple[int, int] | None = None,
     progress_callback: Callable[[], None] | None = None,
     allowed_operator_urls: tuple[str, ...] = (),
+    declared_accounts: DeclaredAccounts = DeclaredAccounts(),
     yoke_bin: str,
 ) -> HostActionResult:
     """Execute one already-validated campaign recipe and return raw evidence."""
@@ -75,6 +77,7 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
+                declared_accounts=declared_accounts,
                 yoke_bin=yoke_bin,
             )
         else:
@@ -93,6 +96,7 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
+                declared_accounts=declared_accounts,
                 yoke_bin=yoke_bin,
             )
     except Exception as error:

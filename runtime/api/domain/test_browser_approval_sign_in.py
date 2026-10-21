@@ -7,6 +7,7 @@ import pytest
 from yoke_harness import ssh_linux_browser_approval as linux
 from yoke_harness import ssh_mac_browser_approval as mac
 from yoke_harness.machine_browser_approval import missing_approval_tab
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 
 ORIGIN = "https://app.example"
 CODE = "K7F2"
@@ -93,6 +94,7 @@ def test_drivers_use_shared_missing_tab_classification(monkeypatch, browser):
             object(),
             verification_url=ENTRY,
             user_code=CODE,
+            declared_accounts=DeclaredAccounts(),
         )
     else:
         replies = iter([observed, "browser_tab_missing"])
@@ -105,6 +107,7 @@ def test_drivers_use_shared_missing_tab_classification(monkeypatch, browser):
             lambda *a: None,
             verification_url=ENTRY,
             user_code=CODE,
+            declared_accounts=DeclaredAccounts(),
         )
     assert result.error_code == "machine_browser_sign_in_required"
     assert result.evidence["observed_tab_paths"] == ["/auth/sign-in"]

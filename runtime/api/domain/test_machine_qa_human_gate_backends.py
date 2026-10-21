@@ -12,6 +12,7 @@ from runtime.api.domain.machine_qa_terminal_recipe_test_support import (
     recipe,
 )
 from runtime.api.domain.scripted_mac_host_test_support import ScriptedMacHost
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain import ssh_mac_terminal_recipe
 from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
@@ -84,6 +85,7 @@ def test_tmux_backend_waits_without_sending_keys(
         terminal_size=None,
         progress_callback=None,
         allowed_operator_urls=(),
+        declared_accounts=DeclaredAccounts(),
     )
 
     assert result.ok, result.evidence

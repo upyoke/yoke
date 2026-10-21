@@ -8,6 +8,7 @@ import subprocess
 import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import completed
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain.machine_qa_human_gate import run_multiplexer_operator_gate
 from yoke_core.domain.machine_qa_operator_gate import (
     BROWSER_APPROVAL_NOT_CONFIRMED,
@@ -83,6 +84,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         action=_gate_action(),
         progress_callback=lambda: heartbeats.append(True),
         allowed_base_urls=("https://app.stage.upyoke.com",),
+        declared_accounts=DeclaredAccounts(),
         yoke_bin="yoke",
     )
 

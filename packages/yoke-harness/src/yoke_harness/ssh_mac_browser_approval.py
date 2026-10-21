@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import json
 
+from yoke_harness.machine_account_chooser import (
+    DeclaredAccounts,
+    account_chooser_url,
+)
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
     CONNECTED_CONFIRMATION,
@@ -13,6 +17,7 @@ from yoke_harness.machine_browser_approval import (
     approval_url,
     missing_approval_tab,
 )
+from yoke_harness.ssh_mac_account_chooser import choose_declared_account_in_safari
 from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 
 
@@ -124,36 +129,84 @@ def _script(*, allowed_urls: list[str]) -> list[str]:
     ]
 
 
+_LIST_TABS = [
+    'tell application "Safari"',
+    'set tabURLs to ""',
+    "repeat with browserWindow in windows",
+    "repeat with browserTab in tabs of browserWindow",
+    "set tabURLs to tabURLs & (URL of browserTab as text) & linefeed",
+    "end repeat",
+    "end repeat",
+    "return tabURLs",
+    "end tell",
+]
+
+
 def approve_machine_in_safari(
     run: RunRemote,
     *,
     verification_url: str,
     user_code: str,
+    declared_accounts: DeclaredAccounts,
 ) -> BrowserApprovalResult:
-    """Press the approval button only in the exact wizard-opened Safari tab."""
+    """Press the approval button only in the exact wizard-opened Safari tab.
+
+    A tab stopped at Google's account chooser on its way to the approval page
+    is first sent on with the project's declared account.
+    """
     try:
         expected_url, expected_origin = approval_url(verification_url, user_code)
     except ValueError:
         return BrowserApprovalResult(False, {}, "machine_browser_context_invalid")
-    tabs = run_osascript(
-        run,
-        [
-            'tell application "Safari"',
-            'set tabURLs to ""',
-            "repeat with browserWindow in windows",
-            "repeat with browserTab in tabs of browserWindow",
-            "set tabURLs to tabURLs & (URL of browserTab as text) & linefeed",
-            "end repeat",
-            "end repeat",
-            "return tabURLs",
-            "end tell",
-        ],
+    unavailable = BrowserApprovalResult(
+        False, {"browser": "Safari"}, "machine_browser_automation_unavailable"
     )
+    tabs = run_osascript(run, _LIST_TABS)
     if tabs.returncode:
-        return BrowserApprovalResult(
-            False, {"browser": "Safari"}, "machine_browser_automation_unavailable"
+        return unavailable
+    chooser_evidence: dict[str, object] = {}
+    observed = tabs.stdout.splitlines()
+    chooser_url = (
+        None
+        if set(approval_tab_urls(expected_url, user_code, observed)) & set(observed)
+        else account_chooser_url(observed, expected_origin)
+    )
+    if chooser_url is not None:
+        chosen = choose_declared_account_in_safari(
+            run,
+            chooser_url=chooser_url,
+            expected_origin=expected_origin,
+            declared=declared_accounts,
         )
-    allowed_urls = approval_tab_urls(expected_url, user_code, tabs.stdout.splitlines())
+        if not chosen.ok:
+            return chosen
+        chooser_evidence = chosen.evidence
+        tabs = run_osascript(run, _LIST_TABS)
+        if tabs.returncode:
+            return unavailable
+    outcome = _approve_listed_tab(
+        run,
+        expected_url=expected_url,
+        expected_origin=expected_origin,
+        user_code=user_code,
+        observed=tabs.stdout.splitlines(),
+    )
+    if not chooser_evidence:
+        return outcome
+    return BrowserApprovalResult(
+        outcome.ok, {**outcome.evidence, **chooser_evidence}, outcome.error_code
+    )
+
+
+def _approve_listed_tab(
+    run: RunRemote,
+    *,
+    expected_url: str,
+    expected_origin: str,
+    user_code: str,
+    observed: list[str],
+) -> BrowserApprovalResult:
+    allowed_urls = approval_tab_urls(expected_url, user_code, observed)
     result = run_osascript(
         run, _script(allowed_urls=allowed_urls), timeout=_APPROVAL_TIMEOUT_SECONDS
     )
@@ -172,7 +225,7 @@ def approve_machine_in_safari(
             browser="Safari",
             expected_origin=expected_origin,
             user_code=user_code,
-            observed=tabs.stdout.splitlines(),
+            observed=observed,
         )
     outcome = approval_outcome(
         browser="Safari",

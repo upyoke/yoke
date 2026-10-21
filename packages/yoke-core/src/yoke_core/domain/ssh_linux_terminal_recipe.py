@@ -22,6 +22,7 @@ from yoke_core.domain.machine_qa_operator_gate_contract import (
 )
 from yoke_core.domain.ssh_linux_operator_gate import checkpoint, run_operator_gate
 from yoke_harness.ssh_linux_browser_approval import prepare_desktop_chromium
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
     LinuxTerminalWindowError,
@@ -54,6 +55,7 @@ def _interactive(
     size,
     progress_callback,
     allowed_operator_urls,
+    declared_accounts,
 ):
     terminal = LinuxTerminal(control)
     deadline = time.monotonic() + float(config["max_wall_seconds"])
@@ -107,6 +109,7 @@ def _interactive(
                     action,
                     rows,
                     allowed_operator_urls,
+                    declared_accounts,
                     progress_callback,
                 )
                 if failed is None and (
@@ -240,6 +243,7 @@ def execute_linux_recipe(
     size,
     progress_callback=None,
     allowed_operator_urls=(),
+    declared_accounts=DeclaredAccounts(),
 ):
     ok, staged, staged_secrets = stage_recipe_files(
         config["stage_files"], upload_bytes=control._upload_bytes
@@ -277,6 +281,7 @@ def execute_linux_recipe(
                 size=size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=tuple(allowed_operator_urls),
+                declared_accounts=declared_accounts,
             )
         safe = HostActionResult(
             result.ok,

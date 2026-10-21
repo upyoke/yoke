@@ -11,6 +11,7 @@ from yoke_harness.ssh_mac_transport import (
     SshMacTransport,
 )
 
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain import machine_config
 from yoke_core.domain.host_control_runner import (
     HostActionResult,
@@ -98,6 +99,7 @@ class SshMacHostControl(SshMacTransport):
         config: Mapping[str, Any],
         progress_callback: Callable[[], None] | None = None,
         allowed_operator_urls: Sequence[str] = (),
+        declared_accounts: DeclaredAccounts = DeclaredAccounts(),
     ) -> HostActionResult:
         from yoke_core.domain.ssh_mac_terminal_recipe import (
             execute_terminal_recipe,
@@ -116,6 +118,7 @@ class SshMacHostControl(SshMacTransport):
             terminal_size=terminal_size,
             progress_callback=progress_callback,
             allowed_operator_urls=tuple(allowed_operator_urls),
+            declared_accounts=declared_accounts,
             yoke_bin=self.path_state.yoke_bin,
         )
 

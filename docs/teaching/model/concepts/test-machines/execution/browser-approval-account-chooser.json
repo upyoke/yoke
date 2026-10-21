@@ -1,0 +1,9 @@
+{
+ "id": "browser-approval-account-chooser",
+ "title": "Account chooser during browser approval",
+ "status": "observed",
+ "sources": ["packages/yoke-harness/src/yoke_harness/machine_account_chooser.py", "packages/yoke-core/src/yoke_core/domain/machine_approval_accounts.py", "runtime/api/domain/test_browser_approval_account_chooser.py"],
+ "page": "test-machine-browser-approval",
+ "position": 6,
+ "summary": "Hosted sign-in asks Google with prompt=select_account, so a Test Machine browser that lost its app session stops at Google's account chooser. Before a case with a machine_browser_approval gate, the workstation reads the project's browser-control identity declarations; Safari and Linux Chromium approval drivers pick the one declared site account for the approval origin and continue only when the tab settles on that origin. Several declared accounts in the chooser refuse machine_browser_account_ambiguous. A password, 2-Step or consent page, no declared account, or unreadable declarations refuse machine_browser_sign_in_required with the named reason; drivers never type a password."
+}

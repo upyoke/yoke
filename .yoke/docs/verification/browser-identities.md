@@ -90,10 +90,15 @@ into golden snapshots or wiped by authorization. A second Linux viewer refuses
 `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME` viewer or
 let its authorization finish, then retry. Linux authorization uses `xdotool`
 to detect closure of the spawned Chromium PID's windows before verification.
-If an approval walk finds a Google or Microsoft sign-in page instead of its exact
-request tab, it names `machine_browser_sign_in_required`. The operator completes
-the declared identity's native sign-in before retrying; approval automation never
-enters credentials or clicks an unrelated request.
+Hosted sign-in asks Google to show its account chooser. When an approval walk
+finds that chooser instead of its exact request tab, it picks the one account
+the project's identities declare for the approval origin (a site's `account`)
+and continues to the request. If the chooser lists several declared accounts
+for that origin, it refuses `machine_browser_account_ambiguous`. A password,
+2-Step or consent page, a chooser without a declared account, or a Microsoft
+sign-in page names `machine_browser_sign_in_required`: the operator completes
+the declared identity's native sign-in before retrying. Approval automation
+never enters credentials or clicks an unrelated request.
 
 The workstation needs an ssh-agent with a key the host accepts. macOS uses its
 logged-in Terminal.app session; Linux and Windows WSL use the registered user's

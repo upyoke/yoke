@@ -13,6 +13,7 @@ from collections.abc import Callable
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_human_gate import run_multiplexer_operator_gate
 from yoke_core.domain.machine_qa_setup_exit import step_failure
@@ -56,6 +57,7 @@ def _run_interactive_recipe(
     terminal_size: tuple[int, int] | None,
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
+    declared_accounts: DeclaredAccounts,
     yoke_bin: str,
 ) -> HostActionResult:
     """Run one interactive recipe after its files are staged."""
@@ -145,6 +147,7 @@ def _run_interactive_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
+                    declared_accounts=declared_accounts,
                     yoke_bin=yoke_bin,
                 )
                 ready_transcript = gate_result.transcript

@@ -23,6 +23,13 @@ from yoke_harness import (
     linux_devtools_page,
 )
 from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
+from yoke_harness.machine_account_chooser import (
+    CHOOSER_WAIT_SECONDS,
+    DeclaredAccounts,
+    account_chooser_url,
+    chooser_outcome,
+    pick_account,
+)
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
     CONNECTED_CONFIRMATION,
@@ -115,15 +122,72 @@ def prepare_desktop_chromium(control: Any) -> HostActionResult:
     )
 
 
-def approve_machine_in_desktop_chromium(
-    control: Any, *, verification_url: str, user_code: str
+def _choose_declared_account(
+    control: Any, chooser_url: str, expected_origin: str, declared: DeclaredAccounts
 ) -> BrowserApprovalResult:
-    """Press the approval button only in the exact installer-opened tab."""
+    listed = _host(control, "chooser-accounts", chooser_url)
+    if not listed.get("ok") or listed.get("state") != "offered":
+        return _host_outcome(listed, expected_origin)
+    account, refusal = pick_account(
+        browser=BROWSER,
+        expected_origin=expected_origin,
+        offered=[str(value) for value in listed.get("accounts") or []],
+        declared=declared,
+    )
+    if refusal is not None:
+        return refusal
+    assert account is not None
+    chosen = _host(
+        control,
+        "choose",
+        chooser_url,
+        account,
+        expected_origin,
+        str(CHOOSER_WAIT_SECONDS),
+    )
+    return _host_outcome(chosen, expected_origin, account)
+
+
+def _host_outcome(
+    reply: dict[str, Any], expected_origin: str, account: str = ""
+) -> BrowserApprovalResult:
+    if not reply.get("ok"):
+        return BrowserApprovalResult(
+            False,
+            {
+                "browser": BROWSER,
+                "reason": reply.get("reason"),
+                "recovery": reply.get("recovery"),
+            },
+            "machine_browser_automation_unavailable",
+        )
+    return chooser_outcome(
+        browser=BROWSER,
+        state=str(reply.get("state") or ""),
+        account=account,
+        result_url=str(reply.get("result_url") or ""),
+        expected_origin=expected_origin,
+    )
+
+
+def approve_machine_in_desktop_chromium(
+    control: Any,
+    *,
+    verification_url: str,
+    user_code: str,
+    declared_accounts: DeclaredAccounts,
+) -> BrowserApprovalResult:
+    """Press the approval button only in the exact installer-opened tab.
+
+    A tab stopped at Google's account chooser on its way to the approval page
+    is first sent on with the project's declared account.
+    """
     try:
         expected_url, expected_origin = approval_url(verification_url, user_code)
     except ValueError:
         return BrowserApprovalResult(False, {}, "machine_browser_context_invalid")
     allowed_urls = [expected_url]
+    chooser_evidence: dict[str, Any] = {}
     try:
         deadline = time.monotonic() + linux_desktop_chromium.TAB_WAIT_SECONDS
         while True:
@@ -156,6 +220,16 @@ def approve_machine_in_desktop_chromium(
             if invalid_route:
                 outcome = {"ok": True, "state": "approval_navigation_missing"}
                 break
+            chooser_url = account_chooser_url(tabs["urls"], expected_origin)
+            if chooser_url is not None and not chooser_evidence:
+                chosen = _choose_declared_account(
+                    control, chooser_url, expected_origin, declared_accounts
+                )
+                if not chosen.ok:
+                    return chosen
+                chooser_evidence = chosen.evidence
+                deadline = time.monotonic() + linux_desktop_chromium.TAB_WAIT_SECONDS
+                continue
             if time.monotonic() >= deadline:
                 outcome = {"ok": True, "state": "browser_tab_missing"}
                 break
@@ -181,13 +255,17 @@ def approve_machine_in_desktop_chromium(
         expected_origin=expected_origin,
     )
     if outcome.get("state") == "browser_tab_missing":
-        return missing_approval_tab(
+        result = missing_approval_tab(
             browser=BROWSER,
             expected_origin=expected_origin,
             user_code=user_code,
             observed=tabs["urls"],
         )
-    return result
+    if not chooser_evidence:
+        return result
+    return BrowserApprovalResult(
+        result.ok, {**result.evidence, **chooser_evidence}, result.error_code
+    )
 
 
 def quit_desktop_chromium(control: Any) -> HostActionResult:

@@ -23,6 +23,7 @@ TAB_WAIT_SECONDS = 15
 CONTROL_ATTEMPTS = 40
 NAVIGATION_ATTEMPTS = 40
 POLL_SECONDS = 0.25
+SETTLED_POLLS = 3
 PROVISION = "Provision the desktop with the Machine QA Pack's ops/machine-qa/provision_linux_desktop.py (linux-host-provisioning.md section 4); it installs Chromium with Ubuntu's chromium-browser wrapper and selects that as x-www-browser. Then rerun."
 
 
@@ -226,6 +227,71 @@ def approve(allowed_urls, label):
     return {"state": "approval_navigation_missing"}
 
 
+_OFFERED = (
+    "[...document.querySelectorAll('[data-identifier]')]"
+    ".map(e => e.getAttribute('data-identifier'))"
+)
+
+
+def _chooser_page(port, chooser_url):
+    return next((p for p in _pages(port) if p.get("url") == chooser_url), None)
+
+
+def chooser_accounts(chooser_url):
+    """List the accounts Google's chooser page offers."""
+    match = _chooser_page(_port(), chooser_url)
+    if match is None:
+        return {"state": "chooser_tab_changed"}
+    page = DevToolsPage(match["webSocketDebuggerUrl"])
+    for _ in range(CONTROL_ATTEMPTS):
+        reply = page.call("Runtime.evaluate", expression=_OFFERED, returnByValue=True)
+        offered = reply.get("result", {}).get("value") or []
+        if offered:
+            break
+        time.sleep(POLL_SECONDS)
+    return {"state": "offered", "accounts": offered}
+
+
+def choose(chooser_url, account, origin, wait_seconds):
+    """Click one offered account, then wait for the tab to settle on origin."""
+    port = _port()
+    match = _chooser_page(port, chooser_url)
+    if match is None:
+        return {"state": "chooser_tab_changed"}
+    with urlopen(
+        f"http://127.0.0.1:{port}/json/activate/{quote(match['id'], safe='')}",
+        timeout=5,
+    ):
+        pass
+    press = (
+        "(() => { const row = [...document.querySelectorAll('[data-identifier]')]"
+        ".find(e => (e.getAttribute('data-identifier') || '').toLowerCase() === "
+        + json.dumps(account.lower())
+        + "); if (!row) return 'account_control_missing'; row.click(); return 'pressed'; })()"
+    )
+    reply = DevToolsPage(match["webSocketDebuggerUrl"]).call(
+        "Runtime.evaluate", expression=press, returnByValue=True
+    )
+    state = reply.get("result", {}).get("value") or "account_control_missing"
+    if state != "pressed":
+        return {"state": state}
+    last, settled = chooser_url, 0
+    deadline = time.monotonic() + float(wait_seconds)
+    while time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        url = next(
+            (p.get("url") for p in _pages(port) if p.get("id") == match["id"]), ""
+        )
+        on_origin = url.startswith(origin + "/") and not url.startswith(
+            origin + "/auth/"
+        )
+        settled = settled + 1 if on_origin and url == last else 0
+        if settled == SETTLED_POLLS:
+            return {"state": "arrived", "result_url": url}
+        last = url
+    return {"state": "choice_unconfirmed", "result_url": last}
+
+
 def _refuse(reason, recovery):
     print(json.dumps({"ok": False, "reason": reason, "recovery": recovery}))
     raise SystemExit(69)
@@ -240,6 +306,10 @@ def main():
             result = tabs(arguments[0])
         elif command == "approve":
             result = approve(json.loads(arguments[0]), arguments[1])
+        elif command == "chooser-accounts":
+            result = chooser_accounts(arguments[0])
+        elif command == "choose":
+            result = choose(*arguments[:4])
         elif command == "quit":
             result = {"quit": quit_chromium()}
         else:

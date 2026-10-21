@@ -16,6 +16,7 @@ from yoke_contracts.machine_config.test_machine import (
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.test_machine_types import HostActionResult
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 
 from yoke_core.domain.capability_machine_secrets import (
     machine_capability_secret_path,
@@ -84,6 +85,7 @@ class HostControl(Protocol):
         config: Mapping[str, Any],
         progress_callback: Callable[[], None] | None = None,
         allowed_operator_urls: Sequence[str] = (),
+        declared_accounts: DeclaredAccounts = DeclaredAccounts(),
     ) -> HostActionResult: ...
 
     def run_machine_assertions(

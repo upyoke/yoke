@@ -29,6 +29,7 @@ from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import (
     resolve_contract_host_control,
 )
+from yoke_core.domain.machine_approval_accounts import operator_approval_targets
 from yoke_core.domain.machine_qa_execution import MachineQaLease
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
@@ -77,12 +78,7 @@ def _execution(
         for value in (contract.plan_execution_id, contract.continues_execution_id)
         if value
     )
-    allowed_urls = tuple(
-        str(value).rstrip("/")
-        for case in contract.cases
-        for key, value in case.execution_target["endpoints"].items()
-        if key.endswith("_url") and isinstance(value, str) and value
-    )
+    allowed_urls, declared_accounts = operator_approval_targets(contract)
     return MachineQaLease(
         conn=None,
         control=control,
@@ -96,6 +92,7 @@ def _execution(
         owns_lease=False,
         progress_callback=progress_callback,
         allowed_operator_urls=allowed_urls,
+        declared_accounts=declared_accounts,
     )
 
 

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any, Mapping
 
+from yoke_harness.machine_account_chooser import DeclaredAccounts
+
 
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
@@ -58,6 +60,7 @@ class MachineQaLease:
     owns_lease: bool = True
     progress_callback: Callable[[], None] | None = None
     allowed_operator_urls: tuple[str, ...] = ()
+    declared_accounts: DeclaredAccounts = DeclaredAccounts()
     baseline: HostBaselineResult | None = None
     closed: bool = False
 
@@ -151,6 +154,7 @@ class MachineQaLease:
                         *self.allowed_operator_urls,
                         *admission_operator_urls(config),
                     ),
+                    declared_accounts=self.declared_accounts,
                 )
             else:
                 raw = self.control.run_terminal_case(

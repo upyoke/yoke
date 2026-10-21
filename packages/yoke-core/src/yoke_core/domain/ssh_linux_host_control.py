@@ -11,6 +11,7 @@ from yoke_harness.ssh_linux_terminal import (
     run_linux_terminal_case,
 )
 from yoke_harness.test_machine_types import HostActionResult
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 
 
 class SshLinuxHostControl(SshLinuxHostOperations):
@@ -78,6 +79,7 @@ class SshLinuxHostControl(SshLinuxHostOperations):
         config,
         progress_callback=None,
         allowed_operator_urls=(),
+        declared_accounts=DeclaredAccounts(),
     ) -> HostActionResult:
         from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
 
@@ -89,4 +91,5 @@ class SshLinuxHostControl(SshLinuxHostOperations):
             size=self._pending_terminal_size,
             progress_callback=progress_callback,
             allowed_operator_urls=allowed_operator_urls,
+            declared_accounts=declared_accounts,
         )

@@ -15,6 +15,7 @@ import json
 from typing import Any
 
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
+from yoke_harness.machine_account_chooser import DeclaredAccounts
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 
 from yoke_core.domain.machine_qa_admission_gate import (
@@ -150,6 +151,7 @@ def run_multiplexer_operator_gate(
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
+    declared_accounts: DeclaredAccounts,
     yoke_bin: str,
 ) -> OperatorGateResult:
     """Run the gate through a macOS tmux or screen session."""
@@ -173,7 +175,10 @@ def run_multiplexer_operator_gate(
         allowed_base_urls=allowed_base_urls,
         browser="Safari",
         approve_browser=lambda url, code: approve_machine_in_safari(
-            run, verification_url=url, user_code=code
+            run,
+            verification_url=url,
+            user_code=code,
+            declared_accounts=declared_accounts,
         ),
         run_yoke=yoke_runner(run, yoke_bin),
         terminal_location=f"the visible Terminal window on the test machine ({attach})",

@@ -31,6 +31,18 @@ STATE_ERRORS = {
 }
 
 
+#: Recovery for a sign-in only the operator may finish. Google's account
+#: chooser is not one: drivers pick the declared account there themselves.
+SIGN_IN_RECOVERY = (
+    "Google's account chooser is handled automatically when it offers the "
+    "account the project declares for this origin. A password, 2-Step or "
+    "consent screen needs the operator: run browser authorize with the "
+    "declared identity and --desktop-browser on the Test Machine, and the "
+    "operator completes that sign-in. Keep it live through reset; never "
+    "golden-capture or wipe it."
+)
+
+
 @dataclass(frozen=True)
 class BrowserApprovalResult:
     """Bounded result of one native browser approval attempt."""
@@ -38,6 +50,13 @@ class BrowserApprovalResult:
     ok: bool
     evidence: dict[str, Any]
     error_code: str | None = None
+
+
+def redacted_path(path: str, user_code: str = "") -> str:
+    """Hide request codes in an observed tab path."""
+    if user_code:
+        path = re.sub(re.escape(user_code), "[REDACTED]", path, flags=re.IGNORECASE)
+    return re.sub(r"(?i)(/machine-approval/)[^/]+", r"\1[REDACTED]", path)
 
 
 def missing_approval_tab(
@@ -72,8 +91,7 @@ def missing_approval_tab(
             )
         except ValueError:
             continue
-        path = re.sub(re.escape(user_code), "[REDACTED]", path, flags=re.IGNORECASE)
-        path = re.sub(r"(?i)(/machine-approval/)[^/]+", r"\1[REDACTED]", path)
+        path = redacted_path(path, user_code)
         if path not in paths:
             paths.append(path)
     return BrowserApprovalResult(
@@ -83,9 +101,7 @@ def missing_approval_tab(
             "state": "sign_in_required" if sign_in_required else "browser_tab_missing",
             "observed_tab_paths": paths,
             "recovery": (
-                "Run browser authorize with the declared identity and --desktop-browser "
-                "on the Test Machine; the operator completes the identity-provider "
-                "sign-in. Keep it live through reset; never golden-capture or wipe it."
+                SIGN_IN_RECOVERY
                 if sign_in_required
                 else "The exact approval tab is absent. Check that the installer opens "
                 "links in the same signed-in browser profile, then rerun with a fresh request."
@@ -201,10 +217,12 @@ def approval_outcome(
 __all__ = [
     "APPROVE_CONTROL_LABEL",
     "CONNECTED_CONFIRMATION",
+    "SIGN_IN_RECOVERY",
     "BrowserApprovalResult",
     "STATE_ERRORS",
     "approval_outcome",
     "approval_tab_urls",
     "approval_url",
     "missing_approval_tab",
+    "redacted_path",
 ]
