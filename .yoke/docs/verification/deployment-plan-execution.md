@@ -130,14 +130,14 @@ preparation; `as_is` opens a separate chain.
 
 An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
 is busy, let the plan runner queue you, then park; you are woken when it is
-your turn. Start or resume the plan as usual: when a host its case needs is
-leased, or its newest health fact is a failed verification, plan acquisition
-keeps its cursor open and its session joins the host's waiting line
-(`qa_host_waits`), the same FIFO line a refused manual
-`yoke claims coordination-claim acquire --key QA_HOST:<machine>` joins. The
-runner prints `Queued for QA host <machine>, position N of M` with the park
-command; write no host hold of your own. A session keeps its place from its
-first wait and across retries. Every release of the host — including
+your turn. When a host its case needs is leased, or its newest health fact
+is a failed verification, plan acquisition keeps its cursor open and its
+session joins the host's waiting line (`qa_host_waits`), the same FIFO line a
+refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
+joins. The runner prints `Queued for QA host <machine>, position N of M` with
+the park command; write no host hold of your own. A session keeps its place
+from its first wait and across retries; a rerun of an aborted shared walk
+that held the host takes its place. Every release of the host — including
 `yoke claims work release --claim-id N` — reserves it for the oldest live
 waiter and sends that session the exact resume command; stopped owners use the
 same harness-neutral wake route as other control-plane notices. An unhealthy
