@@ -21,6 +21,9 @@ from __future__ import annotations
 from runtime.api.dynamic_authority_import_allowlist_cli import (
     CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS,
 )
+from runtime.api.dynamic_authority_import_allowlist_relay import (
+    RELAY_DYNAMIC_AUTHORITY_IMPORTS,
+)
 
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
@@ -341,5 +344,6 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
 }
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS)
+ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(RELAY_DYNAMIC_AUTHORITY_IMPORTS)
 
 __all__ = ["ALLOWED_DYNAMIC_AUTHORITY_IMPORTS"]

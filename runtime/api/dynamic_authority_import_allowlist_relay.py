@@ -1,7 +1,9 @@
 """Dynamic engine-import allowlist entries for the standing relay's release.
 
 Split from :mod:`runtime.api.dynamic_authority_import_allowlist_cli` for the
-authored-file line budget; both are read as one roster.
+authored-file line budget; the main roster merges it, and the product-boundary
+scan reads it as a boundary-fact source. Keep it one dict literal: the scan
+reads it with ``ast.literal_eval``.
 """
 
 from __future__ import annotations

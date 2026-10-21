@@ -8,12 +8,7 @@ where there is room, and both halves are read as one roster.
 
 from __future__ import annotations
 
-from runtime.api.dynamic_authority_import_allowlist_relay import (
-    RELAY_DYNAMIC_AUTHORITY_IMPORTS,
-)
-
 CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
-    **RELAY_DYNAMIC_AUTHORITY_IMPORTS,
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py",
         "yoke_core.engines.doctor_install",
