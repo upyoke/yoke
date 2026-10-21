@@ -1,15 +1,15 @@
 {
  "id": "01",
  "title": "Find and preview the right recipient",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "agent",
  "when": "Before sending a work-related request or report",
- "need": "Address a worker by its held item, a person by registered actor, or a whole session ID; a session outside any project is reached by its session ID, never by project selectors. Preview recipient count; steering is a role address resolved from scope. In-process subagents report to their parent, not Fleet.",
+ "need": "Address a worker by its item. A direct item message sent while its steering launch is in flight queues for that launch’s bound session and becomes deliverable after it claims. With no holder or eligible launch, inspect the named refusal before retrying. Address a person by registered actor, or a whole session ID; a session outside any project is reached by its session ID, never by project selectors. Preview recipient count; steering is a role address resolved from scope. In-process subagents report to their parent, not Fleet.",
  "disclosure": "current cue",
  "surface": "Items and Sessions -> Messaging commands; skill-specific report instructions.",
- "review": "Pending exact recipe proof.",
+ "review": "Candidate SQLite and PostgreSQL tests prove the pre-claim launch queue, its shared harness delivery and launch-completion binding. Live release proof awaits the attached production QA case; the wider lesson retains its source-trace scope.",
  "recipes": ["yoke say --preview --item PREFIX-N", "yoke sessions list --liveness active", "yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/sessions/inbox.md", ".agents/skills/yoke/steer/worker-launch.md"],
+ "sources": ["docs/public/sessions/inbox.md", ".agents/skills/yoke/steer/worker-launch.md", "packages/yoke-core/src/yoke_core/domain/session_message_launch_queue.py", "runtime/api/domain/test_session_message_launch_queue.py", "runtime/api/domain/test_session_message_launch_completion.py"],
  "position": 0
 }

@@ -1,0 +1,13 @@
+{
+ "id": "item-launch-mail",
+ "title": "Item mail waits for the worker already being launched.",
+ "status": "observed",
+ "form": "State and recovery",
+ "topics": ["messaging/messages/recipient-discovery"],
+ "verification": "Candidate SQLite, PostgreSQL and CLI regression tests cover queueing, claim-arrival races, launch completion without another hook, expiry, cancellation and unchanged unstaffed refusal. Live production proof is pending the release-bound case.",
+ "sources": ["docs/public/sessions/inbox.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_recipient_output.py", "runtime/api/domain/test_session_message_launch_queue.py", "runtime/api/domain/test_session_message_launch_completion.py"],
+ "page": "command-feedback-cases",
+ "audience": "both",
+ "when": "A direct item message is sent before its staffed worker claims",
+ "need": "A direct item send and preview count its in-flight steering launch as one queued recipient before a holder exists. The message read names its stored launch address and pending or settled state. Without an eligible launch or holder, zero_recipients remains a refusal and names any launch found. Cancel obsolete mail before resending after restaffing."
+}
