@@ -39,6 +39,7 @@ def _checkout_project(checkout_path: Optional[str | Path]) -> str:
 def execute_plan(
     *,
     public_ref: Optional[str] = None,
+    requirement_id: Optional[int] = None,
     transition_id: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
     deployment_stage: Optional[str] = None,
@@ -67,6 +68,7 @@ def execute_plan(
         deployment_member=deployment_member,
         plan=plan,
         project=project,
+        **({"requirement_id": requirement_id} if requirement_id is not None else {}),
     )
     resolved_actor = execution_actor(actor)
     begin_payload.update(
@@ -78,7 +80,9 @@ def execute_plan(
             source_revision=expected_sha,
             source_ref=expected_branch,
         )
-    if deployment_run_id and not resume_execution_id:
+    if requirement_id is not None:
+        begin_payload["requirement_id"] = requirement_id
+    if deployment_run_id and not resume_execution_id and requirement_id is None:
         materialize_payload = {"plan": plan, "project": project}
         if deployment_stage:
             materialize_payload["deployment_stage"] = deployment_stage
@@ -131,6 +135,12 @@ def execute_plan(
         return discharged
     if execution.get("shared_execution_wait"):
         return {**execution, "results": [], "executed_count": 0, "requirement_count": 0}
+    if requirement_id is not None and [
+        int(r["requirement_id"]) for r in execution.get("requirements", [])
+    ] != [requirement_id]:
+        raise QaPlanExecutionError(
+            "qa_single_case_scope_mismatch: preserve the execution receipt and report to the control-plane operator; no case was run"
+        )
     if execution.get("settled_review"):
         from yoke_core.domain.qa_plan_settled_review import settled_review_run_result
 

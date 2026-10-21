@@ -293,6 +293,11 @@ def run(args: List[str]) -> int:
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan run: {exc}", file=sys.stderr)
         return 2
+    return report_plan_result(result)
+
+
+def report_plan_result(result: dict[str, Any]) -> int:
+    """Render a plan continuation identically for plan and single-mission runs."""
     if result.get("state") in {"walking", "awaiting_walk_review"}:
         try:
             _qualify_review_dispatch(result)

@@ -17,6 +17,7 @@ def build_plan_execution_target(
     deployment_member: Optional[str],
     plan: Optional[str],
     project: Optional[str],
+    requirement_id: Optional[int] = None,
 ) -> tuple[TargetRef, dict[str, str]]:
     """Validate one execution subject and build its function-call target."""
     if not public_ref and not deployment_run_id:
@@ -56,7 +57,7 @@ def build_plan_execution_target(
         )
     if deployment_member and not deployment_stage:
         raise QaPlanExecutionError("deployment member requires deployment stage")
-    if not deployment_stage and not plan:
+    if not deployment_stage and not plan and requirement_id is None:
         raise QaPlanExecutionError("deployment-run QA plan execution requires plan")
     return (
         TargetRef(

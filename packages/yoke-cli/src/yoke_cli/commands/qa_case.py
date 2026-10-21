@@ -77,6 +77,7 @@ def qa_case_run(args: List[str]) -> int:
         args,
         QA_CASE_RUN_USAGE,
         "Requires the named immutable QA case and matching item/task work claim. "
+        "A mission starts a one-requirement plan execution; exit 12 hands its typed review to the main agent. "
         "With multiple lanes, select --checkout-path PATH --expected-branch BRANCH "
         "--expected-sha FULL_SHA; CI refuses source mismatches before publication.",
     ):

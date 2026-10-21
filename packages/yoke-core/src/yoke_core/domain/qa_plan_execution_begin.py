@@ -7,7 +7,10 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_runs_lock import RUN_READ_ATTEMPTS, DeploymentRunChanging
+from yoke_core.domain.deployment_runs_lock import (
+    RUN_READ_ATTEMPTS,
+    DeploymentRunChanging,
+)
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
@@ -73,21 +76,13 @@ def begin_plan_execution(
     _requesting_member_item_id: int | None = None,
     _run_inputs: str | None = None,
     plan: str | None = None,
+    requirement_id: int | None = None,
 ) -> dict[str, Any]:
-    """Create or resume the one live execution for a QA subject.
+    """Create or resume the subject's execution after unlocked roster admission.
 
-    ``continue_mission`` asks for the one variant that is not a plain start:
-    a fresh execution over the same roster that resumes a mission walk the
-    stale sweep settled while its walker was parked. It records its own runs
-    and reaches no host baseline, so the machine keeps the state the settled
-    walk built. :mod:`yoke_core.domain.qa_plan_execution_continuation` owns
-    which prior executions qualify.
-
-    A member-scoped begin reads its roster before the run lock. ``_run_inputs``
-    is the :func:`begin_inputs` digest its router took before reading; when it
-    no longer holds under the lock, :class:`BeginInputsChanged` sends the
-    router back to release the lock and read again unlocked; a stage-wide
-    begin does the same itself (:func:`admit_current_roster`).
+    The run lock rechecks ``begin_inputs`` after roster reads. A changed
+    member input returns to the router for an unlocked retry. Continuations
+    preserve the stale-settled mission's host without applying a baseline.
     """
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(
@@ -163,6 +158,7 @@ def begin_plan_execution(
             expected_target=expected_deployment_target,
             expected_target_digest=expected_deployment_target_digest,
             plan=plan,
+            requirement_id=requirement_id,
             host_capability_kinds=host_capabilities,
             checkout_path=checkout_path,
             expected_branch=expected_branch,
@@ -212,6 +208,14 @@ def begin_plan_execution(
     retired = False
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
+        if requirement_id is not None and [
+            int(r["requirement_id"]) for r in existing["roster"]
+        ] != [requirement_id]:
+            from yoke_core.domain.qa_plan_execution_roster_change import abort_command
+
+            raise QaPlanExecutionStateError(
+                f"qa_single_case_scope_busy: another roster is live; finish it or use `{abort_command(conn, existing)}`, then retry the case"
+            )
         if existing["state"] in {
             "active",
             "waiting",

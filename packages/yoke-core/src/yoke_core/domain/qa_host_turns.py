@@ -29,11 +29,18 @@ HOST_WAIT_CANCELLED_REASON = "qa-host-wait-cancelled"
 _LIVE = "('waiting','reserved')"
 
 
+def _plan_resume_command(conn: Any, execution: Any) -> str:
+    from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
+
+    command = continuation_recipe(conn, execution).removesuffix(" --continue-mission")
+    if any(case.get("runner_id") == "agent_mission" for case in execution["roster"]):
+        return f"{command} --resume-execution-id {execution['id']}"
+    return command
+
+
 def _resume_command(conn: Any, wait: Any) -> str:
     if not wait["qa_plan_execution_id"]:
         return str(wait["resume_command"])
-    from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
-
     execution = query_one(
         conn,
         f"SELECT * FROM qa_plan_executions WHERE id={_p(conn)}",
@@ -45,7 +52,7 @@ def _resume_command(conn: Any, wait: Any) -> str:
             "ask the control-plane operator to repair this host wait"
         )
     subject = {**execution, "roster": json.loads(execution["roster_json"])}
-    return continuation_recipe(conn, subject).removesuffix(" --continue-mission")
+    return _plan_resume_command(conn, subject)
 
 
 def _has_line(conn: Any) -> bool:
@@ -295,7 +302,6 @@ def record_host_wait(
 ) -> dict:
     """Keep the cursor open, queue the execution's session, release its hosts."""
     from yoke_core.domain.machine_qa_capability import host_claim_target
-    from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
     from yoke_core.domain.qa_host_turn_inheritance import inherited_host_place
 
@@ -320,9 +326,7 @@ def record_host_wait(
         target,
         session_id=str(execution["session_id"]),
         actor_id=int(execution["actor_id"]),
-        resume_command=continuation_recipe(conn, execution).removesuffix(
-            " --continue-mission"
-        ),
+        resume_command=_plan_resume_command(conn, execution),
         rationale=rationale,
         execution_id=execution_id,
         queued_at=inherited_host_place(conn, execution, machine),

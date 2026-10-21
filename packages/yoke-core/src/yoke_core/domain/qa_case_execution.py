@@ -245,9 +245,17 @@ def execute_case_context(
 
         return execute_materialized_machine_case(case, actor=actor)
     if runner_id == "agent_mission":
-        raise QaCaseExecutionError(
-            "agent_mission cases require `yoke qa plan run`; the plan owns "
-            "the retained lease, review bundle, and main-agent verdict"
+        from yoke_core.domain.qa_case_mission_execution import execute_mission_case
+
+        return execute_mission_case(
+            case,
+            base_url=base_url,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+            timeout_seconds=timeout_seconds,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch,
+            actor=actor,
         )
     raise QaCaseExecutionError(
         f"runner {runner_id!r} is not supported by shared case execution"
