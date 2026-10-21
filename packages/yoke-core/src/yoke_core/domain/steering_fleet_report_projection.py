@@ -316,29 +316,14 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
                     for ref, text in report.level_overrides
                 ],
                 "origin_counts": list(report.origin_counts),
-                "relay_health": [
-                    {
-                        "relay_id": entry.relay_id,
-                        "machine_id": entry.machine_id,
-                        "hostname": entry.hostname,
-                        "state": entry.state,
-                        "pending_reports": entry.pending_reports,
-                        "quarantine_count": entry.quarantine_count,
-                        "error_code": entry.error_code,
-                        "failure_count": entry.failure_count,
-                        "first_failed_at": entry.first_failed_at,
-                        "last_failed_at": entry.last_failed_at,
-                        "refusal_reason": entry.refusal_reason,
-                        "local_revision": entry.local_revision,
-                        "server_revision": entry.server_revision,
-                        "recovery": entry.recovery,
-                    }
-                    for entry in report.relay_health
-                ],
+                "relay_health": [dict(entry.__dict__) for entry in report.relay_health],
                 "messages_awaiting_seat": [
                     entry.to_dict() for entry in report.messages_awaiting_seat
                 ],
                 "deadlocks": [cycle.to_dict() for cycle in report.deadlocks],
+                "settlement_followups": [
+                    row.to_dict() for row in report.settlement_followups
+                ],
                 "waiting_chains": [c.to_dict() for c in report.waiting_chains],
             }
         ),

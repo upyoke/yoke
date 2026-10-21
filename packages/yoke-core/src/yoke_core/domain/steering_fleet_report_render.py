@@ -69,6 +69,9 @@ from yoke_core.domain.steering_fleet_report_sections import (
 from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
 from yoke_core.domain.steering_fleet_report_slow_paths import SlowPath, slow_path_lines
 from yoke_core.domain.steering_fleet_report_deadlocks import deadlock_section
+from yoke_core.domain.steering_fleet_report_settlement_followups import (
+    settlement_followup_section,
+)
 from yoke_core.domain.steering_fleet_report_waiting_chains import waiting_chain_section
 
 
@@ -225,6 +228,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
         ),
         *_stranded.stranded_section(report),
         *deadlock_section(report),
+        *settlement_followup_section(report),
         *waiting_chain_section(report),
         *_section(
             "unregistered launches — launch/session binding absent",

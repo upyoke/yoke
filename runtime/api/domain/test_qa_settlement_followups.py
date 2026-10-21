@@ -87,24 +87,3 @@ def test_a_request_made_during_a_replay_is_kept_for_the_next_cycle(
         close_out, "after_record_settled", lambda _conn, *, item_id: owed.append(item_id)
     )
     assert followups.replay_settlement_followups(test_db)["replayed"] == [ITEM]
-
-
-def test_the_job_replays_on_its_own_thread_until_its_host_stops() -> None:
-    import threading
-
-    from yoke_core.domain.qa_settlement_followup_job import (
-        qa_settlement_followup_job,
-    )
-
-    cycles: list[threading.Thread] = []
-    second = threading.Event()
-
-    def cycle() -> None:
-        cycles.append(threading.current_thread())
-        if len(cycles) == 2:
-            second.set()
-
-    with qa_settlement_followup_job(interval_seconds=0.01, cycle=cycle):
-        assert second.wait(1)
-    assert cycles[0] is not threading.current_thread()
-    assert not cycles[0].is_alive()

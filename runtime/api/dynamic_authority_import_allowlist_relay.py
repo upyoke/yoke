@@ -32,10 +32,10 @@ RELAY_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
-        "yoke_core.domain.control_plane_background_jobs",
+        "yoke_core.domain.control_plane_upkeep",
     ): (
         "local_universe_dispatch",
-        "host the control plane's background jobs in a local universe's relay, "
+        "run the control plane's upkeep each cycle of a local universe's relay, "
         "the long-lived process that serves it in place of an API server",
     ),
 }

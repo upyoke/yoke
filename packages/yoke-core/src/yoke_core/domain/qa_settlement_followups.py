@@ -4,12 +4,13 @@ Waiving a requirement can unblock a member's held close-out and the settling
 run that member holds open. Replaying both inside the waive request walked
 the runs' gates, checkouts and GitHub before the call could answer. The waive
 now records the owed follow-up in the same transaction as the waiver, and
-:mod:`yoke_core.domain.qa_settlement_followup_job` replays it.
+:mod:`yoke_core.domain.control_plane_upkeep` replays it.
 
 A row stays until a replay of its latest request finishes. A replay that
 raises keeps the row with its attempt count, time and error, and is retried
 after :data:`RETRY_AFTER_SECONDS`; so does a row whose replaying process
-died. ``yoke db read "SELECT * FROM qa_settlement_followups"`` names every
+died. The steering report lists each row whose last replay failed, with its
+error; ``yoke db read "SELECT * FROM qa_settlement_followups"`` names every
 follow-up still owed and why.
 """
 

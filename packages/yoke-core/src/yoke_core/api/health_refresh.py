@@ -1,11 +1,15 @@
-"""Lifespan-owned health refresh, isolated from HTTP worker admission."""
+"""Lifespan-owned health refresh, isolated from HTTP worker admission.
+
+The same thread hosts the server's control-plane upkeep
+(:mod:`yoke_core.domain.control_plane_upkeep`) once per refresh interval.
+"""
 
 from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
 
-from yoke_core.domain import runtime_settings
+from yoke_core.domain import control_plane_upkeep, runtime_settings
 
 
 @contextmanager
@@ -25,6 +29,9 @@ def health_refresh_lifespan():
             items_health.refresh_health_snapshot()
             if stopped.wait(interval):
                 return
+            # After the wait, so a process that boots and exits at once (a
+            # test client, a refused start) never reads GitHub.
+            control_plane_upkeep.run_control_plane_upkeep()
 
     worker = threading.Thread(target=refresh, name="yoke-health-refresh", daemon=True)
     worker.start()
