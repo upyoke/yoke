@@ -1,4 +1,4 @@
-"""Apply uv shell setup and verify the real fresh login shell."""
+"""Apply owned shell setup and verify every supported shell context."""
 
 from __future__ import annotations
 import os

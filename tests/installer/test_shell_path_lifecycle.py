@@ -124,3 +124,21 @@ def test_invalid_marker_refuses_cleanup_with_recovery(tmp_path):
     with pytest.raises(OSError, match="shell_path_cleanup_failed.*retry uninstall"):
         remove_shell_path(env=env)
     assert rc.read_bytes() == before
+
+
+def test_probe_timeout_names_context_and_recovery(tmp_path, monkeypatch):
+    from yoke_cli.config.path_shell_contexts import diagnose_contexts
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], 10)
+
+    monkeypatch.setattr(doctor.terminal_detached_process, "run", timeout)
+    rows = diagnose_contexts(
+        {"HOME": str(tmp_path), "SHELL": "/bin/zsh", "PATH": "/bin:/usr/bin"},
+        (str(tmp_path / "bin"),),
+    )
+    assert rows
+    assert all(
+        row["needs_fix"] and row["reason"] == "shell_probe_timeout" for row in rows
+    )
+    assert all("yoke path fix" in row["recovery"] for row in rows)

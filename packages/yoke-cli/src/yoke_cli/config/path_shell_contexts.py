@@ -41,13 +41,14 @@ def diagnose_contexts(env: dict, directories: tuple[str, ...]) -> tuple[dict, ..
             shadow = doctor._shadowing_yoke_path(
                 resolved, bindir=doctor.tool_bin_dir(selected)
             )
+            error = next((row.error for row in resolved if row.error), "")
             rows.append(
                 {
                     "shell": shell,
                     "context": context,
                     "resolved": by_name,
                     "needs_fix": not by_name.get("yoke") or bool(shadow),
-                    "reason": "shell_path_unresolved"
+                    "reason": error or "shell_path_unresolved"
                     if not by_name.get("yoke")
                     else ("shell_path_shadowed" if shadow else ""),
                     "recovery": "Run `yoke path fix --yes`; open a new terminal and check shell files that override PATH.",

@@ -43,6 +43,7 @@ _SSH_CLIENT_PROBE = "127.0.0.1 0 22"
 class ToolResolution:
     name: str
     path: str | None
+    error: str = ""
 
 
 @dataclass(frozen=True)
@@ -127,8 +128,16 @@ def _verify_shell(
             timeout=_VERIFY_TIMEOUT_S,
             env=probe_env,
         )
+    except subprocess.TimeoutExpired:
+        return [
+            ToolResolution(tool, None, "shell_probe_timeout") for tool in PATH_TOOLS
+        ]
     except (OSError, subprocess.SubprocessError):
-        return [ToolResolution(tool, None) for tool in PATH_TOOLS]
+        return [
+            ToolResolution(tool, None, "shell_probe_unavailable") for tool in PATH_TOOLS
+        ]
+    if proc.returncode:
+        return [ToolResolution(tool, None, "shell_probe_failed") for tool in PATH_TOOLS]
     resolved: dict[str, str] = {}
     for candidate in map(str.strip, proc.stdout.splitlines()):
         base = Path(candidate).name
