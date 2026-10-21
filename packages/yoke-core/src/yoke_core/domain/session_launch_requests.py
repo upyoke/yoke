@@ -77,6 +77,7 @@ def create_launch(
         request = default_launch_level(conn, request)
         request = managed_presentation.normalize_launch_presentation(request)
         request = validate_launch_request(request, max_body_bytes=max_body_bytes)
+        requested = request
         existing = get_launch_by_dedupe(conn, auth.actor_id, request.idempotency_key)
         if request.level:
             request, preview = preview_level_launch(
@@ -103,7 +104,7 @@ def create_launch(
             outcome = deduplicated_outcome(
                 conn,
                 existing=existing,
-                request=request,
+                request=requested,
                 preview=preview,
             )
             conn.commit()
@@ -163,7 +164,7 @@ def create_launch(
             outcome = deduplicated_outcome(
                 conn,
                 existing=existing,
-                request=request,
+                request=requested,
                 preview=preview,
             )
             conn.commit()

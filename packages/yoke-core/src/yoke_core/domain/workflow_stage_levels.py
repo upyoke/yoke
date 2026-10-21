@@ -92,8 +92,8 @@ __all__ = [
 
 
 def default_launch_level(conn: Any, request: Any) -> Any:
-    """An explicit level or exact selection wins; otherwise read the live item stage."""
-    if request.level or request.executor_surface:
+    """An exact model or level wins; surface-only staffing uses the live stage."""
+    if request.level or (request.executor_surface and (request.model or not request.item)):
         return request
     from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
     from yoke_core.domain.session_launch_types import SessionLaunchError
@@ -107,6 +107,14 @@ def default_launch_level(conn: Any, request: Any) -> Any:
         resolved = item_stage_level(conn, item_id) if item_id is not None else None
     except StageLevelError as exc:
         raise SessionLaunchError(exc.code, str(exc)) from exc
+    if resolved is None and request.executor_surface:
+        raise SessionLaunchError(
+            "launch_model_required",
+            f"No item stage level can select a model on {request.executor_surface}. "
+            "Recovery: repeat launch create with --surface "
+            f"{request.executor_surface} --model MODEL --reasoning-effort EFFORT "
+            "using a qualifying model and effort from `yoke settings get levels`.",
+        )
     if resolved is None:
         raise SessionLaunchError(
             "stage_level_missing",

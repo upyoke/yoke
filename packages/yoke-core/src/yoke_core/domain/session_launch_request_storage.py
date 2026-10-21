@@ -68,7 +68,7 @@ def retry_request(launch: LaunchRecord, *, conn: Any) -> LaunchRequest:
         context_window_tokens=launch.requested_context_window_tokens,
         presentation=launch.presentation_preference,
         allow_surface_fallback=launch.allow_surface_fallback,
-        level=launch.requested_level,
+        level=launch.requested_level or placement.get("level"),
         item=render_item_ref(conn, recovery["item_id"], required=True)
         if recovery
         else None,
@@ -170,7 +170,7 @@ def insert_launch_request(
         resolved.model,
         resolved.reasoning_effort,
         resolved.context_window_tokens,
-        request.level,
+        request.level if not preview.requested_surface else None,
         stored_level_placement(
             preview,
             work_required=bool(request.item or request.level or request.work_required),

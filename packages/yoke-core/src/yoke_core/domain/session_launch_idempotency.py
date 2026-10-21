@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain import json_helper
 from yoke_contracts.session_control.liveness import ended_session_sql
 from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.session_launch_store import (
@@ -34,8 +35,13 @@ def same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> boo
     option placement chose is derived, so it is not compared.
     """
     body, body_hash, _ = instruction_message(conn, launch.message_id)
+    placement = json_helper.loads_text(launch.level_placement or "{}")
     selection = (
-        (launch.requested_level == request.level,)
+        (
+            (launch.requested_level or placement.get("level")) == request.level,
+            launch.requested_surface == request.executor_surface
+            if request.executor_surface else launch.requested_level is not None,
+        )
         if request.level or launch.requested_level
         else (
             launch.requested_surface == request.executor_surface,
