@@ -101,12 +101,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Execute the deployment pipeline inside a bounded liveness scope."""
     argv = list(sys.argv[1:] if argv is None else argv)
     run_id = argv[0] if argv and str(argv[0]).startswith("run-") else ""
-    finish_reexec(run_id)
     refusal, door = self_deploy_door(run_id)
     if refusal:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
     with door:
+        finish_reexec(run_id)
         return _drive(argv, run_id)
 
 
