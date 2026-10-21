@@ -12,8 +12,9 @@ A run with members has two roles. Each command's `--help` carries its full matri
 
 - Pin one source commit. Create the stage and production runs from it and start each with
   `yoke --env CONTROL-PLANE watch deploy -- RUN-ID`.
-- On a flow that waits for CI, create the production run without `--source-ref`; it binds the
-  newest tested commit. Give the stage run that `release_lineage` with `--source-ref`.
+- On CI-gated flows, omit `--source-ref` to bind the gate branch tip: reuse passed/running
+  CI, dispatch missing CI, or refuse failed/cancelled CI (`release_source_ci_failed`;
+  fix the branch or name a passing source). Give stage that `release_lineage` via `--source-ref`.
 - Before creating a pair, check the members' completion flows. Use a run of the selected flow or
   reconcile item flows deliberately; never change an item's flow silently.
 - Creation enrolls carried delivery-ready items. `release_member_not_in_source`: merge the item

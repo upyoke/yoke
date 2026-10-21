@@ -111,12 +111,9 @@ def deployment_runs_create(args: List[str]) -> int:
         default=None,
         help=(
             "Commit-ish to bind, resolved in --project-repo-path. Omit both "
-            "to let a flow that waits for CI bind the newest first-parent "
-            "gate-branch commit that has its own branch CI run (or dispatch "
-            "that CI on the branch and bind the commit it tests), refused "
-            "(release_source_off_lineage) when it does not descend from the "
-            "previous release; an explicit commit without its own run is "
-            "refused, naming that newest tested commit."
+            "to bind the gate branch tip on a CI-gated flow, dispatching "
+            "its CI workflow if the tip has no run. Failed or cancelled "
+            "tip CI refuses; fix the branch or name a passing source."
         ),
     )
     parser.add_argument(
@@ -155,7 +152,7 @@ def deployment_runs_create(args: List[str]) -> int:
         return usage_error(
             "--project-repo-path and --source-ref are given together: the "
             "checkout resolves the named commit. Omit both to bind the "
-            "newest CI-tested commit."
+            "gate branch tip."
         )
     if parsed.retry_of and (
         parsed.artifact_identity is not None

@@ -77,26 +77,39 @@ def gated():
         yield
 
 
-def test_default_binds_newest_commit_with_its_own_run_when_head_has_none(gated):
+@pytest.mark.parametrize(
+    "status,conclusion", [("in_progress", None), ("completed", "success")]
+)
+def test_default_binds_tip_with_own_usable_run_without_dispatch(
+    gated, status, conclusion
+):
+    runs = [_run(HEAD, status, conclusion, 3), _run(OLDEST, "completed", "success", 1)]
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(tested, "dispatch_branch_ci") as dispatch,
+    ):
+        assert tested.bind_tested_release_source("platform", "flow", None, None) == HEAD
+    dispatch.assert_not_called()
+
+
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled"])
+def test_default_refuses_tip_whose_newest_run_is_unusable(gated, conclusion):
     runs = [
-        _run(MIDDLE, "in_progress", None, 2),
+        _run(HEAD, "completed", conclusion, 3),
+        _run(HEAD, "completed", "success", 2),
         _run(OLDEST, "completed", "success", 1),
     ]
-    with mock.patch.object(tested, "_read", side_effect=_github(runs)):
-        bound = tested.bind_tested_release_source("platform", "flow", None, None)
-
-    assert bound == MIDDLE
-
-
-def test_default_skips_a_commit_whose_newest_run_failed(gated):
-    runs = [
-        _run(HEAD, "completed", "failure", 3),
-        _run(OLDEST, "completed", "success", 1),
-    ]
-    with mock.patch.object(tested, "_read", side_effect=_github(runs)):
-        bound = tested.bind_tested_release_source("platform", "flow", None, "")
-
-    assert bound == OLDEST
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(tested, "dispatch_branch_ci") as dispatch,
+        pytest.raises(tested.ReleaseSourceRefused) as refused,
+    ):
+        tested.bind_tested_release_source("platform", "flow", None, "")
+    assert refused.value.code == "release_source_ci_failed"
+    assert HEAD in str(refused.value)
+    assert "fix main and rerun CI" in str(refused.value)
+    assert "--source-ref with a passing run" in str(refused.value)
+    dispatch.assert_not_called()
 
 
 def test_explicit_untested_commit_refuses_naming_the_newest_tested(gated):
@@ -110,7 +123,7 @@ def test_explicit_untested_commit_refuses_naming_the_newest_tested(gated):
     assert refused.value.code == "release_source_untested"
     message = str(refused.value)
     assert f"release commit {HEAD} has no run of its own" in message
-    assert f"omit --source-ref to bind {MIDDLE}" in message
+    assert f"pass --source-ref {MIDDLE}" in message
     assert "Nothing was bound" in message
 
 
@@ -122,9 +135,13 @@ def test_explicit_commit_with_its_own_run_is_kept(gated):
     assert bound == OLDEST
 
 
-def test_default_dispatches_branch_ci_when_no_commit_has_its_own_run(gated):
+def test_default_dispatches_tip_even_when_older_commits_have_runs(gated):
     with (
-        mock.patch.object(tested, "_read", side_effect=_github([])),
+        mock.patch.object(
+            tested,
+            "_read",
+            side_effect=_github([_run(MIDDLE, "completed", "success", 1)]),
+        ),
         mock.patch.object(tested, "dispatch_branch_ci", return_value=HEAD) as dispatch,
     ):
         bound = tested.bind_tested_release_source("platform", "flow", None, None)
@@ -158,37 +175,26 @@ def test_flow_without_a_ci_gate_keeps_the_given_lineage():
     read.assert_not_called()
 
 
-@pytest.mark.parametrize("event", ["merge_group", "pull_request"])
-def test_default_ignores_runs_of_refs_other_than_the_gate_branch(gated, event):
-    queue = f"gh-readonly-queue/main/pr-1-{OLDEST}"
+@pytest.mark.parametrize(
+    "event,branch",
+    [
+        ("merge_group", "main"),
+        ("pull_request", "main"),
+        ("pull_request_target", "main"),
+        ("push", "lane"),
+    ],
+)
+def test_default_dispatches_when_tip_has_only_foreign_runs(gated, event, branch):
     runs = [
-        _run(HEAD, "completed", "success", 3, event=event, branch="main"),
-        _run(HEAD, "completed", "success", 2, event=event, branch=queue),
+        _run(HEAD, "completed", "success", 3, event=event, branch=branch),
         _run(MIDDLE, "completed", "success", 1),
     ]
-    with mock.patch.object(tested, "_read", side_effect=_github(runs)):
-        bound = tested.bind_tested_release_source("platform", "flow", None, None)
-
-    assert bound == MIDDLE
-
-
-def test_default_walks_first_parents_past_a_merged_in_commit(gated):
-    side = "d" * 40
-    # GitHub lists by date, so the merged-in commit precedes the trunk commit.
-    commits = [
-        _commit(HEAD, MIDDLE, side),
-        _commit(side, OLDEST),
-        _commit(MIDDLE, OLDEST),
-        _commit(OLDEST),
-    ]
-    runs = [
-        _run(side, "completed", "success", 2),
-        _run(OLDEST, "completed", "success", 1),
-    ]
-    with mock.patch.object(tested, "_read", side_effect=_github(runs, commits)):
-        bound = tested.bind_tested_release_source("platform", "flow", None, None)
-
-    assert bound == OLDEST
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github(runs)),
+        mock.patch.object(tested, "dispatch_branch_ci", return_value=HEAD) as dispatch,
+    ):
+        assert tested.bind_tested_release_source("platform", "flow", None, None) == HEAD
+    dispatch.assert_called_once_with(TARGET)
 
 
 def test_default_refuses_a_commit_off_the_previous_release_lineage(gated):
@@ -288,4 +294,4 @@ def test_cli_names_a_commit_only_with_both_checkout_and_ref(flags, capsys):
     )
 
     assert code == 2
-    assert "Omit both to bind the newest CI-tested commit" in capsys.readouterr().err
+    assert "Omit both to bind the gate branch tip" in capsys.readouterr().err
