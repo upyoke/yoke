@@ -25,6 +25,7 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_settled_review import (
     SETTLED_REVIEW_WAKE_REASON,
     open_unsettled_roster,
+    withdraw_settled_agent_review_wakes,
 )
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -273,33 +274,34 @@ def test_recorded_verdict_cancels_the_review_wake(test_db):
     assert _count(test_db, "session_messages") == 1
 
 
-def test_delivery_cancels_a_review_wake_whose_verdict_landed(test_db, monkeypatch):
+def test_review_submission_not_receipt_expiry_cancels_the_wake(test_db, monkeypatch):
     _owner(test_db)
     execution, bundle, requirement_id = _seed_pending(
         test_db, "run-review-delivery-cancel", "item"
     )
     key = f"qa-plan-agent-review:{execution['id']}"
+
+    def reason():
+        return test_db.execute(
+            "SELECT cancellation_reason FROM session_messages WHERE idempotency_key=%s",
+            (key,),
+        ).fetchone()[0]
+
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_settled_review.withdraw_settled_agent_review_wakes",
         lambda *args, **kwargs: 0,
     )
     _submit(test_db, execution, bundle, requirement_id, "fail")
-    assert (
-        test_db.execute(
-            "SELECT cancellation_reason FROM session_messages WHERE idempotency_key=%s",
-            (key,),
-        ).fetchone()[0]
-        is None
-    )
     monkeypatch.undo()
     from yoke_core.domain.session_message_delivery import expire_due_recipients
 
-    assert expire_due_recipients(test_db) >= 0
-    reason = test_db.execute(
-        "SELECT cancellation_reason FROM session_messages WHERE idempotency_key=%s",
-        (key,),
-    ).fetchone()[0]
-    assert str(reason).startswith(SETTLED_REVIEW_WAKE_REASON)
+    # Expiry runs inside acknowledge and relay claim; it never sweeps.
+    expire_due_recipients(test_db)
+    assert reason() is None
+    assert withdraw_settled_agent_review_wakes(
+        test_db, execution_id=str(execution["id"])
+    ) == 1
+    assert str(reason()).startswith(SETTLED_REVIEW_WAKE_REASON)
 
 
 @pytest.mark.parametrize(("verdict", "open_offsets"), [("pass", [1]), ("fail", [0, 1])])

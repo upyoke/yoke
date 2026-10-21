@@ -48,7 +48,7 @@ OWNERS = (
     (
         "deployment_qa_stage_wake_withdraw",
         "withdraw_deployment_qa_wait_wakes",
-        {"run_id": "run"},
+        {"run_id": "run", "reason": "run_terminal:failed"},
     ),
     ("session_message_delivery", "expire_due_recipients", {}),
     (

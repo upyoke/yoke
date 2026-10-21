@@ -158,7 +158,7 @@ def _gate_members(
     conn, stage, *, run_id, members, errors, project_id, target_tier, revision
 ):
     from yoke_core.domain.deployment_qa_member_acceptance_notice import (
-        notify_item_qa_accepted,
+        notify_items_qa_accepted,
     )
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
     from yoke_core.domain.deployment_qa_stage_materialization import (
@@ -286,9 +286,7 @@ def _gate_members(
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
     with uncached_presentation():
-        for member in accepted:
-            notify_item_qa_accepted(conn, run_id=run_id, item_id=member)
-            conn.commit()
+        notify_items_qa_accepted(conn, run_id=run_id, item_ids=tuple(accepted))
     if failure:
         return 1, failure
     if waiting:

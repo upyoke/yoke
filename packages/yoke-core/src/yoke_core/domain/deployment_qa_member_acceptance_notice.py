@@ -145,13 +145,41 @@ def _member_close_out_route(
     the run's shared requirements resolve once per member rather than once
     per reader. ``None`` means nobody is owed a close-out or notice.
     """
-    if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
-        return None
+    # One row first: a member already past its wait (most of a long
+    # stage's accepted members) skips the run-wide acceptance read.
     member = _release_wait_member(conn, int(item_id))
     if member is None:
         return None
+    if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
+        return None
     return member, independent_member_delivery_ready(
         conn, item_id=int(item_id), run_id=str(run_id)
+    )
+
+
+@presentation_operation
+@run_presentation
+def _member_close_out_routes(
+    conn: Any, *, run_id: str, item_ids: tuple[int, ...]
+) -> dict[int, tuple[dict[str, Any], bool] | None]:
+    """Every member's route from one read of the run, before any close-out."""
+    return {
+        item_id: _member_close_out_route(conn, run_id=run_id, item_id=item_id)
+        for item_id in item_ids
+    }
+
+
+def _withdraw_waits(conn: Any, *, run_id: str, item_ids: tuple[int, ...], now) -> None:
+    from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
+        withdraw_deployment_qa_wait_wakes,
+    )
+
+    withdraw_deployment_qa_wait_wakes(
+        conn,
+        run_id=run_id,
+        item_ids=item_ids,
+        reason="member_stage_credited",
+        now=now,
     )
 
 
@@ -173,18 +201,48 @@ def notify_item_qa_accepted(
     now = parse_instant(utc_now() if now is None else now)
     if not run_id or not item_id:
         return ""
-    from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
-        withdraw_deployment_qa_wait_wakes,
+    _withdraw_waits(conn, run_id=str(run_id), item_ids=(int(item_id),), now=now)
+    route = _member_close_out_route(conn, run_id=str(run_id), item_id=int(item_id))
+    return _close_or_notify(
+        conn, run_id=str(run_id), item_id=int(item_id), route=route, now=now
     )
 
-    withdraw_deployment_qa_wait_wakes(
-        conn,
-        run_id=str(run_id),
-        item_ids=(int(item_id),),
-        reason="member_stage_credited",
-        now=now,
-    )
-    route = _member_close_out_route(conn, run_id=str(run_id), item_id=int(item_id))
+
+@composition_operation
+def notify_items_qa_accepted(
+    conn: Any,
+    *,
+    run_id: str,
+    item_ids: tuple[int, ...],
+    now: Optional[datetime] = None,
+) -> None:
+    """:func:`notify_item_qa_accepted` for a dispatch's accepted members.
+
+    Routes are read once for the batch, after the acceptances were written
+    and before any close-out writes, instead of one run-wide read per
+    member. Each member's close-out or notice commits on its own.
+    """
+    now = parse_instant(utc_now() if now is None else now)
+    if not run_id or not item_ids:
+        return
+    _withdraw_waits(conn, run_id=str(run_id), item_ids=item_ids, now=now)
+    conn.commit()
+    routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=item_ids)
+    for item_id in item_ids:
+        _close_or_notify(
+            conn, run_id=str(run_id), item_id=item_id, route=routes[item_id], now=now
+        )
+        conn.commit()
+
+
+def _close_or_notify(
+    conn: Any,
+    *,
+    run_id: str,
+    item_id: int,
+    route: tuple[dict[str, Any], bool] | None,
+    now: datetime,
+) -> str:
     if route is None:
         return ""
     member, delivered_here = route
@@ -246,4 +304,5 @@ __all__ = [
     "item_qa_accepted_idempotency_key",
     "item_qa_accepted_message",
     "notify_item_qa_accepted",
+    "notify_items_qa_accepted",
 ]

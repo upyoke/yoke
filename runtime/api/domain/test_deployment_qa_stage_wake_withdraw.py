@@ -3,7 +3,8 @@
 The live failure was a pending wait for a run that had already succeeded
 and a member that was already done: every retry still instructed work
 that needed no crediting. These cover that pair — the wake is withdrawn
-on the run's completion, and already-recorded attempts stay as evidence.
+by the event that settles it, and already-recorded attempts stay as
+evidence. Receipt expiry never re-evaluates waits.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from yoke_core.domain.deployment_run_driver_attachment import (
 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
     withdraw_deployment_qa_wait_wakes,
 )
+from yoke_core.domain.item_terminal_resources import release_for_terminal_transition
 from yoke_core.domain.session_message_delivery import expire_due_recipients
 from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_contracts.timestamps import parse_instant
@@ -140,9 +142,11 @@ def test_a_wait_wake_does_not_survive_the_run_completing(test_db: Any) -> None:
     assert cancelled_at is None
     assert _recipient_state(test_db, message_id) == "pending"
 
-    withdrawn = expire_due_recipients(test_db, now=NOW)
+    withdrawn = withdraw_deployment_qa_wait_wakes(
+        test_db, run_id=RUN_ID, reason="run_terminal:succeeded", now=NOW
+    )
 
-    assert withdrawn == 0
+    assert withdrawn == 1
     _, cancelled_at, reason = _message(test_db, key)
     assert cancelled_at == NOW
     assert reason == "run_terminal:succeeded"
@@ -156,13 +160,17 @@ def test_a_wait_wake_does_not_survive_the_run_completing(test_db: Any) -> None:
     assert attempt[1] == parse_instant("2026-09-20T21:55:01Z")
 
 
-def test_an_outstanding_member_keeps_its_wait(test_db: Any) -> None:
+def test_receipt_expiry_leaves_waits_to_their_settling_event(test_db: Any) -> None:
     _project(test_db)
     _seed_member(test_db, MEMBER_A, HOLDER_A)
     _executing_run(test_db)
     key = _wait(test_db, MEMBER_A)
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,))
+    test_db.commit()
 
-    assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 0
+    # Receipt expiry runs inside acknowledge and relay claim: it never
+    # re-reads a wait's subject, even one that is settled.
+    assert expire_due_recipients(test_db, now=NOW) == 0
     message_id, cancelled_at, reason = _message(test_db, key)
     assert cancelled_at is None
     assert reason == ""
@@ -179,12 +187,15 @@ def test_a_done_member_loses_its_wait_while_the_run_is_still_live(
     key_a = _wait(test_db, MEMBER_A)
     key_b = _wait(test_db, MEMBER_B)
     test_db.execute("UPDATE items SET status='done' WHERE id=%s", (MEMBER_A,))
+
+    release_for_terminal_transition(
+        test_db, item_id=MEMBER_A, target_status="done", session_id=None, actor_id=None
+    )
     test_db.commit()
 
-    assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 1
     _, cancelled_a, reason_a = _message(test_db, key_a)
     _, cancelled_b, reason_b = _message(test_db, key_b)
-    assert cancelled_a == NOW
+    assert cancelled_a is not None
     assert reason_a == "member_done"
     assert cancelled_b is None
     assert reason_b == ""
@@ -206,9 +217,12 @@ def test_a_run_scoped_wait_withdraws_when_the_run_is_terminal(test_db: Any) -> N
     )
     assert result in ("delivered", "undelivered")
     key = run_stage_wait_idempotency_key(RUN_ID, STAGE)
-    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,))
-    test_db.commit()
-    assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 1
+    assert (
+        withdraw_deployment_qa_wait_wakes(
+            test_db, run_id=RUN_ID, reason="run_terminal:failed", now=NOW
+        )
+        == 1
+    )
     _, cancelled_at, reason = _message(test_db, key)
     assert cancelled_at == NOW
     assert reason == "run_terminal:failed"

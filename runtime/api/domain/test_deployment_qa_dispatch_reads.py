@@ -124,10 +124,10 @@ def test_member_closeout_reads_the_acceptance_just_written(test_db, monkeypatch)
 
     def close(conn, **kwargs):
         assert not presentation_active()
-        closed.append(kwargs["item_id"])
+        closed.extend(kwargs["item_ids"])
 
     monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_item_qa_accepted",
+        "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_items_qa_accepted",
         close,
     )
     assert (
@@ -137,3 +137,78 @@ def test_member_closeout_reads_the_acceptance_just_written(test_db, monkeypatch)
         == 0
     )
     assert closed == [9201]
+
+
+class _FetchedBytes(CountingConnection):
+    """Count statements and the bytes each one returns."""
+
+    def __init__(self, inner):
+        super().__init__(inner)
+        self.fetched = 0
+
+    def execute(self, sql, *args, **kwargs):
+        cursor = super().execute(sql, *args, **kwargs)
+        owner = self
+
+        class Cursor:
+            def fetchall(self):
+                rows = cursor.fetchall()
+                owner.fetched += sum(len(repr(tuple(row))) for row in rows)
+                return rows
+
+            def fetchone(self):
+                row = cursor.fetchone()
+                owner.fetched += len(repr(tuple(row))) if row is not None else 0
+                return row
+
+            def __iter__(self):
+                return iter(self.fetchall())
+
+            def __getattr__(self, name):
+                return getattr(cursor, name)
+
+        return Cursor()
+
+
+def _accept(conn, run_id, members):
+    from runtime.api.domain.test_deployment_qa_stage_execution import _complete_case
+    from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+
+    for member in members:
+        execution = begin_plan_execution(
+            conn,
+            deployment_run_id=run_id,
+            deployment_stage="item-qa",
+            deployment_member_item_id=member,
+            actor_id="2",
+            session_id="per-member-bound",
+        )
+        _complete_case(conn, execution)
+
+
+def test_dispatch_cost_per_member_does_not_grow_with_the_run(test_db):
+    """Production-sized frozen snapshots once moved N times per member."""
+    per_member = []
+    for run_id, members in [
+        ("run-bound-small", tuple(range(9301, 9303))),
+        ("run-bound-large", tuple(range(9401, 9411))),
+    ]:
+        stage = _seed(test_db, run_id, members, materialized=False)
+        test_db.execute(
+            "UPDATE deployment_run_items SET requirement_snapshot=jsonb_set("
+            "requirement_snapshot::jsonb,'{pad}',to_jsonb(repeat('x',20000)))::text "
+            "WHERE run_id=%s",
+            (run_id,),
+        )
+        test_db.commit()
+        costs = []
+        for step in ("first", "repeat", "accepted"):
+            if step == "accepted":
+                _accept(test_db, run_id, members[: len(members) // 2])
+            conn = _FetchedBytes(test_db)
+            materialize_and_gate_deployment_qa_stage(conn, stage, run_id=run_id)
+            costs.append((conn.count / len(members), conn.fetched / len(members)))
+        per_member.append(costs)
+    for (small_count, small_bytes), (large_count, large_bytes) in zip(*per_member):
+        assert large_count <= small_count * 1.25, per_member
+        assert large_bytes <= small_bytes * 1.25, per_member

@@ -7,9 +7,10 @@ wrong to follow. Withdrawal is the existing message-cancel path: the
 envelope stays on record with a reason, and already-recorded delivery
 attempts are left untouched.
 
-The sweep re-evaluates each still-pending wait. Event-driven callers that
-already know why the subject settled pass ``reason`` so the cancel does
-not depend on a second read of the same fact.
+Withdrawal is event-driven only: the code that settles the subject passes
+its ``reason``. No request path sweeps open waits, because re-reading QA
+acceptance per open wait grows with the fleet and ran inside the
+acknowledge and relay-claim transactions.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from __future__ import annotations
 from yoke_contracts.timestamps import parse_instant
 
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_stage_wake import (
@@ -25,13 +26,8 @@ from yoke_core.domain.deployment_qa_stage_wake import (
     RUN_SCOPED_WAIT_TOKEN,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.session_item_delivery_status import TERMINAL_RUN_STATUSES
 from yoke_core.domain.session_message_store import cancel_messages
 from yoke_core.domain.session_message_types import utc_now
-
-
-#: Item statuses that mean the member is no longer a waiting owner.
-_MEMBER_SETTLED_STATUSES = frozenset({"done", "cancelled", "stopped"})
 
 
 def _p(conn: Any) -> str:
@@ -59,103 +55,20 @@ def parse_deployment_qa_wait_key(
         return None
 
 
-def _run_status(conn: Any, run_id: str) -> str | None:
-    row = conn.execute(
-        f"SELECT status FROM deployment_runs WHERE id={_p(conn)}",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    return str(row["status"] if hasattr(row, "keys") else row[0] or "")
-
-
-def _run_stage(conn: Any, run_id: str) -> str:
-    row = conn.execute(
-        f"SELECT current_stage FROM deployment_runs WHERE id={_p(conn)}",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return ""
-    return str(row["current_stage"] if hasattr(row, "keys") else row[0] or "")
-
-
-def _item_status(conn: Any, item_id: int) -> str | None:
-    row = conn.execute(
-        f"SELECT status FROM items WHERE id={_p(conn)}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return None
-    return str(row["status"] if hasattr(row, "keys") else row[0] or "")
-
-
-def _member_stage_credited(
-    conn: Any, *, run_id: str, item_id: int, current_stage: str
-) -> bool:
-    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
-
-    try:
-        answer = current_item_qa(
-            conn,
-            run_id=run_id,
-            item_id=int(item_id),
-            current_stage=current_stage,
-        )
-    except (LookupError, ValueError):
-        return False
-    return answer is not None and answer.accepted
-
-
-def deployment_qa_wait_settled_reason(conn: Any, *, idempotency_key: str) -> str | None:
-    """Why this wait is no longer owed, or ``None`` if it still is."""
-    parsed = parse_deployment_qa_wait_key(idempotency_key)
-    if parsed is None:
-        return None
-    run_id, _stage_name, item_id = parsed
-    status = _run_status(conn, run_id)
-    if status is None:
-        return "run_gone"
-    if status in TERMINAL_RUN_STATUSES:
-        return f"run_terminal:{status}"
-    if item_id is None:
-        return None
-    item_status = _item_status(conn, item_id)
-    if item_status is None:
-        return "member_gone"
-    if item_status in _MEMBER_SETTLED_STATUSES:
-        return f"member_{item_status}"
-    if _member_stage_credited(
-        conn,
-        run_id=run_id,
-        item_id=item_id,
-        current_stage=_run_stage(conn, run_id),
-    ):
-        return "member_stage_credited"
-    return None
-
-
-def _pending_wait_rows(
-    conn: Any, *, message_id: str | None = None
-) -> list[tuple[str, str]]:
+def _pending_wait_rows(conn: Any, *, pattern: str) -> list[tuple[str, str]]:
     if not _table_exists(conn, "session_messages"):
         # A universe that cannot store Fleet wakes has none to withdraw.
         # Terminal run updates still run here, including on lean test DBs.
         return []
-    marker = _p(conn)
-    sql = (
+    # The caller re-checks the parsed key exactly; LIKE only narrows.
+    rows = conn.execute(
         "SELECT m.message_id, m.idempotency_key FROM session_messages m "
-        f"WHERE m.cancelled_at IS NULL AND m.idempotency_key LIKE {marker} "
-    )
-    params: list[Any] = [f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}%"]
-    if message_id:
-        sql += f"AND m.message_id={marker} "
-        params.append(message_id)
-    sql += (
+        f"WHERE m.cancelled_at IS NULL AND m.idempotency_key LIKE {_p(conn)} "
         "AND EXISTS (SELECT 1 FROM session_message_recipients r "
         "WHERE r.message_id=m.message_id "
-        "AND r.state IN ('pending','injected'))"
-    )
-    rows = conn.execute(sql, tuple(params)).fetchall()
+        "AND r.state IN ('pending','injected'))",
+        (pattern,),
+    ).fetchall()
     found: list[tuple[str, str]] = []
     for row in rows:
         found.append(
@@ -170,49 +83,74 @@ def _pending_wait_rows(
 def withdraw_deployment_qa_wait_wakes(
     conn: Any,
     *,
-    run_id: str | None = None,
+    run_id: str,
+    reason: str,
     item_ids: Iterable[int] | None = None,
-    message_id: str | None = None,
-    reason: str | None = None,
     now: datetime | str | None = None,
 ) -> int:
-    """Cancel pending QA wait wakes whose subject is settled.
+    """Cancel one run's pending QA wait wakes because ``reason`` settled them.
 
-    ``reason`` skips the per-message re-read: the caller already observed
-    the settling event. Without it, each wait is evaluated on its current
-    run and member facts. Already-recorded attempts are not rewritten.
+    The caller is the settling event (run terminal, member removed, member
+    stage credited), so nothing is re-read here: the work is one read of
+    this run's waits and one cancel. ``item_ids`` narrows to those members'
+    item-scoped waits. Already-recorded attempts are not rewritten.
     """
-    now = parse_instant(utc_now() if now is None else now)
-    wanted_run = str(run_id or "")
+    stamp = parse_instant(utc_now() if now is None else now)
     wanted_items = None if item_ids is None else {int(value) for value in item_ids}
-    settled: dict[str, list[str]] = {}
-    for stored_id, key in _pending_wait_rows(conn, message_id=message_id):
+    return _cancel_matching(
+        conn,
+        pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:%",
+        keep=lambda parsed: parsed[0] == str(run_id)
+        and (wanted_items is None or parsed[2] in wanted_items),
+        reason=reason,
+        now=stamp,
+    )
+
+
+def withdraw_member_qa_wait_wakes(
+    conn: Any,
+    *,
+    item_id: int,
+    reason: str,
+    now: datetime | str | None = None,
+) -> int:
+    """Cancel this item's item-scoped QA waits in every run (item closed)."""
+    stamp = parse_instant(utc_now() if now is None else now)
+    return _cancel_matching(
+        conn,
+        pattern=f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}%:%:{int(item_id)}:%",
+        keep=lambda parsed: parsed[2] == int(item_id),
+        reason=reason,
+        now=stamp,
+    )
+
+
+def _cancel_matching(
+    conn: Any,
+    *,
+    pattern: str,
+    keep: Callable[[tuple[str, str, Optional[int]]], bool],
+    reason: str,
+    now: datetime,
+) -> int:
+    message_ids = []
+    for stored_id, key in _pending_wait_rows(conn, pattern=pattern):
         parsed = parse_deployment_qa_wait_key(key)
-        if parsed is None:
-            continue
-        parsed_run, _stage, parsed_item = parsed
-        if wanted_run and parsed_run != wanted_run:
-            continue
-        if wanted_items is not None and parsed_item not in wanted_items:
-            continue
-        cancel_reason = reason or deployment_qa_wait_settled_reason(
-            conn, idempotency_key=key
-        )
-        if cancel_reason:
-            settled.setdefault(cancel_reason, []).append(stored_id)
-    for cancel_reason, message_ids in settled.items():
+        if parsed is not None and keep(parsed):
+            message_ids.append(stored_id)
+    if message_ids:
         cancel_messages(
             conn,
             message_ids=message_ids,
             actor_id=None,
-            reason=cancel_reason,
+            reason=reason,
             cancelled_at=now,
         )
-    return sum(len(message_ids) for message_ids in settled.values())
+    return len(message_ids)
 
 
 __all__ = [
-    "deployment_qa_wait_settled_reason",
     "parse_deployment_qa_wait_key",
     "withdraw_deployment_qa_wait_wakes",
+    "withdraw_member_qa_wait_wakes",
 ]

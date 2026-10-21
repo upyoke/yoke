@@ -215,6 +215,14 @@ def release_for_terminal_transition(
         holder_session_ids=holder_session_ids,
         target_status=target_status,
     )
+    from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
+        withdraw_member_qa_wait_wakes,
+    )
+
+    # A closed item owes no deployment QA: its waits say otherwise.
+    withdraw_member_qa_wait_wakes(
+        conn, item_id=int(item_id), reason=f"member_{target_status}"
+    )
     return TerminalResourceReceipt(
         document_claim_released=document_released,
         ephemeral_environments_stopped=environments_stopped,
