@@ -67,8 +67,12 @@ So the scope flags are not optional decoration:
 
 Dropping --stage or --member is the failure that looks like success: cases run,
 verdicts record, and the stage still reads unsatisfied because nothing credited
-it. `yoke qa case run --requirement-id N` refuses an item-scoped binding
-and names this command instead of exiting zero with an uncredited pass.
+it. For non-mission runners, `yoke qa case run --requirement-id N` refuses
+an item-scoped binding and names this command instead of recording an
+uncredited pass. An agent_mission instead starts a one-requirement plan
+execution with the same retained lease, review bundle and main-agent verdict;
+other open requirements stay untouched. An inherit mission needs its ordered
+predecessor and must use the plan command.
 
 When the stage names no concrete cases, --plan records the executor's
 project-owned selection -- and only then. A stage already naming its own cases
