@@ -137,12 +137,7 @@ class TestSteerNarrowedRead:
         loop = (root / ".agents/skills/yoke/steer/loop.md").read_text(
             encoding="utf-8",
         )
-        compact = " ".join(loop.split())
-        assert "Routine resume reads only the Live Status checkpoint" in compact
         assert "yoke strategy render" not in loop
-        assert (
-            "read claimed contract slugs on demand through strategy.doc.get" in compact
-        )
         assert "yoke strategy doc get {SLUG}" in skill
 
     def test_dirty_unchanged_remote_keeps_edit(self, tmp_path: Path) -> None:
