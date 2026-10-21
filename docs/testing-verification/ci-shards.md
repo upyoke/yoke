@@ -55,7 +55,38 @@ ordinary individual-test behavior.
 Files enter the worker queue in descending measured duration; xdist's default
 test-count reorder is disabled so short, expensive files start early.
 Each shard log records CPU model, core count, and a short Python-loop timing
-for diagnosing runner variation. This telemetry never changes test selection.
+before starting pytest. The probe takes the median of three local loops;
+`ci_shards.MAX_PYTHON_LOOP_SECONDS` admits values up to 0.05 seconds. Above
+that limit the shard exits non-zero before pytest with
+`ci_runner_slow: slow runner, retry` and the measured value and limit, in both
+the job log and uploaded `pytest-output.txt`. Re-run the failed GitHub Actions
+job to get another runner. This is an admission check, with no automatic retry
+or change to test selection. Missing CPU-model telemetry does not block tests.
+The **Run pytest** step sets `PYTHONUNBUFFERED=1` so progress reaches the
+streaming log without Python output buffering.
+
+The cutoff uses retained logs from three runs on 2026-10-21:
+[the sixteen-shard trial](https://github.com/upyoke/yoke/actions/runs/39642454534)
+(32 probes), [the first stalled run](https://github.com/upyoke/yoke/actions/runs/39646102090)
+(16 retained probes), and [the second stalled run](https://github.com/upyoke/yoke/actions/runs/39647919714)
+(16 retained probes). The 62 healthy observations ranged from 0.00766 to
+0.02254 seconds, with a 0.01699-second median:
+
+| Python loop seconds | Healthy observations |
+| --- | ---: |
+| Below 0.010 | 7 |
+| 0.010 to below 0.015 | 9 |
+| 0.015 to below 0.020 | 30 |
+| 0.020 to below 0.025 | 16 |
+
+The two stalled hosts measured 0.08952 and 0.06776 seconds. The 0.05-second
+limit is over twice the healthy maximum and below both degraded values;
+none of these healthy observations trips it. The existing probe ran 3m18s
+and 3m30s after those jobs started, so admission would have stopped them
+there rather than letting pytest crawl to the 35-minute cap. Setup still
+precedes this probe; this check does not bound setup time or detect a host
+that degrades after admission.
+
 GitHub-sync test databases clone the existing per-worker production schema
 template rather than replaying schema DDL for every case; their project and
 actor seeds and connection-close isolation remain per case.
