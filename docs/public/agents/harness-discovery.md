@@ -191,6 +191,30 @@ failed rows; failures retry after 15 minutes or immediately on another change.
 Doctor includes that durable failure and reports a Codex home without a CLI
 or desktop app, with instructions to remove an unintended home or open Codex.
 
+## Retired lane settings
+
+Lane retirement removes path-owned state for that exact
+retired lane in Claude Code, Codex and Cursor, plus Codex hook trust for the lane's
+own hooks file. Shared machine hooks, approval posture, live lanes and
+settings outside managed roots stay in place. Each format uses the
+same ownership selection and publishes config changes atomically.
+
+To clean settings already left behind by deleted lanes:
+
+```text
+yoke harness lane-config sweep --dry-run
+yoke harness lane-config sweep
+```
+
+The sweep uses registered checkout lane roots, including deploy worktrees.
+Use repeatable `--fixture-root PATH` only for roots reserved for QA fixtures
+Yoke creates. Ownership follows the path, with no ledger or new record store. Before changing a config it writes an exact timestamped
+`CONFIG.yoke-backup-TIMESTAMP` beside it and reports before/after bytes.
+Paths outside those roots stay untouched even when deleted. A malformed config, failed backup or write refuses
+with `harness_lane_config_cleanup_failed` and the recovery command. Repair
+the named file or permissions and rerun; successful files need no repeat work.
+Project and machine uninstall keep their existing ownership boundaries.
+
 ## Outside a project: yoke-global
 
 Yoke must run before any project exists, so setup also adds one `yoke`

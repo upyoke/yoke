@@ -35,7 +35,7 @@ from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_core.engines.cancelled_lane_discard import discard_and_record
 from yoke_core.engines.branch_landed_evidence import (
     assess_branch_landed,

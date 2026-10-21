@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.engines.git_worktree_registry import (
@@ -83,6 +83,8 @@ def _remove_worktree(
     """Remove the lane directory; return its uncommitted count and any refusal."""
     status = git(["status", "--porcelain"], cwd=str(path), capture=True)
     uncommitted = len(status.stdout.splitlines()) if status.returncode == 0 else 0
+    if warning := worktree_cleanup_warning(path):
+        return uncommitted, warning
     # Twice forced: git otherwise refuses a dirty tree once and a locked one twice.
     removed = git(
         ["worktree", "remove", "--force", "--force", str(path)],
@@ -94,8 +96,6 @@ def _remove_worktree(
             f"worktree {path} kept: git refused removal ({first_output_line(removed)})"
         )
     say(f"Deleted cancelled worktree: {path}")
-    if warning := worktree_cleanup_warning(path):
-        say(f"WARNING: {warning}", err=True)
     parent = path.parent
     if "/.worktrees" in str(parent):
         try:

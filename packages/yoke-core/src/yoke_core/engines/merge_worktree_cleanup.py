@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row

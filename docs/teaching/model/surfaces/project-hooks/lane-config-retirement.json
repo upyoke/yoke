@@ -1,0 +1,9 @@
+{
+ "id": "lane-config-retirement",
+ "title": "Retire lane trust while preserving paths outside Yoke-managed roots.",
+ "status": "observed",
+ "form": "State",
+ "verification": "Candidate source uses path ownership and the harness registry for exact-path retirement and a backed-up deleted-lane sweep. Regression tests cover all three harnesses, outside paths, live paths and repeat runs; machine cleanup and registration evidence belong to the item.",
+ "topics": ["context/hooks", "planning/tasks/worker-lanes"],
+ "position": 8
+}

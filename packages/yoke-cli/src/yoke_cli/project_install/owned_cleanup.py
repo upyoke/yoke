@@ -98,8 +98,27 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         or _config_reason(manifest, cfg)
         or _shared_reason(root, all_projects, manifest.get("project_id"))
     )
-    trust = revert_folder_trust(
-        root, exclusive_reason=reason, lanes_dir=_lanes_dir(root, payload)
+    lane_cleanup = []
+    if not reason:
+        from yoke_contracts.harness_lane_cleanup import cleanup_lane_configs
+
+        receipt = cleanup_lane_configs(managed_roots=(_lanes_dir(root, payload),))
+        lane_cleanup = [
+            dict(
+                harness=row["harness"],
+                status="failed" if "error" in row else "removed",
+                reason=row.get("error", "retired_lane_path_state"),
+                checkout=str(root),
+                detail=row.get("detail", ""),
+                recovery=row.get("recovery", ""),
+            )
+            for row in receipt["files"]
+        ]
+    trust = (
+        revert_folder_trust(
+            root, exclusive_reason=reason, lanes_dir=_lanes_dir(root, payload)
+        )
+        + lane_cleanup
     )
     record = manifest.get(REGISTRATION_KEY)
     exact = [

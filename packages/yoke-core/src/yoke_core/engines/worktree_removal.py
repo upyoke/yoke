@@ -23,6 +23,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_contracts.doctor_budget import pause_check_budget, remaining_budget
 
 TOMBSTONE_PREFIX = ".removing-"
@@ -118,6 +119,8 @@ def _remove(repo_root: Path, path: Path) -> WorktreeRemoval:
         return WorktreeRemoval(
             False, f"worktree is locked ({note or 'no reason recorded'})"
         )
+    if warning := worktree_cleanup_warning(path):
+        return WorktreeRemoval(False, warning)
     name = f"{TOMBSTONE_PREFIX}{path.name}-{uuid.uuid4().hex[:8]}"
     tombstone = _tombstone_home(repo_root.resolve(), path.resolve()) / name
     try:

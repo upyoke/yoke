@@ -13,6 +13,8 @@
 - `upstream-unverified` and `upstream-stale` refusals block preparation and preserve local
   commits. Follow their recovery; never reset, rebase or force-update past them.
 
+See [cleanup](../harness-discovery.md).
+
 ## Path claims
 
 - With `path_claims=required_per_task`, the task body owns its file list; read

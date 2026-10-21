@@ -305,18 +305,6 @@ def sweep_stale_trust(
     return _mutate(selected, plan)
 
 
-def worktree_cleanup_warning(worktree: str | Path) -> str:
-    """Best-effort teardown warning with the exact recovery command."""
-    try:
-        remove_checkout_trust(worktree)
-    except CodexHookTrustStoreError as exc:
-        return (
-            f"CodexWorktreeTrustCleanupFailed for {worktree}: {exc}. "
-            f"Recovery: run `{SWEEP_COMMAND}`."
-        )
-    return ""
-
-
 __all__ = [
     "CodexHookTrustStoreError",
     "HOOKS_RELATIVE_PATH",
@@ -334,5 +322,4 @@ __all__ = [
     "retrust_recovery",
     "stale_trust_scan",
     "sweep_stale_trust",
-    "worktree_cleanup_warning",
 ]

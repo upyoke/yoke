@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_core.engines.branch_landed_evidence import (
     BranchLandedEvidence,
     assess_branch_landed,

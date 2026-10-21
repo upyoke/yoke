@@ -129,18 +129,18 @@ def filter_tables(
     if not headers:
         return text, 0, 0
     chunks = ["".join(lines[: headers[0][0]])]
-    hook_count = project_count = 0
+    removed_hooks, removed_projects = set(), set()
     for offset, (start, document) in enumerate(headers):
         end = headers[offset + 1][0] if offset + 1 < len(headers) else len(lines)
         identity = _table_identity(document)
         if identity and identity[0] == "hook" and identity[1] in hook_keys:
-            hook_count += 1
+            removed_hooks.add(identity[1])
             continue
         if identity and identity[0] == "project" and identity[1] in project_paths:
-            project_count += 1
+            removed_projects.add(identity[1])
             continue
         chunks.append("".join(lines[start:end]))
-    return "".join(chunks), hook_count, project_count
+    return "".join(chunks), len(removed_hooks), len(removed_projects)
 
 
 def mutate(
@@ -212,6 +212,11 @@ def _mutate_locked(
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary, mode)
+        if target.exists() and target.read_text(encoding="utf-8") != text:
+            raise CodexHookTrustStoreError(
+                f"codex_config_changed: {target} changed during the update. "
+                "Recovery: retry after Codex finishes writing its configuration."
+            )
         os.replace(temporary, target)
     except BaseException:
         try:
@@ -256,12 +261,12 @@ def _table_identity(document: dict[str, Any]) -> tuple[str, str] | None:
     state = hooks.get("state") if isinstance(hooks, dict) else {}
     if isinstance(state, dict):
         for key, value in state.items():
-            if isinstance(value, dict) and value.get(_TABLE_MARKER) is True:
+            if _contains_marker(value):
                 return "hook", str(key)
     projects = document.get("projects") or {}
     if isinstance(projects, dict):
         for key, value in projects.items():
-            if isinstance(value, dict) and value.get(_TABLE_MARKER) is True:
+            if _contains_marker(value):
                 return "project", str(key)
     return None
 
