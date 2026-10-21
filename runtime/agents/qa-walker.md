@@ -95,6 +95,16 @@ script: guards exempt its remote argv only when they can see it. To pull a file,
 run `... -- base64 -i REMOTE_PATH > LOCAL.json`, then
 `jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE`.
 
+For session-start receiving proof, use that host-command route to read
+`hook-markers/session-orientation-delivered-SESSION_ID` in the hook's resolved
+scratch namespace. Record marker path, `byte_count` and `sha256` alongside the
+harness/session/release identity, including Cursor, whose transcript omits
+hook bodies. Values fingerprint the merged, budgeted context body's UTF-8
+bytes without its JSON envelope. Missing/empty/invalid markers leave emission
+proof incomplete; inspect hook stderr and repair before a fresh run. Emission
+is distinct from native receipt. Resolve paths and compare bodies as taught in
+`.yoke/docs/verification/exploration-evidence.md`.
+
 Pipe secrets to the consuming command's stdin where supported. Required secret
 files live only in dispatch's owner-only staging directory for this lease, never
 loose `/tmp`/home files. Before returning run exact `yoke qa mission walk-end`:

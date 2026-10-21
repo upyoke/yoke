@@ -17,6 +17,7 @@ Shares the wire fixtures of ``test_yoke_operations_cli_hooks.py``.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import sys
@@ -54,10 +55,10 @@ def prompt_submit_payload(monkeypatch):
 @pytest.fixture()
 def delivery_confirmations(monkeypatch):
     """Record every delivery the adapter confirms for the composed block."""
-    confirmed: list[bool] = []
+    confirmed: list[str] = []
     monkeypatch.setattr(
         "yoke_core.domain.session_orientation.confirm_orientation_delivery",
-        lambda: confirmed.append(True),
+        lambda body: confirmed.append(body),
     )
     return confirmed
 
@@ -82,7 +83,8 @@ def test_a_printed_block_confirms_its_own_delivery(
 
     capsys.readouterr()
     assert rc == 0
-    assert delivery_confirmations == [True]
+    assert len(delivery_confirmations) == 1
+    assert ORIENTATION in delivery_confirmations[0]
 
 
 def test_a_degraded_relay_still_confirms_the_preserved_block(
@@ -107,7 +109,8 @@ def test_a_degraded_relay_still_confirms_the_preserved_block(
     out = capsys.readouterr()
     assert rc == 0
     assert "## Yoke Orientation" in out.out
-    assert delivery_confirmations == [True]
+    assert len(delivery_confirmations) == 1
+    assert ORIENTATION in delivery_confirmations[0]
 
 
 def test_a_deny_leaves_the_dropped_block_unconfirmed(
@@ -169,3 +172,75 @@ def test_a_cursor_deny_does_not_retire_the_orientation_it_dropped(
     assert rc == 0
     assert ORIENTATION not in out.out
     assert delivery_confirmations == []
+
+
+@pytest.mark.parametrize("executor", ["claude-code", "codex", CURSOR_EXECUTOR_ID])
+def test_delivered_marker_fingerprints_exact_emitted_body(
+    executor,
+    monkeypatch,
+    tmp_path,
+    capsys,
+    https_connection,
+    local_subset,
+):
+    from yoke_core.domain import session_orientation_delivery as delivery
+
+    monkeypatch.setenv(EXECUTOR_ENV_VAR, executor)
+    monkeypatch.setenv(
+        "CURSOR_INVOKED_AS", "cursor-agent" if executor == CURSOR_EXECUTOR_ID else ""
+    )
+    monkeypatch.setattr(delivery, "_composed_session", None)
+    monkeypatch.setattr(delivery, "_attempt_marker", lambda _: tmp_path / "attempt")
+    monkeypatch.setattr(delivery, "_delivered_marker", lambda _: tmp_path / "delivered")
+    orientation = ORIENTATION + "UTF-8: café ☃\n"
+
+    def compose(*_args, **_kwargs):
+        delivery.record_orientation_attempt("s-1")
+        return orientation
+
+    monkeypatch.setattr(
+        "yoke_core.domain.session_orientation.orientation_for_hook", compose
+    )
+    cursor = executor == CURSOR_EXECUTOR_ID
+    payload = {
+        "session_id": "s-1",
+        "conversation_id": "s-1",
+        "workspace_roots": ["/repo"],
+    }
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    resume = "merged resume body\n"
+    server_context = (
+        {"additional_context": resume}
+        if cursor
+        else {
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": resume,
+            }
+        }
+    )
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_a, **_k: _FakeResponse(
+            _server_response(stdout=json.dumps(server_context))
+        ),
+    )
+
+    assert (
+        cli_main(["hook", "evaluate", "SessionStart" if cursor else "UserPromptSubmit"])
+        == 0
+    )
+
+    emitted = json.loads(capsys.readouterr().out)
+    body = (
+        emitted["additional_context"]
+        if cursor
+        else emitted["hookSpecificOutput"]["additionalContext"]
+    )
+    assert orientation in body and resume in body
+    encoded = body.encode("utf-8")
+    assert len(encoded) > len(body)
+    assert json.loads((tmp_path / "delivered").read_text()) == {
+        "byte_count": len(encoded),
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+    }

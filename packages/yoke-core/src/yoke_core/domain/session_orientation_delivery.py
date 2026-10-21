@@ -23,6 +23,10 @@ repair path is built to notice.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import sys
+
 from pathlib import Path
 from typing import Optional
 
@@ -91,8 +95,11 @@ def record_orientation_attempt(session_id: str) -> bool:
     return attempted_before
 
 
-def confirm_orientation_delivery() -> None:
-    """Record that this process printed the orientation it composed.
+def confirm_orientation_delivery(emitted_body: str) -> None:
+    """Record the exact emitted context body as UTF-8 bytes and SHA-256.
+
+    The body includes any context merged with the orientation, without its
+    harness JSON envelope. It is evidence of hook emission, not agent receipt.
 
     Callers reach here only on an allow exit code, because a deny prints its
     block message instead of the merged allow stdout and a killed hook never
@@ -101,4 +108,19 @@ def confirm_orientation_delivery() -> None:
     """
     if _composed_session is None:
         return
-    _touch(_delivered_marker(_composed_session))
+    body = emitted_body.encode("utf-8")
+    marker = _delivered_marker(_composed_session)
+    try:
+        marker.write_text(
+            json.dumps(
+                {"byte_count": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        sys.stderr.write(
+            f"WARNING: orientation_delivery_marker_unwritable: {marker}: {exc}. "
+            "Restore write access to the hook-markers directory or set "
+            "YOKE_SCRATCH_ROOT to a writable path; retry the context-bearing hook.\n"
+        )

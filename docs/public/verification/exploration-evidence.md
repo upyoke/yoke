@@ -29,6 +29,21 @@ yoke --env <connection> qa mission host-command ... -- base64 -i REMOTE_PATH > L
 jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE
 ```
 
+For session-start receiving proof, read the delivered marker on the receiving
+host through the same `host-command` template with `-- cat MARKER_PATH`.
+Resolve `MARKER_PATH` in that hook's scratch namespace: configured
+`YOKE_SCRATCH_ROOT`, machine `temp_root`, or OS temp, followed by the project
+(or projectless authority) namespace and
+`hook-markers/session-orientation-delivered-SESSION_ID`. Record its path,
+`byte_count` and `sha256` with the harness, session and released CLI identity.
+These values describe the final context body's UTF-8 bytes, after merging and
+budgeting, without the JSON envelope. Compare them with the actual emitted
+body where available. Cursor transcripts do not retain hook bodies: collect
+its marker values explicitly. A missing, empty or invalid marker is incomplete
+emission evidence; inspect hook stderr and repair its named failure before a
+fresh receiving run. The marker proves hook emission; native receipt and
+readable teaching still need the receiving session's evidence.
+
 At `--timeout-seconds` (default 60, at most 900) a `--gui-session` command's
 whole process tree is stopped; a Yoke `setup`, `connect` or `onboard` that may
 wait on approval needs 600+.
