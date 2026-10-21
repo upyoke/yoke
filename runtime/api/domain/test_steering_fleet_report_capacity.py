@@ -72,9 +72,9 @@ def fleet(test_db):
         "(launch_id, requester_actor_id, requester_session_id, project_id, "
         "requested_surface, selected_surface, allow_surface_fallback, message_id, "
         "state, deadline_at, created_at, origin, assigned_machine_id, "
-        "registered_session_id) "
+        "registered_session_id, level_placement) "
         "VALUES ('worker-launch', %s, %s, %s, 'codex-cli', 'codex-cli', 0, "
-        "'worker-message', 'awaiting_registration', %s, %s, 'steering', %s, %s)",
+        "'worker-message', 'awaiting_registration', %s, %s, 'steering', %s, %s, '{\"work_required\":true}')",
         (ACTOR_ID, STEERING_SESSION, PROJECT_ID, NOW, NOW, MACHINE, WORKER_SESSION),
     )
     conn.commit()
@@ -136,9 +136,9 @@ def test_launches_already_assigned_there_count_against_the_cap(fleet):
         "INSERT INTO session_launches "
         "(launch_id, requester_actor_id, requester_session_id, project_id, "
         "requested_surface, selected_surface, allow_surface_fallback, message_id, "
-        "state, deadline_at, created_at, origin, assigned_machine_id) "
+        "state, deadline_at, created_at, origin, assigned_machine_id, level_placement) "
         "VALUES ('launch-inflight', %s, %s, %s, 'codex-cli', 'codex-cli', 0, "
-        "'msg-inflight', 'assigned', %s, %s, 'steering', %s)",
+        "'msg-inflight', 'assigned', %s, %s, 'steering', %s, '{\"work_required\":true}')",
         (
             ACTOR_ID,
             STEERING_SESSION,

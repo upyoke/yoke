@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
@@ -23,7 +24,16 @@ from runtime.api.domain.session_launch_test_support import (
     add_relay,
     assigned_launch,
     authorization,
-    launch_connection,
+)
+
+from runtime.api.domain.session_launch_level_test_support import (
+    CODEX_SOL,
+    level_connection,
+)
+
+launch_connection = partial(level_connection, CODEX_SOL)
+_worker_launch = partial(
+    assigned_launch, work_required=True, model="gpt-6.1-sol", reasoning_effort="medium"
 )
 
 MACHINE = "machine-1"
@@ -47,7 +57,7 @@ def _publish_capacity(conn, *, max_worker_lanes: int | None, relay_id="relay-1")
 
 
 def _live_session(
-    conn, session_id: str, *, machine_id: str = MACHINE, model="gpt-5"
+    conn, session_id: str, *, machine_id: str = MACHINE, model="gpt-6.1-sol"
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, project_id, executor_surface, "
@@ -55,7 +65,7 @@ def _live_session(
         "'0.148.0a15', ?, ?)",
         (session_id, machine_id, model),
     )
-    launch = assigned_launch(conn, key=session_id, machine_id=machine_id, model=model)
+    launch = _worker_launch(conn, key=session_id, machine_id=machine_id, model=model)
     conn.execute(
         "UPDATE session_launches SET registered_session_id=? WHERE launch_id=?",
         (session_id, launch.launch_id),
@@ -126,7 +136,7 @@ def test_a_launch_still_in_flight_occupies_a_lane_before_it_registers() -> None:
     add_relay(conn)
     _publish_capacity(conn, max_worker_lanes=2)
     _live_session(conn, "worker-1")
-    assigned_launch(conn, key="first", machine_id=MACHINE)
+    _worker_launch(conn, key="first", machine_id=MACHINE)
 
     reading = machine_capacity(
         conn, machine_id=MACHINE, capacity_document=None, now=parse_instant(NOW)
@@ -287,20 +297,20 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
         conn.execute(
             "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, "
             "registered_session_id TEXT, requester_session_id TEXT, "
-            "deadline_at TIMESTAMPTZ)"
+            "deadline_at TIMESTAMPTZ, level_placement TEXT)"
         )
         conn.execute(
             "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL)", (MACHINE,)
         )
         conn.execute(
             "INSERT INTO session_launches "
-            "VALUES (%s, 'registered', 'worker', 'main', %s)",
+            "VALUES (%s, 'registered', 'worker', 'main', %s, '{\"work_required\":true}')",
             (MACHINE, anchor),
         )
         for delta in (-1, 0, 1):
             conn.execute(
                 "INSERT INTO session_launches "
-                "VALUES (%s, 'assigned', NULL, 'main', %s)",
+                "VALUES (%s, 'assigned', NULL, 'main', %s, '{\"work_required\":true}')",
                 (MACHINE, anchor + timedelta(microseconds=delta)),
             )
         assert live_lane_count(conn, machine_id=MACHINE, now=supplied) == 2

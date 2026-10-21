@@ -3,9 +3,9 @@
 The relay heartbeat carries what the machine measured about itself -- free
 memory, load, cores, and the lane cap it resolved from its own settings or
 total memory. The control plane pairs that with what it can see that the
-machine cannot: live workers another session launched plus every such launch
-already assigned there and not yet registered. MAIN sessions, interactive or
-launched by the operator without a requester session, use no worker lane.
+machine cannot: live worker launches plus every such launch already assigned
+there and not yet registered. Worker intent is the stored work_required flag;
+MAIN launches use no worker lane, even when another session requested them.
 Those are the lanes a new launch would join, and a launch is refused when they
 already fill the cap.
 
@@ -33,6 +33,7 @@ from yoke_contracts.machine_config.machine_capacity import (
     sanitize_machine_capacity,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.sql_json import json_get
 
 MACHINE_AT_CAPACITY = "machine_at_capacity"
 RELAY_PREDATES_CAPACITY_REASON = "relay_predates_capacity_readings"
@@ -115,15 +116,20 @@ def _live_lane_rows(conn: Any, now: datetime) -> tuple[str, tuple[Any, ...]]:
     current = as_utc(now)
     p = _marker(conn)
     states = ",".join(p for _ in IN_FLIGHT_LAUNCH_STATES)
+    worker = (
+        f"({json_get('level_placement', '$.work_required')}) = 'true'"
+        if db_backend.connection_is_postgres(conn)
+        else "json_extract(level_placement, '$.work_required') = 1"
+    )
     return (
         "SELECT s.machine_id FROM harness_sessions s "
         "WHERE s.ended_at IS NULL AND s.terminated_at IS NULL "
         "AND EXISTS (SELECT 1 FROM session_launches linked "
         "WHERE linked.registered_session_id = s.session_id "
-        "AND linked.requester_session_id IS NOT NULL) UNION ALL "
+        f"AND {worker}) UNION ALL "
         "SELECT assigned_machine_id AS machine_id FROM session_launches "
         f"WHERE state IN ({states}) AND registered_session_id IS NULL "
-        f"AND requester_session_id IS NOT NULL AND deadline_at > {p}",
+        f"AND {worker} AND deadline_at > {p}",
         (*IN_FLIGHT_LAUNCH_STATES, instant_parameter(conn, current)),
     )
 

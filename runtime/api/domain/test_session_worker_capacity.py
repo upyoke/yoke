@@ -5,15 +5,19 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.session_launch_requests import create_launch
+from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.session_launch_capacity import live_lane_count, live_lane_counts
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
     assigned_launch,
-    launch_connection,
+    authorization,
 )
 from runtime.api.domain.test_session_launch_capacity import (
     MACHINE,
+    launch_connection,
+    _worker_launch,
     _eligibility,
     _live_session,
     _publish_capacity,
@@ -27,10 +31,10 @@ def _counts(conn, expected):
 
 
 def _operator_launch(conn, key):
-    """A launch the operator started with no requesting session."""
+    """An operator MAIN launch with the requesting session retained."""
     launch = assigned_launch(conn, key=key, machine_id=MACHINE)
     conn.execute(
-        "UPDATE session_launches SET requester_session_id=NULL WHERE launch_id=?",
+        "UPDATE session_launches SET origin='operator' WHERE launch_id=?",
         (launch.launch_id,),
     )
     return launch
@@ -61,6 +65,21 @@ def test_main_at_one_worker_cap_can_staff_first_worker_but_not_second(
     _live_session(conn, "first-worker")
     _counts(conn, 1)
     assert _eligibility(conn).relays == ()
+    with pytest.raises(SessionLaunchError, match="lane cap") as refused:
+        create_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="codex-cli",
+                model="gpt-5",
+                instructions="Report evidence",
+                idempotency_key="second-worker",
+                work_required=True,
+            ),
+            now=NOW,
+        )
+    assert refused.value.code == "machine_at_capacity"
 
 
 @pytest.mark.parametrize("column", ["ended_at", "terminated_at"])
@@ -80,7 +99,7 @@ def test_finished_worker_releases_scalar_and_grouped_occupancy(column):
 def test_launch_registration_handoff_counts_once_even_with_multiple_correlations():
     conn = launch_connection()
     add_relay(conn)
-    launch = assigned_launch(conn, machine_id=MACHINE)
+    launch = _worker_launch(conn, machine_id=MACHINE)
     _counts(conn, 1)
     conn.execute(
         "INSERT INTO harness_sessions (session_id, project_id, machine_id) "
@@ -92,7 +111,7 @@ def test_launch_registration_handoff_counts_once_even_with_multiple_correlations
         (launch.launch_id,),
     )
     _counts(conn, 1)
-    duplicate = assigned_launch(conn, key="correlated-again", machine_id=MACHINE)
+    duplicate = _worker_launch(conn, key="correlated-again", machine_id=MACHINE)
     conn.execute(
         "UPDATE session_launches SET registered_session_id='worker' WHERE launch_id=?",
         (duplicate.launch_id,),
@@ -104,7 +123,7 @@ def test_launch_registration_handoff_counts_once_even_with_multiple_correlations
 def test_inflight_worker_reserves_only_until_its_deadline(state):
     conn = launch_connection()
     add_relay(conn)
-    launch = assigned_launch(conn, machine_id=MACHINE)
+    launch = _worker_launch(conn, machine_id=MACHINE)
     conn.execute(
         "UPDATE session_launches SET state=? WHERE launch_id=?",
         (state, launch.launch_id),
@@ -117,10 +136,30 @@ def test_inflight_worker_reserves_only_until_its_deadline(state):
     _counts(conn, 0)
 
 
-def test_inflight_operator_launch_reserves_no_worker_lane():
+@pytest.mark.parametrize("state", ["assigned", "launching", "awaiting_registration"])
+def test_inflight_operator_launch_reserves_no_worker_lane(state):
     conn = launch_connection()
     add_relay(conn)
-    _operator_launch(conn, "operator-main")
+    launch = _operator_launch(conn, "operator-main")
+    conn.execute(
+        "UPDATE session_launches SET state=? WHERE launch_id=?",
+        (state, launch.launch_id),
+    )
     _publish_capacity(conn, max_worker_lanes=1)
     _counts(conn, 0)
     assert [relay.machine_id for relay in _eligibility(conn).relays] == [MACHINE]
+
+    _live_session(conn, "first-worker")
+    _counts(conn, 1)
+    assert _eligibility(conn).relays == ()
+
+
+def test_worker_intent_counts_even_without_requesting_session():
+    conn = launch_connection()
+    add_relay(conn)
+    launch = _worker_launch(conn, machine_id=MACHINE)
+    conn.execute(
+        "UPDATE session_launches SET requester_session_id=NULL WHERE launch_id=?",
+        (launch.launch_id,),
+    )
+    _counts(conn, 1)

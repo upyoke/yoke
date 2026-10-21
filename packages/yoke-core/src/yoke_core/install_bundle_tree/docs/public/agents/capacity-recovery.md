@@ -58,9 +58,10 @@ Inspect placement before changing capacity:
 yoke session-control launch preview --project PROJECT --level SENIOR --json
 ```
 
-`max_worker_lanes` limits workers another session launched on a machine. MAIN
-sessions do not spend that allowance, whether interactive or started by
-`yoke session-control launch` without a requesting session. Assigned launches reserve a lane until
+`max_worker_lanes` limits worker launches on a machine. A launch for an item,
+a level, or explicit work stores `level_placement.work_required=true` and
+spends that allowance. MAIN launches do not, even when an operator or another
+session requests them. Assigned launches reserve a lane until
 registration or their deadline; a registered worker counts once until it ends
 or is terminated. Scalar placement and the grouped fleet report count the same
 population across projects.
