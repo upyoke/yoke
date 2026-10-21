@@ -22,7 +22,6 @@ Codex trust decision.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -36,7 +35,8 @@ from yoke_contracts.codex_hook_trust_store import (
     HOOKS_RELATIVE_PATH,
 )
 from yoke_contracts.codex_hook_trust_toml import (
-    TRUSTED_HASH_KEY,
+    append_hook_entries,
+    mutate,
     entries_for as _entries_for,
     read_trust_state as _read_trust_state,
 )
@@ -240,55 +240,23 @@ def mirror_hook_trust(
         return _blocked(result, reason)
     source_entries = _entries_for(state, Path(result.source_hooks_path))
 
-    try:
-        block = _render_entries(
-            result.target_hooks_path,
-            {suffix: source_entries[suffix] for suffix in result.missing},
-        )
-    except ValueError as exc:
-        return _with(result, write_error=str(exc))
+    def plan(text, document):
+        current = document.get("hooks", {}).get("state", {})
+        mirrored = []
+        additions = {}
+        for suffix in result.missing:
+            key = f"{result.target_hooks_path}:{suffix}"
+            if key not in current:
+                additions[suffix] = source_entries[suffix]
+                mirrored.append(suffix)
+        updated = append_hook_entries(text, Path(result.target_hooks_path), additions)
+        return updated, tuple(mirrored)
 
     try:
-        _append(path, block)
-    except OSError as exc:
+        mirrored = mutate(path, plan)
+    except (OSError, RuntimeError, ValueError) as exc:
         return _with(result, write_error=f"could not update {path}: {exc}")
-    return _with(result, mirrored=result.missing, missing=())
-
-
-def _render_entries(hooks_path: str, entries: Dict[str, str]) -> str:
-    """Render trust entries as appendable TOML tables."""
-    lines = []
-    for suffix in sorted(entries):
-        key = _toml_string(f"{hooks_path}:{suffix}")
-        value = _toml_string(entries[suffix])
-        lines.append(f"\n[hooks.state.{key}]\n{TRUSTED_HASH_KEY} = {value}\n")
-    return "".join(lines)
-
-
-def _toml_string(value: str) -> str:
-    """Quote a value as a TOML basic string, refusing control characters."""
-    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in value):
-        raise ValueError(f"refusing to write control characters: {value!r}")
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
-def _append(config_path: Path, block: str) -> None:
-    """Append trust entries, leaving every existing byte in place.
-
-    Append-only on purpose: this is another tool's config file, so a
-    read-modify-rewrite would risk losing whatever Codex wrote in between.
-    """
-    with config_path.open("a", encoding="utf-8") as handle:
-        if config_path.stat().st_size and not _ends_with_newline(config_path):
-            handle.write("\n")
-        handle.write(block)
-
-
-def _ends_with_newline(config_path: Path) -> bool:
-    with config_path.open("rb") as handle:
-        handle.seek(-1, os.SEEK_END)
-        return handle.read(1) in (b"\n", b"\r")
+    return _with(result, mirrored=mirrored, missing=())
 
 
 def _blocked(result: HookTrustResult, reason: str) -> HookTrustResult:

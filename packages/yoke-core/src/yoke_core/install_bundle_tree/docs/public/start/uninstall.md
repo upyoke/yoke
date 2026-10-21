@@ -77,6 +77,13 @@ A partial cleanup exits nonzero and retains its manifest: resolve the named
 ownership or sharing issue, then rerun the same command. Credentials, other
 projects, shared tools and server history stay intact; source checkouts refuse.
 
+Retiring lanes removes their path-owned folder trust before machine uninstall.
+To remove older residue while keeping Yoke installed, run
+`yoke harness lane-config sweep --dry-run`, then the same command without
+`--dry-run`. Each changed config receives a timestamped backup beside it;
+paths outside managed roots remain. See
+[harness cleanup](../agents/harness-discovery.md#retired-lane-settings).
+
 ## Related
 
 - [Install and onboard](install.md)
