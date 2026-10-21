@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 from runtime.api.backlog_github_sync_test_helpers import (
     GH_PATCH,
+    issue_access,
+    issue_with,
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
@@ -81,14 +83,8 @@ class TestSyncLabels:
         def fake_remove_label(repo, issue_num, label, *, token):
             removed.append((repo, issue_num, label))
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-        ), patch.object(
-            backlog_github_label_sync, "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ), patch(
-            f"{_LABEL_REST_LABELS}.fetch_issue_labels",
-            return_value=["status:idea", "priority:low", "workflow:issue", "source:ben"],
+        with issue_access(
+            issue_with("status:idea", "priority:low", "workflow:issue", "source:ben")
         ), patch(f"{_LABEL_REST_LABELS}.ensure_label"), patch(
             f"{_LABEL_REST_LABELS}.add_labels", side_effect=fake_add_labels,
         ), patch(
@@ -111,11 +107,7 @@ class TestSyncLabels:
         db = _make_db()
         insert_item(db, id=10, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#5")
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            autospec=True,
-            return_value=False,
-        ):
+        with issue_access(None):
             rc = backlog_github_sync.sync_labels(10, conn=db, stderr=stderr)
         assert rc == 1
         assert "issue validation failed" in stderr.getvalue()
@@ -128,9 +120,6 @@ class TestSyncLabels:
             "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ), patch(
-            f"{_LABEL_REST_LABELS}.fetch_issue_labels",
-            return_value=["status:idea"],
-        ) as fetch_labels, patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_state",
             return_value="OPEN",
         ) as fetch_state, patch(
@@ -140,9 +129,6 @@ class TestSyncLabels:
         ) as add_labels, patch(
             f"{_LABEL_REST_LABELS}.remove_label",
         ) as remove_label:
-            labels = backlog_github_label_sync._get_issue_labels(
-                "55", "org/stale", "externalwebapp",
-            )
             state = backlog_github_label_sync._get_issue_state(
                 "55", "org/stale", "externalwebapp",
             )
@@ -151,12 +137,10 @@ class TestSyncLabels:
             )
             backlog_github_label_sync._reconcile_category(
                 "status:", "status:implementing", ["status:idea"],
-                "55", "org/stale", "externalwebapp", "C5DEF5",
+                "55", _ok_resolver("externalwebapp"), "C5DEF5",
             )
 
-        assert labels == ["status:idea"]
         assert state == "OPEN"
-        assert fetch_labels.call_args.args[0] == "org/externalwebapp"
         assert fetch_state.call_args.args[0] == "org/externalwebapp"
         assert all(call.args[2] == "org/externalwebapp" for call in ensure_label.call_args_list)
         assert add_labels.call_args.args[0] == "org/externalwebapp"
@@ -189,14 +173,9 @@ class TestSyncLabels:
         def fake_add_labels(repo, issue_num, labels, *, token):
             added.append((repo, issue_num, tuple(labels)))
 
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
-            f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-        ), patch.object(
-            backlog_github_label_sync, "resolve_project_github_auth",
-            side_effect=_ok_resolver,
+        with issue_access(issue_with(number=56)), patch(
+            f"{_LABEL_REST_LABELS}.ensure_label"
         ), patch(
-            f"{_LABEL_REST_LABELS}.fetch_issue_labels", return_value=[],
-        ), patch(f"{_LABEL_REST_LABELS}.ensure_label"), patch(
             f"{_LABEL_REST_LABELS}.add_labels", side_effect=fake_add_labels,
         ), patch(f"{_LABEL_REST_LABELS}.remove_label"):
             rc = backlog_github_sync.sync_labels(11, conn=db, stdout=stdout)

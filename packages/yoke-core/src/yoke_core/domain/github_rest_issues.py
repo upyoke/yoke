@@ -8,8 +8,7 @@ as typed exception classes from
 :mod:`yoke_core.domain.gh_rest_transport`:
 
 - :class:`RestNotFoundError` (404) — issue does not exist in this repo
-- :class:`RateLimitedError` (429 or 403 with rate-limit body) — retry
-  policy in :mod:`gh_rest_transport` already applied; caller can defer.
+- :class:`RateLimitedError` (429 or rate-limit 403) — retried; caller can defer.
 - :class:`RestAuthError` (401, non-rate-limit 403) — token missing or
   lacks scope; caller surfaces as permission diagnostic.
 - :class:`RestUnprocessableError` (422) — semantic rejection.
@@ -62,18 +61,15 @@ def _parse_issue(payload: Any):
 
 
 def _target_for(
-    project: str,
-    *,
-    required_permissions,
-    db_path: Optional[str] = None,
+    project: str, *, required_permissions, db_path: Optional[str] = None, auth=None,
 ):
-    """Resolve the typed REST target — small wrapper so call sites stay tight."""
-    from yoke_core.domain.github_rest import resolve_target
+    """Build the typed REST target from ``auth`` when given, else resolve it."""
+    from yoke_core.domain.github_rest import Target, resolve_target
 
+    if auth is not None:
+        return Target.from_auth(auth)
     return resolve_target(
-        project,
-        db_path=db_path,
-        required_permissions=required_permissions,
+        project, db_path=db_path, required_permissions=required_permissions
     )
 
 
@@ -152,6 +148,7 @@ def set_issue_state(
     state: str,
     comment: Optional[str] = None,
     db_path: Optional[str] = None,
+    auth=None,
 ):
     """PATCH issue state to ``"open"`` or ``"closed"``.
 
@@ -165,6 +162,7 @@ def set_issue_state(
         project,
         db_path=db_path,
         required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+        auth=auth,
     )
     if comment:
         # Lazy import to avoid umbrella-init circular binding.
@@ -190,6 +188,7 @@ def get_issue(
     db_path: Optional[str] = None,
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
+    auth=None,
 ):
     """GET /repos/{owner}/{repo}/issues/{number}.
 
@@ -203,6 +202,7 @@ def get_issue(
         project,
         db_path=db_path,
         required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+        auth=auth,
     )
     try:
         resp = request_with_retry(

@@ -51,7 +51,10 @@ class TestSyncTaskBody:
             )
         assert rc == 0
         assert "Synced task body: 1246/1 -> #77" in stdout.getvalue()
-        assert get_issue.call_args.kwargs == {"project": "externalwebapp", "number": 77}
+        assert get_issue.call_args.kwargs["project"] == "externalwebapp"
+        assert get_issue.call_args.kwargs["number"] == 77
+        # The read reuses the auth validation resolved instead of resolving again.
+        assert get_issue.call_args.kwargs["auth"].project == "externalwebapp"
         update_issue.assert_called_once()
         assert update_issue.call_args.kwargs["project"] == "externalwebapp"
         assert update_issue.call_args.kwargs["number"] == 77

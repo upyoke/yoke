@@ -7,11 +7,12 @@ from unittest.mock import patch
 
 from runtime.api.backlog_github_sync_test_helpers import (
     GH_PATCH,
+    issue_access,
+    issue_with,
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
 from yoke_core.domain import (
-    backlog_github_label_sync,
     backlog_github_state_sync,
     backlog_github_sync,
 )
@@ -143,20 +144,7 @@ def test_full_sync_labels_adds_blocked_label_when_flagged():
     db.commit()
 
     with (
-        patch(f"{GH_PATCH}._github_auth_available", return_value=True),
-        patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            return_value=True,
-        ),
-        patch.object(
-            backlog_github_label_sync,
-            "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ),
-        patch(
-            f"{_LABEL_REST_LABELS}.fetch_issue_labels",
-            return_value=["status:implementing"],
-        ),
+        issue_access(issue_with("status:implementing")),
         patch(f"{_LABEL_REST_LABELS}.ensure_label"),
         patch(
             f"{_LABEL_REST_LABELS}.add_labels",
@@ -185,20 +173,7 @@ def test_full_sync_labels_removes_blocked_label_when_unblocked():
     )
 
     with (
-        patch(f"{GH_PATCH}._github_auth_available", return_value=True),
-        patch(
-            f"{GH_PATCH}._validate_issue_in_repo",
-            return_value=True,
-        ),
-        patch.object(
-            backlog_github_label_sync,
-            "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ),
-        patch(
-            f"{_LABEL_REST_LABELS}.fetch_issue_labels",
-            return_value=["blocked"],
-        ),
+        issue_access(issue_with("blocked")),
         patch(f"{_LABEL_REST_LABELS}.ensure_label"),
         patch(
             f"{_LABEL_REST_LABELS}.add_labels",

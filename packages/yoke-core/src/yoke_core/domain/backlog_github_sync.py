@@ -33,6 +33,7 @@ from yoke_core.domain import epic_task_sync  # noqa: F401 — patch surface
 from yoke_core.domain.backlog_github_transport import (  # noqa: F401
     _dry_run,
     _github_auth_available,
+    _issue_write_auth,
     _sync_task_children,
 )
 
@@ -58,13 +59,13 @@ from yoke_core.domain.backlog_github_fetch import (  # noqa: F401
 
 # Shared epic-task-sync helper (canonical owner: epic_task_sync_github)
 from yoke_core.domain.epic_task_sync_github import (  # noqa: F401
+    _fetch_validated_issue,
     _validate_issue_in_repo,
 )
 
 # Label reconcile + repo-wide label sync
 from yoke_core.domain.backlog_github_label_sync import (  # noqa: F401
     _ensure_label,
-    _get_issue_labels,
     _get_issue_state,
     _reconcile_category,
     _repo_labels,
@@ -116,6 +117,7 @@ __all__ = [
     "_dry_run",
     "_github_sync_skip",
     "_github_auth_available",
+    "_issue_write_auth",
     "_sync_task_children",
     # Shared read helpers
     "_open_conn",
@@ -126,6 +128,7 @@ __all__ = [
     "_repo_args",
     "_status_display_label",
     "_validate_issue_in_repo",
+    "_fetch_validated_issue",
     "BLOCKED_LABEL_COLOR",
     "FROZEN_LABEL_COLOR",
     "LABEL_CATEGORIES",
@@ -135,7 +138,6 @@ __all__ = [
     "DEFAULT_COLOR_WORKFLOW",
     "DEFAULT_COLOR_WORKTREE",
     # Label reconcile
-    "_get_issue_labels",
     "_get_issue_state",
     "_repo_labels",
     "_ensure_label",

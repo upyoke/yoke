@@ -1,11 +1,13 @@
 """Backlog GitHub comments — `post_comment` posts a status-change comment
-to the linked GitHub issue and reconciles the status label in one call.
+to the linked GitHub issue.
 
-Auth-failure contract: when the typed REST surface raises
-:class:`ProjectGithubAuthError` (the canonical resolver's typed
-diagnostic), :func:`post_comment` translates the exception into a
-non-zero return + typed-stderr diagnostic carrying the exception class
-name and a concrete repair hint. The auth failure is never silently
+The comment owns no labels: the status label belongs to ``sync_labels``
+(and ``close_issue`` on close), which the same transition already runs.
+
+Auth-failure contract: when the canonical resolver raises
+:class:`ProjectGithubAuthError`, :func:`post_comment` returns non-zero
+and prints a typed-stderr diagnostic carrying the exception class name
+and a concrete repair hint. The auth failure is never silently
 swallowed; the structured-write caller surfaces it via a
 ``sync_warning`` entry on its own result dict.
 """
@@ -15,26 +17,14 @@ from __future__ import annotations
 import sys
 from typing import Any, Optional, TextIO
 
-from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-)
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
-from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
 from yoke_core.domain.backlog_github_fetch import (
     _close_if_owned,
     _item_context,
     _item_ref,
-    _label_colors,
     _open_conn,
     _resolve_item_id,
-    _status_display_label,
-)
-from yoke_core.domain.backlog_github_label_sync import _ensure_label
-from yoke_core.domain.project_github_auth import (
-    ProjectGithubAuthError,
-    repair_command_hint,
-    resolve_project_github_auth,
 )
 from yoke_core.domain.project_attribution import resolved_project
 
@@ -52,7 +42,6 @@ def post_comment(
 ) -> int:
     """Post a status change comment to a linked GitHub issue.
 
-    Also updates the status label (removes old, adds new).
     No-op if github_issue is null.
     """
     stdout = stdout or sys.stdout
@@ -82,7 +71,7 @@ def post_comment(
         if context is None:
             print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
-        github_issue, project, repo = context
+        github_issue, project, _ = context
         issue_num_str = github_issue.lstrip("#")
         if not issue_num_str or issue_num_str == "null":
             return 0
@@ -91,23 +80,20 @@ def post_comment(
         gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "post-comment", conn=conn, out=stdout):
             return 0
-        if not _bgs()._github_auth_available(gh_project):
-            print(
-                f"Error: project '{gh_project}' has no usable GitHub App auth "
-                "for post-comment",
-                file=stderr,
-            )
+        auth = _bgs()._issue_write_auth(
+            gh_project, public_ref, "post_comment", stderr=stderr
+        )
+        if auth is None:
             return 1
-        colors = _label_colors()
 
-        if not _bgs()._validate_issue_in_repo(
+        if _bgs()._fetch_validated_issue(
             public_ref,
             str(issue_num),
-            project=gh_project,
+            auth=auth,
             stderr=stderr,
             timeout_seconds=github_timeout_seconds,
             max_attempts=github_max_attempts,
-        ):
+        ) is None:
             print(
                 f"Warning: post_comment skipped for {public_ref} — "
                 "issue validation failed",
@@ -115,60 +101,15 @@ def post_comment(
             )
             return 1
 
-        auth = resolve_project_github_auth(
-            gh_project,
-            required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-        )
-
-        # Post comment
         github_rest.post_comment(
             project=gh_project, number=issue_num,
             body=f"**Status:** `{old_status}` → `{new_status}`",
             timeout_seconds=github_timeout_seconds,
             max_attempts=github_max_attempts,
+            auth=auth,
         )
-
-        # Update status labels
-        new_label = f"status:{_status_display_label(new_status)}"
-        old_label = f"status:{_status_display_label(old_status)}"
-        _ensure_label(
-            new_label,
-            colors["status"],
-            repo,
-            gh_project,
-            timeout_seconds=github_timeout_seconds,
-            max_attempts=github_max_attempts,
-        )
-        _label_rest.add_labels(
-            auth.repo,
-            issue_num,
-            [new_label],
-            token=auth.token,
-            timeout_seconds=github_timeout_seconds,
-            max_attempts=github_max_attempts,
-        )
-        _label_rest.remove_label(
-            auth.repo,
-            issue_num,
-            old_label,
-            token=auth.token,
-            timeout_seconds=github_timeout_seconds,
-            max_attempts=github_max_attempts,
-        )
-
         print(f"Posted status update to {github_issue}", file=stdout)
         return 0
-    except ProjectGithubAuthError as exc:
-        print(
-            f"Warning: post_comment skipped for {locals().get('public_ref', str(item_id))} — "
-            f"sync_warning={exc.__class__.__name__}: {exc}",
-            file=stderr,
-        )
-        print(
-            f"  Repair: {repair_command_hint(exc, exc.project)}",
-            file=stderr,
-        )
-        return 1
     finally:
         _close_if_owned(conn, owns_conn)
 

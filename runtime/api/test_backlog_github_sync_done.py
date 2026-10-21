@@ -1,8 +1,9 @@
 """Done-transition batched GitHub sync coverage.
 
-Tests mock the typed REST surface used by ``sync_done_item``:
-``backlog_github_done_sync.github_rest`` (get_issue, set_issue_state),
-``backlog_github_done_sync._label_rest`` (add_labels, remove_label),
+Tests stub the one write-auth resolve and validating issue read, then mock
+the typed REST surface used by ``sync_done_item``:
+``backlog_github_done_sync.github_rest`` (set_issue_state),
+``backlog_github_done_sync._label_rest`` (ensure_label, add_labels, remove_label),
 ``backlog_github_done_sync._writer`` (update_issue_body_typed).
 """
 
@@ -11,11 +12,8 @@ from __future__ import annotations
 import io
 from unittest.mock import patch
 
-from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-)
 from runtime.api.backlog_github_sync_test_helpers import (
-    GH_PATCH,
+    issue_access,
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
@@ -26,19 +24,11 @@ from yoke_core.domain import (
     github_rest,
 )
 from yoke_core.domain.backlog_github_body_writer import BodyWriteResult
-from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 
 _DONE_GH_REST = "yoke_core.domain.backlog_github_done_sync.github_rest"
 _DONE_LABEL_REST = "yoke_core.domain.backlog_github_done_sync._label_rest"
 _DONE_WRITER = "yoke_core.domain.backlog_github_done_sync._writer"
-
-
-def _ok_resolver(*args, **kwargs):
-    proj = kwargs.get("project") or (args[0] if args else "externalwebapp")
-    return ProjectGithubAuth(
-        project=proj, repo="org/externalwebapp", token="ghs_fake",
-    )
 
 
 def _existing_issue(number: int, *, labels: tuple[str, ...], state: str = "OPEN"):
@@ -66,17 +56,9 @@ def test_sync_done_item_batches_body_labels_and_close():
         "source:ben", "owner:ben",
     )
 
-    with patch(
-        f"{GH_PATCH}._validate_issue_in_repo",
-        autospec=True,
-        return_value=True,
-    ), patch.object(
-        backlog_github_done_sync, "resolve_project_github_auth",
-        side_effect=_ok_resolver,
-    ) as resolve_auth, patch(
-        f"{_DONE_GH_REST}.get_issue",
-        return_value=_existing_issue(700, labels=existing_labels),
-    ), patch(
+    with issue_access(
+        _existing_issue(700, labels=existing_labels)
+    ) as (resolve_auth, _), patch(
         f"{_DONE_WRITER}.update_issue_body_typed",
         return_value=BodyWriteResult(returncode=0, mode="full", stdout="", stderr=""),
     ) as update_body, patch(
@@ -87,7 +69,7 @@ def test_sync_done_item_batches_body_labels_and_close():
         f"{_DONE_GH_REST}.set_issue_state",
     ) as set_state, patch.object(
         backlog_github_done_sync, "post_comment", return_value=0,
-    ) as status_comment, patch(f"{GH_PATCH}._ensure_label"):
+    ) as status_comment, patch(f"{_DONE_LABEL_REST}.ensure_label"):
         rc = backlog_github_sync.sync_done_item(
             70, "release", conn=db, stdout=stdout,
         )
@@ -95,9 +77,8 @@ def test_sync_done_item_batches_body_labels_and_close():
     assert rc == 0
     # The credential the whole closeout needs is resolved first, before any
     # mutation, so an auth failure applies nothing to the issue.
-    assert resolve_auth.call_args_list[0].kwargs == {
-        "required_permissions": GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-    }
+    resolve_auth.assert_called_once()
+    assert resolve_auth.call_args.args[2] == "sync_done_item"
     assert "Done sync: EXT-70" in stdout.getvalue()
     update_body.assert_called_once()
     # Status label moves release → done.
@@ -149,18 +130,12 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         captured_bodies.append(chosen)
         return BodyWriteResult(returncode=0, mode=mode, stdout="", stderr="")
 
-    with patch(
-        f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
-    ), patch.object(
-        backlog_github_done_sync, "resolve_project_github_auth",
-        side_effect=_ok_resolver,
-    ), patch(
-        f"{_DONE_GH_REST}.get_issue",
-        return_value=_existing_issue(
+    with issue_access(
+        _existing_issue(
             4114,
             labels=("status:release", "priority:medium", "workflow:issue",
                     "source:ben", "owner:ben"),
-        ),
+        )
     ), patch(
         f"{_DONE_WRITER}.update_issue_body_typed", side_effect=fake_update,
     ), patch(
@@ -171,7 +146,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         f"{_DONE_GH_REST}.set_issue_state",
     ), patch.object(
         backlog_github_done_sync, "post_comment", return_value=0,
-    ), patch(f"{GH_PATCH}._ensure_label"):
+    ), patch(f"{_DONE_LABEL_REST}.ensure_label"):
         rc = backlog_github_sync.sync_done_item(
             72, "release", conn=db, stdout=stdout, stderr=stderr,
         )
@@ -249,16 +224,8 @@ def test_sync_done_item_already_closed_posts_no_status_comment():
         "source:ben", "owner:ben",
     )
 
-    with patch(
-        f"{GH_PATCH}._validate_issue_in_repo",
-        autospec=True,
-        return_value=True,
-    ), patch.object(
-        backlog_github_done_sync, "resolve_project_github_auth",
-        side_effect=_ok_resolver,
-    ), patch(
-        f"{_DONE_GH_REST}.get_issue",
-        return_value=_existing_issue(701, labels=existing_labels, state="CLOSED"),
+    with issue_access(
+        _existing_issue(701, labels=existing_labels, state="CLOSED")
     ), patch(
         f"{_DONE_WRITER}.update_issue_body_typed",
         return_value=BodyWriteResult(returncode=0, mode="full", stdout="", stderr=""),
@@ -270,7 +237,7 @@ def test_sync_done_item_already_closed_posts_no_status_comment():
         f"{_DONE_GH_REST}.set_issue_state",
     ) as set_state, patch.object(
         backlog_github_done_sync, "post_comment", return_value=0,
-    ) as status_comment, patch(f"{GH_PATCH}._ensure_label"):
+    ) as status_comment, patch(f"{_DONE_LABEL_REST}.ensure_label"):
         rc = backlog_github_sync.sync_done_item(
             71, "release", conn=db, stdout=stdout,
         )

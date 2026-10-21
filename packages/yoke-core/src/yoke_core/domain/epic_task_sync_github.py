@@ -45,6 +45,7 @@ from yoke_core.domain.epic_task_sync_github_task_updates import (
     sync_task_label,
 )
 from yoke_core.domain.project_github_auth import (
+    ProjectGithubAuth,
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
@@ -67,6 +68,7 @@ def _github_budget_kwargs(
 __all__ = [
     "_ensure_label",
     "_validate_issue_in_repo",
+    "_fetch_validated_issue",
     "_is_dry_run",
     "backfill_task_titles",
     "backfill_task_labels",
@@ -121,32 +123,53 @@ def _validate_issue_in_repo(
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
 ) -> bool:
-    """Verify ``issue_num`` exists in the bound repo before mutation.
-
-    Returns True only when the issue is confirmed present. Returns False
-    with a typed-failure-class stderr line on every other outcome —
-    rate-limited, permission denied, transient transport, true repo
-    mismatch, or unknown-in-both. The diagnostic improvement vs the
-    historic shape: the operator never sees the misleading "repo
-    mismatch detected" line when the real cause is a rate limit or a
-    token scope issue. Callers' boolean contract is preserved.
-    """
+    """Verify ``issue_num`` exists in the bound repo before mutation."""
     try:
-        repo = resolve_project_github_auth(
+        auth = resolve_project_github_auth(
             resolved_project(project),
             required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
-        ).repo
+        )
     except ProjectGithubAuthError as exc:
         print(
             f"Error: GitHub auth failed for {public_ref}: {exc}. Mutation skipped.",
             file=stderr,
         )
         return False
+    issue = _fetch_validated_issue(
+        public_ref,
+        issue_num,
+        auth=auth,
+        stderr=stderr,
+        timeout_seconds=timeout_seconds,
+        max_attempts=max_attempts,
+    )
+    return issue is not None
 
+
+def _fetch_validated_issue(
+    public_ref: str,
+    issue_num: str,
+    *,
+    auth: ProjectGithubAuth,
+    stderr: TextIO,
+    timeout_seconds: Optional[float] = None,
+    max_attempts: Optional[int] = None,
+) -> Optional[github_rest.Issue]:
+    """Read ``issue_num`` from the bound repo with an already-resolved ``auth``.
+
+    Returns the issue, whose labels and state spare the caller another
+    read, only when it is confirmed present. Every other outcome —
+    rate-limited, permission denied, transient transport, or absent from
+    the repo — returns None with a stderr line naming that cause, so the
+    operator never reads "not found" when the real cause is a rate limit
+    or a token scope.
+    """
+    repo = auth.repo
     try:
         issue = github_rest.get_issue(
-            project=resolved_project(project),
+            project=auth.project,
             number=int(issue_num),
+            auth=auth,
             **_github_budget_kwargs(timeout_seconds, max_attempts),
         )
     except github_rest.RateLimitedError as exc:
@@ -155,26 +178,26 @@ def _validate_issue_in_repo(
             f"in {repo}: {exc}. Mutation skipped; retry after the rate-limit window resets.",
             file=stderr,
         )
-        return False
+        return None
     except github_rest.RestAuthError as exc:
         print(
             f"Error: permission denied probing issue #{issue_num} for {public_ref} "
             f"in {repo}: {exc}. GitHub App access lacks permission for this repo.",
             file=stderr,
         )
-        return False
+        return None
     except github_rest.RestTransportError as exc:
         print(
             f"Error: transport failure probing issue #{issue_num} for {public_ref} "
             f"in {repo}: {exc}. Mutation skipped.",
             file=stderr,
         )
-        return False
+        return None
     if issue is not None:
-        return True
+        return issue
 
     print(
         f"Error: Issue #{issue_num} for {public_ref} not found in {repo}; verify the project GitHub binding and its github_issue field",
         file=stderr,
     )
-    return False
+    return None
