@@ -23,7 +23,7 @@ def _config(raw: object) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def _full_gate(project: str) -> dict | None:
+def full_gate(project: str) -> dict | None:
     response = call_dispatcher(
         function_id="qa.plan.get",
         target=TargetRef(kind="global"),
@@ -49,7 +49,7 @@ def _full_gate(project: str) -> dict | None:
     return None
 
 
-def _recovery(root: Path, project: str, gate: dict) -> str:
+def gate_recovery(root: Path, project: str, gate: dict) -> str:
     lookup = verification_tree_binding.resolve_claim_worktrees(
         verification_tree_binding.ambient_session_id()
     )
@@ -91,7 +91,7 @@ def _recovery(root: Path, project: str, gate: dict) -> str:
 def full_scope_refusal(root: Path, project: str, args: Sequence[str]) -> str | None:
     """Refuse only proven complete, unfiltered coverage with an available gate."""
     # Import lazily: the CI runner shares the watcher's argument interpretation.
-    from yoke_core.tools.ci_selection_run import positional_args
+    from yoke_core.tools.ci_selection_inputs import positional_args
     from yoke_core.tools._watch_pytest_selection_diagnostics import selection_filters
 
     if any(
@@ -140,13 +140,13 @@ def full_scope_refusal(root: Path, project: str, args: Sequence[str]) -> str | N
     ):
         return None
     try:
-        gate = _full_gate(project)
+        gate = full_gate(project)
     except Exception:  # noqa: BLE001 — an unreadable gate is not proven available
         return None
     if gate is None:
         return None
     try:
-        recovery = _recovery(root, project, gate)
+        recovery = gate_recovery(root, project, gate)
     except Exception:  # noqa: BLE001 — recovery lookup cannot undo proven redundancy
         recovery = f"yoke qa requirement list --project {shlex.quote(project)}"
     detail = " Empty -k/-m expressions do not filter tests." if filters else ""

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.tools import ci_selection_run as runner
+from yoke_core.tools.ci_selection_inputs import EXIT_USAGE
 from yoke_core.tools.ci_shards import DURATIONS_PATH
 
 
@@ -133,7 +134,7 @@ def test_a_group_outside_the_split_refuses_rather_than_running(
         group=3,
         log_path=tmp_path / "unused.txt",
     )
-    assert status == runner.EXIT_USAGE
+    assert status == EXIT_USAGE
     assert "group 3 of 2" in capsys.readouterr().out
 
 
@@ -144,3 +145,91 @@ def test_the_split_is_added_only_when_there_is_more_than_one_shard() -> None:
     assert sharded[sharded.index("--group") + 1] == "2"
     assert sharded[sharded.index("--splitting-algorithm") + 1] == "least_duration"
     assert sharded[sharded.index("--durations-path") + 1] == DURATIONS_PATH
+
+
+@pytest.fixture()
+def rooted_repo(sharded_repo: Path, monkeypatch) -> Path:
+    """The same six tests under one declared test root, beside an unselected one."""
+    suite = sharded_repo / "suite"
+    suite.mkdir()
+    for path in sharded_repo.glob("test_case_*.py"):
+        path.rename(suite / path.name)
+    durations = json.loads((sharded_repo / DURATIONS_PATH).read_text())
+    (sharded_repo / DURATIONS_PATH).write_text(
+        json.dumps({f"suite/{node}": value for node, value in durations.items()})
+    )
+    (sharded_repo / "elsewhere").mkdir()
+    (sharded_repo / "elsewhere" / "test_broken.py").write_text("import missing_module\n")
+    monkeypatch.setattr(
+        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        lambda checkout: ("suite/", "elsewhere/"),
+    )
+    return sharded_repo
+
+
+def _impacted_shard(root: Path, tmp_path: Path, *, splits: int, group: int):
+    log = tmp_path / f"impacted-{group}-of-{splits}.txt"
+    status = runner.run_selection(
+        root,
+        base_sha="b" * 40,
+        expected_head_sha="",
+        passthrough=["-n", "0", "-v", "-p", "no:cacheprovider"],
+        splits=splits,
+        group=group,
+        log_path=log,
+    )
+    return status, log.read_text(encoding="utf-8")
+
+
+def test_an_impacted_selection_collects_from_the_roots_and_skips_the_rest(
+    rooted_repo: Path, tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    """Unselected files are never imported: the broken module stays unread."""
+    monkeypatch.setattr(
+        runner,
+        "selection_paths",
+        lambda root, base: ["suite/test_case_1.py", "suite/test_case_4.py"],
+    )
+    status, log_text = _impacted_shard(rooted_repo, tmp_path, splits=1, group=1)
+
+    assert status == 0
+    assert re.findall(r"(test_case_\d+\.py::test_case_\d+) PASSED", log_text) == [
+        "test_case_1.py::test_case_1", "test_case_4.py::test_case_4",
+    ]
+    out = capsys.readouterr().out
+    assert "collecting 2 selected paths from the test roots suite/ elsewhere/" in out
+    assert "-p yoke_core.tools.ci_selection_collect" in out
+
+
+def test_root_collection_shards_cover_the_selection_exactly_once(
+    rooted_repo: Path, tmp_path: Path, monkeypatch,
+) -> None:
+    selected = [f"suite/test_case_{index}.py" for index in (0, 2, 3, 5)]
+    monkeypatch.setattr(runner, "selection_paths", lambda root, base: selected)
+    ran: list[str] = []
+    for group in (1, 2):
+        status, log_text = _impacted_shard(rooted_repo, tmp_path, splits=2, group=group)
+        assert status == 0
+        ran.extend(re.findall(r"(test_case_\d+)\.py::test_case_\d+ PASSED", log_text))
+
+    assert sorted(ran) == ["test_case_0", "test_case_2", "test_case_3", "test_case_5"]
+
+
+def test_root_collection_keeps_options_and_files_dispatched_paths(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
+        lambda checkout: ("suite/",),
+    )
+    roots, options, selection_file = runner.root_collection(
+        Path("."), ["suite/test_a.py"], ["-k", "fast", "suite/test_b.py::test_x"]
+    )
+    try:
+        assert options == ["-p", runner.COLLECT_PLUGIN, "-k", "fast"]
+        assert selection_file.read_text().splitlines() == [
+            "suite/test_a.py", "suite/test_b.py::test_x",
+        ]
+        assert roots == ["suite/"]
+    finally:
+        selection_file.unlink()

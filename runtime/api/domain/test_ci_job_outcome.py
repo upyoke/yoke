@@ -204,7 +204,7 @@ def test_a_red_verdict_notice_still_teaches_adoption():
 def test_the_selection_watcher_exit_mirrors_the_effective_conclusion(
     conclusion, exit_code
 ):
-    from yoke_core.tools.pytest_remote_selection_run import CONCLUSION_EXIT
+    from yoke_core.tools.pytest_remote_selection_report import CONCLUSION_EXIT
 
     assert CONCLUSION_EXIT[conclusion] == exit_code
 
@@ -227,21 +227,24 @@ def test_no_failed_jobs_report_names_no_verdict_and_redispatch():
 def test_selection_run_never_relays_failed_logs_for_a_not_started_run(
     monkeypatch, capsys
 ):
+    from yoke_core.tools import pytest_remote_selection_report as report
     from yoke_core.tools import pytest_remote_selection_run as engine
+    from yoke_core.tools.pytest_remote_full_ci import FullCiAnswer
 
     relayed = []
+    monkeypatch.setattr(engine, "full_ci_answer", lambda **_k: FullCiAnswer())
     monkeypatch.setattr(engine, "publish", lambda *a, **k: True)
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_entry_run.base_branch", lambda *_a: "main"
     )
     monkeypatch.setattr(engine, "dispatch", lambda **_k: ("37364183364", "dispatched"))
-    monkeypatch.setattr(engine, "record_wait", lambda **_k: None)
-    monkeypatch.setattr(engine, "await_conclusion", lambda **_k: CI_JOB_NOT_STARTED)
+    monkeypatch.setattr(report, "record_wait", lambda **_k: None)
+    monkeypatch.setattr(report, "await_conclusion", lambda **_k: CI_JOB_NOT_STARTED)
     monkeypatch.setattr(
         "yoke_core.domain.session_ci_wait_record.resolve_received_wait",
         lambda **_k: "",
     )
-    monkeypatch.setattr(engine, "relay_failed_log", lambda **k: relayed.append(k))
+    monkeypatch.setattr(report, "relay_failed_log", lambda **k: relayed.append(k))
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_lane.github_actions_authority",
         contextlib.nullcontext,

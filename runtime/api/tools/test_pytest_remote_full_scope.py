@@ -185,7 +185,7 @@ def test_recovery_lookup_failure_still_refuses_proven_full_scope(
     root, _ = remote_lane
     monkeypatch.setattr(
         admission,
-        "_recovery",
+        "gate_recovery",
         lambda *a: (_ for _ in ()).throw(RuntimeError("offline")),
     )
     result = route(root, ROOTS)
@@ -201,7 +201,7 @@ def test_requirement_absent_teaches_item_lookup(remote_lane, monkeypatch):
         lambda **_: SimpleNamespace(success=True, result={"rows": []}),
     )
     assert (
-        admission._recovery(root, "widgets", GATE)
+        admission.gate_recovery(root, "widgets", GATE)
         == "yoke qa requirement list --item PRJ-7"
     )
 
@@ -280,6 +280,6 @@ def test_recovery_skips_unusable_attached_cases(remote_lane, monkeypatch, obsole
         lambda **_: SimpleNamespace(success=True, result={"rows": rows}),
     )
     assert (
-        admission._recovery(root, "widgets", GATE)
+        admission.gate_recovery(root, "widgets", GATE)
         == "yoke qa case run --requirement-id 71"
     )

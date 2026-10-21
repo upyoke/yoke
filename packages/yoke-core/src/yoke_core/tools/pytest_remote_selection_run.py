@@ -10,6 +10,12 @@ one — an unpushable lane, a refused dispatch, a cancelled or timed-out run
 — is named together with its recovery, because a silent green here would
 be a green for tests that never ran.
 
+Before anything is pushed, full CI gets the first word
+(:mod:`yoke_core.tools.pytest_remote_full_ci`): a full run on the same
+commit that is in flight or green is followed instead of dispatching a
+selection, and a selection full CI answers as fast is refused with the
+registered gate's command.
+
 Dispatch reuses the deployment layer's correlated workflow dispatch, which
 replays a request id it has already seen. The request id is a function of
 the commit and the selection, so a second invocation on the same tree
@@ -25,18 +31,20 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
+from yoke_core.tools.pytest_remote_full_ci import (
+    FULL_CI_ARTIFACT_PATTERN,
+    FULL_CI_SOURCE,
+    FullCiLookupFailed,
+    full_ci_answer,
+    skip_line,
+)
 from yoke_core.tools.pytest_remote_selection import (
-    EXIT_CANCELLED,
-    EXIT_TIMED_OUT,
+    EXIT_REFUSED,
     EXIT_UNREACHABLE,
     LOCAL_FLAG,
     PREFIX,
 )
-from yoke_core.tools.pytest_remote_selection_report import (
-    record_wait,
-    relay_failed_log,
-)
+from yoke_core.tools.pytest_remote_selection_report import follow
 from yoke_core.tools.pytest_remote_selection_report import say as _say
 
 #: Wall-clock ceiling for one selection run: queue wait, runner setup, and
@@ -47,16 +55,6 @@ OUTPUT_ARTIFACT_PATTERN = "pytest-output-selection-*"
 #: How a run came to be the one this invocation reports on.
 DISPATCHED = "dispatched"
 REJOINED = "rejoined"
-#: Exit status per GitHub conclusion; the process mirrors the run.
-CONCLUSION_EXIT = {
-    "success": 0,
-    "failure": 1,
-    "timed_out": EXIT_TIMED_OUT,
-    "cancelled": EXIT_CANCELLED,
-    CI_JOB_NOT_STARTED: EXIT_CANCELLED,
-}
-
-
 def _error(message: str) -> None:
     print(f"Error: {PREFIX} {message}", flush=True)
 
@@ -169,30 +167,6 @@ def dispatch(
     return run_id, (REJOINED if dispatched is False else DISPATCHED)
 
 
-def await_conclusion(
-    *,
-    project: str,
-    repo: str,
-    run_id: str,
-    timeout_seconds: int,
-) -> str:
-    """Poll the run to its end and name the conclusion GitHub reported."""
-    from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
-    from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
-
-    exit_code, output = _poll_github_actions(
-        repo,
-        run_id,
-        timeout_seconds,
-        project=project,
-        sd=None,
-    )
-    conclusion = conclusion_from_poll(exit_code, output)
-    if conclusion != "success" and output:
-        print(output, flush=True)
-    return conclusion
-
-
 def run(
     *,
     root: Path,
@@ -207,14 +181,50 @@ def run(
     continue_command: str = "",
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> int:
-    """Publish, dispatch or rejoin, await, and mirror the conclusion."""
+    """Defer to full CI, or publish, dispatch or rejoin, await, and mirror."""
     from yoke_core.domain.qa_case_ci_entry_run import base_branch
+    from yoke_core.domain.qa_case_ci_lane import github_actions_authority
 
+    followed = dict(
+        project=project,
+        repo=repo,
+        head_sha=head_sha,
+        continue_command=continue_command,
+        timeout_seconds=timeout_seconds,
+    )
+    with github_actions_authority():
+        try:
+            answer = full_ci_answer(
+                root=root,
+                project=project,
+                repo=repo,
+                head_sha=head_sha,
+                base_sha=base_sha,
+                pytest_args=pytest_args,
+                timeout_seconds=timeout_seconds,
+            )
+        except FullCiLookupFailed as exc:
+            _error(
+                f"could not tell whether full CI already covers "
+                f"{head_sha[:12]}: {exc}. Nothing was dispatched; re-run the "
+                f"same command, or re-run with {LOCAL_FLAG}."
+            )
+            return EXIT_UNREACHABLE
+        if answer.run is not None:
+            _say(skip_line(answer, head_sha))
+            return follow(
+                run_id=answer.run.run_id,
+                source=FULL_CI_SOURCE,
+                description=f"workflow={answer.workflow}",
+                artifact_pattern=FULL_CI_ARTIFACT_PATTERN,
+                **followed,
+            )
+    if answer.refusal:
+        print(answer.refusal, flush=True)
+        return EXIT_REFUSED
     target = base_branch(project, root)
     if not publish(root, branch, head_sha, project=project, target=target):
         return EXIT_UNREACHABLE
-    from yoke_core.domain.qa_case_ci_lane import github_actions_authority
-
     with github_actions_authority():
         started = dispatch(
             project=project,
@@ -230,46 +240,16 @@ def run(
         if started is None:
             return EXIT_UNREACHABLE
         run_id, source = started
-        url = f"https://github.com/{repo}/actions/runs/{run_id}"
-        record_wait(
-            repo=repo,
+        return follow(
             run_id=run_id,
-            head_sha=head_sha,
-            continue_command=continue_command,
+            source=source,
+            description=(
+                f"selection_base={base_sha or 'explicit paths'} "
+                f"pytest_args={shlex.join(pytest_args) or '(none)'}"
+            ),
+            artifact_pattern=OUTPUT_ARTIFACT_PATTERN,
+            **followed,
         )
-        _say(
-            f"{source} run={run_id} {url} head_sha={head_sha} "
-            f"selection_base={base_sha or 'explicit paths'} "
-            f"pytest_args={shlex.join(pytest_args) or '(none)'}"
-        )
-        conclusion = await_conclusion(
-            project=project,
-            repo=repo,
-            run_id=run_id,
-            timeout_seconds=timeout_seconds,
-        )
-        from yoke_core.domain.session_ci_wait_record import resolve_received_wait
-
-        if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
-            _say(warning)
-        if conclusion not in ("success", CI_JOB_NOT_STARTED):
-            relay_failed_log(project=project, repo=repo, run_id=run_id)
-    exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)
-    recovery = ""
-    if conclusion == CI_JOB_NOT_STARTED:
-        recovery = f"; {REDISPATCH_RECOVERY}, or re-run with {LOCAL_FLAG}"
-    elif conclusion not in ("success", "failure"):
-        recovery = (
-            "; the run reached no verdict — re-run the same command, which "
-            f"dispatches a fresh run, or re-run with {LOCAL_FLAG}"
-        )
-    _say(
-        f"concluded {conclusion} exit={exit_code} run={run_id} {url} "
-        f"ci_run_source={source}; full pytest output is one artifact per "
-        f"shard: gh run download {run_id} -p '{OUTPUT_ARTIFACT_PATTERN}'"
-        f"{recovery}"
-    )
-    return exit_code
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -311,11 +291,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
-    "CONCLUSION_EXIT",
     "DEFAULT_TIMEOUT_SECONDS",
     "DISPATCHED",
     "REJOINED",
-    "await_conclusion",
     "dispatch",
     "failure_detail",
     "main",

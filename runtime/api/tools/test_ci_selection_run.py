@@ -14,6 +14,7 @@ from typing import Sequence
 import pytest
 
 from yoke_core.domain.yaml_helper import load_document
+from yoke_core.tools import ci_selection_inputs as inputs
 from yoke_core.tools import ci_selection_run as runner
 from yoke_core.tools import ci_shards
 from yoke_core.tools._impacted_changed_paths import changed_paths
@@ -45,8 +46,8 @@ def committed_repo(tmp_path: Path) -> Path:
 
 
 def test_positional_args_are_the_collection_targets() -> None:
-    assert runner.positional_args(["-k", "expr", "-q", "a.py", "b/"]) == ["a.py", "b/"]
-    assert runner.positional_args(["-k", "a.py"]) == []
+    assert inputs.positional_args(["-k", "expr", "-q", "a.py", "b/"]) == ["a.py", "b/"]
+    assert inputs.positional_args(["-k", "a.py"]) == []
 
 
 def test_pytest_command_schedules_workers_like_full_ci_unless_told_otherwise() -> None:
@@ -63,9 +64,9 @@ def test_pytest_command_schedules_workers_like_full_ci_unless_told_otherwise() -
 
 
 def test_has_positional_args_ignores_flag_values() -> None:
-    assert runner.has_positional_args(["-k", "expr", "-q"]) is False
-    assert runner.has_positional_args(["-q", "tests/test_a.py"]) is True
-    assert runner.has_positional_args([]) is False
+    assert inputs.has_positional_args(["-k", "expr", "-q"]) is False
+    assert inputs.has_positional_args(["-q", "tests/test_a.py"]) is True
+    assert inputs.has_positional_args([]) is False
 
 
 def test_wrong_checkout_is_refused(committed_repo: Path, capsys) -> None:
@@ -75,7 +76,7 @@ def test_wrong_checkout_is_refused(committed_repo: Path, capsys) -> None:
         expected_head_sha="f" * 40,
         passthrough=["test_ok.py"],
     )
-    assert code == runner.EXIT_USAGE
+    assert code == inputs.EXIT_USAGE
     assert "the dispatch named ffffffffffff" in capsys.readouterr().out
 
 
@@ -86,7 +87,7 @@ def test_nothing_to_run_is_refused(committed_repo: Path, capsys) -> None:
         expected_head_sha="",
         passthrough=["-q"],
     )
-    assert code == runner.EXIT_USAGE
+    assert code == inputs.EXIT_USAGE
     assert "nothing to run" in capsys.readouterr().out
 
 
@@ -140,7 +141,7 @@ def test_selection_paths_is_bounded_and_prints_the_advisory(
         "yoke_core.tools.watch_pytest_project_python.impacted_selection",
         fake_selection,
     )
-    paths = runner.selection_paths(tmp_path, "b" * 40)
+    paths = inputs.selection_paths(tmp_path, "b" * 40)
 
     assert paths == ["runtime/api/test_a.py"]
     assert seen == {"base": "b" * 40, "bounded": True, "root": tmp_path}
@@ -313,10 +314,8 @@ def test_the_matrix_and_the_split_both_come_from_the_plan_job() -> None:
     workflow = SELECTION_WORKFLOW.read_text(encoding="utf-8")
     jobs = _selection_workflow()["jobs"]
     selection = jobs["selection"]
-    assert jobs["plan"]["outputs"] == {
-        "shards": "${{ steps.plan.outputs.shards }}",
-        "splits": "${{ steps.plan.outputs.splits }}",
-    }
+    assert jobs["plan"]["outputs"]["shards"] == "${{ steps.plan.outputs.shards }}"
+    assert jobs["plan"]["outputs"]["splits"] == "${{ steps.plan.outputs.splits }}"
     assert selection["needs"] == "plan"
     assert selection["strategy"]["matrix"]["shard"] == (
         "${{ fromJSON(needs.plan.outputs.shards) }}"
