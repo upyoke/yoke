@@ -14,9 +14,6 @@ from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
     session_orientation_redelivery_event,
 )
-from yoke_contracts.hook_runner.cursor_response import (
-    cursor_allow_stdout,
-)
 
 
 def _touch_detached_resume() -> None:
@@ -29,24 +26,6 @@ def _touch_detached_resume() -> None:
         touch_supervised_resume_from_environment()
     except Exception:
         return
-
-
-def _degrade_to_noop(
-    event_name: str,
-    detail: str,
-    *,
-    cursor_invocation: bool,
-) -> int:
-    sys.stderr.write(
-        f"WARNING: YOKE_HOOK_DEGRADED: yoke hook evaluate {event_name}: "
-        "yoke-harness unavailable; "
-        f"degraded to no-op allow ({detail})\n"
-    )
-    if cursor_invocation:
-        stdout = cursor_allow_stdout(event_name)
-        if stdout:
-            sys.stdout.write(stdout)
-    return 0
 
 
 def evaluate_inprocess(
@@ -84,11 +63,8 @@ def evaluate_inprocess(
                 f"yoke hook evaluate --dry-run requires yoke-harness: {exc}\n"
             )
             return 1
-        return _degrade_to_noop(
-            event_name,
-            str(exc),
-            cursor_invocation=cursor_invocation,
-        )
+        # hook_evaluate turns this into the shared degraded allow.
+        raise
 
     if dry_run:
         return evaluate_hook_event(event_name, dry_run=True, stdin_data=stdin_data)
@@ -105,20 +81,14 @@ def evaluate_inprocess(
     try:
         connection = resolve_https_connection()
     except TransportError as exc:
-        from yoke_contracts.hook_runner.safety import (
-            infrastructure_reply,
-            parse_payload,
-        )
+        from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
-        text, code, _denied = infrastructure_reply(
-            event_name,
-            parse_payload(stdin_data),
-            detect_executor(),
-            f"hook_authority_unavailable: {exc}",
+        text = infrastructure_reply(
+            event_name, detect_executor(), f"hook_authority_unavailable: {exc}"
         )
         if text:
             sys.stdout.write(text)
-        return code
+        return 0
 
     extra_context = _session_orientation(
         event_name,

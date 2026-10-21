@@ -1,4 +1,4 @@
-"""Lifecycle failure replies and the machine-local Stop circuit breaker.
+"""The machine-local Stop circuit breaker.
 
 This state is required safety bookkeeping, independent of config, the
 resident, the control plane and telemetry. Only hashes and counters persist.
@@ -16,11 +16,11 @@ from typing import Callable
 
 from yoke_contracts import platform_file_lock
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
+from yoke_contracts.hook_runner.degraded import plain_allow_stdout
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.machine_config.paths import yoke_home
 
 
-LIFECYCLE_EVENTS = frozenset({"Stop", "SessionStart", "SessionEnd"})
 BLOCK_LIMIT = 3
 WINDOW_SECONDS = 300
 MAX_SESSIONS = 256
@@ -77,72 +77,6 @@ def _update(payload: dict, event: str, update: Callable[[dict, float], bool]) ->
             return result
         finally:
             platform_file_lock.release_exclusive(handle.fileno())
-
-
-def failure_message(event: str, payload: dict, reason: str) -> str:
-    """One full diagnosis per identical failure window, then a short reference."""
-    fingerprint = _digest(reason)
-
-    def update(entry: dict, now: float) -> bool:
-        first = (
-            entry.get("warning") != fingerprint
-            or now - entry.get("warned_at", 0) >= WINDOW_SECONDS
-        )
-        if first:
-            entry.update(warning=fingerprint, warned_at=now)
-        return first
-
-    try:
-        first = _update(payload, event, update)
-    except (OSError, ValueError, TypeError):
-        first = True
-    if first:
-        return f"{reason} [failure {fingerprint[:12]}]; repair Yoke configuration or connectivity, then retry."
-    return f"hook_infrastructure_unavailable: repeated failure {fingerprint[:12]}; follow the earlier recovery."
-
-
-def allow_stdout(executor: str) -> str:
-    return "{}" if executor.startswith(("codex", "cursor")) else ""
-
-
-def infrastructure_reply(
-    event: str, payload: dict, executor: str, reason: str
-) -> tuple[str, int, bool]:
-    message = failure_message(event, payload, reason)
-    if event in LIFECYCLE_EVENTS:
-        sys.stderr.write(
-            format_hook_diagnostic(
-                event, f"WARNING: {message} degraded to no-op allow.\n"
-            )
-        )
-        return (allow_stdout(executor) if event != "SessionStart" else ""), 0, False
-    if executor.startswith("cursor"):
-        return (
-            json.dumps(
-                {
-                    "permission": "deny",
-                    "user_message": message,
-                    "agent_message": message,
-                }
-            ),
-            0,
-            True,
-        )
-    if executor.startswith("codex"):
-        return (
-            json.dumps(
-                {
-                    "hookSpecificOutput": {
-                        "hookEventName": event,
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": message,
-                    }
-                }
-            ),
-            0,
-            True,
-        )
-    return message, 2, True
 
 
 def stop_reentry(payload: dict) -> bool:
@@ -210,4 +144,4 @@ def protect_stop(
             f"WARNING: {recovery}: allowing Stop; repair Yoke before resuming work.\n",
         )
     )
-    return allow_stdout(executor), 0
+    return plain_allow_stdout(event, executor), 0

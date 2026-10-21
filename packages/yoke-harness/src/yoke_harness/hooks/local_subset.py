@@ -24,7 +24,7 @@ from yoke_contracts.hook_runner.project_scope import (
     resolve_hook_project_scope,
 )
 from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
-from yoke_contracts.hook_runner.safety import infrastructure_reply
+from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
 from yoke_harness.hooks.client_facts import (
     collect_client_facts,
@@ -172,12 +172,10 @@ def evaluate_local_subset(
     try:
         chain = event_chain(event_name, payload, project_scope)
     except (ValueError, OSError, RuntimeError) as exc:
-        stdout, exit_code, denied = infrastructure_reply(
-            event_name, payload, executor, f"hook_scope_unavailable: {exc}"
+        stdout = infrastructure_reply(
+            event_name, executor, f"hook_scope_unavailable: {exc}"
         )
-        return LocalSubsetEvaluation(
-            stdout, exit_code, denied, payload_extra=payload_extra
-        )
+        return LocalSubsetEvaluation(stdout, 0, False, payload_extra=payload_extra)
     if collect_facts:
         payload_extra.update(collect_client_facts(event_name, payload, executor, chain))
     for module_id in _local_modules(chain):
@@ -189,21 +187,7 @@ def evaluate_local_subset(
             else:
                 result = _POLICY_EVALUATORS[module_id](payload)
         except Exception as exc:
-            if event_name in {
-                "PreToolUse",
-                "PermissionRequest",
-                "apply_patch",
-                "UserPromptSubmit",
-            } and module_id.rsplit(".", 1)[-1].startswith(("lint_", "path_claim_")):
-                stdout, code, denied = infrastructure_reply(
-                    event_name,
-                    payload,
-                    executor,
-                    f"hook_guard_unavailable: {module_id}: {type(exc).__name__}",
-                )
-                return LocalSubsetEvaluation(
-                    stdout, code, denied, payload_extra=payload_extra
-                )
+            # A guard that crashed did not deny; the call proceeds, warned.
             contexts.append(
                 f"product-local hook policy {module_id} degraded open: {exc}"
             )

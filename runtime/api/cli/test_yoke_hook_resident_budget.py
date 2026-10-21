@@ -198,13 +198,14 @@ def test_cursor_hook_entries_carry_the_declared_timeout() -> None:
     assert timeouts == {declared}
 
 
-def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
-    monkeypatch, tmp_path, capsys
+@pytest.mark.parametrize("resident_wait_ms", [1000, 0])
+def test_a_spent_budget_allows_loudly_instead_of_falling_back(
+    resident_wait_ms, monkeypatch, tmp_path, capsys
 ) -> None:
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
     monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
-    # The hook process already spent its whole budget waiting on the resident.
+    # The hook process already spent its whole budget, waiting or not.
     monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 1.5)
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
 
@@ -213,7 +214,7 @@ def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
             "YOKE_HOOK_RESIDENT_TIMEOUT",
             "resident did not answer inside the hook budget",
             log_path=tmp_path / "resident.log",
-            resident_wait_ms=1000,
+            resident_wait_ms=resident_wait_ms,
         )
 
     monkeypatch.setattr(client, "evaluate_with_resident", timed_out)
@@ -222,11 +223,13 @@ def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
         "_evaluate_inprocess",
         lambda *args, **kwargs: pytest.fail("a spent budget must not fall back"),
     )
-    assert hooks.hook_evaluate(["PreToolUse"]) == 2
-    err = capsys.readouterr().err
-    assert "hook_budget_exhausted: YOKE_HOOK_RESIDENT_TIMEOUT" in err
-    assert "yoke hook resident restart" in err
-    assert str(tmp_path / "resident.log") in err
+    assert hooks.hook_evaluate(["PreToolUse"]) == 0
+    captured = capsys.readouterr()
+    warning = json.loads(captured.out)["systemMessage"]
+    assert "Yoke guard rules are NOT being enforced" in warning
+    assert "hook_budget_exhausted: YOKE_HOOK_RESIDENT_TIMEOUT" in warning
+    assert "yoke hook resident restart from your own terminal" in warning
+    assert str(tmp_path / "resident.log") in captured.err
 
 
 def test_a_loading_resident_keeps_the_default_stop_signal(paths, monkeypatch) -> None:

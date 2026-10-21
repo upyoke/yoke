@@ -272,7 +272,7 @@ def test_unreachable_server_degrades_but_preserves_client_stdout(
     out = capsys.readouterr()
     assert rc == 0
     assert out.out == "client advisory\n"
-    assert "degraded to no-op allow" in out.err
+    assert "Yoke guard rules are NOT being enforced" in out.err
     assert "PreToolUse" in out.err
 
 
@@ -301,7 +301,7 @@ def test_non_200_degrades_to_noop_with_empty_client_half(
 
     out = capsys.readouterr()
     assert rc == 0
-    assert out.out == ""
+    assert "HTTP 500" in json.loads(out.out)["systemMessage"]
     assert "HTTP 500" in out.err
 
 
@@ -325,12 +325,12 @@ def test_cursor_degradation_is_visible_in_context_and_stderr(
     assert rc == 0
     payload = json.loads(out.out)
     assert "orientation" in payload["additional_context"]
-    assert "local-only allow" in payload["additional_context"]
+    assert "NOT being enforced" in payload["additional_context"]
     assert "YOKE_HOOK_DEGRADED" in out.err
     assert "network sandbox denied the relay" in out.err
 
 
-def test_cursor_degradation_with_empty_preserved_stays_empty(
+def test_cursor_degradation_with_empty_preserved_still_warns(
     monkeypatch,
     capsys,
 ) -> None:
@@ -343,5 +343,5 @@ def test_cursor_degradation_with_empty_preserved_stays_empty(
 
     out = capsys.readouterr()
     assert rc == 0
-    assert out.out == ""
+    assert "HTTP 500" in json.loads(out.out)["additional_context"]
     assert "YOKE_HOOK_DEGRADED" in out.err

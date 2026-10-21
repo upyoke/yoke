@@ -241,14 +241,12 @@ def relay_hook_event(
             event_name,
             f"HTTP {exc.status} from {safe_diagnostic_text(url)}",
             preserved_stdout=allow_stdout,
-            payload=payload,
         )
     except BoundedJsonHttpError as exc:
         return degrade_to_noop(
             event_name,
             f"{safe_diagnostic_text(url)} unreachable or timed out: {exc}",
             preserved_stdout=allow_stdout,
-            payload=payload,
         )
 
     if not isinstance(response, dict):
@@ -256,7 +254,6 @@ def relay_hook_event(
             event_name,
             "response body is not an object",
             preserved_stdout=allow_stdout,
-            payload=payload,
         )
     stdout = response.get("stdout")
     exit_code = response.get("exit_code")
@@ -270,7 +267,6 @@ def relay_hook_event(
             event_name,
             "response body is not the hook contract",
             preserved_stdout=allow_stdout,
-            payload=payload,
         )
     # Only the control plane's durable-row receipt settles transcript reads.
     # A deferred resident response intentionally carries no confirmation.

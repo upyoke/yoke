@@ -94,9 +94,8 @@ two seconds, warns on timeout, and continues.
 Socket/protocol/startup/crash failures use the canonical in-process evaluator,
 limited to the budget left. A named stderr warning is rate-limited across
 processes to once per five minutes (an unwritable marker stays quiet and still
-evaluates); `HookDispatchTelemetry` names
-`evaluator=inprocess` and the reason. A missing resident never manufactures an
-allow. `yoke watch doctor -- --only hook-resident` (client machines only) reports
+evaluates); `HookDispatchTelemetry` names `evaluator=inprocess` and the reason.
+`yoke watch doctor -- --only hook-resident` (client machines only) reports
 a down or stale resident as FAIL with `yoke hook resident restart` and the log;
 an idle retirement is normal, and the next hook restarts it.
 
@@ -107,15 +106,20 @@ from the process's own start, capped 5 seconds below the shortest manifest
 `machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
 starting, restart handshakes and the answer all spend it; the resident evaluates
 inside what is left. A launched resident that exits before listening ends the
-wait (`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two
-seconds, the hook skips the fallback: `hook_budget_exhausted` with reason, log and
-`yoke hook resident restart`: lifecycle events degrade to an allow with that
-warning, tool events refuse.
+wait (`YOKE_HOOK_RESIDENT_START_FAILED`). Under two seconds left skips the fallback.
+A hook never locks a harness: budget (`hook_budget_exhausted`), resident, relay,
+transport, scope or config failures and crashed guards allow every event; only a
+guard that ran and denied blocks (`yoke_contracts.hook_runner.degraded`). Each such
+call repeats one warning: guard rules are NOT enforced, the cause, the operator
+(never agents) runs `yoke hook resident restart` from their own terminal, and
+`YOKE_HOOKS_OFF`. Claude Code and Codex show it as `systemMessage`, Cursor in
+`user_message`/`agent_message` or `additional_context`. `YOKE_HOOKS_OFF=1` where
+the harness starts makes every hook allow unevaluated, for a failure loop or a
+guard bug that denies everything; unset it and restart the harness to re-enable.
 
-`yoke hook resident stop` and `restart` send SIGTERM, then SIGKILL after ten
-seconds to residents proven by their start time; a resident still loading exits
-at once. A failure names a still-running pid or a held start lock, each with its
-own recovery. A restart accepts a resident a live hook launched meanwhile.
+`yoke hook resident stop`/`restart` SIGTERM, then after ten seconds SIGKILL, residents
+proven by start time; a loading one exits at once. Failures name a running pid or held
+start lock with recovery; a restart accepts a resident a live hook launched meanwhile.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies
@@ -127,8 +131,7 @@ A computed deny survives expiry. Otherwise `degraded` includes
 `outcome=completed|timeout|denied` also in the response.
 
 Timeout, unreachable host, non-200 or invalid response degrades only the server
-half to empty stdout/exit 0 plus one stderr diagnostic. Already-computed client
-allow context survives; a client deny never enters that path. Claude's output
+half to that warned allow. Already-computed client allow context survives; a client deny never enters that path. Claude's output
 writer sends exit-2 denial reasons and guard/environment notices to stderr,
 reducing a local deny envelope to reason text. Codex/Cursor retain stdout verdict
 envelopes; allow context uses stdout.

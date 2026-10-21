@@ -24,7 +24,8 @@ from typing import Any, Optional
 
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
-from yoke_contracts.hook_runner.safety import infrastructure_reply, stop_reentry
+from yoke_contracts.hook_runner.degraded import infrastructure_reply
+from yoke_contracts.hook_runner.safety import stop_reentry
 from yoke_contracts.hook_runner.hook_ordering import matchers_for
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.hook_runner_deadline import (
@@ -169,25 +170,18 @@ def run_event(
             project_id = resolve_hook_project_scope(payload).require_project_id()
         chain = applicable_chain(chain, project_id)
     except (ValueError, OSError, RuntimeError) as exc:
-        text, code, denied = infrastructure_reply(
-            event_name, payload, capability.family, f"hook_scope_unavailable: {exc}"
-        )
+        # Scope resolution is infrastructure: the call proceeds, loudly.
         if controls is not None:
-            controls.final_outcome = "deny" if denied else "allow"
-            if controls.remote and not denied:
+            controls.final_outcome = "allow"
+            controls.denial_audit = {}
+            if controls.remote:
                 controls.degraded.append(
                     f"{FAILURE_PREFIX}hook_scope_unavailable:{exc}; repair the declared guard scope and retry"
                 )
-            controls.denial_audit = (
-                {
-                    "hook": "hook_scope",
-                    "check_id": "hook_scope_unavailable",
-                    "reason": text,
-                }
-                if denied
-                else {}
-            )
-        return text, code
+                return capability.decision_renderer([], event_name)
+        return infrastructure_reply(
+            event_name, capability.family, f"hook_scope_unavailable: {exc}"
+        ), 0
     if deduplicated_dispatch(
         event_name,
         context=context,
