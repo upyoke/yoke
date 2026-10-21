@@ -183,8 +183,9 @@ def test_without_the_declaration_the_door_still_refuses_routine_calls(
     assert planes.https == [] and planes.door == []
 
 
-@pytest.mark.parametrize("recovered", [True, False])
-def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch, capsys, recovered):
+@pytest.mark.parametrize("recovery_attempt", [1, 3, None])
+def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch, capsys, recovery_attempt):
+    recovered = recovery_attempt is not None
     transport = dispatcher.https_transport
     sends = []
 
@@ -194,7 +195,7 @@ def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch,
             return _answer(request, success=False, error=FunctionError(
                 code=TRANSPORT_FAILED_CODE, message=RESPONSE_TIMEOUT_DETAIL,
             )), 1
-        if recovered:
+        if recovered and len(sends) == 1 + recovery_attempt:
             return _answer(request, success=True, result={"code": 0}), 1
         return _answer(request, success=False, error=FunctionError(
             code=TRANSPORT_FAILED_CODE, message="unreachable",
@@ -208,9 +209,9 @@ def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch,
         target=dispatcher.TargetRef(kind="workflow_run", workflow_run_id="run-1"),
         payload={"stage_name": "item-qa"},
     )
-    assert len(sends) == 2
-    assert sends[0][0] == sends[1][0]
-    assert sends[1][1] == 600.0
+    assert len(sends) == (1 + recovery_attempt if recovered else 11)
+    assert all(send[0] == sends[0][0] for send in sends)
+    assert {send[1] for send in sends[1:]} == {60.0}
     assert planes.door == []
     assert response.success is recovered
     if not recovered:

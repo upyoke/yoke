@@ -213,8 +213,8 @@ after each close-out. Remaining members keep the QA stage waiting with
 close-out already running is allowed to finish.
 
 On an HTTPS response timeout, this idempotent dispatch sends the identical
-request id over HTTPS once more, waiting up to 600 seconds on the server's
-existing reservation and recorded result. It never switches to the self-deploy
+request id over HTTPS in up to ten 60-second waits on the server's existing
+reservation and recorded result. Each wait fits inside the hosted response cap. It never switches to the self-deploy
 database door for this recovery. An unanswered recovery reports
 `qa_dispatch_result_unconfirmed` and leaves the run resumable.
 
