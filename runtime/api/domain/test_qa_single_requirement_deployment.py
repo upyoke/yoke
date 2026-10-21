@@ -117,3 +117,27 @@ def test_review_wake_resumes_the_frozen_execution_instead_of_the_whole_scope(tes
     )
     [body] = _bodies(test_db, f"qa-plan-agent-review:{execution['id']}")
     assert f"--resume-execution-id {execution['id']}" in body
+
+
+def test_host_wait_resumes_the_frozen_execution(monkeypatch):
+    from yoke_core.domain import qa_host_turns as turns
+    from yoke_core.domain import qa_plan_execution_continuation as continuation
+
+    monkeypatch.setattr(
+        turns,
+        "query_one",
+        lambda *a, **k: {
+            "id": "selected-execution",
+            "roster_json": "[]",
+        },
+    )
+    command = (
+        "yoke qa plan run --deployment-run-id release --stage qa --project example"
+    )
+    monkeypatch.setattr(
+        continuation, "continuation_recipe", lambda *a: command + " --continue-mission"
+    )
+    actual = turns._resume_command(
+        Mock(), {"qa_plan_execution_id": "selected-execution"}
+    )
+    assert actual == command + " --resume-execution-id selected-execution"

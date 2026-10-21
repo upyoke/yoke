@@ -45,7 +45,8 @@ def _resume_command(conn: Any, wait: Any) -> str:
             "ask the control-plane operator to repair this host wait"
         )
     subject = {**execution, "roster": json.loads(execution["roster_json"])}
-    return continuation_recipe(conn, subject).removesuffix(" --continue-mission")
+    command = continuation_recipe(conn, subject).removesuffix(" --continue-mission")
+    return f"{command} --resume-execution-id {subject['id']}"
 
 
 def _has_line(conn: Any) -> bool:
@@ -322,7 +323,8 @@ def record_host_wait(
         actor_id=int(execution["actor_id"]),
         resume_command=continuation_recipe(conn, execution).removesuffix(
             " --continue-mission"
-        ),
+        )
+        + f" --resume-execution-id {execution_id}",
         rationale=rationale,
         execution_id=execution_id,
         queued_at=inherited_host_place(conn, execution, machine),
