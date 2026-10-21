@@ -13,7 +13,7 @@ from yoke_contracts.harness_lane_cleanup import (
     managed_lane_roots,
 )
 
-USAGE = f"{SWEEP_COMMAND} [--fixture-root PATH ...] [--dry-run] [--json]"
+USAGE = f"{SWEEP_COMMAND} [--managed-root PATH ...] [--dry-run] [--json]"
 
 
 def sweep(args: list[str]) -> int:
@@ -30,27 +30,27 @@ def sweep(args: list[str]) -> int:
     )
     parser.add_argument("--json", action="store_true", dest="json_mode")
     parser.add_argument(
-        "--fixture-root",
+        "--managed-root",
         type=Path,
         action="append",
         default=[],
-        help="Additional root reserved for QA fixtures Yoke creates (repeatable).",
+        help="Additional root reserved for Yoke lanes or QA fixtures (repeatable).",
     )
     parsed = parser.parse_args(args)
     try:
         checkouts = tuple(all_registered_checkouts(existing_only=False))
-        fixtures = tuple(path.expanduser() for path in parsed.fixture_root)
-        for root in fixtures:
+        additional_roots = tuple(path.expanduser() for path in parsed.managed_root)
+        for root in additional_roots:
             if not root.is_absolute() or root.resolve() in (
                 Path("/"),
                 Path.home(),
                 Path("/tmp").resolve(),
             ):
                 raise ValueError(
-                    "harness_lane_config_root_invalid: name an absolute directory reserved for Yoke QA fixtures"
+                    "harness_lane_config_root_invalid: name an absolute directory reserved for Yoke lanes or QA fixtures"
                 )
         receipt = cleanup_lane_configs(
-            managed_roots=managed_lane_roots(checkouts) + fixtures,
+            managed_roots=managed_lane_roots(checkouts) + additional_roots,
             dry_run=parsed.dry_run,
             keep_backup=True,
         )

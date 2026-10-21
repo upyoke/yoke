@@ -207,8 +207,9 @@ yoke harness lane-config sweep
 ```
 
 The sweep uses registered checkout lane roots, including deploy worktrees.
-Use repeatable `--fixture-root PATH` only for roots reserved for QA fixtures
-Yoke creates. Ownership follows the path, with no ledger or new record store. Before changing a config it writes an exact timestamped
+Use repeatable `--managed-root PATH` for additional verified lane roots,
+including installed checkouts no longer mapped on this machine, or for roots
+reserved for QA fixtures Yoke creates. Ownership follows the path, with no ledger or new record store. Before changing a config it writes an exact timestamped
 `CONFIG.yoke-backup-TIMESTAMP` beside it and reports before/after bytes.
 Paths outside those roots stay untouched even when deleted. A malformed config, failed backup or write refuses
 with `harness_lane_config_cleanup_failed` and the recovery command. Repair
