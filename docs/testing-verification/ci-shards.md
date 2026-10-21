@@ -50,7 +50,8 @@ actor seeds and connection-close isolation remain per case.
 
 Full CI builds portable product wheels once in `product_wheels`, in parallel
 with repository contracts after the reuse decision. Selection CI builds them
-in its plan job. The immutable run artifact contains exactly the four
+in its plan job and includes them beside the shared timing profile in the
+existing `ci-test-durations` artifact. The product directory contains exactly the four
 `py3-none-any` product wheels plus a manifest with the actual checkout commit,
 tree and wheel hashes. A PR's synthetic merge commit is the artifact identity.
 Each job verifies that identity before copying products into its own wheelhouse;
