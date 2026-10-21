@@ -206,7 +206,19 @@ the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
 
-Scoped-QA stage dispatch follows the same rule: a lost answer leaves the run in
+Scoped-QA stage dispatch closes at most two accepted members per call and stops
+starting close-outs after five seconds. It reads only the next member's route
+after each close-out. Remaining members keep the QA stage waiting with
+`qa_member_close_out_pending`; the next dispatch continues them. A single
+close-out already running is allowed to finish.
+
+On an HTTPS response timeout, this idempotent dispatch sends the identical
+request id over HTTPS once more, waiting up to 600 seconds on the server's
+existing reservation and recorded result. It never switches to the self-deploy
+database door for this recovery. An unanswered recovery reports
+`qa_dispatch_result_unconfirmed` and leaves the run resumable.
+
+A lost answer leaves the run in
 its QA stage with status `executing`, so live QA executions keep writing, and
 the next re-drive continues that stage. A genuine stage failure records run
 status `failed` before the `<stage>-failed` stage. When that status write is

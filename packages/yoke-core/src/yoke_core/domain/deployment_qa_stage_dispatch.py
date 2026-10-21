@@ -1,10 +1,7 @@
-"""Deployment runner dispatch for scoped QA stages.
+"""Gate scoped QA on its serving connection, then close accepted members.
 
-Scoped QA writes and notices use the registered connection-keyed dispatcher:
-local authority dispatches in-process; HTTPS drivers, self-deploys included,
-relay to the serving build, which a self-deploy alone backs with its database
-door. The server-side implementation takes the caller's live connection and
-sends both notices where the control plane can address their recipients.
+Local drivers dispatch in-process; HTTPS and self-deploy drivers relay to
+that control plane. Timed-out QA calls recover by HTTPS ledger replay.
 """
 
 from __future__ import annotations
@@ -298,7 +295,11 @@ def _gate_members(
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
     with uncached_presentation():
-        notify_items_qa_accepted(conn, run_id=run_id, item_ids=tuple(accepted))
+        pending_close_out = notify_items_qa_accepted(
+            conn, run_id=run_id, item_ids=tuple(accepted)
+        )
+    if pending_close_out:
+        waiting.append("qa_member_close_out_pending: re-dispatch this QA stage to continue close-outs")
     if failure:
         return failure
     if waiting:

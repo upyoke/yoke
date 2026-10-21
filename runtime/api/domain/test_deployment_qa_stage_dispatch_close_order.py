@@ -167,3 +167,22 @@ def test_the_gate_leaves_acceptance_to_a_caller_that_defers_it() -> None:
         notify.assert_not_called()
         gate.deployment_qa_stage_status(None, member_item_id=SETTLED_MEMBER, **kwargs)
         notify.assert_called_once()
+
+
+def test_pending_close_out_keeps_an_otherwise_accepted_stage_waiting():
+    with (
+        patch.object(gate, "deployment_qa_stage_status", return_value={
+            "accepted": True, "reasons": [], "outcome": "discharged",
+        }),
+        patch.object(dispatch, "report_stage_result"),
+        patch(
+            "yoke_core.domain.deployment_qa_member_acceptance_notice.notify_items_qa_accepted",
+            return_value=(WAITING_MEMBER,),
+        ),
+    ):
+        code, message = dispatch.materialize_and_gate_deployment_qa_stage(
+            _Conn(), STAGE, run_id=RUN_ID,
+        )
+    assert code == -4
+    assert "qa_member_close_out_pending" in message
+    assert "re-dispatch" in message

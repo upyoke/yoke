@@ -31,3 +31,7 @@ retry budgets, deadlines and response bounds. Every relay attempt uses the
 same request body and request id for replay safety. A response timeout is
 reported once and never resent, because the server may still be running the
 call; read the affected state before re-running a command that changes it.
+Idempotent QA stage dispatch is the exception: it waits once over HTTPS with
+the same request id for the existing reservation and recorded result, up to
+600 seconds. An unanswered recovery leaves the driver resumable and never
+falls back to the database door.

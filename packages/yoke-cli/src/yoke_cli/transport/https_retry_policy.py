@@ -16,7 +16,9 @@ starts a server the operator has not started. Spending 95 seconds of
 backoff there reports minutes late what was known immediately.
 
 A *response-deadline* failure means the request was sent and the server
-did not answer in time. It is never resent. The server keeps running the
+did not answer in time. Ordinary calls are never resent. Idempotent QA
+stage dispatch instead waits once on the existing HTTPS reservation and
+ledger using the same request id (``https_dispatch_result_wait``). The server keeps running the
 original after the client stops waiting, so a second copy only queues behind
 it — on a side-effecting call, blocked on the idempotency lock its own
 original holds — and doubles the in-flight work on a server that is already

@@ -128,6 +128,18 @@ def relay_https(
         max_attempts=max_attempts,
         sleep=sleep,
     )
+    from yoke_cli.transport.https_dispatch_result_wait import (
+        RESULT_WAIT_SECONDS, recover_dispatch_result,
+    )
+
+    response, recovery_attempts = recover_dispatch_result(
+        request, response, connection,
+        relay=lambda: _relay_attempts(
+            request, connection, timeout_s=RESULT_WAIT_SECONDS, handshake=handshake,
+            max_attempts=1, sleep=sleep,
+        ),
+    )
+    attempts += recovery_attempts
     record_outcome(request, response, env=connection.env, attempts=attempts)
     return response
 
