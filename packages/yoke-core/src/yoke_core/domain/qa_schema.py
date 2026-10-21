@@ -19,6 +19,9 @@ from yoke_core.domain.qa_deployment_scope_schema import (
 from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
 )
+from yoke_core.domain.qa_settlement_followups import (
+    QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -112,6 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
 """
     + QA_PLAN_EXECUTION_SCHEMA_SQL
     + QA_PLAN_REVIEW_SCHEMA_SQL
+    + QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL
 )
 
 

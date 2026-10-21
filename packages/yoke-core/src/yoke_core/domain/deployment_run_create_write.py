@@ -11,12 +11,11 @@ from __future__ import annotations
 
 from yoke_core.domain.domain_refusal import DomainRefusal
 
-import re
-from datetime import datetime, timezone
 from typing import NamedTuple, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, utc_now
+from yoke_core.domain.deployment_run_id_allocation import next_run_id, reserve_run_id
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_create_composition import (
     compose_run,
@@ -46,11 +45,15 @@ class CompositionRefused(DomainRefusal, ValueError):
     """
 
 
-#: Serializes run creation against other creation only; a table lock stalled
-#: every other write to ``deployment_runs`` and a deploy driver's heartbeat
-#: timed out behind it. Composition's repository reads happen before this lock
-#: (see :mod:`deployment_run_create_composition`), so it covers database work.
-_CREATE_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext('deployment_runs.create'))"
+#: Serializes run creation against other creation for the same project only;
+#: a table lock stalled every other write to ``deployment_runs`` and a deploy
+#: driver's heartbeat timed out behind it, and one key for every project
+#: queued unrelated releases behind each other. Composition's repository reads
+#: happen before this lock (see :mod:`deployment_run_create_composition`), so
+#: it covers database work.
+_CREATE_LOCK_SQL = (
+    "SELECT pg_advisory_xact_lock(hashtext('deployment_runs.create'), %s::int)"
+)
 
 
 class CreatedRun(NamedTuple):
@@ -60,32 +63,6 @@ class CreatedRun(NamedTuple):
     replayed: bool
     #: ``None`` unkeyed; otherwise an ``idempotency.BASIS_*`` value.
     idempotency_basis: Optional[str]
-
-
-def cmd_next_id(db_path: Optional[str] = None) -> str:
-    """Preview the next run ID for today without reserving it."""
-    conn = connect(db_path)
-    try:
-        return _next_run_id(conn, utc_now())
-    finally:
-        conn.close()
-
-
-def _next_run_id(conn, now: datetime) -> str:
-    """Return max numeric suffix + 1 for *now*'s UTC day."""
-    today = now.astimezone(timezone.utc).strftime("%Y%m%d")
-    prefix = f"run-{today}-"
-    rows = conn.execute(
-        "SELECT id FROM deployment_runs WHERE id LIKE %s",
-        (f"{prefix}%",),
-    ).fetchall()
-    pattern = re.compile(rf"^{re.escape(prefix)}([0-9]+)$")
-    suffixes = [
-        int(match.group(1))
-        for row in rows
-        if (match := pattern.fullmatch(str(row[0]))) is not None
-    ]
-    return f"{prefix}{max(suffixes, default=0) + 1:03d}"
 
 
 def cmd_create_run(
@@ -274,7 +251,6 @@ def _create_committed(
                         )
                     ),
                 ):
-                    timed_preparation("create_lock", conn.execute, _CREATE_LOCK_SQL)
                     return _create_locked(conn, project, **request, **run)
             except SourcePreparationChanged as exc:
                 conn.rollback()
@@ -295,13 +271,15 @@ def _create_locked(
     create_request: Optional[str],
     **run,
 ) -> tuple[CreatedRun, str]:
-    """Replay, or allocate and insert, while holding the creation lock.
+    """Replay, or allocate and insert, while holding the project's creation lock.
 
     Validation repeats here on the real row. Inside the caller's read scope
     the unlocked pass already resolved its repository reads, so this pass
     re-checks the database facts the lock protects.
     """
     project_id = resolve_project_id(conn, project)
+    if db_backend.connection_is_postgres(conn):
+        timed_preparation("create_lock", conn.execute, _CREATE_LOCK_SQL, (project_id,))
     basis = idempotency.BASIS_RECORDED_KEY if idempotency_key else None
     if basis == idempotency.BASIS_RECORDED_KEY:
         existing = idempotency.existing_run(
@@ -314,10 +292,14 @@ def _create_locked(
 
     refuse_run_that_cannot_execute(conn, run["flow"], run["release_lineage"])
 
-    # Allocation and insertion share this serialized transaction. The
-    # standalone next-id command remains a non-reserving preview.
+    # Allocation and insertion share this transaction. The standalone
+    # next-id command remains a non-reserving preview.
     now = utc_now()
-    run_id = _next_run_id(conn, now)
+    run_id = (
+        reserve_run_id(conn, now)
+        if db_backend.connection_is_postgres(conn)
+        else next_run_id(conn, now)
+    )
     timing_facts(run_id=run_id, source_sha=run["release_lineage"] or "")
     keyed = basis == idempotency.BASIS_RECORDED_KEY
     valid, message = timed_preparation(
@@ -342,7 +324,6 @@ __all__ = [
     "CompositionRefused",
     "CreatedRun",
     "cmd_create_run",
-    "cmd_next_id",
     "create_item_run",
     "create_run",
 ]

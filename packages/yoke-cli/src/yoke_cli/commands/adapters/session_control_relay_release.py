@@ -101,11 +101,11 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     if not instance.follows_served_release:
         # Nothing to follow: this machine serves the plane it polls, so the
         # running process is already the build the universe has. With no API
-        # server, this process also hosts the plane's GitHub observation.
-        observation = importlib.import_module(
-            "yoke_core.domain.pending_github_observation_job"
+        # server, this process also hosts the plane's background jobs.
+        jobs = importlib.import_module(
+            "yoke_core.domain.control_plane_background_jobs"
         )
-        with observation.pending_github_observation_job():
+        with jobs.control_plane_background_jobs():
             return serve_forever(
                 state_dir=instance.state_dir,
                 inventory_provider=collect_cached_inventory,

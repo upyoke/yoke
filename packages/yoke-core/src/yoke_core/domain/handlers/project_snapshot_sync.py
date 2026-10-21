@@ -20,8 +20,11 @@ from yoke_contracts.path_snapshot_chunks import (
     PathSnapshotChunkSyncPayload,
     snapshot_chunk_payload_size_bytes,
 )
-from yoke_core.domain.project_derived_facts import converge_derived_facts
 from yoke_core.domain.project_snapshot_chunk_uploads import sync_chunk
+from yoke_core.domain.project_snapshot_head_refresh import (
+    latest_snapshot_commit,
+    refresh_after_head_change,
+)
 from yoke_core.domain.project_snapshot_sync_refusals import SnapshotSyncRefusal
 
 
@@ -203,6 +206,7 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
     rows: List[Dict[str, Any]] = []
     with db_helpers.connect() as conn:
         project_id = resolve_project_id(conn, project_ref)
+        previous_head = latest_snapshot_commit(conn, project_id)
         for snapshot in payload.snapshots:
             warnings.extend(snapshot.warnings)
             result = materialize_snapshot_payload(
@@ -237,100 +241,15 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
                     "lane_head_recorded": lane_head_recorded,
                 }
             )
-        architecture_refresh = _refresh_architecture_context(
-            conn,
-            project_id,
-            rows,
+        refreshed = refresh_after_head_change(
+            conn, project_id, rows, warnings, previous_head=previous_head
         )
-        render_relationship_refresh = _refresh_render_relationship_context(
-            conn,
-            project_id,
-            rows,
-            warnings,
-        )
-        derived_facts = converge_derived_facts(conn, project_id, warnings)
     return {
         "project_id": project_id,
         "snapshots": rows,
         "warnings": warnings,
-        "architecture_refresh": architecture_refresh,
-        "render_relationship_refresh": render_relationship_refresh,
-        "derived_facts": derived_facts,
+        **refreshed,
     }
-
-
-def _head_inventory_row(rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """HEAD's row when it carries a file inventory; identity-only rows do not."""
-    return next(
-        (r for r in rows if r.get("ref") == "HEAD" and r.get("snapshot_id")),
-        None,
-    )
-
-
-def _refresh_architecture_context(
-    conn: Any,
-    project_id: int,
-    rows: List[Dict[str, Any]],
-) -> Optional[Dict[str, Any]]:
-    """Converge map-derived classifications after a HEAD snapshot lands.
-
-    Classifications derive from the map plus the tree, so they refresh
-    whenever the file inventory does. Projects without a declared map
-    skip silently; the synced commit is the provenance token.
-    """
-    head = _head_inventory_row(rows)
-    if head is None:
-        return None
-    from yoke_core.domain.architecture_path_context_seed import (
-        seed_architecture_path_context,
-    )
-
-    seed = seed_architecture_path_context(
-        conn,
-        project_id,
-        recorded_event_id=f"snapshot:{head.get('commit_sha') or 'HEAD'}",
-    )
-    if not seed.declared:
-        return None
-    return {
-        "layer_rows": seed.layer_rows,
-        "domain_rows": seed.domain_rows,
-        "exemption_rows": seed.exemption_rows,
-        "unclassified": seed.unclassified,
-        "removed_rows": seed.removed_rows,
-        "operator_rows_kept": seed.operator_rows_kept,
-    }
-
-
-def _refresh_render_relationship_context(
-    conn: Any,
-    project_id: int,
-    rows: List[Dict[str, Any]],
-    warnings: List[str],
-) -> Optional[Dict[str, Any]]:
-    """Refresh the project's generated-file provenance after a HEAD snapshot.
-
-    Relationships derive from the project's own tracked paths, so a project
-    with no generated outputs records none.
-    """
-    if _head_inventory_row(rows) is None:
-        return None
-    from yoke_core.domain.project_identity import resolve_project_slug
-
-    project_slug = resolve_project_slug(conn, project_id)
-    try:
-        from yoke_core.domain.agents_render_path_context import (
-            record_render_relationships,
-        )
-
-        written = record_render_relationships(conn, project_id=project_slug)
-    except Exception as exc:
-        warnings.append(
-            "generated-file render relationship refresh was advisory and "
-            f"did not complete: {exc}"
-        )
-        return {"status": "degraded", "written": 0}
-    return {"status": "ok", "written": written}
 
 
 __all__ = [

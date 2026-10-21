@@ -107,8 +107,9 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # request identity and lifecycle clocks are all born with that table.
 # QA execution adoption receipts add one table; its full audit row is born with it.
 # QA execution reconciliation receipts add one table; its audit row is born with it.
+# Owed QA settlement follow-ups add one table; its queue row is born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "71cfc6c11c7ae20d0d6bb7851e5058874623df9d63788ebbfae736305aa9bb6c"
+    "31ae4ba7374e92c24a3649948f1e27ea684faffb4175f23c3f99a788d34b345f"
 )
 
 

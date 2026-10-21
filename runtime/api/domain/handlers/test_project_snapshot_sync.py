@@ -15,6 +15,7 @@ from yoke_contracts.path_snapshot import PathSnapshotPayload, SnapshotFileEntry
 from yoke_core.domain import db_backend
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.handlers import project_snapshot_sync as handler
+from yoke_core.domain import project_snapshot_head_refresh as head_refresh
 from yoke_core.domain.path_snapshot_payload_materializer import (
     materialize_snapshot_payload,
 )
@@ -135,7 +136,7 @@ def test_head_snapshot_refreshes_yoke_render_relationships(
     conn = object()
     warnings: list[str] = []
 
-    result = handler._refresh_render_relationship_context(
+    result = head_refresh.refresh_render_relationship_context(
         conn,
         1,
         [{"ref": "HEAD", "snapshot_id": 7}],
@@ -160,7 +161,7 @@ def test_snapshot_refreshes_render_relationships_for_any_project(
         lambda _conn, *, project_id: recorded.append(project_id) or 0,
     )
 
-    assert handler._refresh_render_relationship_context(
+    assert head_refresh.refresh_render_relationship_context(
         object(),
         3,
         [{"ref": "HEAD", "snapshot_id": 7}],
@@ -171,7 +172,7 @@ def test_snapshot_refreshes_render_relationships_for_any_project(
 
 def test_snapshot_without_head_row_skips_render_relationships() -> None:
     assert (
-        handler._refresh_render_relationship_context(
+        head_refresh.refresh_render_relationship_context(
             object(),
             3,
             [{"ref": "refs/heads/feature"}],

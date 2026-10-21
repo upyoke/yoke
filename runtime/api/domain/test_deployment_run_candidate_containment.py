@@ -113,7 +113,11 @@ def test_unknowns_and_source_refusals_are_retried(monkeypatch):
 
 
 def test_cache_is_bounded(monkeypatch):
+    from yoke_core.domain import repository_compare_pages
+
     monkeypatch.setattr(containment, "CACHE_LIMIT", 2)
+    # Keep no comparison pages, so an evicted verdict is asked again.
+    monkeypatch.setattr(repository_compare_pages, "PAGE_LIMIT", 0)
     calls, _ = _provider(monkeypatch)
     for merge in ("b", "c", "d", "b"):
         containment.candidate_contains_commit(

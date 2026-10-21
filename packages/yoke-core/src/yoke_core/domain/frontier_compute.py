@@ -88,6 +88,7 @@ def compute_frontier(
         session_id=session_id,
         project=_canonical_project_label(conn, project_scope),
         emit_events=emit_events,
+        project_ids=project_scope,
     )
 
     # Planning still keys blocker details by the public PREFIX-N token;
@@ -116,6 +117,7 @@ def compute_frontier(
         session_id=session_id,
         project=_canonical_project_label(conn, project_scope),
         emit_events=emit_events,
+        project_ids=project_scope,
     )
     landing_details: Dict[int, List[Dict[str, Any]]] = remap_ref_keys_to_internal(
         conn,
@@ -126,12 +128,14 @@ def compute_frontier(
     )
     committed_lanes = committed_lane_item_ids(conn, landing_details)
 
-    cursor.execute(UNBLOCKS_COUNT_SQL)
+    cursor.execute(UNBLOCKS_COUNT_SQL.format(scope=project_clause), tuple(project_scope))
     unblocks_map: Dict[int, int] = {
         int(row[0]): int(row[1]) for row in cursor.fetchall()
     }
 
-    depth_map: Dict[int, int] = _compute_downstream_depths(conn)
+    depth_map: Dict[int, int] = _compute_downstream_depths(
+        conn, project_clause, project_scope
+    )
 
     wip_active = 0
     wip_active_items: List[int] = []

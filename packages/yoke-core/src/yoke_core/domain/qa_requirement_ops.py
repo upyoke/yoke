@@ -129,7 +129,8 @@ def waive_requirement(
     """Waive one requirement using a caller-owned connection."""
     row = query_one(
         conn,
-        """SELECT blocking_mode, qa_kind, qa_phase, item_id, epic_id, task_num, deployment_run_id
+        """SELECT blocking_mode, qa_kind, qa_phase, item_id, epic_id, task_num, deployment_run_id,
+                  COALESCE(deployment_member_item_id, item_id) AS member_item_id
            FROM qa_requirements WHERE id = %s""",
         (req_id,),
     )
@@ -157,6 +158,14 @@ def waive_requirement(
            WHERE id = %s""",
         (instant_parameter(conn, now), rationale, source, req_id),
     )
+    if row["member_item_id"] is not None:
+        # The close-outs this waiver unblocks replay in the background job
+        # (see qa_settlement_followups), owed in this same transaction.
+        from yoke_core.domain.qa_settlement_followups import (
+            request_settlement_followup,
+        )
+
+        request_settlement_followup(conn, item_id=int(row["member_item_id"]))
     conn.commit()
 
     emit_qa_requirement_event(
@@ -170,9 +179,6 @@ def waive_requirement(
         source=source,
         target_row=row,
     )
-    from yoke_core.domain.deployment_member_close_out_retry import after_record_settled
-
-    after_record_settled(conn, requirement_id=int(req_id))
 
 
 def cmd_requirement_waive(

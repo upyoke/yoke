@@ -208,6 +208,8 @@ STORED_INSTANT_COLUMNS: tuple[tuple[str, str], ...] = (
     ("qa_requirements", "superseded_at"),
     ("qa_requirements", "retracted_at"),
     ("qa_requirements", "rebound_at"),
+    ("qa_settlement_followups", "requested_at"),
+    ("qa_settlement_followups", "attempted_at"),
     ("qa_runs", "started_at"),
     ("qa_runs", "completed_at"),
     ("qa_runs", "created_at"),
