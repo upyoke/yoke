@@ -88,6 +88,9 @@ For a companion in `method_config.machines`, add `--machine NAME` before
 Walk setup, scratch and teardown stay on the driver. Companion commands stage
 no mission secrets; self-host creates its first-boot token on that host in
 its bundle's owner-only secrets directory. Remove that bundle after the walk.
+Companion command access records reset debt before returning authority;
+a verified `yoke test-machine reset` clears it before another case uses
+that host. Driver walk-end leaves that companion debt in place.
 Never bypass the lease with SSH or copy credentials into shell. For macOS login
 keychain/window-server commands add `--gui-session`: Terminal bridge is the route,
 not SSH or `launchctl asuser`. Call host-command directly, never from your own
