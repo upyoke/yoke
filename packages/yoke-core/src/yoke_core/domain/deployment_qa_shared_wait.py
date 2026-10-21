@@ -103,11 +103,12 @@ def wake_shared_stage_waiters(conn: Any, execution: Mapping[str, Any]) -> None:
 
     outstanding = qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
     if outstanding is None:
-        raise ValueError(
+        print(
             "shared_qa_wake_unavailable: shared execution settled but stage waits "
             f"could not be read; inspect yoke deployment-runs get {run_id} and "
             "re-drive its QA stage through the control-plane operator"
         )
+        return
     from yoke_core.domain.deployment_qa_stage_acceptance import (
         STAGE_CASES_UNRESOLVED,
         STAGE_NOT_RUN,
