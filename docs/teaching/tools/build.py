@@ -35,6 +35,7 @@ from model import (
 from render import LINE_LIMIT, wrapped_lines
 from render_pages import LIVE, Pages
 from render_overview import index_page
+from render_explorer import build_explorer
 
 VIEWS_ROOT = TEACHING_ROOT / "views"
 LIVE_ROOT = TEACHING_ROOT / "live"
@@ -94,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     pages.docs_pages(views)
     pages.commands_page(views)
     index_page(views, INTRO)
+    build_explorer(views, pages)
     live_pages = {
         path[len(LIVE) :]: views.pop(path)
         for path in list(views)

@@ -16,6 +16,7 @@ STATUS_MEANING = {
 
 def index_page(views, intro):
     destinations = (
+        ("Explore context sources (new reading view)", "explore/index.html"),
         ("Concepts", "concepts.html"),
         ("Teaching surfaces and rows", "surfaces.html"),
         ("Scenarios and lessons", "scenarios.html"),

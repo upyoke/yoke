@@ -23,6 +23,28 @@ that shared page so independent model edits can land together.
 
 ## Canonical source and access
 
+### Human reading view
+
+Open `views/explore/index.html` after building to browse context sources by
+when they enter the journey: Start, Enter a session, and Work. Each source
+opens its own surface tree; each teaching has a separate detail page with
+status, evidence and a link to its canonical JSON. The command-help source
+has a command tree derived from model references, validated against the live
+registry. Topics also open one level at a time; large lists are paginated.
+
+This reading view is being reviewed alongside the research catalogue. Its
+source groups are editorial navigation in `tools/explorer_sources.py`, not
+new teaching authorities. New surfaces must be assigned to a group; the
+build reports `EXPLORER_SOURCE` otherwise. Superseded proposals stay under
+Earlier proposals. Availability never establishes actual context receipt.
+
+Serve the checkout root over loopback to review source links as well as the
+generated pages: `python3 -m http.server 8765 --bind 127.0.0.1` from the
+checkout, then open `/docs/teaching/views/explore/index.html`. This is a local
+design review; it does not publish the prototype or prove product delivery.
+
+### Source access
+
 Ordinary repository access is the canonical route. Every machine and worker
 reads this directory from a Yoke checkout, or from the public repository at an
 exact commit: `https://github.com/upyoke/yoke/tree/<commit>/docs/teaching`.

@@ -3,8 +3,8 @@
  "title": "Teaching model and local views",
  "status": "observed",
  "audience": "Yoke source contributors",
- "note": "Commit the teaching model in a claimed lane; build the gitignored views locally to read them. The registered source scanner also runs from mapped main without a work claim and never rewrites model records. Use convert_model.py to repair canonical record formatting; stage cited new files with git add before checking tracked sources. When a view nears the 350-line limit, set `page` to move a large branch or part group to its own page instead of trimming content. CI validates the model and renders pages in memory without comparing local output.",
- "sources": ["docs/teaching/README.md", "docs/teaching/tools/build.py", "tests/teaching_prototype/test_teaching_prototype_check.py", "tests/teaching_prototype/test_teaching_build_validation.py"],
+ "note": "Commit the teaching model in a claimed lane; build the gitignored views locally to read them. The registered source scanner also runs from mapped main without a work claim and never rewrites model records. Use convert_model.py to repair canonical record formatting; stage cited new files with git add before checking tracked sources. When a view nears the 350-line limit, set `page` to move a large branch or part group to its own page instead of trimming content. CI validates the model and renders pages in memory without comparing local output. The human reading view at views/explore/index.html groups context sources by encounter, then opens surfaces, individual teachings, command branches and topic branches on separate pages. It reuses canonical records and keeps their evidence/status beneath the overview; superseded proposals remain separate from active sources.",
+ "sources": ["docs/teaching/README.md", "docs/teaching/tools/build.py", "tests/teaching_prototype/test_teaching_prototype_check.py", "tests/teaching_prototype/test_teaching_build_validation.py", "docs/teaching/tools/render_explorer.py", "docs/teaching/tools/explorer_sources.py", "tests/teaching_prototype/test_teaching_explorer.py"],
  "page": "documentation",
  "position": 0
 }
