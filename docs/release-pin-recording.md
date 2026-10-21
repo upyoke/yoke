@@ -136,16 +136,18 @@ refusal, and rerun receipt recording. Do not redispatch an already shipped
 promotion. General-purpose release-output callers keep their existing
 behavior.
 
-## Consumer-compatibility advisory
+## Consumer proof diagnostics
 
-Each merged commit's main push starts the exact-pair advisory on its own. To
-check a branch head by hand:
+PR updates and main pushes do not dispatch hosted consumer checks. The release
+bridge creates and awaits exact-pair proof before publishing its tag; a valid
+matching result can be reused across stage/prod. Integration failures therefore
+surface later, while producer CI, QA and merge checks remain required.
 
-```text
-yoke github-actions trigger upyoke/yoke consumer-compatibility-advisory.yml --ref BRANCH --request-id ID --correlation-input yoke_dispatch_id --project yoke
-yoke github-actions dispatch-receipt get REQUEST-ID --project yoke --json
-```
+For explicit diagnostics, dispatch Platform's existing
+`platform-release-pin-check.yml` with `product_ref` set to the full producer
+commit and `--ref` bound to the exact full consumer commit through the supported
+immutable dispatch tag; see [consumer proof](public/verification/consumer-proof.md).
 
-A `dispatch_receipt_unauthorized` refusal means the serving engine predates the
-`deployment_ci` read grant: ask the control-plane operator for a release that
-carries it. Never grant project admin to a release identity.
+Each release accepts about nine minutes before tagging (candidate pin-check
+median 8.6 minutes). Stage and prod share one proof per pair; the bridge's
+120-minute limit covers that wait. Platform checks run in parallel.

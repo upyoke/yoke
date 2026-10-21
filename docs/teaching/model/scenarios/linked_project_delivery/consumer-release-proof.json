@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "Authoring a producer contract item or diagnosing a failed release pair",
- "need": "Use the existing configured release-time exact-pair gate. Do not generate a separate consumer-build requirement before each item merge or a verification-only companion. The release gate proves both commits before tagging. On failure, inspect its producer item references and commit interval with the failed consumer job; real consumer code changes still need their linked companion.",
+ "need": "Use the existing configured release-time exact-pair gate. Do not generate a separate consumer-build requirement before each item merge or a verification-only companion. The release gate proves both commits before tagging. On failure, inspect its producer item references and commit interval with the failed consumer job; real consumer code changes still need their linked companion. Ordinary PR and main changes do not automatically dispatch hosted consumer integration. A cold release creates proof itself, concurrent environment callers join the same exact pair, and explicit diagnostics use that same gate. Accept later integration feedback while retaining producer checks and complete release verification.",
  "disclosure": "current cue",
  "surface": "AC authoring instructions, release refusal and consumer-proof guide",
  "review": "Candidate source tests cover history attribution; actual release execution is not claimed.",

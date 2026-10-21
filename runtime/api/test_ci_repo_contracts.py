@@ -288,9 +288,6 @@ def test_run_contracts_passes_when_all_green(
 
 def test_every_main_push_workflow_and_event_gated_job_runs_in_the_queue() -> None:
     for path in sorted(YOKE_CI.parent.glob("*.yml")):
-        # The advisory is independent evidence; release exact-pair proof gates publication.
-        if path.name == "consumer-compatibility-advisory.yml":
-            continue
         workflow = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
         triggers = workflow["on"]
         push = triggers.get("push") or {}

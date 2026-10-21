@@ -54,8 +54,8 @@ The release bridge includes the time it awaits Platform's release, so its
 limit covers the downstream run as well as its own setup. No timeout handler
 converts a timed-out required job into a passing check.
 
-The consumer advisory runs in its own workflow. A cancelled or timed-out
-advisory remains visible as advisory evidence in that run and cannot change
-the required `yoke-ci` conclusion adopted by QA. Do not reintroduce it as a
-reusable job inside required CI: job-level `continue-on-error` does not isolate
-a timeout cancellation from the caller's aggregate conclusion.
+Hosted consumer proof runs at the release boundary. Each release accepts about
+nine minutes before tagging (candidate pin-check median 8.6 minutes); stage and
+prod share one proof per exact pair. The bridge's 120-minute limit covers proof
+and downstream release waits. Platform checks run in parallel, not in series.
+Missing, failed, cancelled or timed-out proof prevents publication.

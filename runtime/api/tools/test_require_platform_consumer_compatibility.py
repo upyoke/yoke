@@ -124,27 +124,6 @@ def test_success_against_a_different_consumer_commit_is_unproven() -> None:
     assert "fresh consumer commit" in narrative
     assert "c" * 40 in narrative
     assert CONSUMER_REVISION in narrative
-    assert gate.CONSUMER_TRUNK_REF in narrative
-
-
-def test_a_non_exact_pair_caller_trusts_the_run_s_own_evidence() -> None:
-    # Non-exact classification remains available for callers reading a run
-    # without a bound identity; the advisory itself now validates its key.
-    code, narrative, proven = gate.classify(
-        {
-            "state": "success",
-            "conclusion": "success",
-            "head_sha": CONSUMER_REVISION,
-            "html_url": "https://example.invalid/run/10",
-        },
-        candidate_sha=CANDIDATE,
-        consumer_sha="main",
-        run_id="10",
-        exact_pair=False,
-    )
-
-    assert code == 0
-    assert proven == CONSUMER_REVISION
 
 
 def test_a_run_that_never_concluded_leaves_the_candidate_unpublished() -> None:
@@ -212,15 +191,6 @@ def test_a_different_consumer_commit_is_a_different_pair(
     assert request_ids[0] != request_ids[1]
     assert CONSUMER_REVISION in request_ids[0]
     assert seen[1][seen[1].index("--ref") + 1] == f"yoke-deploy/consumer-{'c' * 40}"
-
-
-def test_advisory_dispatch_uses_its_explicit_content_key(monkeypatch):
-    seen = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION, exact_pair=False, request_id="tree-key")
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION, exact_pair=False, request_id="tree-key")
-    assert {argv[argv.index("--request-id") + 1] for argv in seen} == {"tree-key"}
-    assert {argv[argv.index("--ref") + 1] for argv in seen} == {gate.CONSUMER_TRUNK_REF}
 
 
 def test_the_gate_reuses_the_consumer_s_own_required_check(

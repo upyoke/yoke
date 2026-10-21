@@ -77,3 +77,17 @@ def test_promotion_is_bound_to_the_revision_the_proof_actually_read() -> None:
     binding = promotion["env"]["PROVEN_CONSUMER_SHA"]
     assert f"steps.{proof['id']}.outputs.proven_consumer_sha" in binding
     assert '--proven-consumer-sha "$PROVEN_CONSUMER_SHA"' in str(promotion["run"])
+
+
+def test_only_the_release_bridge_automatically_dispatches_consumer_proof() -> None:
+    from yaml import BaseLoader, load
+
+    callers = []
+    for path in sorted((REPO_ROOT / ".github/workflows").glob("*.yml")):
+        text = path.read_text()
+        if GATE_MODULE not in text and "platform-release-pin-check.yml" not in text:
+            continue
+        workflow = load(text, Loader=BaseLoader)
+        assert set(workflow["on"]) == {"workflow_dispatch"}, path.name
+        callers.append(path.name)
+    assert callers == [RELEASE_BRIDGE.name]

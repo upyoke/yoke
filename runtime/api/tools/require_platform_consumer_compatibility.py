@@ -1,8 +1,8 @@
 """Refuse to publish a release the hosted consumer has not been built against.
 
 Pass full --candidate-sha and --consumer-sha commits. An immutable consumer
-tag binds workflow source, so the main-push proof, retries and simultaneous
-stage/prod releases of one exact pair join one consumer run.
+tag binds workflow source, so release retries, explicit diagnostics and
+simultaneous stage/prod releases of one exact pair join one consumer run.
 
 On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
 Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
@@ -31,7 +31,6 @@ from yoke_contracts.github_workflow_dispatch import (
 CONSUMER_REPO = "upyoke/platform"
 CONSUMER_PROJECT = "platform"
 CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
-#: Advisory runs follow trunk; exact-pair runs use an immutable commit tag.
 CONSUMER_TRUNK_REF = "main"
 CANDIDATE_INPUT = "product_ref"
 
@@ -117,26 +116,18 @@ def bind_consumer_authority() -> str:
     return ""
 
 
-def dispatch(
-    candidate_sha: str,
-    consumer_sha: str,
-    *,
-    exact_pair: bool = True,
-    request_id: str = "",
-) -> Tuple[str, str]:
-    """Dispatch the bound consumer commit; advisory calls follow trunk."""
-    ref = CONSUMER_TRUNK_REF
-    if exact_pair:
-        ref, error = bound_dispatch_ref(
-            _yoke,
-            repo=CONSUMER_REPO,
-            project=CONSUMER_PROJECT,
-            sha=consumer_sha,
-            timeout=_COMMAND_TIMEOUT_SECONDS,
-        )
-        if error:
-            return "", error
-        request_id = pair_request_id(candidate_sha, consumer_sha)
+def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
+    """Dispatch or join proof at the immutable bound consumer commit."""
+    ref, error = bound_dispatch_ref(
+        _yoke,
+        repo=CONSUMER_REPO,
+        project=CONSUMER_PROJECT,
+        sha=consumer_sha,
+        timeout=_COMMAND_TIMEOUT_SECONDS,
+    )
+    if error:
+        return "", error
+    request_id = pair_request_id(candidate_sha, consumer_sha)
     code, stdout, stderr = _yoke(
         [
             "github-actions",
@@ -193,7 +184,6 @@ def classify(
     candidate_sha: str,
     consumer_sha: str,
     run_id: str,
-    exact_pair: bool = True,
 ) -> Tuple[int, str, str]:
     """Return code, diagnostic and proven revision (empty on refusal)."""
     where = str(result.get("html_url") or "").strip() or f"run {run_id}"
@@ -240,11 +230,11 @@ def classify(
             ),
             "",
         )
-    if exact_pair and proven.lower() != consumer_sha.lower():
+    if proven.lower() != consumer_sha.lower():
         return (
             UNPROVEN,
             (
-                f"stale pair: {CONSUMER_TRUNK_REF} moved past the bound commit "
+                "stale pair: consumer evidence differs from the bound commit "
                 f"— {where} proved {proven}, not {consumer_sha}, for product "
                 f"{candidate_sha}. This intent stays unproven; start a new "
                 "deployment run to bind a fresh consumer commit rather than "
