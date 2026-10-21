@@ -123,6 +123,8 @@ def _in_process_repair_runner(config: Path, yoke_bin: str):
         if cmd[:3] == ["uv", "tool", "dir"]:
             # Unresolved on purpose: falls through to the injected `which`.
             return subprocess.CompletedProcess(cmd, 1, "", "")
+        if cmd == [yoke_bin, "path", "fix", "--yes", "--json"]:
+            return subprocess.CompletedProcess(cmd, 0, '{"verified": true}', "")
         if cmd == [yoke_bin, "--version"]:
             return subprocess.CompletedProcess(cmd, 0, "2.0.0\n", "")
         if cmd == [yoke_bin, "--help"]:
