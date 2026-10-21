@@ -16,6 +16,12 @@ with every shard, so matrix jobs cannot select against different profiles.
 Missing report telemetry prints a named reason and recovery while CI retains
 the committed profile; telemetry availability never decides whether tests run.
 There is no scheduled refresh or automated source commit.
+Automatic refresh only accepts runs whose source includes the commit that last
+changed `.test_durations`. A newer run from an older branch cannot overwrite a
+measured fixture-cost reset. This check needs Git history; unavailable source
+revisions are ineligible. If no compatible complete run is retained, every
+shard keeps using the committed baseline. An explicit `--reports` refresh names
+the verified measurements used to establish a new baseline.
 
 To refresh the committed baseline in a claimed source lane:
 

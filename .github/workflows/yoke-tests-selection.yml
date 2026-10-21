@@ -116,7 +116,7 @@ jobs:
         run: uv run python -m yoke_core.tools.ci_product_wheels --output "$GITHUB_WORKSPACE/dist/ci-product-wheels"
 
       - name: Refresh shard timing profile from retained CI reports
-        continue-on-error: true # Missing telemetry leaves the committed profile usable.
+        continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-

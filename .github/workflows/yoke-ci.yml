@@ -82,7 +82,7 @@ jobs:
           if-no-files-found: error
 
       - name: Refresh shard timing profile from retained CI reports
-        continue-on-error: true # Missing telemetry leaves the committed profile usable.
+        continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-

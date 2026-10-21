@@ -5,7 +5,8 @@ parallel on every CI event and excludes repository-only checks through
 runtime.ci_test_selection before splitting. Both keep the same shard count
 and required check names. Tree reuse requires evidence of both legs.
 
-CI refreshes weights from a complete retained report set before fan-out,
+CI refreshes weights from a complete retained report set whose source includes
+the committed timing baseline before fan-out,
 then shares the same profile with every shard. The committed baseline is
 refreshed through ci_durations_refresh; see docs/testing-verification/ci-shards.md.
 Times measured under xdist are scaled to each report's actual suite wall time.
