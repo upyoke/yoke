@@ -99,8 +99,10 @@ def test_every_waiting_member_wakes_before_an_accepted_member_closes() -> None:
         ),
         patch(
             "yoke_core.domain.deployment_qa_member_acceptance_notice."
-            "notify_item_qa_accepted",
-            side_effect=lambda conn, **kw: events.append(("close", kw["item_id"])),
+            "notify_items_qa_accepted",
+            side_effect=lambda conn, **kw: events.extend(
+                ("close", item_id) for item_id in kw["item_ids"]
+            ),
         ),
     ):
         code, message = dispatch.materialize_and_gate_deployment_qa_stage(
@@ -132,8 +134,8 @@ def test_a_later_member_error_still_closes_members_accepted_before_it() -> None:
         patch.object(dispatch, "report_stage_result"),
         patch(
             "yoke_core.domain.deployment_qa_member_acceptance_notice."
-            "notify_item_qa_accepted",
-            side_effect=lambda conn, **kw: closed.append(kw["item_id"]),
+            "notify_items_qa_accepted",
+            side_effect=lambda conn, **kw: closed.extend(kw["item_ids"]),
         ),
     ):
         code, message = dispatch.materialize_and_gate_deployment_qa_stage(
