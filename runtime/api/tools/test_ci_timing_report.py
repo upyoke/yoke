@@ -34,7 +34,7 @@ def evidence(tmp_path):
     }
     coverage = {"run_id": 1, "commit": "b" * 40, "tree": "c" * 40,
                 "coverage": {"python": {"3.14": "all"}, "shards": 1}}
-    return run, [job], coverage, tmp_path
+    return run, {"jobs": [job], "total_count": 1}, coverage, tmp_path
 
 
 def test_metrics_keep_execution_and_concurrent_case_time_separate(evidence):
@@ -55,13 +55,15 @@ def test_metrics_keep_execution_and_concurrent_case_time_separate(evidence):
     json.dumps(result)
 
 
-@pytest.mark.parametrize("defect", ["active", "wrong-run", "missing-shard", "duplicate"])
+@pytest.mark.parametrize("defect", ["active", "wrong-run", "missing-job-page", "missing-shard", "duplicate"])
 def test_incomplete_or_unrelated_evidence_refuses(evidence, defect):
     run, jobs, coverage, root = evidence
     if defect == "active":
         run["status"] = "in_progress"
     elif defect == "wrong-run":
         coverage["run_id"] = 2
+    elif defect == "missing-job-page":
+        jobs["total_count"] = 2
     else:
         coverage["coverage"]["shards"] = 2
         if defect == "duplicate":

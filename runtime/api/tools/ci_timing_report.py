@@ -82,11 +82,14 @@ def endpoint_metrics(root: Path, reports: Path, python: str, shards: int) -> dic
     }
 
 
-def report(root: Path, run: dict, jobs: list[dict], coverage: dict, reports: Path) -> dict:
+def report(root: Path, run: dict, jobs: dict, coverage: dict, reports: Path) -> dict:
     if run["status"] != "completed" or run["conclusion"] != "success":
         raise ValueError("use a completed successful run; an active run is not timing evidence")
     if coverage["run_id"] != run["id"]:
         raise ValueError("coverage artifact belongs to a different run")
+    if len(jobs["jobs"]) != jobs["total_count"]:
+        raise ValueError("job metadata is incomplete; include every jobs API page")
+    jobs = jobs["jobs"]
     if any(job["status"] != "completed" for job in jobs):
         raise ValueError("job metadata is incomplete")
     metrics = [job_metrics(job) for job in jobs if job["conclusion"] != "skipped"]
@@ -117,7 +120,7 @@ def main() -> int:
     try:
         result = report(
             args.root, json.loads(args.run.read_text()),
-            json.loads(args.jobs.read_text())["jobs"],
+            json.loads(args.jobs.read_text()),
             json.loads(args.coverage.read_text()), args.reports,
         )
     except (OSError, ValueError, KeyError, ET.ParseError) as exc:
