@@ -1,12 +1,5 @@
 """State assertions consume the journey that actually produced their state."""
 
-import os
-import shutil
-import subprocess
-import sys
-
-import pytest
-
 from yoke_cli.config.onboard_plan_labels import friendly_line
 from runtime.api.domain.test_qa_release_channel_target import _target
 from yoke_core.domain.installer_campaign_execution_target import (
@@ -24,7 +17,6 @@ def test_state_checks_directly_follow_their_real_state_producers():
     cases = _cases()
     keys = [case["case_key"] for case in cases]
     for producer, consumer in (
-        ("cold-start-hosted", "token-perms"),
         ("apply-handoff", "universe-born"),
     ):
         assert keys[keys.index(producer) + 1] == consumer
@@ -32,61 +24,32 @@ def test_state_checks_directly_follow_their_real_state_producers():
     assert [case["position"] for case in cases] == list(range(1, len(cases) + 1))
 
 
-@pytest.mark.skipif(shutil.which("zsh") is None, reason="requires zsh")
-@pytest.mark.parametrize(
-    "directory_mode,file_mode",
-    [(0o700, 0o600), (0o755, 0o600), (0o700, 0o644), (0o700, None)],
-)
-def test_named_token_checks_distinguish_absence_and_permission_failures(
-    tmp_path, directory_mode, file_mode
-):
-    secrets = tmp_path / ".yoke" / "secrets"
-    secrets.mkdir(parents=True, mode=directory_mode)
-    if file_mode is not None:
-        token = secrets / "fixture.token"
-        token.touch(mode=file_mode)
-    case = next(case for case in _cases() if case["case_key"] == "token-perms")
-    outcomes = []
-    for assertion in case["method_config"]["assertions"]:
-        script = assertion["argv"][2].replace("$HOME", "$fixture_home")
-        if sys.platform != "darwin":
-            script = script.replace("/usr/bin/stat -f '%Lp'", "/usr/bin/stat -c '%a'")
-        result = subprocess.run(
-            ["zsh", "-c", script],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "fixture_home": str(tmp_path)},
-        )
-        outcomes.append(result.returncode == 0)
-        assert result.stdout.strip() in {
-            "token-file-exists",
-            "secrets-directory-mode-700",
-            "token-file-modes-600",
-        }
-    assert outcomes == [
-        file_mode is not None,
-        directory_mode == 0o700,
-        file_mode == 0o600,
-    ]
+def test_token_permissions_are_proven_inside_cold_start_before_restore():
+    cases = _cases()
+    assert not any(case["case_key"] == "token-perms" for case in cases)
+    cold = next(case for case in cases if case["case_key"] == "cold-start-hosted")
+    for field in ("instructions", "expected_outcome"):
+        assert "token-file-exists" in cold[field]
+        assert "secrets-directory-mode-700" in cold[field]
+        assert "token-file-modes-600" in cold[field]
+        assert "without" in cold[field] and "contents" in cold[field]
+    assert "Before walk-end" in cold["instructions"]
 
 
 def test_review_captures_the_write_names_and_backs_out_without_apply():
     case = next(case for case in _cases() if case["case_key"] == "review-frame")
-    actions = case["method_config"]["actions"]
-    by_step = {action["step"]: action for action in actions}
-    assert by_step["show-all-changes"]["keys"] == ["Down", "Enter"]
-    assert by_step["show-all-changes"]["ready_text"] == ["Show all changes"]
+    assert case["method_id"] == "exploratory-mission"
     reuse_line = friendly_line("reuse-session-relay-token", "")
-    assert by_step["pending-write-list"]["ready_text"] == [reuse_line]
-    assert by_step["review-controls"]["keys"] == ["Down"]
-    assert by_step["expanded-review-controls"]["ready_text"] == ["Show summary"]
-    assert "Show summary" in case["method_config"]["expected_text"]
-    assert reuse_line in case["method_config"]["expected_text"]
-    assert (
-        friendly_line("store-token-reference", "")
-        not in by_step["pending-write-list"]["ready_text"]
-    )
-    assert actions[-1]["keys"] == ["Escape"]
-    assert "pending-write-list" in case["method_config"]["capture_checkpoints"]
+    assert reuse_line in case["expected_outcome"]
+    assert "Show all changes" in case["instructions"]
+    assert "Show summary" in case["expected_outcome"]
+    assert "back out without Apply" in case["instructions"]
+    assert "Category counts alone" in case["instructions"]
     assert case["required_completion"] == "back-before-apply"
-    assert all(action["step"] != "apply" for action in actions)
+
+
+def test_no_case_inherits_state_after_a_mission():
+    cases = _cases()
+    for previous, case in zip(cases, cases[1:]):
+        if previous["method_id"] == "exploratory-mission":
+            assert case["starting_state"] != "inherit"

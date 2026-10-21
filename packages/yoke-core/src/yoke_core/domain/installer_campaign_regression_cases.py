@@ -183,17 +183,38 @@ LOCAL_HOSTED_NO_BACKUP = _hosted_case(
     outcome="The no-backup local-to-hosted path completes without inventing a backup or bypassing approval.",
 )
 
-SECOND_MACHINE_JOIN = _hosted_case(
+SECOND_MACHINE_JOIN = terminal_case(
     14,
     "second-machine-join",
-    "",
+    "exploratory-mission",
     instructions=(
-        "Run on a second registered physical Test Machine after the first machine has joined the "
-        "same organization. Pin that second machine through the saved case's machine constraint. "
-        "Record distinct machine identities and preserved shared project choices. A reset of the "
-        "first machine is not second-machine proof."
+        "Explore a second physical machine joining the same organization. Hold both "
+        "declared hosts; use --machine NAME for companion host commands. Establish "
+        "the first machine's hosted connection through the public installer and real "
+        "browser approval before joining the distinct second host. Record both machine "
+        "identities, the organization and shared project facts before and after joining. "
+        "Keep GitHub disabled and choose machine-only setup, inspect Review, Apply and "
+        "complete the installer parent handoff. A reset of the first host is not proof. "
+        "Answer consent prompts, select the declared Google identity and dismiss stray "
+        "sheets; report every workaround with evidence in ranked findings. Never use "
+        "yoke machines approve or token paste to bypass browser approval. Stop at a real "
+        "password, 2FA or payment step. Verify cleanup of both host bundles at walk-end."
     ),
-    outcome="A distinct second physical machine joins the same organization and retains project facts with its own readiness evidence.",
+    expected_outcome=(
+        "Two distinct physical machines join the same organization through the real "
+        "browser approval flow; the second retains the shared project facts and has "
+        "its own readiness evidence. Observe Sign in and choose an organization.; "
+        "Approve this machine in your browser, then continue here.; Match code:; Open:; "
+        "Connect GitHub?; Review what Yoke will save.; Apply; Setup complete.; "
+        "Everything in the Review plan was applied.; Report:; Next: bring your existing "
+        "work into Yoke.; run /yoke onboard. Installer exit code is 0, its Apply report "
+        "is durable, evidence is secret-free and contains no Traceback or Paste your "
+        "Yoke API token. Every workaround preserves the tested browser approval."
+    ),
+    entry_surface=PUBLIC_INSTALL,
+    required_completion="complete-onboarding",
+    host_baselines=[FRESH_HOST],
+    method_config={"executor": "informed_subagent"},
 )
 
 _UNINSTALL_WAIT_SCRIPT = """
@@ -319,4 +340,6 @@ def recovery_cases(*, primary_machine: str, joining_machine: str):
             if case["case_key"] == "second-machine-join"
             else primary_machine
         )
+        if case["case_key"] == "second-machine-join":
+            case["method_config"]["machines"] = [primary_machine, joining_machine]
     return cases

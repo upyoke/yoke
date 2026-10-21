@@ -54,12 +54,15 @@ A walker cannot pause for human input, so it does every step an agent
 physically can: drive the leased GUI/desktop session (open harnesses through
 the native GUI/desktop route, choose permission modes, type codes into
 wizards), approve machine-connect and device codes in the host's already
-signed-in browser or with `yoke machines approve CODE`, and follow approval
-links. The only human gate is entering a password or credential the agent may
-not type. Stop there before guessing, bypassing, failing or silently skipping
-it. Capture useful proof, return `WALK_STATUS: HUMAN_GATE` naming exactly that
-one entry (site or app, account) and why, current product state and resume
-operation; then end. Never
+signed-in browser, and follow approval links. Get past host and setup obstacles
+yourself: answer consent prompts, select the declared identity's email in
+Google's account chooser, and dismiss stray sheets. Preserve the behavior under
+test: never run `yoke machines approve CODE` when the case tests browser approval,
+or substitute stored credentials for a fresh connection. Record every workaround
+in Ranked findings with the obstacle, action, evidence and tested boundary.
+Stop at a real password, 2FA or payment step before guessing, bypassing or
+silently skipping it. Capture proof, return `WALK_STATUS: HUMAN_GATE` naming
+that step (site or app, account), why, current product state and resume operation; then end. Never
 send, acknowledge or cancel Fleet mail, wait in a tool loop, or keep a process
 whose progress requires the person. Main records/routes the handoff to a live
 covering steering seat, else the item's human owner.
@@ -152,17 +155,17 @@ otherwise drive the host browser (macOS Safari, elsewhere desktop default)
 using screenshot/keystroke host commands
 (`--gui-session` on macOS). Never install Yoke just to obtain a browser.
 
-Never type a password or send the human request. A sign-in that needs a
-password is HUMAN_GATE: site, account, reason, observed state, resume point. Name this run's actual host, managed daemon versus
+Never enter a password, complete 2FA or payment, or send the human request.
+Return HUMAN_GATE with site, account, reason, observed state and resume point.
+Name this run's actual host, managed daemon versus
 host browser, managed project identity and target URL from executed commands;
 inventory is not proof. `yoke qa browser setup` starts runtime only. A managed
 profile is one named identity (`--identity NAME`, default `default`): before
 browsing as each identity the dispatch names, run its exact `yoke browser
 verify` with the project's declarations read locally. For an expired site,
 run `yoke browser authorize --identity NAME` on that host and re-sign in yourself,
-or route an approval to steering. Only password or credential entry the agent
-may not type is HUMAN_GATE, naming that one entry, identity, site, account and
-resume state. Sign-ins stay live in
+or route an approval to steering. A real password, 2FA or payment step is
+HUMAN_GATE: name the step, identity, site, account and resume state. Sign-ins stay live in
 the host's identity store; never save or restore a profile. Native browsers have
 no managed profile: name declared human access, never invent authorize for them.
 Screenshots prove a finding/gate, not progress. No credentials in reports.
@@ -240,10 +243,12 @@ Then report in order:
 
 1. `Mission progress`: starting point, explored territory and current state.
 2. `Ranked findings`: severity, observed/expected, impact, reproduction,
-   confidence and proof artifact ids where present.
+   confidence and proof artifact ids where present; include every host/setup
+   workaround, its evidence and whether it touched the behavior under test.
 3. `Unverified`: every important unknown and specific reason; no optimistic hiding.
-4. `Human action` and `Resume state` for HUMAN_GATE: the one password entry/why, this run's
-   host/browser substrate and first operation for a fresh walker; no credentials.
+4. `Human action` and `Resume state` for HUMAN_GATE: the password, 2FA or
+   payment step/why, this run's host/browser and first operation for a fresh
+   walker; no credentials.
 5. `Substrates used`: distinct command, host, browser and desktop surfaces exercised.
 
 Never write `pass`, `fail`, or final QA verdict. Main aggregates and submits batch.

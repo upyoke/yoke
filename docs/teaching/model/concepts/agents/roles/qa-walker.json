@@ -1,7 +1,9 @@
 {
  "id": "qa-walker",
  "title": "QA walker",
- "status": "draft-copy",
+ "status": "observed",
  "page": "agents",
- "position": 8
+ "position": 8,
+ "summary": "Walkers resolve host/setup obstacles themselves: consent, the declared Google account and stray sheets. Every workaround belongs in ranked findings with evidence and its tested boundary. Browser-approval assertions cannot use CLI approval. Real password, 2FA or payment steps return a human gate; reviewers reject workarounds touching tested behavior.",
+ "sources": ["runtime/agents/qa-walker.md", "packages/yoke-core/src/yoke_core/domain/agent_mission_review.py"]
 }

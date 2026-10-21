@@ -1,9 +1,10 @@
 {
  "id": "installer-campaigns",
  "title": "Installer campaigns",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "test-and-evidence-contracts",
  "position": 5,
- "summary": "State checks follow the Apply journey that creates their subject; token existence and owner-only modes have separate diagnostics. Review captures the full pending-write list and already-saved token reuse before backing out. Browser approval requires a visible control and same-tab confirmation or navigation. Machine-only late-harness discovery checks unattended permissions; project hook trust and received context require exploration proof. Hosted recovery retains fail-fast backup assertions and post-exit capture readiness; source correctness does not establish live campaign acceptance."
+ "summary": "Local state checks follow the Apply journey that creates their subject; cold-start-hosted checks token existence, directory mode 700 and token modes 600 before mission cleanup, with separate diagnostics. Review captures the full pending-write list and already-saved token reuse before backing out. Browser approval requires a visible control and same-tab confirmation or navigation. Machine-only late-harness discovery checks unattended permissions; project hook trust and received context require exploration proof. Hosted recovery retains fail-fast backup assertions and post-exit capture readiness; source correctness does not establish live campaign acceptance. The source plan moves obstacle-prone cold-start-hosted, second-machine-join, review-frame, connect-wait and welcome-frame to exploratory missions with the original expected texts and end states as prose checks. Retire the hosted-connect campaign recipe in favor of its separate mission. Stable Machine state, install-health, issue-sync, uninstall, stale-reinstall, outside-project, prepare and Command checks stay deterministic. Every workaround needs evidence and must preserve the tested boundary.",
+ "sources": ["docs/testing-verification/installer-campaign.md", "packages/yoke-core/src/yoke_core/domain/installer_campaign_mission_cases.py"]
 }

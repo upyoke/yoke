@@ -12,8 +12,8 @@ from yoke_cli.config import (
     onboard_wizard_hosted_machine_views,
 )
 from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
-from yoke_core.domain.installer_campaign_current_text_cases import (
-    CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+from yoke_core.domain.installer_campaign_mission_cases import (
+    INSTALLER_CAMPAIGN_CASES,
 )
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
@@ -68,7 +68,7 @@ def _admission() -> list[dict]:
 
 def test_eight_journeys_follow_the_original_cases_unchanged() -> None:
     cases = _cases()
-    original = [case["case_key"] for case in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES]
+    original = [case["case_key"] for case in INSTALLER_CAMPAIGN_CASES]
     original += [
         case["case_key"]
         for case in recovery_cases(primary_machine="primary", joining_machine="joining")
