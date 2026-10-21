@@ -72,7 +72,7 @@ def held_requirements(
     }
 
 
-def abort_abandoned_holders(
+def admit_stage_roster(
     conn: Any,
     roster: list[dict[str, Any]],
     *,
@@ -80,9 +80,10 @@ def abort_abandoned_holders(
     deployment_stage: str,
     session_id: str,
 ) -> bool:
-    """Abort other sessions' abandoned executions overlapping ``roster``.
+    """Check custody under the run lock before freezing ``roster``.
 
-    Each abort commits; report whether any ran so the caller reads again.
+    Refuse an overlapping live holder; abort abandoned holders. Each abort
+    commits, so report whether any ran for the caller to read again.
     """
     from yoke_core.domain.qa_plan_execution_authority import (
         plan_execution_is_abandoned,
@@ -102,19 +103,20 @@ def abort_abandoned_holders(
         }:
             continue
         locked = lock_plan_execution(conn, str(execution["id"]))
-        if locked["state"] in LIVE_PLAN_EXECUTION_STATES and (
-            plan_execution_is_abandoned(conn, locked)
-        ):
-            finish_plan_execution(
-                conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
-            )
-            aborted = True
+        if locked["state"] not in LIVE_PLAN_EXECUTION_STATES:
+            continue
+        if not plan_execution_is_abandoned(conn, locked):
+            raise StageRosterHeld(locked)
+        finish_plan_execution(
+            conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+        )
+        aborted = True
     return aborted
 
 
 __all__ = [
     "StageRosterHeld",
-    "abort_abandoned_holders",
+    "admit_stage_roster",
     "held_requirements",
     "live_stage_executions",
 ]

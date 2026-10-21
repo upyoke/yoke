@@ -41,7 +41,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
-from yoke_core.domain.qa_stage_execution_holders import abort_abandoned_holders
+from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -240,7 +240,7 @@ def begin_plan_execution(
                     "another actor or session owns the active QA plan execution"
                 )
             retired = True
-    if stage_wide and abort_abandoned_holders(
+    if stage_wide and admit_stage_roster(
         conn,
         prepared.roster,
         deployment_run_id=str(deployment_run_id),
