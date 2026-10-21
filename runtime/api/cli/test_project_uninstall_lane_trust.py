@@ -1,4 +1,4 @@
-"""Project uninstall retires the trust lane provisioning granted under the checkout."""
+"""Project uninstall retires the trust Yoke granted to the checkout and its lanes."""
 
 from pathlib import Path
 
@@ -15,7 +15,7 @@ DIGEST = "sha256:" + "0" * 64
 
 
 def _mirror_hook_trust(*checkouts: Path) -> None:
-    """Append hook trust shaped like lane provisioning's mirror."""
+    """Append hook trust shaped like install's mint and lane provisioning's mirror."""
     config = Path.home() / ".codex/config.toml"
     blocks = "".join(
         f'\n[hooks.state."{checkout}/.codex/hooks.json:session_start:0:0"]\n'
@@ -25,7 +25,7 @@ def _mirror_hook_trust(*checkouts: Path) -> None:
     config.write_text(config.read_text() + blocks)
 
 
-def test_uninstall_removes_root_and_lane_trust(installed):  # noqa: F811
+def test_uninstall_removes_checkout_and_lane_trust(installed):  # noqa: F811
     root, other, config = installed
     lane = root / ".worktrees" / "lane-one"
     lane.mkdir(parents=True)
@@ -34,7 +34,7 @@ def test_uninstall_removes_root_and_lane_trust(installed):  # noqa: F811
     other_lane.mkdir(parents=True)
     grant_folder_trust(lane)
     grant_folder_trust(other_lane)
-    _mirror_hook_trust(lane, other_lane)
+    _mirror_hook_trust(root, lane, other, other_lane)
 
     report = uninstall(root, config_path=config)
 
@@ -46,11 +46,14 @@ def test_uninstall_removes_root_and_lane_trust(installed):  # noqa: F811
     assert str(root) not in codex["projects"] and str(lane) not in codex["projects"]
     assert str(other_lane) in codex["projects"]
     hook_paths = {key.rsplit(":", 3)[0] for key in codex["hooks"]["state"]}
-    assert hook_paths == {f"{other_lane}/.codex/hooks.json"}
+    assert hook_paths == {
+        f"{other}/.codex/hooks.json",
+        f"{other_lane}/.codex/hooks.json",
+    }
     assert not trust.cursor_trust_file(root).exists()
     assert not trust.cursor_trust_file(lane).exists()
     assert trust.cursor_trust_file(other_lane).exists()
     assert any(
-        row["reason"] == "lane_hook_trust" and row["status"] == "removed"
+        row["reason"] == "owned_hook_trust" and row["status"] == "removed"
         for row in report["local_cleanup"]["trust"]
     )
