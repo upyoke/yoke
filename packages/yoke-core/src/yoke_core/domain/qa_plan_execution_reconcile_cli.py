@@ -15,7 +15,7 @@ EPILOG = (
     "--project P --reason TEXT). A call without a session needs the "
     "control-plane organization administrator. Never settles an active walk "
     "(qa_reconcile_runner_driven names yoke qa plan abort), a parked owner's "
-    "walk, or one still heartbeating. A held host lease without recorded "
+    "unfinished walk, or one still heartbeating. A held host lease without recorded "
     "recovery refuses qa_reconcile_host_recovery_required, records "
     "cancellation and names the exact yoke test-machine reset or "
     "operator-release command; run it, then retry. A pending review with a "
