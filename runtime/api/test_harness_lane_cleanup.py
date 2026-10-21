@@ -196,3 +196,19 @@ def test_registered_worktree_retirement_cleans_every_harness(configs):
     assert str(lane) not in codex.read_text()
     assert str(lane) not in claude.read_text()
     assert not cursor.exists()
+
+
+def test_shared_json_config_symlink_is_preserved(configs):
+    root, lane, codex, claude, cursor = configs
+    physical = claude.with_name("physical-claude.json")
+    claude.rename(physical)
+    claude.symlink_to(physical.name)
+    result = cleanup_lane_configs(
+        managed_roots=(root / ".worktrees",), keep_backup=True
+    )
+    assert result["ok"]
+    assert claude.is_symlink()
+    assert str(lane) not in physical.read_text()
+    row = next(row for row in result["files"] if row["harness"] == "claude-code")
+    assert Path(row["backup"]).parent == physical.parent
+    assert str(lane) in Path(row["backup"]).read_text()

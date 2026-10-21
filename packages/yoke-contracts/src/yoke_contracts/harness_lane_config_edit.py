@@ -72,6 +72,7 @@ def edit_codex(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dic
 
 
 def edit_json(path: Path, selected, *, dry_run: bool, keep_backup: bool) -> dict:
+    path = path.resolve()
     lock = path.with_name(f".{path.name}.yoke.lock")
     with nullcontext() if dry_run else FileLock(str(lock), timeout=10, mode=0o600):
         text = path.read_text(encoding="utf-8")
