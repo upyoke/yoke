@@ -92,10 +92,13 @@ def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(
     )
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
 
+    # Threads an earlier test left in this worker are not the daemon's.
+    threads_before = {thread.name for thread in threading.enumerate()}
     outcome = release_cli.serve_release_daemon(
         cycle_maintenance=lambda: ran.append("contained")
     )
 
     assert outcome.reason == "stopped"
     assert ran == ["contained", "upkeep", "contained", "upkeep"]
-    assert not any(name.startswith("yoke-") for name in threads_at_serve[0])
+    started = threads_at_serve[0] - threads_before
+    assert not any(name.startswith("yoke-") for name in started)
