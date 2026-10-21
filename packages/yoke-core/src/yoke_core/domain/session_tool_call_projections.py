@@ -79,6 +79,17 @@ def open_tool_call_expression(*, session_alias: str) -> str:
     )
 
 
+def latest_tool_call_select(conn: Any, *, session_alias: str) -> str:
+    """Project the latest recorded call start, including completed calls."""
+    if not has_session_tool_calls_table(conn):
+        return ",NULL AS latest_tool_call_started_at"
+    return (
+        ",(SELECT MAX(tc.started_at) FROM session_tool_calls tc "
+        f"WHERE tc.session_id={session_alias}.session_id) "
+        "AS latest_tool_call_started_at"
+    )
+
+
 def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
     """A select expression naming the session's most recently finished tool.
 
@@ -117,6 +128,7 @@ __all__ = [
     "MONITOR_TOOL_NAME",
     "OPEN_TOOL_CALL_COLUMN",
     "last_completed_tool_select",
+    "latest_tool_call_select",
     "open_tool_call_expression",
     "open_tool_call_select",
 ]

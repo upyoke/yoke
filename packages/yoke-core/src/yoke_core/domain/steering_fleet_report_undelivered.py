@@ -25,7 +25,10 @@ from yoke_core.domain.session_message_ended_recipient import (
     recipient_has_no_delivery_route,
 )
 from yoke_core.domain.session_message_visibility import visible_clause
-from yoke_core.domain.session_tool_call_projections import open_tool_call_select
+from yoke_core.domain.session_tool_call_projections import (
+    latest_tool_call_select,
+    open_tool_call_select,
+)
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -82,7 +85,7 @@ class UndeliveredMessages:
     turn_in_flight_since: datetime | None = None
     #: When the recipient ended or was terminated, for the two gone states.
     recipient_gone_at: datetime | None = None
-    #: How long the native holding a declined wake has produced nothing, when
+    #: How long the native holding a declined wake has had no output or tool call, when
     #: its machine could measure that. Set only for the held state, where it
     #: is the difference between a turn that is working and one to look at.
     held_native_silent_for_seconds: int | None = None
@@ -132,6 +135,7 @@ def report_receipts(
             conn, actor_id=int(caller[0]), caller_session_id=session_id
         )
     open_call = open_tool_call_select(conn, session_alias="s")
+    latest_call = latest_tool_call_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,
                    r.session_id AS session_id,
@@ -153,7 +157,7 @@ def report_receipts(
                    s.native_process_gone_evidence AS native_process_gone_evidence,
                    s.ended_at AS ended_at,
                    s.terminated_at AS terminated_at
-                   {open_call}
+                   {open_call}{latest_call}
               FROM session_message_recipients r
               JOIN session_messages m ON m.message_id = r.message_id
               JOIN harness_sessions s ON s.session_id = r.session_id
@@ -255,7 +259,10 @@ def undelivered_messages(
             group.name_the_failure(result_code=result_code, evidence=evidence)
         elif state == WAKE_HELD_FOR_NATIVE_TURN:
             group.note_held_native(
-                evidence=evidence, observed_at=view.completed_at if view else None
+                evidence=evidence,
+                observed_at=view.completed_at if view else None,
+                latest_tool_call_at=parse_stamp(record.get("latest_tool_call_started_at")),
+                current=current,
             )
     return tuple(
         UndeliveredMessages(
