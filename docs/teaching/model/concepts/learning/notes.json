@@ -7,5 +7,5 @@
  "functions": ["ouroboros.field_note.append", "ouroboros.field_note.get", "ouroboros.field_note.list"],
  "page": "learning",
  "position": 0,
- "summary": "Field notes store a root correlation and filing session. Unreviewed counts represent root problems; root reads list bounded repeat evidence. Append reuses the same project/author normalized 200-character body prefix within 24 hours, warns at eight distinct session notes, and caps at ten while accepting correlated evidence."
+ "summary": "Field notes store a root correlation and filing session. Unreviewed counts represent root problems; root reads list bounded repeat evidence. Each append stores a separate note; explicit correlation links repeat evidence to its root."
 }

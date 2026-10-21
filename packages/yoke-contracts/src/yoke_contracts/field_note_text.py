@@ -48,12 +48,8 @@ HELP_BODY: str = (
     "- unclear: two surfaces disagree, or the guidance is ambiguous\n"
     "- observation: a bug or oddity outside your current task\n"
     "\n"
-    "The same project and author reuse an existing id for the first 200 "
-    "body characters (case and whitespace normalized) within 24 hours. "
     "Correlated evidence is stored under the root note and excluded from "
-    "unreviewed counts. Sessions warn at eight distinct notes and cap at "
-    "ten; duplicate retries and correlated evidence remain available. "
-    "Put unrelated excess findings in the item Progress Log for operator review. "
+    "unreviewed counts. "
     "Do not file progress or a routine recovery that worked."
 )
 
