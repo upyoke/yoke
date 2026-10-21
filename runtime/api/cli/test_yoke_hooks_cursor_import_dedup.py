@@ -15,6 +15,10 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 from yoke_cli.main import main as cli_main
 
 
+class TransportReached(BaseException):
+    """Probe that evaluation reached transport; hooks fail open on Exception."""
+
+
 def _write_cursor_owner(
     root: Path,
     native_events: str | tuple[str, ...],
@@ -81,10 +85,10 @@ def test_cursor_imported_claude_hook_runs_without_native_owner(
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "SessionStart"])
 
 
@@ -166,10 +170,10 @@ def test_claude_owned_hook_still_runs_outside_cursor(monkeypatch) -> None:
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "SessionStart"])
 
 
@@ -183,10 +187,10 @@ def test_ambient_cursor_env_does_not_disable_real_claude_hook(monkeypatch) -> No
     monkeypatch.setenv("CURSOR_PROJECT_DIR", "/ambient-only")
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "SessionStart"])
 
 
@@ -204,10 +208,10 @@ def test_mismatched_cursor_payload_ids_do_not_disable_claude_hook(
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "SessionStart"])
 
 
@@ -249,10 +253,10 @@ def test_cursor_user_hook_ignores_unrelated_evaluate_verb(
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "Stop"])
 
 
@@ -269,8 +273,8 @@ def test_cursor_user_hook_runs_without_project_owner(
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path / "deleted"))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", "Stop"])

@@ -96,7 +96,7 @@ def test_a_lost_relay_leaves_the_model_to_ride_the_next_hook(
     _claude_session(monkeypatch, tmp_path)
     monkeypatch.setattr("urllib.request.urlopen", unreachable)
     assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
-    assert "degraded to no-op allow" in capsys.readouterr().err
+    assert "NOT being enforced" in capsys.readouterr().err
 
     _claude_session(monkeypatch, tmp_path)
     monkeypatch.setattr(

@@ -23,6 +23,10 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 from yoke_cli.main import main as cli_main
 
 
+class TransportReached(BaseException):
+    """Probe that evaluation reached transport; hooks fail open on Exception."""
+
+
 def _write_cursor_owner(
     root: Path,
     native_events: str | tuple[str, ...],
@@ -122,8 +126,8 @@ def test_imported_claude_tool_hook_reaches_transport(
     monkeypatch.setenv("CURSOR_PROJECT_DIR", str(tmp_path))
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda: (_ for _ in ()).throw(RuntimeError("transport reached")),
+        lambda: (_ for _ in ()).throw(TransportReached("transport reached")),
     )
 
-    with pytest.raises(RuntimeError, match="transport reached"):
+    with pytest.raises(TransportReached, match="transport reached"):
         cli_main(["hook", "evaluate", runner_event])

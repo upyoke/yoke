@@ -75,7 +75,10 @@ def test_transport_fallback_supplies_permission_reply(event, monkeypatch, capsys
     monkeypatch.setattr(relay_degrade, "print_execution_provenance", lambda **k: None)
     assert relay_degrade.degrade_to_noop(event, "connection unavailable") == 0
     captured = capsys.readouterr()
-    assert json.loads(captured.out) == {"permission": "allow"}
+    reply = json.loads(captured.out)
+    assert reply["permission"] == "allow"
+    assert "NOT being enforced" in reply["user_message"]
+    assert reply["agent_message"] == reply["user_message"]
     assert "YOKE_HOOK_DEGRADED" in captured.err
 
 

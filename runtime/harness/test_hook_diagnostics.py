@@ -150,8 +150,8 @@ def test_cursor_degradation_keeps_recovery_and_delivery_under_budget(
     out = capsys.readouterr()
     body = json.loads(out.out)["additional_context"]
     assert len(body.encode()) <= inline_context_bytes_for_harness("cursor")
-    assert body.startswith("yoke (PostToolUse): WARNING:")
-    assert "retry after restoring the connection" in body
+    assert body.startswith("WARNING: Yoke guard rules are NOT being enforced")
+    assert "connection unavailable" in body
     assert token_delivered(out.out, token)
     assert "yoke messages get " + message_id in body
     assert "yoke messages acknowledge " + message_id in body

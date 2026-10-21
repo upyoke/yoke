@@ -1,0 +1,9 @@
+{
+ "id": "infrastructure-fail-open",
+ "title": "Hook failures fail open loudly; the hooks-off switch",
+ "status": "observed",
+ "surface_refs": ["global-hooks", "command-feedback"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/degraded.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py", "docs/hooks.md"],
+ "commands": ["yoke hook evaluate", "yoke hook resident"],
+ "position": 7
+}

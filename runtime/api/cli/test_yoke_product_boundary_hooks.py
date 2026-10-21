@@ -119,9 +119,10 @@ def test_hook_evaluate_missing_harness_fails_open_for_live_event(
     )
 
     assert run.returncode == 0
-    assert run.stdout == ""
-    assert "yoke-harness unavailable" in run.stderr
-    assert "degraded to no-op allow" in run.stderr
+    warning = json.loads(run.stdout)["systemMessage"]
+    assert "NOT being enforced" in warning
+    assert "No module named 'yoke_harness'" in warning
+    assert "NOT being enforced" in run.stderr
     assert run.boundary["caught"] is None
     assert run.boundary["blocked_attempts"] == []
     assert run.boundary["forbidden_loaded"] == []
@@ -219,7 +220,7 @@ def test_https_relay_defers_main_commit_to_authority_without_imports(
 
     assert run.returncode == 0
     assert "Implementation commit on main branch" not in run.stdout
-    assert "degraded to no-op allow" in run.stderr
+    assert "NOT being enforced" in run.stderr
     _assert_clean_client_boundary(run)
 
 
@@ -265,6 +266,6 @@ def test_relay_short_circuits_before_http_when_local_subset_denies(
 
     assert run.returncode == 2
     assert "destructive git command" in run.stderr
-    assert "degraded to no-op allow" not in run.stderr
+    assert "NOT being enforced" not in run.stderr
     assert run.stdout == ""
     _assert_clean_client_boundary(run)

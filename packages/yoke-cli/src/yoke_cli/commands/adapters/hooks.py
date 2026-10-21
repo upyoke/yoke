@@ -30,7 +30,7 @@ __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 
 HOOK_EVALUATE_USAGE = "yoke hook evaluate <event> [--dry-run]"
 # Below this much remaining budget an in-process fallback cannot finish, so
-# the hook refuses by name instead of starting one.
+# the hook allows with the degraded warning instead of starting one.
 MINIMUM_FALLBACK_MS = 2000
 
 
@@ -174,9 +174,9 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 
         remaining_ms = hook_budget_ms(os.environ) - client_timing.elapsed_ms()
-        # Refuse only when waiting on the resident spent the budget; with no
-        # resident to wait on, the in-process evaluator is the only path.
-        if exc.resident_wait_ms > 0 and remaining_ms < MINIMUM_FALLBACK_MS:
+        # A fallback that cannot finish in the remaining budget never starts;
+        # the caller allows the call with the degraded warning instead.
+        if remaining_ms < MINIMUM_FALLBACK_MS:
             _report_phase_timing(
                 resident_wait_ms=exc.resident_wait_ms,
                 fallback_ms=None,
@@ -185,9 +185,8 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
                 always=True,
             )
             raise HookBudgetExhausted(
-                f"hook_budget_exhausted: {exc.code}: {exc.detail}; the hook "
-                "evaluator is starting or stuck. Retry; if it persists run "
-                f"yoke hook resident restart and inspect {exc.log_path}"
+                f"hook_budget_exhausted: {exc.code}: {exc.detail}; "
+                f"resident log {exc.log_path}"
             ) from None
         if claim_fallback_warning(exc.log_path.parent):
             sys.stderr.write(
@@ -238,74 +237,46 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
 
 
 def hook_evaluate(args: List[str]) -> int:
-    """Apply lifecycle safety outside both resident and in-process evaluation."""
+    """Fail open on infrastructure failure; only a guard that ran may deny."""
     if not args or any(flag in args for flag in ("--dry-run", "--help", "-h")):
         return _dispatch_hook(args)
-    from yoke_contracts.hook_runner.safety import (
-        LIFECYCLE_EVENTS,
+    from yoke_contracts.hook_runner.degraded import (
+        HOOKS_OFF_ENV,
+        hooks_off,
         infrastructure_reply,
-        parse_payload,
-        protect_stop,
+        plain_allow_stdout,
     )
-    from yoke_contracts.hook_runner.project_scope import HookProjectScopeUnavailable
-    from yoke_contracts.machine_config.paths import MachineConfigOwnershipError
-    from yoke_contracts.machine_config.runtime import MachineConfigError
-    from yoke_contracts.machine_config.schema_connections import (
-        MachineConfigContractError,
-    )
+    from yoke_contracts.hook_runner.safety import parse_payload, protect_stop
 
     raw = _read_stdin()
-    payload = parse_payload(raw)
     event = args[0]
-    stdout, stderr = io.StringIO(), io.StringIO()
     executor = os.environ.get("YOKE_EXECUTOR") or (
         "codex" if os.environ.get("CODEX_THREAD_ID") else "claude-code"
     )
     if is_cursor_config_invocation(os.environ, raw):
         executor = "cursor"
+    if hooks_off(os.environ):
+        sys.stderr.write(
+            format_hook_diagnostic(event, f"Yoke hooks are off ({HOOKS_OFF_ENV}).\n")
+        )
+        sys.stdout.write(plain_allow_stdout(event, executor))
+        return 0
+    payload = parse_payload(raw)
+    stdout, stderr = io.StringIO(), io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = _dispatch_hook(args, raw)
-    except (
-        HookBudgetExhausted,
-        OSError,
-        ValueError,
-        ImportError,
-        MachineConfigError,
-        MachineConfigContractError,
-        MachineConfigOwnershipError,
-        HookProjectScopeUnavailable,
-    ) as exc:
-        # No exception, config loader or resident may turn a lifecycle
-        # infrastructure failure into the harness's continuation signal.
-        text, code, _denied = infrastructure_reply(
-            event,
-            payload,
-            executor,
-            str(exc)
-            if isinstance(exc, HookBudgetExhausted)
-            else f"hook_infrastructure_unavailable: {type(exc).__name__}",
-        )
-        if code == 2 and not executor.startswith(("codex", "cursor")):
-            sys.stderr.write(format_hook_diagnostic(event, text) + "\n")
-            text = ""
+    except Exception as exc:  # noqa: BLE001 — no infrastructure failure may block
+        if isinstance(exc, HookBudgetExhausted):
+            cause = str(exc)
+        elif isinstance(exc, ImportError):
+            cause = f"hook_infrastructure_unavailable: ImportError: {exc}"
+        else:
+            cause = f"hook_infrastructure_unavailable: {type(exc).__name__}"
+        text, code = infrastructure_reply(event, executor, cause), 0
     else:
         text = stdout.getvalue()
-        if event in LIFECYCLE_EVENTS and any(
-            reason in text
-            for reason in (
-                "hook_scope_unavailable:",
-                "hook_authority_unavailable:",
-                "hook_infrastructure_unavailable:",
-            )
-        ):
-            text, code, _denied = infrastructure_reply(
-                event,
-                payload,
-                executor,
-                "hook_evaluation_failed: evaluator returned an infrastructure error",
-            )
-        elif stderr.getvalue():
+        if stderr.getvalue():
             sys.stderr.write(stderr.getvalue())
     text, code = protect_stop(event, payload, text, code, executor)
     if text:

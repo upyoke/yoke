@@ -1,69 +1,21 @@
 """Fail-open rendering for a hook relay that could not reach the server.
 
 Transport failure must never block the tool call the hook was guarding, so
-the relay degrades to a local-only allow. Cursor is the one surface that
-needs to be TOLD: its context-carrying events render JSON, so the warning
-rides in that payload where the operator reads it rather than into a
-stderr stream the client does not surface.
+the relay degrades to a local-only allow that carries the shared degraded
+warning on each harness's own surface (`yoke_contracts.hook_runner.degraded`).
 """
 
 from __future__ import annotations
 
-import json
 import sys
 
-from yoke_contracts.hook_diagnostics import format_hook_diagnostic
-from yoke_contracts.hook_context_compose import (
-    classify_hook_context,
-    compose_hook_context,
-)
+from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
-from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
-from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
-from yoke_contracts.hook_runner.safety import (
-    failure_message,
-    allow_stdout,
-)
-
-from yoke_harness.hooks.identity import detect_executor, is_cursor
+from yoke_harness.hooks.identity import detect_executor
 from yoke_harness.hooks.relay_identity_guard import print_execution_provenance
 
 
 DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
-_CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
-
-
-def _cursor_degradation_stdout(
-    event_name: str, detail: str, preserved_stdout: str
-) -> str:
-    if not is_cursor(detect_executor()):
-        return preserved_stdout
-    preserved_stdout = cursor_allow_stdout(event_name, preserved_stdout)
-    if event_name not in _CURSOR_CONTEXT_EVENTS or not preserved_stdout:
-        return preserved_stdout
-    warning = format_hook_diagnostic(
-        event_name,
-        (
-            "WARNING: Yoke hook relay degraded to local-only allow; "
-            f"server policy was not evaluated ({detail}); retry after restoring the connection."
-        ),
-    )
-    try:
-        payload = json.loads(preserved_stdout) if preserved_stdout else {}
-    except (json.JSONDecodeError, TypeError):
-        payload = {}
-    context = payload.get("additional_context", "") if isinstance(payload, dict) else ""
-    context = context if isinstance(context, str) else ""
-    kind = classify_hook_context(context)
-    # Recovery is required delivery too; reserve it before optional material.
-    body = compose_hook_context(
-        [warning, context] if kind == "delivery" else [warning],
-        [context] if kind == "hint" else [],
-        [context] if kind == "report" else [],
-        harness_id="cursor",
-        alerts=[context] if kind == "alert" else [],
-    )
-    return json.dumps({"additional_context": body})
 
 
 def degrade_to_noop(
@@ -71,28 +23,19 @@ def degrade_to_noop(
     detail: str,
     *,
     preserved_stdout: str = "",
-    payload: dict | None = None,
 ) -> int:
     """Fail open for hook transport/local harness failures."""
-    sys.stderr.write(
-        format_hook_diagnostic(
-            event_name,
-            (
-                f"WARNING: {failure_message(event_name, payload or {}, f'{DEGRADED_MARKER}: https transport degraded to no-op allow ({detail})')}\n"
-            ),
-        )
+    # A terminal event never carries a continuation out of a failed relay.
+    preserved = "" if event_name in {"Stop", "SessionEnd"} else preserved_stdout
+    stdout = infrastructure_reply(
+        event_name,
+        detect_executor(),
+        f"{DEGRADED_MARKER}: hook relay unreachable, server guards skipped ({detail})",
+        preserved,
     )
     print_execution_provenance(fallback_local=True)
-    if event_name in {"Stop", "SessionEnd"}:
-        sys.stdout.write(allow_stdout(detect_executor()))
-        return 0
-    visible_stdout = _cursor_degradation_stdout(
-        event_name,
-        detail,
-        preserved_stdout,
-    )
-    if visible_stdout:
-        sys.stdout.write(visible_stdout)
+    if stdout:
+        sys.stdout.write(stdout)
     return 0
 
 

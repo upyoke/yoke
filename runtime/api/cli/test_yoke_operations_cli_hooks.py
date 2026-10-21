@@ -280,9 +280,8 @@ def test_hook_evaluate_half_configured_https_degrades_to_noop(
         rc = cli_main(["hook", "evaluate", "SessionStart"])
 
     out = capsys.readouterr()
-    assert rc == 0 and "degraded to no-op allow" in out.err
-    if out.out:
-        assert "local-only allow" in json.loads(out.out)["additional_context"]
+    assert rc == 0 and "NOT being enforced" in out.err
+    assert "hook_authority_unavailable" in json.loads(out.out)["systemMessage"]
     hook_main.assert_not_called()
 
 
