@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import PurePosixPath
 import urllib.request
 from typing import Any, Callable, Mapping
@@ -26,6 +25,9 @@ from yoke_contracts.harness_cli_releases import (
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_core.domain.machine_qa_golden_destination import (
+    timestamped_golden_directory_name,
+)
 
 LATEST_FETCH_TIMEOUT_SECONDS = 30
 REFRESH_RECOVERY_SUFFIX = (
@@ -190,11 +192,10 @@ def _capture_golden(
         "operation": "golden_capture",
         "plan_execution_id": plan_execution_id,
     }
-    # A day can hold several refreshes, so the dated default name can already
-    # be the registered golden; a UTC second stamp keeps each capture new.
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     golden = PurePosixPath(str(contract.settings["golden_baseline_path"]))
-    destination = str(golden.parent / f"{contract.settings['user']}-home-{stamp}")
+    destination = str(
+        golden.parent / timestamped_golden_directory_name(contract.settings["user"])
+    )
 
     def call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return deliver_plan_function(

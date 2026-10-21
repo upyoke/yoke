@@ -1,11 +1,13 @@
 """A plan refreshes a behind golden once, under its own lease, before resetting."""
 
 import json
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from yoke_contracts.machine_qa_execution import issue_execution_contract
+from yoke_core.domain import machine_qa_golden_destination as destinations
 from yoke_core.domain import golden_harness_refresh as refresh
 from yoke_core.domain import host_control_runner, machine_qa_host_control
 from yoke_core.domain import machine_qa_local_execution, qa_plan_execution_checkin
@@ -129,6 +131,13 @@ def test_a_current_golden_runs_its_case_without_reset_install_or_capture(monkeyp
 
 def test_a_behind_golden_is_refreshed_once_then_the_case_begins_again(monkeypatch):
     world = World(monkeypatch, {**LATEST, "codex": "0.149.1"})
+    monkeypatch.setattr(
+        destinations,
+        "datetime",
+        SimpleNamespace(
+            now=lambda zone: datetime(2026, 10, 21, 16, 44, 0, tzinfo=timezone.utc),
+        ),
+    )
     assert world.run(contract()) == {"refreshed": True}
     assert world.calls == [
         ("read", GOLDEN),
@@ -139,6 +148,9 @@ def test_a_behind_golden_is_refreshed_once_then_the_case_begins_again(monkeypatc
         ("retain", GOLDEN + "-2"),
         ("plan_case.begin",),
     ]
+    assert world.destinations[0] == (
+        "/Users/Shared/yoke-golden/testy-home-20261021T164400Z"
+    )
     world.calls.clear()
     raw = contract(golden=GOLDEN + "-2")
     assert world.run(raw) == raw
