@@ -8,8 +8,13 @@ one sizing pass over one selection, and the workflow reads the fan-out and
 the split count back as two outputs of the same job.
 
 Sizing is all it does: no Postgres, no test run. The selection is a function
-of ``(base_sha, head_sha)`` and the committed duration profile, so the plan
-costs a checkout and an install rather than a share of the suite.
+of ``(base_sha, head_sha)`` and the timing profile the job refreshed, so the
+plan costs a checkout and an install rather than a share of the suite.
+
+A selection full CI answers as fast is refused here, before any shard
+starts, with the reason the shared estimate names. The dispatcher refuses
+the same selection before dispatching; this catches a hand trigger and a
+selection the refreshed profile sizes larger than the committed one did.
 """
 
 from __future__ import annotations
@@ -20,18 +25,23 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools.ci_selection_run import (
+from yoke_core.tools.ci_selection_inputs import (
     EXIT_USAGE,
     add_dispatch_arguments,
     checkout_mismatch,
     positional_args,
     selection_paths,
 )
-from yoke_core.tools.ci_shards import (
-    emit_output_lines,
-    profiled_size,
-    shard_list,
-    split_count,
+from yoke_core.tools.ci_shard_sizing import SelectionEstimate, selection_estimate
+from yoke_core.tools.ci_shards import emit_output_lines, shard_list
+
+#: The selection is full CI's work; no shard was planned.
+EXIT_FULL_CI = 3
+
+#: Where the full suite runs instead, phrased for any project.
+FULL_CI_RECOVERY = (
+    "run the item's full QA case instead: `yoke qa requirement list --item "
+    "PREFIX-N`, then `yoke qa case run --requirement-id <id>`"
 )
 
 
@@ -55,17 +65,17 @@ def plan_lines(count: int) -> list[str]:
     return [f"shards=[{shards}]", f"splits={count}"]
 
 
-def plan(root: Path, *, base_sha: str, passthrough: Sequence[str]) -> int:
-    """How many shards this dispatch's selection has earned."""
+def plan(
+    root: Path, *, base_sha: str, passthrough: Sequence[str]
+) -> SelectionEstimate:
+    """Size this dispatch's selection against the whole suite."""
     targets = selection_targets(root, base_sha=base_sha, passthrough=passthrough)
-    seconds, profiled = profiled_size(root, targets)
-    count = split_count(seconds, profiled)
+    estimate = selection_estimate(root, targets)
     print(
-        f"ci_selection_plan: targets={len(targets)} profiled_tests={profiled} "
-        f"profiled_seconds={seconds:.0f} shards={count}",
+        f"ci_selection_plan: targets={len(targets)} {estimate.summary()}",
         flush=True,
     )
-    return count
+    return estimate
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -88,18 +98,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     if mismatch:
         print(mismatch, flush=True)
         return EXIT_USAGE
-    count = plan(
+    estimate = plan(
         root,
         base_sha=args.base_sha.strip(),
         passthrough=shlex.split(args.pytest_args),
     )
+    if reason := estimate.full_ci_reason:
+        print(
+            f"Error: ci_selection_plan: {reason}; no selection shard runs. "
+            f"Full CI answers this change: {FULL_CI_RECOVERY}.",
+            flush=True,
+        )
+        return EXIT_FULL_CI
     emit_output_lines(
-        plan_lines(count), write_github_output=args.write_github_output
+        plan_lines(estimate.shards), write_github_output=args.write_github_output
     )
     return 0
 
 
-__all__ = ["main", "plan", "plan_lines", "selection_targets"]
+__all__ = [
+    "EXIT_FULL_CI",
+    "FULL_CI_RECOVERY",
+    "main",
+    "plan",
+    "plan_lines",
+    "selection_targets",
+]
 
 
 if __name__ == "__main__":

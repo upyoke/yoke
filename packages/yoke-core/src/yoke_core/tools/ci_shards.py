@@ -12,9 +12,9 @@ Times measured under xdist are scaled to each report's actual suite wall time.
 The greedy least_duration algorithm balances aggregate file weights; a file
 stays on one shard and one worker so its fixtures are not repeated elsewhere.
 
-A change-scoped selection earns shards from its profiled wall seconds,
-up to SHARD_COUNT. Missing timings underestimate work, never coverage.
-CI uses every core inside each shard with -n auto and loadfile scheduling.
+A change-scoped selection is sized against the same profile by
+ci_shard_sizing. CI uses every core inside each shard with -n auto and
+loadfile scheduling.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import math
 import os
 import subprocess
 import sys
@@ -47,17 +46,6 @@ XDIST_ARGS = ("-n", "auto", "--dist", "loadfile", "--no-loadscope-reorder")
 DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
-
-# Profiled test seconds one shard is worth carrying, deliberately well under
-# the ~150s break-even above. Profiled seconds are a floor: `profiled_size`
-# sees only tests the committed profile already holds, and the tests a change
-# adds are exactly the ones no full-suite run has measured yet, so a
-# change-scoped selection always profiles at less than it runs. Budgeting at
-# the break-even would assume that gap away. Erring low is also the cheaper
-# side to be wrong on — one shard too many costs that runner's fixed setup
-# beside work that was going to run anyway, one too few costs the selection
-# the wall time it could have split.
-MIN_SHARD_PROFILE_SECONDS = 60.0
 
 
 def shard_list(count: int = SHARD_COUNT) -> list[int]:
@@ -113,101 +101,6 @@ def shard_number(value: str, *, default: int = 1) -> int:
         raise SystemExit(f"a shard number must be a positive integer, got {value!r}")
     return int(text)
 
-
-def normalize_profile_target(root: Path, target: str) -> str | None:
-    """Repo-relative profile spelling for *target*, or None if outside *root*.
-
-    The committed profile keys are repo-relative node ids. Equivalent
-    ``./relative``, in-checkout absolute, node-id, ``.`` and checkout-root
-    spellings must therefore collapse to the same path before matching.
-    A target that resolves outside *root* is dropped so it cannot silently
-    match unrelated profile data.
-    """
-    root = root.resolve()
-    path_text, sep, node = target.partition("::")
-    suffix = f"::{node}" if sep else ""
-    text = path_text.strip()
-    if not text or text == ".":
-        return f".{suffix}" if suffix else "."
-    relative = text[2:] if text.startswith("./") else text
-    while relative.startswith("./"):
-        relative = relative[2:]
-    if not relative or relative == ".":
-        candidate = root
-    else:
-        candidate = (
-            Path(relative) if Path(relative).is_absolute() else (root / relative)
-        )
-    try:
-        rel = candidate.resolve().relative_to(root)
-    except ValueError:
-        return None
-    rel_text = rel.as_posix()
-    if rel_text == ".":
-        return f".{suffix}" if suffix else "."
-    return rel_text + suffix
-
-
-def profiled_size(root: Path, targets: Sequence[str]) -> tuple[float, int]:
-    """Profiled seconds and profiled test count for *targets*.
-
-    Node ids in the committed profile are repo-relative, so a selected file,
-    a directory, and a single node id all match by prefix. Tests the profile
-    has never seen are invisible here, which makes this a floor: an
-    underestimate costs a shard, never coverage.
-    """
-    try:
-        durations = json.loads((root / DURATIONS_PATH).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return 0.0, 0
-    normalized = [
-        spelling
-        for target in targets
-        if (spelling := normalize_profile_target(root, target)) is not None
-    ]
-    if any(spelling == "." or spelling.startswith(".::") for spelling in normalized):
-        return sum(float(duration) for duration in durations.values()), len(durations)
-    files = {target for target in normalized if target.endswith(".py")}
-    others = tuple(
-        target.rstrip("/") for target in normalized if not target.endswith(".py")
-    )
-    seconds = 0.0
-    profiled = 0
-    for node_id, duration in durations.items():
-        path = node_id.split("::", 1)[0]
-        if path in files or _matches_target(node_id, path, others):
-            seconds += float(duration)
-            profiled += 1
-    return seconds, profiled
-
-
-def _matches_target(node_id: str, path: str, targets: Sequence[str]) -> bool:
-    """Whether *node_id* is under any directory or node-id target."""
-    return any(
-        node_id == target
-        or node_id.startswith(f"{target}::")
-        or path.startswith(f"{target}/")
-        for target in targets
-    )
-
-
-def split_count(profiled_seconds: float, profiled_tests: int) -> int:
-    """How many shards a selection of this size earns.
-
-    One shard per :data:`MIN_SHARD_PROFILE_SECONDS` of profiled test time,
-    rounded UP: the remainder past a whole budget is real test time that has
-    to run somewhere, and because the profile undercounts, that remainder is
-    itself a floor. Rounding it down hands a selection the narrower fan-out
-    of the two readings every time.
-
-    The count is then capped at the full suite's own shard count and at the
-    number of tests the profile knows about: a group holding no test at all
-    reports "no tests ran" instead of a verdict, so the count never exceeds
-    what can fill it, and a selection with nothing profiled still runs on the
-    one shard it always did.
-    """
-    earned = math.ceil(profiled_seconds / MIN_SHARD_PROFILE_SECONDS)
-    return max(1, min(SHARD_COUNT, earned, profiled_tests))
 
 
 def pytest_command(group: int) -> list[str]:
@@ -313,19 +206,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 __all__ = [
     "DURATIONS_PATH",
     "JUNIT_REPORT",
-    "MIN_SHARD_PROFILE_SECONDS",
     "OUTPUT_LOG",
     "SHARD_COUNT",
     "SUITE_PATHS",
     "emit_output_lines",
     "fan_out_lines",
     "main",
-    "normalize_profile_target",
-    "profiled_size",
     "pytest_command",
     "shard_list",
     "shard_number",
-    "split_count",
 ]
 
 

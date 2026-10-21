@@ -12,6 +12,7 @@ import yaml
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOWS = _ROOT / ".github" / "workflows"
 _DOCKERFILE = _ROOT / "Dockerfile"
+_TEST_RUNNER_ACTION = _ROOT / ".github" / "actions" / "yoke-test-runner" / "action.yml"
 _MIRROR = "ghcr.io/upyoke"
 _EXPECTED_IMAGES = frozenset(
     {
@@ -111,12 +112,18 @@ def test_each_ci_image_is_declared_once_per_file() -> None:
 
 def test_ci_steps_retry_mirror_pulls_before_using_the_image() -> None:
     """Retry transient GHCR transport failures before consuming the image."""
+    step = _step_body(_TEST_RUNNER_ACTION, "Start Postgres")
+    assert 'docker pull "$POSTGRES_IMAGE"' in step
+    assert "for attempt in 1 2 3 4 5" in step
+    assert "sleep $((5 + RANDOM % 26))" in step
+    assert step.index('docker pull "$POSTGRES_IMAGE"') < step.index("docker run")
     for name in ("yoke-ci.yml", "yoke-tests-selection.yml"):
-        step = _step_body(_WORKFLOWS / name, "Start Postgres")
-        assert 'docker pull "$POSTGRES_IMAGE"' in step, name
-        assert "for attempt in 1 2 3 4 5" in step, name
-        assert "sleep $((5 + RANDOM % 26))" in step, name
-        assert step.index('docker pull "$POSTGRES_IMAGE"') < step.index("docker run")
+        # The shared runner action pulls the image each caller declares once.
+        document = yaml.safe_load((_WORKFLOWS / name).read_text(encoding="utf-8"))
+        assert document["env"]["POSTGRES_IMAGE"] == f"{_MIRROR}/postgres:16", name
+        assert "./.github/actions/yoke-test-runner" in (_WORKFLOWS / name).read_text(
+            encoding="utf-8"
+        ), name
     build = _step_body(_WORKFLOWS / "yoke-ci.yml", "Build Yoke core image")
     assert "s/^ARG PYTHON_IMAGE=//p" in build
     assert 'docker pull "$python_image"' in build
@@ -164,7 +171,15 @@ def _ci_image_references() -> list[tuple[Path, str]]:
 
 
 def _workflow_paths() -> list[Path]:
-    return sorted([*_WORKFLOWS.glob("*.yml"), *_WORKFLOWS.glob("*.yaml")])
+    """Workflow files and the local actions their jobs run."""
+    actions = _ROOT / ".github" / "actions"
+    return sorted(
+        [
+            *_WORKFLOWS.glob("*.yml"),
+            *_WORKFLOWS.glob("*.yaml"),
+            *actions.glob("*/action.yml"),
+        ]
+    )
 
 
 def _dockerfile_images() -> list[str]:
@@ -253,7 +268,7 @@ def _step_body(path: Path, step_name: str) -> str:
     text = path.read_text(encoding="utf-8")
     marker, _, body = text.partition(step_name)
     assert marker != text, f"{path.name}: missing step {step_name}"
-    return body.split("\n      - name:", 1)[0]
+    return re.split(r"\n {4,6}- name:", body, maxsplit=1)[0]
 
 
 def _resolve_shell_image(

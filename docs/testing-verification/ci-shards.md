@@ -58,6 +58,31 @@ installed packages on the same interpreter, retaining its engine-absence proof.
 The eight import-graph scenarios remain eight parametrized cases in
 `tests/import_graph/test_yoke_cli_wheel_smoke.py`.
 
+## Change-scoped selections
+
+`yoke-tests-selection.yml` runs a change-scoped selection with the same
+layout as a `test-shard` job on the newest Python. Both jobs prepare their
+runner through the composite action `.github/actions/yoke-test-runner`. A
+composite action keeps each job's own check names, so the required
+`test-shard (...)` contexts in `.yoke/merge-queue.json` stay unchanged. The
+selection's plan job refreshes the timing profile from retained CI reports
+and shares it as `ci-test-durations`, as `repo-contracts` does. Selection
+shards set `YOKE_CI_PYTHON_SCOPE=all`, so whole files stay on one shard.
+
+A selection shard passes pytest the same three roots as a full shard. It
+loads `yoke_core.tools.ci_selection_collect`, which skips every file outside
+the selection before importing it, so collection never takes longer than full
+CI's. Explicit dispatched paths without a merge base run exactly as named.
+
+`yoke_core.tools.ci_shard_sizing.selection_estimate` sizes a selection
+against the whole profile. It earns one shard per 60 profiled seconds, up
+to 8. It is full CI's work at 50% or more of the suite's profiled seconds
+(`FULL_CI_SHARE`), or when each of its shards would carry no less than a
+full CI shard. The dispatcher refuses that work before pushing, and the
+plan job refuses it before any shard starts. Each names the full QA case
+command. Raise `FULL_CI_SHARE` only with measured selection and full CI
+durations recorded on the item that changes it.
+
 ## Identical-tree coverage reuse
 
 When `reuse-coverage` decides a run must execute the suite, it publishes a

@@ -14,7 +14,9 @@ from yoke_contracts.github_workflow_dispatch import (
 )
 from yoke_core.domain import deploy_pipeline_github_workflow_dispatch as dispatch_layer
 from yoke_core.tools import pytest_remote_selection as routing
+from yoke_core.tools import pytest_remote_selection_report as report
 from yoke_core.tools import pytest_remote_selection_run as engine
+from yoke_core.tools.pytest_remote_full_ci import FullCiAnswer
 
 
 def _run(
@@ -25,14 +27,15 @@ def _run(
     dispatched=("42", engine.DISPATCHED),
 ):
     seen: dict = {"resolve": []}
+    monkeypatch.setattr(engine, "full_ci_answer", lambda **_kw: FullCiAnswer())
     monkeypatch.setattr(engine, "publish", lambda root, branch, head, **_kw: publish_ok)
     monkeypatch.setattr(
         "yoke_core.domain.qa_case_ci_entry_run.base_branch", lambda _p, _r: "main"
     )
     monkeypatch.setattr(engine, "dispatch", lambda **kwargs: dispatched)
-    monkeypatch.setattr(engine, "await_conclusion", lambda **kwargs: conclusion)
+    monkeypatch.setattr(report, "await_conclusion", lambda **kwargs: conclusion)
     monkeypatch.setattr(
-        engine,
+        report,
         "relay_failed_log",
         lambda **kwargs: seen.setdefault("failed_log", kwargs),
     )
@@ -100,7 +103,7 @@ def test_publish_refusal_stops_before_dispatch(monkeypatch) -> None:
 
 def test_dispatch_refusal_is_unreachable(monkeypatch) -> None:
     monkeypatch.setattr(
-        engine,
+        report,
         "await_conclusion",
         lambda **kwargs: pytest.fail("must not poll"),
     )
@@ -213,7 +216,7 @@ def test_await_conclusion_reads_the_poll(monkeypatch, capsys) -> None:
         "_poll_github_actions",
         lambda *a, **k: (1, "Run failed: failure\nsee log"),
     )
-    conclusion = engine.await_conclusion(
+    conclusion = report.await_conclusion(
         project="yoke",
         repo="acme/widgets",
         run_id="42",

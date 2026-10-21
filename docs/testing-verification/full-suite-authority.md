@@ -45,13 +45,13 @@ Local verification stays change-scoped:
   selection on the same commit rejoins the run already in flight rather
   than paying for a second one.
 
-  A large selection runs on several runners at once: a plan job sizes it
-  against the committed duration profile using one spelling of each path
-  and publishes the matrix and split count, so shards cover it once and a
-  failed shard is the run's verdict. Small selections plan one shard;
-  each uploads `pytest-output-selection-N`. Selection CI installs the
-  same Node/tsc toolchain, xdist arguments (`ci_shards.XDIST_ARGS`, with
-  `--dist loadfile`) and job timeout as full CI.
+  A selection is never slower than full CI and never runs beside it.
+  Before pushing, the wrapper follows a running or green full CI run for
+  the same commit, and refuses a near-full selection with the attached QA
+  case command. Selection shards share full CI's runner setup, profile,
+  whole-file split and collection roots, and each uploads
+  `pytest-output-selection-N`; the [CI shard
+  reference](ci-shards.md#change-scoped-selections) owns the details.
 
   It refuses rather than testing the wrong tree: an uncommitted tree (CI
   tests the pushed commit), and a checkout sitting on the base branch

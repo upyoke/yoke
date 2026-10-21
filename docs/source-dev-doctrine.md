@@ -10,8 +10,8 @@ Each section names the owner that holds the detail.
   [source command guide](testing-verification/source-development.md).
 - Plain `yoke` runs the installed release. `YOKE_SOURCE_DEV=1 yoke <command>` is an explicit
   per-command operator opt-in.
-- Iterate with `yoke watch pytest --impacted main --bounded` or targeted paths. It runs on CI and
-  refuses an uncommitted tree: commit first.
+- Before the QA case, iterate with `yoke watch pytest --impacted main --bounded` or targeted
+  paths. It runs on CI (commit first) and defers to full CI.
 - `--local` is only a small targeted check expected to finish in about one minute; uncommitted
   work does not justify a slow local run. Both shapes inject xdist `-n auto`. Use `-- -n 0` for
   order-sensitive debugging.

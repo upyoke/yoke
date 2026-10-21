@@ -31,16 +31,30 @@ def _assert_preinstalls_typescript(steps: list) -> None:
     assert steps[install_index]["run"] == _TSC_INSTALL_COMMAND
 
 
+def _runner_action_steps(job: dict) -> list:
+    """The shared runner action's steps, after proving *job* runs it."""
+    uses = [step.get("uses", "") for step in job["steps"]]
+    assert "./.github/actions/yoke-test-runner" in uses
+    action = load_document(
+        _REPO_ROOT / ".github" / "actions" / "yoke-test-runner" / "action.yml"
+    )
+    return action["runs"]["steps"]
+
+
 def test_yoke_ci_preinstalls_typescript_for_contract_check() -> None:
     workflow = load_document(_REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml")
-    _assert_preinstalls_typescript(workflow["jobs"]["test_shard"]["steps"])
+    _assert_preinstalls_typescript(
+        _runner_action_steps(workflow["jobs"]["test_shard"])
+    )
 
 
 def test_selection_ci_preinstalls_typescript_for_contract_check() -> None:
     workflow = load_document(
         _REPO_ROOT / ".github" / "workflows" / "yoke-tests-selection.yml"
     )
-    _assert_preinstalls_typescript(workflow["jobs"]["selection"]["steps"])
+    _assert_preinstalls_typescript(
+        _runner_action_steps(workflow["jobs"]["selection"])
+    )
 
 
 def test_universe_app_contract_tsc_outputs_are_current(tmp_path: Path) -> None:

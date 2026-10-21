@@ -6,15 +6,20 @@ name: yoke-tests-selection
 # (base_sha, head_sha) with the same code the wrapper uses locally, so the
 # test list is a function of the two commits, not of a working tree.
 #
-# The plan job sizes that selection against the committed duration profile
-# and publishes BOTH the matrix fan-out and the split count the shards pass
-# to pytest, so the two can never disagree — a matrix narrower than the
-# split runs a fraction of the selection and still reports green. A small
-# selection plans one shard and runs exactly as it did before; a large one
-# is cut up to the full suite's own shard count, each shard still using
-# every core. Any failed shard fails the run, which is the verdict the
-# dispatching wrapper adopts. Selection runners install the same Node 22
-# + npm-ci TypeScript toolchain as yoke-ci: contract tests fail without it.
+# Every selection shard is laid out exactly like a yoke-ci test shard: the
+# newest supported Python, the shared yoke-test-runner setup, whole-file
+# splitting (YOKE_CI_PYTHON_SCOPE), and the timing profile the plan job
+# refreshes from retained CI reports the way yoke-ci's repo-contracts job
+# does. Shards collect from the suite's own roots and skip unselected files,
+# so a selection never collects more than full CI does.
+#
+# The plan job sizes that selection against the refreshed profile and
+# publishes BOTH the matrix fan-out and the split count the shards pass to
+# pytest, so the two can never disagree — a matrix narrower than the split
+# runs a fraction of the selection and still reports green. A selection full
+# CI answers as fast is refused there, before any shard starts, with the
+# reason and the full gate's command. Any failed shard fails the run, which
+# is the verdict the dispatching wrapper adopts.
 #
 # Its concurrency group is keyed by dispatch id and never
 # cancels: yoke-ci cancels in-progress runs on refs other than main, and a selection
@@ -69,10 +74,12 @@ jobs:
   plan:
     timeout-minutes: 5
     name: plan
+    permissions: {contents: read, actions: read}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     outputs:
       shards: ${{ steps.plan.outputs.shards }}
       splits: ${{ steps.plan.outputs.splits }}
+      python_latest: ${{ steps.fan_out.outputs.python_latest }}
     steps:
       - name: Checkout the commit under test
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -81,14 +88,19 @@ jobs:
           # Full history: the plan diffs against base_sha.
           fetch-depth: 0
 
+      - name: Read the full suite's Python
+        id: fan_out
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.ci_shards fan-out --write-github-output
+
       - name: Set up Python
-        # The environment the shards run in, so the plan's selection and
-        # theirs are the same computation on the same interpreter. No
-        # Postgres and no test run: the plan reads git, the import graph,
-        # and the committed duration profile.
+        # The interpreter the shards run on, so the plan's selection and
+        # theirs are the same computation. No Postgres and no test run: the
+        # plan reads git, the import graph, and the timing profile.
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: '3.13'
+          python-version: ${{ steps.fan_out.outputs.python_latest }}
           cache: pip
           cache-dependency-path: uv.lock
 
@@ -99,6 +111,24 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
+
+      - name: Refresh shard timing profile from retained CI reports
+        continue-on-error: true # Missing telemetry leaves the committed profile usable.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          uv run python -m yoke_core.tools.ci_durations_refresh --target-root .
+          --latest --repository "${{ github.repository }}"
+          --python "${{ steps.fan_out.outputs.python_latest }}"
+
+      - name: Share the timing profile with every shard
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-test-durations
+          path: .test_durations
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Publish the shard fan-out and split count
         id: plan
@@ -127,8 +157,9 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     env:
-      # Hand-launched Postgres (not services:) so durability can be disabled;
-      # the name is run- and shard-scoped so shared self-hosted hosts never
+      # Whole-file splitting, exactly as on yoke-ci's newest-Python leg.
+      YOKE_CI_PYTHON_SCOPE: all
+      # The name is run- and shard-scoped so shared self-hosted hosts never
       # collide.
       PG_CONTAINER: yoke-selection-pg-${{ github.run_id }}-${{ matrix.shard }}
     steps:
@@ -140,90 +171,15 @@ jobs:
           # package derives its version from git via setuptools_scm.
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      - name: Use the plan's timing profile
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: {name: ci-test-durations}
+
+      - name: Prepare the test runner
+        uses: ./.github/actions/yoke-test-runner
         with:
-          python-version: '3.13'
-          cache: pip
-          cache-dependency-path: uv.lock
-
-      - name: Install uv
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv
-
-      - name: Install dependencies
-        run: uv sync --all-packages --all-groups --locked
-
-      - name: Set up Node.js
-        # Same toolchain full CI installs: selected TypeScript contract
-        # tests fail here without it, even on a one-shard plan.
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with: {node-version: "22", cache: npm, cache-dependency-path: packages/yoke-core/src/yoke_core/ui/package-lock.json}
-      - name: Install TypeScript compiler
-        run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
-
-      - name: Register libpython with the system loader cache
-        # Tests spawn python3 with a cleaned env (merge engine, installer
-        # shim, product-boundary probes); those subprocesses find libpython
-        # through the system loader cache, not LD_LIBRARY_PATH.
-        run: |
-          lib_dir="${pythonLocation}/lib"
-          if ! compgen -G "${lib_dir}/libpython*.so*" >/dev/null; then
-            echo "No libpython shared library found under ${pythonLocation}/lib" >&2
-            exit 1
-          fi
-          conf_path="/etc/ld.so.conf.d/yoke-setup-python-selection.conf"
-          sudo flock /var/lock/yoke-ci-ldconfig.lock bash -euo pipefail -c '
-            printf "%s\n" "$1" > "$2"
-            ldconfig
-          ' _ "$lib_dir" "$conf_path"
-          env -i .venv/bin/python3 -c "import sys; print('clean-env venv python OK', sys.version.split()[0])"
-
-      - name: Configure git identity (CI runners have no ~/.gitconfig)
-        run: |
-          git config --global user.email "ci@yoke.local"
-          git config --global user.name "Yoke CI"
-          git config --global init.defaultBranch main
-
-      - name: Start Postgres (durability off, dynamic host port)
-        # Pull retries: retry transient GHCR transport failures before starting shards.
-        run: |
-          socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
-          echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
-          for attempt in 1 2 3 4 5; do
-            # artifact-fetch-allow: retry transient GHCR transport failures; five jittered attempts precede use
-            docker pull "$POSTGRES_IMAGE" && break
-            [ "$attempt" -eq 5 ] && exit 1
-            sleep $((5 + RANDOM % 26))
-          done
-          docker run -d \
-            --name "$PG_CONTAINER" \
-            -v "${socket_dir}:/var/run/postgresql" \
-            -e POSTGRES_USER=yoke \
-            -e POSTGRES_PASSWORD=yoke \
-            -e POSTGRES_DB=postgres \
-            -p 5432 \
-            "$POSTGRES_IMAGE" \
-            -c fsync=off \
-            -c synchronous_commit=off \
-            -c full_page_writes=off \
-            -c wal_level=minimal \
-            -c max_wal_senders=0
-
-      - name: Resolve Postgres DSN (dynamic host port)
-        run: |
-          set -o pipefail
-          host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
-          if [ -z "$host_port" ]; then
-            echo "Postgres host port did not resolve" >&2
-            exit 1
-          fi
-          echo "Resolved Postgres host port: ${host_port}"
-          echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
-
-      - name: Wait for Postgres
-        run: uv run python -m yoke_core.tools.wait_for_pg
+          python-version: ${{ needs.plan.outputs.python_latest }}
+          pg-container: ${{ env.PG_CONTAINER }}
 
       - name: Run the selection
         env:

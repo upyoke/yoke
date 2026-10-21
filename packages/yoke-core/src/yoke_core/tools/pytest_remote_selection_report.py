@@ -1,14 +1,32 @@
-"""What a remote pytest selection run reports beyond its own conclusion.
+"""How a remote pytest selection command follows a run and reports it.
 
-:mod:`yoke_core.tools.pytest_remote_selection_run` prints through these
-helpers: every line lands in the pytest watcher's capture, so a red run
-carries each failed job's failure region, and a run that outlives the
-turn watching it still has a recorded wait that delivers its verdict.
+:mod:`yoke_core.tools.pytest_remote_selection_run` follows every run it
+adopts through :func:`follow`, whether it dispatched the selection, rejoined
+it, or deferred to a full CI run on the same commit. Every line lands in the
+pytest watcher's capture, so a red run carries each failed job's failure
+region, and a run that outlives the turn watching it still has a recorded
+wait that delivers its verdict.
 """
 
 from __future__ import annotations
 
-from yoke_core.tools.pytest_remote_selection import PREFIX
+from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED, REDISPATCH_RECOVERY
+from yoke_core.tools.pytest_remote_selection import (
+    EXIT_CANCELLED,
+    EXIT_TIMED_OUT,
+    EXIT_UNREACHABLE,
+    LOCAL_FLAG,
+    PREFIX,
+)
+
+#: Exit status per GitHub conclusion; the process mirrors the run.
+CONCLUSION_EXIT = {
+    "success": 0,
+    "failure": 1,
+    "timed_out": EXIT_TIMED_OUT,
+    "cancelled": EXIT_CANCELLED,
+    CI_JOB_NOT_STARTED: EXIT_CANCELLED,
+}
 
 
 def say(message: str) -> None:
@@ -75,4 +93,85 @@ def record_wait(
     )
 
 
-__all__ = ["record_wait", "relay_failed_log", "say"]
+def await_conclusion(
+    *,
+    project: str,
+    repo: str,
+    run_id: str,
+    timeout_seconds: int,
+) -> str:
+    """Poll the run to its end and name the conclusion GitHub reported."""
+    from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
+    from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
+
+    exit_code, output = _poll_github_actions(
+        repo,
+        run_id,
+        timeout_seconds,
+        project=project,
+        sd=None,
+    )
+    conclusion = conclusion_from_poll(exit_code, output)
+    if conclusion != "success" and output:
+        print(output, flush=True)
+    return conclusion
+
+
+def follow(
+    *,
+    project: str,
+    repo: str,
+    run_id: str,
+    source: str,
+    head_sha: str,
+    description: str,
+    artifact_pattern: str,
+    continue_command: str,
+    timeout_seconds: int,
+) -> int:
+    """Await *run_id*, relay a red run's failure, and mirror the conclusion."""
+    from yoke_core.domain.session_ci_wait_record import resolve_received_wait
+
+    url = f"https://github.com/{repo}/actions/runs/{run_id}"
+    record_wait(
+        repo=repo,
+        run_id=run_id,
+        head_sha=head_sha,
+        continue_command=continue_command,
+    )
+    say(f"{source} run={run_id} {url} head_sha={head_sha} {description}")
+    conclusion = await_conclusion(
+        project=project,
+        repo=repo,
+        run_id=run_id,
+        timeout_seconds=timeout_seconds,
+    )
+    if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
+        say(warning)
+    if conclusion not in ("success", CI_JOB_NOT_STARTED):
+        relay_failed_log(project=project, repo=repo, run_id=run_id)
+    exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)
+    recovery = ""
+    if conclusion == CI_JOB_NOT_STARTED:
+        recovery = f"; {REDISPATCH_RECOVERY}, or re-run with {LOCAL_FLAG}"
+    elif conclusion not in ("success", "failure"):
+        recovery = (
+            "; the run reached no verdict — re-run the same command, which "
+            f"dispatches a fresh run, or re-run with {LOCAL_FLAG}"
+        )
+    say(
+        f"concluded {conclusion} exit={exit_code} run={run_id} {url} "
+        f"ci_run_source={source}; full pytest output is one artifact per "
+        f"shard: gh run download {run_id} -p '{artifact_pattern}'{recovery}"
+    )
+    return exit_code
+
+
+__all__ = [
+    "CONCLUSION_EXIT",
+    "await_conclusion",
+    "follow",
+    "record_wait",
+    "relay_failed_log",
+    "say",
+]

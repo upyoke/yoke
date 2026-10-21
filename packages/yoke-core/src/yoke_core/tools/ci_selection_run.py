@@ -11,6 +11,12 @@ the wrapper would have done locally: compute the impacted selection from
 captures therefore read alike, and the test list is a function of the two
 commits rather than of whichever working tree happened to be present.
 
+An impacted selection is collected the way full CI collects: pytest is
+handed the project's test roots, and the plugin in
+:mod:`yoke_core.tools.ci_selection_collect` skips every file outside the
+selection before importing it. Explicit paths dispatched without a base run
+exactly as named.
+
 A selection large enough to be worth it is cut across several runners: the
 workflow's plan job asks this module how many shards the selection earns,
 fans its matrix out that wide, and hands each job the same split count and
@@ -25,17 +31,24 @@ reached.
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from yoke_core.tools._pytest_parallel import has_explicit_workers
-from yoke_core.tools._watch_pytest_args import (
-    NO_SELECTED_TESTS,
-    format_would_widen_advisory,
-    pytest_flag_consumes_value,
+from yoke_core.tools._watch_pytest_args import NO_SELECTED_TESTS
+from yoke_core.tools.ci_selection_collect import SELECTION_FILE_ENV
+from yoke_core.tools.ci_selection_inputs import (
+    EXIT_USAGE,
+    add_dispatch_arguments,
+    checkout_mismatch,
+    has_positional_args,
+    selection_paths,
+    split_args,
 )
 from yoke_core.tools.ci_shards import (
     DURATIONS_PATH,
@@ -44,62 +57,13 @@ from yoke_core.tools.ci_shards import (
     shard_number,
 )
 
-#: The dispatch and the checkout disagree, or there is nothing to run.
-#: Either is a usage defect of the workflow, not a test verdict.
-EXIT_USAGE = 2
-
 #: pytest's status when its collection left nothing to run. For one shard of
 #: several that can mean the split emptied this group rather than the
 #: selection finding nothing, which the log's deselected count settles.
 EXIT_NO_TESTS_COLLECTED = 5
 
-
-def head_sha(root: Path) -> str:
-    """The commit *root* has checked out, or empty when git cannot say."""
-    completed = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return completed.stdout.strip() if completed.returncode == 0 else ""
-
-
-def checkout_mismatch(root: Path, expected_head_sha: str) -> str:
-    """Why *root* is the wrong tree for this dispatch; empty when it is right."""
-    if not expected_head_sha:
-        return ""
-    actual = head_sha(root)
-    if actual == expected_head_sha:
-        return ""
-    return (
-        f"Error: ci_selection_run checked out {actual[:12] or 'no commit'} "
-        f"but the dispatch named {expected_head_sha[:12]}; the workflow "
-        "must check out inputs.head_sha before running the selection"
-    )
-
-
-def selection_paths(root: Path, base_sha: str) -> list[str] | None:
-    """Test paths reachable from ``base_sha...HEAD``, or None when none are.
-
-    Bounded, exactly as the wrapper runs it locally: an unbounded change
-    runs the computable subset here and prints the same advisory, because
-    the project's full suite is the gate's job, not the selection's.
-    """
-    from yoke_core.tools.watch_pytest_project_python import impacted_selection
-
-    selection = impacted_selection(base_sha, bounded=True, root=root)
-    if selection is None:
-        return None
-    if selection.bounded_deferral:
-        print(
-            format_would_widen_advisory(
-                rule=selection.fallback_rule,
-                trigger_paths=selection.trigger_paths,
-            ),
-            flush=True,
-        )
-    return list(selection.pytest_paths())
+#: The plugin that narrows root collection to the selection file.
+COLLECT_PLUGIN = "yoke_core.tools.ci_selection_collect"
 
 
 def pytest_command(
@@ -111,11 +75,13 @@ def pytest_command(
 ) -> list[str]:
     """The pytest invocation for *paths* plus the caller's own arguments.
 
-    One shard of several adds the split the plan sized, through the same
-    duration-balanced machinery and committed profile the full suite splits
-    with: the selection each group collects is identical, so every selected
-    test is assigned to exactly one of them. Workers and scheduling are full
-    CI's own unless the caller chose a worker count.
+    *paths* are the test roots for an impacted selection, which the collect
+    plugin then narrows, or empty for explicit dispatched paths. One shard of
+    several adds the split the plan sized, through the same duration-balanced
+    machinery and profile the full suite splits with: the selection each
+    group collects is identical, so every selected test is assigned to
+    exactly one of them. Workers and scheduling are full CI's own unless the
+    caller chose a worker count.
     """
     argv = [sys.executable, "-m", "pytest", *paths, *passthrough]
     if not has_explicit_workers(passthrough):
@@ -127,28 +93,29 @@ def pytest_command(
     return argv
 
 
-def positional_args(args: Sequence[str]) -> list[str]:
-    """The collection targets *args* names of its own."""
-    targets: list[str] = []
-    skip_next = False
-    for token in args:
-        if skip_next:
-            skip_next = False
-            continue
-        if token.startswith("-"):
-            skip_next = pytest_flag_consumes_value(token)
-            continue
-        targets.append(token)
-    return targets
+def root_collection(
+    root: Path, selected: Sequence[str], passthrough: Sequence[str]
+) -> tuple[list[str], list[str], Path]:
+    """``(roots, options, selection_file)`` for an impacted selection.
 
+    The dispatched positional targets join the selection file rather than
+    the command line, so pytest walks only the roots full CI walks.
+    """
+    from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
 
-def has_positional_args(args: Sequence[str]) -> bool:
-    """Whether *args* name any collection target of their own."""
-    return bool(positional_args(args))
+    targets, options = split_args(passthrough)
+    roots = list(resolve_test_roots(str(root)))
+    handle, name = tempfile.mkstemp(prefix="yoke-ci-selection-", suffix=".txt")
+    with os.fdopen(handle, "w", encoding="utf-8") as selection:
+        selection.write("".join(f"{path}\n" for path in (*selected, *targets)))
+    return roots, ["-p", COLLECT_PLUGIN, *options], Path(name)
 
 
 def collects_anything(
-    root: Path, paths: Sequence[str], passthrough: Sequence[str]
+    root: Path,
+    paths: Sequence[str],
+    passthrough: Sequence[str],
+    env: Mapping[str, str] | None = None,
 ) -> bool:
     """Whether the unsplit selection collects a test at all in *root*.
 
@@ -161,7 +128,7 @@ def collects_anything(
     command += ["--collect-only", "-q", "-n", "0"]
     print(f"$ {shlex.join(command)}", flush=True)
     completed = subprocess.run(
-        command, cwd=str(root), capture_output=True, text=True, check=False
+        command, cwd=str(root), env=env, capture_output=True, text=True, check=False
     )
     return completed.returncode == 0
 
@@ -173,9 +140,10 @@ def empty_run_status(
     *,
     splits: int,
     group: int,
+    env: Mapping[str, str] | None = None,
 ) -> int:
     """Name why nothing ran, and say whether that is a pass or a verdict."""
-    if splits > 1 and collects_anything(root, paths, passthrough):
+    if splits > 1 and collects_anything(root, paths, passthrough, env):
         print(
             f"ci_selection_run group {group}/{splits} drew no test from the "
             "split; the other groups carry the selection",
@@ -214,24 +182,33 @@ def run_selection(
         )
         return EXIT_USAGE
     paths: list[str] = []
+    args = list(passthrough)
+    env: dict[str, str] | None = None
     if base_sha:
         selected = selection_paths(root, base_sha)
         if selected is None:
             print(NO_SELECTED_TESTS, flush=True)
             return 0
-        paths = selected
-    if not paths and not has_positional_args(passthrough):
+        paths, args, selection_file = root_collection(root, selected, passthrough)
+        env = {**os.environ, SELECTION_FILE_ENV: str(selection_file)}
+        print(
+            f"ci_selection_run: collecting {len(selected)} selected paths from "
+            f"the test roots {' '.join(paths)}; selection file {selection_file}",
+            flush=True,
+        )
+    elif not has_positional_args(passthrough):
         print(
             "Error: ci_selection_run has nothing to run: no base_sha to "
             "select from and no explicit pytest paths were dispatched",
             flush=True,
         )
         return EXIT_USAGE
-    command = pytest_command(paths, passthrough, splits=splits, group=group)
+    command = pytest_command(paths, args, splits=splits, group=group)
     print(f"$ {shlex.join(command)}", flush=True)
     process = subprocess.Popen(
         command,
         cwd=str(root),
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -245,41 +222,10 @@ def run_selection(
             log.write(line)
     status = process.wait()
     if status == EXIT_NO_TESTS_COLLECTED:
-        return empty_run_status(root, paths, passthrough, splits=splits, group=group)
+        return empty_run_status(
+            root, paths, args, splits=splits, group=group, env=env
+        )
     return status
-
-
-def add_dispatch_arguments(parser: argparse.ArgumentParser) -> None:
-    """Declare the dispatch values the plan and the run both read.
-
-    The workflow passes every value attached (``--pytest-args=-q``): a
-    dispatched pytest argument is itself dash-prefixed, and argparse reads a
-    lone ``-q`` in the following token as another option rather than as this
-    option's value.
-    """
-    parser.add_argument(
-        "--base-sha",
-        default="",
-        help="Merge base the selection is computed against; empty uses "
-        "--pytest-args as given.",
-    )
-    parser.add_argument(
-        "--head-sha",
-        default="",
-        help="Commit the dispatch named; any other checkout is refused.",
-    )
-    parser.add_argument(
-        "--pytest-args",
-        default="",
-        help="Shell-quoted bare pytest arguments appended to the selection; "
-        "pass the value attached (--pytest-args=-q) so a dash-prefixed "
-        "argument is not read as another option.",
-    )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Checkout to run in (default: the working directory).",
-    )
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -320,20 +266,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
+    "COLLECT_PLUGIN",
     "EXIT_NO_TESTS_COLLECTED",
-    "EXIT_USAGE",
-    "add_dispatch_arguments",
-    "checkout_mismatch",
     "collects_anything",
     "empty_run_status",
-    "has_positional_args",
-    "head_sha",
     "main",
     "parse_args",
-    "positional_args",
     "pytest_command",
+    "root_collection",
     "run_selection",
-    "selection_paths",
 ]
 
 

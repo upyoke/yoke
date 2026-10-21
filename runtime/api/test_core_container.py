@@ -12,6 +12,7 @@ from yoke_core.tools.local_wheel_constraints import constraints_for_wheelhouse
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TEST_RUNNER_ACTION = REPO_ROOT / ".github" / "actions" / "yoke-test-runner" / "action.yml"
 
 
 class _Response:
@@ -285,9 +286,12 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
         encoding="utf-8"
     )
+    # Shard setup, Postgres included, lives in the shared runner action.
+    action = TEST_RUNNER_ACTION.read_text(encoding="utf-8")
 
-    assert "set -o pipefail\n          host_port=" in workflow
-    assert "Postgres host port did not resolve" in workflow
+    assert "./.github/actions/yoke-test-runner" in workflow
+    assert "set -o pipefail\n        host_port=" in action
+    assert "Postgres host port did not resolve" in action
     # The shard's own exit-code fidelity moved to yoke_core.tools.ci_shards,
     # which returns pytest's code directly instead of through a pipeline.
     assert "2>&1 | tee" not in workflow
@@ -316,9 +320,7 @@ def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
 
 
 def test_ci_disk_reclaim_receives_explicit_runner_authority() -> None:
-    workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = TEST_RUNNER_ACTION.read_text(encoding="utf-8")
 
     assert '--runner-environment "${{ runner.environment }}"' in workflow
     assert '--runner-os "${{ runner.os }}"' in workflow

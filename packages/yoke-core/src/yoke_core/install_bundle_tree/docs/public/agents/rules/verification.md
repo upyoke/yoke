@@ -15,6 +15,8 @@ Model: [verification](../../verification/index.md).
   interrupt it, keep the capture as incomplete, commit and run on CI.
 - `selection unbounded` means keep testing what you judge relevant; the final gate covers the
   rest. `--local --impacted main --widen` is the CI-outage fallback only.
+- Run selections before the QA case. A selection follows a running or green full CI run on its
+  commit and refuses a near-full selection, naming the QA case command.
 - Run the full suite once, through the attached case: `yoke qa requirement list --item PREFIX-N`,
   then `yoke qa case run --requirement-id <id>`. Commit before it; workers never push by hand.
   Never hand-run the full suite

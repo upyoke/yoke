@@ -9,19 +9,26 @@ import pytest
 
 from yoke_core.tools import ci_selection_plan as planner
 from yoke_core.tools import ci_shards
-from yoke_core.tools.ci_selection_run import EXIT_USAGE
+from yoke_core.tools.ci_selection_inputs import EXIT_USAGE
+from yoke_core.tools.ci_shard_sizing import MIN_SHARD_PROFILE_SECONDS
 
 
 @pytest.fixture()
 def profiled_repo(tmp_path: Path) -> Path:
-    """A checkout whose profile makes one directory worth several shards."""
+    """A checkout whose profile makes one directory worth several shards.
+
+    The rest of the suite keeps both selections well under the full CI share.
+    """
     root = tmp_path / "repo"
     root.mkdir()
     durations = {
-        f"big/test_{index}.py::test_case": ci_shards.MIN_SHARD_PROFILE_SECONDS
+        f"big/test_{index}.py::test_case": MIN_SHARD_PROFILE_SECONDS
         for index in range(3)
     }
     durations["small/test_quick.py::test_case"] = 0.5
+    durations.update(
+        {f"rest/test_{index}.py::test_case": 100.0 for index in range(100)}
+    )
     (root / ci_shards.DURATIONS_PATH).write_text(
         json.dumps(durations), encoding="utf-8"
     )
@@ -41,8 +48,9 @@ def test_the_fan_out_and_the_split_count_are_the_same_number() -> None:
 def test_a_selection_is_sized_against_everything_it_will_collect(
     profiled_repo: Path,
 ) -> None:
-    assert planner.plan(profiled_repo, base_sha="", passthrough=["big/"]) == 3
-    assert planner.plan(profiled_repo, base_sha="", passthrough=["small/"]) == 1
+    big = planner.plan(profiled_repo, base_sha="", passthrough=["big/"])
+    small = planner.plan(profiled_repo, base_sha="", passthrough=["small/"])
+    assert (big.shards, small.shards) == (3, 1)
 
 
 def test_the_impacted_paths_and_the_dispatched_paths_are_both_sized(
@@ -61,7 +69,7 @@ def test_an_impacted_selection_that_found_nothing_plans_one_shard(
     profiled_repo: Path, monkeypatch,
 ) -> None:
     monkeypatch.setattr(planner, "selection_paths", lambda root, base: None)
-    assert planner.plan(profiled_repo, base_sha="b" * 40, passthrough=[]) == 1
+    assert planner.plan(profiled_repo, base_sha="b" * 40, passthrough=[]).shards == 1
 
 
 def test_the_plan_is_written_where_the_workflow_reads_it(
@@ -92,3 +100,22 @@ def test_a_plan_for_another_tree_refuses_rather_than_sizing_it(
     ])
     assert code == EXIT_USAGE
     assert "the dispatch named ffffffffffff" in capsys.readouterr().out
+
+
+def test_a_near_full_selection_plans_no_shard_and_names_full_ci(
+    profiled_repo: Path, tmp_path: Path, monkeypatch, capsys,
+) -> None:
+    output = tmp_path / "github_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    code = planner.main([
+        "--root", str(profiled_repo), "--base-sha=", "--head-sha=",
+        "--pytest-args=rest/", "--write-github-output",
+    ])
+
+    assert code == planner.EXIT_FULL_CI
+    assert not output.exists()
+    out = capsys.readouterr().out
+    assert "Error: ci_selection_plan: selection_exceeds_full_ci_share" in out
+    assert "no selection shard runs" in out
+    assert "yoke qa case run --requirement-id <id>" in out
