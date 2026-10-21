@@ -7,6 +7,7 @@ operator holds come from freeze/block facts; age never implies a hold.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_test_machines import ResetDebt
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Mapping
@@ -96,7 +97,7 @@ class FleetReport:
     #: shows the name its operator gave the box rather than a bare UUID.
     machine_names: tuple[tuple[str, str], ...] = ()
     test_machines: tuple[tuple[str, str], ...] = ()
-    reset_debts: tuple[tuple[str, str], ...] = ()
+    reset_debts: tuple[ResetDebt, ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
@@ -191,7 +192,7 @@ class FleetReport:
             or self.runs_needing_action()
             or self.relay_health
             or self.messages_awaiting_seat
-            or self.reset_debts
+            or any(row.recovery for row in self.reset_debts)
             or self.deadlocks
             or self.settlement_followups
         )

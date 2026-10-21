@@ -23,6 +23,7 @@ the project.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_test_machines import ResetDebt
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
@@ -126,7 +127,7 @@ class ProjectFleetFacts:
     relay_health: tuple[RelayHealthCondition, ...]
     machine_names: Mapping[str, str]
     test_machines: tuple[tuple[str, str], ...] = ()
-    reset_debts: tuple[tuple[str, str], ...] = ()
+    reset_debts: tuple[ResetDebt, ...] = ()
     levels: LevelReadout | None = None
     deadlocks: tuple[DependencyCycle, ...] = ()
     settlement_followups: tuple[settlement.FailedSettlementFollowup, ...] = ()
