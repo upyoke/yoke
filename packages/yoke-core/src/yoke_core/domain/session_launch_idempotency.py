@@ -35,7 +35,7 @@ def same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> boo
     """
     body, body_hash, _ = instruction_message(conn, launch.message_id)
     selection = (
-        (launch.requested_level == request.level,)
+        (launch.requested_level == request.level, not request.executor_surface)
         if launch.requested_level or (request.level and not request.executor_surface)
         else (
             launch.requested_surface == request.executor_surface,

@@ -158,3 +158,11 @@ def test_surface_selection_uses_the_best_machine_capacity():
 
     assert launch.selected_surface == "codex-cli"
     assert launch.assigned_machine_id == "m-more-codex"
+
+
+def test_a_surface_request_cannot_replay_an_unrestricted_level_launch():
+    conn = _two_options(claude=10.0, codex=80.0)
+    _create(conn, _level_request())
+
+    with pytest.raises(SessionLaunchError, match="different launch request"):
+        _create(conn)
