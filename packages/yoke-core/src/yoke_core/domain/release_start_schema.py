@@ -60,11 +60,11 @@ def converge_release_start_schema(run_id: str) -> bool:
 
     Returns whether it ran. One driver at a time converges; a driver kept
     waiting past the lock's bound refuses naming the run that holds it
-    (:mod:`yoke_core.domain.release_start_schema_lock`). Only missing objects are created, one table per transaction,
-    and each statement waits at most :data:`RUN_ROW_LOCK_TIMEOUT_MS` for its
-    table lock so serving requests never queue behind it. A busy table is
-    retried with backoff and then refuses by name
-    (:mod:`yoke_core.domain.schema_converge_statements`).
+    (:mod:`yoke_core.domain.release_start_schema_lock`). Only missing
+    objects are created, one table per transaction, and each statement waits
+    at most :data:`RUN_ROW_LOCK_TIMEOUT_MS` for its table lock so serving
+    requests never queue behind it. A busy table is retried with backoff and
+    then refuses by name (:mod:`yoke_core.domain.schema_converge_statements`).
     """
     from yoke_cli.transport import https as https_transport
 
