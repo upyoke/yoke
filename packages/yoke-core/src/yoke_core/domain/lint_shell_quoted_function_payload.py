@@ -33,6 +33,7 @@ from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
     build_choreography_remediation,
     build_domain_remediation,
     build_payload_remediation,
+    is_item_ref_token,
     resolve_mode as _resolve_mode,
 )
 from yoke_core.domain.lint_shell_quoted_function_payload_skill import (
@@ -101,7 +102,7 @@ def _has_hand_quoted_json_payload(command: str) -> bool:
 def _collect_sub_tokens(rest_tokens: List[str]) -> List[str]:
     out: List[str] = []
     for tok in rest_tokens:
-        if not tok or tok.startswith("-") or tok.startswith("YOK-"):
+        if not tok or tok.startswith("-") or is_item_ref_token(tok):
             break
         if "/" in tok or tok in _SHELL_BOUNDARY_TOKENS:
             break

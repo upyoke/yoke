@@ -16,45 +16,25 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "branch_name_convention",
         "note": "synthetic worktree branch label in path-claim test helper",
     },
-    "packages/yoke-core/src/yoke_core/domain/agent_stop_chains.py": {
-        "count": 2,
-        "reason": "branch_name_convention",
-        "note": "worktree dirname token recognition and commit label from basename",
+    "packages/yoke-core/src/yoke_core/domain/item_landings_reconstruct.py": {
+        "count": 3,
+        "reason": "legacy_key_lookup",
+        "note": "migration 0046 backfill reads historical YOK merge-commit subjects",
     },
-    "packages/yoke-core/src/yoke_core/domain/backlog_queries.py": {
+    "packages/yoke-core/src/yoke_core/domain/migrations/0057_shepherd_public_refs.py": {
         "count": 1,
-        "reason": "next_id_display_fallback",
-        "note": "next-id output before a project-specific prefix is available",
+        "reason": "legacy_key_lookup",
+        "note": "frozen migration rewrites stored YOK-{internal_id} shepherd keys",
+    },
+    "packages/yoke-core/src/yoke_core/engines/doctor_hc_worktrees.py": {
+        "count": 1,
+        "reason": "token_recognition",
+        "note": "Yoke-repo doctor check scans its own YOK worktree names",
     },
     "packages/yoke-core/src/yoke_core/domain/ephemeral_environment_item_binding.py": {
         "count": 1,
         "reason": "legacy_key_lookup",
         "note": "stop query matches historical YOK-{internal_id} environment labels",
-    },
-    "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload.py": {
-        "count": 1,
-        "reason": "token_recognition",
-        "note": "skip item-ref-shaped argv tokens when scanning shell payloads",
-    },
-    "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload_messages.py": {
-        "count": 1,
-        "reason": "token_recognition",
-        "note": "recognize item-ref argv tokens in denial message heuristics",
-    },
-    "packages/yoke-core/src/yoke_core/domain/lint_worktree_path_invariants.py": {
-        "count": 2,
-        "reason": "scratch_path_convention",
-        "note": "legacy worktree directory basename under .worktrees/",
-    },
-    "packages/yoke-core/src/yoke_core/domain/observe_db_reads.py": {
-        "count": 1,
-        "reason": "doc_comment_only",
-        "note": "documents dual public-ref and legacy resolver schemes",
-    },
-    "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py": {
-        "count": 1,
-        "reason": "branch_name_convention",
-        "note": "trial branch glob",
     },
     "runtime/api/events_crud_test_fixtures.py": {
         "count": 1,

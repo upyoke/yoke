@@ -64,3 +64,53 @@ class TestCleanupTrialBranches:
             done_transition._cleanup_trial_branches(project_repo)
 
         assert run_git.call_count == 1
+
+    def test_sweep_deletes_merged_trial_in_another_project(self, dt_db, tmp_path):
+        db_path, _ = dt_db
+        # EXT-5 is item 900; reading the 5 as items.id would miss the item.
+        _insert_item(
+            db_path,
+            900,
+            status="done",
+            project="externalwebapp",
+            project_sequence=5,
+            worktree="EXT-5",
+        )
+        project_repo = tmp_path / "repo"
+        project_repo.mkdir()
+
+        with mock.patch.object(done_transition, "_run_git") as run_git:
+            run_git.side_effect = [
+                mock.Mock(returncode=0, stdout="  trial/EXT-5\n"),
+                mock.Mock(returncode=0, stdout=""),  # ancestry
+                mock.Mock(returncode=0, stdout=""),  # branch -D
+            ]
+            assert done_transition._cleanup_trial_branches(project_repo) is True
+
+        commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
+        assert any("branch -D trial/EXT-5" in command for command in commands)
+
+    def test_item_cleanup_lists_the_items_own_lane_names(self, dt_db, tmp_path):
+        db_path, _ = dt_db
+        _insert_item(
+            db_path, 600, status="done", project_sequence=60, worktree="YOK-60"
+        )
+        project_repo = tmp_path / "repo"
+        project_repo.mkdir()
+
+        with mock.patch.object(done_transition, "_run_git") as run_git:
+            run_git.side_effect = [
+                mock.Mock(returncode=0, stdout="  trial/YOK-60\n"),
+                mock.Mock(returncode=0, stdout=""),  # ancestry
+                mock.Mock(returncode=0, stdout=""),  # branch -D
+            ]
+            assert (
+                done_transition._cleanup_trial_branches(project_repo, item_id=600)
+                is True
+            )
+
+        listing = run_git.call_args_list[0].args[0]
+        assert listing[-1] == "trial/YOK-60"
+        assert "trial/YOK-600" not in listing
+        commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
+        assert any("branch -D trial/YOK-60" in command for command in commands)

@@ -115,7 +115,9 @@ class TestParseHookEvent:
 
 
 class TestExplicitRefExtraction:
-    def test_yok_n_in_bash_command(self):
+    def test_public_ref_without_db_attributes_nothing(self):
+        """The number in ``PREFIX-N`` is a project sequence; with no
+        control-plane read there is no item id to attribute."""
         data = {
             "tool_name": "Bash",
             "tool_input": {"command": "sh script.sh YOK-1091"},
@@ -123,10 +125,9 @@ class TestExplicitRefExtraction:
         }
         rec = parse_hook_event(data, hook_event="PostToolUse")
         assert rec is not None
-        assert rec.item_id == "1091"
-        assert rec.attribution_source == "explicit_bash_ref"
+        assert rec.item_id is None
 
-    def test_worktree_path_in_read(self):
+    def test_worktree_path_without_db_attributes_nothing(self):
         data = {
             "tool_name": "Read",
             "tool_input": {"file_path": "/repo/.worktrees/YOK-9999/src/main.py"},
@@ -134,8 +135,7 @@ class TestExplicitRefExtraction:
         }
         rec = parse_hook_event(data, hook_event="PostToolUse")
         assert rec is not None
-        assert rec.item_id == "9999"
-        assert rec.attribution_source == "explicit_path_ref"
+        assert rec.item_id is None
 
     def test_items_get_numeric_ref(self):
         data = {
@@ -160,7 +160,7 @@ class TestExplicitRefExtraction:
         assert rec.attribution_source == "explicit_bash_ref"
 
     def test_ambiguous_refs_no_override(self):
-        """Multiple different YOK-N refs should not resolve."""
+        """Multiple different public refs should not resolve."""
         data = {
             "tool_name": "Bash",
             "tool_input": {"command": "diff YOK-1 YOK-2"},
@@ -168,13 +168,13 @@ class TestExplicitRefExtraction:
         }
         rec = parse_hook_event(data, hook_event="PostToolUse", item_id="99")
         assert rec is not None
-        # Ambiguous -- original item_id preserved when no single YOK-N ref wins.
+        # Ambiguous -- original item_id preserved when no single ref wins.
         assert rec.item_id == "99"
 
     def test_explicit_overrides_stale_marker(self):
         data = {
             "tool_name": "Bash",
-            "tool_input": {"command": "sh script.sh YOK-50"},
+            "tool_input": {"command": "sh script.sh --item 50"},
             "tool_response": {"content": "ok"},
         }
         rec = parse_hook_event(

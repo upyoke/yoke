@@ -12,6 +12,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_db_reads import (
     connect_observe_read_db,
+    public_ref_item_ids,
     repo_root_for_attribution,
     worktree_path_item_id,
 )
@@ -260,8 +261,8 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
 
     if rec.tool_name == "Bash" and rec.command:
         cmd = rec.command
-        # Display-form YOK-N patterns
-        sun_refs = set(re.findall(r"YOK-(\d+)", cmd))
+        # Public PREFIX-N refs in any project, resolved to items.id
+        sun_refs = public_ref_item_ids(cmd, db_path)
         # Numeric refs in item get/update commands
         cmd_refs = set(re.findall(r"(?:items\s+(?:get|update)\s+)(\d+)", cmd))
         # Epic refs in legacy wrapper commands

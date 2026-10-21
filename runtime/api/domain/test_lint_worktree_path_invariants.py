@@ -78,12 +78,9 @@ def _seed_session(
 class TestExpectedWorktreePath:
     def test_returns_canonical_layout(self):
         assert (
-            mod.expected_worktree_path("/repo", 42)
-            == str(Path("/repo") / ".worktrees" / "YOK-42")
+            mod.expected_worktree_path("/repo", "BUZ-42")
+            == str(Path("/repo") / ".worktrees" / "BUZ-42")
         )
-
-    def test_strips_string_id(self):
-        assert mod.expected_worktree_path("/r", 1577).endswith("YOK-1577")
 
 
 class TestNormalizeItemId:
@@ -133,11 +130,26 @@ class TestResolveActiveWorktreeContext:
             )
         assert ctx is None
 
+    @pytest.mark.parametrize(
+        ("project_id", "prefix"), [(1, "YOK"), (2, "BUZ")]
+    )
     def test_resolves_full_context_inside_worktree(
-        self, conn, tmp_path: Path
+        self, conn, tmp_path: Path, project_id, prefix
     ):
+        # Item 42's public ref is PREFIX-7: the lane is named by the ref,
+        # never by items.id.
+        conn.execute(
+            "INSERT INTO projects (id, slug, name, public_item_prefix) "
+            "VALUES (%s, %s, %s, %s)",
+            (project_id, prefix.lower(), prefix, prefix),
+        )
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence) "
+            "VALUES (42, %s, 7)",
+            (project_id,),
+        )
         _seed_session(conn, "sess-1", "42")
-        wt = tmp_path / ".worktrees" / "YOK-42"
+        wt = tmp_path / ".worktrees" / f"{prefix}-7"
         wt.mkdir(parents=True)
         ctx = mod.resolve_active_worktree_context(
             conn, cwd=str(wt), session_id="sess-1",
@@ -145,11 +157,25 @@ class TestResolveActiveWorktreeContext:
         assert ctx is not None
         assert ctx.session_id == "sess-1"
         assert ctx.item_id == 42
-        assert ctx.worktree_branch == "YOK-42"
+        assert ctx.worktree_branch == f"{prefix}-7"
         assert ctx.expected_worktree_root == str(
-            tmp_path / ".worktrees" / "YOK-42"
+            tmp_path / ".worktrees" / f"{prefix}-7"
         )
         assert ctx.is_inside_worktree is True
+
+    def test_unresolvable_lane_name_leaves_no_expected_root(
+        self, conn, tmp_path: Path
+    ):
+        _seed_session(conn, "sess-x", "42")
+        wt = tmp_path / ".worktrees" / "YOK-42"
+        wt.mkdir(parents=True)
+        ctx = mod.resolve_active_worktree_context(
+            conn, cwd=str(wt), session_id="sess-x",
+        )
+        assert ctx is not None
+        assert ctx.item_id == 42
+        assert ctx.worktree_branch is None
+        assert ctx.expected_worktree_root is None
 
     def test_outside_worktree_no_expected_root(
         self, conn, tmp_path: Path
@@ -181,7 +207,7 @@ class TestResolveActiveWorktreeContext:
         )
         assert ctx is not None
         assert ctx.item_id == 901
-        assert ctx.worktree_branch == "YOK-901"
+        assert ctx.worktree_branch == "YOK-777"
 
     def test_session_without_current_item(
         self, conn, tmp_path: Path,

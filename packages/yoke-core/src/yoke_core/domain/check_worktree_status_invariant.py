@@ -1,17 +1,18 @@
 """Worktree-status pre-commit invariant.
 
-When the current branch is a Yoke worktree branch (``YOK-N``), the
-matching item's ``status`` MUST be in the implementation-phase set:
+When the current branch is an item lane branch (its public ref
+``PREFIX-N`` or a recorded lane branch, in any project), the owning
+item's ``status`` MUST be in the implementation-phase set:
 
 - ``implementing`` — active code-writing.
 - ``reviewing-implementation`` — self-review and fix loop.
 - ``polishing-implementation`` — owned by ``/yoke polish``.
 
-Committing on a ``YOK-N`` branch while the item is still ``refined-idea``
+Committing on a lane branch while the item is still ``refined-idea``
 (or anything past ``polishing-implementation``) is a procedural miss:
 the implementation-entry transition was skipped, or polish/usher already
 moved the item beyond commit-eligible. The guard refuses the commit and
-points at ``/yoke implement YOK-N`` to enter the implementation lane.
+points at ``/yoke implement PREFIX-N`` to enter the implementation lane.
 
 This closes the procedural gap where a worktree branch can receive
 commits before the item enters an implementation-owned status, or after
@@ -19,28 +20,25 @@ the implementation phase has already handed off.
 
 Behaviour:
 
-- Branch doesn't match ``YOK-N`` → skip (commits on main, branch
-  without a work item, etc.).
-- Item row missing → skip (exploratory ``YOK-N`` branch with no DB
-  presence).
-- DB unreachable → skip (do not block on environment issues).
+- DB path unresolvable or DB unreachable → skip (do not block on
+  environment issues).
+- Branch names no item lane → skip (commits on main, a branch without a
+  work item, or an exploratory ``PREFIX-N`` branch with no item). The
+  number in ``PREFIX-N`` is a project sequence, never ``items.id``.
 - Status in the allowed set → pass.
 - Status not in the allowed set → block with remediation.
 """
 
 from __future__ import annotations
 
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
 import os
-import re
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
 from yoke_core.domain import db_backend, db_helpers
-
-_YOKE_WORKTREE_BRANCH = re.compile(r"^YOK-(\d+)$")
+from yoke_core.domain.item_worktree_resolution import item_id_for_lane_name
+from yoke_core.domain.project_identity import render_item_ref
 
 # the items.blocked flag is a routing/dispatch hold and does NOT
 # affect this pre-commit check. An item already in a worktree may keep
@@ -62,7 +60,7 @@ class WorktreeStatusVerdict:
         skipped: True when the check did not apply (branch doesn't match,
             no DB row, DB unreachable). ``ok`` is True in this case too.
         skip_reason: Human-readable reason when ``skipped``.
-        item_id: Parsed item id when the branch matched.
+        item_id: Owning ``items.id`` when the branch names an item lane.
         observed_status: Current status when looked up.
         message: Block message when ``ok`` is False; empty otherwise.
     """
@@ -132,41 +130,43 @@ def evaluate(*, branch: Optional[str] = None) -> WorktreeStatusVerdict:
             ok=True, skipped=True,
             skip_reason="branch not resolvable (detached HEAD?)",
         )
-
-    match = _YOKE_WORKTREE_BRANCH.match(branch)
-    if not match:
+    if branch.startswith("trial/"):
         return WorktreeStatusVerdict(
             ok=True, skipped=True,
-            skip_reason=f"branch '{branch}' is not a YOK-N worktree branch",
+            skip_reason=f"branch '{branch}' is a merge-trial ref, not a lane",
         )
 
-    item_id = int(match.group(1))
     db_path = _resolve_db_path_or_none()
     if db_path is None:
         return WorktreeStatusVerdict(
-            ok=True, skipped=True, item_id=item_id,
+            ok=True, skipped=True,
             skip_reason="control-plane DB path not resolvable",
         )
 
     conn = None
     try:
         conn = db_helpers.connect(db_path)
-        row = conn.execute(
-            "SELECT status FROM items WHERE id = %s", (item_id,),
-        ).fetchone()
+        item_id = item_id_for_lane_name(conn, branch)
+        row = None
+        public_ref = ""
+        if item_id is not None:
+            row = conn.execute(
+                "SELECT status FROM items WHERE id = %s", (item_id,),
+            ).fetchone()
+            public_ref = render_item_ref(conn, item_id)
     except db_backend.operational_error_types(conn=conn) + (RuntimeError,):
         return WorktreeStatusVerdict(
-            ok=True, skipped=True, item_id=item_id,
+            ok=True, skipped=True,
             skip_reason="DB unreachable for read",
         )
     finally:
         if conn is not None:
             conn.close()
 
-    if row is None:
+    if item_id is None or row is None:
         return WorktreeStatusVerdict(
-            ok=True, skipped=True, item_id=item_id,
-            skip_reason=f"no items row for item id {item_id}",
+            ok=True, skipped=True,
+            skip_reason=f"branch '{branch}' names no item lane",
         )
 
     status = row["status"]
@@ -177,7 +177,7 @@ def evaluate(*, branch: Optional[str] = None) -> WorktreeStatusVerdict:
 
     return WorktreeStatusVerdict(
         ok=False, item_id=item_id, observed_status=status,
-        message=_format_block(item_ref_for_id(item_id), status),
+        message=_format_block(public_ref, status),
     )
 
 

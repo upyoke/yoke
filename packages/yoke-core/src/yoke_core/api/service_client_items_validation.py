@@ -2,7 +2,7 @@
 
 Owns the read-only commands that validate item status strings, validate
 forward transitions, classify a status into its board bucket, and compute
-the next-available YOK-N display id.
+the next public ref (``PREFIX-N``) a project would issue.
 """
 
 from __future__ import annotations
@@ -21,16 +21,22 @@ from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 
 def cmd_item_next_id(args: list[str]) -> int:
-    """Return the next available display ID without side effects."""
+    """Print the next public ref a project would issue, without side effects."""
     from yoke_core.domain import backlog
 
-    if args:
-        print("Usage: item-next-id", file=sys.stderr)
+    if len(args) != 1:
+        print("Usage: item-next-id <project>", file=sys.stderr)
         return 2
 
     try:
-        print(backlog.get_next_display_id())
+        print(backlog.get_next_display_id(args[0]))
         return 0
+    except LookupError as exc:
+        print(
+            f"Error: {exc}. Pass a project slug or id from `yoke projects list`.",
+            file=sys.stderr,
+        )
+        return 2
     except db_backend.database_error_types() as exc:
         print(f"DB error: {exc}", file=sys.stderr)
         return 1

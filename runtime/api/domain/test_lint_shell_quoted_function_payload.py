@@ -233,6 +233,15 @@ class TestReadPipeTruncationAndScope(unittest.TestCase):
                 lint.evaluate_command(cmd), f"expected allow for: {cmd}"
             )
 
+    def test_other_project_ref_ends_the_sub_path(self) -> None:
+        # Any project's ref is an argument, not a subcommand word.
+        assert lint._collect_sub_tokens(["items", "get", "BUZ-1700", "spec"]) == [
+            "items",
+            "get",
+        ]
+        cmd = "python3 -m yoke_core.cli.db_router items get BUZ-1700 spec | head -200"
+        self.assertIsNone(lint.evaluate_command(cmd))
+
     def test_mutation_pipe_still_denies(self) -> None:
         # MUTATE-shape (items.structured_field.replace) + mutation
         # wrapping (``| tee /tmp/...``) still denies.

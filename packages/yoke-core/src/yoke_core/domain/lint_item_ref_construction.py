@@ -17,8 +17,9 @@ Two scans keep both directions closed. :func:`scan` flags any *literal*
 ref-prefix token in Python source outside the canonical formatter/resolver and
 tests; the canonical helpers format from a *variable* prefix
 (``f"{prefix}-{seq}"``) and so never trip it. :func:`scan_parser_policy` flags
-the read direction: a project-blind prefix regex or a numeric-tail coercion,
-each of which reads an operator's token as an internal id. Both carry exact-path allowances, and
+the read direction: a project-blind prefix regex, a numeric-tail coercion, or
+``int(match.group(...))`` feeding an item id, each of which reads an
+operator's token as an internal id. Both carry exact-path allowances, and
 :func:`stale_parser_policy_allowances` reports the ones whose legacy read is
 gone so the allowances shrink with the code.
 
@@ -66,6 +67,14 @@ _EXEMPT_RELPATHS: frozenset[str] = frozenset(
     }
 )
 
+# Cheap per-file prefilter: a file with none of these cannot hold a hit.
+_LITERAL_MARKERS: Tuple[str, ...] = ("-{", "-'", '-"', "-(", "-\\d", "-[0-9]")
+
+# ``int(match.group(...))`` on a line that names an item id reads the number
+# of a parsed ref as ``items.id``; the number is a project sequence.
+_MATCH_GROUP_INT_RE = re.compile(r"\bint\(\s*\w+\.group\(")
+_ITEM_ID_TARGET_RE = re.compile(r"\bitem_id\b|\bitems\b[^#\n]*\bid\b")
+
 _PREFIX_CLASS_STRIP_RE = re.compile(r"(?:\[[A-Za-z]{2}\]){2,}[^'\"]*-")
 _GENERIC_PREFIX_PARSE_RE = re.compile(r"\^\[A-Za-z\]\[A-Za-z0-9\]\*?-")
 _NUMERIC_TAIL_ACCESS_PATTERN = (
@@ -108,17 +117,22 @@ def is_exempt_relpath(rel_posix: str) -> bool:
 def _build_pattern(prefixes: Sequence[str]) -> Optional[re.Pattern[str]]:
     """One alternation matching a literal ref-prefix token for any prefix.
 
-    Two shapes per prefix ``P``:
+    Three shapes per prefix ``P``:
       * ``P-{``          — f-string construction (``f"YOK-{item_id}"``)
       * ``"P-"`` / ``'P-'`` — a bare prefix literal, which is how both string
         concatenation (``"YOK-" + n``) and parse-back
         (``.replace("YOK-", "")`` / ``.removeprefix("YOK-")``) spell it.
+      * ``P-(``, ``P-\\d``, ``P-[0-9]`` — a regex that recognizes one
+        project's refs (``r"^YOK-(\\d+)$"``), skipping every other project.
     """
     escaped = [re.escape(p) for p in prefixes if p]
     if not escaped:
         return None
     alt = "|".join(escaped)
-    return re.compile(rf"(?:(?:{alt})-\{{)|(?:['\"](?:{alt})-['\"])")
+    return re.compile(
+        rf"(?:(?:{alt})-\{{)|(?:['\"](?:{alt})-['\"])"
+        rf"|(?:\b(?:{alt})-(?:\(|\\d|\[0-9\]))"
+    )
 
 
 @dataclass(frozen=True)
@@ -159,7 +173,7 @@ def scan(
                 text = read_text(path, encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
-            if "-{" not in text and "-'" not in text and '-"' not in text:
+            if not any(marker in text for marker in _LITERAL_MARKERS):
                 continue
             for lineno, raw in enumerate(text.splitlines(), start=1):
                 if pattern.search(raw):
@@ -200,6 +214,10 @@ def scan_parser_policy(
                     _PREFIX_CLASS_STRIP_RE.search(raw)
                     or _GENERIC_PREFIX_PARSE_RE.search(raw)
                     or (numeric_tail and rel not in _NUMERIC_TAIL_ALLOWLIST)
+                    or (
+                        _MATCH_GROUP_INT_RE.search(raw)
+                        and _ITEM_ID_TARGET_RE.search(raw)
+                    )
                 ):
                     hits.append(
                         RefLiteralHit(path.resolve(), lineno, raw.strip()[:160])
