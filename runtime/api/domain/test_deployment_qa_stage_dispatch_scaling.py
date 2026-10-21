@@ -4,7 +4,8 @@ Each member's active-stage check once re-read every prior-stage member, and
 every call re-sent every settled member's result notice. The statement
 count of the materializing, the settling and a repeated dispatch on a
 40-member run is pinned against a 20-member run: linear work at most
-doubles, quadratic work about quadruples.
+doubles, quadratic work about quadruples. The materializing dispatch also
+stays under a per-member statement ceiling.
 """
 
 from __future__ import annotations
@@ -92,3 +93,6 @@ def test_later_stage_dispatch_statements_grow_linearly(test_db, monkeypatch):
             assert sent == (list(members) if call == "settle" else []), call
     for call in ("materialize", "settle", "repeat"):
         assert counts[40, call] <= 2 * counts[20, call], counts
+    # The materializing dispatch writes its cohort under one run lock, so a
+    # member costs its own reads and writes only, never a lock per member.
+    assert counts[40, "materialize"] <= 20 * 40, counts

@@ -22,6 +22,7 @@ from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindi
 
 _RUN_MEMBERSHIP_LOCK_RETRIES = 5
 _BOUNDED_WRITE = ContextVar("deployment_bounded_write", default=False)
+_HELD_RUN = ContextVar("deployment_run_lock_held", default=None)
 
 #: How long a caller lets the run row settle before refusing. Long enough to
 #: ride out an ordinary concurrent mutation, far short of any client's
@@ -68,6 +69,9 @@ def lock_run(conn, run_id: str) -> Optional[str]:
     nothing further to wait for; otherwise it waited outside this savepoint
     and its lock timeout escaped as a raw ``LockNotAvailable``.
     """
+    held = _HELD_RUN.get()
+    if run_lock_is_held(conn, run_id):
+        return held[2]
     if not db_backend.connection_is_postgres(conn):
         return _select_status(conn, run_id, "")
 
@@ -88,6 +92,28 @@ def lock_run(conn, run_id: str) -> Optional[str]:
     conn.execute(f"RELEASE SAVEPOINT {_LOCK_SAVEPOINT}")
     conn.execute("SELECT set_config('lock_timeout', %s, true)", (str(previous),))
     return status
+
+
+def run_lock_is_held(conn, run_id: str) -> bool:
+    """Whether an enclosing :func:`run_lock_held` covers this run on ``conn``."""
+    held = _HELD_RUN.get()
+    return held is not None and held[0] is conn and held[1] == str(run_id)
+
+
+@contextmanager
+def run_lock_held(conn, run_id: str):
+    """Answer :func:`lock_run` from the lock this transaction already holds.
+
+    A cohort writer takes the run once, then writes each member through
+    helpers that each lock the run again; inside this block those re-locks
+    cost nothing. The caller must hold the run's locks on ``conn`` for the
+    whole block and must not commit or roll back inside it.
+    """
+    token = _HELD_RUN.set((conn, str(run_id), _select_status(conn, str(run_id), "")))
+    try:
+        yield
+    finally:
+        _HELD_RUN.reset(token)
 
 
 def lock_current_read(conn, run_id: str, read, *, holds, prepared=None, items=()):
@@ -294,5 +320,7 @@ __all__ = [
     "lock_current_read",
     "lock_run",
     "lock_run_with_stable_membership",
+    "run_lock_held",
+    "run_lock_is_held",
     "run_row_lock_holder",
 ]

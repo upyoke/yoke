@@ -137,9 +137,7 @@ def test_member_writes_cost_the_same_at_any_run_size(test_db):
         assert locked < total
 
 
-def test_a_membership_change_during_the_read_is_read_again(
-    test_db, monkeypatch
-):
+def test_a_membership_change_during_the_read_is_read_again(test_db, monkeypatch):
     """A peer leaving between the read and the lock un-shares their plans."""
     from yoke_core.domain import deployment_qa_materialization_projection as module
     from yoke_core.domain.deployment_run_member_removal import remove_members_on
@@ -213,7 +211,12 @@ def _lock_windows(recorder) -> list[int]:
     return windows
 
 
-def test_the_gate_releases_the_run_lock_before_the_next_member(test_db):
+def test_a_dispatch_writes_its_cohort_under_one_run_lock(test_db):
+    """One lock and one fingerprint check per dispatch, never one per member.
+
+    Under the lock each member costs only its own writes, so the window grows
+    by the same few statements per member and holds no run-wide read.
+    """
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
     from yoke_core.domain.deployment_qa_stage_dispatch import (
         materialize_and_gate_deployment_qa_stage,
@@ -226,10 +229,14 @@ def test_the_gate_releases_the_run_lock_before_the_next_member(test_db):
         recorder = LockWindowRecorder(test_db)
         materialize_and_gate_deployment_qa_stage(recorder, stage, run_id=run_id)
         windows = _lock_windows(recorder)
-        assert len(windows) >= size  # every member wrote under its own lock
-        widest[size] = max(windows)
-    # One member's write, never a walk over the others while still locked.
-    assert widest[33] == widest[3], widest
+        assert len(windows) == 1, windows
+        locked = [text for held, text in recorder.statements if held]
+        assert sum(text.startswith("SELECT md5(") for text in locked) <= 1
+        assert sum(text.endswith("FOR UPDATE") for text in locked) == 1
+        widest[size] = windows[0]
+    per_member = (widest[33] - widest[3]) / 30
+    assert per_member <= 20, widest
+    assert widest[3] >= 3 * per_member, widest
 
 
 def test_an_interrupted_lock_wait_holds_the_stage_instead_of_failing_the_run(

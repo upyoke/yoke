@@ -26,6 +26,16 @@ class QaCasesNotSelectedError(QaPlanError):
     """
 
 
+def _member_removed(conn: Any, run_id: str, member_item_id: int) -> LookupError:
+    from yoke_core.domain.project_identity import render_item_ref
+
+    return LookupError(
+        f"deployment_member_removed: {render_item_ref(conn, member_item_id)} "
+        f"is not an attached member of deployment run '{run_id}' while its QA is being prepared; "
+        f"read `yoke deployment-runs get {run_id}` for the current members"
+    )
+
+
 def _require_member_still_attached(
     conn: Any, run_id: str, member_item_id: int | None
 ) -> None:
@@ -41,13 +51,26 @@ def _require_member_still_attached(
         (run_id, member_item_id),
     ).fetchone()
     if attached is None:
-        from yoke_core.domain.project_identity import render_item_ref
+        raise _member_removed(conn, run_id, member_item_id)
 
-        raise LookupError(
-            f"deployment_member_removed: {render_item_ref(conn, member_item_id)} "
-            f"is not an attached member of deployment run '{run_id}' while its QA is being prepared; "
-            f"read `yoke deployment-runs get {run_id}` for the current members"
-        )
+
+def removed_member_refusals(
+    conn: Any, run_id: str, members: Any
+) -> dict[int, LookupError]:
+    """:func:`_require_member_still_attached` for a cohort, in one read."""
+    wanted = sorted(int(member) for member in members if member is not None)
+    if not wanted:
+        return {}
+    rows = conn.execute(
+        "SELECT item_id FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
+        (run_id, wanted),
+    ).fetchall()
+    attached = {int(row[0]) for row in rows}
+    return {
+        member: _member_removed(conn, run_id, member)
+        for member in wanted
+        if member not in attached
+    }
 
 
 @dataclass
@@ -192,7 +215,6 @@ def materialize_deployment_qa_stage(
     replaced_requirement_ids: frozenset[int] = frozenset(),
     replacement_scopes: dict[str, list[dict]] | None = None,
     prepared_read: _StageRead | None = None,
-    advance_projection: bool = False,
 ) -> dict[str, Any]:
     """Create each selected plan once for its source and deployed target.
 
@@ -226,7 +248,6 @@ def materialize_deployment_qa_stage(
         member=deployment_member_item_id,
         commit=commit,
         replaced_requirement_ids=replaced_requirement_ids,
-        advance_projection=advance_projection,
     )
 
 

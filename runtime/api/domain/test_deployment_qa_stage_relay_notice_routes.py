@@ -171,8 +171,8 @@ def test_a_waiting_stage_wakes_the_holder_through_the_registered_path(
             ),
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
     ):
         outcome = relay.handle_deployment_qa_stage_dispatch(_request())
@@ -196,8 +196,8 @@ def test_a_settled_stage_reports_its_result_through_the_registered_path(
             return_value=_status("passed", accepted=True),
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
     ):
         outcome = relay.handle_deployment_qa_stage_dispatch(_request())

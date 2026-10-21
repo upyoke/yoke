@@ -47,8 +47,8 @@ def _dispatch(conn, stage, *, run_id, status):
             return_value=status,
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
         mock.patch.object(
             dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
@@ -155,8 +155,8 @@ def test_a_report_failure_does_not_fail_the_stage(test_db: Any, capsys) -> None:
             return_value=_status(OUTCOME_PASSED, accepted=True),
         ),
         mock.patch(
-            "yoke_core.domain.deployment_qa_stage_materialization"
-            ".materialize_deployment_qa_stage"
+            "yoke_core.domain.deployment_qa_dispatch_preparation.prepare_members",
+            return_value={},
         ),
         mock.patch.object(
             result_notice_mod,

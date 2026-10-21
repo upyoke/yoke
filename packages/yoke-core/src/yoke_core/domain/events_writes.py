@@ -79,34 +79,36 @@ def _configured_min_severity(
     event_name: str,
     source_type: str,
 ) -> str:
+    """The most specific configured floor: exact, then either wildcard, then both."""
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     min_sev = query_scalar(
         conn,
         "SELECT min_severity FROM severity_config "
-        f"WHERE event_name={p} AND source_type={p} LIMIT 1",
+        f"WHERE event_name IN ({p},'*') AND source_type IN ({p},'*') "
+        "ORDER BY event_name='*', source_type='*' LIMIT 1",
         (event_name, source_type),
     )
-    if min_sev is None:
-        min_sev = query_scalar(
-            conn,
-            "SELECT min_severity FROM severity_config "
-            f"WHERE event_name={p} AND source_type='*' LIMIT 1",
-            (event_name,),
-        )
-    if min_sev is None:
-        min_sev = query_scalar(
-            conn,
-            "SELECT min_severity FROM severity_config "
-            f"WHERE event_name='*' AND source_type={p} LIMIT 1",
-            (source_type,),
-        )
-    if min_sev is None:
-        min_sev = query_scalar(
-            conn,
-            "SELECT min_severity FROM severity_config "
-            "WHERE event_name='*' AND source_type='*' LIMIT 1",
-        )
     return min_sev or "INFO"
+
+
+def _read_min_severity(conn: Any, event_name: str, source_type: str) -> str:
+    savepoint = "_yoke_severity_check"
+    use_savepoint = db_backend.connection_is_postgres(conn)
+    try:
+        if use_savepoint:
+            conn.execute(f"SAVEPOINT {savepoint}")
+        min_sev = _configured_min_severity(conn, event_name, source_type)
+        if use_savepoint:
+            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+        return min_sev
+    except db_backend.operational_error_types(conn):
+        if use_savepoint:
+            try:
+                conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+            except Exception:
+                pass
+        return "INFO"
 
 
 def check_severity_conn(
@@ -115,28 +117,20 @@ def check_severity_conn(
     source_type: str,
     sev: str,
 ) -> bool:
-    """Return True if the event passes the write-side severity filter."""
-    from yoke_core.domain.events_crud import severity_num
+    """Return True if the event passes the write-side severity filter.
 
-    savepoint = "_yoke_severity_check"
-    use_savepoint = db_backend.connection_is_postgres(conn)
-    try:
-        if use_savepoint:
-            conn.execute(f"SAVEPOINT {savepoint}")
-        passes = severity_num(sev) >= severity_num(
-            _configured_min_severity(conn, event_name, source_type)
-        )
-        if use_savepoint:
-            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        return passes
-    except db_backend.operational_error_types(conn):
-        if use_savepoint:
-            try:
-                conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-                conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-            except Exception:
-                pass
-        return severity_num(sev) >= severity_num("INFO")
+    Inside one composition operation each (event, source) floor is read
+    once: a dispatch writes the same telemetry event per member.
+    """
+    from yoke_core.domain.events_crud import severity_num
+    from yoke_core.domain.schema_read_scope import shared_read
+
+    floor = shared_read(
+        conn,
+        ("event_min_severity", event_name, source_type),
+        lambda: _read_min_severity(conn, event_name, source_type),
+    )
+    return severity_num(sev) >= severity_num(floor)
 
 
 def check_severity(
