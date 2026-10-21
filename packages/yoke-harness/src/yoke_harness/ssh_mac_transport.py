@@ -42,6 +42,9 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
     run_terminal_app_command,
 )
+from yoke_harness.ssh_mac_terminal_automation_probe import (
+    terminal_system_events_automation,
+)
 from yoke_harness.ssh_mac_terminal_bridge_check import (
     named_failure,
     verify_terminal_app_control,
@@ -154,6 +157,18 @@ class SshMacTransport(SshTestMachineTransport):
             self._run,
             expected_console_user=self._user,
         )
+        if ok:
+            automation = terminal_system_events_automation(self._run)
+            ok, error_code = automation.ok, automation.error_code
+            evidence["terminal_system_events_automation"] = ok
+            if error_code:
+                evidence["capture_diagnostics"] = named_failure(
+                    error_code,
+                    {
+                        "detail": automation.detail,
+                        "terminal_window_count": automation.terminal_windows,
+                    },
+                )
         return HostActionResult(
             ok=ok,
             error_code=error_code,
@@ -161,7 +176,6 @@ class SshMacTransport(SshTestMachineTransport):
         )
 
     def diagnose_terminal_bridge(self) -> HostActionResult:
-        """Run every bridge capability alone and name what blocks each one."""
         return diagnose_terminal_app_control(
             self._run,
             expected_console_user=self._user,
@@ -173,7 +187,6 @@ class SshMacTransport(SshTestMachineTransport):
         *,
         probes_document: str | None = None,
     ) -> HostActionResult:
-        """Copy this host's home into a new restorable baseline."""
         return capture_golden_baseline(
             self,
             destination=destination,
@@ -181,7 +194,6 @@ class SshMacTransport(SshTestMachineTransport):
         )
 
     def upload_remote_text(self, path: str, content: str) -> None:
-        """Write one owner-only text file to the host."""
         result = self._run(
             self._zsh_command('umask 077; /bin/cat > "$1"', path),
             input_text=content,
@@ -201,8 +213,6 @@ class SshMacTransport(SshTestMachineTransport):
         quit_apps = quit_sign_in_apps(self._run, self._user)
         if not quit_apps.ok:
             return quit_apps
-        # Windows left by earlier runs stall every command inside Terminal, so
-        # the reset starts from no Terminal and ends with a fresh one.
         quit_terminal = quit_terminal_app(self._run, self._user)
         evidence = {**quit_apps.evidence, **quit_terminal.evidence}
         if not quit_terminal.ok:
@@ -222,11 +232,9 @@ class SshMacTransport(SshTestMachineTransport):
         return HostActionResult(relaunch.ok, evidence, relaunch.error_code)
 
     def prove_user_equivalent(self) -> HostActionResult:
-        """Run the probes the declared baseline carries beside itself."""
         return prove_declared_probes(self)
 
     def read_remote_text(self, path: str) -> str | None:
-        """Return one regular remote file as text, or None when it is absent."""
         reader = (
             'target="$1"; '
             '[[ "$target" == /* ]] || exit 64; '
@@ -268,7 +276,6 @@ class SshMacTransport(SshTestMachineTransport):
         required_session_context: str | None = None,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
-        """Run argv through SSH or the GUI session, preserving empty option values."""
         normalized = tuple(str(value) for value in argv)
         if not normalized or not normalized[0]:
             raise ValueError("host_control command requires a non-empty executable")

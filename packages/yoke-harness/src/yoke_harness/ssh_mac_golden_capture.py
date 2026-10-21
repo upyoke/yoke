@@ -279,19 +279,18 @@ def capture_golden_baseline(
     destination: str,
     probes_document: str | None = None,
 ) -> HostActionResult:
-    """Prove the host is capture-ready, then copy its home to *destination*.
-
-    The probes run first and must all pass. A capture taken while a declared
-    program is signed out produces a baseline that every later reset restores
-    and then rejects as not user-equivalent, so the machine could never pass
-    again. Sign-in apps quit before the copy so their state is on disk.
-    """
+    """Prove live Terminal grants and baseline probes before copying the home."""
     from yoke_harness.standard_baseline_probes import capture_probes_document
 
     document, refusal = capture_probes_document("macos", probes_document)
     if refusal:
         return refusal
     assert document is not None
+    bridge = control.check_terminal_bridge()
+    if not bridge.ok:
+        return HostActionResult(
+            False, {"destination": destination, **bridge.evidence}, bridge.error_code
+        )
     proven = prove_probes_document(control, document)
     if not proven.ok:
         return HostActionResult(
