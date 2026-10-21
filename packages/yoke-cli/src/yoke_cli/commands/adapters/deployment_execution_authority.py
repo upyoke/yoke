@@ -13,6 +13,7 @@ taken an older run over) with no driver.
 
 from __future__ import annotations
 
+import os
 import sys
 from contextlib import nullcontext
 from typing import Callable, ContextManager, Mapping, Optional
@@ -20,9 +21,11 @@ from urllib.parse import urlsplit
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.direct_database_access import (
+    DECLARED_COMMAND_ENV,
     SELF_DEPLOY_EXECUTE_COMMAND,
     USE_HTTPS_ENV,
     direct_database_command,
+    paired_https_env,
 )
 from yoke_cli.transport.dispatcher import call_dispatcher
 
@@ -94,9 +97,10 @@ def _run(run_id: str, relay_env: Optional[str] = None) -> Mapping[str, object]:
         )
     run = (response.result or {}).get("run")
     if not isinstance(run, Mapping):
-        raise RuntimeError(
+        raise _RunReadFailed(
             f"could not resolve deployment execution authority for {run_id}: "
-            "deployment_runs.get returned no run"
+            "deployment_runs.get returned no run",
+            code="",
         )
     return run
 
@@ -167,15 +171,16 @@ def execution_connection_error(run_id: str) -> Optional[str]:
 def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
     """On a ``*-db-admin`` door, allow only a deploy replacing *https_env*'s API.
 
-    Every other run is driven over *https_env*, beside its database. When
-    *https_env* cannot be reached the door is allowed with a note: that is
-    the self-deploy recovery, re-driving a run whose new API is down.
+    Every other run is driven over *https_env*, beside its database. Only a
+    definitive answer that the run's target is another API refuses: when
+    *https_env* cannot answer the run read at all (unreachable, erroring, or
+    answering no run) the door is allowed with a note, because that is the
+    self-deploy recovery, re-driving a run whose new API is down or broken.
     """
     from yoke_cli.commands.pulumi_stack_config_loader import (
         load_project_renderer_settings_snapshot,
     )
     from yoke_cli.transport.https import TransportError, resolve_https_connection
-    from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 
     try:
         connection = resolve_https_connection(explicit_env=https_env)
@@ -183,11 +188,9 @@ def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
             raise TransportError(f"{https_env!r} resolves to no https connection")
         run = _run(run_id, relay_env=https_env)
     except (TransportError, _RunReadFailed) as exc:
-        if getattr(exc, "code", TRANSPORT_FAILED_CODE) != TRANSPORT_FAILED_CODE:
-            return str(exc)
         print(
-            f"note: {https_env!r} cannot be reached ({exc}); driving {run_id} "
-            "through this direct database door as a self-deploy recovery",
+            f"note: {https_env!r} could not answer for {run_id} ({exc}); driving "
+            "it through this direct database door as a self-deploy recovery",
             file=sys.stderr,
         )
         return None
@@ -208,11 +211,26 @@ def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
     )
 
 
-def driving_through_door(https_env: str) -> ContextManager[None]:
-    """Declare the self-deploy door for this process and every child it starts."""
-    if not https_env:
-        return nullcontext()
-    return direct_database_command(SELF_DEPLOY_EXECUTE_COMMAND)
+def self_deploy_door(run_id: str) -> tuple[Optional[str], ContextManager[None]]:
+    """The refusal to drive *run_id* through a door, and the scope that holds it.
+
+    Off a paired ``*-db-admin`` door, or inside a process that already holds
+    the declaration (a driver started by a declaring parent), there is
+    nothing to check and the scope is empty. On a door the run must be a
+    self-deploy of the paired API (see :func:`door_execution_error`); the
+    scope then declares the door for this process and every child it starts.
+    Every driver entry point (the ``watch deploy`` wrapper and the engine
+    modules it or ``deployment-runs execute`` runs) enters it, so a driver
+    started by an older CLI that declares nothing still holds the door.
+    """
+    https_env = paired_https_env()
+    declared = os.environ.get(DECLARED_COMMAND_ENV) == SELF_DEPLOY_EXECUTE_COMMAND
+    if not https_env or declared or not run_id:
+        return None, nullcontext()
+    refusal = door_execution_error(run_id, https_env)
+    if refusal:
+        return refusal, nullcontext()
+    return None, direct_database_command(SELF_DEPLOY_EXECUTE_COMMAND)
 
 
 def creation_connection_error(
@@ -282,6 +300,6 @@ def creation_connection_error(
 __all__ = [
     "creation_connection_error",
     "door_execution_error",
-    "driving_through_door",
+    "self_deploy_door",
     "execution_connection_error",
 ]

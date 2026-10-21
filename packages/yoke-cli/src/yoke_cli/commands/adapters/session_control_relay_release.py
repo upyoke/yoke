@@ -85,7 +85,11 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
     """Run this relay's build: a pinned release, or the machine's own Yoke."""
-    from yoke_cli.config.session_relay_instance import resolve_relay_instance
+    from yoke_cli.config.session_relay_instance import (
+        RelayInstanceError,
+        door_relay_refusal,
+        resolve_relay_instance,
+    )
     from yoke_harness.session_relay_daemon import serve_forever
     from yoke_harness.session_relay_inventory import collect_cached_inventory
     from yoke_harness.session_relay_process_restart import exec_relay_release
@@ -98,6 +102,8 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         "yoke_core.tools.session_relay_release_install"
     )
     instance = resolve_relay_instance()
+    if refusal := door_relay_refusal(instance):
+        raise RelayInstanceError(refusal)
     if not instance.follows_served_release:
         # Nothing to follow: this machine serves the plane it polls, so the
         # running process is already the build the universe has. With no API

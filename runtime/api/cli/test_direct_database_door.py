@@ -9,13 +9,11 @@ direct-database commands still run through the door.
 from __future__ import annotations
 
 import os
-from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
 import pytest
 
-from yoke_cli.commands import deployment_execute
 from yoke_cli.commands.adapters import deployment_execution_authority as authority
 from yoke_cli.transport import dispatcher
 from yoke_cli.transport.https import HttpsConnection
@@ -169,32 +167,15 @@ def test_door_drives_only_a_deploy_replacing_its_https_api(host, refused):
     assert f"yoke --env {SERVED_ENV} deployment-runs execute run-1" in refusal
 
 
-def test_self_deploy_driver_inherits_the_declared_door(monkeypatch):
-    monkeypatch.delenv(door.DECLARED_COMMAND_ENV, raising=False)
-    monkeypatch.setattr(deployment_execute, "paired_https_env", lambda: SERVED_ENV)
-    monkeypatch.setattr(deployment_execute, "door_execution_error", lambda *_a: None)
-    inherited: list[str | None] = []
-
-    def run(*_args, **_kwargs):
-        inherited.append(os.environ.get(door.DECLARED_COMMAND_ENV))
-        return SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr(deployment_execute.subprocess, "run", run)
-
-    assert deployment_execute.deployment_runs_execute(["run-1"]) == 0
-
-    assert inherited == [door.SELF_DEPLOY_EXECUTE_COMMAND]
-    assert door.DECLARED_COMMAND_ENV not in os.environ
-
-
 @pytest.mark.parametrize(
-    ("failure", "allowed"),
+    "failure",
     [
-        (authority._RunReadFailed("unreachable", code="https_transport_failed"), True),
-        (authority._RunReadFailed("no such run", code="not_found"), False),
+        authority._RunReadFailed("unreachable", code="https_transport_failed"),
+        authority._RunReadFailed("server broke", code="internal_error"),
+        authority._RunReadFailed("token rejected", code="unauthorized"),
     ],
 )
-def test_unreachable_https_env_allows_the_door_with_a_note(failure, allowed, capsys):
+def test_https_env_that_cannot_answer_allows_the_door_with_a_note(failure, capsys):
     connection = HttpsConnection(
         api_url="https://control.example/v1", token="token", env=SERVED_ENV
     )
@@ -208,13 +189,27 @@ def test_unreachable_https_env_allows_the_door_with_a_note(failure, allowed, cap
         refusal = authority.door_execution_error("run-1", SERVED_ENV)
 
     note = capsys.readouterr().err
-    if allowed:
-        assert refusal is None
-        assert f"note: {SERVED_ENV!r} cannot be reached" in note
-        assert "self-deploy recovery" in note
-    else:
-        assert refusal == "no such run"
-        assert note == ""
+    assert refusal is None
+    assert f"note: {SERVED_ENV!r} could not answer for run-1" in note
+    assert "self-deploy recovery" in note
+
+
+def test_empty_run_answer_allows_the_door_with_a_note(monkeypatch, capsys):
+    connection = HttpsConnection(
+        api_url="https://control.example/v1", token="token", env=SERVED_ENV
+    )
+    empty = mock.Mock(success=True, result={}, error=None)
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=connection,
+        ),
+        mock.patch.object(authority, "call_dispatcher", return_value=empty),
+    ):
+        refusal = authority.door_execution_error("run-1", SERVED_ENV)
+
+    assert refusal is None
+    assert "returned no run" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -231,11 +226,11 @@ def test_explicit_launcher_declares_only_creation_bootstrap(argv, bootstrap):
     assert yoke_launcher._is_creation_bootstrap(argv) is bootstrap
 
 
-def test_relay_refuses_a_non_prod_door_whose_https_env_serves_it(tmp_path):
+def test_relay_install_refuses_a_door_whose_https_env_serves_it(tmp_path):
     import json
 
     from yoke_cli.config.session_relay_instance import (
-        RelayInstanceError,
+        door_relay_refusal,
         resolve_relay_instance,
     )
 
@@ -267,8 +262,41 @@ def test_relay_refuses_a_non_prod_door_whose_https_env_serves_it(tmp_path):
         ),
         encoding="utf-8",
     )
-    with pytest.raises(RelayInstanceError, match="use_https_env") as raised:
-        resolve_relay_instance(
-            config_path=config, environment="stage-db-admin", yoke_home=tmp_path
+    door_relay = resolve_relay_instance(
+        config_path=config, environment="stage-db-admin", yoke_home=tmp_path
+    )
+    refusal = door_relay_refusal(door_relay)
+    assert refusal.startswith("use_https_env:")
+    # The move: status and uninstall still resolve on the door, then the
+    # relay is installed on the https env.
+    assert "`yoke --env stage-db-admin relay uninstall`" in refusal
+    assert "`yoke --env stage relay install`" in refusal
+    https_relay = resolve_relay_instance(
+        config_path=config, environment="stage", yoke_home=tmp_path
+    )
+    assert door_relay_refusal(https_relay) == ""
+
+    from yoke_core.tools.session_relay_plist import (
+        RelayInstallError,
+        install_relay_launchd,
+    )
+
+    with pytest.raises(RelayInstallError) as raised:
+        install_relay_launchd(
+            home=tmp_path,
+            instance=door_relay,
+            runner=lambda *_a, **_k: pytest.fail("launchctl must not run"),
+            platform="darwin",
         )
-    assert "yoke --env stage relay install" in str(raised.value)
+    assert raised.value.code == "use_https_env"
+
+    from yoke_cli.commands.adapters import session_control_relay_release
+    from yoke_cli.config import session_relay_instance
+
+    with (
+        mock.patch.object(
+            session_relay_instance, "resolve_relay_instance", return_value=door_relay
+        ),
+        pytest.raises(session_relay_instance.RelayInstanceError, match="relay uninstall"),
+    ):
+        session_control_relay_release.serve_release_daemon()

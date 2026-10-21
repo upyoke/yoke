@@ -7,11 +7,8 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.deployment_execution_authority import (
-    door_execution_error,
-    driving_through_door,
     execution_connection_error,
 )
-from yoke_contracts.direct_database_access import paired_https_env
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
 )
@@ -89,26 +86,21 @@ def deployment_runs_execute(args: List[str]) -> int:
     if not args or not args[0].startswith("run-"):
         print("error: deployment-runs execute requires RUN-ID", file=sys.stderr)
         return 2
-    door_https_env = paired_https_env()
-    refusal = (
-        door_execution_error(args[0], door_https_env)
-        if door_https_env
-        else execution_connection_error(args[0])
-    )
-    if refusal:
+    if refusal := execution_connection_error(args[0]):
         print(f"error: {refusal}", file=sys.stderr)
         return 2
 
-    with driving_through_door(door_https_env):
-        completed = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "yoke_core.domain.deploy_pipeline_liveness_cli",
-                *args,
-            ],
-            check=False,
-        )
+    # On a *-db-admin door the engine checks and declares the self-deploy
+    # door itself, so a driver this adapter starts needs nothing from it.
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.deploy_pipeline_liveness_cli",
+            *args,
+        ],
+        check=False,
+    )
     return completed.returncode
 
 

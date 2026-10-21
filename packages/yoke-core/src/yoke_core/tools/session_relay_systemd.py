@@ -9,7 +9,12 @@ import subprocess
 from typing import Callable, Mapping
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
+from yoke_cli.config.session_relay_instance import (
+    RelayInstance,
+    door_relay_refusal,
+    resolve_relay_instance,
+)
+from yoke_contracts.direct_database_access import USE_HTTPS_ENV
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_contracts.systemd_service import (
     SERVICE_OPERATION_TIMEOUT_SECONDS,
@@ -230,6 +235,8 @@ def install_relay_systemd(
     pin_release: Callable[..., object] = relay_install.pin_relay_release,
 ) -> RelaySystemdStatus:
     selected = instance or resolve_relay_instance()
+    if refusal := door_relay_refusal(selected):
+        raise RelayInstallError(refusal, code=USE_HTTPS_ENV)
     reason = systemd_unavailable_reason(
         runner=runner, pid1_path=pid1_path
     ) or _linger_reason(runner)

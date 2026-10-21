@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
+
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    self_deploy_door,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -38,14 +43,21 @@ def main(
 
         runner = run_pipeline
     args = _build_parser().parse_args(argv)
-    return runner(
-        args.primary_arg,
-        timeout_min=args.timeout,
-        from_stage=args.from_stage,
-        fresh=args.fresh,
-        image_tag=args.image_tag,
-        product_repo_path=args.product_repo_path,
-    )
+    # The engine owns its door: a driver started by any CLI, older ones
+    # included, holds the self-deploy declaration on a *-db-admin door.
+    refusal, door = self_deploy_door(args.primary_arg)
+    if refusal:
+        print(f"error: {refusal}", file=sys.stderr)
+        return 2
+    with door:
+        return runner(
+            args.primary_arg,
+            timeout_min=args.timeout,
+            from_stage=args.from_stage,
+            fresh=args.fresh,
+            image_tag=args.image_tag,
+            product_repo_path=args.product_repo_path,
+        )
 
 
 __all__ = ["main"]
