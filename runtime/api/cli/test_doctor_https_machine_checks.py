@@ -20,6 +20,7 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
         ({"only": "HC-hook-resident"}, None),
         ({"only": "hook-resident,stale-sessions"}, "stale-sessions"),
         ({"full": True}, ""),
+        ({"quick": True}, ""),
     ],
 )
 def test_machine_check_does_not_require_a_server_roster_entry(
@@ -91,6 +92,7 @@ def test_machine_check_does_not_require_a_server_roster_entry(
     assert local_row in result["results"]
     assert len(local_calls) == 1
     assert local_calls[0]["slugs"] == ["hook-resident"]
+    assert local_calls[0]["only"] == scope.get("only")
     assert receipts == [result]
     if remote_only is None:
         assert not relay_calls

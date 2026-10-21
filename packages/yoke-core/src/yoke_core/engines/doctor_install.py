@@ -25,6 +25,7 @@ from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
 from yoke_core.domain.project_scratch_dir import scratch_project
 from yoke_core.domain.session_orientation_delivery import orientation_delivered
+from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector, _run
 
@@ -56,6 +57,12 @@ INSTALL_SLUGS = (
     "install-residue",
     "installed-guidance",
     "instruction-discovery",
+)
+
+
+SESSION_REQUIRED_DETAIL = (
+    "session_required: no agent session is active. Start a harness "
+    "session and run `yoke doctor run --session` to verify readiness."
 )
 
 
@@ -196,6 +203,14 @@ def session_hook_recovery(reason: str = "SESSION_HOOK_UNOBSERVED") -> str:
 def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     try:
         session_id = build_actor().session_id
+        if not session_id and not args.only:
+            rec.record(
+                "session-hook-registration",
+                "This session received a registering hook",
+                NOT_APPLICABLE,
+                SESSION_REQUIRED_DETAIL,
+            )
+            return
         if not session_id:
             raise _SessionHookUnproven("SESSION_HOOK_UNOBSERVED")
         identity = relay("sessions.identity", {})

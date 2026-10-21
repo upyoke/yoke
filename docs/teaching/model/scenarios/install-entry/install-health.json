@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "both",
  "when": "After installation and before first project work",
- "need": "Run focused install readiness and follow the next step for every missing or stale fact. Intentional GitHub disablement is N/A; unknown evidence does not pass.",
+ "need": "Run focused install readiness and follow the next step for every missing or stale fact. Intentional GitHub disablement is N/A; unknown evidence does not pass. Ordinary quick health outside an agent session skips session readiness as N/A; explicit install or session readiness still requires observed registration and hook delivery.",
  "disclosure": "action now",
  "surface": "Doctor install selection and final agent setup report",
  "topics": ["installation/entry"],

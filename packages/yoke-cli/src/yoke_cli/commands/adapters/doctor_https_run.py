@@ -89,6 +89,7 @@ def dispatch_chunked(
                     quick=False,
                     fix=bool(payload.get("fix")),
                     slugs=local_machine,
+                    only=payload.get("only"),
                 ),
             )
             local_result.update(results=rows, **recount(rows))
@@ -163,6 +164,7 @@ def dispatch_chunked(
                 quick=bool(payload.get("quick")),
                 fix=bool(payload.get("fix")),
                 slugs=local_runtime,
+                only=payload.get("only"),
             ),
         )
         composed.append("local_runtime")

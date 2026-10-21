@@ -46,7 +46,9 @@ def _setup_readiness(report: dict, kwargs: dict) -> dict:
     if not project:
         from yoke_cli.commands.adapters.doctor_machine_scope import machine_scope_rows
 
-        rows = machine_scope_rows(install_slugs(), quick=False, fix=False)
+        rows = machine_scope_rows(
+            install_slugs(), quick=False, fix=False, only=",".join(install_slugs())
+        )
         compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
         result = {"results": rows, **compose.recount(rows)}
     else:

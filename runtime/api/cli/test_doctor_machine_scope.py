@@ -77,7 +77,8 @@ def test_project_scope_checks_outside_a_project_are_named_skips(
 ):
     ran = []
 
-    def run_local(*, project, quick, fix, slugs):
+    def run_local(*, project, quick, fix, slugs, only):
+        assert only == "harness-setup,project-gh-auth"
         ran.append(list(slugs))
         return [
             {"hc": "harness-setup", "name": "setup", "severity": "PASS", "detail": ""}
@@ -105,7 +106,8 @@ def test_full_outside_a_project_runs_machine_checks_and_names_project_checks(
 ):
     ran = []
 
-    def run_local(*, project, quick, fix, slugs):
+    def run_local(*, project, quick, fix, slugs, only):
+        assert only is None
         ran.extend(slugs)
         return []
 
@@ -127,7 +129,7 @@ def test_machine_scope_excludes_checks_that_read_a_project():
 def test_setup_readiness_without_a_project_names_project_install_checks(
     monkeypatch,
 ):
-    def run_local(*, project, quick, fix, slugs):
+    def run_local(*, project, quick, fix, slugs, only):
         return [
             {"hc": slug, "name": slug, "severity": "PASS", "detail": ""}
             for slug in slugs
@@ -144,3 +146,24 @@ def test_setup_readiness_without_a_project_names_project_install_checks(
         for slug in doctor_install.install_slugs()
         if slug not in machine_scope_slugs()
     }
+
+
+@pytest.mark.parametrize("option,expected", [("--quick", "N/A"), ("--full", "N/A"),
+                                             ("--session", "FAIL"), ("--install", "FAIL")])
+def test_session_readiness_outside_a_session(outside_project, monkeypatch, capsys, option, expected):
+    from types import SimpleNamespace
+    from yoke_core.engines import doctor_install as install, doctor_session
+    from yoke_core.engines.doctor_registry import HEALTH_CHECKS
+
+    slugs = set(doctor_session.SESSION_SLUGS)
+    monkeypatch.setattr(doctor_https_compose, "HEALTH_CHECKS", [
+        hc for hc in HEALTH_CHECKS if hc.slug in slugs
+    ])
+    for module in (install, doctor_session):
+        monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
+    code = doctor.doctor_run([option, "--json"])
+    assert code == (1 if expected == "FAIL" else 0)
+    rows = json.loads(capsys.readouterr().out)["result"]["results"]
+    session_rows = [row for row in rows if row["hc"].removeprefix("HC-") in slugs]
+    assert len(session_rows) == (1 if option == "--install" else 3)
+    assert {row["severity"] for row in session_rows} == {expected}
