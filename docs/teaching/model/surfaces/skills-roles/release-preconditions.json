@@ -1,0 +1,9 @@
+{
+ "id": "release-preconditions",
+ "title": "Write release-producible blocking cases",
+ "status": "observed",
+ "form": "Do",
+ "topics": ["qa-plans/cases/release-preconditions"],
+ "verification": "Source guidance covers self-created release preconditions and item notes for later real occurrences; live receiving proof is not claimed.",
+ "sources": [".agents/skills/yoke/steer/loop.md"]
+}

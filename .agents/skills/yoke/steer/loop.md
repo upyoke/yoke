@@ -9,11 +9,9 @@ Source: `agent_wake` in `.yoke/harness/<harness-dir>/manifest.json`, from `yoke_
 
 # Steer — standing loop
 
-After compaction or resume, reload this phase: discarded context is gone;
-reattach the running watcher or re-arm it when absent. Preserve unresolved
-holds and obligations from other claimed documents. Never erase that contract
-to hit a size target. Routine resume reads only the Live Status checkpoint;
-read claimed contract slugs on demand through strategy.doc.get.
+On resume, reload this phase and reattach or re-arm the watcher. Read Live
+Status first; fetch claimed contracts on demand through strategy.doc.get.
+Preserve every claimed document's unresolved holds and obligations.
 
 ## 1. Plan, frontier, report
 
@@ -23,9 +21,8 @@ yoke charge schedule --project {_project} --json
 yoke steering report get
 ```
 
-- The doc wins on scope, priority and order; the DB wins on live status,
-  claims and eligibility.
-- Act on every report finding per [fleet-findings.md](fleet-findings.md).
+- Follow doc scope, priority and order; read status, claims and eligibility
+  from the DB. Handle every finding per [fleet-findings.md](fleet-findings.md).
 - Hold work with `yoke items freeze PREFIX-N`; abandon with
   `yoke items cancel PREFIX-N --reason TEXT`.
 - An `activation` edge sends no go-signal; after its blocker clears, send
@@ -41,9 +38,9 @@ yoke messages get MESSAGE-ID
 yoke messages acknowledge MESSAGE-ID
 ```
 
-Read each full message, acknowledge it, then act, record a hold, or surface
-the decision this pass. `DONE PREFIX-N` means verify the item is terminal and its last work claim
-released `completed`; workers may finish without mail:
+Read and acknowledge full messages; act, hold, or surface decisions this pass.
+Workers may finish without mail. Verify `DONE PREFIX-N` means terminal status
+and the last claim released `completed`:
 
 ```text
 yoke items get PREFIX-N status --json
@@ -52,8 +49,17 @@ yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' 
 
 ## 3. Staff everything
 
-Before ending a pass, launch every runnable unclaimed scoped item
-([worker-launch.md](worker-launch.md)). This seat is the only staffing path. A spec write takes a temporary claim:
+Only this seat staffs work: [launch](worker-launch.md) every runnable,
+unclaimed scoped item this pass.
+
+For specs:
+
+- Each blocking case creates its own preconditions inside the release:
+  a throwaway walk to steering-stop, a fixture PR to eject, or short traffic.
+- Put evidence needing a real-world event or a long wait on the item as
+  "record the next real occurrence", outside blocking QA.
+
+Take a temporary claim to write:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason steering
@@ -68,10 +74,10 @@ yoke items detail get PREFIX-N --json
 git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
 ```
 
-Never select `merge_candidate_review`. Problems stay out of the release; route
-[rework](worker-launch.md#rework). Then [release-batches.md](release-batches.md),
-including [manual-wake member QA](release-batches.md#manual-wake-member-qa).
-After a QA failure, confirm the owner started rework or recorded a blocker.
+Route problems to [rework](worker-launch.md#rework), keeping them outside release;
+never select `merge_candidate_review`. Follow [release batches](release-batches.md),
+including [manual-wake QA](release-batches.md#manual-wake-member-qa).
+After failed QA, confirm owner rework or a recorded blocker.
 
 ## 5. Live status
 
@@ -81,9 +87,7 @@ After any material change, refresh one section:
 ## Live status — steering snapshot (refresh or replace on next steering handoff)
 ```
 
-Carry seats, owners, blockers, next steps and operator actions. Do not copy
-historical status sections.
-
-Conflicts, new scope or a reserved decision: present evidence and a
-recommendation, then wait. Never guess, implement or file a substitute item
-to get past the gate; keep independent work moving. Stop: [close-out.md](close-out.md).
+Carry current seats, owners, blockers, next steps and operator actions.
+For conflicts, new scope or reserved decisions, present evidence and a
+recommendation, then wait; continue independent work within the gate.
+Stop: [close-out.md](close-out.md).

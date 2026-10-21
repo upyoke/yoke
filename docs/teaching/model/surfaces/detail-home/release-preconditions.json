@@ -1,0 +1,9 @@
+{
+ "id": "release-preconditions",
+ "title": "Create preconditions for blocking QA",
+ "status": "observed",
+ "form": "Do",
+ "topics": ["qa-plans/cases/release-preconditions"],
+ "verification": "The case attachment Authoring section teaches release-local fixtures and item notes for outside-event or long-wait evidence; live receiving proof is not claimed.",
+ "sources": ["docs/public/verification/case-attachment.md"]
+}

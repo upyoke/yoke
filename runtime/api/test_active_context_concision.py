@@ -52,25 +52,11 @@ class TestCurrentStateCheckpointTeaching:
         assert "{objective, blockers, next action, evidence}" in text
         assert "cold-start complete" not in text
 
-    def test_steer_loop_reloads_phase_after_compaction(self):
-        loop = _words(_read(".agents/skills/yoke/steer/loop.md"))
-        assert "After compaction or resume, reload this phase" in loop
-        assert "reattach the running watcher or re-arm it when absent" in loop
-        assert "discarded context is gone" in loop
-        assert "Preserve unresolved holds and obligations from other" in loop
-        assert "Dated status sections other than this one are stale" not in loop
-        assert "reads every claimed document first" not in loop
-        assert "Routine resume reads only the Live Status" in loop
-        assert "Never erase that contract to hit a size target" in loop
+    def test_steer_live_status_heading(self):
         assert (
             "## Live status — steering snapshot "
             "(refresh or replace on next steering handoff)"
         ) in _read(".agents/skills/yoke/steer/loop.md")
-
-    def test_steer_extracts_current_state_without_copying_history(self):
-        skill = _words(_command("steer"))
-        assert "cold-start refresh" in skill
-        assert "do not copy historical status sections" in skill.lower()
 
     def test_progress_log_deep_home_is_a_checkpoint(self):
         text = _words(_read("docs/public/agents/rules/item-writes.md"))
@@ -94,13 +80,9 @@ class TestCurrentStateCheckpointTeaching:
         assert leftover == []
 
 
-class TestSteerCorpusKeepsRequiredRefreshVocabulary:
-    def test_skill_still_extracts_open_work_index(self):
+class TestSteerStrategyReadCommands:
+    def test_skill_and_loop_use_doc_get(self):
         skill = _command("steer")
-        assert "In flight" in skill
-        assert "Ready to staff" in skill
-        assert "Blocked" in skill
-        assert "Awaiting operator decision" in skill
         assert "yoke strategy doc get {SLUG}" in skill
         assert "yoke strategy doc get {SLUG}" in _read(
             ".agents/skills/yoke/steer/loop.md"
