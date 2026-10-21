@@ -25,11 +25,6 @@ counts include root problems only; root reads show a repeat count and the latest
 20 evidence previews. Open a repeat by id for its complete evidence; ordinary
 lists page through all notes.
 
-Append returns the existing id for the same project, author kind and first 200
-normalized body characters within 24 hours. Normalization folds case and
-whitespace. A session warns at eight distinct notes and refuses an eleventh;
-correlated evidence and duplicate retries remain available. Put unrelated
-findings beyond that budget in the item's **Progress Log** for operator review.
 A wrong or missing recipe belongs here; a successful routine recovery and
 progress narration belong in the item's **Progress Log**.
 

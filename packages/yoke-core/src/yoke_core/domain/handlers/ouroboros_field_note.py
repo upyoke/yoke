@@ -45,8 +45,8 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
 from yoke_core.domain.field_note_append_policy import (
-    inspect_append,
-    FieldNoteAdmissionError,
+    validate_correlation,
+    FieldNoteCorrelationError,
 )
 from yoke_core.domain.ouroboros_entry_corrections import (
     CorrectionTargetError,
@@ -92,8 +92,6 @@ class FieldNoteAppendRequest(BaseModel):
 
 class FieldNoteAppendResponse(BaseModel):
     event_id: Optional[str]
-    deduplicated: bool = False
-    warning: Optional[str] = None
     entry_id: Optional[str]
     kind: str
     evidence_preview: str
@@ -151,15 +149,12 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 project=payload.project,
                 target_project=payload.target_project,
             )
-            existing_id, root_id, warning = inspect_append(
+            root_id = validate_correlation(
                 conn,
                 project_id=provenance.project_id,
-                author=provenance.author,
-                body=payload.evidence,
-                session_id=session_id,
                 correlation_id=payload.correlation_id,
             )
-            entry_id = existing_id or cmd_insert_entry(
+            entry_id = cmd_insert_entry(
                 conn,
                 timestamp,
                 provenance.author,
@@ -177,7 +172,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                     correction_entry_id=int(entry_id),
                     corrected_entry_id=payload.corrects,
                 )
-    except FieldNoteAdmissionError as exc:
+    except FieldNoteCorrelationError as exc:
         return HandlerOutcome(
             primary_success=False, error=FunctionError(code=exc.code, message=str(exc))
         )
@@ -234,8 +229,6 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         kind=payload.kind,
         evidence_preview=evidence_preview,
         correlation_id=str(root_id) if root_id is not None else None,
-        deduplicated=existing_id is not None,
-        warning=warning,
         author=provenance.author,
         project=provenance.project,
         target_project=provenance.target_project,

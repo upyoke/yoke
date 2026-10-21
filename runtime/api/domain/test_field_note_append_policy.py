@@ -1,12 +1,11 @@
-"""Durable root grouping, dedupe window and session budget behavior."""
+"""Durable root grouping and independent field-note writes."""
 
-from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 
 from yoke_contracts.timestamps import utc_now
-from yoke_core.domain.db_helpers import connect, instant_parameter
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.handlers import ouroboros_field_note as handler
 from yoke_core.domain.ouroboros_entries import (
     count_entry_rows,
@@ -40,34 +39,20 @@ def append(body, *, session="session-a", root=None, **payload):
     return handler.handle_append(request)
 
 
-def test_dedupe_normalizes_case_and_whitespace_across_sessions(tmp_db):
-    first = append("Missing   guidance for a recipe")
-    again = append("missing guidance\nfor a recipe", session="session-b")
-    assert again.primary_success
-    assert again.result_payload["entry_id"] == first.result_payload["entry_id"]
-    assert again.result_payload["deduplicated"]
+@pytest.mark.parametrize("bodies", [
+    ("same evidence", "same evidence"),
+    ("Missing   guidance", "missing\nguidance"),
+    ("a" * 200 + " first", "a" * 200 + " second"),
+])
+def test_each_append_stores_its_own_note(tmp_db, bodies):
+    with patch.object(handler, "utc_now", return_value=utc_now()):
+        first, second = [append(body) for body in bodies]
+    assert first.primary_success and second.primary_success
+    assert first.result_payload["entry_id"] != second.result_payload["entry_id"]
     with connect() as conn:
-        assert count_entry_rows(conn) == 1
-
-
-def test_dedupe_matches_normalized_prefix_not_suffix(tmp_db):
-    first = append("a" * 200 + " first")
-    again = append("a" * 200 + " second")
-    assert again.result_payload["entry_id"] == first.result_payload["entry_id"]
-
-
-def test_dedupe_expires_and_keeps_author_separate(tmp_db):
-    first = append("a recurring problem")
-    other = append("a recurring problem", actor_role="tester")
-    assert other.result_payload["entry_id"] != first.result_payload["entry_id"]
-    with connect() as conn:
-        conn.execute(
-            "UPDATE ouroboros_entries SET created_at=%s",
-            (instant_parameter(conn, utc_now() - timedelta(hours=25)),),
-        )
-        conn.commit()
-    later = append("a recurring problem")
-    assert later.result_payload["entry_id"] != first.result_payload["entry_id"]
+        assert count_entry_rows(conn) == 2
+        rows = conn.execute("SELECT session_id FROM ouroboros_entries").fetchall()
+        assert [row[0] for row in rows] == ["session-a", "session-a"]
 
 
 def test_correlated_repeat_survives_without_events_and_leaves_queue(tmp_db):
@@ -91,25 +76,16 @@ def test_correlated_repeat_survives_without_events_and_leaves_queue(tmp_db):
         assert entries[0]["repeat_count"] == 1
         assert entries[0]["repeats"][0]["id"] == child
         assert get_entry_row(conn, child)["correlation_id"] == int(root)
-    retried = append("more evidence of that same cause")
-    assert retried.result_payload["entry_id"] == str(child)
-    assert retried.result_payload["correlation_id"] == root
     nested = append("third context", root=str(child))
     assert nested.result_payload["correlation_id"] == root
 
 
-def test_session_cap_warns_and_keeps_correlation_recovery_usable(tmp_db):
-    roots = [append(f"distinct cause {i}") for i in range(10)]
-    assert all(result.primary_success for result in roots)
-    assert roots[7].result_payload["warning"]
-    blocked = append("eleventh distinct cause")
-    assert not blocked.primary_success
-    assert blocked.error.code == "field_note_session_cap"
-    assert "--correlation-id" in blocked.error.message
-    root = roots[0].result_payload["entry_id"]
-    assert append("new evidence for cause zero", root=root).primary_success
-    assert append("distinct cause 0").result_payload["deduplicated"]
-    assert append("another session's cause", session="session-b").primary_success
+def test_session_can_store_many_notes(tmp_db):
+    results = [append(f"distinct cause {i}") for i in range(25)]
+    assert all(result.primary_success for result in results)
+    assert len({result.result_payload["entry_id"] for result in results}) == 25
+    with connect() as conn:
+        assert count_entry_rows(conn) == 25
 
 
 def test_correlation_rejects_missing_root_and_run_labels(tmp_db):
