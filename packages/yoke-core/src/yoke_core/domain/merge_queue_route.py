@@ -25,6 +25,7 @@ from yoke_core.domain.merge_queue_enqueue_verification import (
 from yoke_core.domain.merge_queue_failed_train import (
     unchanged_failed_train_refusal,
 )
+from yoke_core.domain.merge_queue_flake_retry import release_retry
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
@@ -198,12 +199,19 @@ def land_item_through_merge_queue(
         if red_checks:
             return fail_landing(pr_num, red_checks, tuple(warnings))
     if pre_state is None or not (already_merged or already_armed):
+        red_checks = red_entry_checks_refusal(
+            ctx, pr_num, sleep=sleep, lane_head=commit_sha
+        )
+        if red_checks:
+            return fail_landing(pr_num, red_checks, tuple(warnings))
+        reservation = {}
         refusal = unchanged_failed_train_refusal(
             ctx,
             pr_num,
             lane_head=commit_sha,
             base_branch=target,
             retry_flake=retry_flake, public_ref=public_ref, dispatch=dispatch,
+            retry_reservation=reservation,
         )
         if refusal:
             return QueueLandingOutcome(
@@ -213,22 +221,14 @@ def land_item_through_merge_queue(
                 error=refusal,
                 warnings=tuple(warnings),
             )
-        # Arming a pull request its own required checks have already
-        # refused is what turns a red gate into a wait nothing ends:
-        # merge-when-ready takes, and every later read sees an armed
-        # landing waiting for an entry GitHub will never create.
-        red_checks = red_entry_checks_refusal(
-            ctx, pr_num, sleep=sleep, lane_head=commit_sha
-        )
-        if red_checks:
-            return fail_landing(pr_num, red_checks, tuple(warnings))
         entry = enter_merge_queue(ctx, pr_num)
         if not entry.success:
+            release_error = release_retry(public_ref, reservation, dispatch=dispatch, rejected=entry.rejected) if reservation else ""
             return QueueLandingOutcome(
                 ok=False,
                 exit_code=1,
                 pr_num=pr_num,
-                error=entry.error_detail or "queue entry refused",
+                error="; ".join(filter(None, (entry.error_detail or "queue entry refused", release_error))),
             )
 
     # Arming is a request. What the handoff depends on is GitHub reporting

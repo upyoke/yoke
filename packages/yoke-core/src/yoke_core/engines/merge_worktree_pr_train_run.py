@@ -79,12 +79,18 @@ class TrainRunLookupFailure:
         return f"{self.reason}. {self.recovery}" if self.recovery else self.reason
 
 
-def _as_train_run(run: Mapping[str, Any]) -> TrainRun:
+def _as_train_run(run: Mapping[str, Any], repo: str) -> TrainRun:
+    url = str(run.get("html_url") or "").strip()
+    run_id = str(run.get("id") or "")
+    if not url and run_id.isdecimal():
+        repository = run.get("repository") or {}
+        web_url = repository.get("html_url") if isinstance(repository, dict) else None
+        url = f"{str(web_url or f'https://github.com/{repo}').rstrip('/')}/actions/runs/{run_id}"
     return TrainRun(
         status=str(run.get("status") or ""),
         conclusion=str(run.get("conclusion") or ""),
         head_sha=str(run.get("head_sha") or ""),
-        url=str(run.get("html_url") or ""),
+        url=url,
     )
 
 
@@ -196,7 +202,7 @@ def read_train_run(
             if str(run.get("path") or "") != workflow_path:
                 continue
             if str(run.get("head_sha") or "") == covering:
-                return _as_train_run(run), None
+                return _as_train_run(run, auth.repo), None
 
     marker = f"pr-{pr_num}-"
     pages_read = 0
@@ -223,7 +229,7 @@ def read_train_run(
                 continue
             head_sha = str(run.get("head_sha") or "")
             if marker in head_branch or (covering and head_sha == covering):
-                return _as_train_run(run), None
+                return _as_train_run(run, auth.repo), None
         if len(runs) < _RUNS_PAGE_SIZE:
             break
 

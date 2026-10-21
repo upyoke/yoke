@@ -133,6 +133,7 @@ def unchanged_failed_train_refusal(
     retry_flake: str = "",
     public_ref: str = "",
     dispatch=None,
+    retry_reservation=None,
 ) -> Optional[str]:
     """Named refusal, or ``None`` when re-entry is allowed."""
     observed = train
@@ -168,7 +169,7 @@ def unchanged_failed_train_refusal(
 
             return claim_retry(
                 public_ref, pr_num, head, current_base, observed.url,
-                retry_flake, dispatch=dispatch,
+                retry_flake, dispatch=dispatch, reservation=retry_reservation,
             )
         return _refusal(
             pr_num, observed, lane_head=head, base_sha=current_base,

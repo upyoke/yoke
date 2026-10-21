@@ -80,8 +80,11 @@ then re-run the same complete `yoke merge item` command with
 The item records its pull request, head/base, run URL, reason and session before arming.
 A second claim on that input pair refuses with `merge_train_flake_retry_exhausted`;
 a second failure belongs to the item and requires a fix. The observer never claims a
-flake automatically. A reservation is spent even if admission fails or its reply is lost;
-inspect **Merge train retries** before recovery. See the
+flake automatically. A rejected queue-entry request releases that attempt's reservation;
+an accepted or uncertain request keeps it spent. A failed release names its reservation
+and repair; inspect **Merge train retries** before recovery. If the provider omits the
+run's web URL, the reader derives it from the identified Actions run id and repository.
+See the
 [verification policy](../agents/rules/verification.md#unexplained-test-failure).
 An older serving build refuses this reservation with its serving floor; ask the
 control-plane operator for a serving release that carries the function. Ordinary merges
