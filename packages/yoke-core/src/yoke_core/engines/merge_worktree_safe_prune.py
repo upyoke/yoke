@@ -181,8 +181,9 @@ def prune_managed_worktrees(
     say = emit or _runtime_emit()
     root = Path(repo_root).resolve()
     base = f"origin/{target}"
-    fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
-    if fetched.returncode != 0:
+    if git(["remote", "get-url", "origin"], cwd=repo_root, capture=True).returncode:
+        return _skipped(say, "no origin remote (local-only project)")
+    if git(["fetch", "origin", target], cwd=repo_root, capture=True).returncode:
         return _skipped(say, f"could not refresh {base}")
     entries = registered_worktrees(git, repo_root)
     if entries is None:

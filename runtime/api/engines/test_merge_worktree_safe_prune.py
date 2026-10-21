@@ -289,3 +289,17 @@ def test_a_live_deploy_run_worktree_survives_the_sweep(monkeypatch, tmp_path: Pa
         lane["path"] == str(driver.resolve()) and "executing" in lane["reason"]
         for lane in sweep.payload()["preserved"]
     )
+
+
+def test_a_local_only_project_skips_pruning_without_a_refresh_warning(
+    monkeypatch, tmp_path: Path
+):
+    repo, worktree, branch = _repo(tmp_path)
+    _git(repo, "remote", "remove", "origin")
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert worktree.exists()
+    assert sweep.payload()["skipped"] == "no origin remote (local-only project)"
+    assert not any("could not refresh" in line for line in lines)
