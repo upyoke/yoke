@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -66,10 +65,6 @@ def test_binding_projects_current_capability_fields_and_drops_unknowns(
 ) -> None:
     with pg_testdb.test_database() as database:
         db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
 
         _bind()
         assert _settings(db_name) == {

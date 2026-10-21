@@ -10,7 +10,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -65,10 +64,6 @@ def _verified(
 def test_bind_status_and_unbind_round_trip(monkeypatch):
     with pg_testdb.test_database() as database:
         db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         status = cmd_bind_project_repo(
             "externalwebapp",
             installation_id="12345",
@@ -111,12 +106,7 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
 
 
 def test_status_reports_missing_permissions(monkeypatch):
-    with pg_testdb.test_database() as database:
-        db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
 
         cmd_bind_project_repo(
             "externalwebapp",
@@ -163,12 +153,7 @@ def test_status_reports_missing_permissions(monkeypatch):
 
 
 def test_suspended_installation_persists_unavailable_binding(monkeypatch):
-    with pg_testdb.test_database() as database:
-        db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database():
 
         status = cmd_bind_project_repo(
             "externalwebapp",
@@ -202,7 +187,7 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
                 "verify_project_github_binding",
                 lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
             )
-    
+
             with mock.patch(
                 "yoke_core.domain.yoke_function_dispatch.dispatch_permission_for_request",
                 return_value=DispatchPermission(
@@ -226,7 +211,7 @@ def test_registered_dispatcher_bind_surface(monkeypatch):
                         },
                     )
                 )
-    
+
             assert response.success is True
             assert response.result["bound"] is True
             assert response.result["binding"]["installation_id"] == "12345"

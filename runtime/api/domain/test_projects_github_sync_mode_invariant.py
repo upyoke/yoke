@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -19,10 +18,6 @@ from yoke_core.domain.projects_upsert import cmd_upsert
 def project_db(monkeypatch):
     with pg_testdb.test_database() as database:
         db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
 
 

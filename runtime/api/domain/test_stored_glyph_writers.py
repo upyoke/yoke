@@ -16,7 +16,6 @@ from yoke_contracts.levels import default_levels, levels_payload
 
 from runtime.api.fixtures import pg_testdb
 from yoke_contracts.glyph_contract import SAFE_GLYPH_EXAMPLES
-from yoke_core.domain import db_backend
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.projects_upsert import cmd_upsert
 from yoke_core.domain.session_routing_validation import (
@@ -35,10 +34,6 @@ _UNSAFE = "\U0001f3d7️"  # building construction + VS16
 def project_db(monkeypatch):
     with pg_testdb.test_database() as database:
         db_name = database.info.dbname
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
 
 

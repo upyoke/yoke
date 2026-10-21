@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -49,10 +48,6 @@ def test_bind_preserves_intentional_disabled(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
 
         status = cmd_bind_project_repo(
             "externalwebapp",

@@ -7,7 +7,6 @@ import json
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
     PulumiCheckpointImportError,
@@ -29,10 +28,6 @@ def checkpoint_state_db(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
 
 

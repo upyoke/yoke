@@ -7,7 +7,6 @@ import json
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.projects_capabilities_settings import (
     cmd_capability_get_settings,
@@ -37,10 +36,6 @@ def pulumi_state_db(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
 
 
