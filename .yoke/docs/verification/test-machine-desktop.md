@@ -78,6 +78,16 @@ fixture desktop, waits for its X socket to disappear, then starts a replacement.
 A connected RDP client blocks this repair; close it and rerun desktop access.
 GUI commands continue using their existing display without this access repair.
 
+Host-control SSH commands share a per-machine connection on the executing
+workstation. Its private socket lives under Yoke's existing scratch roots;
+when the configured path is too long for a Unix socket, it uses Yoke's short
+OS temporary scratch root. The master expires after 30 idle seconds. A diagnosed stale socket reports
+`host_control_ssh_stale_socket`; OpenSSH opens a fresh connection before
+remote execution. If it repeats, wait 30 seconds and retry. Other disconnects
+are not retried because the remote command may already have run.
+`host_control_ssh_socket_unavailable` asks you to configure a short writable
+Yoke `temp_root`, then retry the host command.
+
 Only one RDP viewer may connect to a Linux fixture at a time. A second viewer
 refuses `linux_desktop_viewer_connected`; close the open `Yoke desktop: NAME`
 viewer or let `browser authorize` finish before retrying. GUI commands may reuse
