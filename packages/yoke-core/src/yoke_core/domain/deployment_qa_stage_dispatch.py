@@ -10,6 +10,7 @@ sends both notices where the control plane can address their recipients.
 from __future__ import annotations
 
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
+from yoke_core.domain.deployment_qa_configuration_refusal import qa_stage_error
 from yoke_core.domain.deployment_qa_dispatch_inputs import (
     dispatch_input_operation,
     run_context,
@@ -145,7 +146,7 @@ def materialize_and_gate_deployment_qa_stage(
         prepare_release_inputs(conn, stage, run_id=run_id)
     except (LookupError, ValueError) as exc:
         rollback_after_error(conn, exc)
-        return 1, str(exc)
+        return qa_stage_error(exc, run_id=run_id, stage_name=str(stage.get("name")))
     errors = prepare_members(conn, stage, run_id=run_id, members=members)
     return _gate_members(
         conn,
@@ -180,7 +181,7 @@ def _gate_members(
     woken = sent_stage_waits(conn, run_id=run_id, stage=stage)
     waiting: list[str] = []
     accepted: list[int] = []
-    failure = ""
+    failure: tuple[int, str] | None = None
     for member in members:
         try:
             if member in errors:
@@ -221,7 +222,7 @@ def _gate_members(
                 ).fetchone()
                 if attached is None:
                     continue
-            failure = str(exc)
+            failure = qa_stage_error(exc, run_id=run_id, stage_name=str(stage["name"]))
             rollback_after_error(conn, exc)
             break
         label = f"member {item_refs(member)}" if member is not None else "run"
@@ -299,7 +300,7 @@ def _gate_members(
     with uncached_presentation():
         notify_items_qa_accepted(conn, run_id=run_id, item_ids=tuple(accepted))
     if failure:
-        return 1, failure
+        return failure
     if waiting:
         return -4, "; ".join(waiting)
     return 0, ""
