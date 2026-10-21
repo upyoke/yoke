@@ -116,7 +116,7 @@ class _ApiSuite(unittest.TestCase):
         self._db_path = self._stack.enter_context(
             init_test_db(
                 Path(self._tmp_dir),
-                apply_schema=lambda: apply_fixture_ddl_from_active_db(),
+                apply_schema=apply_fixture_ddl_from_active_db,
             )
         )
         self._stack.enter_context(_install_overrides(self._db_path))

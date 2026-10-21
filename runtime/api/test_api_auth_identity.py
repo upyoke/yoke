@@ -22,7 +22,7 @@ def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
         db_path = stack.enter_context(
             init_test_db(
                 Path(tmp_dir),
-                apply_schema=lambda: _apply_fixture_ddl_from_active_db(),
+                apply_schema=_apply_fixture_ddl_from_active_db,
             )
         )
         stack.enter_context(_install_overrides(db_path))
