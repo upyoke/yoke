@@ -99,3 +99,42 @@ def test_execution_churn_does_not_repeat_the_roster_read(test_db, monkeypatch):
     assert result["state"] == "active"
     assert len(reads) == 2  # One preparation for each begin, with no retry.
     assert not any("string_agg(id||" in sql for sql in recorder.log)
+
+
+def test_retirement_rechecks_custody_after_reacquiring_the_run_lock(test_db, monkeypatch):
+    from yoke_core.domain import qa_plan_execution_begin as beginning
+    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+
+    run_id, members = "run-begin-retirement-race", (9841, 9842)
+    _seed_stage_wide(test_db, run_id, members)
+    first = _stage_wide_begin(test_db, run_id)
+    other = connect_test_database(test_db.info.dbname)
+    admit = admission.admit_member
+    retired, raced = [], []
+
+    def retire(conn, execution, *, digest):
+        finish_plan_execution(conn, execution, state="aborted", reason="changed-roster")
+        retired.append(True)
+        return True
+
+    def race_after_retirement(*args, **kwargs):
+        if retired and not raced:
+            raced.append({})
+            raced[0] = _stage_wide_begin(other, run_id, session="retirement-racer")
+        return admit(*args, **kwargs)
+
+    monkeypatch.setattr(beginning, "retire_unstarted_changed_roster", retire)
+    monkeypatch.setattr(admission, "admit_member", race_after_retirement)
+    try:
+        with pytest.raises(StageRosterHeld) as held:
+            _stage_wide_begin(test_db, run_id)
+        assert held.value.execution["id"] == raced[0]["id"]
+        assert held.value.execution["id"] != first["id"]
+    finally:
+        test_db.rollback()
+        other.close()
+    rows = test_db.execute(
+        "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s AND state='active'",
+        (run_id,),
+    ).fetchall()
+    assert [row[0] for row in rows] == [raced[0]["id"]]
