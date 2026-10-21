@@ -21,8 +21,10 @@ _PRIVATE_KEY_BLOCK = re.compile(
 def bounded_machine_qa_diagnostic(
     value: Any,
     secrets: Sequence[str] = (),
+    *,
+    tail: bool = False,
 ) -> str:
-    """Return one single-line, secret-free diagnostic excerpt."""
+    """Redact before keeping one bounded, single-line head or tail excerpt."""
     text = str(value or "")
     for secret in sorted(
         {secret for secret in secrets if secret}, key=len, reverse=True
@@ -32,6 +34,8 @@ def bounded_machine_qa_diagnostic(
     text = " ".join(text.split())
     if len(text) <= MACHINE_QA_DIAGNOSTIC_LIMIT:
         return text
+    if tail:
+        return "…" + text[-(MACHINE_QA_DIAGNOSTIC_LIMIT - 1) :]
     return text[: MACHINE_QA_DIAGNOSTIC_LIMIT - 1] + "…"
 
 

@@ -45,6 +45,7 @@ def _check(mac: FakeMac, monkeypatch: pytest.MonkeyPatch):
     control = SshMacHostControl.__new__(SshMacHostControl)
     control._run = mac
     control._user = "yoke-test"
+    control.secret_values = ()
     return control.check_terminal_bridge()
 
 

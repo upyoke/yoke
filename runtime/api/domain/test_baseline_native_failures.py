@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from types import SimpleNamespace
 
+from yoke_harness.test_machine_types import HostActionResult
+
 import pytest
 
 from yoke_core.domain.probe_reply_rejection_evidence import (
@@ -136,6 +138,7 @@ def test_capture_does_not_seal_quota_failure_and_qa_retains_recovery(os_name):
     record["harness_exit_code"] = 1
     # No archive/upload/reset methods: a refused request must precede all of them.
     control = SimpleNamespace(
+        check_terminal_bridge=lambda: HostActionResult(True, {}),
         os=os_name,
         run_command=lambda *a, **kw: SimpleNamespace(
             returncode=PROBE_EXIT_CODES["probe_quota_exhausted"],

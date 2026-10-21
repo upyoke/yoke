@@ -1,4 +1,4 @@
-"""Quit Terminal.app before a test-machine reset and relaunch it afterwards.
+"""Stop Terminal and System Events for reset, then relaunch Terminal.
 
 Every GUI-session command opens a Terminal window. A window whose command was
 still running at cleanup used to survive behind a terminate-processes sheet,
@@ -40,8 +40,8 @@ _PGREP_NO_MATCH = 1
 _WAIT_PROBE_FAILED = 3
 
 
-def _running(user: str) -> str:
-    return shlex.join(["/usr/bin/pgrep", "-x", "-u", user, TERMINAL_APP])
+def _running(user: str, app: str) -> str:
+    return shlex.join(["/usr/bin/pgrep", "-x", "-u", user, app])
 
 
 def _wait_exited(running: str) -> str:
@@ -54,11 +54,12 @@ def _wait_exited(running: str) -> str:
 
 
 def _force_kill(running: str) -> str:
-    """Kill every process under each Terminal, deepest first, then Terminal."""
-    return (
+    """Kill each app's descendants and then the app under POSIX word splitting."""
+    script = (
         f"{PROCESS_TREE_FUNCTION}; for p in $({running}); do "
         '/bin/kill -KILL $(process_tree "$p") 2>/dev/null; done; exit 0'
     )
+    return shlex.join(("/bin/sh", "-c", script))
 
 
 def _wait_for_window() -> str:
@@ -71,63 +72,81 @@ def _wait_for_window() -> str:
     )
 
 
-def _probe_failed(probe: str, result) -> HostActionResult:
+def _probe_failed(probe: str, result, app: str, key: str) -> HostActionResult:
     return HostActionResult(
         False,
         {
-            "terminal_quit": {
+            key: {
                 "probe": probe,
                 "exit_code": int(result.returncode),
                 "stderr": bounded_machine_qa_diagnostic(result.stderr),
             },
             "recovery": (
-                "Yoke could not tell whether Terminal is running on the test "
+                f"Yoke could not tell whether {app} is running on the test "
                 "machine. Check that SSH to the machine works (the stderr above "
                 "names the failure), then retry the reset."
             ),
         },
-        TERMINAL_PROBE_FAILED,
+        f"test_machine_{key.removesuffix('_quit')}_probe_failed",
     )
 
 
-def quit_terminal_app(run: Callable[..., object], user: str) -> HostActionResult:
-    """Quit Terminal, forcing it when a sheet holds the quit, and prove it exited."""
-    running = _running(user)
+def _quit_app(
+    run: Callable[..., object], user: str, app: str, key: str
+) -> HostActionResult:
+    """Ask the app to quit, force a stalled tree, and prove it exited."""
+    running = _running(user, app)
     probe = run(running + " >/dev/null")
     if probe.returncode == _PGREP_NO_MATCH:
-        return HostActionResult(True, {"terminal_quit": {"quit": "not_running"}})
+        return HostActionResult(True, {key: {"quit": "not_running"}})
     if probe.returncode != 0:
-        return _probe_failed("running", probe)
-    evidence: dict[str, object] = {
-        "windows_before_quit": read_terminal_window_count(run),
-    }
+        return _probe_failed("running", probe, app, key)
+    evidence: dict[str, object] = {}
+    if app == TERMINAL_APP:
+        evidence["windows_before_quit"] = read_terminal_window_count(run)
     # A window still running a command answers quit with a sheet, so the
     # request is bounded rather than trusted to return.
-    run_osascript(run, [f'tell application "{TERMINAL_APP}" to quit'], timeout=10)
+    run_osascript(run, [f'tell application "{app}" to quit'], timeout=10)
     exited = run(_wait_exited(running), timeout=QUIT_WAIT_SECONDS + 15)
     if exited.returncode not in {0, 1}:
-        return _probe_failed("exited", exited)
+        return _probe_failed("exited", exited, app, key)
     evidence["quit"] = "graceful"
     if exited.returncode != 0:
         run(_force_kill(running), timeout=30)
         exited = run(_wait_exited(running), timeout=QUIT_WAIT_SECONDS + 15)
         if exited.returncode not in {0, 1}:
-            return _probe_failed("exited", exited)
+            return _probe_failed("exited", exited, app, key)
         evidence["quit"] = "forced"
     if exited.returncode != 0:
         return HostActionResult(
             False,
             {
-                "terminal_quit": evidence,
+                key: evidence,
                 "recovery": (
-                    "Terminal survived both its quit and a forced kill on the "
-                    "test machine. Quit Terminal at the host console (Terminal "
-                    "> Quit Terminal, then Terminate), then retry the reset."
+                    f"{app} survived both its quit and a forced kill on the "
+                    f"test machine. Quit {app} at the host console using "
+                    "Activity Monitor, then retry the reset."
                 ),
             },
-            TERMINAL_QUIT_NOT_PROVED,
+            f"test_machine_{key}_not_proved",
         )
-    return HostActionResult(True, {"terminal_quit": evidence})
+    return HostActionResult(True, {key: evidence})
+
+
+def quit_terminal_app(run: Callable[..., object], user: str) -> HostActionResult:
+    """Quit Terminal and prove its windows' process trees stopped."""
+    return _quit_app(run, user, TERMINAL_APP, "terminal_quit")
+
+
+def quit_reset_apps(run: Callable[..., object], user: str) -> HostActionResult:
+    """Stop Terminal and System Events before restoring the test-machine home."""
+    terminal = quit_terminal_app(run, user)
+    if not terminal.ok:
+        return terminal
+    events = _quit_app(run, user, "System Events", "system_events_quit")
+    return HostActionResult(
+        events.ok, {**terminal.evidence, **events.evidence}, events.error_code
+    )
 
 
 def relaunch_terminal_app(run: Callable[..., object]) -> HostActionResult:
@@ -169,5 +188,6 @@ __all__ = [
     "TERMINAL_QUIT_NOT_PROVED",
     "TERMINAL_RELAUNCH_FAILED",
     "quit_terminal_app",
+    "quit_reset_apps",
     "relaunch_terminal_app",
 ]

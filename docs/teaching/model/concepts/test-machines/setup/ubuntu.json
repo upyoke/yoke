@@ -3,5 +3,7 @@
  "title": "Ubuntu fixture provisioning and scoped harness posture",
  "status": "observed",
  "page": "test-machine-setup",
- "position": 1
+ "position": 1,
+ "summary": "Provision a 4 GiB instance (8 GiB recommended), 2 GiB swap and 40 GiB disk. Linux kernel reservations reduce nominal RAM, so the existing physical-page probe requires 3.5 GiB usable RAM (3758096384 bytes). This floor applies only to declared Linux hosts; Windows/WSL retains its separate provisioning contract. The existing verify connection check refuses test_machine_memory_below_minimum before any reset, retaining observed and required total_memory_bytes and asking for a host resize. test_machine_memory_unreadable names a failed RAM probe and asks for SSH/Python probe repair. The usable-total-RAM floor is owned with native_capacity thresholds; swap does not replace physical RAM or the native launch available-memory floor.",
+ "sources": ["packs/machine-qa/versions/1.3.43/files/docs/packs/machine-qa/linux-host-provisioning.md", "packages/yoke-harness/src/yoke_harness/ssh_linux_memory.py", "packages/yoke-contracts/src/yoke_contracts/machine_config/native_capacity.py"]
 }

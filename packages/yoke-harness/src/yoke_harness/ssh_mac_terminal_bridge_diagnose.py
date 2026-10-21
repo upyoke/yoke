@@ -13,6 +13,8 @@ and the driven window second, and reports every verdict together.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from yoke_contracts.machine_qa_execution import BRIDGE_DIAGNOSE_OPERATION
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE,
@@ -52,6 +54,7 @@ TERMINAL_SYSTEM_EVENTS_CHECK = TERMINAL_BRIDGE_CHECKS[5]
 def _probe_control_surfaces(
     report: BridgeDiagnosisReport,
     run: RunRemote,
+    secret_values: Sequence[str],
 ) -> bool:
     """Prove the host is reachable, awake, owned by us, and controllable."""
     transport = run("/usr/bin/true", timeout=20)
@@ -126,11 +129,12 @@ def _probe_control_surfaces(
     ):
         return False
 
-    automation = terminal_system_events_automation(run)
+    automation = terminal_system_events_automation(run, secret_values=secret_values)
     return report.record(
         TERMINAL_SYSTEM_EVENTS_CHECK,
         ok=automation.ok,
         observed={
+            **automation.diagnostics,
             "detail": automation.detail,
             "terminal_window_count": automation.terminal_windows,
         },
@@ -142,10 +146,11 @@ def diagnose_terminal_app_control(
     run: RunRemote,
     *,
     expected_console_user: str | None = None,
+    secret_values: Sequence[str] = (),
 ) -> HostActionResult:
     """Run every bridge capability in order and report each one's verdict."""
     report = BridgeDiagnosisReport(expected_console_user=expected_console_user)
-    if _probe_control_surfaces(report, run):
+    if _probe_control_surfaces(report, run, secret_values):
         probe_driven_window(report, run)
     report.close_unreached()
     passed = all(row["ok"] for row in report.rows)

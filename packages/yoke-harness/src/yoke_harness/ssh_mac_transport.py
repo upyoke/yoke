@@ -32,7 +32,7 @@ from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 from yoke_harness.ssh_mac_sign_in_apps import quit_sign_in_apps
 from yoke_harness.ssh_mac_terminal_restart import (
-    quit_terminal_app,
+    quit_reset_apps,
     relaunch_terminal_app,
 )
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
@@ -42,13 +42,14 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
     run_terminal_app_command,
 )
+from yoke_harness.ssh_mac_terminal_automation_probe import (
+    terminal_system_events_automation,
+)
 from yoke_harness.ssh_mac_terminal_bridge_check import (
     named_failure,
     verify_terminal_app_control,
 )
 from yoke_harness.test_machine_types import HostActionResult
-
-
 from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
 
@@ -61,17 +62,13 @@ class SshMacTransport(SshTestMachineTransport):
             'print -r -- "${SHELL:-/bin/zsh}"; '
             'print -r -- "${XDG_BIN_HOME:-}"'
         )
-        result = self._run(
-            "/bin/zsh -fc " + shlex.quote(script),
-            timeout=20,
-        )
+        result = self._run("/bin/zsh -fc " + shlex.quote(script), timeout=20)
         if result.returncode:
+            failure_code = "host_control_connection_failed"
+            if result.returncode in (124, 255):
+                failure_code = SSH_UNAVAILABLE
             raise HostControlLocalError(
-                code=(
-                    SSH_UNAVAILABLE
-                    if result.returncode in (124, 255)
-                    else "host_control_connection_failed"
-                ),
+                code=failure_code,
                 phase="host_facts_ssh",
                 detail="SSH could not collect test-machine host facts",
                 exit_code=int(result.returncode),
@@ -154,6 +151,21 @@ class SshMacTransport(SshTestMachineTransport):
             self._run,
             expected_console_user=self._user,
         )
+        if ok:
+            automation = terminal_system_events_automation(
+                self._run, secret_values=self.secret_values
+            )
+            ok, error_code = automation.ok, automation.error_code
+            evidence["terminal_system_events_automation"] = ok
+            if error_code:
+                evidence["capture_diagnostics"] = named_failure(
+                    error_code,
+                    {
+                        **automation.diagnostics,
+                        "detail": automation.detail,
+                        "terminal_window_count": automation.terminal_windows,
+                    },
+                )
         return HostActionResult(
             ok=ok,
             error_code=error_code,
@@ -161,10 +173,10 @@ class SshMacTransport(SshTestMachineTransport):
         )
 
     def diagnose_terminal_bridge(self) -> HostActionResult:
-        """Run every bridge capability alone and name what blocks each one."""
         return diagnose_terminal_app_control(
             self._run,
             expected_console_user=self._user,
+            secret_values=self.secret_values,
         )
 
     def capture_golden_baseline(
@@ -173,7 +185,6 @@ class SshMacTransport(SshTestMachineTransport):
         *,
         probes_document: str | None = None,
     ) -> HostActionResult:
-        """Copy this host's home into a new restorable baseline."""
         return capture_golden_baseline(
             self,
             destination=destination,
@@ -181,7 +192,6 @@ class SshMacTransport(SshTestMachineTransport):
         )
 
     def upload_remote_text(self, path: str, content: str) -> None:
-        """Write one owner-only text file to the host."""
         result = self._run(
             self._zsh_command('umask 077; /bin/cat > "$1"', path),
             input_text=content,
@@ -201,9 +211,7 @@ class SshMacTransport(SshTestMachineTransport):
         quit_apps = quit_sign_in_apps(self._run, self._user)
         if not quit_apps.ok:
             return quit_apps
-        # Windows left by earlier runs stall every command inside Terminal, so
-        # the reset starts from no Terminal and ends with a fresh one.
-        quit_terminal = quit_terminal_app(self._run, self._user)
+        quit_terminal = quit_reset_apps(self._run, self._user)
         evidence = {**quit_apps.evidence, **quit_terminal.evidence}
         if not quit_terminal.ok:
             return HostActionResult(False, evidence, quit_terminal.error_code)
@@ -222,11 +230,9 @@ class SshMacTransport(SshTestMachineTransport):
         return HostActionResult(relaunch.ok, evidence, relaunch.error_code)
 
     def prove_user_equivalent(self) -> HostActionResult:
-        """Run the probes the declared baseline carries beside itself."""
         return prove_declared_probes(self)
 
     def read_remote_text(self, path: str) -> str | None:
-        """Return one regular remote file as text, or None when it is absent."""
         reader = (
             'target="$1"; '
             '[[ "$target" == /* ]] || exit 64; '
@@ -268,7 +274,6 @@ class SshMacTransport(SshTestMachineTransport):
         required_session_context: str | None = None,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
-        """Run argv through SSH or the GUI session, preserving empty option values."""
         normalized = tuple(str(value) for value in argv)
         if not normalized or not normalized[0]:
             raise ValueError("host_control command requires a non-empty executable")

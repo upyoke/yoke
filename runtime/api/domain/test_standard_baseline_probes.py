@@ -6,6 +6,8 @@ import subprocess
 import sys
 from types import SimpleNamespace
 
+from yoke_harness.test_machine_types import HostActionResult
+
 import pytest
 
 from yoke_harness.baseline_harness_requests import read_rejection_record
@@ -196,7 +198,11 @@ def test_default_capture_stops_before_archive_on_each_failed_standard_check(
         )
 
     # Archive/upload methods deliberately absent: failure must precede them.
-    control = SimpleNamespace(os=os_name, run_command=run)
+    control = SimpleNamespace(
+        os=os_name,
+        run_command=run,
+        check_terminal_bridge=lambda: HostActionResult(True, {}),
+    )
     result = (
         capture_golden_baseline(control, destination="/srv/golden")
         if os_name == "macos"
@@ -221,6 +227,7 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
 
     sealed = {}
     control = SimpleNamespace(
+        check_terminal_bridge=lambda: HostActionResult(True, {}),
         os=os_name,
         home="/Users/tester" if os_name == "macos" else "/home/tester",
         path_state=None,

@@ -68,6 +68,9 @@ def test_capture_seals_screen_saver_check_and_reset_replays_it(
         path_state = None
         upload_remote_text = None
 
+        def check_terminal_bridge(self):
+            return HostActionResult(True, {})
+
         def run_remote_command(self, command, **kwargs):
             # Safari is not running on this host, so capture has nothing to quit.
             return SimpleNamespace(returncode=1, stdout="", stderr="")

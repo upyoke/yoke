@@ -199,6 +199,9 @@ def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatc
     )
     control = SimpleNamespace(
         home="/Users/tester",
+        check_terminal_bridge=lambda: (
+            order.append("bridge") or HostActionResult(True, {})
+        ),
         run_remote_command=None,
         upload_remote_text=None,
         path_state=None,
@@ -208,7 +211,7 @@ def test_capture_quits_safari_after_proving_probes_and_before_copying(monkeypatc
     )
     assert result.ok and result.evidence["sign_in_apps_quit"] == ["Safari"]
     assert result.evidence["harness_cli_versions"]["codex"] == "0.163.0"
-    assert order == ["probes", "quit:tester", "copy"]
+    assert order == ["bridge", "probes", "quit:tester", "copy"]
 
 
 def test_reset_quits_safari_before_the_clear_and_stops_if_it_will_not(monkeypatch):
@@ -227,7 +230,7 @@ def test_reset_quits_safari_before_the_clear_and_stops_if_it_will_not(monkeypatc
         "execute_full_test_machine_reset",
         lambda **kw: order.append("reset") or HostActionResult(True, {"restored": 1}),
     )
-    for terminal_step in ("quit_terminal_app", "relaunch_terminal_app"):
+    for terminal_step in ("quit_reset_apps", "relaunch_terminal_app"):
         monkeypatch.setattr(
             ssh_mac_transport,
             terminal_step,

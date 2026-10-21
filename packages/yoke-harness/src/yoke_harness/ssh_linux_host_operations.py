@@ -15,6 +15,7 @@ from yoke_contracts.machine_qa_failures import (
     bounded_machine_qa_diagnostic,
 )
 from yoke_harness.ssh_host_baselines import SshHostBaselines
+from yoke_harness.ssh_linux_memory import check_linux_memory
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 from yoke_harness.ssh_linux_baseline import (
     archive_operation,
@@ -89,16 +90,22 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
 
     def check_connection(self) -> HostActionResult:
         result = self._run("/usr/bin/true", timeout=20)
+        evidence = {
+            "transport": "ssh",
+            "host": self._host,
+            "user": self._user,
+            "os": "linux",
+            "runner_materialized": result.returncode == 0,
+        }
+        if result.returncode or self.os != "linux":
+            return HostActionResult(
+                result.returncode == 0,
+                evidence,
+                SSH_UNAVAILABLE if result.returncode else None,
+            )
+        memory = check_linux_memory(self._run, secret_values=self.secret_values)
         return HostActionResult(
-            result.returncode == 0,
-            {
-                "transport": "ssh",
-                "host": self._host,
-                "user": self._user,
-                "os": "linux",
-                "runner_materialized": result.returncode == 0,
-            },
-            None if result.returncode == 0 else SSH_UNAVAILABLE,
+            memory.ok, {**evidence, **memory.evidence}, memory.error_code
         )
 
     def check_terminal_bridge(self) -> HostActionResult:
