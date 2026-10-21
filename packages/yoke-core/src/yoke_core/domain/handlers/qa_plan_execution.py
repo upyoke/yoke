@@ -56,7 +56,6 @@ def _parse(model: type[BaseModel], payload: Any) -> BaseModel | HandlerOutcome:
 def handle_plan_execution_begin(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Authorize first, then create or resume the durable plan cursor."""
     target = _subject(request, "qa.plan_execution.begin")
     if isinstance(target, HandlerOutcome):
         return target
@@ -65,7 +64,6 @@ def handle_plan_execution_begin(
     if isinstance(parsed, HandlerOutcome):
         return parsed
     assert isinstance(parsed, PlanExecutionBeginRequest)
-
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_empty_roster import (
         DISCHARGED_BEGIN_CODE,
@@ -90,6 +88,10 @@ def handle_plan_execution_begin(
                     f"deployment member {parsed.deployment_member!r} not found"
                 )
         if request.target.kind == "global":
+            if parsed.requirement_id is not None:
+                raise QaPlanExecutionStateError(
+                    "qa_single_case_standalone: resume the existing standalone execution by its execution id"
+                )
             from yoke_core.domain.qa_standalone_execution import (
                 begin_requested_standalone_execution,
             )

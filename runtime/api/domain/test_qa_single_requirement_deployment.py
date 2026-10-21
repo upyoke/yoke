@@ -141,3 +141,23 @@ def test_host_wait_resumes_the_frozen_execution(monkeypatch):
         Mock(), {"qa_plan_execution_id": "selected-execution"}
     )
     assert actual == command + " --resume-execution-id selected-execution"
+
+
+def test_standalone_subject_cannot_silently_ignore_a_case_selector(test_db):
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_begin
+
+    request = FunctionCallRequest(
+        function="qa.plan_execution.begin",
+        actor=ActorContext(actor_id="1", session_id="single-case"),
+        target=TargetRef(kind="global", project_id="yoke"),
+        payload={"plan": "example", "requirement_id": 51},
+    )
+    result = handle_plan_execution_begin(request)
+    assert not result.primary_success
+    assert "qa_single_case_standalone" in result.error.message
+    assert "execution id" in result.error.message
