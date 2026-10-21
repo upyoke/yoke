@@ -141,7 +141,7 @@ def test_live_execution_refuses_and_names_abort():
         with pytest.raises(QaPlanExecutionStateError) as refused:
             _reconcile(conn, execution["id"])
         assert "qa_reconcile_execution_live" in str(refused.value)
-        assert "yoke qa plan abort --project yoke" in str(refused.value)
+        assert "yoke qa plan abort --item " in str(refused.value)
         assert lock_plan_execution(conn, execution["id"])["session_id"] == (
             "review-session"
         )

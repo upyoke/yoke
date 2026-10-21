@@ -52,22 +52,9 @@ def reconcile_command(project: str, execution_id: str) -> str:
 def execution_project(conn: Any, execution: dict[str, Any]) -> tuple[int, str]:
     """The project id and slug whose steering seat may reconcile this row."""
     from yoke_core.domain.function_target_row_project import slug_for_project_id
+    from yoke_core.domain.qa_plan_execution_stop import execution_project_id
 
-    if execution.get("item_id") is not None:
-        sql, key = "SELECT project_id FROM items WHERE id=%s", execution["item_id"]
-    elif execution.get("deployment_run_id") is not None:
-        sql = "SELECT project_id FROM deployment_runs WHERE id=%s"
-        key = execution["deployment_run_id"]
-    else:
-        sql = "SELECT project_id FROM qa_plans WHERE id=%s"
-        key = execution.get("standalone_plan_id")
-    row = query_one(conn, sql, (key,))
-    if row is None:
-        raise QaPlanExecutionStateError(
-            f"qa_execution_project_unknown: QA plan execution {execution['id']} "
-            "names a subject with no project; report the row to steering"
-        )
-    project_id = int(row["project_id"])
+    project_id = execution_project_id(conn, execution)
     return project_id, slug_for_project_id(conn, project_id)
 
 
@@ -168,13 +155,12 @@ def _host_recovery_refusal(
     )
 
 
-def _review_begin_command(conn: Any, execution: dict, project: str) -> str:
+def _subject_flag(conn: Any, execution: dict, project: str) -> str:
+    """The subject flag abort and review-begin take for this execution."""
     from yoke_core.domain.qa_pending_agent_review import review_scope_flag
 
     flag = review_scope_flag(conn, execution)
-    if flag == "--project PROJECT":
-        flag = f"--project {project}"
-    return f"yoke qa plan review-begin {flag} --execution-id {execution['id']}"
+    return f"--project {project}" if flag == "--project PROJECT" else flag
 
 
 def reconcile_execution(
@@ -210,8 +196,9 @@ def reconcile_execution(
         raise QaPlanExecutionStateError(
             f"qa_reconcile_execution_live: execution {execution_id} is still "
             f"reporting progress from session {execution.get('session_id')}. "
-            "Stop a live walk with `yoke qa plan abort --project "
-            f"{project} --execution-id {execution_id} --reason TEXT`, or retry "
+            "Stop a live walk with `yoke qa plan abort "
+            f"{_subject_flag(conn, execution, project)} --execution-id "
+            f"{execution_id} --reason TEXT`, or retry "
             f"reconciliation after {PLAN_EXECUTION_STALE_SECONDS // 60} minutes "
             "without a heartbeat. Nothing changed."
         )
@@ -276,7 +263,10 @@ def reconcile_execution(
         "released_lease_ids": released,
         "review_bundle_id": bundle_id,
         "next_command": (
-            _review_begin_command(conn, execution, project) if bundle_id else None
+            f"yoke qa plan review-begin {_subject_flag(conn, execution, project)} "
+            f"--execution-id {execution_id}"
+            if bundle_id
+            else None
         ),
     }
 
