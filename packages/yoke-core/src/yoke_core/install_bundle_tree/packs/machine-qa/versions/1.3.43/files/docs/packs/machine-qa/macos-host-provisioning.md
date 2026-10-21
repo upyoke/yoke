@@ -197,16 +197,18 @@ for denial, timeout and Terminal-window recovery.
 
 ## 8. Harness sign-in and acceptance set
 
-Agents start each required harness's vendor login flow from the test user's
-**GUI Terminal** and approve its device code in the signed-in browser; the
-operator types only their password where the vendor asks. Follow the [browser identity procedure](#11-live-browser-identities)
+At the host console, sign the declared test browser identity into
+`https://app.upyoke.com` in Safari (or the declared self-hosted app URL).
+Complete password/2FA now and require the signed-in app page; a Google session
+alone is insufficient. Later approval should need only an existing account pick.
+Start each harness's vendor login flow from the test user's **GUI Terminal**;
+the operator types passwords only where asked. Follow the [browser identity procedure](#11-live-browser-identities)
 for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is
 insufficient: every harness must answer a real request without tool calls.
-Save every completed sign-in, including a Safari sign-in, at once with
-`yoke test-machine golden-capture` (section 9): it quits Safari, proves the
-real requests and recaptures the baseline.
+After harness sign-in, run `yoke test-machine golden-capture` (section 9)
+to prove real requests and recapture. Safari sign-in stays live outside goldens.
 
 Once per machine, accept Claude's dangerous-mode prompt in the
 dedicated test context. Require `skipDangerousModePermissionPrompt=true` in

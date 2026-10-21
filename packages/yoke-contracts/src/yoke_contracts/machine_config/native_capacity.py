@@ -13,6 +13,8 @@ from yoke_contracts.machine_config.machine_capacity import (
 
 MIN_NATIVE_FREE_MEMORY_BYTES = 2 * MEMORY_PER_LANE_BYTES
 MIN_NATIVE_SWAP_FREE_BYTES = MEMORY_PER_LANE_BYTES
+# A nominal 4 GiB host exposes less RAM after kernel reservations.
+MIN_TEST_MACHINE_USABLE_MEMORY_BYTES = 7 * MIN_NATIVE_FREE_MEMORY_BYTES // 2
 NATIVE_SPAWN_STAGGER_SECONDS = 3
 
 

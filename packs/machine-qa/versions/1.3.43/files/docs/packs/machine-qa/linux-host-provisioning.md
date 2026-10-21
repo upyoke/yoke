@@ -12,9 +12,13 @@ endpoint, project slug, passwords and baseline paths remain project-owned.
 
 Declare cloud resources through project IaC, or record an explicit operator
 exception before provisioning. Use Ubuntu 24.04, a root volume of at least
-40 GiB ([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)) and
-one dedicated non-root user. The administrator installs base tools and creates
-that account:
+40 GiB ([disk sizing](host-provisioning.md#disk-sizing-and-online-resize)),
+a 4 GiB instance (8 GiB recommended), at least 2 GiB swap, and one
+dedicated non-root user. Kernel reservations reduce nominal RAM; verify requires
+3.5 GiB usable RAM (3758096384 bytes). It refuses test_machine_memory_below_minimum
+with observed and required bytes before reset. A 1 GiB host cannot leave the
+native launch minimum of 1 GiB available. Resize first; swap does not replace
+RAM. The administrator installs base tools and creates that account:
 
 ```text
 sudo apt-get update
