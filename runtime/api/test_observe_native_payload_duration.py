@@ -77,6 +77,7 @@ def test_native_duration_survives_report_owner_recalculation(monkeypatch):
     result = observation(source, now)
     assert result["duration_ms"] == 11240
     assert result["breakdown"]["native_duration_ms"] == 11240
+    assert "tool_wall_ms" not in result["breakdown"]
     fallback = observation({**source, "envelope": "{}"}, now)
     assert fallback["duration_ms"] == 355000
     assert fallback["breakdown"]["hook_elapsed_ms"] == 355000

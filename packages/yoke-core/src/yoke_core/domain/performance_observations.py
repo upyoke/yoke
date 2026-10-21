@@ -56,7 +56,6 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
             tool_name=row.get("tool_name") or "",
             tool_use_id=row.get("tool_use_id"),
         )
-        breakdown["tool_wall_ms"] = duration
         label = (
             "native_duration_ms"
             if context.get("timing_status") == "native_duration"
