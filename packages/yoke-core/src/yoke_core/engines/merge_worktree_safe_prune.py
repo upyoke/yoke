@@ -171,11 +171,10 @@ def prune_managed_worktrees(
 ) -> WorktreeSweep:
     """Prune clean, unclaimed, terminal lanes after remote-first delete.
 
-    Unreachable DB authority skips pruning; incomplete remote cleanup keeps
-    the local retry lane. Every kept lane is named with its reason.
-
-    Absent directories retire their rows too; their branches retain the
-    independent landing proof in the branch pass.
+    No origin remote or unreachable DB authority skips pruning; incomplete
+    remote cleanup keeps the local retry lane. Every kept lane is named with
+    its reason. Absent directories retire their rows too; their branches
+    retain the independent landing proof in the branch pass.
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
