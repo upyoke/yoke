@@ -221,7 +221,9 @@ def send_message(
             conn, selector, sender_actor_id=actor_id
         )
         recipients, launch = (
-            resolve_item_launch_mail(conn, selector, recipients, now=current)
+            resolve_item_launch_mail(
+                conn, selector, recipients, now=current, for_update=True
+            )
             if not address and not actor_recipients
             else (recipients, None)
         )

@@ -8,7 +8,9 @@ from typing import Any
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.project_identity import placeholder, render_item_ref
 from yoke_core.domain.session_launch_assignment import assignment_name_prefix
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
@@ -20,7 +22,7 @@ from yoke_core.domain.work_claim_holder import holder_session_for_item
 from yoke_core.domain.work_claim_target_sql import scope_text_sql
 
 
-def resolve_item_launch_mail(conn, selector, recipients, *, now):
+def resolve_item_launch_mail(conn, selector, recipients, *, now, for_update=False):
     """An unheld, directly addressed item may wait for its steering launch."""
     if recipients or len(selector.public_refs) != 1:
         return recipients, None
@@ -31,11 +33,14 @@ def resolve_item_launch_mail(conn, selector, recipients, *, now):
     if holder_session_for_item(conn, item_id).get("holder_session_id"):
         return resolve_recipients(conn, selector, now=now), None
     p = placeholder(conn)
+    lock = (
+        " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
+    )
     canonical_ref = render_item_ref(conn, item_id, required=True)
     row = conn.execute(
         "SELECT launch_id,state,deadline_at FROM session_launches "
         f"WHERE project_id={p} AND session_name LIKE {p} AND origin='steering' "
-        "ORDER BY created_at DESC,launch_id DESC LIMIT 1",
+        "ORDER BY created_at DESC,launch_id DESC LIMIT 1" + lock,
         (project_id, f"{assignment_name_prefix(canonical_ref)} %"),
     ).fetchone()
     if row is None:
@@ -177,13 +182,17 @@ def queued_message_clause(marker, *, state=None, now=None):
 
 
 def bind_item_launch_mail(conn, *, session_id, now):
+    """Bind inside the caller's transaction without risking its earlier writes."""
+    with savepoint(conn, "_bind_item_launch_mail", owns=False):
+        _bind_item_launch_mail(conn, session_id=session_id, now=now)
+
+
+def _bind_item_launch_mail(conn, *, session_id, now):
     """Give the claiming session its queued mail before its next hook lease."""
     from yoke_core.domain.session_message_selectors import resolve_recipients
 
     p = placeholder(conn)
     launch_id = scope_text_sql(conn, "m.selector_snapshot", "launch_id")
-    from yoke_core.domain import db_backend
-
     lock = (
         " FOR UPDATE OF m SKIP LOCKED"
         if db_backend.connection_is_postgres(conn)
