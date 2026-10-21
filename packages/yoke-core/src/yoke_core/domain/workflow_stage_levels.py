@@ -6,6 +6,7 @@ import json
 from dataclasses import replace
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain.item_level_override import (
     LevelOverrideError,
     resolve_level_override,
@@ -94,6 +95,9 @@ __all__ = [
 def default_launch_level(conn: Any, request: Any) -> Any:
     """An exact model or level wins; surface-only staffing uses the live stage."""
     if request.level or (request.executor_surface and (request.model or not request.item)):
+        return request
+    capability = capability_for_surface(request.executor_surface)
+    if request.executor_surface and (capability is None or capability.create == "none"):
         return request
     from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
     from yoke_core.domain.session_launch_types import SessionLaunchError

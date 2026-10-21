@@ -78,7 +78,10 @@ def placement_refusal(
     blocked = "; ".join(f"{c.label}: {c.blocked}" for c in weighed)
     return compose_refusal(
         f"No {level.name} option has capacity" + (f" on {surface}" if surface else ""),
-        evaluated=blocked or "the level has no options",
+        evaluated=blocked or (
+            f"no level options are available on {surface}"
+            if surface else "the level has no options"
+        ),
         recovery=(
             f"Repeat launch create with --surface {surface} --model MODEL "
             "--reasoning-effort EFFORT using a qualifying selection from "

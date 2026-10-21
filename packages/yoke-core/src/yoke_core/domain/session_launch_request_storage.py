@@ -170,7 +170,9 @@ def insert_launch_request(
         resolved.model,
         resolved.reasoning_effort,
         resolved.context_window_tokens,
-        request.level if not preview.requested_surface else None,
+        request.level
+        if preview.level_placement is None or not preview.requested_surface
+        else None,
         stored_level_placement(
             preview,
             work_required=bool(request.item or request.level or request.work_required),
