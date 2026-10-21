@@ -171,7 +171,7 @@ test("a later containing candidate does not revive delivered work", async () => 
   ]);
   try {
     assert.equal(byClass(box, "item-deployment-run").length, 0);
-    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ not yet · next release");
+    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ Merged · not deployed yet · next release");
   } finally {
     mounted.unmount();
     restore();

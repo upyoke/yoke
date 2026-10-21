@@ -30,7 +30,7 @@ test("a recorded removal supersedes old membership and candidate containment", (
   assert.equal(outcome.title, "QA awaits a repaired golden");
   assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-removed");
   assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "removed");
-  assert.doesNotMatch(box.textContent, /not yet|QA unavailable|run-old/);
+  assert.doesNotMatch(box.textContent, /Merged · not|QA unavailable|run-old/);
 });
 
 test("a removal names and links its recorded later holder", () => {
