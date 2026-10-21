@@ -200,6 +200,9 @@ root:
         - title: Start diagnostics
           summary: Diagnose candidate preparation, containment refresh and start timing.
           path: deployments/start-diagnostics.md
+        - title: QA dispatch
+          summary: Bound member close-outs and recover HTTPS response timeouts.
+          path: deployments/qa-dispatch.md
         - title: Runs
           summary: Read deployment run composition and carried-work authority.
           path: deployments/model/runs.md
