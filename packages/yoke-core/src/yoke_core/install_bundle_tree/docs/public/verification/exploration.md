@@ -119,12 +119,12 @@ Without one, admission prefers a verified free machine and reports its reason.
 
 The plan runner reaches the declared host baseline, records a zero-artifact
 mission docket, advances the full roster, creates the existing review bundle,
-and parks the execution in `awaiting_agent_review`. Exit code `12` means the
+and enters `walking` until every mission records walk-end. Exit code `12` means the
 typed review continuation must run now. It is not itself a human-review state,
 and it is not a pass: the result carries `review_status="pending"` and no QA
 verdict exists until the reviewer submits the bundle.
 
-For deployment item-scoped QA, reaching `awaiting_agent_review` automatically
+For deployment item-scoped QA, reaching `walking` automatically
 wakes the capturing session through the item-QA notice path with the exact
 `yoke watch qa-plan` re-entry command. It resumes the pending bundle without
 recapturing. A gone owner routes to steering for normal idle/gone-holder
@@ -225,3 +225,7 @@ declares a baseline, because that resets the host.
 
 - [Exploratory access and evidence](exploration-evidence.md)
 - [Requirement state](requirement-state.md)
+
+Mission preparation enters `walking`; the last mission’s recorded walk-end
+changes it to `awaiting_walk_review`. Ordinary captures enter review directly.
+Both retain their existing verdict and host-custody rules.

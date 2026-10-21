@@ -3,7 +3,7 @@
  "title": "Deployment QA wait and connection recovery",
  "status": "observed",
  "audience": "human and agent",
- "topics": ["runtime/delivery-execution-and-evidence/stage-dispatch-and-settlement"],
- "summary": "The driver polls a cheap QA fingerprint, dispatches on changed facts and once at the deadline, and preserves its last blocker result while unchanged. A closed database connection or failed actor database lookup pauses resumably. Restore connectivity, inspect the same run and capture, then re-drive it.",
- "sources": ["docs/public/deployments/start-diagnostics.md", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_qa_wait.py", "packages/yoke-core/src/yoke_core/domain/deployment_driver_identity.py"]
+ "topics": ["runtime/delivery-execution-and-evidence/stage-dispatch-and-settlement", "qa-evidence/runs/plan-execution"],
+ "summary": "The driver polls a cheap QA fingerprint, dispatches on changed facts and once at the deadline, and preserves its last blocker result while unchanged. A closed database connection or failed actor database lookup pauses resumably. Restore connectivity, inspect the same run and capture, then re-drive it. Mission executions name walking until all mission walk-end receipts are recorded, then awaiting_walk_review; both preserve the pending bundle and no verdict is implied.",
+ "sources": ["docs/public/deployments/start-diagnostics.md", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_qa_wait.py", "packages/yoke-core/src/yoke_core/domain/deployment_driver_identity.py", "docs/qa-platform/execution-states.md"]
 }

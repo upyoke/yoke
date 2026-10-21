@@ -274,7 +274,7 @@ def execute_begun_plan(
             )
             review_bundle = review.get("review_bundle")
             if review_bundle is not None:
-                state = "awaiting_agent_review"
+                state = review["state"]
             else:
                 _call_plan_function(
                     function_id="qa.plan_execution.complete",

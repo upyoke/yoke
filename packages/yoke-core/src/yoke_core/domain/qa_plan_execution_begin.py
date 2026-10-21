@@ -215,7 +215,8 @@ def begin_plan_execution(
         if existing["state"] in {
             "active",
             "waiting",
-            "awaiting_agent_review",
+            "walking",
+            "awaiting_walk_review",
         }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 require_execution_target(existing)

@@ -296,13 +296,14 @@ def begin_plan_review(
             now,
         ),
     )
+    from yoke_core.domain.agent_mission_restore import post_capture_state
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 
     if not completed_captures_only:
         finish_plan_execution(
             conn,
             execution,
-            state="awaiting_agent_review",
+            state=post_capture_state(conn, execution),
             reason="qa-plan-awaiting-agent-review",
         )
     stored = query_one(

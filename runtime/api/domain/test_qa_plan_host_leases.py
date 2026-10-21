@@ -105,7 +105,7 @@ def test_mission_review_retains_and_heartbeats_every_host(
         },
     )
     finish_plan_execution(
-        test_db, current, state="awaiting_agent_review", reason="review"
+        test_db, current, state="awaiting_walk_review", reason="review"
     )
     recipient = test_db.execute(
         "SELECT session_id FROM session_message_recipients r JOIN session_messages m "

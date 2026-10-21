@@ -85,7 +85,7 @@ def _state(conn, execution):
     )
 
 
-@pytest.mark.parametrize("state", ["waiting", "active", "awaiting_agent_review"])
+@pytest.mark.parametrize("state", ["waiting", "active", "awaiting_walk_review"])
 def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
     test_db, monkeypatch, state
 ):

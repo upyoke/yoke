@@ -110,7 +110,7 @@ def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
     assert get_claim(test_db, original["lease_id"]).is_active
     assert reset_owed(test_db, original["settings"]["resource_name"]) is None
     current = lock_plan_execution(test_db, request.payload["execution_id"])
-    assert current["state"] == "awaiting_agent_review"
+    assert current["state"] == "walking"
     assert current["machine_lease_id"] == original["lease_id"]
 
 

@@ -40,7 +40,7 @@ def submit_host_wait(
         raise QaPlanReviewError(
             "host_wait_bundle_invalid: use the current pending review bundle"
         )
-    if execution["state"] != "awaiting_agent_review":
+    if execution["state"] != "walking":
         raise QaPlanReviewError(
             "host_wait_execution_invalid: submit only an awaiting mission"
         )

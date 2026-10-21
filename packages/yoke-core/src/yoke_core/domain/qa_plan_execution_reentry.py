@@ -118,7 +118,7 @@ def pause_execution(
 
 
 def resume_execution(conn: Any, execution: dict) -> dict:
-    if execution["state"] not in {"active", "waiting", "awaiting_agent_review"}:
+    if execution["state"] not in {"active", "waiting", "walking", "awaiting_walk_review"}:
         raise QaPlanExecutionStateError(
             "qa_resume_terminal: preserve terminal history; this execution cannot resume"
         )
@@ -141,7 +141,7 @@ def resume_execution(conn: Any, execution: dict) -> dict:
     else:
         cursor = int(execution["cursor_ordinal"])
         # A review wait holds a completed capture; no case action is in flight.
-        reviewing = execution["state"] == "awaiting_agent_review"
+        reviewing = execution["state"] in {"walking", "awaiting_walk_review"}
         if (
             not reviewing
             and evidence is not None

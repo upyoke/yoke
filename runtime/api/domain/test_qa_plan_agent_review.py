@@ -23,7 +23,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
         execution, requirement_id, capture_run_id = _review_execution(conn, 4501)
         bundle = begin_plan_review(conn, execution)
         assert bundle is not None
-        assert execution["state"] == "awaiting_agent_review"
+        assert execution["state"] == "awaiting_walk_review"
         assert bundle["dispatch"]["subagent_type"] == "yoke-tester"
         assert bundle["execution_target"] == execution["execution_target"]
         assert bundle["execution_target_digest"] == execution["execution_target_digest"]

@@ -141,7 +141,7 @@ def test_mission_holder_borrows_lease_and_submit_keeps_it(mission, operation):
     assert accepted.primary_success, accepted.error
     assert get_claim(conn, contract["lease_id"]).is_active
     execution = lock_plan_execution(conn, execution_id)
-    assert execution["state"] == "awaiting_agent_review"
+    assert execution["state"] == "walking"
     assert execution["machine_lease_id"] == contract["lease_id"]
     conn.commit()
     if operation == "golden_capture":

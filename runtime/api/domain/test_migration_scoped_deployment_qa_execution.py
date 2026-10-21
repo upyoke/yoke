@@ -58,7 +58,7 @@ def _install_legacy_contract(conn) -> tuple[int, int]:
             roster_json TEXT NOT NULL,
             cursor_ordinal INTEGER NOT NULL DEFAULT 0,
             state TEXT NOT NULL CHECK(state IN (
-                'active','waiting','awaiting_agent_review','completed','aborted','error'
+                'active','waiting','awaiting_walk_review','completed','aborted','error'
             )),
             machine_lease_id INTEGER,
             created_at TEXT NOT NULL,
@@ -84,7 +84,7 @@ def _install_legacy_contract(conn) -> tuple[int, int]:
         "CREATE UNIQUE INDEX idx_qa_plan_executions_deployment_active "
         "ON qa_plan_executions(deployment_run_id) "
         "WHERE deployment_run_id IS NOT NULL "
-        "AND state IN ('active','waiting','awaiting_agent_review')"
+        "AND state IN ('active','waiting','awaiting_walk_review')"
     )
     conn.execute(
         "ALTER TABLE qa_requirements DROP CONSTRAINT qa_requirements_subject_check"
@@ -118,7 +118,7 @@ def _install_legacy_contract(conn) -> tuple[int, int]:
         "id,deployment_run_id,session_id,roster_digest,roster_json,state,"
         "created_at,heartbeat_at"
         ") VALUES ('execution-legacy','run-legacy','session','digest','[]',"
-        "'awaiting_agent_review','2026-10-08T16:30:00.123456Z','2026-10-08T16:30:00.123456Z')"
+        "'awaiting_walk_review','2026-10-08T16:30:00.123456Z','2026-10-08T16:30:00.123456Z')"
     )
     return requirement_id, 1
 
@@ -167,7 +167,7 @@ def test_cutover_preserves_legacy_waits_results_runs_and_artifacts(test_db) -> N
     assert test_db.execute(
         "SELECT state,deployment_stage,deployment_member_item_id "
         "FROM qa_plan_executions WHERE id='execution-legacy'"
-    ).fetchone() == ("awaiting_agent_review", None, None)
+    ).fetchone() == ("awaiting_walk_review", None, None)
     assert (
         test_db.execute(
             "SELECT result_json FROM qa_plan_execution_results "
@@ -277,7 +277,7 @@ def test_invariant_rejects_same_name_non_unique_index(test_db) -> None:
         "WHERE deployment_run_id IS NOT NULL "
         "AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "
-        "AND state IN ('active','awaiting_agent_review','waiting')"
+        "AND state IN ('active','awaiting_walk_review','waiting')"
     )
     with pytest.raises(AssertionError, match="must be unique, valid, and ready"):
         assert_deployment_scope_contract(test_db)
@@ -292,7 +292,7 @@ def test_invariant_rejects_wider_index_predicate(test_db) -> None:
         "WHERE (deployment_run_id IS NOT NULL "
         "AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "
-        "AND state IN ('active','awaiting_agent_review','waiting')) OR TRUE"
+        "AND state IN ('active','awaiting_walk_review','waiting')) OR TRUE"
     )
     with pytest.raises(AssertionError, match="wrong predicate"):
         assert_deployment_scope_contract(test_db)

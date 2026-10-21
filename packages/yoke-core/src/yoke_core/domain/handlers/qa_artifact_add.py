@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.agent_mission_restore import commit_mission_handback
+
 import base64
 import binascii
 from pathlib import Path
@@ -311,7 +313,6 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if existing is not None:
             artifact_id = int(existing["id"])
-            conn.commit()
         else:
             cur = conn.execute(
                 "INSERT INTO qa_artifacts "
@@ -329,7 +330,7 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 ),
             )
             artifact_id = int(cur.fetchone()[0])
-            conn.commit()
+        commit_mission_handback(conn, artifact_type=artifact_type, run_id=run_id)
     finally:
         conn.close()
     return HandlerOutcome(

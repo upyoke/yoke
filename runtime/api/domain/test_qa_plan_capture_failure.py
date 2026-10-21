@@ -101,7 +101,7 @@ def test_failed_capture_closes_execution_and_corrected_roster_enters_review(
             closed = True
         if function_id == "qa.plan_review.begin":
             assert payload["execution_id"] == "corrected-capture"
-            return {"review_bundle": {"bundle_id": "independent-review"}}
+            return {"state": "awaiting_walk_review", "review_bundle": {"bundle_id": "independent-review"}}
         return {}
 
     def capture(case, **_kwargs):
@@ -140,7 +140,7 @@ def test_failed_capture_closes_execution_and_corrected_roster_enters_review(
     assert failed["review_bundle"] is None
     assert failed["results"][0]["qa_run_id"] == 21
     assert "rerun yoke qa plan run" in failed["recovery"]
-    assert corrected["state"] == "awaiting_agent_review"
+    assert corrected["state"] == "awaiting_walk_review"
     assert corrected["review_status"] == "pending"
     assert corrected["review_bundle"]["bundle_id"] == "independent-review"
     assert [name for name, _ in calls].count("qa.plan_execution.abort") == 1

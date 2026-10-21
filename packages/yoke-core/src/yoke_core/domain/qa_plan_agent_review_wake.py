@@ -107,7 +107,7 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         return (
             f"Scoped QA capture for {item_ref} on deployment run {run_id}, "
             f"stage {stage!r}, execution {execution_id} reached "
-            "awaiting_agent_review. Independent review is pending; no QA "
+            f"{execution['state']}. Follow the returned walk/review contract; no QA "
             f"verdict exists yet. {recovery}"
         )
 

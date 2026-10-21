@@ -42,7 +42,7 @@ def held_leases(conn: Any, execution: dict[str, Any]) -> tuple[list, list]:
     primary = execution.get("machine_lease_id")
     if primary is not None:
         claim = get_claim(conn, int(primary))
-        mission_review = execution["state"] == "awaiting_agent_review" and (
+        mission_review = execution["state"] in {"walking", "awaiting_walk_review"} and (
             _mission_needs_retained_lease(execution)
         )
         if claim.is_active and mission_review:

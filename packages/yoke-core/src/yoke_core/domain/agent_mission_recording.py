@@ -216,7 +216,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             member_removed,
         )
 
-        if execution["state"] != "awaiting_agent_review" or member_removal_pending(
+        if execution["state"] not in {"walking", "awaiting_walk_review"} or member_removal_pending(
             execution
         ):
             if member_removed(execution) or member_removal_pending(execution):

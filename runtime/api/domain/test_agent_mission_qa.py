@@ -10,6 +10,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.domain import test_qa_execution_walk_states as walk_states
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -217,7 +218,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     bundle = begin_plan_review(test_db, current)
 
     assert bundle is not None
-    assert current["state"] == "awaiting_agent_review"
+    walk_states.assert_walking_proof(test_db, current)
     assert current["machine_lease_id"] == lease_id
     assert get_claim(test_db, lease_id).is_active is True
     dispatch = bundle["dispatch"]
@@ -271,6 +272,9 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert resumed.primary_success, resumed.error
     assert int(resumed.result_payload["execution"]["lease_id"]) == lease_id
 
+    walk_states.record_handback(ACTOR, requirement_id, ready.result_payload["result"]["run_id"])
+    current = lock_plan_execution(test_db, execution_id)
+    assert current["state"] == "awaiting_walk_review"
     rationale = (
         "Ranked findings: 1. Onboarding completed without a blocker. "
         "No important area remained unverified."

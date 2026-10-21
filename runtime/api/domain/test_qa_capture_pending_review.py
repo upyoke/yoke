@@ -1,7 +1,7 @@
 """A completed capture awaiting its independent review is not a QA pass.
 
 A deployment QA stage whose case needs an agent verdict captures first and
-then waits at ``awaiting_agent_review`` for the reviewer that submits the
+then waits at ``awaiting_walk_review`` for the reviewer that submits the
 bundle. In that window the capture-side session must not be able to write a
 verdict of its own onto the requirement, and the stage must say "review
 pending" rather than "never run". Once the reviewer submits, the existing

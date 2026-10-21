@@ -206,7 +206,7 @@ not spell those arguments in the workflow — ask the module that runs them:
 yoke dev run -- python3 -c "from yoke_core.tools.ci_shards import pytest_command; print(*pytest_command(GROUP))"
 ```
 
-When the plan runner returns `state="awaiting_agent_review"`, exit `12` carries
+When the plan runner returns `state="awaiting_walk_review"`, exit `12` carries
 `review_bundle.dispatch`. Continue its exact immutable descriptor/prompt:
 `dispatch_kind=subagent` names the reviewer; `main_agent_mission` keeps main
 ownership, dispatches its returned walkers and aggregates the complete verdict.

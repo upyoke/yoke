@@ -187,7 +187,7 @@ QA_COMMANDS: list[dict] = [
             "durable cursor, actor/session owner, and any machine lease; "
             "each canonical result advances that cursor. After capture, "
             "agent-verdict cases produce one immutable review bundle and "
-            "state=awaiting_agent_review; exit 12 requires the harness to "
+            "walking until hand-back, then awaiting_walk_review; exit 12: "
             "dispatch the returned typed reviewer contract and submit its "
             "complete verdict batch; until then review_status=pending, not a "
             "pass, and a capture-side verdict is refused. An agent_mission bundle stays owned by "

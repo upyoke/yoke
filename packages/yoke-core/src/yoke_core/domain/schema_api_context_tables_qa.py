@@ -256,6 +256,8 @@ QA_TABLES: dict[str, dict] = {
             "and `execution_status=capture_failed`; `error` is not a stored "
             "case_outcome. "
             "JSON: `json_helper.dumps_compact` / `dumps_pretty`, no `dumps` export. "
+            "Proof views use `qa_plan_case_proof._case_result`; "
+            "there is no `latest_case_proof` export. "
             "`execution_status` is capture-stage bookkeeping for browser and "
             "agent-mission runs (captured | capture_failed), distinct from the quality "
             "`verdict`. `captured` requires at least one `qa_artifacts` row, or a "
@@ -335,7 +337,9 @@ QA_TABLES: dict[str, dict] = {
             "from a lane-claimed session. Capture completion reports "
             "`artifact_ids` plus a ready `artifact_reads` command per "
             "artifact, and review bundles carry `read_command` on each "
-            "artifact, so the id never has to be hunted for."
+            "artifact, so the id never has to be hunted for. "
+            "Artifact hand-back queries import json_get from yoke_core.domain.sql_json; "
+            "db_backend has no json_get export."
         ),
     },
 }

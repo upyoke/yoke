@@ -32,7 +32,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         return_value={
             "public_ref": _FIXTURE_ITEM_REF,
             "transition_id": "implemented",
-            "state": "awaiting_agent_review",
+            "state": "awaiting_walk_review",
             "review_bundle": {
                 "dispatch": {
                     "subagent_type": "yoke-tester",
@@ -66,7 +66,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
     output = capsys.readouterr()
     assert code == qa_plan_execution_cli.AGENT_REVIEW_REQUIRED_EXIT
     result = json.loads(output.out)
-    assert result["state"] == "awaiting_agent_review"
+    assert result["state"] == "awaiting_walk_review"
     dispatch = result["review_bundle"]["dispatch"]
     assert dispatch["authority"]["connection_env"] == "external-project-qa"
     assert dispatch["artifact_read_commands"] == [

@@ -1,7 +1,8 @@
 """Read a QA capture whose independent agent review is still pending.
 
 A plan execution that finished deterministic capture and opened a review
-bundle stands at ``awaiting_agent_review``: the capture is complete and no
+bundle stands at ``walking`` until mission hand-back, then
+``awaiting_walk_review``: the capture is complete and no
 QA verdict exists yet. An execution aborted or errored mid-walk keeps a
 pending bundle for its completed captures, so it owes the same review. The
 verdict belongs to the reviewer that submits that bundle, never to the
@@ -29,7 +30,7 @@ _PENDING_REVIEW_SQL = (
     "e.execution_target_digest,b.id AS bundle_id, b.bundle_json AS bundle_json "
     "FROM qa_plan_executions e "
     "JOIN qa_plan_review_bundles b ON b.execution_id = e.id "
-    "WHERE e.state IN ('awaiting_agent_review','aborted','error') "
+    "WHERE e.state IN ('walking','awaiting_walk_review','aborted','error') "
     "AND b.state = 'pending'"
 )
 
@@ -52,7 +53,7 @@ class PendingAgentReview:
     execution_id: str
     bundle_id: str
     session_id: str
-    state: str = "awaiting_agent_review"
+    state: str = "awaiting_walk_review"
     scope_flag: str = ""
 
     def review_begin_command(self) -> str:
@@ -66,7 +67,7 @@ class PendingAgentReview:
         return (
             "the session that ran the capture "
             f"({self.session_id or 'unrecorded'}) runs "
-            f"`{self.review_begin_command()}`, dispatches the reviewer the "
+            f"`{self.review_begin_command()}`, follows the typed continuation the "
             "returned bundle names, and submits its complete verdict batch "
             "with `yoke qa plan review-submit`; when that session has ended, "
             "its successor first runs `yoke qa plan adopt "
@@ -205,8 +206,10 @@ def pending_review_verdict_refusal(
 def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
     """Stage wait line for captures whose independent review is pending."""
     return compose_refusal(
-        "scoped QA captures are recorded and independent agent review is "
-        "pending; no QA verdict exists yet",
+        ("scoped QA mission walk is in progress; walker hand-back is pending"
+         if pending.state == "walking" else
+         "scoped QA captures are recorded and independent agent review is "
+         "pending; no QA verdict exists yet"),
         evaluated=(
             f"plan execution {pending.execution_id} is {pending.state} "
             f"with pending review bundle {pending.bundle_id}"

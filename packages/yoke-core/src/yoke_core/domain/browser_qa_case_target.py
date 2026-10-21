@@ -77,7 +77,7 @@ def _rosters(conn: Any, requirement_id: int) -> Any:
         "SELECT roster_json, execution_target_json FROM qa_plan_executions "
         f"WHERE (item_id={marker} OR deployment_run_id={marker} "
         f"OR deployment_member_item_id={marker}) "
-        "AND state IN ('active','waiting','awaiting_agent_review') "
+        "AND state IN ('active','waiting','walking','awaiting_walk_review') "
         "ORDER BY created_at DESC",
         (item_id, run_id, item_id),
     ).fetchall()

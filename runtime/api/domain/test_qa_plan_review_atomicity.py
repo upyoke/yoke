@@ -46,7 +46,7 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
         bundle = begin_plan_review(conn, execution)
 
         assert bundle is not None
-        assert execution["state"] == "awaiting_agent_review"
+        assert execution["state"] == "awaiting_walk_review"
         assert execution["machine_lease_id"] is None
         assert get_claim(conn, lease.id).is_active is False
 
@@ -101,8 +101,8 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
             (execution["id"],),
         ).fetchone()[0]
         assert bundle_state == "pending"
-        assert execution_state == "awaiting_agent_review"
-        assert execution["state"] == "awaiting_agent_review"
+        assert execution_state == "awaiting_walk_review"
+        assert execution["state"] == "awaiting_walk_review"
         assert execution["machine_lease_id"] == lease.id
         assert get_claim(conn, lease.id).is_active is True
         assert (

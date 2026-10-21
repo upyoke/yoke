@@ -20,7 +20,7 @@ def _install_run_and_stage_key(conn) -> None:
         "ON qa_plan_executions(deployment_run_id,deployment_stage) "
         "WHERE deployment_run_id IS NOT NULL AND deployment_stage IS NOT NULL "
         "AND deployment_member_item_id IS NULL "
-        "AND state IN ('active','awaiting_agent_review','waiting')"
+        "AND state IN ('active','awaiting_walk_review','waiting')"
     )
 
 
