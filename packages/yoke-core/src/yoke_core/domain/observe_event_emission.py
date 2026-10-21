@@ -93,10 +93,8 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
     if rec.hook_event:
         context["hook_event"] = rec.hook_event
     if rec.timing_status:
-        # Says whether ``duration_ms`` is a measurement between captured
-        # endpoints or a named unknown, so a null duration reads as "not
-        # observed, and here is which endpoint was missing" rather than as
-        # an instantaneous call.
+        # Distinguish native command time, captured hook elapsed time,
+        # and the named reason a measurement is unavailable.
         context["timing_status"] = rec.timing_status
     if rec.agent_type:
         # actor_role disambiguates which dispatched subagent role authored the

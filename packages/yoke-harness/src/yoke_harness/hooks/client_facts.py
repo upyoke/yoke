@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from yoke_contracts.codex_shell_timing import command_duration_ms
 from yoke_contracts.cursor_tool_names import payload_tool_name
 from yoke_contracts.fleet_watcher_observation import (
     FLEET_WATCHER_OBSERVATION_KEY,
@@ -82,6 +83,15 @@ def _turn_end_evidence(obs: Observation) -> dict:
     return {TURN_END_EVIDENCE_KEY: evidence.as_dict()}
 
 
+def _command_duration(obs: Observation) -> dict:
+    if obs.executor != "codex" or obs.event_name != "PostToolUse":
+        return {}
+    if payload_tool_name(obs.payload) != "Bash":
+        return {}
+    duration = command_duration_ms(obs.payload)
+    return {"duration_ms": duration} if duration is not None else {}
+
+
 def _headless_launch(obs: Observation) -> dict:
     headless = any(
         str(os.environ.get(name) or "").strip()
@@ -108,6 +118,7 @@ def lint_config_snapshot(payload: Mapping[str, object]) -> dict:
 
 
 _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
+    "duration_ms": _command_duration,
     CLIENT_GIT_COMMIT_FACTS_KEY: lambda obs: collect_git_commit_facts(
         dict(obs.payload)
     ),

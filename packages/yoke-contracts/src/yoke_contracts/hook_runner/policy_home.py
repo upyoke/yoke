@@ -137,7 +137,7 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_write_path": _SERVER,
     _D + "lint_yoke_adapter_stderr_visibility": _SERVER,
     _D + "lint_yoke_quoted_shell_substitution": _SERVER,
-    _D + "observe": _SERVER,
+    _D + "observe": _facts("duration_ms"),
     _D + "path_claim_pre_edit_guard": _SERVER,
     _D + "reflection_capture_hook": _SERVER,
     _H + "heartbeat": _SERVER,

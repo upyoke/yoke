@@ -1,8 +1,10 @@
 {
  "id": "read-only-observations",
  "title": "Read-only observations",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 3
+ "position": 3,
+ "summary": "Tool observations prefer native command durations. Codex transports the matching completed CommandExecution duration through existing client facts; absent native evidence leaves captured hook elapsed time, labelled separately in Performance inspection. Reports retain native timing instead of recomputing model wait from hook endpoints.",
+ "sources": ["docs/public/operations/performance-diagnostics.md", "packages/yoke-contracts/src/yoke_contracts/codex_shell_timing.py", "packages/yoke-harness/src/yoke_harness/hooks/client_facts.py"]
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from datetime import datetime, timedelta
 from yoke_contracts.timestamps import utc_now
@@ -53,6 +54,16 @@ _TOOL_COMPLETION_EVENTS = (
 )
 
 
+def event_context(envelope: Any) -> dict[str, Any]:
+    try:
+        value = json.loads(envelope) if isinstance(envelope, str) else envelope
+        context = (value or {}).get("context", {})
+        detail = context.get("detail")
+        return detail if isinstance(detail, dict) else context
+    except (ValueError, TypeError, AttributeError):
+        return {}
+
+
 def _tool_metric_rows(conn: Any, cutoff: datetime) -> list[Any]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in _TOOL_COMPLETION_EVENTS)
@@ -91,8 +102,11 @@ def _classify_call(
     harness: str,
     tool_name: str,
     tool_use_id: str | None,
+    timing_status: str | None = None,
 ) -> tuple[int | None, str]:
-    """Return (milliseconds, kind) using owner timestamps when a row exists."""
+    """Prefer native duration; otherwise use repaired captured endpoints."""
+    if event_duration is not None and timing_status == "native_duration":
+        return event_duration, "timed"
     owner_present = started_at is not None or completed_at is not None
     if owner_present:
         measurement = report_owner_elapsed(
@@ -174,6 +188,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
         tool_use_id = str(_value(row, "tool_use_id", 7) or "").strip() or None
         duration, kind = _classify_call(
             event_duration=_duration(_value(row, "duration_ms", 0)),
+            timing_status=event_context(envelope).get("timing_status"),
             started_at=_value(row, "started_at", 8),
             completed_at=_value(row, "completed_at", 9),
             observed=observed,
