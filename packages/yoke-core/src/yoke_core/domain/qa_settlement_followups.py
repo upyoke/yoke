@@ -27,9 +27,11 @@ _LOG = logging.getLogger(__name__)
 RETRY_AFTER_SECONDS = 60
 CYCLE_LIMIT = 50
 
+#: Part of the QA schema, which initializes on its own before ``items``
+#: exists, so ``item_id`` carries no foreign key, like ``qa_requirements``.
 QA_SETTLEMENT_FOLLOWUPS_CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS qa_settlement_followups (
-  item_id INTEGER PRIMARY KEY REFERENCES items(id),
+  item_id INTEGER PRIMARY KEY,
   requested_at TIMESTAMPTZ NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
   attempted_at TIMESTAMPTZ,
