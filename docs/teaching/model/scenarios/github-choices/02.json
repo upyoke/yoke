@@ -1,15 +1,15 @@
 {
  "id": "02",
  "title": "Publishing a repository is a separate choice",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "New project creation or later publication",
- "need": "A prepared Git repository can stay local. Connecting a GitHub account does not mean every project must be published there.",
+ "need": "A prepared Git repository can stay local. Skipping GitHub makes the publish prompt default to No — keep it local; a verified connection keeps Yes — publish to GitHub selected. Connecting GitHub does not require publishing every project.",
  "disclosure": "current cue",
  "surface": "Project source / publish-or-keep-local step",
  "gap": "JOURNEYS 4–5 currently makes pushing to GitHub sound mandatory. That edge should be reviewed against the supported keep-local path.",
- "review": "Pending exact recipe proof.",
+ "review": "Source and keyboard-driven tests cover both defaults for new and existing local projects; deployed delivery remains unproved.",
  "plan_notes": ["JOURNEYS 4", "JOURNEYS 5"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_publish.py", "runtime/api/cli/test_onboard_publish_defaults.py"],
  "position": 2
 }
