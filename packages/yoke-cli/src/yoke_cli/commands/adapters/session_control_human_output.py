@@ -187,8 +187,11 @@ def _write_recipients(
     *,
     actor_recipients: Iterable[Mapping[str, Any]] = (),
     steering_recipient: Mapping[str, Any] | None = None,
+    launch_recipient: Mapping[str, Any] | None = None,
 ) -> None:
-    rows = display_recipients(recipients, actor_recipients, steering_recipient)
+    rows = display_recipients(
+        recipients, actor_recipients, steering_recipient, launch_recipient
+    )
     columns: tuple[Column, ...] = (
         ("SESSION / ACTOR", recipient_party, None),
         ("PROJECT", recipient_project, 14),
@@ -221,6 +224,8 @@ def _write_message_detail(
     command = message.get("acknowledgement_command")
     if command:
         print(command, file=stdout)
+    if message.get("launch_recipient"):
+        print(message["launch_recipient"]["summary"], file=stdout)
     if with_body:
         message_id = message.get("message_id")
         print(
@@ -254,6 +259,7 @@ def _write_message_detail(
         stdout,
         actor_recipients=actor_recipients,
         steering_recipient=message.get("steering_recipient"),
+        launch_recipient=message.get("launch_recipient"),
     )
     write_attempts(message.get("attempts") or [], stdout)
     write_withheld_attempts(message, stdout)
@@ -270,6 +276,8 @@ def write_message_result(
             else:
                 duplicate = " (deduplicated)" if result.get("deduplicated") else ""
                 receipt = f"msg {message_id} queued for {result.get('recipient_count', 0)} recipient(s){duplicate}"
+                if result.get("launch_recipient"):
+                    receipt += "; " + result["launch_recipient"]["summary"]
             print(f"{receipt}; track: yoke messages get {message_id}", file=stdout)
             return
         fields: list[tuple[str, Any]] = [
@@ -290,6 +298,7 @@ def write_message_result(
             stdout,
             actor_recipients=result.get("actor_recipients") or [],
             steering_recipient=result.get("steering_recipient"),
+            launch_recipient=result.get("launch_recipient"),
         )
         return
     if "messages" in result:

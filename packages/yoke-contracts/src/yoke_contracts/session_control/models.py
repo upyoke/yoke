@@ -82,6 +82,7 @@ class MessagePreviewResponse(BaseModel):
     recipient_count: int
     confirmation_token: Optional[str] = None
     steering_recipient: Optional[SteeringMessageRecipient] = None
+    launch_recipient: Optional[Dict[str, Any]] = None
 
 
 class MessageSendRequest(BaseModel):
@@ -102,6 +103,7 @@ class MessageSendResponse(BaseModel):
     #: caller never reads a collapsed send as a newly delivered one.
     collapsed_differing_body: bool = False
     steering_recipient: Optional[SteeringMessageRecipient] = None
+    launch_recipient: Optional[Dict[str, Any]] = None
 
 
 class MessageListRequest(BaseModel):

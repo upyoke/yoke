@@ -17,6 +17,10 @@ from yoke_core.domain.session_message_cursor import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
+from yoke_core.domain.session_message_launch_queue import (
+    queued_message_clause,
+    queued_launch_sql,
+)
 from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.session_message_page_rows import page_summaries
 from yoke_core.domain.session_message_queries import message_with_actor_context
@@ -61,8 +65,10 @@ def _project_clause(
         "session_message_recipients ps WHERE ps.message_id=m.message_id "
         f"AND ps.project_id IN ({slots})) OR EXISTS (SELECT 1 FROM "
         "actor_message_recipients pt WHERE pt.message_id=m.message_id "
-        f"AND pt.recipient_kind={p} AND pt.project_id IN ({slots})))",
-        [ACTOR_KIND, *project_ids, STEERING_KIND, *project_ids],
+        f"AND pt.recipient_kind={p} AND pt.project_id IN ({slots})) OR EXISTS "
+        f"(SELECT 1 FROM session_launches l WHERE l.launch_id={queued_launch_sql(p)} "
+        f"AND l.project_id IN ({slots})))",
+        [ACTOR_KIND, *project_ids, STEERING_KIND, *project_ids, *project_ids],
     )
 
 
@@ -79,16 +85,18 @@ def _actionable_clause(conn: Any, now: Any) -> tuple[str, list[Any]]:
     p = _p(conn)
     session_slots = ",".join(p for _ in OPEN_SESSION_STATES)
     steering_slots = ",".join(p for _ in STEERING_OPEN_STATES)
+    queued, queued_params = queued_message_clause(p, state="pending", now=now)
     return (
-        f"(m.cancelled_at IS NULL AND m.expires_at>{p} AND (EXISTS (SELECT 1 "
+        f"({queued} OR (m.cancelled_at IS NULL AND m.expires_at>{p} AND (EXISTS (SELECT 1 "
         "FROM session_message_recipients ao WHERE ao.message_id=m.message_id "
         f"AND ao.state IN ({session_slots})) OR EXISTS (SELECT 1 FROM "
         "actor_message_recipients aa WHERE aa.message_id=m.message_id "
         f"AND aa.recipient_kind={p} AND aa.state='pending') OR EXISTS "
         "(SELECT 1 FROM actor_message_recipients ast WHERE "
         f"ast.message_id=m.message_id AND ast.recipient_kind={p} "
-        f"AND ast.state IN ({steering_slots}))))",
+        f"AND ast.state IN ({steering_slots})))))",
         [
+            *queued_params,
             now,
             *OPEN_SESSION_STATES,
             ACTOR_KIND,

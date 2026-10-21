@@ -10,6 +10,7 @@ def display_recipients(
     session_recipients: Iterable[Mapping[str, Any]],
     actor_recipients: Iterable[Mapping[str, Any]],
     steering_recipient: Mapping[str, Any] | None = None,
+    launch_recipient: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Every party a message reached: sessions, people, and the seat role.
 
@@ -29,6 +30,8 @@ def display_recipients(
     rows.extend(dict(recipient) for recipient in actor_recipients)
     if steering_recipient is not None:
         rows.append(dict(steering_recipient))
+    if launch_recipient is not None:
+        rows.append(dict(launch_recipient))
     return rows
 
 
@@ -44,6 +47,7 @@ def recipient_count(message: Mapping[str, Any]) -> int:
         len(message.get("recipients") or [])
         + len(message.get("actor_recipients") or [])
         + (1 if message.get("steering_recipient") else 0)
+        + (1 if message.get("launch_recipient") else 0)
     )
 
 
@@ -55,6 +59,7 @@ def recipient_states(message: Mapping[str, Any]) -> set[Any]:
     rows = [
         *(message.get("recipients") or []),
         *(message.get("actor_recipients") or []),
+        *([message["launch_recipient"]] if message.get("launch_recipient") else []),
         *([steering] if steering else []),
     ]
     return {row.get("state") or row.get("liveness") for row in rows}

@@ -21,6 +21,10 @@ from yoke_core.domain.session_message_receipt_expiry import (
     steering_open_sql,
     steering_settled_sql,
 )
+from yoke_core.domain.session_message_launch_queue import (
+    launch_result,
+    queued_message_clause,
+)
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     row_dict,
@@ -104,6 +108,7 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         recipient["resolution_evidence"] = _decode(recipient["resolution_evidence"], [])
         recipient["routing_snapshot"] = _decode(recipient["routing_snapshot"], {})
     message["recipients"] = recipients
+    message.update(launch_result(conn, message))
     message["actor_recipients"] = actor_recipients_for_message(conn, message_id)
     steering = stored_steering_recipient(conn, message_id)
     if steering is not None:
@@ -219,6 +224,11 @@ def message_recipient_match_clause(
     )
     params.extend([STEERING_KIND, *steering_params, *seat_params])
     if session_id is None:
+        queued_clause, queued_params = queued_message_clause(
+            marker, state=state, now=now
+        )
+        branches.append(queued_clause)
+        params.extend(queued_params)
         actor_state, actor_params = _actor_state_clause(marker, state, now)
         branches.append(
             "EXISTS (SELECT 1 FROM actor_message_recipients ar "

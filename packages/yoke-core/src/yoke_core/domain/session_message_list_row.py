@@ -45,6 +45,7 @@ _CARRIED = (
     "cancellation_reason",
     "needs_attention",
     "acknowledgement_command",
+    "launch_recipient",
 )
 
 
@@ -54,6 +55,7 @@ def recipient_rows(message: dict[str, Any]) -> list[Any]:
     return [
         *(message.get("recipients") or []),
         *(message.get("actor_recipients") or []),
+        *([message["launch_recipient"]] if message.get("launch_recipient") else []),
         *([steering] if steering else []),
     ]
 
