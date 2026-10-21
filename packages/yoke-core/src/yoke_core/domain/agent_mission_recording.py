@@ -192,6 +192,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.qa_plan_execution_continuation import (
         mission_access_refusal,
     )
+    from yoke_core.domain.qa_plan_execution_reentry import bound_checkin_queries
     from yoke_core.domain.qa_plan_execution_state import (
         heartbeat_plan_execution,
         lock_plan_execution,
@@ -200,6 +201,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
+        bound_checkin_queries(conn)
         execution = lock_plan_execution(conn, parsed.execution_id)
         if request.target.kind == "global":
             require_standalone_project(conn, execution, str(request.target.project_id))

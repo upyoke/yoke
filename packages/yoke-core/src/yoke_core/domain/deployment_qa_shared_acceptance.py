@@ -195,7 +195,11 @@ def prior_shared_acceptance(conn, run_id, stage, member):
 
 def settle_shared_group(conn, subject, target):
     from yoke_core.domain.deployment_qa_stage_gate import _settle_stage_status
-    from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
+    from yoke_core.domain.deployment_qa_stage_settlement import (
+        SETTLED_OUTCOMES,
+        continue_settled_stage,
+        settle_acceptance,
+    )
     from yoke_core.domain.deployment_qa_shared_plans import group_members
 
     status = _settle_stage_status(
@@ -207,8 +211,25 @@ def settle_shared_group(conn, subject, target):
         member_item_id=None,
     )
     conn.commit()
+    run_id, stage = subject["id"], subject["stage"]["name"]
+    settled = []
     for member in group_members(conn, subject, target):
-        settle_subject(
-            conn, run_id=subject["id"], stage=subject["stage"]["name"], member=member
+        member_status, released = settle_acceptance(
+            conn, run_id=run_id, stage=stage, member=member
+        )
+        if str(member_status.get("outcome") or "") in SETTLED_OUTCOMES:
+            settled.append((released, member, member_status))
+    # The run continues once for the whole group, preferring a released
+    # member: every acceptance is durable first, so one run-wide check
+    # replaces one per member.
+    if settled:
+        released, member, member_status = max(settled, key=lambda entry: entry[0])
+        continue_settled_stage(
+            conn,
+            run_id=run_id,
+            stage=stage,
+            member=member,
+            status=member_status,
+            released=released,
         )
     return status

@@ -7,7 +7,10 @@ from copy import deepcopy
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.deployment_qa_shared_plan_reads import (
+    attaching_members,
     _member_attached_plan_ids,
     _other_members_plan_ids,
     _formed_group_plan_ids,
@@ -112,17 +115,8 @@ def resolve_shared_subject(
         deployment_qa_execution_target,
     )
 
-    members = query_rows(
-        conn,
-        "SELECT m.item_id FROM deployment_run_items m JOIN items i ON i.id=m.item_id "
-        "JOIN qa_plans p ON p.project_id=i.project_id WHERE m.run_id=%s AND p.id=%s ORDER BY m.item_id",
-        (run_id, plan_id),
-    )
     matches = {}
-    for row in members:
-        member = int(row["item_id"])
-        if member_item_id is not None and member != member_item_id:
-            continue
+    for member in attaching_members(conn, run_id, int(plan_id), member_item_id):
         subject = deployment_qa_stage_subject(
             conn,
             run_id=run_id,
@@ -209,11 +203,9 @@ def execution_subject(
     conn: Any, execution: Mapping, *, require_active: bool = True
 ) -> dict:
     """Recover a private or shared subject from its immutable execution target."""
-    from yoke_core.domain.deployment_qa_stage_contract import (
-        deployment_qa_stage_subject,
-    )
-
     import json
+
+    from yoke_core.domain.qa_request_subjects import execution_subject_once
 
     target = (
         execution.get("execution_target")
@@ -222,6 +214,23 @@ def execution_subject(
     )
     if not isinstance(target, Mapping):
         target = json.loads(str(target))
+    return execution_subject_once(
+        execution,
+        target,
+        require_active=require_active,
+        read=lambda active: _read_execution_subject(
+            conn, execution, target, require_active=active
+        ),
+    )
+
+
+def _read_execution_subject(
+    conn: Any, execution: Mapping, target: Mapping, *, require_active: bool
+) -> dict:
+    from yoke_core.domain.deployment_qa_stage_contract import (
+        deployment_qa_stage_subject,
+    )
+
     shared = (target.get("deployment") or {}).get("shared_plan")
     if shared:
         return resolve_shared_subject(
@@ -260,26 +269,30 @@ def requirement_subject(
 
 def group_members(conn: Any, subject: Mapping, target: Mapping) -> list[int]:
     """Only members selecting this exact plan/source/target receive its verdict."""
-    members = query_rows(
-        conn,
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
-        (subject["id"],),
-    )
+    return _group_members(conn, subject, target, run_id=str(subject["id"]))
+
+
+@presentation_operation
+@run_presentation
+def _group_members(conn: Any, subject: Mapping, target: Mapping, *, run_id: str):
+    # Each member's check resolves its siblings' plans; one presentation of
+    # the run reads those once for every member instead of once per member.
+    plan_id = int(subject["shared_plan"]["plan_id"])
     found = []
-    for row in members:
+    for member in attaching_members(conn, run_id, plan_id):
         try:
             resolve_shared_subject(
                 conn,
                 run_id=subject["id"],
                 stage_name=subject["stage"]["name"],
-                plan_id=subject["shared_plan"]["plan_id"],
-                member_item_id=int(row["item_id"]),
+                plan_id=plan_id,
+                member_item_id=member,
                 expected_target=target,
                 require_active=False,
             )
         except ValueError:
             continue
-        found.append(int(row["item_id"]))
+        found.append(member)
     return found
 
 

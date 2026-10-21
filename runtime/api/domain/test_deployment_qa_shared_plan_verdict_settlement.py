@@ -42,16 +42,16 @@ def test_completing_a_shared_case_records_the_verdict_and_credits_both_members(
         "UPDATE deployment_runs SET current_stage='item-qa' WHERE id=%s", (RUN,)
     )
     test_db.commit()
-    settle_subject = deployment_qa_stage_settlement.settle_subject
+    settle_acceptance = deployment_qa_stage_settlement.settle_acceptance
     credited = []
 
     def spy(conn, *, run_id, stage, member):
         credited.append(member)
-        return settle_subject(conn, run_id=run_id, stage=stage, member=member)
+        return settle_acceptance(conn, run_id=run_id, stage=stage, member=member)
 
     with (
         patch("yoke_core.domain.qa_events.emit_qa_run_event"),
-        patch.object(deployment_qa_stage_settlement, "settle_subject", spy),
+        patch.object(deployment_qa_stage_settlement, "settle_acceptance", spy),
     ):
         started = qa_browser_writes.handle_qa_run_add(
             _request("qa.run.add", requirement_id, {"performed_by": "worktree_run"})
