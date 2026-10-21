@@ -16,8 +16,8 @@ Public surface:
   thin wrappers around ``path_context_values`` that operate on the
   render-relationship families. Skip silently when no path_targets row
   exists for the rendered file (opportunistic registration).
-- :func:`record_render_relationships` — write/refresh every
-  relationship row idempotently under one minted operation id, then
+- :func:`record_render_relationships` — batch-write changed
+  relationship rows under one minted operation id, then
   emit the batch-level ``RenderRelationshipRecorded`` event naming it.
 """
 
@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain.events_bounded_emit import emit_bounded
 from yoke_core.domain.path_context import (
@@ -38,6 +38,7 @@ from yoke_core.domain.render_relationship_inventory import (
     render_relationship_map,
 )
 from yoke_core.domain.project_attribution import resolved_project
+from yoke_core.domain.render_relationship_batch import write_changed_relationships
 
 #: Batch-level provenance event shared by the render-target/source rows one
 #: render call writes.
@@ -79,7 +80,6 @@ def set_render_relationship(
     source_paths: Sequence[str],
     recorded_event_id: str,
     project_id: str | int | None = None,
-    target_id_by_path: Mapping[str, int] | None = None,
 ) -> Optional[int]:
     """Record ``target_path`` as a render target with ``source_paths`` as seeds.
 
@@ -96,10 +96,7 @@ def set_render_relationship(
     """
     from yoke_core.domain.path_registry import target_at
 
-    if target_id_by_path is not None:
-        target_id = target_id_by_path.get(target_path)
-    else:
-        target_id = target_at(conn, project_id, target_path)
+    target_id = target_at(conn, project_id, target_path)
     if target_id is None:
         return None
     normalised_sources = sorted({str(p) for p in source_paths if p})
@@ -112,10 +109,7 @@ def set_render_relationship(
         recorded_event_id=recorded_event_id,
     )
     for source_path in normalised_sources:
-        if target_id_by_path is not None:
-            source_target_id = target_id_by_path.get(source_path)
-        else:
-            source_target_id = target_at(conn, project_id, source_path)
+        source_target_id = target_at(conn, project_id, source_path)
         if source_target_id is None:
             continue
         put_context_value(
@@ -176,13 +170,13 @@ def record_render_relationships(
     project_id: str | int | None = None,
     session_id: str = "",
 ) -> int:
-    """Write every render relationship row and emit one batch event.
+    """Write changed render relationship rows and emit one batch event.
 
     Returns the number of render targets that received a row (0 when no
     path_targets rows exist for any of the rendered files — the
     opportunistic case where the registry has not seen them yet). The
-    write is idempotent: existing rows are refreshed in place via the
-    ``put_context_value`` upsert path.
+    write reads existing values once and upserts only changes in one batch.
+    Unchanged rows retain their timestamps and provenance.
 
     ``path_context_values`` is the authority for these relationships and
     its ``recorded_event_id`` is an opaque provenance string, so this
@@ -197,25 +191,15 @@ def record_render_relationships(
     }
     target_id_by_path = _latest_target_ids(conn, project_id, sorted(needed_paths))
     operation_id = f"render-relationship-batch:{uuid.uuid4()}"
-    written = 0
-    for target_path in sorted(relationships):
-        sources = relationships[target_path]
-        row_id = set_render_relationship(
-            conn,
-            target_path=target_path,
-            source_paths=sources,
-            recorded_event_id=operation_id,
-            project_id=project_id,
-            target_id_by_path=target_id_by_path,
-        )
-        if row_id is not None:
-            written += 1
+    written = write_changed_relationships(
+        conn, relationships, target_id_by_path, operation_id
+    )
     emit_bounded(
         conn,
         EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
         durable_fact=(
-            "the relationships are written on path_context_values under "
-            f"recorded_event_id={operation_id}"
+            "changed relationships are written on path_context_values under "
+            f"recorded_event_id={operation_id}; unchanged rows retain their provenance"
         ),
         event_kind="lifecycle",
         event_type="path_context",
