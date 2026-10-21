@@ -264,27 +264,20 @@ def reap_stale_plan_executions(
     *,
     now: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Abandon every execution whose owner has stopped reporting progress.
+    """Settle abandoned walks under their state-specific ownership rule.
 
-    Without this, an execution whose owning session died stays live forever,
-    and every human decision it raised waits on a termination that never
-    arrives. Reaping is deliberately vintage-blind: it settles the row from
-    its heartbeat alone, so the oldest strandings -- the ones with the least
-    complete rows -- are exactly the ones it can still clear.
-
-    Silence is not always absence, so the heartbeat is read beside the owning
-    session's declared posture: a session parked on instruction is present
-    and holding, and its execution is skipped. That test lives here rather
-    than in a park-time heartbeat stamp because a stamped heartbeat would
-    claim progress that is not happening -- and would go stale again minutes
-    later anyway, while the walker is still legitimately holding.
+    Waiting walks require durable owner-session end evidence. Other walks
+    use heartbeat age, except while a live owner is deliberately parked.
     """
     if not _table_exists(conn, "qa_plan_executions"):
         return []
     candidates = [
-        {"id": str(row[0]), "heartbeat_at": row[1], "session_id": row[2]}
+        {
+            "id": str(row[0]), "heartbeat_at": row[1],
+            "session_id": row[2], "state": row[3],
+        }
         for row in conn.execute(
-            "SELECT id, heartbeat_at, session_id FROM qa_plan_executions "
+            "SELECT id, heartbeat_at, session_id, state FROM qa_plan_executions "
             f"WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY created_at, id"
         ).fetchall()
     ]
@@ -295,6 +288,9 @@ def reap_stale_plan_executions(
         try:
             execution = lock_plan_execution(conn, candidate["id"])
             if str(execution["state"]) in TERMINAL_PLAN_EXECUTION_STATES:
+                conn.rollback()
+                continue
+            if not plan_execution_is_abandoned(conn, execution, now=now):
                 conn.rollback()
                 continue
             finish_plan_execution(
