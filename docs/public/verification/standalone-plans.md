@@ -60,6 +60,9 @@ Frozen deployment snapshots retain source provenance. A stage materializes its
 frozen definitions even after the saved plan changes; a selected or refreshed
 source not carried by the run's candidate refuses `qa_plan_source_candidate_mismatch`.
 Release a candidate carrying the newer source, or use a run-bound correction.
+A plan the run froze while unbound keeps its frozen cases for that run after a
+later sync binds it; its stages, retraction and retirement proceed. A snapshot
+with no source field at all refuses `qa_plan_source_snapshot_missing`.
 A sync moves only forward: its revision must equal or descend from the plan's
 recorded revision. An older revision refuses `qa_plan_source_revision_regression`
 and an unprovable recorded revision refuses `qa_plan_source_ancestry_unverified`;
