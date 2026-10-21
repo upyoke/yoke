@@ -1,13 +1,10 @@
-"""Commit boundaries must not absorb index entries they did not stage.
+"""A staged deletion is invisible to the ordinary dirty-tree probes.
 
 Every process inside one linked worktree shares that worktree's index.
-So a staged entry is not evidence that the committing agent staged it,
-and the two surfaces that turn an index into a commit both have to
-account for that.
-
-A staged deletion is the sharp case: it has no working-tree
-counterpart, so the probes that look for modified and untracked files
-both come back empty and the tree reads as clean.
+A staged deletion has no working-tree counterpart, so the probes that
+look for modified and untracked files both come back empty and the tree
+reads as clean. The merge preflight in ``merge_worktree_prepare_preflight``
+therefore also reads ``git diff --cached --name-only``.
 """
 
 from __future__ import annotations
@@ -15,8 +12,6 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-
-from yoke_core.domain.agent_stop_commit import auto_commit_worktree
 
 
 def _git(repo, *args):
@@ -55,31 +50,3 @@ class TestStagedDeletionIsVisible:
             repo, "diff", "--cached", "--name-only",
         ).stdout.strip() == "kept.py"
 
-
-class TestAutoCommitRefusesForeignIndexEntries:
-    def test_pre_staged_entry_blocks_the_commit(self, repo):
-        _git(repo, "rm", "-q", "kept.py")
-        head_before = _git(repo, "rev-parse", "HEAD").stdout.strip()
-
-        result = auto_commit_worktree(str(repo), "test-item")
-
-        assert result.committed is False
-        assert result.pre_staged == ("kept.py",)
-        assert _git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
-        # The deletion is still staged, not silently discarded — the net
-        # declines to act, it does not clean up after another process.
-        assert _git(
-            repo, "diff", "--cached", "--name-only",
-        ).stdout.strip() == "kept.py"
-
-    def test_own_unstaged_work_still_commits(self, repo):
-        (repo / "also_kept.py").write_text("edited\n", encoding="utf-8")
-        result = auto_commit_worktree(str(repo), "test-item")
-        assert result.committed is True
-        assert result.pre_staged == ()
-        assert _git(repo, "status", "--porcelain").stdout.strip() == ""
-
-    def test_clean_worktree_commits_nothing(self, repo):
-        result = auto_commit_worktree(str(repo), "test-item")
-        assert result.committed is False
-        assert result.pre_staged == ()

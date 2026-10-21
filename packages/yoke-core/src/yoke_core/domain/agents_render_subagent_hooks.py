@@ -13,7 +13,7 @@ orchestrator (:mod:`yoke_core.domain.agents_render`) used to inline:
 - :func:`render_claude_subagent_hooks_block` — compose the per-subagent
   ``hooks`` YAML block with exactly one matcherless command per emitted
   event: PreToolUse (runner selects the chain from ``tool_name``),
-  PostToolUse observe, and SubagentStop.
+  PostToolUse and PostToolUseFailure.
 
 Single source of truth for subagent hook chains:
 
@@ -21,8 +21,8 @@ All canonical role specs leave hook composition to this module. PreToolUse,
 PostToolUse and PostToolUseFailure use ``yoke hook evaluate`` with role and
 configuration-owner identity. The shared registry owns chain selection and
 transport. Product Manager and Product Designer keep their non-Bash grants;
-that grant does not change hook transport. SubagentStop remains a machine-local
-auto-commit safety net with best-effort telemetry.
+that grant does not change hook transport. Subagents carry no SubagentStop
+hook: a worker commits every completed change before it returns.
 
 Imports from :mod:`yoke_core.domain.agents_render` would create a cycle;
 this module's only Yoke dependencies are the conditional renderer, the
@@ -76,7 +76,6 @@ CLAUDE_SPEC_KEY_ORDER = [
 # ---------------------------------------------------------------------------
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
-_SUBAGENT_STOP_MODULE = "python3 -m yoke_core.domain.agent_stop"
 
 
 def _env_prefix(agent: str) -> str:
@@ -99,10 +98,6 @@ def _hook_entry(command: str) -> dict:
 
 def _runner_command(agent: str, event: str) -> str:
     return f"{_env_prefix(agent)} {_YOKE_HOOK_EVALUATE} {event}"
-
-
-def _subagent_stop_command(agent: str) -> str:
-    return f"{_env_prefix(agent)} {_SUBAGENT_STOP_MODULE}"
 
 
 def render_claude_subagent_hooks_block(agent: str) -> dict:
@@ -133,7 +128,6 @@ def render_claude_subagent_hooks_block(agent: str) -> dict:
     block["PostToolUseFailure"] = [
         {"hooks": [_hook_entry(_runner_command(agent, "PostToolUseFailure"))]}
     ]
-    block["SubagentStop"] = [{"hooks": [_hook_entry(_subagent_stop_command(agent))]}]
     return block
 
 

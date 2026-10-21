@@ -18,10 +18,6 @@ hooks:
   - hooks:
     - type: command
       command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager yoke hook evaluate PostToolUseFailure
-  SubagentStop:
-  - hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=product-manager python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Product Manager. Turn the idea, verified codebase context, and

@@ -40,7 +40,7 @@ If an edited test file fails, fix the issue before submission. If you edited no 
 2. Write a progress note for the commit.
 3. Re-run `git -C {worktree-path} status --porcelain` to confirm the worktree is clean.
 
-**You MUST NOT produce your `---REFLECTION-START---` block with a dirty worktree.** The safety-net auto-commit is a crash-recovery mechanism, not a normal exit path. Relying on it degrades cold-start quality (no progress note) and creates noisy commit history.
+**You MUST NOT produce your `---REFLECTION-START---` block with a dirty worktree.** Nothing commits for you when you stop: uncommitted work stays in the lane, and the next worker starts without your progress note.
 
 If you cannot commit certain files (e.g., generated artifacts that should be gitignored), explicitly note them in your structured output with justification for why they were left uncommitted.
 

@@ -13,7 +13,6 @@ HarnessSessionSentFirstUserPromptSubmit (0..1 -- session open when session hooks
  HarnessToolCallCompleted (0..N -- one per successful tool use)
  HarnessToolCallFailed (0..N -- one per failed tool use)
  HarnessToolCallStructuredExit (0..N -- expected flow-control exits)
-HarnessSessionStopped (0..1 -- session close when stop hooks are wired)
 ```
 
 ### Event Definitions
@@ -162,29 +161,6 @@ Emitted when a failed command is reclassified as expected flow control rather th
 }
 ```
 
-**HarnessSessionStopped**
-
-Emitted when an agent session ends (`python3 -m yoke_core.domain.agent_stop`).
-
-```json
-{
- "event_name": "HarnessSessionStopped",
- "event_kind": "system",
- "event_type": "session_lifecycle",
- "event_outcome": "completed",
- "source_type": "agent",
- "severity": "INFO",
- "item_id": "42",
- "task_num": 3,
- "context": {
- "hook": "agent_stop",
- "auto_committed": false,
- "stop_reason": "completed",
- "final_status": "done"
- }
-}
-```
-
 ### Canonical SQL Queries
 
 #### Session Reconstruction
@@ -315,6 +291,6 @@ ORDER BY occurrence_count DESC;
 - **item_id + task_num is the primary key for task analysis.** Multiple sessions may work on the same task (retries, multi-session work). Query `WHERE item_id = :id AND task_num = :num` for all sessions related to a task.
 - **Anomalies live on the primary tool-call row.** Yoke stores anomaly signals in `anomaly_flags` on `HarnessToolCallCompleted`, `HarnessToolCallFailed`, or `HarnessToolCallStructuredExit` rather than emitting a second anomaly event.
 - **`created_at` is the first-class table timestamp.** Frontend/Pack and hook envelopes use `event_time`; the core emitter uses `created_at` in JSON too. Use the table column for SQL.
-- **Durations are always in milliseconds.** The `duration_ms` field on `HarnessSessionStopped` represents total session wall time. On `HarnessToolCallCompleted`/`HarnessToolCallFailed` it represents tool execution time.
+- **Durations are always in milliseconds.** On `HarnessToolCallCompleted`/`HarnessToolCallFailed`, `duration_ms` represents tool execution time.
 
 ---

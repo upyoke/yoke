@@ -11,7 +11,7 @@ Covers the subagent hook rendering acceptance criteria:
   HC-agent-consistency's executable classifier reads the real head).
 - PostToolUse / PostToolUseFailure share the transport-aware runner
   and preserve role attribution.
-- SubagentStop wraps ``agent_stop`` with the env prefix.
+- No SubagentStop entry: a subagent stops with no Yoke stop hook.
 """
 
 from __future__ import annotations
@@ -80,15 +80,11 @@ def test_posttool_events_use_transport_aware_runner() -> None:
             assert command.endswith(f"yoke hook evaluate {event_name}"), command
 
 
-def test_subagent_stop_runs_agent_stop_with_env_prefix() -> None:
+def test_subagent_block_carries_no_stop_hook() -> None:
     for role in _BASH_CAPABLE_ROLES + _NON_BASH_ROLES:
         block = render_claude_subagent_hooks_block(role)
-        entries = block.get("SubagentStop", [])
-        assert len(entries) == 1, (role, entries)
-        command = entries[0]["hooks"][0]["command"]
-        expected = (
-            "YOKE_HOOK_CONFIG_OWNER=claude "
-            f"YOKE_HOOK_AGENT_TYPE={role} "
-            f"python3 -m yoke_core.domain.agent_stop"
-        )
-        assert command == expected, (role, command)
+        assert sorted(block) == [
+            "PostToolUse",
+            "PostToolUseFailure",
+            "PreToolUse",
+        ], (role, sorted(block))

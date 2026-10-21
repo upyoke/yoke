@@ -207,14 +207,12 @@ return actionable contradictions/completeness/naming/quality findings.
 injects every Claude role's hooks. PreToolUse is one matcherless
 `yoke hook evaluate PreToolUse`, with role/config-owner identity; universal chain
 selects guards by tool_name. PostToolUse/PostToolUseFailure use the same
-transport-aware runner with role attribution; SubagentStop uses the local
-agent_stop safety net. PM/Designer keep their non-Bash tool grants and share
-the hook composer. Read actual
+transport-aware runner with role attribution. Subagents carry no SubagentStop
+hook; a worker commits every completed change before it returns. PM/Designer
+keep their non-Bash tool grants and share the hook composer. Read actual
 generated frontmatter rather than reproduce per-tool choreography here.
 
-`agent_stop` is an item-lane auto-commit safety net and HarnessSessionStopped
-telemetry; it neither drains claims nor completes a task. Safety-net/rescue is
-not valid clean submission. The live shared hook registry owns SQL/shell, denied
+The live shared hook registry owns SQL/shell, denied
 Write/Edit, subagent backgrounding and telemetry ordering; stable audit id
 lint-sqlite-cmd remains compatible with history. Hooks are Python-owned.
 
