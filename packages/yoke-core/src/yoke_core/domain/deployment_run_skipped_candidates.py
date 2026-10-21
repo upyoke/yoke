@@ -47,8 +47,7 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
-from yoke_core.domain.deployment_run_member_targeting import run_environment_name
-from yoke_core.domain.deployment_run_project_sources import run_source_sha
+from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     HeldCandidate,
@@ -110,27 +109,48 @@ def _describe_blocked(
     return line + ")"
 
 
-def _describe_held(conn: Any, run_id: str, record: HeldCandidate) -> str:
-    """One held landing; a holder on another environment names its commit.
-
-    A run on a different environment holds only when it pinned a different
-    commit for the item's project, because supplemental proof credits only
-    against the commit final delivery ships.
-    """
-    line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
-    environment = run_environment_name(conn, run_id)
-    if run_environment_name(conn, record.run_id) == environment:
-        return line
-    row = conn.execute(
-        "SELECT project_id FROM items WHERE id=%s", (int(record.item_id),)
-    ).fetchone()
-    project_id = int(row["project_id"] if hasattr(row, "keys") else row[0])
-    lineage = run_source_sha(conn, record.run_id, project_id) or "(unrecorded)"
-    return (
-        f"{line} on commit {lineage}, which this run does not ship; its "
-        f"{environment or 'supplemental'} proof credits only against that "
-        "commit, so compose a run on it to prove the item"
-    )
+def _held_descriptions(
+    conn: Any, run_id: str, held: tuple[HeldCandidate, ...]
+) -> list[str]:
+    """Read all holder environments and per-project source pins together."""
+    if not held:
+        return []
+    run_ids = sorted({run_id, *(record.run_id for record in held)})
+    runs = {
+        str(row["id"]): dict(row)
+        for row in conn.execute(
+            "SELECT dr.id,dr.project_id,dr.release_lineage,dr.bound_sources,e.name "
+            "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
+            "LEFT JOIN environments e ON "
+            "e.id=COALESCE(dr.target_environment_id,df.target_environment_id) "
+            f"WHERE dr.id IN ({','.join('%s' for _ in run_ids)})",
+            tuple(run_ids),
+        ).fetchall()
+    }
+    item_ids = sorted({record.item_id for record in held})
+    projects = {
+        int(row[0]): int(row[1])
+        for row in conn.execute(
+            f"SELECT id,project_id FROM items WHERE id IN ({','.join('%s' for _ in item_ids)})",
+            tuple(item_ids),
+        ).fetchall()
+    }
+    environment = str(runs.get(run_id, {}).get("name") or "")
+    lines = []
+    for record in held:
+        line = f"{record.item_ref} held by {record.run_id} ({record.run_status})"
+        holder = runs.get(record.run_id, {})
+        if str(holder.get("name") or "") != environment:
+            lineage = (
+                recorded_source_sha(holder, projects[record.item_id]) or "(unrecorded)"
+            )
+            line += (
+                f" on commit {lineage}, which this run does not ship; its "
+                f"{environment or 'supplemental'} proof credits only against that "
+                "commit, so compose a run on it to prove the item"
+            )
+        lines.append(line)
+    return lines
 
 
 def skipped_candidate_notice(
@@ -191,7 +211,7 @@ def skipped_candidate_notice(
     if held:
         parts.append(
             "held by a release that owes their delivery: "
-            + "; ".join(_describe_held(conn, run_id, record) for record in held)
+            + "; ".join(_held_descriptions(conn, run_id, held))
         )
     if rework:
         parts.append(

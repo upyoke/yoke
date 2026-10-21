@@ -54,7 +54,6 @@ from yoke_core.domain.deployment_run_unheld_candidates import (
     resolve_candidate_custody,
 )
 from yoke_core.domain.deployment_runs_batch_compatibility import (
-    _item_label,
     _not_delivery_ready,
 )
 from yoke_core.domain.deployment_source_reads import SourcePreparationChanged

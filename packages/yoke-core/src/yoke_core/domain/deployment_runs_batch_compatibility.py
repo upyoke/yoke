@@ -12,19 +12,8 @@ from typing import List, Optional, Sequence, Tuple
 from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
 from yoke_core.domain.deployment_run_reopened_members import unready_item_ids
-from yoke_core.domain.project_identity import render_item_ref, resolve_project
+from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-
-
-def _item_label(conn, item_id: int, detail: str) -> str:
-    """Name one item in a refusal listing.
-
-    Not strict: this builds the list of items blocking a run, so an entry
-    whose identity will not resolve says so and the operator still sees
-    every other blocker. Raising here would replace the whole answer with
-    one lookup failure.
-    """
-    return f"{render_item_ref(conn, int(item_id))} ({detail})"
 
 
 def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:

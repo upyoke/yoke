@@ -90,3 +90,21 @@ def test_pinned_readiness_keeps_terminal_rules(test_db, status, ready):
     assert (not labels) is ready
     if status == "done":
         assert not _not_delivery_ready(test_db, [(27000, status)], allow_completed=True)
+
+
+def test_held_candidate_notice_reads_do_not_grow_with_items(test_db):
+    from runtime.api.domain.test_deployment_membership_round_trips import _created_run
+    from yoke_core.domain.deployment_run_skipped_candidates import _held_descriptions
+    from yoke_core.domain.deployment_run_unheld_candidates import HeldCandidate
+
+    counts = []
+    for name, base, count in (("held-small", 28000, 2), ("held-large", 29000, 30)):
+        ids = list(range(base, base + count))
+        run_id = _created_run(test_db, name, ids)
+        counted = CountedConnection(test_db)
+        held = tuple(HeldCandidate(i, f"REF-{i}", run_id, "executing") for i in ids)
+        lines = _held_descriptions(counted, run_id, held)
+        assert len(lines) == count
+        assert all(f"held by {run_id} (executing)" in line for line in lines)
+        counts.append(sum(counted.counts.values()))
+    assert counts[0] == counts[1] == 2
