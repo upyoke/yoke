@@ -21,6 +21,42 @@ from runtime.api.parity_db_router_test_fixtures import (  # noqa: F401
 from runtime.api.test_parity import _run_db_router
 
 
+def _no_view_schema() -> None:
+    conn = db_backend.connect()
+    conn.execute(
+        "CREATE TABLE projects (id INTEGER PRIMARY KEY, "
+        "slug TEXT UNIQUE NOT NULL, name TEXT, "
+        "public_item_prefix TEXT DEFAULT 'YOK')"
+    )
+    conn.execute(
+        "INSERT INTO projects (id, slug, name, public_item_prefix) "
+        "VALUES (1, 'yoke', 'Yoke', 'YOK')"
+    )
+    conn.execute(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT, "
+        "status TEXT DEFAULT 'idea', "
+        "priority TEXT DEFAULT 'medium', created_at TIMESTAMPTZ, "
+        "updated_at TIMESTAMPTZ, source TEXT DEFAULT '2', "
+        "project_id INTEGER DEFAULT 1, project_sequence INTEGER)"
+    )
+    from runtime.api.api_workflow_test_helpers import (
+        install_workflow_registry_and_pin_items,
+    )
+
+    install_workflow_registry_and_pin_items(conn)
+    conn.execute(
+        "INSERT INTO items "
+        "(id, title, workflow_id, workflow_version_id, created_at, "
+        "updated_at, project_id, project_sequence) "
+        "VALUES (1, 'Test', 'issue', "
+        "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+        "'2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 1, 1)"
+    )
+    conn.commit()
+    conn.close()
+
+
+
 class TestItemGetCLI:
     """Verify item-get CLI command."""
 
@@ -145,39 +181,6 @@ class TestItemProgressCLI:
     def test_progress_missing_view(self, item_query_env):
         """item-progress exits 0 with empty output when view doesn't exist."""
 
-        def _no_view_schema() -> None:
-            conn = db_backend.connect()
-            conn.execute(
-                "CREATE TABLE projects (id INTEGER PRIMARY KEY, "
-                "slug TEXT UNIQUE NOT NULL, name TEXT, "
-                "public_item_prefix TEXT DEFAULT 'YOK')"
-            )
-            conn.execute(
-                "INSERT INTO projects (id, slug, name, public_item_prefix) "
-                "VALUES (1, 'yoke', 'Yoke', 'YOK')"
-            )
-            conn.execute(
-                "CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT, "
-                "status TEXT DEFAULT 'idea', "
-                "priority TEXT DEFAULT 'medium', created_at TIMESTAMPTZ, "
-                "updated_at TIMESTAMPTZ, source TEXT DEFAULT '2', "
-                "project_id INTEGER DEFAULT 1, project_sequence INTEGER)"
-            )
-            from runtime.api.api_workflow_test_helpers import (
-                install_workflow_registry_and_pin_items,
-            )
-
-            install_workflow_registry_and_pin_items(conn)
-            conn.execute(
-                "INSERT INTO items "
-                "(id, title, workflow_id, workflow_version_id, created_at, "
-                "updated_at, project_id, project_sequence) "
-                "VALUES (1, 'Test', 'issue', "
-                "(SELECT current_version_id FROM workflows WHERE id='issue'), "
-                "'2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 1, 1)"
-            )
-            conn.commit()
-            conn.close()
 
         # A separate per-test DB built WITHOUT item_progress_view.
         tmp_dir = tempfile.mkdtemp(prefix="yoke-no-view-")
