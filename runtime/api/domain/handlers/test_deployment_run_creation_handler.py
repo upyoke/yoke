@@ -190,6 +190,21 @@ class TestDeploymentRunCreation(unittest.TestCase):
         self.assertEqual(outcome.result_payload["run_id"], "run-20260616-003")
         cmd_create.assert_called_once()
 
+    def test_merge_only_run_refusal_keeps_its_name(self):
+        from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
+
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_mutate.create_run",
+            side_effect=MergeOnlyRunRefused("local-completion"),
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(_request(
+                function="deployment_runs.create",
+                payload={"project": "yoke", "flow": "local-completion"},
+            ))
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "merge_only_flow_no_release_run")
+        self.assertIn("merge close-out", outcome.error.message)
+
     def test_run_create_requires_project_and_flow(self):
         outcome = deployment_runs.handle_deployment_run_create(
             _request(

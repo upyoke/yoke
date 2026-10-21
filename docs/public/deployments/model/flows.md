@@ -156,7 +156,17 @@ retirements, and default as control-plane rows. Runtime behavior comes from
 stored stages and capabilities, not from a recognized project slug or flow-ID
 prefix.
 
-Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.
+Flow ids are definitions, not executions. A merge-only flow has null
+`target_tier`: merge close-out runs the remaining declared lifecycle gates
+through `done`, including pass-through release stages, without a release run.
+A level change at a pass-through stage does not interrupt that close-out.
+This also works for a local checkout with no GitHub repository.
+Creating a release run for that flow refuses with
+`merge_only_flow_no_release_run`; finish merge close-out instead, or select a
+flow with a deployment target when the work must deploy.
+
+Flows with a deployment target create concrete `run-...` ids through
+`/yoke usher`, and each run retains its definition relationship for durable history.
 
 ## Deployment run authority
 

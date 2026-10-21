@@ -1,7 +1,9 @@
 {
  "id": "first-useful-work",
  "title": "First useful work",
- "status": "draft-copy",
+ "status": "observed",
  "page": "projects",
- "position": 4
+ "position": 4,
+ "text": "The first useful item can reach done from a local-only checkout through a merge-only flow. Verification and lifecycle gates still apply; neither a GitHub repository nor a release run is required.",
+ "sources": ["docs/public/start/terminal-onboarding.md", "runtime/api/domain/test_no_change_dash_terminal.py"]
 }

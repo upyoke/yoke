@@ -27,7 +27,7 @@ from yoke_cli.commands._helpers import (
 
 ITEMS_CANCEL_USAGE = (
     "yoke items cancel <PREFIX-N> --reason TEXT [--ref PREFIX-M] "
-    "[--session-id S] [--json]"
+    "[--abandon-merged] [--session-id S] [--json]"
 )
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "items.cancel.run": ITEMS_CANCEL_USAGE,
@@ -42,6 +42,8 @@ def items_cancel(args: List[str]) -> int:
     payload: Dict[str, Any] = {"reason": parsed.reason}
     if parsed.ref:
         payload["ref"] = parsed.ref
+    if parsed.abandon_merged:
+        payload["abandon_merged"] = True
     return dispatch_and_emit(
         function_id="items.cancel.run",
         target=item_target("item", parsed.item, parsed.project),
@@ -81,7 +83,12 @@ def _build_parser() -> Any:
             "cancel are different intents; a cancelled item is terminal, so "
             "frozen is cleared as part of this close. There is no --thaw "
             "flag.\n\n"
-            "--ref records the superseding item when one exists."
+            "--ref records the superseding item when one exists.\n\n"
+            "--abandon-merged lets an operator with a live covering steering "
+            "seat close merged work that cannot finish. It preserves merge "
+            "evidence and records the actor, session, prior status and reason "
+            "in resolution_comment in the same transaction. It does not "
+            "undo the code merge or mark the item delivered."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -97,6 +104,10 @@ def _build_parser() -> Any:
         help="Optional superseding item PREFIX-N stored as resolution_ref.",
     )
     add_session_arg(parser)
+    parser.add_argument(
+        "--abandon-merged", action="store_true",
+        help="Operator-only: abandon merged work that cannot reach done, with audit.",
+    )
     add_json_arg(parser)
     return parser
 

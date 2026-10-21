@@ -1,9 +1,15 @@
 """A no-change merge close-out supplies its terminal transition nonce."""
 
 
+import pytest
+
+
+@pytest.mark.parametrize("local_merge", [False, True], ids=["no-change", "no-github-first-merge"])
 def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     test_db,
     monkeypatch,
+    tmp_path,
+    local_merge,
 ):
     """The merge close-out command, not the test, asserts the done nonce."""
     import json
@@ -42,6 +48,31 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
         _request,
     )
 
+    import subprocess
+
+    repo = tmp_path / "local-project"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", "-C", str(repo), *args], text=True
+        ).strip()
+
+    git("init", "-b", "main")
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+        "commit", "--allow-empty", "-m", "Initial project")
+    initial = git("rev-parse", "HEAD")
+    git("switch", "-c", "first-work")
+    (repo / "result.txt").write_text("First useful work\n")
+    git("add", "result.txt")
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+        "commit", "-m", "Add first useful work")
+    head = git("rev-parse", "HEAD")
+    git("switch", "main")
+    git("merge", "--ff-only", "first-work")
+    assert not git("remote")  # This project has no GitHub source.
+    assert head != initial
+
     item_id = 7111
     session_id = "no-change-cmd"
     _isolate_status_effects(monkeypatch)
@@ -68,12 +99,12 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
                 "result_summary": "No code change was required.",
                 "verification_summary": "Recorded no-changes; optional QA unattached.",
                 "verification_status": "passed",
-                "commit_sha": "",
-                "merge_sha": "",
-                "touched_files": [],
-                "tree_root": "",
-                "tree_head_sha": "",
-                "no_changes": True,
+                "commit_sha": head if local_merge else "",
+                "merge_sha": head if local_merge else "",
+                "touched_files": ["result.txt"] if local_merge else [],
+                "tree_root": str(repo) if local_merge else "",
+                "tree_head_sha": head if local_merge else "",
+                "no_changes": not local_merge,
             },
             actor_id=actor_id,
             item_id=item_id,
@@ -81,6 +112,17 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
         )
     )
     assert recorded.primary_success is True
+    if local_merge:
+        test_db.execute(
+            "UPDATE items SET merged_at=CURRENT_TIMESTAMP WHERE id=%s", (item_id,)
+        )
+        test_db.commit()
+    # A serving stage-level handoff must not strand the merge-only close-out.
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_level_handoff.item_level_handoff",
+        lambda *_args: ({"reason": "level_change", "stage_id": "release",
+                         "level": "JUNIOR", "next_command": "successor"}, []),
+    )
     runtime = load_item_workflow_runtime(test_db, item_id)
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge_release_status.pinned_workflow_for_item",
@@ -140,8 +182,10 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     status, error = terminal.transition_to_done(
         item_id=item_id,
         source_status="reviewing-implementation",
-        repo_root="/tmp/no-change-repo",
-        lane=LandedLane(branch="", target="main", commit_sha="", merge_sha=""),
+        repo_root=str(repo),
+        lane=LandedLane(branch="first-work", target="main",
+                        commit_sha=head if local_merge else "",
+                        merge_sha=head if local_merge else ""),
         session_id=session_id,
         stages=route.stages,
         delivery_discharged=route.delivery_discharged,
@@ -154,4 +198,5 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
         "SELECT status, merged_at FROM items WHERE id = %s", (item_id,)
     ).fetchone()
     assert row[0] == "done"
-    assert not row[1]
+    assert bool(row[1]) is local_merge
+    assert test_db.execute("SELECT COUNT(*) FROM deployment_runs").fetchone()[0] == 0

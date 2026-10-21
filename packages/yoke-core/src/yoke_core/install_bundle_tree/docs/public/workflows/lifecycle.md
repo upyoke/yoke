@@ -179,6 +179,16 @@ when an active skill binding says so.
 | `release` | Deployment run is actively executing |
 | `done` | Delivery complete. When an item finished is the `item_status_transitions` row that put it here, not `merged_at`, which dates the code landing that close-out can trail by a day |
 | `cancelled` | Item was intentionally abandoned |
+
+Ordinary `yoke items cancel ITEM --reason TEXT` refuses merged work and work
+past review. If a merged item cannot reach `done`, an operator with a live
+steering seat covering its project may use
+`yoke items cancel ITEM --abandon-merged --reason TEXT`. This records
+`cancelled`, preserves merge evidence, and stores the actor, session, prior
+status, merge timestamp and reason in `resolution_comment` in the same
+transaction. It releases item resources through the normal cancellation
+path; it does not undo merged code or claim delivery. Already delivered
+items still refuse cancellation.
 | ~~`blocked`~~ | **Not a lifecycle status for items.** Items use an orthogonal blocked flag that preserves lifecycle status (cross-reference: see your `items` packet stanza). Epic-task `blocked` is a status. |
 | `stopped` | Work halted unexpectedly or intentionally paused. Terminal for resource release, so claims and lanes are freed, but a pause is not an ending: it never counts as finished work and stays out of Done counts and "finished" card text |
 | `failed` | Work concluded in failure and needs intervention |

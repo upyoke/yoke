@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Execution-profile confirmation today; when delivery matters in the planned journey",
- "need": "Persistent delivery, explicit merge-only and no default are three different answers. Host ownership is a separate fact. Read existing declarations before asking.",
+ "need": "Persistent delivery, explicit merge-only and no default are distinct answers. A merge-only item completes through merge close-out and its remaining gates without a release run, even when its checkout has no GitHub remote.",
  "disclosure": "current cue",
  "surface": "Onboard profile “The delivery box”; hosting posture and default precedence in projects-and-flows.",
  "gap": "JOURNEYS row 12 should branch on the recorded answer; absence of environments is not automatically a setup defect. Progressive timing is planned, not current.",
- "review": "Pending exact recipe proof.",
+ "review": "Source regression covers local first merge and pass-through level changes; installed activation still needs the release campaign proof.",
  "recipes": ["yoke deployment-flows list --project P --json", "yoke projects capability-settings get --help"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS slimming onboard"],
- "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "docs/public/databases/model/projects.md"],
+ "sources": [".agents/skills/yoke/onboard/profile-and-scaffold.md", "docs/public/deployments/model/flows.md", "runtime/api/domain/test_no_change_dash_terminal.py"],
  "position": 0
 }

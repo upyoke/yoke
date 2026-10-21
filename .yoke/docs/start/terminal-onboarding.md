@@ -82,6 +82,11 @@ GitHub shows no GitHub App binding in Review; it disables GitHub automation,
 and does not change the existing setup-publication behavior. Cancel at Review
 to leave Apply's writes undone.
 
+A local-only project can finish its first item. With a merge-only flow,
+merge close-out records the result and verification, runs the remaining
+lifecycle gates and reaches `done` without a GitHub repository or release run.
+See [flow completion](../deployments/model/flows.md).
+
 The run report records what publication did on its own step: complete when
 the commit reached the remote, skipped with its reason, or incomplete with the
 recovery command when the commit stayed local. Setup's board art is committed

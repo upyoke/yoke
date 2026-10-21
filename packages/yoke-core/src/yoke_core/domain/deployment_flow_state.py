@@ -23,6 +23,19 @@ FLOW_STATUS_DISABLED = "disabled"
 FLOW_STATUSES = frozenset({FLOW_STATUS_ACTIVE, FLOW_STATUS_DISABLED})
 
 
+class MergeOnlyRunRefused(ValueError):
+    """A merge-only flow completes at merge and cannot own a release run."""
+
+    code = "merge_only_flow_no_release_run"
+
+    def __init__(self, flow_id: str) -> None:
+        super().__init__(
+            f"Flow {flow_id!r} is merge-only (target_tier is null). "
+            "Recovery: finish the item's merge close-out; do not create a "
+            "release run. To deploy, select a flow with a deployment target."
+        )
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -80,6 +93,8 @@ def require_flow_for_new_run(
         raise ValueError(
             f"deployment flow '{flow_id}' is {status} and cannot start new runs"
         )
+    if not target_tier:
+        raise MergeOnlyRunRefused(flow_id)
     version_row = conn.execute(
         f"SELECT definition_schema_version FROM deployment_flows WHERE id={_p(conn)}",
         (flow_id,),
