@@ -44,6 +44,7 @@ def test_user_facing_terminal_cases_use_the_native_terminal_app_mode() -> None:
             expected = (
                 "ssh-command"
                 if case["case_key"].startswith("install-health-")
+                or case["case_key"].endswith("-prepare")
                 or case["case_key"]
                 in {
                     "path-repair",

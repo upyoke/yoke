@@ -71,8 +71,7 @@ def installer_campaign_cases_for_target(
     for case in cases:
         if case["case_key"] not in {row["case_key"] for row in recovery}:
             case["method_config"]["machine"] = primary_machine
-    for position, case in enumerate(cases, 1):
-        case["position"] = position
+    for case in cases:
         require_case_target(case, target)
     return cases
 

@@ -74,7 +74,7 @@ def test_eight_journeys_follow_the_original_cases_unchanged() -> None:
         for case in recovery_cases(primary_machine="primary", joining_machine="joining")
     ]
     assert [case["case_key"] for case in cases] == [*original, *KEYS]
-    assert [case["position"] for case in cases[-8:]] == list(range(len(cases) - 7, len(cases) + 1))
+    assert [case["position"] for case in cases[-8:]] == list(range(30, 38))
     assert all(case["method_config"]["machine"] == "primary" for case in cases[-8:])
 
 

@@ -214,8 +214,6 @@ def test_campaign_environments_differ_only_in_bound_template_values() -> None:
         primary_machine="primary-test", joining_machine="joining-test"
     )
     template_cases = baseline + list(recovery) + admission
-    for position, case in enumerate(template_cases, 1):
-        case["position"] = position
     template = json.dumps(template_cases)
     for environment, display_name in (("prod", "Production"), ("stage", "Stage")):
         target = _target(environment)

@@ -205,7 +205,7 @@ the operation row. Cleanup stops the server, removes the cluster and root.
 
 ## Machine admission journeys
 
-Positions 28-35 run own-machine approval, teammate invite, company sign-in and
+Positions 30-37 run own-machine approval, teammate invite, company sign-in and
 local refusal, each in the full-screen wizard and in agent mode
 (`machine_qa_setup_agent_driver` plays the agent). Each starts the fixture
 above and ends with its state assertion. No step waits on a person. The run

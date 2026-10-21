@@ -1,10 +1,13 @@
 """Installer mission territory and proof, alongside stable deterministic cases."""
 
+from yoke_core.domain.installer_campaign_plan_common import (
+    action, current_release_setup, terminal_case, terminal_recipe,
+)
 from yoke_core.domain.installer_campaign_current_text_cases import (
     CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
 
-WELCOME_FRAME = {'position': 2,
+WELCOME_FRAME = {'position': 5,
  'case_key': 'welcome-frame',
  'entry_surface': '/usr/bin/curl -fsSL {{installer_base_url}}/install | /usr/bin/env '
                   'HOME=/var/empty XDG_BIN_HOME=/var/empty/.local/bin '
@@ -42,7 +45,7 @@ WELCOME_FRAME = {'position': 2,
                      'Traceback or "Paste your Yoke API token." prompt.',
  'method_config': {'executor': 'informed_subagent'}}
 
-COLD_START_HOSTED = {'position': 3,
+COLD_START_HOSTED = {'position': 6,
  'case_key': 'cold-start-hosted',
  'entry_surface': '/usr/bin/curl -fsSL {{installer_base_url}}/install | /usr/bin/env '
                   'YOKE_INSTALL_BASE_URL={{installer_base_url}} '
@@ -93,13 +96,13 @@ COLD_START_HOSTED = {'position': 3,
                      'Traceback or "Paste your Yoke API token." prompt.',
  'method_config': {'executor': 'informed_subagent'}}
 
-CONNECT_WAIT = {'position': 9,
+CONNECT_WAIT = {'position': 8,
  'case_key': 'connect-wait',
  'entry_surface': '{yoke_bin} setup --connect {{app_url}} --project-mode '
                   'machine-only',
  'required_completion': 'connect-wait',
- 'host_baselines': ['fresh-host'],
- 'starting_state': None,
+ 'host_baselines': [],
+ 'starting_state': 'inherit',
  'starting_state_reason': None,
  'method_id': 'exploratory-mission',
  'instructions': 'Resolve host/setup obstacles yourself: answer consent prompts, '
@@ -108,9 +111,8 @@ CONNECT_WAIT = {'position': 9,
                  'findings with evidence and its tested boundary. Never replace '
                  'browser approval with yoke machines approve, stored credentials or '
                  'token paste. Stop for a real password, 2FA or payment step. '
-                 'Prepare the current published {{environment_display_name}} release '
-                 'without setup using the public installer with YOKE_NO_SETUP=1, '
-                 'then repair PATH through its installed guidance. Start fresh '
+                 'Use the published {{environment_display_name}} CLI and PATH from '
+                 'connect-wait-prepare; verify its readiness. Start fresh '
                  'hosted authorization at {{app_url}} with no reusable connection in '
                  'the declared baseline. Inspect the visible Terminal while approval '
                  'is pending; stop at that frame without approving or substituting '
@@ -131,8 +133,8 @@ REVIEW_FRAME = {'position': 10,
  'entry_surface': '{yoke_bin} setup --connect {{app_url}} --project-mode '
                   'machine-only',
  'required_completion': 'back-before-apply',
- 'host_baselines': ['fresh-host'],
- 'starting_state': None,
+ 'host_baselines': [],
+ 'starting_state': 'inherit',
  'starting_state_reason': None,
  'method_id': 'exploratory-mission',
  'instructions': 'Resolve host/setup obstacles yourself: answer consent prompts, '
@@ -141,9 +143,8 @@ REVIEW_FRAME = {'position': 10,
                  'findings with evidence and its tested boundary. Never replace '
                  'browser approval with yoke machines approve, stored credentials or '
                  'token paste. Stop for a real password, 2FA or payment step. '
-                 'Prepare the current published {{environment_display_name}} release '
-                 'without setup using the public installer with YOKE_NO_SETUP=1 and '
-                 'its supported PATH repair. Start fresh authorization at '
+                 'Use the published {{environment_display_name}} CLI and PATH from '
+                 'review-frame-prepare; verify readiness. Start fresh authorization at '
                  '{{app_url}}. Approve the Match code through the declared host '
                  'browser and verify same-tab confirmation and terminal advancement. '
                  'Keep GitHub disabled and inspect machine-only Review before Apply. '
@@ -164,14 +165,47 @@ REVIEW_FRAME = {'position': 10,
                      'prompt.',
  'method_config': {'executor': 'informed_subagent'}}
 
+CONNECT_WAIT_PREPARE = terminal_case(
+    7, "connect-wait-prepare", "terminal-check",
+    instructions="Prepare the current published release and PATH on the fresh host, clearing fixture auth so the following mission must obtain fresh browser authorization.",
+    expected_outcome="The released CLI and PATH preparation succeed; the following mission inherits an installed CLI without a reusable hosted connection.",
+    method_config=terminal_recipe(
+        actions=[action("connect-wait-prepare", capture=False)],
+        expected_text=["connect-wait-prepare"], capture_checkpoints=[],
+        execution_mode="ssh-command",
+        setup_operations=current_release_setup("connect-wait-prepare", clear_auth=True, path_ready=True),
+        notes="Deterministic preparation only; the following mission owns visible proof.",
+    ),
+    entry_surface="printf '%s\\n' connect-wait-prepare",
+    required_completion="connect-wait-prepare", host_baselines=["fresh-host"],
+)
+
+REVIEW_FRAME_PREPARE = terminal_case(
+    9, "review-frame-prepare", "terminal-check",
+    instructions="Prepare the current published release and PATH on the fresh host, clearing fixture auth so the following mission must obtain fresh browser authorization.",
+    expected_outcome="The released CLI and PATH preparation succeed; the following mission inherits an installed CLI without a reusable hosted connection.",
+    method_config=terminal_recipe(
+        actions=[action("review-frame-prepare", capture=False)],
+        expected_text=["review-frame-prepare"], capture_checkpoints=[],
+        execution_mode="ssh-command",
+        setup_operations=current_release_setup("review-frame-prepare", clear_auth=True, path_ready=True),
+        notes="Deterministic preparation only; the following mission owns visible proof.",
+    ),
+    entry_surface="printf '%s\\n' review-frame-prepare",
+    required_completion="review-frame-prepare", host_baselines=["fresh-host"],
+)
+
 _STABLE = {case["case_key"]: case for case in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES}
 INSTALLER_CAMPAIGN_CASES = (
     _STABLE["path-on-shell"],
-    {**_STABLE["path-repair"], "host_baselines": ["fresh-host"], "starting_state": None},
-    _STABLE["apply-handoff"],
-    _STABLE["universe-born"],
+    {**_STABLE["path-repair"], "position": 2, "host_baselines": ["fresh-host"],
+     "starting_state": None},
+    {**_STABLE["apply-handoff"], "position": 3},
+    {**_STABLE["universe-born"], "position": 4},
     WELCOME_FRAME,
     COLD_START_HOSTED,
+    CONNECT_WAIT_PREPARE,
     CONNECT_WAIT,
+    REVIEW_FRAME_PREPARE,
     REVIEW_FRAME,
 )
