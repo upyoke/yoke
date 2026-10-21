@@ -78,8 +78,9 @@ def get_case_execution_context(
     session_id: str = "",
     checkout_path: str | None = None,
     expected_branch: str | None = None,
+    include_waived: bool = False,
 ) -> dict[str, Any]:
-    """Return the client-local runner contract for a method-backed case."""
+    """Return the runner contract; *include_waived* serves a walk's frozen case."""
     marker = _p(conn)
     row = query_one(
         conn,
@@ -104,7 +105,7 @@ def get_case_execution_context(
         "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
         "LEFT JOIN projects mp ON mp.id=m.project_id "
         "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,dr.project_id,qp.project_id) "
-        f"WHERE q.id={marker} AND q.waived_at IS NULL",
+        f"WHERE q.id={marker}" + ("" if include_waived else " AND q.waived_at IS NULL"),
         (int(requirement_id),),
     )
     if row is None:
