@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
+from functools import wraps
 from typing import Any
 
 from yoke_core.domain.project_identity import render_item_ref
@@ -19,6 +21,30 @@ from yoke_core.domain.post_deploy_verification_answer import (
 
 
 DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND = "deployment_stage_acceptance"
+
+_PRIOR_REFUSALS = ContextVar("deployment_qa_prior_stage_refusals", default=None)
+
+
+def prior_stage_refusals_once(function):
+    """Answer each (run, stage)'s prior-stage refusals once for the whole call.
+
+    Every member's active-stage check asks the same run-wide question, and
+    each answer reads every prior-stage member, so a per-member answer made a
+    dispatch quadratic in members. Nothing the wrapped call writes belongs
+    to an earlier stage, so its first answer holds for the rest of the call.
+    """
+
+    @wraps(function)
+    def run(*args, **kwargs):
+        if _PRIOR_REFUSALS.get() is not None:
+            return function(*args, **kwargs)
+        token = _PRIOR_REFUSALS.set({})
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _PRIOR_REFUSALS.reset(token)
+
+    return run
 
 
 def _object(value: Any) -> dict[str, Any]:
@@ -175,6 +201,18 @@ def prior_stage_refusals(
     start_stage: str,
 ) -> list[str]:
     """Return missing/rejected scoped acceptances before ``start_stage``."""
+    answers = _PRIOR_REFUSALS.get()
+    if answers is None:
+        return _read_prior_stage_refusals(conn, run_id, stages, start_stage)
+    key = (conn, str(run_id), str(start_stage))
+    if key not in answers:
+        answers[key] = _read_prior_stage_refusals(conn, run_id, stages, start_stage)
+    return list(answers[key])
+
+
+def _read_prior_stage_refusals(
+    conn: Any, run_id: str, stages: Sequence[Mapping[str, Any]], start_stage: str
+) -> list[str]:
     names = [str(stage.get("name") or "") for stage in stages]
     if start_stage not in names:
         return []
@@ -273,5 +311,6 @@ def require_prior_stage_acceptance(
 __all__ = [
     "DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND",
     "prior_stage_refusals",
+    "prior_stage_refusals_once",
     "require_prior_stage_acceptance",
 ]

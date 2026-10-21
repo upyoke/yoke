@@ -30,6 +30,10 @@ from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_qa_result_notice import report_stage_result
+from yoke_core.domain.deployment_qa_reported_results import reported_stage_results
+from yoke_core.domain.deployment_qa_stage_prerequisites import (
+    prior_stage_refusals_once,
+)
 from yoke_core.domain.deployment_qa_manual_wake import (
     manual_wake_requirements,
     wake_manual_requirement_owners,
@@ -107,14 +111,16 @@ def _notify_stage_wait(
 
 @composition_operation
 @dispatch_input_operation
+@prior_stage_refusals_once
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
     """Materialize and gate every subject; ``-4`` means durable QA wait.
 
     Server-side implementation: the caller already holds a connection to
-    the database that serves this control plane. Schema facts are read once
-    for the whole walk; each member's reads are batched across the run.
+    the database that serves this control plane. Schema facts and prior-stage
+    refusals are read once for the whole walk; each member's reads are
+    batched across the run, and a result already reported is not re-sent.
     """
     from yoke_core.domain.deployment_qa_dispatch_inputs import prepare_release_inputs
 
@@ -169,6 +175,7 @@ def _gate_members(
     project_slug = (
         resolve_project_slug(conn, project_id) if project_id is not None else ""
     )
+    reported = reported_stage_results(conn, run_id=run_id, stage=stage)
     waiting: list[str] = []
     accepted: list[int] = []
     failure = ""
@@ -216,20 +223,22 @@ def _gate_members(
             rollback_after_error(conn, exc)
             break
         label = f"member {item_refs(member)}" if member is not None else "run"
-        if project_id is not None:
+        outcome = str(status.get("outcome") or "")
+        digest = str(status.get("target_digest") or "")
+        if project_id is not None and not reported(member, outcome, digest):
             report_stage_result(
                 conn,
                 stage=stage,
                 run_id=run_id,
                 member=member,
                 project_id=project_id,
-                outcome=str(status.get("outcome") or ""),
+                outcome=outcome,
                 subject=item_refs(member)
                 if member is not None
                 else "the whole release batch",
                 target_tier=target_tier,
                 revision=revision,
-                target_digest=str(status.get("target_digest") or ""),
+                target_digest=digest,
             )
         if status["accepted"]:
             for reason in status["reasons"]:
@@ -281,7 +290,7 @@ def _gate_members(
                         names_cases=True,
                         target_tier=target_tier,
                         revision=revision,
-                        target_digest=str(status.get("target_digest") or ""),
+                        target_digest=digest,
                         label=label,
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])

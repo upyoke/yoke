@@ -98,6 +98,8 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
         conn.commit()
         if refusal := member_close_evidence_refusal(conn, item_id=int(item_id)):
             return refusal
+    if refusal := _settlement_refusal(conn, item_id=int(item_id), runtime=runtime):
+        return refusal
     with _bypass(public_ref):
         preflight = prepare_status_transition(
             conn,
@@ -110,6 +112,23 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
     if preflight.failure is not None:
         return str(preflight.failure.get("error") or "close-out preflight refused")
     return ""
+
+
+def _settlement_refusal(conn: Any, *, item_id: int, runtime: Any) -> str:
+    """The done write's first gates, read before anything they would refuse runs.
+
+    Unsettled QA and open closure blockers refuse the done write before its
+    later gates reach git or GitHub. Reading them here first lets a refused
+    close-out repeat only these reads until the rows they read change. The
+    text is the done write's own refusal for the same rows.
+    """
+    from yoke_core.domain.closure_status_gate import evaluate as evaluate_closure
+    from yoke_core.domain.qa_terminal_settlement import terminal_transition_result
+
+    failure = terminal_transition_result(
+        conn, item_id, CLOSED_OUT_STATUS, runtime
+    ) or evaluate_closure(item_id=item_id, conn=conn)
+    return str(failure["error"]) if failure else ""
 
 
 def member_close_evidence_refusal(
