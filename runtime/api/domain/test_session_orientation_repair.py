@@ -91,7 +91,7 @@ def test_a_lost_block_comes_back_on_the_next_prompt(project: Path) -> None:
 def test_the_repeat_lands_exactly_once(project: Path) -> None:
     so.orientation_for_hook("UserPromptSubmit", _payload(project))
     repeat = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery(repeat)
     third = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert repeat is not None
@@ -100,7 +100,7 @@ def test_the_repeat_lands_exactly_once(project: Path) -> None:
 
 def test_a_delivered_block_is_never_sent_twice(project: Path) -> None:
     first = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery(first)
     second = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert first is not None
@@ -129,7 +129,7 @@ def test_confirming_delivery_needs_the_composing_process(project: Path) -> None:
     # Confirmation carries no session argument on purpose: it is the
     # composing process reporting on itself, and a process that composed
     # nothing must not retire someone else's pending orientation.
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery("")
 
     assert not delivery.orientation_delivered("sess-abc")
     assert so.orientation_for_hook("UserPromptSubmit", _payload(project)) is not None
@@ -156,7 +156,7 @@ def test_cursor_repairs_on_its_tool_result_event(project: Path) -> None:
 
 def test_cursor_stays_silent_once_its_startup_block_landed(project: Path) -> None:
     so.orientation_for_hook("SessionStart", _cursor_payload(project), cursor=True)
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery("orientation body")
     repeat = so.orientation_for_hook(
         "PostToolUse",
         _cursor_payload(project, event="postToolUse"),
@@ -201,7 +201,7 @@ def test_a_session_registered_midway_is_oriented_exactly_once(
         _cursor_payload(project, event="postToolUse") if cursor else _payload(project)
     )
     first = so.orientation_for_hook(event, payload, cursor=cursor)
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery(first)
     second = so.orientation_for_hook(event, payload, cursor=cursor)
 
     assert first is not None and so.ORIENTATION_HEADING in first

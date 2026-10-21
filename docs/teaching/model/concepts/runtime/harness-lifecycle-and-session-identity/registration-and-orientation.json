@@ -1,8 +1,9 @@
 {
  "id": "registration-and-orientation",
  "title": "Registration and orientation",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 2
+ "position": 2,
+ "summary": "Orientation confirms delivery only after context emission. Each harness writes the exact merged and budgeted context body's UTF-8 byte_count and SHA-256 into the existing delivered marker, without storing the body. Receiving QA reads the marker on its retained host through qa mission host-command, including Cursor where transcripts omit hook bodies. Emission evidence remains distinct from native receiving proof, which waits for released QA."
 }

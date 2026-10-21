@@ -107,5 +107,5 @@ def test_hook_entry_orients_outside_a_project_once(
     out = so.orientation_for_hook(event_name, stdin, cursor=cursor)
 
     assert out is not None and "`yoke-global`" in out
-    delivery.confirm_orientation_delivery()
+    delivery.confirm_orientation_delivery(out)
     assert so.orientation_for_hook(event_name, stdin, cursor=cursor) is None

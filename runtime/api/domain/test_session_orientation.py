@@ -77,7 +77,7 @@ def test_only_the_first_prompt_of_a_session_is_oriented(project: Path) -> None:
     # Orientation is startup context, not a per-turn banner: repeating it
     # every prompt would crowd out the conversation it is meant to seed.
     first = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery(first)
     second = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert first is not None
@@ -256,7 +256,7 @@ def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:
     assert without is not None
     assert "BOARD.md" not in without
 
-    so.confirm_orientation_delivery()
+    so.confirm_orientation_delivery(without)
     (project / ".yoke" / "BOARD.md").write_text("# board\n", encoding="utf-8")
     with_board = so.orientation_for_hook(
         "UserPromptSubmit",

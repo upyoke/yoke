@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import io
+import json
 import sys
 from typing import Any, Callable
 
@@ -185,8 +186,12 @@ def _session_orientation(
 def _confirm_orientation(printed: str) -> None:
     try:
         module = importlib.import_module("yoke_core.domain.session_orientation")
-        if module.ORIENTATION_HEADING in printed:
-            module.confirm_orientation_delivery()
+        envelope = json.loads(printed)
+        body = envelope.get("additional_context")
+        if body is None:
+            body = envelope.get("hookSpecificOutput", {}).get("additionalContext")
+        if isinstance(body, str) and module.ORIENTATION_HEADING in body:
+            module.confirm_orientation_delivery(body)
     except Exception:
         pass
 
