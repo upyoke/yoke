@@ -27,93 +27,40 @@ def _installer(monkeypatch, runner, *, resolve_bin=True):
     return module, installer
 
 
-def test_installer_runs_uv_shell_setup_after_install(monkeypatch):
+def test_installer_runs_owned_shell_setup_after_install(monkeypatch):
     runner = RecordingRunner()
     _, installer = _installer(monkeypatch, runner)
     installer.run()
     assert runner.commands[0][:3] == ["uv", "tool", "install"]
-    assert runner.commands[1] == ["uv", "tool", "update-shell"]
+    assert runner.commands[1] == ["/tmp/bin/yoke", "path", "fix", "--yes", "--json"]
     assert "Add Yoke to PATH:" not in installer.stdout.getvalue()
 
 
-def test_installer_finishes_when_uv_cannot_determine_shell(monkeypatch, tmp_path):
-    bin_dir = tmp_path / "custom tool bin"
-    bin_dir.mkdir()
-    yoke_bin = bin_dir / "yoke"
-    yoke_bin.write_text("#!/bin/sh\nexit 0\n")
-    yoke_bin.chmod(0o755)
-    monkeypatch.delenv("SHELL", raising=False)
-    monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
-    monkeypatch.delenv("XDG_BIN_HOME", raising=False)
+def test_installer_names_shell_failure_before_ready(monkeypatch):
     runner = RecordingRunner(
         responses={
-            ("uv", "tool", "update-shell"): subprocess.CompletedProcess(
-                [],
-                1,
-                "",
-                f"error: The executable directory {bin_dir} is not in PATH, "
-                "but the current shell could not be determined",
-            ),
-            ("uv", "tool", "dir", "--bin"): subprocess.CompletedProcess(
-                [], 0, str(bin_dir), ""
-            ),
-        }
-    )
-    _, installer = _installer(monkeypatch, runner, resolve_bin=False)
-    installer.which = lambda _: None
-    installer.run()
-
-    assert [str(yoke_bin), "wsl", "setup"] in runner.commands
-    assert [
-        str(yoke_bin),
-        "settings",
-        "set",
-        "distribution",
-        '{"origin": "https://api.upyoke.com", "channel": "stable"}',
-    ] in runner.commands
-    output = installer.stdout.getvalue()
-    assert "Yoke v1.2.3 is ready" in output
-    assert output.splitlines()[-1].endswith(
-        f"Add Yoke to PATH: export PATH='{bin_dir}':\"$PATH\""
-    )
-    assert "If it is still missing" not in output
-
-
-def test_installer_names_uv_shell_failure(monkeypatch):
-    runner = RecordingRunner(
-        responses={
-            ("uv", "tool", "update-shell"): subprocess.CompletedProcess(
-                [], 1, "", "permission denied"
+            (
+                "/tmp/bin/yoke",
+                "path",
+                "fix",
+                "--yes",
+                "--json",
+            ): subprocess.CompletedProcess(
+                [], 1, "shell_path_unresolved: zsh non-login", ""
             )
         }
     )
     module, installer = _installer(monkeypatch, runner)
-    with pytest.raises(
-        module.InstallError, match="uv_shell_update_failed.*uv tool update-shell"
-    ):
+    with pytest.raises(module.InstallError, match="shell_path_setup_failed.*path fix"):
         installer.run()
+    assert "is ready" not in installer.stdout.getvalue()
 
 
 def test_rerun_from_unreloaded_shell_succeeds_with_new_terminal_hint(monkeypatch):
-    # uv writes the startup files on the first install; a rerun from the same
-    # unreloaded shell then gets this refusal, which is the configured state.
-    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/local/bin:/usr/bin:/bin")
-    runner = RecordingRunner(
-        responses={
-            ("uv", "tool", "update-shell"): subprocess.CompletedProcess(
-                [],
-                2,
-                "",
-                "error: The executable directory /tmp/bin is not in PATH, "
-                "but the Bash configuration files are already up-to-date\n",
-            )
-        }
-    )
-    _, installer = _installer(monkeypatch, runner)
+    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/bin:/bin")
+    _, installer = _installer(monkeypatch, RecordingRunner())
     installer.run()
-    output = installer.stdout.getvalue()
-    assert "Yoke v1.2.3 is ready" in output
-    assert "Open a new terminal to use Yoke." in output
+    assert "Open a new terminal to use Yoke." in installer.stdout.getvalue()
 
 
 @pytest.mark.parametrize(
@@ -129,20 +76,3 @@ def test_path_hint_follows_the_callers_path(monkeypatch, inherited, hint):
     installer.which = lambda _: "/tmp/bin/yoke"
     installer.run()
     assert ("Open a new terminal to use Yoke." in installer.stdout.getvalue()) is hint
-
-
-def test_shell_update_uses_inherited_path_and_absolute_uv(monkeypatch):
-    module = load_installer()
-    monkeypatch.setenv("PATH", "/temporary/bin:/usr/bin:/bin")
-    monkeypatch.setenv("YOKE_INSTALL_INHERITED_PATH", "/usr/bin:/bin")
-    monkeypatch.setattr(module.shutil, "which", lambda _: "/temporary/bin/uv")
-    captured = {}
-
-    def run(command, **kwargs):
-        captured.update(command=command, env=kwargs["env"])
-        return subprocess.CompletedProcess(command, 0, "", "")
-
-    monkeypatch.setattr(module.subprocess, "run", run)
-    module.run_command_capture(["uv", "tool", "update-shell"])
-    assert captured["command"] == ["/temporary/bin/uv", "tool", "update-shell"]
-    assert captured["env"]["PATH"] == "/usr/bin:/bin"

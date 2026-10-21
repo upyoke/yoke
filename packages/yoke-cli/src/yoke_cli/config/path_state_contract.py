@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import os
+import re
+import shlex
+import stat
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Mapping
@@ -10,8 +14,7 @@ from typing import Mapping
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
 
 
-# Historical markers remain in the fixture reset contract so old installs can
-# be cleaned before testing; shell configuration is written only by uv.
+# These markers delimit only Yoke-owned PATH text for repair and uninstall.
 MANAGED_BEGIN = "# >>> BEGIN YOKE MANAGED PATH >>>"
 MANAGED_END = "# <<< END YOKE MANAGED PATH <<<"
 
@@ -169,3 +172,105 @@ __all__ = [
     "supported_startup_files",
     "tool_bin_dir",
 ]
+
+
+def shell_setup_files(env: Mapping[str, str]) -> dict[Path, str]:
+    """Use the same shell roster for setup, verification receipts and cleanup."""
+    home = Path(env.get("HOME") or str(Path.home()))
+    zdot = Path(env.get("ZDOTDIR") or home)
+    fish = Path(env.get("XDG_CONFIG_HOME") or home / ".config")
+    return {
+        zdot / ".zshenv": "zsh",
+        zdot / ".zprofile": "zsh",
+        default_startup_file("bash", home): "bash",
+        home / ".bashrc": "bash",
+        fish / "fish" / "config.fish": "fish",
+    }
+
+
+def _without_owned_path(text: str) -> str:
+    if text.count(MANAGED_BEGIN) != text.count(MANAGED_END):
+        raise OSError(
+            "shell_path_block_incomplete: restore the matching Yoke PATH markers "
+            "in the named shell file, then retry yoke path fix or uninstall."
+        )
+    result = re.sub(
+        rf"(?m)^{re.escape(MANAGED_BEGIN)}\n.*?^{re.escape(MANAGED_END)}\n?",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    if MANAGED_BEGIN in result or MANAGED_END in result:
+        raise OSError(
+            "shell_path_block_invalid: repair Yoke PATH marker order and retry."
+        )
+    return result
+
+
+def write_shell_path(*, env: Mapping[str, str]) -> list[str]:
+    """Prepend owned PATH blocks before interactive-only startup guards."""
+    directory = shlex.quote(tool_bin_dir(env))
+    changed = []
+    for path, shell in shell_setup_files(env).items():
+        try:
+            original = path.read_bytes().decode("utf-8") if path.exists() else ""
+            if shell == "fish":
+                body = f"if not contains -- {directory} $PATH\n    set -gx PATH {directory} $PATH\nend\n"
+            else:
+                body = (
+                    f'case ":$PATH:" in\n    *:{directory}:*) ;;\n'
+                    f'    *) export PATH={directory}:"$PATH" ;;\nesac\n'
+                )
+            text = f"{MANAGED_BEGIN}\n{body}{MANAGED_END}\n" + _without_owned_path(
+                original
+            )
+            if text != original:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # Resolve a user-owned symlink instead of replacing the link.
+                _write_path_file(path, text)
+                changed.append(str(path))
+        except (OSError, UnicodeError) as exc:
+            raise OSError(
+                f"shell_path_write_failed: {path}: {exc}; check shell-file "
+                "permissions and retry `yoke path fix --yes`."
+            ) from exc
+    return changed
+
+
+def remove_shell_path(*, env: Mapping[str, str] | None = None) -> list[str]:
+    """Remove owned blocks in every supported file, preserving other bytes."""
+    environ = dict(os.environ if env is None else env)
+    home = Path(environ.get("HOME") or str(Path.home()))
+    candidates = set(supported_startup_files(home)) | set(shell_setup_files(environ))
+    changed = []
+    for path in sorted(candidates):
+        try:
+            if not path.exists():
+                continue
+            original = path.read_bytes().decode("utf-8")
+            text = _without_owned_path(original)
+            if text != original:
+                _write_path_file(path, text)
+                changed.append(str(path))
+        except (OSError, UnicodeError) as exc:
+            raise OSError(
+                f"shell_path_cleanup_failed: {path}: {exc}; check the owned PATH "
+                "markers and file permissions, then retry uninstall."
+            ) from exc
+    return changed
+
+
+def _write_path_file(path: Path, text: str) -> None:
+    target = path.resolve()
+    mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o644
+    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchmod(stream.fileno(), mode)
+            stream.write(text.encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)

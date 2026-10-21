@@ -64,7 +64,7 @@ def test_shell_changes_survive_failure_and_are_named_in_summary(monkeypatch, tmp
 
 def test_completed_install_is_carried_without_reapplying(monkeypatch):
     plan = {
-        "targets": [{"path": "uv tool update-shell"}],
+        "targets": [{"path": "yoke path fix --yes"}],
         "login_verified": True,
         "changed_files": ["/example/.profile"],
     }

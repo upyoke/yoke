@@ -1,4 +1,4 @@
-"""Apply uv shell setup and verify the real fresh login shell."""
+"""Apply owned shell setup and verify every supported shell context."""
 
 from __future__ import annotations
 import os
@@ -50,10 +50,12 @@ def apply(
         onboard_apply_progress.emit(
             progress, onboard_path_plan.PATH_REPAIR_ACTION, target, "done"
         )
+    diagnosis = path_doctor.diagnose()
     login = path_doctor.verify_fresh_login(str(plan.get("shell") or "") or None)
     report["path_repair"] = {
         **report["path_repair"],
         "output": output,
-        "login_verified": path_repair_plan.verification_ok(login, plan),
+        "login_verified": not diagnosis.needs_fix,
+        "contexts": list(diagnosis.contexts),
         "login_resolved": {row.name: row.path for row in login},
     }

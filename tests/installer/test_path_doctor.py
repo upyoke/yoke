@@ -15,16 +15,15 @@ from yoke_cli.main import main as yoke_main
 from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
 
-def test_update_shell_failure_names_recovery(monkeypatch):
-    monkeypatch.setattr(
-        doctor.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args, 1, "", "permission denied"
-        ),
-    )
-    with pytest.raises(OSError, match="uv_shell_update_failed.*uv tool update-shell"):
-        doctor.update_shell(env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"})
+def test_update_shell_failure_names_recovery(tmp_path, monkeypatch):
+    from yoke_cli.config import path_state_contract
+
+    def fail(*args):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(path_state_contract, "_write_path_file", fail)
+    with pytest.raises(OSError, match="shell_path_write_failed.*yoke path fix"):
+        doctor.update_shell(env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)})
 
 
 def test_default_startup_file_per_shell(tmp_path):
@@ -225,8 +224,9 @@ def test_ssh_probe_reads_bashrc_like_sshd(tmp_path):
 
 
 def test_path_check_json_is_parseable(capsys):
-    assert cli.path_check(["--json"]) == 0
+    result = cli.path_check(["--json"])
     payload = json.loads(capsys.readouterr().out)
+    assert result == (1 if payload["needs_fix"] else 0)
     assert "needs_fix" in payload
     assert "current_resolved" in payload
 

@@ -1,6 +1,6 @@
 {
  "id": "automatic-install",
- "title": "Install checks required tools and repairs PATH automatically; only failures need a screen.",
+ "title": "Install checks required tools and repairs owned PATH blocks automatically for login, interactive, non-login and SSH shells; only failures need a screen.",
  "status": "observed",
  "form": "Do",
  "verification": "Scripted source tests cover automatic advance, failure, retry and shell receipts. Installer campaign waits for the next real screen without Install confirmation keys; deployed proof remains release-bound.",

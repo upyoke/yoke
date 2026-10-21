@@ -112,22 +112,14 @@ class Installer(InstallerVerification, InstallerResolution):
             )
         finally:
             os.unlink(config_path)
-        shell_update = self.capture_runner(["uv", "tool", "update-shell"])
-        shell_unknown = bool(shell_update.returncode) and (
-            "current shell could not be determined" in shell_update.stderr
-        )
-        # A rerun from a shell opened before the first install: uv already
-        # wrote the startup files, and a new terminal picks them up.
-        shell_configured = bool(shell_update.returncode) and (
-            UV_ALREADY_CONFIGURED in shell_update.stderr
-        )
-        if shell_update.returncode and not (shell_unknown or shell_configured):
-            raise InstallError(
-                "uv_shell_update_failed: "
-                + shell_update.stderr.strip()
-                + "; run `uv tool update-shell`, then rerun the installer."
-            )
         yoke_bin = self._resolve_installed_yoke_bin()
+        shell_update = self.capture_runner([yoke_bin, "path", "fix", "--yes", "--json"])
+        if shell_update.returncode:
+            raise InstallError(
+                "shell_path_setup_failed: "
+                + (shell_update.stderr or shell_update.stdout).strip()
+                + f"; run {shlex.quote(yoke_bin)} path fix --yes, then rerun the installer."
+            )
         installed_version = self._smoke_yoke(yoke_bin)
         display = _display_version(installed_version)
         # Readiness comes only after every required check passes: a
@@ -166,11 +158,4 @@ class Installer(InstallerVerification, InstallerResolution):
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
             print(self._say(f"Yoke v{display} is ready"), file=self.stdout)
-        if shell_unknown:
-            bin_dir = shlex.quote(os.path.dirname(yoke_bin))
-            print(
-                self._say(f'Add Yoke to PATH: export PATH={bin_dir}:"$PATH"'),
-                file=self.stdout,
-            )
-        else:
-            self._advise_path(yoke_bin)
+        self._advise_path(yoke_bin)

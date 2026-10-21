@@ -180,17 +180,17 @@ PATH_REPAIR = terminal_case(
     "path-repair",
     "terminal-check",
     instructions=(
-        "Install the current public {{environment_display_name}} release, run the uv-delegated PATH "
-        "repair command, and verify fresh-login shell resolution."
+        "Install the current public {{environment_display_name}} release, run the owned PATH "
+        "repair command, and verify login, interactive, non-login and SSH shell resolution."
     ),
     expected_outcome=(
-        "uv updates shell configuration and the actual login-shell probe reports verified."
+        "Yoke repairs its marked shell configuration and all shell contexts report verified."
     ),
     method_config=terminal_recipe(
         actions=(action("path-repaired"),),
         expected_text=(
             '"login_verified": true',
-            '"command": "uv tool update-shell"',
+            '"command": "yoke path fix --yes"',
         ),
         capture_checkpoints=("path-repaired",),
         notes=(

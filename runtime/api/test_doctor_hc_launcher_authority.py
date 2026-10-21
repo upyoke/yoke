@@ -15,6 +15,15 @@ from yoke_core.engines.doctor_hc_launcher_authority import (
 )
 
 
+@pytest.fixture(autouse=True)
+def shell_context_probe(monkeypatch):
+    # These unit tests supply canonical/login resolution rather than real shells.
+    monkeypatch.setattr(
+        "yoke_cli.config.path_doctor.diagnose",
+        lambda **kw: SimpleNamespace(contexts=()),
+    )
+
+
 class _Rec:
     def __init__(self) -> None:
         self.rows = []
@@ -248,3 +257,35 @@ def test_machine_probe_ignores_operator_source_opt_in(monkeypatch):
 
     monkeypatch.setenv("YOKE_SOURCE_DEV", "1")
     assert "YOKE_SOURCE_DEV" not in check._machine_launcher_env()
+
+
+def test_doctor_reports_non_login_failure_even_when_canonical_login_matches(
+    monkeypatch, tmp_path
+):
+    from yoke_core.engines import doctor_hc_launcher_authority as check
+
+    canon = tmp_path / "yoke"
+    monkeypatch.setattr(check, "canonical_shim_path", lambda: canon)
+    monkeypatch.setattr(check, "_login_shell_yoke", lambda: str(canon))
+    monkeypatch.setattr(check, "enumerate_shadow_installs", lambda **kw: [])
+    monkeypatch.setattr(check, "_resolve_checkout", lambda args: None)
+    monkeypatch.setattr(check, "_release_problem", lambda *args: None)
+    monkeypatch.setattr(check.shutil, "which", lambda *a, **kw: str(canon))
+    monkeypatch.setattr(
+        "yoke_cli.config.path_doctor.diagnose",
+        lambda **kw: SimpleNamespace(
+            contexts=(
+                {
+                    "shell": "zsh",
+                    "context": "non-login",
+                    "needs_fix": True,
+                    "reason": "shell_path_unresolved",
+                    "recovery": "Run yoke path fix --yes",
+                },
+            )
+        ),
+    )
+    rec = _Rec()
+    check.hc_launcher_authority(None, SimpleNamespace(fix=False), rec)
+    assert rec.rows[0][1] == "FAIL"
+    assert "zsh non-login: shell_path_unresolved" in rec.rows[0][2]

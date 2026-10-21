@@ -173,9 +173,18 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ) or ""
     shadows = enumerate_shadow_installs(canonical=canonical, env=machine_env)
     problems: list[str] = []
+    from yoke_cli.config.path_doctor import diagnose
+
+    diagnosis = diagnose(env=machine_env)
+    for context in diagnosis.contexts:
+        if context["needs_fix"]:
+            problems.append(
+                f"{context['shell']} {context['context']}: {context['reason']}; "
+                + context["recovery"]
+            )
     if not login:
         problems.append(
-            "fresh login shell resolved no yoke; run `uv tool update-shell`, then open a new terminal"
+            "fresh login shell resolved no yoke; run `yoke path fix --yes`, then open a new terminal"
         )
     elif Path(login).resolve() != canonical.resolve():
         problems.append(

@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
+from yoke_cli.config.path_state_contract import remove_shell_path
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
@@ -25,7 +26,7 @@ from yoke_cli.hook_resident_lifecycle import stop_resident
 
 COMMAND_TIMEOUT_SECONDS = 300
 NOT_REMOVED = (
-    "Not removed: uv, the PATH line in your shell profile, the Yoke GitHub App "
+    "Not removed: uv, user-owned PATH entries, the Yoke GitHub App "
     "(remove it in GitHub settings). Push the project-uninstall commits in your chosen checkouts."
 )
 
@@ -164,6 +165,7 @@ def remove(
         attempt("harness settings", lambda: _revert_harness_settings(emit))
     else:
         skipped("harness settings", "none recorded as written by Yoke")
+    attempt("shell PATH", remove_shell_path)
     attempt("hook evaluator", stop_resident)
     attempt("local UI", lambda: command(["ui", "down"]))
     if inventory.local_universe:

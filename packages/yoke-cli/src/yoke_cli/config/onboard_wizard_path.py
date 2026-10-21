@@ -74,7 +74,7 @@ class PathFlow:
             if not plan.get("login_verified"):
                 raise RuntimeError(
                     "fresh_login_path_unresolved: shell repair did not verify Yoke. "
-                    "Run `uv tool update-shell`, check shell files that override PATH, "
+                    "Run `yoke path fix --yes`, check shell files that override PATH, "
                     "then open a new terminal and retry Install."
                 )
             return plan, ""

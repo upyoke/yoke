@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import subprocess
 import sys
 from pathlib import Path
@@ -18,21 +17,6 @@ PARTS = (
     "installation",
 )
 
-PATH_DOCTOR = ROOT.parents[1] / "packages/yoke-cli/src/yoke_cli/config/path_doctor.py"
-
-
-def _path_doctor_constant(name: str) -> str:
-    """Return a string constant from path_doctor, the owner of uv's messages."""
-    for node in ast.parse(PATH_DOCTOR.read_text()).body:
-        if (
-            isinstance(node, ast.Assign)
-            and [getattr(target, "id", None) for target in node.targets] == [name]
-            and isinstance(node.value, ast.Constant)
-        ):
-            return node.value.value
-    raise SystemExit(f"installer_constant_missing: {name} not found in {PATH_DOCTOR}")
-
-
 def render() -> str:
     parts = [(ROOT / "source" / f"{name}.py.inc").read_text() for name in PARTS]
     source = (
@@ -45,8 +29,6 @@ def render() -> str:
                 / "packages/yoke-cli/src/yoke_cli/config/cli_release_runtime.py"
             ).read_text()
         )
-        + "\nUV_ALREADY_CONFIGURED = "
-        + repr(_path_doctor_constant("_UV_ALREADY_CONFIGURED"))
         + "\n"
         + "\n".join(parts[1:])
         + '\nif __name__ == "__main__":\n    raise SystemExit(main())\n'

@@ -78,7 +78,7 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
     path = cases["path-repair"]
     assert path["method_config"]["execution_mode"] == "ssh-command"
     assert '"login_verified": true' in path["method_config"]["expected_text"]
-    assert '"command": "uv tool update-shell"' in path["method_config"]["expected_text"]
+    assert '"command": "yoke path fix --yes"' in path["method_config"]["expected_text"]
 
     handoff = cases["apply-handoff"]
     assert f"{DISTRIBUTION_STAGE_URL}/install" in handoff["entry_surface"]

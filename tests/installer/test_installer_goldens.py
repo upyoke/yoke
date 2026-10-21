@@ -148,7 +148,7 @@ def test_shell_welcome_plain(tmp_path: Path) -> None:
 _EXIT_REMEDIATION = (
     "Open a new terminal to use Yoke.\n"
     "To add it later, run:\n"
-    "  uv tool update-shell\n"
+    "  yoke path fix --yes\n"
     "\n"
     "Run yoke setup in a terminal, or yoke setup --agent from an agent.\n"
 )
@@ -163,7 +163,7 @@ def test_exit_remediation() -> None:
     shim_text = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
     assert "Run yoke setup in a terminal, or yoke setup --agent from an agent." in shim_text
     install_py = (INSTALL_SHIM_PATH.parent / "install.py").read_text(encoding="utf-8")
-    assert "uv tool update-shell" in install_py
+    assert "yoke path fix --yes" in install_py
     _assert_golden("exit_remediation.txt", _EXIT_REMEDIATION)
 
 

@@ -1,4 +1,4 @@
-"""Regression coverage for uv-owned shell configuration."""
+"""Regression coverage for owned shell configuration."""
 
 from __future__ import annotations
 import os
@@ -19,35 +19,26 @@ def _env(home: Path, shell: str) -> dict[str, str]:
     }
 
 
-def _uv_update(home, shell, monkeypatch):
-    uv = shutil.which("uv")
-    assert uv, "uv is an installer prerequisite"
+def _update(home, shell):
     env = _env(home, shell)
     bindir = home / ".local/bin"
     bindir.mkdir(parents=True)
     yoke = bindir / "yoke"
     yoke.write_text("#!/bin/sh\nexit 0\n")
     yoke.chmod(0o755)
-    monkeypatch.setattr(doctor, "verify_fresh_login", lambda **kw: [])
-    original = doctor.shutil.which
-    monkeypatch.setattr(
-        doctor.shutil,
-        "which",
-        lambda name, **kw: uv if name == "uv" else original(name, **kw),
-    )
     doctor.update_shell(env=env)
     return env
 
 
-def test_uv_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
+def test_owned_path_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
     profile = tmp_path / ".profile"
     bashrc = tmp_path / ".bashrc"
     profile.write_text("export PROFILE_KEPT=yes\n")
     bashrc.write_text("export BASHRC_KEPT=yes\n")
-    env = _uv_update(tmp_path, "bash", monkeypatch)
+    env = _update(tmp_path, "bash")
     assert not (tmp_path / ".bash_profile").exists()
-    assert profile.read_text().startswith("export PROFILE_KEPT=yes\n")
-    assert bashrc.read_text().startswith("export BASHRC_KEPT=yes\n")
+    assert "export PROFILE_KEPT=yes\n" in profile.read_text()
+    assert "export BASHRC_KEPT=yes\n" in bashrc.read_text()
     for file, variable in ((profile, "PROFILE_KEPT"), (bashrc, "BASHRC_KEPT")):
         result = subprocess.run(
             [
@@ -65,22 +56,17 @@ def test_uv_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
         value, path = result.stdout.split("\n", 1)
         assert value == "yes"
         assert str(tmp_path / ".local/bin") in path.split(os.pathsep)
-    monkeypatch.setattr(
-        doctor,
-        "verify_fresh_login",
-        lambda **kw: [doctor.ToolResolution("yoke", str(tmp_path / ".local/bin/yoke"))],
-    )
     before = (profile.read_bytes(), bashrc.read_bytes())
     env["PATH"] = str(tmp_path / ".local/bin") + os.pathsep + env["PATH"]
     doctor.update_shell(env=env)
     assert (profile.read_bytes(), bashrc.read_bytes()) == before
 
 
-def test_uv_adds_tool_directory_to_fish(tmp_path, monkeypatch):
-    env = _uv_update(tmp_path, "fish", monkeypatch)
+def test_owned_path_adds_tool_directory_to_fish(tmp_path, monkeypatch):
+    env = _update(tmp_path, "fish")
     config = tmp_path / ".config/fish/config.fish"
-    assert f'fish_add_path "{tmp_path / ".local/bin"}"' in config.read_text()
-    assert not (tmp_path / ".zprofile").exists()
+    assert "set -gx PATH" in config.read_text()
+    assert (tmp_path / ".zshenv").exists()
     fish = shutil.which("fish")
     if fish:
         env["SHELL"] = fish

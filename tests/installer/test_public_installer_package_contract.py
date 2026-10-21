@@ -99,6 +99,8 @@ class _InstallPyRunner:
         self.commands.append(list(command))
         if command[0] == "uv":
             return subprocess.CompletedProcess(command, 0, "", "")
+        if command[1:] == ["path", "fix", "--yes", "--json"]:
+            return subprocess.CompletedProcess(command, 0, '{"verified": true}', "")
         if command[1:] == ["--version"]:
             return subprocess.CompletedProcess(command, 0, f"{self.version}\n", "")
         if command[1:] == ["--help"]:
