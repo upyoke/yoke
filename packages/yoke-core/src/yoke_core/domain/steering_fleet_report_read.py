@@ -22,6 +22,7 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
 from yoke_core.domain.steering_fleet_report_render import scope_inner_body
 from yoke_core.domain.steering_fleet_report_levels import level_readout_lines
+from yoke_core.domain.steering_fleet_report_slow_paths import slow_path_lines
 
 
 READ_FINGERPRINTS_COLUMN = "steering_report_read_fingerprints"
@@ -71,6 +72,11 @@ def _sections(combined: CombinedFleetReport) -> dict[str, tuple[str, str]]:
         "## unattended linked work\n"
         + ("\n".join(row.finding for row in combined.unattended) or "none"),
     )
+    if combined.slow_paths:
+        sections["slow_paths"] = (
+            digest([row.operation for row in combined.slow_paths]),
+            "\n".join(slow_path_lines(combined.slow_paths)).rstrip(),
+        )
     levels = []
     seen_levels = []
     names = {key: value for report in reports for key, value in report.machine_names}

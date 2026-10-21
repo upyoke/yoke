@@ -52,5 +52,6 @@ def watcher_dict(combined):
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
         "digest": combined_hook_digest(combined),
+        "slow_paths": [row.to_dict() for row in combined.slow_paths],
         "scopes": scopes,
     }

@@ -47,6 +47,11 @@ from yoke_core.domain.steering_fleet_report_project_rows import (
     rows_per_section,
 )
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
+from yoke_core.domain.steering_fleet_report_slow_paths import (
+    SlowPath,
+    read_slow_paths,
+    slow_path_lines,
+)
 from yoke_core.domain.steering_fleet_report_unattended import (
     UnattendedLinkedItem,
     unattended_linked_items,
@@ -111,6 +116,8 @@ class CombinedFleetReport:
     composed_at: datetime
     sections: tuple[ScopedFleetReport, ...]
     unattended: tuple[UnattendedLinkedItem, ...] = ()
+    #: Functions over their latency budget: diagnostic, never actionable.
+    slow_paths: tuple[SlowPath, ...] = ()
 
     @property
     def actionable(self) -> bool:
@@ -132,6 +139,8 @@ class CombinedFleetReport:
         )
         if self.unattended:
             material.append(("unattended", [row.item_id for row in self.unattended]))
+        if self.slow_paths:
+            material.append(("slow_paths", [row.operation for row in self.slow_paths]))
         return digest(material)
 
 
@@ -142,19 +151,23 @@ def compose_held_reports(
     now: str,
     project_id: int | None = None,
     include_inventory: bool = True,
+    reuse_schedule: bool = False,
 ) -> CombinedFleetReport:
     """Assemble one combined report from this session's active steering claims.
 
     Every section reads through one :class:`FleetReportReads`, so two seats
     held on the same project compose from one read of that project's facts
     and one read of each repository's merge queue. The request object is
-    created here and dropped with the reply.
+    created here and dropped with the reply. ``reuse_schedule`` lets a pull
+    take a schedule pass a few seconds old.
     """
     now = parse_instant(now)
     from yoke_core.domain.steering_report_read_connection import ReportReadConnection
 
     conn = ReportReadConnection(conn)
-    reads = FleetReportReads(include_inventory=include_inventory)
+    reads = FleetReportReads(
+        include_inventory=include_inventory, reuse_schedule=reuse_schedule
+    )
     sections: list[ScopedFleetReport] = []
     for claim in list_session_claims(conn, session_id=session_id, active_only=True):
         scope = dict(claim.get("scope") or {})
@@ -213,6 +226,7 @@ def compose_held_reports(
         composed_at=now,
         sections=tuple(sections),
         unattended=unattended_linked_items(conn, project_ids),
+        slow_paths=read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now),
     )
 
 
@@ -257,6 +271,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
                 "",
             ]
         )
+    parts.extend(slow_path_lines(combined.slow_paths))
     projects: set[int] = set()
     for section, rows in zip(combined.sections, shared):
         first = section.report.project_id not in projects
@@ -283,6 +298,7 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
         "unattended": [row.finding for row in combined.unattended],
+        "slow_paths": [row.to_dict() for row in combined.slow_paths],
         "scopes": [
             {"descriptor": section.descriptor, **report_dict(section.report)}
             for section in combined.sections

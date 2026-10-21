@@ -11,10 +11,12 @@ again.
 So the project-wide facts are a value — :class:`ProjectFleetFacts` — read
 once per project and handed to each scope, and :class:`FleetReportReads`
 is the request that holds them. Its lifetime is one request: the composer
-creates it, the reply is rendered from it, and it is discarded. No
-live report state is remembered between requests; immutable repository
-containment facts alone use a bounded process cache. Every report reads live
-state and no authorization decision outlives its read. ``session_id``
+creates it, the reply is rendered from it, and it is discarded. Between
+requests only two answers are remembered: immutable repository containment
+facts, and — for a pull that asks for it — the schedule pass, for a few
+seconds (:mod:`yoke_core.domain.steering_fleet_report_schedule_cache`).
+Every other fact is read live and no authorization decision outlives its
+read. ``session_id``
 and ``now`` are fixed for a request, which is why the memo keys carry only
 the project.
 """
@@ -54,6 +56,7 @@ from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
 )
 from yoke_core.domain.steering_fleet_report_run_progress import run_progress
+from yoke_core.domain.steering_fleet_report_schedule_cache import reused_scope_work
 from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     unregistered_launches,
@@ -157,7 +160,11 @@ def read_project_facts(
     inventory = request.include_inventory
     # One evaluation of the waiting graph feeds both dependency sections.
     live = live_blocking_edges(conn)
-    work = scope_work(conn, project_id=project_id, session_id=session_id)
+    work = (
+        reused_scope_work(conn, project_id=project_id, session_id=session_id)
+        if request.reuse_schedule
+        else scope_work(conn, project_id=project_id, session_id=session_id)
+    )
     return ProjectFleetFacts(
         available=work.available,
         landing_waits=work.landing_waits,
@@ -229,6 +236,8 @@ class FleetReportReads:
     """One report request's shared reads, discarded with the request."""
 
     include_inventory: bool = True
+    #: Reuse a schedule pass a few seconds old instead of recomputing it.
+    reuse_schedule: bool = False
     landings: MergeQueueReads = field(default_factory=MergeQueueReads)
     _memo: dict[tuple[Any, ...], Any] = field(default_factory=dict)
 
