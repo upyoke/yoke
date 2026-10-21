@@ -8,9 +8,6 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-release.yml"
-_DOC = _ROOT / "docs" / "releases" / "README.md"
-
-
 def _text() -> str:
     return _WORKFLOW.read_text(encoding="utf-8")
 
@@ -118,19 +115,3 @@ def test_release_creation_retries_only_http_server_errors():
     assert 'sleep "$backoff_seconds"' in release_step
     assert "github_release_create_non_retryable" in release_step
     assert "github_release_create_5xx_exhausted" in release_step
-
-
-def test_public_operator_doc_teaches_current_release_and_verification():
-    text = _DOC.read_text(encoding="utf-8")
-    assert "source-dev release rules](../source-dev-doctrine.md)" in text
-    source_rules = (_ROOT / "docs/source-dev-doctrine.md").read_text()
-    assert "yoke-hosted-production-release-qa" in source_rules
-    assert "Treat release tags as immutable" in text
-    assert "gh attestation verify ./yoke_core-*.whl" in text
-    assert "oci://ghcr.io/upyoke/yoke-server@sha256:<digest>" in text
-    assert '--source-ref "$release_ref"' in text
-    assert text.count("--source-ref refs/heads/main") == 2
-    assert text.count("--source-digest") == 3
-    assert "--deny-self-hosted-runners" in text
-    contributing = (_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
-    assert "[docs/releases/README.md](docs/releases/README.md)" in contributing

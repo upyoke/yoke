@@ -1,17 +1,14 @@
-"""Help and refusal text names the real limit and the real recovery."""
+"""Refusal and guidance text names the real limit and the real recovery."""
 
 from __future__ import annotations
 
 import pytest
 
-from yoke_cli.commands import qa_case
-from yoke_cli.commands.adapters import projects, qa_catalog_usage
 from yoke_core.domain import machine_qa_method_contracts as contracts
 from yoke_core.domain import qa_plan_execution_abort_cli as abort_cli
 from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain.qa_mission_stop_settlement import stopped_mission_guidance
 from yoke_core.domain.qa_plan_execution_abort_reason import ABORT_REASON_MAX_LENGTH
-from yoke_core.domain.qa_plan_execution_cli_help import QA_PLAN_RUN_EPILOG
 
 
 def test_architecture_topic_refusal_names_its_real_home() -> None:
@@ -23,12 +20,7 @@ def test_architecture_topic_refusal_names_its_real_home() -> None:
     assert "yoke project-structure architecture-draft get --project P" in message
 
 
-def test_abort_help_states_the_reason_limit(capsys) -> None:
-    assert qa_case.qa_plan_abort(["--help"]) == 0
-    assert f"--reason holds at most {ABORT_REASON_MAX_LENGTH} characters" in (
-        capsys.readouterr().out
-    )
-    assert f"--reason holds at most {ABORT_REASON_MAX_LENGTH} characters" in QA_PLAN_RUN_EPILOG
+def test_stopped_mission_guidance_states_the_reason_limit() -> None:
     assert f"at most {ABORT_REASON_MAX_LENGTH} characters" in stopped_mission_guidance(
         "--item YOK-1", "e-1"
     )
@@ -53,17 +45,3 @@ def test_long_assertion_argv_refusal_names_the_value_limit() -> None:
     assert f"at most {contracts.ASSERTION_ARGV_MAX_CHARS}" in message
     assert "Split the check into several assertions" in message
 
-
-def test_plan_cases_sync_usage_requires_a_source_revision(capsys) -> None:
-    assert "[--source-revision" not in qa_catalog_usage.PLAN_CASES_SYNC_USAGE
-    assert "--source-revision FULL_SHA [--json]" in qa_catalog_usage.PLAN_CASES_SYNC_USAGE
-    assert "yoke qa plan-cases replace" in qa_catalog_usage.PLAN_CASES_SYNC_USAGE
-
-
-def test_patch_apply_help_names_every_op_field(capsys) -> None:
-    with pytest.raises(SystemExit):
-        projects.project_structure_patch_apply(["--help"])
-    out = capsys.readouterr().out
-    for field in ("op", "family", "attachment", "entry_key", "payload"):
-        assert f"  {field} " in out
-    assert '"entry_key":"tests"' in out

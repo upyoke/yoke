@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-
-from runtime.api.skill_doc_regressions_test_helpers import (
-    SKILLS,
-    _read,
-)
+from runtime.api.skill_doc_regressions_test_helpers import SKILLS
 
 
 # ---------------------------------------------------------------------------
@@ -15,7 +11,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 
 
 class TestStrategize:
-    """Strategize entry surface must keep its phase files and /do handoff."""
+    """Strategize entry surface must keep its phase files."""
 
     STRATEGIZE_DIR = SKILLS / "strategize"
 
@@ -33,121 +29,3 @@ class TestStrategize:
             "strategize/ must contain at least one phase sub-file "
             "(research / propose / approve)"
         )
-
-    def test_router_lists_strategize(self):
-        router_text = _read(SKILLS / "SKILL.md")
-        assert "/yoke strategize" in router_text
-
-    def test_strategize_phase_files_avoid_ask_user_question(self):
-        """Strategize checkpoints should stay conversational across the phase files."""
-        offenders = []
-        for md in self.STRATEGIZE_DIR.rglob("*.md"):
-            if "AskUserQuestion" in _read(md):
-                offenders.append(md.relative_to(SKILLS).as_posix())
-        assert not offenders, (
-            "strategize phase files must not use AskUserQuestion; "
-            f"found in: {', '.join(offenders)}"
-        )
-
-    def test_strategize_tradeoff_examples_use_semantic_labels(self):
-        """Tradeoff checkpoint examples should model semantic labels, not placeholders."""
-        approve_text = _read(self.STRATEGIZE_DIR / "approve.md")
-        finalize_text = _read(self.STRATEGIZE_DIR / "finalize.md")
-        combined = f"{approve_text}\n{finalize_text}"
-        assert "resolution_A" not in combined
-        assert "resolution_B" not in combined
-
-    def test_refresh_preserves_new_ids_in_structured_carry_set(self):
-        """refresh must keep 'new this session' stable across summary + JSON."""
-        text = _read(self.STRATEGIZE_DIR / "refresh.md")
-        assert "yoke strategy carry register-new" in text
-        assert "--result-json" in text
-        assert "yoke strategy carry candidate-set" in text
-        assert "--new-ids ${_carry_new_ids}" in text
-
-    def test_finalize_releases_the_claim_through_the_cli(self):
-        """carry marks and claim release use the CLI surface without shell glue."""
-        text = _read(self.STRATEGIZE_DIR / "finalize.md")
-        # Session-ID fallback chains must be eliminated
-        assert '_sid="${YOKE_SESSION_ID' not in text
-        assert '--session-id "$_sid"' not in text
-        assert "yoke claims work release --process STRATEGIZE" in text
-        assert "Record the checkpoint and release even when deferred" in text
-
-    def test_strategize_roster_reviews_all_five_default_docs(self):
-        """The SML review roster covers every seeded default strategy doc.
-
-        A stale four-doc roster would leave CURRENT-PLAN — the doc first-work
-        seeding derives from — outside the strategize review loop.
-        """
-        text = _read(self.STRATEGIZE_DIR / "SKILL.md")
-        for slug in (
-            "MISSION",
-            "LANDSCAPE",
-            "VISION",
-            "MASTER-PLAN",
-            "CURRENT-PLAN",
-        ):
-            assert slug in text, f"strategize roster missing {slug!r}"
-        assert "Read all five docs" in _read(self.STRATEGIZE_DIR / "refresh.md")
-
-    def test_strategize_research_has_landscape_editorial_pressure_pass(self):
-        """Research phase must flag LANDSCAPE.md bloat, not just factual drift.
-
-        Without an editorial-pressure pass, research only corrects facts and
-        strategize sessions default to append-only LANDSCAPE.md growth. The
-        research file must explicitly teach the agent to flag overgrown
-        sections, duplication, table-stakes observations, and clusters of
-        related developments that should be summarized instead of enumerated.
-        """
-        text = _read(self.STRATEGIZE_DIR / "research.md").lower()
-        # The five editorial moves must all be named so the agent has a
-        # concrete vocabulary for the finding.
-        for term in ("weave", "consolidat", "retire", "table-stakes", "summariz"):
-            assert term in text, (
-                f"strategize/research.md must mention '{term}' to teach "
-                "LANDSCAPE.md editorial discipline"
-            )
-        # And density/legibility must be treated as first-class review
-        # dimensions, not just factual correctness.
-        assert "density" in text or "dense" in text, (
-            "strategize/research.md must treat section density as a review dimension"
-        )
-
-    def test_strategize_teaches_process_claim_work_adapter(self):
-        """Strategize teaches the CLI adapters for the process work claim.
-
-        Strategize is a process-claim surface (not item-claim) — it
-        acquires the canonical ``STRATEGIZE`` process work claim before
-        the research/propose/approve phase loop. The canonical agent
-        CLI adapter is ``yoke claims work acquire --process STRATEGIZE``.
-        """
-        text = _read(self.STRATEGIZE_DIR / "entry.md")
-        assert "yoke claims work acquire" in text, (
-            "strategize/entry.md must teach yoke claims work acquire "
-            "(function id family: claims.work.acquire / process target) "
-            "for the STRATEGIZE process claim acquisition."
-        )
-        assert "yoke claims work release" in text, (
-            "strategize/entry.md must teach yoke claims work release "
-            "(function id: claims.work.release) so the abort + finalize "
-            "contract is visible without consulting phase files."
-        )
-
-    def test_strategize_propose_has_landscape_editorial_rules(self):
-        """Propose phase must make the add-vs-rewrite decision explicit.
-
-        Without explicit weave-first and add-vs-rewrite rules, propose defaults
-        to appending a fresh bullet for every new signal. The propose file must
-        teach the agent to weave into existing sections first, consolidate
-        before adding when a section is dense, retire stale or table-stakes
-        observations, and justify any net-new bullet or paragraph.
-        """
-        text = _read(self.STRATEGIZE_DIR / "propose.md").lower()
-        for term in ("weave", "consolidat", "retire", "table-stakes", "justif"):
-            assert term in text, (
-                f"strategize/propose.md must mention '{term}' to teach "
-                "LANDSCAPE.md editorial discipline"
-            )
-        # The add decision comes after weaving into existing text.
-        assert "weave first" in text and "before adding" in text

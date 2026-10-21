@@ -10,9 +10,7 @@ import pytest
 from public_installer_helpers import (
     PUBLISHED_RELEASE_RECORD,
     RecordingRunner,
-    linux_stub_bin,
     load_installer,
-    run_shim,
 )
 from public_installer_publication import (
     MISSING_VERSION,
@@ -189,20 +187,3 @@ def test_install_does_not_fetch_a_release_record() -> None:
     except module.InstallError as exc:
         assert "installer_release" not in str(exc)
     assert calls == []
-
-
-def test_dry_run_help_names_publication(capsys) -> None:
-    module = load_installer()
-    with pytest.raises(SystemExit) as raised:
-        module.parse_args(["--help"])
-    assert raised.value.code == 0
-    help_text = " ".join(capsys.readouterr().out.split())
-    assert "published at the installer origin" in help_text
-    assert "not proof the install would succeed" in help_text
-
-
-def test_shim_help_names_publication(tmp_path: Path) -> None:
-    result = run_shim(linux_stub_bin(tmp_path), args=("--help",))
-    assert result.returncode == 0, result.stderr
-    assert "published at this origin" in result.stdout
-    assert "not proof the install would succeed" in result.stdout

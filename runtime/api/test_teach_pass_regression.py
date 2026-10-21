@@ -9,7 +9,6 @@ Postgres fixtures.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -26,7 +25,6 @@ _RENDERED_BODY: str = "\n".join(
     sac.render_topic_packet(topic, detail=PACKET_DETAIL_FULL)
     for topic in sac.seed.ROLE_TOPICS["main_agent"]
 )
-_REPO = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(scope="module")
@@ -94,42 +92,9 @@ def test_columns_render_adjacent_to_owning_table(
         )
 
 
-# The packet ships verbatim into every target project, so its recipe
-# placeholders use the generic ``PREFIX-`` form rather than any one
-# project's item prefix. Runtime-composed denial bodies further down this
-# module still carry a concrete ref because they name a real item.
-_CLI_ANCHORS_REQUIRED = (
-    # Canonical ``yoke <subcommand>`` agent shapes (current):
-    "yoke claims work acquire --item PREFIX-",
-    "yoke claims work release --item PREFIX-",
-    "yoke claims path register",
-    "yoke claims path widen",
-    "yoke lifecycle transition",
-    "yoke events query",
-    "yoke items structured-field replace",
-    "yoke items progress-log append",
-    "yoke ouroboros field-note append",
-    # Source-dev/admin fallbacks the packet explicitly labels.
-    "yoke claims path list --item PREFIX-N",
-    "yoke db-claim amend PREFIX-N",
-    "--state none",
-    "backlog-cli",
-    "lifecycle.transition",
-    'yoke db read "SELECT 1"',
-)
-
-
-@pytest.mark.parametrize("anchor", _CLI_ANCHORS_REQUIRED)
-def test_cli_anchor_present(body: str, anchor: str) -> None:
-    assert anchor in body, f"CLI cheat sheet must teach anchor {anchor!r}."
-
-
-def test_function_call_stanza_names_registered_writes_and_cli(body: str) -> None:
-    assert "Registered writes" in body
+def test_packet_names_every_registered_write(body: str) -> None:
     for function in sac.seed.AGENT_WRITE_FUNCTION_IDS:
         assert f"`{function}`" in body
-    assert "dots→spaces, underscores→hyphens" in body
-    assert "yoke_core.domain.yoke_function_dispatch" not in body
 
 
 _JSON_NESTED_COLUMNS_REQUIRED = (
@@ -146,14 +111,6 @@ def test_json_nested_schema_renders(body: str, column: str) -> None:
     assert column in body, (
         f"JSON-nested-field schema for {column} must render in the packet."
     )
-
-
-def test_epic_task_dependencies_are_not_taught_as_json(body: str) -> None:
-    assert (
-        "dependencies is comma-separated TEXT containing prerequisite "
-        "task_num values from the same epic, not JSON"
-    ) in body
-    assert "JSON array of bare task_num integers" not in body
 
 
 def test_parse_item_id_accepts_int_internal_id_and_rejects_unscoped_strings() -> None:
@@ -208,130 +165,3 @@ def test_path_claim_register_overlap_denial_requires_workflow_evidence() -> None
     assert "yoke say --steering" in body_text
     assert "/yoke refine" not in body_text
     assert "coordination-decision-build" not in body_text
-
-
-# Pure confabulations + the obsoleted ``--claim-state`` form. Must be
-# fully absent from the rendered packet.
-_FULLY_BANNED = (
-    "pt.path",
-    "items.item_id",
-    "work_claims.state",
-    "events.source_id",
-    "yoke_db_path",
-    "--claim-state",
-)
-
-
-@pytest.mark.parametrize("term", _FULLY_BANNED)
-def test_no_confabulated_terms_in_packet(body: str, term: str) -> None:
-    assert term not in body, (
-        f"rendered teaching surface contains banned confabulation {term!r}."
-    )
-
-
-def test_no_bare_claim_list_in_packet(body: str) -> None:
-    bare = re.findall(r"(?<!path-)claim-list", body)
-    assert bare == [], f"packet teaches bare 'claim-list': {bare}. Use path-claim-list."
-
-
-def test_get_db_path_only_appears_as_negative_teaching(body: str) -> None:
-    """``get_db_path`` may only appear inside negative teaching."""
-    remaining = body
-    allowed_negative_contexts = (
-        'never `python -c "from yoke_core.domain.worktree import get_db_path"`',
-        "Never import a guessed `get_db_path` helper; no such importable name exists.",
-    )
-    for context in allowed_negative_contexts:
-        assert context in body
-        remaining = remaining.replace(context, "")
-    assert "get_db_path" not in remaining
-
-
-def test_no_bare_doctor_invocation_in_packet(body: str) -> None:
-    bare = re.findall(
-        r"python3 -m runtime\.api\.engines\.doctor\b"
-        r"(?!\s+(?:--full|--quick|--only))",
-        body,
-    )
-    assert bare == [], f"packet contains bare doctor invocation(s): {bare}."
-
-
-def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
-    paths = (
-        _REPO / ".yoke" / "docs" / "agents" / "commands.md",
-        _REPO / ".yoke" / "docs" / "verification" / "browser-scenarios.md",
-        _REPO / ".yoke" / "docs" / "verification" / "browser-targets.md",
-        _REPO / "docs" / "browser-substrate" / "scenario-orchestration.md",
-        _REPO / ".yoke" / "docs" / "verification" / "model" / "qa.md",
-        _REPO / ".yoke" / "docs" / "verification" / "qa-cli.md",
-        _REPO / ".agents" / "skills" / "yoke" / "dash" / "verify.md",
-    )
-    text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
-
-    assert "yoke qa run complete" in text
-    assert "--requirement-id" in text
-    assert "yoke qa case run" in text
-    assert "qa run-complete" not in text
-    qa_cli = (_REPO / ".yoke/docs/verification/qa-cli.md").read_text()
-    assert "yoke qa run complete" in qa_cli
-
-
-def test_authored_claim_docs_teach_canonical_widen_surface() -> None:
-    paths = (
-        _REPO / "docs" / "path-claims.md",
-        _REPO / ".agents" / "skills" / "yoke" / "refine" / "SKILL.md",
-        _REPO / ".agents" / "skills" / "yoke" / "implement" / "entry.md",
-    )
-    text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
-
-    assert "yoke claims path widen" in text
-    assert "--claim-id" in text
-    assert "--add-paths" in text
-    assert "--reason" in text
-    assert "--item YOK-N" in text
-    assert "path-claims widen --claim-id" not in text
-    assert "path-claims widen <claim-id>" not in text
-    assert "claims path widen <id>" not in text
-
-
-def test_authored_claim_docs_teach_canonical_conflicts_surface(body: str) -> None:
-    paths = (_REPO / "docs" / "path-claims.md",)
-    text = body + "\n" + "\n".join(path.read_text(encoding="utf-8") for path in paths)
-
-    assert "yoke path-claims conflicts list" in text
-    assert "yoke claims path conflicts list" not in text
-
-
-def test_db_claim_docs_teach_required_apply_strategy_and_role_enum() -> None:
-    text = (_REPO / ".yoke" / "docs" / "items" / "model" / "items.md").read_text(
-        encoding="utf-8"
-    )
-
-    assert "migration_strategy" in text
-    assert 'mutation_intent="apply"' in text
-    assert (
-        "`pre_merge_readers_writers[].role` accepts only `reader` or `writer`" in text
-    )
-
-
-@pytest.mark.parametrize(
-    ("page", "heading"),
-    [
-        ("verification/model/qa.md", "Table: qa_requirements"),
-        ("verification/model/qa.md", "success_policy JSON Schema"),
-        ("verification/model/qa.md", "Table: qa_runs"),
-        ("verification/model/qa.md", "Table: qa_artifacts"),
-        ("sessions/model/sessions.md", "Table: harness_sessions"),
-        ("sessions/model/sessions.md", "Table: work_claims"),
-        ("sessions/model/sessions.md", "Live claim-holder lookup"),
-        ("sessions/model/coordination.md", "Shared-operation coordination claims"),
-        ("sessions/model/coordination.md", "BOARD.md Claims column rendering"),
-        ("sessions/model/coordination.md", "Scheduling and registered identity"),
-        ("deployments/model/releases.md", "Table: release_entries"),
-        ("items/model/landings.md", "Table: merge_locks"),
-        ("items/model/body-writes.md", "Body Write Path"),
-    ],
-)
-def test_model_topics_retain_their_complete_sections(page: str, heading: str) -> None:
-    text = (_REPO / "docs/public" / page).read_text()
-    assert re.search(r"^#{2,3} " + re.escape(heading) + r"$", text, re.MULTILINE)

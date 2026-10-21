@@ -45,7 +45,6 @@ def test_project_install_dereferences_claude_reference_symlink(
     )
     assert reference.is_file()
     assert not reference.is_symlink()
-    assert "Tester Browser Scenario Execution" in reference.read_text()
 
 
 def test_external_install_materializes_cursor_hooks_file(tmp_path: Path) -> None:

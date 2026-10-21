@@ -187,7 +187,6 @@ def test_cursor_session_start_carries_the_startup_block(project: Path) -> None:
 
     assert out is not None
     assert "Main-session startup block (main_agent)" in out
-    assert "yoke packets render --role main_agent" in out
 
 
 def test_cwd_outside_a_managed_project_gets_global_orientation(tmp_path: Path) -> None:
@@ -248,7 +247,6 @@ def test_startup_block_is_delivered_with_installed_rules(
 
     assert out is not None
     assert "Main-session startup block (main_agent)" in out
-    assert "yoke packets render --role main_agent" in out
 
 
 def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:

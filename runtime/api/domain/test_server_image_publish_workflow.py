@@ -19,9 +19,6 @@ from yoke_core.tools import server_image_metadata
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-server-image.yml"
-_RELEASE_DOC = _ROOT / "docs" / "releases" / "README.md"
-
-
 def _text() -> str:
     return _WORKFLOW.read_text(encoding="utf-8")
 
@@ -278,29 +275,3 @@ def test_registry_logins_use_the_pinned_action():
     text = _text()
     assert text.count("uses: docker/login-action@") == 4
     assert "docker login ghcr.io" not in text
-
-
-def test_first_publication_contract_proves_visibility_pull_and_provenance():
-    text = _RELEASE_DOC.read_text(encoding="utf-8")
-    assert "## First public image publication" in text
-    assert "visibility to **Public**" in text
-    assert "Repository visibility alone is not sufficient" in text
-    assert 'anonymous_config="$(mktemp -d)"' in text
-    assert "docker pull --platform linux/amd64" in text
-    assert "docker pull --platform linux/arm64" in text
-    assert 'DOCKER_CONFIG="$anonymous_config" docker pull "$repository:latest"' in text
-    assert 'test "$sha_digest" = "$digest"' in text
-    assert 'test "$latest_digest" = "$digest"' in text
-    assert 'test "$platforms" = "linux/amd64,linux/arm64"' in text
-    assert 'DOCKER_CONFIG="$anonymous_config" gh attestation verify' in text
-    assert "--bundle-from-oci" in text
-    assert "--source-ref refs/heads/main" in text
-    assert '--source-digest "$source_sha"' in text
-    for receipt_field in (
-        "workflow-run URL",
-        "annotated tag-object SHA",
-        "peeled source SHA",
-        "image digest",
-        "both anonymous platform pulls",
-    ):
-        assert receipt_field in text

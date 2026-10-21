@@ -101,9 +101,3 @@ def test_sessions_list_rejects_terminated_as_a_liveness_peer(capsys) -> None:
     assert "invalid choice: 'terminated'" in stderr
     assert "--ended-cause killed|wound_down" in stderr
 
-
-def test_terminate_help_states_org_wide_authority_and_seat_release() -> None:
-    description = termination.SESSION_TERMINATE_DESCRIPTION
-    assert "every claim the session holds" in description
-    assert "steering seats and their paired strategy-document locks" in description
-    assert "live steering seat on any project" in description

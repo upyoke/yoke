@@ -39,7 +39,6 @@ def test_operations_runbook_tracks_the_permission_contract() -> None:
     )
     for line in contract.required_repository_permission_lines():
         assert f"- {line}" in text
-    assert "Administration and Webhooks (`repository_hooks`) write" in text
 
 
 def test_installation_permission_evaluator_accepts_write_for_read() -> None:

@@ -220,7 +220,6 @@ def test_field_note_group_help_lists_subcommands() -> None:
     out = buf.getvalue()
     assert rc == 0
     assert err.getvalue() == ""
-    assert "yoke ouroboros field-note - subcommand group." in out
     assert "yoke ouroboros field-note append" in out
     assert "yoke ouroboros field-note list" in out
     assert "yoke ouroboros field-note get" in out

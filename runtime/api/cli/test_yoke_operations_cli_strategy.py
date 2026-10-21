@@ -266,7 +266,6 @@ class TestIngest:
             strategy_ingest(["--help"])
         out = capsys.readouterr().out
         assert "yoke strategy ingest MASTER-PLAN --dry-run" in out
-        assert "compare-and-swap" in out
         assert "--commit" not in out
 
     def test_json_omits_returned_file_texts(

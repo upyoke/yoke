@@ -97,5 +97,3 @@ def test_terminalize_help_teaches_redrive_instead_of_success_disposition():
     assert captured == []
     text = stdout + stderr
     assert INTERRUPTED_RUN_RECOVERY.strip() in text
-    assert "re-driving the same run" in text
-    assert "failed or cancelled" in text

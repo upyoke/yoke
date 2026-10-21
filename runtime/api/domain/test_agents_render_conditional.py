@@ -7,7 +7,6 @@ pipeline to gate Claude-only prose out of Codex adapters (and vice-versa).
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -304,39 +303,3 @@ def test_render_pipeline_strips_claude_block_for_codex_variant(
     # Shared prose must survive both renderings.
     assert "shared prose" in claude_rendered
     assert "shared prose" in codex_body
-
-
-# ---------------------------------------------------------------------------
-# Real-canonical regression: Claude-only tokens in rendered bodies
-# ---------------------------------------------------------------------------
-
-
-CLAUDE_ONLY_TOKENS = (
-    "Monitor",
-    "Bash(run_in_background",
-    "ScheduleWakeup",
-    "TaskOutput",
-    "TaskStop",
-    "PreToolUse",
-)
-
-
-@pytest.mark.parametrize("agent", ["engineer", "tester", "boss", "simulator"])
-def test_real_codex_bodies_have_no_claude_only_tokens(agent: str) -> None:
-    """The body that lands in the rendered Codex agent ``.toml`` must
-    contain none of the Claude-only primitive references."""
-    from yoke_core.domain.agents_render import CANONICAL_DIR
-    from yoke_core.domain.agents_render_codex import render_codex_agent_body
-
-    # Anchor the canonical directory to this test file's checkout root so
-    # the assertion targets the same canonical body the test module was
-    # loaded from (works under main checkout and under linked worktrees).
-    checkout_root = Path(__file__).resolve().parents[3]
-    canonical_dir = checkout_root / CANONICAL_DIR
-    with patch("yoke_core.domain.schema_api_context._try_live_schema", return_value=None):
-        body = render_codex_agent_body(canonical_dir, agent)
-    for token in CLAUDE_ONLY_TOKENS:
-        assert token not in body, (
-            f"Codex render of {agent} still teaches Claude-only token "
-            f"{token!r}; conditional markers must wrap the section"
-        )

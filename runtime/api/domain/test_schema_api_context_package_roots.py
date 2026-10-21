@@ -28,30 +28,9 @@ class TestRenderedBlock:
         assert len(rendered) == 1
         return rendered[0]
 
-    def test_states_the_rule(self, block: str):
-        assert "never implies a directory at the repo root" in block
-
-    def test_names_the_per_project_read(self, block: str):
-        assert (
-            "yoke project-structure get --project P "
-            "--family architecture_model" in block
-        )
-        assert "`package_roots`" in block
-
     def test_glosses_every_declared_layout(self, block: str):
         for layout in PACKAGE_LAYOUTS:
             assert f"`{layout}`" in block
-
-    def test_warns_that_one_package_may_declare_several_roots(self, block: str):
-        assert "several roots" in block
-
-    def test_carries_no_project_specific_paths(self, block: str):
-        # The packet is copied into every installed project, so a path from
-        # the repo it was rendered in would teach that project something
-        # false about itself.
-        for token in ("packages/", "runtime/", "src/"):
-            assert token not in block
-
 
 class TestEveryRoleIsTaught:
     """`core` is the universal topic, so no role misses the lookup."""

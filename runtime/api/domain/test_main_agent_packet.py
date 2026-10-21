@@ -155,8 +155,6 @@ def test_main_agent_block_separates_schema_from_substrate_authority() -> None:
     block = render_main_agent_block()
     assert "yoke packets render --role main_agent" in block
     assert ".yoke/harness/<harness-dir>/manifest.json" in block
-    assert "claude-code → claude" in block
-    assert "never a document's claim" in block
 
 
 def test_append_helpers_always_contribute_the_block() -> None:

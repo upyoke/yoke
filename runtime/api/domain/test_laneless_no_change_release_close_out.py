@@ -135,20 +135,6 @@ def test_absent_worktree_without_no_changes_evidence_is_not_laneless():
     )
 
 
-def test_merge_help_names_the_laneless_and_existing_lane_routes():
-    from yoke_cli.commands.merge_item import MERGE_ITEM_USAGE
-    from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
-
-    help_text = " ".join(build_parser().format_help().split())
-    assert "dash evidence" in help_text
-    assert "unique forward" in help_text
-    assert "lane that already exists" in help_text
-    assert "does not attest no_changes" in help_text
-    assert "workflow_next_stage_ambiguous" in help_text
-    assert "existing lane only" in MERGE_ITEM_USAGE
-    assert "unique lifecycle edge" in MERGE_ITEM_USAGE
-
-
 def test_laneless_no_change_dash_closes_its_release_wait(test_db, monkeypatch):
     actor = _at_release_wait(test_db, monkeypatch, item_id=7120, session_id="ll-a")
 

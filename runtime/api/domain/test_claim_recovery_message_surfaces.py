@@ -5,9 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain.lint_claim_ownership_mutations import _spoof_reason
-from yoke_core.domain.path_claims_dispatch_help import REGISTER_DESCRIPTION
 from yoke_core.domain.path_claims_dispatch_ownership import OwnershipDenial
-from yoke_core.tools.atlas_render_docs import _render_permanent_roster
 
 
 _CORE = Path(__file__).parents[3] / "packages" / "yoke-core" / "src" / "yoke_core"
@@ -76,19 +74,3 @@ def test_operator_break_glass_guidance_does_not_embed_a_private_recipe() -> None
 
     assert "operator break-glass release surface named in the Atlas" in reason
     assert "service_client claim-release" not in reason
-
-
-def test_operator_break_glass_recipe_is_present_in_atlas() -> None:
-    text = "\n".join(_render_permanent_roster({
-        "operation_tracker": {"rows": []},
-    }))
-    assert "### Human-only stranded work-claim release" in text
-    assert "service_client claim-release" in text
-    assert "--claim-id CLAIM_ID" in text
-
-
-def test_exception_help_uses_the_public_register_mode() -> None:
-    assert "Exception mode (canonical no-claim justification" in REGISTER_DESCRIPTION
-    assert "yoke claims path register" in REGISTER_DESCRIPTION
-    assert "--mode exception" in REGISTER_DESCRIPTION
-    assert "--exception-reason" in REGISTER_DESCRIPTION

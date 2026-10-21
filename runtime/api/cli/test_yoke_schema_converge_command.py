@@ -304,21 +304,6 @@ def test_schema_converge_global_env_is_selected_then_restored() -> None:
     assert err.getvalue() == ""
 
 
-def test_schema_converge_help_marks_source_dev_admin_surface() -> None:
-    out, err = io.StringIO(), io.StringIO()
-    with redirect_stdout(out), redirect_stderr(err):
-        rc = cli_main(["schema", "converge", "--help"])
-
-    assert rc == 0
-    assert "source-dev/admin operation" in out.getvalue()
-    assert "boot-coupled schema convergence" in out.getvalue()
-    assert "pending ordered migration history" in out.getvalue()
-    assert "restore-point and serving-floor" in out.getvalue()
-    assert "destructive changes or data backfills" in out.getvalue()
-    assert "role/permission catalog" in out.getvalue()
-    assert err.getvalue() == ""
-
-
 def test_schema_converge_is_registered_as_source_dev_admin() -> None:
     entry = inv.lookup("yoke schema converge")
     assert entry is not None

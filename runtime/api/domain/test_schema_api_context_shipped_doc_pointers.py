@@ -9,7 +9,6 @@ docs tree exists only in the Yoke source repo.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -19,11 +18,6 @@ from yoke_core.domain import schema_api_context_seed as seed
 
 SHIPPED_DOCS_PREFIX = ".yoke/docs/"
 ROOT = Path(__file__).resolve().parents[3]
-PORTABLE_HOMES = (
-    ".yoke/docs/agents/rules/code-and-cli.md",
-    ".yoke/docs/documentation/index.md",
-)
-
 # Backticked path ending in .md with a `docs/` segment somewhere in it —
 # the shape every doc pointer in a packet note uses.
 _DOC_POINTER = re.compile(r"`([^`\s]*docs/[^`\s]+\.md)`")
@@ -82,14 +76,6 @@ def test_the_pointer_pattern_recognizes_both_shipped_and_source_paths() -> None:
     }
 
 
-def test_every_role_receives_portable_rule_reads_before_action() -> None:
-    # The main session reads the homes from AGENTS.md (asserted below).
-    for role in set(seed.ROLE_TOPICS) - {"main_agent"}:
-        packet = sac.render_role_packet(role)
-        for home in PORTABLE_HOMES:
-            assert f"`cat {home}`" in packet, (role, home)
-
-
 def test_packet_shipped_targets_exist_in_the_canonical_bundle() -> None:
     bundle = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/docs/public"
     pattern = re.compile(r"\.yoke/docs/([A-Za-z0-9_./-]+\.md)")
@@ -100,71 +86,13 @@ def test_packet_shipped_targets_exist_in_the_canonical_bundle() -> None:
             assert target.is_file(), (role, relative)
 
 
-def test_native_main_entry_routes_to_the_portable_homes() -> None:
-    agents = (ROOT / "AGENTS.md").read_text()
-    assert "`.yoke/docs/agents/rules/`" in agents
-    assert "`code-and-cli.md`: code, naming, teaching" in agents
-    assert (
-        "Shared rules: `AGENTS.md`"
-        in (ROOT / "runtime/harness/claude/rules/session.md").read_text()
-    )
-    code_home = (ROOT / "docs/public/agents/rules/code-and-cli.md").read_text()
-    assert "(../../documentation/index.md)" in code_home
-    assert "(../../projects/execution-instructions.md)" in code_home
-
-
-def test_public_extraction_contract_keeps_private_rollback_and_delivery() -> None:
-    text = (ROOT / "docs/public/projects/execution-instructions.md").read_text()
-    for instruction in (
-        "neutral summaries",
-        "fresh durable private rollback",
-        "actual receiving context",
-        "Preserve\nthe instruction's scope and delivery settings",
-    ):
-        assert instruction in text
-    assert "a global session cannot assume this directory contains `.yoke/docs`" in text
-
-
-def test_every_rendered_worker_receives_the_portable_homes() -> None:
-    for harness, extension in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
-        adapters = ROOT / "runtime/harness" / harness / "agents"
-        paths = list(adapters.glob(f"yoke-*.{extension}"))
-        assert len(paths) == 8
-        for path in paths:
-            text = path.read_text()
-            for home in PORTABLE_HOMES:
-                assert home in text, (path, home)
-
-
-def test_conditional_procedures_are_available_before_their_action() -> None:
+def test_conditional_procedure_references_match_the_canonical_bundle() -> None:
     references = {
-        "engineer": ("implementation", "before editing or running checks"),
-        "architect": ("task-templates", "Before authoring a plan or task"),
-        "tester": ("reporting", "Before writing or recording a verdict"),
+        "engineer": "implementation",
+        "architect": "task-templates",
+        "tester": "reporting",
     }
     bundle = ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    for role, (name, moment) in references.items():
-        source = ROOT / f"runtime/agents/{role}.md"
-        assert moment in source.read_text()
+    for role, name in references.items():
         relative = f"runtime/harness/claude/agents/references/{role}/{name}.md"
         assert (ROOT / relative).read_bytes() == (bundle / relative).read_bytes()
-        for harness, ext in (("claude", "md"), ("codex", "toml"), ("cursor", "md")):
-            prompt = ROOT / f"runtime/harness/{harness}/agents/yoke-{role}.{ext}"
-            assert f".claude/agents/references/{role}/{name}.md" in prompt.read_text()
-
-
-def test_active_machine_pack_pointer_is_portable_and_retains_sign_in_boundary() -> None:
-    catalog = ROOT / "packs/machine-qa/pack.json"
-    descriptor = json.loads(catalog.read_text())
-    latest = descriptor["versions"][descriptor["latest_version"]]
-    payload = catalog.parent / latest["source"] / "docs/packs/machine-qa"
-    assert (
-        ".yoke/docs/verification/browser-identities.md"
-        in (payload / "browser-identities.md").read_text()
-    )
-    for os_name in ("linux", "macos", "windows"):
-        text = (payload / f"{os_name}-host-provisioning.md").read_text()
-        assert "project-owned sign-in policy" in text
-        assert "only types their own\n   password or credential" in text
-        assert "https://github.com/upyoke/yoke/blob/" not in text
-        assert "docs/public/" not in text

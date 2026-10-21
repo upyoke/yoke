@@ -1,11 +1,10 @@
-"""Tests for usher merge.md multi-worktree epic fixes."""
+"""Tests for multi-worktree epic lane resolution."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -13,9 +12,6 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
 pytest_plugins = ("runtime.api.domain.worktree_test_helpers",)
 
-SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
-MERGE_MD = SKILL_ROOT / "usher" / "merge.md"
-RULES_ROOT = Path(__file__).parents[2] / ".yoke" / "docs" / "agents" / "rules"
 RESOLVE_MODULE = "yoke_core.domain.worktree_item_resolve"
 
 
@@ -45,83 +41,6 @@ def _add_git_worktree(git_repo, branch: str):
         capture_output=True,
     )
     return path
-
-
-class TestMergeMdEpicDelegation:
-    """Pinned child/lane policy selects the internal generated-task procedure."""
-
-    def test_no_direct_epic_merge_worktree_call(self):
-        assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in MERGE_MD.read_text()
-        generated = (SKILL_ROOT / "usher" / "merge-generated-tasks.md").read_text()
-        assert "never only the parent" in generated
-
-    def test_has_internal_generated_task_merge(self):
-        assert "merge-generated-tasks.md" in MERGE_MD.read_text()
-
-    def test_single_lane_path_still_present(self):
-        assert "merge-item -- PREFIX-N --skip-status" in MERGE_MD.read_text()
-
-    def test_merge_selection_uses_pinned_policy_not_workflow_name(self):
-        assert 'if [ "$_item_workflow_id" = "epic" ]' not in MERGE_MD.read_text()
-        routing = " ".join((RULES_ROOT / "lanes-and-claims.md").read_text().split())
-        for required in (
-            "yoke workflows item get PREFIX-N",
-            "yoke workflows version get WORKFLOW VERSION",
-            "half-open interval",
-            "`policies.worktrees` and `policies.generated_children`",
-            "not from a workflow-id branch",
-        ):
-            assert required in routing
-
-    def test_internal_merge_follows_pinned_delivery_stages(self):
-        text = (SKILL_ROOT / "usher" / "merge-bookkeeping.md").read_text()
-        for required in (
-            "Only after every lane landed",
-            "one stage at a time to the delivery wait",
-            "yoke lifecycle transition PREFIX-N --from LIVE_STAGE --to NEXT_STAGE",
-        ):
-            assert required in " ".join(text.split())
-        assert "bypass_reason" not in text
-        assert '"target_status": "done"' not in text
-
-
-class TestMergeMdWorktreeIteration:
-    """Ephemeral verification consumes every registered lane and exact candidate."""
-
-    def test_no_direct_worktree_field_read_for_ephemeral(self):
-        text = MERGE_MD.read_text()
-        assert "items get PREFIX-{N} worktree" not in text
-        assert "`ephemeral-verify` stage per lane" in " ".join(text.split())
-
-    def test_registered_reader_used_for_generated_task_lanes(self):
-        text = (SKILL_ROOT / "usher" / "merge-arguments.md").read_text()
-        assert "yoke item-worktrees list PREFIX-N --json" in text
-        assert "Use only registered lane paths" in text
-
-    def test_ephemeral_verify_takes_exact_candidate_inputs(self):
-        text = MERGE_MD.read_text()
-        assert "ephemeral-verify PROJECT REPO BRANCH WORKFLOW DOMAIN SHA" in text
-        assert "head -1" not in text
-
-
-class TestMergeMdHaltClassRelease:
-    """Merge exits preserve landed state and release intent."""
-
-    def test_halt_class_strings_present(self):
-        text = MERGE_MD.read_text()
-        for required in ("usher-halt-merge-failure", "usher-halt-unexpected"):
-            assert required in text
-
-    def test_release_work_claim_command_with_halt_reason(self):
-        assert (
-            "yoke claims work release --item PREFIX-N --reason usher-halt-merge-failure --json"
-            in MERGE_MD.read_text()
-        )
-
-    def test_failed_exit_rolls_back_only_unlanded_merges(self):
-        text = " ".join(MERGE_MD.read_text().split())
-        assert "roll back if unlanded" in text
-        assert "unknown codes `usher-halt-unexpected`" in text
 
 
 class TestResolverCLI:

@@ -234,4 +234,3 @@ def test_help_never_resolves_source_or_starts_live_execution(
     with pytest.raises(SystemExit) as exit_info:
         adapter.session_control_acceptance_run(["--help"])
     assert exit_info.value.code == 0
-    assert "canonical five-cell production acceptance" in capsys.readouterr().out

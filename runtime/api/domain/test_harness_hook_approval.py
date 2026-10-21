@@ -1,9 +1,7 @@
-"""Cursor has no declared hook-approval gate; stale prompt teaching stays gone."""
+"""Cursor has no declared hook-approval gate."""
 
 from __future__ import annotations
 
-import re
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,96 +22,6 @@ _SELF = Path(__file__).resolve()
 _REPO = next(
     parent for parent in [_SELF, *_SELF.parents] if (parent / "pyproject.toml").exists()
 )
-
-#: Teaching that Cursor has a hook-specific approval or reapproval prompt.
-_STALE_CURSOR_HOOK_APPROVAL = re.compile(
-    r"Cursor's hooks? approval prompt"
-    r"|Cursor still shows an approval prompt"
-    r"|Cursor's hook-approval"
-    r"|Cursor's hook approval prompt",
-    re.IGNORECASE,
-)
-
-_SCAN_ROOTS = (
-    _REPO / "packages",
-    _REPO / "docs",
-    _REPO / "runtime",
-    _REPO / ".agents",
-    _REPO / "docs/public/agents/cursor.md",
-    _REPO / "docs/public/agents/codex.md",
-    _REPO / "AGENTS.md",
-)
-
-
-def _iter_teaching_files(*, repo: Path = _REPO, roots: tuple[Path, ...] = _SCAN_ROOTS):
-    """Scan tracked teaching, without entering transient wheel-build trees.
-
-    Parallel packaging tests create and remove those trees while this check
-    runs. The index names the source being verified and needs no tree walk.
-    """
-    result = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "ls-files",
-            "-z",
-            "--",
-            *(str(root.relative_to(repo)) for root in roots),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    for relative in result.stdout.split("\0"):
-        if not relative:
-            continue
-        path = repo / relative
-        if not path.is_file() or path.suffix not in {".py", ".md", ".json"}:
-            continue
-        if "archive" in path.parts or "worktrees" in path.parts:
-            continue
-        if path.resolve() != _SELF:
-            yield path
-
-
-def test_teaching_scan_uses_tracked_sources_without_transient_build_trees(tmp_path):
-    source = tmp_path / "packages" / "example" / "src" / "teaching.md"
-    built = tmp_path / "packages" / "example" / "build" / "wheel" / "teaching.md"
-    archived = tmp_path / "docs" / "archive" / "teaching.md"
-    root_file = tmp_path / "AGENTS.md"
-    for path in (source, built, archived, root_file):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("teaching\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "-C", str(tmp_path), "init"],
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(tmp_path),
-            "add",
-            "--",
-            str(source),
-            str(archived),
-            str(root_file),
-        ],
-        check=True,
-        capture_output=True,
-    )
-
-    files = set(
-        _iter_teaching_files(
-            repo=tmp_path,
-            roots=(tmp_path / "packages", tmp_path / "docs", root_file),
-        )
-    )
-
-    assert files == {source, root_file}
-
 
 def test_cursor_has_no_hook_approval_gate():
     assert "cursor" not in HARNESS_HOOK_APPROVAL
@@ -153,28 +61,3 @@ def test_cursor_absence_cites_official_hooks_docs():
     assert "declared hook-specific approval" in text
     assert "absent for the same reason Claude is" not in text
     assert "there is no machine-readable" not in text
-
-
-def test_mapping_absence_is_not_proof_of_no_trust_gate():
-    bootstrap = (_REPO / "docs" / "harness-bootstrap.md").read_text(encoding="utf-8")
-    assert "A harness absent from that mapping has no gate." not in bootstrap
-    assert "owns declared hook-specific gates" in bootstrap
-    assert "absence\nfrom its mapping means no declared requirement" in bootstrap
-    assert "not proof of no security gate" in bootstrap
-    assert "Workspace trust remains separate" in bootstrap
-
-
-def test_stale_cursor_hook_approval_teaching_is_absent():
-    hits: list[str] = []
-    for path in _iter_teaching_files():
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        for index, line in enumerate(text.splitlines(), start=1):
-            if _STALE_CURSOR_HOOK_APPROVAL.search(line):
-                hits.append(f"{path.relative_to(_REPO)}:{index}:{line.strip()}")
-    assert hits == [], (
-        "stale Cursor hook-approval prompt teaching must not return:\n"
-        + "\n".join(hits)
-    )

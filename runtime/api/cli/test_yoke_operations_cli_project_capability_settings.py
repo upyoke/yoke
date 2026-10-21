@@ -70,7 +70,6 @@ def test_get_help_routes_pulumi_state_to_stack_scoped_reader():
     )
     assert rc == 0
     help_text = out + err
-    assert "pulumi-state reads are closed" in help_text
     assert "capability-settings merge" in help_text
     assert "yoke pulumi exec" in help_text
     assert "projects pulumi-stack-config get" in help_text

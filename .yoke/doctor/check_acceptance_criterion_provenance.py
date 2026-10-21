@@ -114,9 +114,6 @@ ARCHIVE_ROOTS: tuple[str, ...] = ("docs/archive/",)
 #: what the test proves. Same category as the emitters above — these verify the
 #: format rather than merely mentioning it.
 LABEL_FORMAT_UNDER_TEST: tuple[str, ...] = (
-    # Asserts the naming rule enumerates a criterion label among the forbidden
-    # provenance classes; the literal is the expected rule text.
-    "runtime/api/domain/test_codebase_reader_naming_doctrine.py",
     # Feeds synthetic source to the item-ref scanner to prove a criterion label
     # is not mistaken for a work-item reference.
     "runtime/api/domain/test_lint_item_ref_construction.py",

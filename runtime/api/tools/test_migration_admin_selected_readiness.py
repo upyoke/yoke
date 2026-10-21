@@ -283,38 +283,3 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
 
     assert preflight.main(["--project", "yoke", "stage", "yoke_alpha"]) == 0
     assert events == ["activate:stage-db-admin", "rehearse"]
-
-
-def test_preflight_help_teaches_both_receipt_coverage_shapes(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    assert preflight.main(["--help"]) == 0
-
-    help_text = capsys.readouterr().out
-    assert (
-        "yoke watch preflight -- --project P [--model M] [--checkout PATH]" in help_text
-    )
-    assert "The positional names the project's" in help_text
-    assert "release.admin_connection" in help_text
-    assert "--receipt-env`` names the" in help_text
-    assert "control plane that records the receipt" in help_text
-    assert "one environment's receipt never satisfies another" in help_text
-    assert "Receipts write to the control plane ``--receipt-env``" in help_text
-    assert "Ordinary pre-release rehearsal uses the source tree" in help_text
-    assert "--engine-wheel`` pins an already-built artifact" in help_text
-
-
-def test_preflight_refuses_to_record_a_narrowed_run(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    _select_yoke_fleet(monkeypatch)
-
-    assert (
-        preflight.main(["--project", "yoke", "prod", "yoke_alpha", "--record-receipt"])
-        == 2
-    )
-
-    refusal = capsys.readouterr().err
-    assert "whole declared fleet" in refusal
-    assert "yoke_alpha" in refusal

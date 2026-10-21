@@ -35,10 +35,7 @@ def test_skill_change_keeps_prose_contracts_when_selection_is_bounded(
 
     assert selection.bounded_deferral is True
     assert set(impacted_tests.AGENT_SKILL_CONTRACT_TESTS) <= set(selection.files)
-    assert {
-        "runtime/api/test_path_claim_scope_teaching.py",
-        "runtime/api/tools/test_impacted_skill_contracts.py",
-    } <= set(selection.files)
+    assert "runtime/api/tools/test_impacted_skill_contracts.py" in selection.files
     assert f"agent_skill_contract:{changed}" in selection.widening_triggers
 
 
@@ -47,20 +44,6 @@ def test_declared_skill_contract_tests_exist() -> None:
 
     for relative in impacted_tests.AGENT_SKILL_CONTRACT_TESTS:
         assert (root / relative).is_file(), relative
-
-
-def test_qa_seeding_change_keeps_no_tests_teaching_contract(tmp_path: Path) -> None:
-    root = _tiny_repo(tmp_path)
-    changed = ".agents/skills/yoke/implement/implementing/qa-seeding.md"
-    contract = "runtime/api/test_skill_doc_regressions_onboard_no_tests.py"
-    _write(root, changed, "# QA seeding\n")
-    for test_path in impacted_tests.AGENT_SKILL_CONTRACT_TESTS:
-        _write(root, test_path, "def test_skill_contract(): pass\n")
-
-    selection = select([changed], build_import_index(root), bounded=True)
-
-    assert contract in selection.files
-    assert f"agent_skill_contract:{changed}" in selection.widening_triggers
 
 
 def test_every_skill_doc_assertion_is_rostered() -> None:

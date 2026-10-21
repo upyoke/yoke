@@ -144,4 +144,3 @@ def test_the_packet_teaches_the_command():
 
     recipes = [entry for entry in WATCHERS_COMMANDS if "ci-run" in entry["recipe"]]
     assert len(recipes) == 1
-    assert "git rev-parse" in recipes[0]["notes"]

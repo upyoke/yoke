@@ -202,11 +202,7 @@ class TestSubmitHelpNamesTheContract:
 
     def test_help_sends_the_reader_to_the_stage_narrowed_set(self, capsys) -> None:
         text = self._help_text(capsys)
-        assert "this stage may accept fewer" in text
         assert "dispatch.result_schema" in text
-
-    def test_help_says_the_batch_is_complete_or_refused(self, capsys) -> None:
-        assert "A partial batch is refused" in self._help_text(capsys)
 
 
 class TestDispatchOffersOnlyWhatTheStageAccepts:

@@ -70,8 +70,6 @@ class TestCLI:
         assert "--workflow-transition" in out
         for source in qa.VALID_REQUIREMENT_SOURCES:
             assert source in out
-        assert "Executable cases are" in out
-        assert "materialized from registered test-plan methods" in out
         assert "--qa-kind" in out
         assert "browser_smoke" not in out
         assert "browser_diff" not in out

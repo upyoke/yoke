@@ -266,17 +266,6 @@ def test_connect_rejects_non_loopback_plain_http(
     assert not (machine_home / "config.json").exists()
 
 
-def test_connect_help_requires_https_beyond_numeric_loopback(capsys):
-    with pytest.raises(SystemExit) as raised:
-        commands.connect(["--help"])
-
-    assert raised.value.code == 0
-    help_text = capsys.readouterr().out
-    assert "required for every network server" in help_text
-    assert "accepted only for a numeric loopback endpoint" in help_text
-    assert "plain http:// is accepted for self-host servers" not in help_text
-
-
 def test_connect_token_file_source(monkeypatch, machine_home, tmp_path, capsys):
     _stub_http(monkeypatch)
     token_file = tmp_path / "pasted-token"

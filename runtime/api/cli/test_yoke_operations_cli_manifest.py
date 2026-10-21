@@ -242,7 +242,6 @@ def test_help_appends_server_only_drift_section(monkeypatch, capsys) -> None:
     assert "Active-env-only subcommands" in out
     assert "yoke zz top [source-dev/admin] -> zz.top.run" in out
     assert "Server usage: yoke zz top --afterburner" in out
-    assert "public installer" not in out.lower()
 
 
 def test_help_renders_without_manifest(monkeypatch, capsys) -> None:

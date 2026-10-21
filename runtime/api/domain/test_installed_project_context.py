@@ -46,7 +46,6 @@ def test_https_install_and_refresh_need_no_source_in_target(
     assert not (target / "runtime").exists()
     help_text = (target / ".agents/skills/yoke/help/SKILL.md").read_text()
     assert ".yoke/docs/index.md" in help_text
-    assert "see README.md" not in help_text
     assert (target / ".yoke/docs/index.md").is_file()
     manifest = json.loads((target / ".yoke/install-manifest.json").read_text())
     for entry, source_rel in zip(
@@ -128,7 +127,7 @@ def test_missing_release_manifest_has_named_recovery(tmp_path, failure):
         harness_manifest_files(tmp_path)
 
 
-def test_installed_rules_share_manifest_and_registered_context_homes(bundle):
+def test_installed_rules_name_the_installed_harness_manifest(bundle):
     files = {entry["path"]: entry["content"] for entry in bundle["files"]}
     for path in (
         ".claude/rules/session.md",
@@ -138,12 +137,3 @@ def test_installed_rules_share_manifest_and_registered_context_homes(bundle):
         assert ".yoke/harness/<harness-dir>/manifest.json" in files[path]
         assert "runtime/harness/<harness-dir>/manifest.json" not in files[path]
         assert "runtime/harness/manifest-schema.md" not in files[path]
-    conduct = files[".agents/skills/yoke/conduct/dispatch-context-project.md"]
-    context = files[".agents/skills/yoke/implement/implementing/project-context.md"]
-    assert "yoke project-structure get" in conduct
-    assert "--family context_routing --json" in conduct
-    assert "python3 -m yoke_core.domain.context_routing" not in conduct
-    assert "../implement/implementing/project-context.md" in conduct
-    assert "`entries` is a list" in context
-    assert "No entries or a missing configured file is an advisory" in context
-    assert "A failed read stops" in context

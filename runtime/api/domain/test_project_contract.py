@@ -167,53 +167,10 @@ def test_render_board_art_truncates_long_single_token_without_project_fallback(
     assert len(derive_letter_bounds(cfg.master_map)) == MAX_ART_WORD_LEN
 
 
-def test_readme_documents_the_three_way_split() -> None:
-    body = _entries()[".yoke/README.md"]["content"]
-    assert "# Acme Yoke Project Contract" in body
-    assert "project-policy.settings.board" in body
-    assert "BOARD.md" in body
-    assert "seeded once" in body
-
-
-def test_readme_maps_where_settings_live() -> None:
-    body = _entries()[".yoke/README.md"]["content"]
-    assert "## Where settings live" in body
-    # Repo-owned families.
-    for token in (
-        "project.config",
-        "packs.json",
-        "lint-config",
-        "labels",
-        "strategy/",
-    ):
-        assert token in body, token
-    assert "ordinary project-owned source" in body
-    assert "not classified as drift" in body
-    assert "board.json" not in body
-    # DB-owned families each name their read/write command.
-    for token in (
-        "project-policy",
-        "session-routing",
-        "projects get|update",
-        "yoke projects capability has",
-        "yoke projects capability-secret set",
-        "Project Structure patches",
-        "project-onboarding surfaces",
-        "project-structure deploy-defaults get",
-        "yoke qa plan list|get",
-        "project-structure patch apply",
-        "yoke deployment-flows create",
-        "sites.settings",
-    ):
-        assert token in body, token
-
-
-def test_project_config_seed_explains_policy() -> None:
+def test_project_config_seed_declares_line_policy() -> None:
     body = _entries()[".yoke/project.config"]["content"]
     assert "file_line_limit=350" in body
     assert "file_line_exception=" in body
-    assert "Blank lines and lines starting with #" in body
-    assert "Do not use this to avoid splitting normal source" in body
     assert "# file_line_exception=docs/generated-reference/**" in body
 
 

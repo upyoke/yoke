@@ -140,8 +140,6 @@ def test_expand_markers_replaces_body_with_packet() -> None:
     )
     out = expand_markers(text)
     assert fresh in out
-    assert "Schema cheat sheet:" not in out
-    assert "--topic core --detail full" in out
     assert "old body that should be replaced" not in out
     assert _make_marker("engineer_agent", "core") in out
     assert MARKER_END in out

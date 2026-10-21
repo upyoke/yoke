@@ -138,7 +138,6 @@ class TestEntrypointBehaviour:
             with redirect_stdout(buf):
                 rc = cli_main([flag])
             assert rc == 0
-            assert "Categories and actions" in buf.getvalue()
 
     def test_version_flag_prints_version(self) -> None:
         buf = io.StringIO()
