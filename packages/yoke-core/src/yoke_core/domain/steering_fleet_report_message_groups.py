@@ -113,10 +113,19 @@ class MessageGroup:
             self.evidence_id = reference
 
     def note_held_native(
-        self, *, evidence: Mapping[str, Any], observed_at: datetime | None
+        self,
+        *,
+        evidence: Mapping[str, Any],
+        observed_at: datetime | None,
+        latest_tool_call_at: datetime | None,
+        current: datetime,
     ) -> None:
-        """Keep the measured silence paired with its observation time."""
+        """Bound native output silence by the session's latest tool call."""
         silent = evidence.get("running_native_silent_for_seconds")
         if isinstance(silent, int) and not isinstance(silent, bool):
+            if latest_tool_call_at is not None:
+                tool_silence = max(0, int((current - latest_tool_call_at).total_seconds()))
+                if tool_silence < silent:
+                    silent, observed_at = tool_silence, current
             self.held_native_silent_for_seconds = silent
             self.held_native_observed_at = observed_at

@@ -102,8 +102,8 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # would hold for the same reason.
         return (
             "never injected, wake held — native turn running "
-            f"for this session{_held_silence(entry)}; it delivers when that "
-            "turn ends; to end it: "
+            f"for this session{_held_silence(entry)}; it delivers at that "
+            "session's next tool call or when its turn ends; to end it: "
             f"`yoke sessions terminate {entry.session_id} --reason ...`"
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
@@ -171,7 +171,7 @@ def _held_silence(entry: UndeliveredMessages) -> str:
 
     A held wake reads the same whether the turn behind it is thinking or
     has stopped, and the seat's decision differs entirely between those.
-    The native's own output clock separates them; an unknown silence says
+    Native output and recorded tool calls bound that silence; an unknown age says
     nothing rather than implying zero.
     """
     silent = entry.held_native_silent_for_seconds

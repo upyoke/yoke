@@ -22,6 +22,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_delivery_attempt,
     seed_message,
     seed_session,
+    seed_tool_call,
 )
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     WAKE_HELD_FOR_NATIVE_TURN,
@@ -92,3 +93,48 @@ def test_an_unmeasured_silence_leaves_the_row_saying_nothing(fleet):
     rows = _held(fleet)
 
     assert rows[0].held_native_silent_for_seconds is None
+
+
+@pytest.mark.parametrize(
+    ("tool_at", "silent", "expected"),
+    [
+        ("2026-08-26T11:55:00Z", 5400, 300),
+        ("2026-08-26T10:00:00Z", 1800, 1800),
+        ("2026-08-26T12:01:00Z", 5400, 0),
+        ("2026-08-26T11:55:00Z", None, None),
+    ],
+)
+def test_held_silence_uses_recent_tool_activity(fleet, tool_at, silent, expected):
+    """Completed calls count even when the session activity cache is stale."""
+    seed_tool_call(
+        fleet,
+        ANSWERER,
+        tool_use_id="latest-call",
+        started_at=tool_at,
+        completed_at=tool_at,
+        command_summary="Read item status",
+    )
+    # Insert older history last so the query must select the latest start.
+    seed_tool_call(
+        fleet,
+        ANSWERER,
+        tool_use_id="older-call",
+        started_at=BEFORE_THAT,
+        completed_at=BEFORE_THAT,
+        command_summary="Read earlier status",
+    )
+    evidence = {} if silent is None else {"running_native_silent_for_seconds": silent}
+    rows = _held(fleet, evidence=evidence)
+
+    assert rows[0].delivery_state == WAKE_HELD_FOR_NATIVE_TURN
+    assert rows[0].held_native_silent_for_seconds == expected
+    from yoke_core.domain.steering_fleet_report_render_undelivered import (
+        undelivered_line,
+    )
+
+    line = undelivered_line(rows[0])
+    assert "it delivers at that session's next tool call or when its turn ends" in line
+    if expected == 300:
+        assert "silent for 5m as of 12:00Z" in line
+    if expected is None:
+        assert "silent for" not in line

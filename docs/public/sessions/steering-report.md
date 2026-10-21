@@ -112,8 +112,11 @@ Before then it reports releasable-at timestamp and no command; a younger queued
 receipt still causes wake_in_flight. A single failed attempt overtaken by a
 live call may defer; repeated failures retain precedence.
 
-Native-held rows name the native and, when measurable, its no-output age from
-the capture's own clock, not periodically refreshed file mtime. Missing old
+Native-held rows name the native and, when measurable, the smaller of its
+no-output age from the capture's own clock and time since the session's latest
+recorded tool call. The row dates the chosen measurement; file mtime is not
+activity. Pending mail delivers at that session's next tool call or when its
+turn ends. Missing old
 clock means unknown, never recent output. Parked declares wait, not exit; a
 supervisor-recorded exit ends the hold despite surviving group members. Codex
 background_session_in_use is native_turn_running deferral, not a failure.
