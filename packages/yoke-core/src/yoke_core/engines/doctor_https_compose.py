@@ -134,7 +134,7 @@ def run_local_runtime_checks(
     quick: bool,
     fix: bool,
     slugs: Sequence[str],
-    only: str | None,
+    only: str | None = None,
 ) -> List[Dict[str, Any]]:
     """Run local checks with the original selection and HTTPS authority."""
     if not slugs:

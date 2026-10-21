@@ -65,6 +65,7 @@ def dispatch_chunked(
 
     # Project-local --only slugs live in the caller checkout; strip them from
     # the relayed payload so undeployed checks are not rejected server-side.
+    local_selection = {"only": payload["only"]} if payload.get("only") else {}
     relay_payload, local_project_slugs = prepare_https_only_payload(payload)
     local_machine, _ = requested_local_machine_slugs(payload)
     if relay_payload.get("only") and local_machine:
@@ -89,7 +90,7 @@ def dispatch_chunked(
                     quick=False,
                     fix=bool(payload.get("fix")),
                     slugs=local_machine,
-                    only=payload.get("only"),
+                    **local_selection,
                 ),
             )
             local_result.update(results=rows, **recount(rows))
@@ -164,7 +165,7 @@ def dispatch_chunked(
                 quick=bool(payload.get("quick")),
                 fix=bool(payload.get("fix")),
                 slugs=local_runtime,
-                only=payload.get("only"),
+                **local_selection,
             ),
         )
         composed.append("local_runtime")
