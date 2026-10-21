@@ -2,7 +2,7 @@
  "id": "capacity",
  "title": "Available capacity",
  "status": "observed",
- "summary": "The machine worker allowance counts sessions and unregistered in-flight launches that another session requested; MAIN sessions, interactive or operator-launched without a requester session, spend no worker lane. Registration counts once; ended or terminated workers release capacity. The memory-derived minimum is one worker and explicit limits win. Rejected placement retains real occupancy and cap; unweighed model-pool population is unknown, not zero. Source behavior awaits released first-work receiving proof.",
+ "summary": "The machine worker allowance counts registered sessions and unregistered in-flight launches marked level_placement.work_required=true by an item, level or explicit work request; MAIN launches spend no worker lane, including operator launches with a requester session. Registration counts once; ended or terminated workers release capacity. The memory-derived minimum is one worker and explicit limits win. Rejected placement retains real occupancy and cap; unweighed model-pool population is unknown, not zero. Source behavior awaits released first-work receiving proof.",
  "sources": ["docs/public/agents/capacity-recovery.md", "packages/yoke-core/src/yoke_core/domain/session_launch_capacity.py", "packages/yoke-core/src/yoke_core/domain/session_launch_level_candidate.py"],
  "commands": ["yoke harness machine-report upsert", "yoke machine access get", "yoke machine access set"],
  "functions": ["harness.machine_report.upsert", "machine.access.get", "machine.access.set"],
