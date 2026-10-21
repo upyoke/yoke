@@ -313,7 +313,10 @@ def run(args: List[str]) -> int:
         return WAITING_RETRY_EXIT
     if state in {"walking", "awaiting_walk_review"}:
         print(
-            f"QA execution {state}; no verdict yet. "
+            ("QA mission walking; hand-back pending, not a pass. "
+             if state == "walking" else
+             "QA capture complete; independent review pending, not a pass. ")
+            +
             "Dispatch the returned typed reviewer contract now; its submitted "
             "verdict batch is the QA verdict.",
             file=sys.stderr,

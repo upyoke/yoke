@@ -156,7 +156,7 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     current = lock_plan_execution(test_db, execution_id)
     test_db.rollback()
     assert current["state"] == (
-        "aborted" if restored_before_removal else "awaiting_walk_review"
+        "aborted" if restored_before_removal else "walking"
     )
     assert member_removal_pending(current) == (
         end_kind == "removed" and not restored_before_removal

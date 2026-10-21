@@ -101,7 +101,7 @@ def test_failed_capture_closes_execution_and_corrected_roster_enters_review(
             closed = True
         if function_id == "qa.plan_review.begin":
             assert payload["execution_id"] == "corrected-capture"
-            return {"review_bundle": {"bundle_id": "independent-review"}}
+            return {"state": "awaiting_walk_review", "review_bundle": {"bundle_id": "independent-review"}}
         return {}
 
     def capture(case, **_kwargs):
