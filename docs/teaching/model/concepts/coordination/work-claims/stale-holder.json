@@ -3,5 +3,6 @@
  "title": "Stale holder",
  "status": "draft-copy",
  "page": "coordination",
- "position": 3
+ "position": 3,
+ "summary": "Ending a session never releases its claims, and the stale-session sweep skips a session that still holds one, so a claim from an ended session stays until it is freed. A release by any other session refuses with claim_required, naming the holder session and the recovery: the holder releases it, or a steering-seat holder runs yoke sessions terminate HOLDER --reason TEXT, which ends the holder and releases every claim it keeps."
 }
