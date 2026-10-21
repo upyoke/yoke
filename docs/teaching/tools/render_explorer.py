@@ -5,7 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
-from explorer_types import describe_nodes, describe_scope
+from explorer_types import describe_nodes, describe_scope, describe_sizes, describe_message_estimates
 from explorer_documents import add_documents, add_sections, connect_document_links, document
 from explorer_runtime import add_setup, add_packets
 from explorer_messages import add_hooks, add_replies
@@ -130,6 +130,8 @@ def map_nodes(model):
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
     describe_nodes(nodes, set(registered_commands()))
     describe_scope(nodes)
+    describe_sizes(nodes)
+    describe_message_estimates(nodes)
     return nodes
 
 
@@ -141,7 +143,7 @@ def build_explorer(views, pages):
     chunks = []
     batch = []
     for node in nodes:
-        if batch and (len(batch) >= 12 or len(json.dumps(batch + [node])) > 14000):
+        if batch and (len(batch) >= 8 or len(json.dumps(batch + [node])) > 14000):
             name = f'nodes-{len(chunks)}.json'
             chunks.append(name)
             views['explore/' + name] = json.dumps(batch, indent=1) + '\n'

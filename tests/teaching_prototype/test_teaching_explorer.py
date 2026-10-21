@@ -175,3 +175,22 @@ def test_rules_combine_shared_topics_and_only_local_additions(explorer):
     assert nodes['doc:docs/public/start/install.md']['guidance_scope'] == 'shared'
     assert nodes['skill:dash']['guidance_scope'] == 'shared'
     assert all(n['scope_label'] for n in nodes.values())
+
+
+def test_source_sizes_measure_exact_utf8_excerpts(explorer, tmp_path, monkeypatch):
+    import explorer_documents
+    from explorer_types import describe_sizes
+
+    monkeypatch.setattr(explorer_documents, 'REPO', tmp_path)
+    raw = 'Heading\r\nCafé 🌍\r\nEnd'.encode('utf-8')
+    (tmp_path / 'sample.md').write_bytes(raw)
+    nodes = [dict(document='../../../../sample.md'),
+             dict(document='../../../../sample.md', document_lines=[1, 2], source_only=True),
+             dict(title='A conceptual group')]
+    describe_sizes(nodes)
+    assert nodes[0]['source_size']['bytes'] == len(raw)
+    assert nodes[0]['source_size']['lines'] == 3
+    assert nodes[1]['source_size'] == dict(bytes=len('Café 🌍\r\n'.encode()),
+                                         chars=len('Café 🌍\r\n'), lines=1,
+                                         label='Definition excerpt')
+    assert 'source_size' not in nodes[2]

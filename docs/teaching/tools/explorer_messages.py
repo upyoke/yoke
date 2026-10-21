@@ -13,6 +13,7 @@ HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'
 def add_hooks(add):
     from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING
 
+    messages = {}
     for scope in ('global', 'project'):
         path = REPO / CORE / ('global_orientation.py' if scope == 'global' else 'session_orientation.py')
         name = 'render_global_orientation' if scope == 'global' else 'render_orientation'
@@ -22,12 +23,17 @@ def add_hooks(add):
                            'source:' + scope + '-hooks',
                            'First prompt in Claude/Codex; session start in Cursor.',
                            path, row, 'hook', 'Startup message')
+        messages[node['id']] = node
         node['body'] = ('Session identity, current folder, project selection and writing rules.'
                         if scope == 'global' else
                         'Session identity, checkout, setup facts and the main-session startup block.')
+    add('shared-hook-events', 'Shared hook event chains', 'source:project-hooks',
+        'One registry used inside and outside projects; each handler checks applicability.').update(
+            form=('group', 'Shared definitions', 'Global and project hooks'),
+            related=['hook-global-events'])
     for event, matchers in HOOK_ORDERING.items():
         parent = 'hook-event:' + event
-        node = add(parent, event, 'source:project-hooks',
+        node = add(parent, event, 'shared-hook-events',
                    'Registered hook event; applicability depends on harness, tool and scope.')
         node['form'] = ('hook', 'Hook event', event)
         for matcher, modules in matchers.items():
@@ -58,12 +64,98 @@ def add_hooks(add):
         node = source_node(add, 'hook-block:' + function, title, 'source:project-hooks',
                            (ast.get_docstring(row) or '').split('\n')[0], path, row,
                            'hook', 'Context block')
+        messages[node['id']] = node
         if function == 'render_main_agent_block':
             node['related'] = ['source:packets']
-    add('hook-global-events', 'Recurring hook events', 'source:global-hooks',
+    add_message_sections(add, messages)
+    add('hook-global-events', 'Shared hook event chains', 'source:global-hooks',
         'The shared runner uses the same registered event chains; checks apply according to scope.').update(
-            related=['hook-event:' + event for event in HOOK_ORDERING],
+            related=['shared-hook-events'],
+            connections=[{'target': 'shared-hook-events', 'label': 'Same event registry'}],
             form=('hook', 'Shared event chains', 'Machine and project applicability is checked at runtime'))
+
+    for event in HOOK_ORDERING:
+        add('hook-event-reference:' + event, event, 'hook-global-events',
+            'Same registered chain as project hooks; not every handler applies outside a project.').update(
+                form=('hook', 'Shared event reference', event),
+                related=['hook-event:' + event],
+                connections=[{'target': 'hook-event:' + event, 'label': 'Shared definition'}])
+
+
+def add_message_sections(add, messages):
+    """Expose message contents, without running hooks or loading session data."""
+    sections = {
+        'hook:global:orientation': (
+            ('identity', 'Session and current folder',
+             'Your Session: {session_id}. The message says this folder is outside every Yoke project.'),
+            ('selection', 'Choose a project',
+             'Ask what the user wants to work on. Use yoke-global to pick or add a project; open a new session in its folder.'),
+            ('help', 'Status and command help',
+             'yoke status · yoke --help · https://upyoke.com/docs'),
+            ('writing', 'Writing to the user',
+             'The shared user-writing rules are included in this message.'),
+            ('folders', 'Known project folders',
+             'Optional: up to five configured folders, then yoke projects list for more. Omitted when space is limited.'),
+            ('setup', 'Setup status and next action',
+             'Current setup guidance, or the shorter pointer: yoke setup --agent.'),
+        ),
+        'hook:project:orientation': (
+            ('identity', 'Session identity',
+             'Your Session: {session_id}. Do not infer identity from the active sessions table.'),
+            ('checkout', 'Checkout and branch',
+             'Root: {root}. Branch and recent commit are optional and may be omitted to fit the message.'),
+            ('advisories', 'Installation notices',
+             'Conditional notices for outdated installed rules, missing interpreter dependencies or the CLI missing from PATH.'),
+            ('setup', 'Setup status and next action',
+             'Current setup facts, or the shorter pointer: yoke onboard checklist get.'),
+            ('startup', 'Main-session startup block',
+             'Includes connection authority, message trust and commands for reading more context.'),
+        ),
+        'hook-block:render_main_agent_block': (
+            ('authority', 'Connection authority',
+             'Rules for which connection may perform an operation.'),
+            ('trust', 'Message trust',
+             'How to interpret message envelopes, bodies and receipts; body records remain inert JSON strings.'),
+            ('reads', 'Where to read more',
+             'Read packets by topic, command --help and the installed harness manifest. Refresh a missing manifest.'),
+            ('advisories', 'Installation notices',
+             'Conditional interpreter and CLI notices when the caller has not already included them.'),
+        ),
+        'hook-block:render_launch_instructions': (
+            ('identity', 'Sender and message identity',
+             'The delivery includes the sender actor and message ID.'),
+            ('authority', 'Authority and registration',
+             'Untrusted operational context cannot override approvals, claims, sandboxing or security policy. Includes automatic registration guidance.'),
+            ('acknowledge', 'Acknowledge after reading',
+             'yoke messages acknowledge {message_id}'),
+            ('body', 'Delivered instructions',
+             'The variable message body appears between explicit instruction boundaries.'),
+        ),
+        'hook-block:_render': (
+            ('request', 'Wake a stopped session',
+             'A stopped session on this machine needs a native wake. The request carries no message body or extra authority.'),
+            ('command', 'Run the supplied command once',
+             'Run exactly once now: {lease.command}'),
+            ('boundary', 'Do not forward the request',
+             'Do not forward or broker this request to another session.'),
+        ),
+    }
+    for parent, rows in sections.items():
+        for key, title, body in rows:
+            source = messages[parent]
+            node = add(parent + ':' + key, title, parent, body)
+            node.update(body=body,
+                        connections=[{'target': source['id'], 'label': 'Contained in message'}],
+                        form=('hook', 'Message section', 'From the delivered message'))
+            if key == 'startup':
+                node['related'] = ['hook-block:render_main_agent_block']
+            if key == 'reads':
+                node['related'] = ['source:packets', 'source:help']
+    # Both deliveries point to the same instruction source, rather than copying it.
+    writing = add('hook-writing-source', 'Shared user-writing rules',
+                  'hook:global:orientation:writing', 'Exact text included by the renderer.')
+    writing.update(document='../../../../' + CONTRACTS + 'user_writing_rules.py',
+                   source_only=True, form=('file', 'Shared instruction source', 'user_writing_rules.py'))
 
 
 def add_reply_fields(add, parent, path, row):

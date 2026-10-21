@@ -132,3 +132,5 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node[data-scope=repository] { border-left: 4px solid #9370b0; background: #f8f4fc; --type-color: #795594; }
 .node[data-scope=repository] .scope-badge { color: #70488c; background: #eee2f5; }
 .node[data-scope=mixed] .scope-badge { color: #5b597b; background: #ecebf3; }
+
+.source-size { font-size: 11px; font-variant-numeric: tabular-nums; color: #62746c; margin: 8px 0 0; }

@@ -227,3 +227,16 @@ inherits the latter; product docs, skills, roles and runtime definitions retain
 the shared label. A shared label describes distribution, not unconditional
 applicability of every instruction. Private user/project instructions are not
 invented or loaded into this map.
+
+Hook message cards expose their concrete message sections. Global event references
+link to the same event-chain definitions used by project hooks; individual handlers
+still decide applicability. Message bodies are descriptions of templates, not live
+session captures. File-backed cards show exact UTF-8 byte and line counts (character
+counts on hover). “Definition” counts measure implementation source, not a generated
+runtime message; excerpt counts use the linked line range. Group totals are omitted
+to avoid double-counting shared sources.
+Variable hook messages also show estimates from offline examples: synthetic IDs,
+zero to five project folders, and explicit allowances for setup or other variable
+fields. Hover for each estimate's assumptions. These are illustrative ranges, not
+observed percentiles or hard limits; open-ended instruction bodies show a base size
+plus variable content. Message-section summaries do not inherit their parent's size.
