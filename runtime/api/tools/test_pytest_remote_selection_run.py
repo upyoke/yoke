@@ -37,7 +37,7 @@ def _run(
     monkeypatch.setattr(
         report,
         "relay_failed_log",
-        lambda **kwargs: seen.setdefault("failed_log", kwargs),
+        lambda **kwargs: seen.setdefault("failed_log", kwargs) and "",
     )
     monkeypatch.setattr(
         "yoke_core.domain.session_ci_wait_record.record_ci_run_wait",

@@ -197,7 +197,7 @@ def test_an_impacted_selection_collects_from_the_roots_and_skips_the_rest(
         "test_case_1.py::test_case_1", "test_case_4.py::test_case_4",
     ]
     out = capsys.readouterr().out
-    assert "collecting 2 selected paths from the test roots suite/ elsewhere/" in out
+    assert "collecting 2 selected paths from suite/ elsewhere/;" in out
     assert "-p yoke_core.tools.ci_selection_collect" in out
 
 
@@ -233,3 +233,27 @@ def test_root_collection_keeps_options_and_files_dispatched_paths(
         assert roots == ["suite/"]
     finally:
         selection_file.unlink()
+
+
+def test_a_dispatched_path_outside_every_root_still_runs(
+    rooted_repo: Path, tmp_path: Path, monkeypatch,
+) -> None:
+    """The root walk never reaches it, so it is named on the command line."""
+    (rooted_repo / "extra").mkdir()
+    (rooted_repo / "extra" / "test_outside.py").write_text(
+        "def test_outside():\n    assert True\n"
+    )
+    monkeypatch.setattr(
+        runner, "selection_paths", lambda root, base: ["suite/test_case_1.py"]
+    )
+    status = runner.run_selection(
+        rooted_repo,
+        base_sha="b" * 40,
+        expected_head_sha="",
+        passthrough=["-n", "0", "-v", "-p", "no:cacheprovider", "extra/test_outside.py"],
+        log_path=tmp_path / "outside.txt",
+    )
+
+    assert status == 0
+    ran = re.findall(r"(\w+\.py::\w+) PASSED", (tmp_path / "outside.txt").read_text())
+    assert ran == ["test_case_1.py::test_case_1", "test_outside.py::test_outside"]

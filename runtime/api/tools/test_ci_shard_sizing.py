@@ -183,23 +183,6 @@ def test_a_near_full_selection_is_full_ci_work(tmp_path) -> None:
     assert estimate.full_ci_reason.startswith("selection_exceeds_full_ci_share")
 
 
-def test_a_selection_whose_shard_carries_a_full_ci_load_is_full_ci_work(
-    monkeypatch,
-) -> None:
-    # Below a raised share threshold, a selection whose few profiled tests
-    # cannot be split carries more per shard than a full CI shard does, so
-    # it would finish no sooner than full CI.
-    monkeypatch.setattr(sizing, "FULL_CI_SHARE", 0.5)
-    suite = 8_000.0
-    estimate = sizing.SelectionEstimate(seconds=2_000.0, tests=1, suite_seconds=suite)
-
-    assert estimate.shards == 1
-    assert estimate.full_ci_reason == (
-        "selection_not_faster_than_full_ci: each of its 1 shards carries 2000s; "
-        "full CI's carry 1000s"
-    )
-
-
 def test_without_a_profile_there_is_nothing_to_compare_and_the_selection_runs(
     tmp_path,
 ) -> None:

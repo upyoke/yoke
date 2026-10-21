@@ -44,7 +44,7 @@ def no_selection_run(monkeypatch) -> dict:
         contextlib.nullcontext,
     )
     monkeypatch.setattr(report, "record_wait", lambda **k: seen.update(wait=k))
-    monkeypatch.setattr(report, "relay_failed_log", lambda **k: seen.update(relay=k))
+    monkeypatch.setattr(report, "relay_failed_log", lambda **k: seen.update(relay=k) or "")
     monkeypatch.setattr(
         "yoke_core.domain.session_ci_wait_record.resolve_received_wait",
         lambda **k: "",
