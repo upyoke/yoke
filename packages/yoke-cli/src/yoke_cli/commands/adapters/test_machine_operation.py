@@ -252,9 +252,7 @@ def _execute(
             update={"result": {**submit.result, "removed_snapshots": removed}}
         )
     exit_code = emit_response(_as_public(submit, operation), json_mode=json_mode)
-    if (
-        submit.success and (submit.result or {}).get("status") == "error"
-    ):
+    if submit.success and (submit.result or {}).get("status") == "error":
         return 1
     return exit_code
 
