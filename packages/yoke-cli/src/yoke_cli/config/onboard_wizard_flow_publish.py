@@ -97,6 +97,7 @@ class PublishFlow:
                 "Yoke creates the repo through the Yoke GitHub App and connects it as your remote.",
                 project_screens.PUBLISH_ROWS,
                 self._on_publish_choice,
+                initial=0 if github_connected(self.result) else 1,
             )
         )
 

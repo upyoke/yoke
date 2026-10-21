@@ -122,7 +122,7 @@ def test_resizing_mid_flow_shows_each_screen_once() -> None:
             await _resize(pilot, terminal, SHORT)
             await pilot.press("enter", "enter", "enter", "enter", "enter")
             await _assert_screen_once(pilot, terminal, seen)  # publish
-            await pilot.press("down", "enter")  # publish: No — keep local
+            await pilot.press("enter")  # publish: No — keep local (preselected)
             await _resize(pilot, terminal, NARROW)
             await _assert_screen_once(pilot, terminal, seen)  # hosting list
             await _resize(pilot, terminal, WIDE)

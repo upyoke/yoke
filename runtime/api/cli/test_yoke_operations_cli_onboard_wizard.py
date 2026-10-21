@@ -155,8 +155,7 @@ def test_local_checkout_collects_project_fields() -> None:
             await pilot.press("enter")  # display name -> widget
             await pilot.press("enter")  # default branch -> main
             await pilot.press("enter")  # item prefix -> WIDGET
-            await pilot.press("down")  # publish prompt: move to No
-            await pilot.press("enter")  # publish: No — keep local
+            await pilot.press("enter")  # publish: No — keep local (preselected)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
@@ -247,8 +246,7 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             await pilot.press("enter")  # display name
             await pilot.press("enter")  # default branch
             await pilot.press("enter")  # item prefix
-            await pilot.press("down")  # publish prompt: move to No
-            await pilot.press("enter")  # publish: No — keep local
+            await pilot.press("enter")  # publish: No — keep local (preselected)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()

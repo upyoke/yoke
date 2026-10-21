@@ -271,8 +271,7 @@ def test_no_app_connection_publish_no_keeps_it_local() -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await accept_project_details(pilot)
-            await pilot.press("down")  # publish: move to No
-            await pilot.press("enter")  # publish: No — keep local
+            await pilot.press("enter")  # publish: No — keep local (preselected)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()

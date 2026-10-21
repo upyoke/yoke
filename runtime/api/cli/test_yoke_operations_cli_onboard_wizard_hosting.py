@@ -62,8 +62,7 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await accept_project_details(pilot)
-            await pilot.press("down")  # publish: No
-            await pilot.press("enter")
+            await pilot.press("enter")  # publish: No (preselected)
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)
             assert "Review what" in body_text(app)
