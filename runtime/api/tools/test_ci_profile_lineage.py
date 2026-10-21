@@ -63,11 +63,16 @@ def test_latest_skips_incompatible_source_or_report_sets(
             assert incompatible != "source", "stale source must not reach artifacts"
             count += 1 if incompatible == "extra-shard" else -1
         else:
-            assert args == ["api", "repos/owner/repo/actions/runs/20/artifacts"]
-        return {"artifacts": [
+            assert args == [
+                "api", "--paginate", "--slurp",
+                "repos/owner/repo/actions/runs/20/artifacts",
+            ]
+        # Required reports can straddle pages after increasing matrix size.
+        artifacts = [
             {"name": f"pytest-output-3.14-{group}", "expired": False}
             for group in range(1, count + 1)
-        ]}
+        ]
+        return [{"artifacts": artifacts[:3]}, {"artifacts": artifacts[3:]}]
 
     real_run = subprocess.run
     downloads = []

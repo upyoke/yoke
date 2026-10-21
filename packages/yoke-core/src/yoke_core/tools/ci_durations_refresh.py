@@ -140,9 +140,12 @@ def download_latest(root: Path, repository: str, python: str, directory: Path) -
         if not contains_baseline(root, baseline, run.get("headSha", "")):
             continue
         run_id = str(run["databaseId"])
-        artifacts = _gh(["api", f"repos/{repository}/actions/runs/{run_id}/artifacts"])
+        pages = _gh([
+            "api", "--paginate", "--slurp",
+            f"repos/{repository}/actions/runs/{run_id}/artifacts",
+        ])
         available = {
-            a["name"] for a in artifacts["artifacts"]
+            a["name"] for page in pages for a in page["artifacts"]
             if not a["expired"] and a["name"].startswith(f"pytest-output-{python}-")
         }
         if names != available:
