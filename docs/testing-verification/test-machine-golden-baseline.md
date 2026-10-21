@@ -134,11 +134,15 @@ capture stops the plan with `golden_refresh_*` and the step to repair, so no
 case runs with an unreadable CLI. After each install, refresh runs `--version`
 in the same context as capture (the GUI session on macOS). When a new binary
 cannot run, it restores a runnable prior executable; Cursor selects the newest
-runnable retained release and re-points its CLI links. Refresh prints
+runnable retained release and re-points its CLI links. For a held-back Cursor,
+refresh runs the retained vendor CLI's `set-channel static` command, preserving
+other config keys, so a real request cannot auto-update those links.
+Refresh still uses the vendor installer to try the latest release on later
+plans. Refresh prints
 `held back: HARNESS VERSION does not run on this host` with the exit code,
 stderr and selected version, then captures that host-supported version and
 continues. The ordinary sidecar records actual runnable versions; a later
-plan may retry the published release, without a persistent hold setting.
+plan may retry the published release, without a Yoke hold setting.
 No runnable version stops refresh naming that harness and its stderr. Full
 refresh diagnostics remain in the runner error even if execution abort refuses;
 the durable abort reason retains a bounded opening diagnosis. Leftover old snapshots after a verified refresh
