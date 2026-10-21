@@ -48,6 +48,22 @@ GitHub-sync test databases clone the existing per-worker production schema
 template rather than replaying schema DDL for every case; their project and
 actor seeds and connection-close isolation remain per case.
 
+Full CI builds portable product wheels once in `product_wheels`, in parallel
+with repository contracts after the reuse decision. Selection CI builds them
+in its plan job. The immutable run artifact contains exactly the four
+`py3-none-any` product wheels plus a manifest with the actual checkout commit,
+tree and wheel hashes. A PR's synthetic merge commit is the artifact identity.
+Each job verifies that identity before copying products into its own wheelhouse;
+a different commit is refused even if its tree matches. Third-party wheels
+are resolved separately for each job's interpreter and platform, and the
+core-only clean installation proof still runs. No virtualenv crosses jobs.
+
+`YOKE_CI_PRODUCT_WHEELS` selects the downloaded artifact. Missing, altered or
+incompatible artifacts refuse as `ci_product_wheels_invalid` and name the
+rebuild/download recovery; an explicit artifact never silently falls back to
+a local build. Without this variable, local tests retain their existing
+locked, per-run build. A reused CI tree skips the product producer with pytest.
+
 Wheel smokes share one session virtual environment, synchronized across xdist
 workers with a file lock. The fixture proves the core-only dependency closure
 before installing the client, and creates its completion sentinel last.

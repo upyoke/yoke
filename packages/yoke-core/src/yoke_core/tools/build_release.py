@@ -112,13 +112,18 @@ def build_product_wheelhouse(
     uv_executable: str | None = None,
     python_executable: str | None = None,
 ) -> Path:
-    """Build product wheels with uv and fill their dependency wheel closure.
+    """Build portable products and the current interpreter's offline closure."""
+    build_product_wheels(
+        repo_root=repo_root, wheelhouse=wheelhouse, uv_executable=uv_executable
+    )
+    return complete_product_wheelhouse(
+        repo_root=repo_root, wheelhouse=wheelhouse, python_executable=python_executable
+    )
 
-    The closure (product wheels plus their third-party dependency wheels) is the
-    offline-install surface used by clean-venv proof tests. The published PEP 503
-    index hosts only the product wheels; the closure is not published.
-    """
 
+def build_product_wheels(*, repo_root: Path, wheelhouse: Path,
+                         uv_executable: str | None = None) -> Path:
+    """Build and validate only the portable product wheels."""
     repo_root = repo_root.resolve()
     wheelhouse = wheelhouse.resolve()
     if wheelhouse.exists():
@@ -141,17 +146,20 @@ def build_product_wheelhouse(
             ],
             cwd=repo_root,
         )
-    # Pin product-sibling Requires-Dist to the shared lockstep version before the
-    # third-party closure step reads the wheels from disk. Bare siblings would let
-    # a pip-based install resolve a same-named public-index package; exact pins
-    # constrain sibling resolution. Explicit local roots also prevent a public
-    # index wheel with the identical numeric version from replacing our bytes.
+    # Exact sibling pins prevent public-index substitution of product bytes.
     version = wheel_sibling_pins.pin_wheelhouse_product_siblings(
         wheelhouse, PRODUCT_PACKAGE_NAMES
     )
     product_wheel_validation.assert_core_wheel_completeness(repo_root, wheelhouse)
     # Every publication surface uses the same immutable commit-clock version.
     product_release_version.assert_release_version(version)
+    return wheelhouse
+
+
+def complete_product_wheelhouse(*, repo_root: Path, wheelhouse: Path,
+                               python_executable: str | None = None) -> Path:
+    """Resolve native dependency wheels and prove a clean core installation."""
+    repo_root, wheelhouse = repo_root.resolve(), wheelhouse.resolve()
     requirements = [
         str(record.source.resolve())
         for record in package_index.read_wheel_records(wheelhouse)
