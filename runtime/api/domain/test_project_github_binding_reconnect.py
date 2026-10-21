@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
@@ -54,13 +53,8 @@ def _bind(project: str, repository_id: str, github_repo: str) -> dict:
 
 
 def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         monkeypatch.setenv(
             db_backend.PG_DSN_ENV,
             pg_testdb.dsn_for_test_database(db_name),
@@ -149,5 +143,3 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
         assert cmd_update("externalwebapp", "github_sync_mode", "enabled").startswith(
             "Updated project"
         )
-    finally:
-        pg_testdb.drop_test_database(db_name)

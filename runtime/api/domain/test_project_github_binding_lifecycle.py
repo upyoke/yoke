@@ -5,13 +5,11 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
@@ -64,36 +62,28 @@ def _verified(
 
 @pytest.fixture
 def binding_db(monkeypatch):
-    name = pg_testdb.create_test_database()
-    conn = pg_testdb.connect_test_database(name)
-    try:
-        initialize_test_schema(conn)
-        seed_roles_and_permissions(conn)
-    finally:
-        conn.close()
-    monkeypatch.setenv(db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name))
-    cmd_bind_project_repo(
-        "externalwebapp",
-        installation_id="77",
-        repository_id="88",
-        github_repo="acme/demo",
-        expected_api_url="https://api.github.com",
-        github_user_access_token="transient-user-token",
-        verifier=lambda **_kwargs: _verified(),
-    )
-    conn = pg_testdb.connect_test_database(name)
-    try:
-        conn.execute(
-            "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
-            ("enabled", "externalwebapp"),
+    with pg_testdb.test_database() as database:
+        name = database.info.dbname
+        seed_roles_and_permissions(database)
+        cmd_bind_project_repo(
+            "externalwebapp",
+            installation_id="77",
+            repository_id="88",
+            github_repo="acme/demo",
+            expected_api_url="https://api.github.com",
+            github_user_access_token="transient-user-token",
+            verifier=lambda **_kwargs: _verified(),
         )
-        conn.commit()
-    finally:
-        conn.close()
-    try:
+        conn = pg_testdb.connect_test_database(name)
+        try:
+            conn.execute(
+                "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
+                ("enabled", "externalwebapp"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
         yield name
-    finally:
-        pg_testdb.drop_test_database(name)
 
 
 def _project_owner_actor(database_name: str, project: str) -> str:

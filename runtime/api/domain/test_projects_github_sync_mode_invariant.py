@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
@@ -18,21 +17,13 @@ from yoke_core.domain.projects_upsert import cmd_upsert
 
 @pytest.fixture
 def project_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-            conn.commit()
-        finally:
-            conn.close()
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         monkeypatch.setenv(
             db_backend.PG_DSN_ENV,
             pg_testdb.dsn_for_test_database(db_name),
         )
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def _verified(*, repository_is_private: bool = True) -> VerifiedProjectGitHubBinding:

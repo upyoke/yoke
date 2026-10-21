@@ -5,7 +5,6 @@ from unittest import mock
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -64,13 +63,8 @@ def _verified(
 
 
 def test_bind_status_and_unbind_round_trip(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         monkeypatch.setenv(
             db_backend.PG_DSN_ENV,
             pg_testdb.dsn_for_test_database(db_name),
@@ -114,18 +108,11 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
             "reason": "repo_not_bound",
         }
         assert unbound["github_sync_mode"] == "disabled"
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_status_reports_missing_permissions(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         monkeypatch.setenv(
             db_backend.PG_DSN_ENV,
             pg_testdb.dsn_for_test_database(db_name),
@@ -173,18 +160,11 @@ def test_status_reports_missing_permissions(monkeypatch):
         assert promoted["permission_status"]["status"] == "satisfied"
         assert promoted["github_sync_mode"] == "disabled"
         assert promoted["automation"] == {"available": True, "reason": "bound"}
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_suspended_installation_persists_unavailable_binding(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         monkeypatch.setenv(
             db_backend.PG_DSN_ENV,
             pg_testdb.dsn_for_test_database(db_name),
@@ -210,60 +190,48 @@ def test_suspended_installation_persists_unavailable_binding(monkeypatch):
             "available": False,
             "reason": "installation_suspended",
         }
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def test_registered_dispatcher_bind_surface(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
+    with pg_testdb.test_database():
         try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
-        reset_registry_for_tests()
-        register_all_handlers()
-        monkeypatch.setattr(
-            binding_domain,
-            "verify_project_github_binding",
-            lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
-        )
-
-        with mock.patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch_permission_for_request",
-            return_value=DispatchPermission(
-                "projects.admin",
-                2,
-                "externalwebapp",
-            ),
-        ):
-            response = dispatch(
-                FunctionCallRequest(
-                    function="projects.github_binding.bind",
-                    target=TargetRef(kind="global"),
-                    actor=ActorContext(actor_id="1", session_id="test-session"),
-                    payload={
-                        "project": "externalwebapp",
-                        "installation_id": "12345",
-                        "repository_id": "4567",
-                        "github_repo": "example-org/externalwebapp",
-                        "expected_api_url": "https://api.github.com",
-                        "github_user_access_token": "github-user-token",
-                    },
-                )
+            reset_registry_for_tests()
+            register_all_handlers()
+            monkeypatch.setattr(
+                binding_domain,
+                "verify_project_github_binding",
+                lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
             )
-
-        assert response.success is True
-        assert response.result["bound"] is True
-        assert response.result["binding"]["installation_id"] == "12345"
-    finally:
-        reset_registry_for_tests()
-        pg_testdb.drop_test_database(db_name)
+    
+            with mock.patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch_permission_for_request",
+                return_value=DispatchPermission(
+                    "projects.admin",
+                    2,
+                    "externalwebapp",
+                ),
+            ):
+                response = dispatch(
+                    FunctionCallRequest(
+                        function="projects.github_binding.bind",
+                        target=TargetRef(kind="global"),
+                        actor=ActorContext(actor_id="1", session_id="test-session"),
+                        payload={
+                            "project": "externalwebapp",
+                            "installation_id": "12345",
+                            "repository_id": "4567",
+                            "github_repo": "example-org/externalwebapp",
+                            "expected_api_url": "https://api.github.com",
+                            "github_user_access_token": "github-user-token",
+                        },
+                    )
+                )
+    
+            assert response.success is True
+            assert response.result["bound"] is True
+            assert response.result["binding"]["installation_id"] == "12345"
+        finally:
+            reset_registry_for_tests()
 
 
 def test_bind_validation_never_reflects_transient_user_token():

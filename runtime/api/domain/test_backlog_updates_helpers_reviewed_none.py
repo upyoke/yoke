@@ -23,8 +23,7 @@ from yoke_core.domain.backlog_updates_helpers import (
     _run_prose_vs_claim_check,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog import (
     insert_item,
 )
@@ -57,12 +56,10 @@ CREATE TABLE IF NOT EXISTS migration_audit (
 def helper_db(tmp_path: Path):
     """File-backed DB so ``_run_db_mutation_gate`` can resolve ``db_path``."""
     db_file = tmp_path / "yoke.db"
-    conn = connect_test_db(str(db_file))
-    initialize_test_schema(conn)
-    execute_schema_script(conn, _EXTRA_DDL)
-    conn.commit()
-    yield conn, str(db_file)
-    conn.close()
+    with pg_testdb.test_database() as conn:
+        execute_schema_script(conn, _EXTRA_DDL)
+        conn.commit()
+        yield conn, str(db_file)
 
 
 def _profile(

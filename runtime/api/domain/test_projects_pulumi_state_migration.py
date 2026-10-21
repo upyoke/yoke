@@ -7,7 +7,6 @@ import json
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.projects_capabilities_settings import (
@@ -24,11 +23,10 @@ from yoke_core.domain.pulumi_state_capability import validate_json_string
 
 @pytest.fixture
 def pulumi_state_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         conn = pg_testdb.connect_test_database(db_name)
         try:
-            initialize_test_schema(conn)
             project_id = resolve_project_id(conn, "yoke")
             conn.execute(
                 "INSERT INTO sites "
@@ -44,8 +42,6 @@ def pulumi_state_db(monkeypatch):
             pg_testdb.dsn_for_test_database(db_name),
         )
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def _seed_source(db_name: str, *, encrypted_key: str = "encrypted-material"):
