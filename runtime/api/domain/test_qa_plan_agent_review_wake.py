@@ -223,7 +223,7 @@ def test_pending_reentry_reprints_the_same_bundle(test_db):
     replay = _reenter(test_db, execution)
 
     assert replay["id"] == execution["id"]
-    assert replay["state"] == "awaiting_agent_review"
+    assert replay["state"] == "awaiting_walk_review"
     assert "settled_review" not in replay
     review = begin_plan_review(test_db, replay)
     assert review["bundle_id"] == bundle["bundle_id"]

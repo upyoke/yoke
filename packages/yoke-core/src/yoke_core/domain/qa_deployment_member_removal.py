@@ -124,7 +124,7 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
     request = owed_host_abort(conn, execution, reason=MEMBER_REMOVED_REASON)
     if (
         request is None
-        and execution["state"] == "awaiting_agent_review"
+        and execution["state"] in {"walking", "awaiting_walk_review"}
         and execution.get("machine_lease_id")
         and not mission_restores_recorded(conn, execution)
     ):

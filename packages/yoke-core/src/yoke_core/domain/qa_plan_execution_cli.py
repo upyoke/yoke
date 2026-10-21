@@ -293,7 +293,7 @@ def run(args: List[str]) -> int:
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan run: {exc}", file=sys.stderr)
         return 2
-    if result.get("state") == "awaiting_agent_review":
+    if result.get("state") in {"walking", "awaiting_walk_review"}:
         try:
             _qualify_review_dispatch(result)
         except QaPlanExecutionError as exc:
@@ -311,9 +311,9 @@ def run(args: List[str]) -> int:
     state = result.get("state")
     if state in {"waiting", "outcome_unknown"}:
         return WAITING_RETRY_EXIT
-    if state == "awaiting_agent_review":
+    if state in {"walking", "awaiting_walk_review"}:
         print(
-            "QA capture complete; independent review pending, not a pass. "
+            f"QA execution {state}; no verdict yet. "
             "Dispatch the returned typed reviewer contract now; its submitted "
             "verdict batch is the QA verdict.",
             file=sys.stderr,

@@ -217,7 +217,7 @@ def test_capture_awaiting_independent_review_is_labelled_pending() -> None:
             actor=ActorContext(actor_id="7", session_id="project-target"),
         )
 
-    assert result["state"] == "awaiting_agent_review"
+    assert result["state"] == "awaiting_walk_review"
     assert result["review_status"] == "pending"
 
 

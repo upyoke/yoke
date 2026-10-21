@@ -37,7 +37,7 @@ def test_completed_hosts_continue_with_same_scope_and_aggregate_results():
 
 
 @pytest.mark.parametrize(
-    "state", ["waiting", "awaiting_agent_review", "failed", "error"]
+    "state", ["waiting", "awaiting_walk_review", "failed", "error"]
 )
 def test_unsettled_host_stops_before_another_execution(state):
     runner = mock.Mock(return_value=_result("linux", 10, 1, state))

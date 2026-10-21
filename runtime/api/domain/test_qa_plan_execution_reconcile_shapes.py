@@ -56,7 +56,7 @@ def test_mission_review_lease_is_released_and_review_handed_over():
         assert receipt["released_lease_ids"] == [lease.id]
         assert receipt["review_bundle_id"] == bundle["bundle_id"]
         assert not get_claim(conn, lease.id).is_active
-        assert handed["state"] == "awaiting_agent_review"
+        assert handed["state"] == "awaiting_walk_review"
         assert handed["machine_lease_id"] is None
         assert handed["session_id"] == STEERING
 
@@ -108,7 +108,7 @@ def test_sessionless_operator_settles_but_cannot_take_a_review():
             _reconcile(conn, judgeable["id"], session_id=None)
         assert "qa_reconcile_review_needs_session" in str(refused.value)
         assert lock_plan_execution(conn, judgeable["id"])["state"] == (
-            "awaiting_agent_review"
+            "awaiting_walk_review"
         )
 
     with test_database() as conn:

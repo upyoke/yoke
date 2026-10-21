@@ -136,8 +136,9 @@ test("case-state explanations preserve queued, waiting, and review semantics", (
 });
 
 test("review explanations derive human work only from recorded request state", () => {
+  assert.match(reviewExplanation({ state: "walking" }), /walk in progress/);
   assert.match(
-    reviewExplanation({ state: "awaiting_agent_review" }),
+    reviewExplanation({ state: "awaiting_walk_review" }),
     /Agent inspection is pending; no human decision has been requested/,
   );
   assert.match(

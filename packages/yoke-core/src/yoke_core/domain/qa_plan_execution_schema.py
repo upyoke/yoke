@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     continues_execution_id TEXT,
     cursor_ordinal INTEGER NOT NULL DEFAULT 0,
     state TEXT NOT NULL CHECK(state IN (
-        'active','waiting','awaiting_agent_review','completed','aborted','error'
+        'active','waiting','walking','awaiting_walk_review','completed','aborted','error'
     )),
     machine_lease_id INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
     ON qa_plan_executions(item_id, transition_id)
     WHERE item_id IS NOT NULL
-        AND state IN ('active','waiting','awaiting_agent_review');
+        AND state IN ('active','waiting','walking','awaiting_walk_review');
 {EXECUTION_SCOPE_INDEX_SQL}
 {STANDALONE_EXECUTION_INDEX_SQL}
 

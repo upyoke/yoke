@@ -143,7 +143,7 @@ def test_run_closure_retires_only_its_open_qa(test_db, disposition, writer):
         session_id="closing-qa",
     )
     test_db.execute(
-        "UPDATE qa_plan_executions SET state='awaiting_agent_review' WHERE id=%s",
+        "UPDATE qa_plan_executions SET state='awaiting_walk_review' WHERE id=%s",
         (execution["id"],),
     )
     ids = {}

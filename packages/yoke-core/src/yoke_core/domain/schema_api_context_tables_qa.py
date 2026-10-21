@@ -335,7 +335,9 @@ QA_TABLES: dict[str, dict] = {
             "from a lane-claimed session. Capture completion reports "
             "`artifact_ids` plus a ready `artifact_reads` command per "
             "artifact, and review bundles carry `read_command` on each "
-            "artifact, so the id never has to be hunted for."
+            "artifact, so the id never has to be hunted for. "
+            "Artifact hand-back queries import json_get from yoke_core.domain.sql_json; "
+            "db_backend has no json_get export."
         ),
     },
 }

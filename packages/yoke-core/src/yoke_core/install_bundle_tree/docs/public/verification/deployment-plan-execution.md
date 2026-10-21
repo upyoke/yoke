@@ -296,8 +296,8 @@ Preserve the execution, capture and restore diagnostics. A liveness heartbeat
 does not mark the next case in flight. Host-case admission identifies its
 cursor; only a subsequent check-in for that admitted cursor marks host work
 in flight. Admission alone does not require restoration. After the last case,
-the cursor names no case, so a heartbeat records no check-in; an execution in
-`awaiting_agent_review` re-enters to its review bundle, never as a paused case.
+heartbeats record no check-in. Both walking and review re-enter the bundle,
+never a paused case.
 
 After an abort, rerun the same scoped command. The fresh execution leaves out
 each case whose newest run passed with its evidence on this same target,

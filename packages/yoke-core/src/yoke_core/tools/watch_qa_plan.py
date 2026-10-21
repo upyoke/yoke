@@ -47,7 +47,7 @@ QA_PLAN_HUMAN_GATE_RE = re.compile(
     r"machine_qa\.operator_gate.*\"self_approving\": false",
 )
 QA_PLAN_SUMMARY_RE = re.compile(
-    r"(^#\s*qa plan run:|awaiting_agent_review|"
+    r"(^#\s*qa plan run:|walking|awaiting_walk_review|"
     r"QA capture complete|"
     r"^\{.*\"state\":)",
 )
@@ -77,7 +77,7 @@ def classify_qa_plan_line(line: str) -> Classification:
     emits immediately, and so does an operator gate a human must
     answer. A self-approving gate is informational progress: it needs
     no action and its code is never forwarded. SUMMARY before PROGRESS
-    so the restated outcome and the ``awaiting_agent_review`` handoff
+    so the restated outcome and the ``awaiting_walk_review`` handoff
     are not throttled as ordinary progress.
     """
     if QA_PLAN_URGENT_RE.search(line) or QA_PLAN_HUMAN_GATE_RE.search(line):

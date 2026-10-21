@@ -120,7 +120,8 @@ def handle_plan_review_submit(request: FunctionCallRequest) -> HandlerOutcome:
     conn, execution = owned
     try:
         if execution["state"] not in {
-            "awaiting_agent_review",
+            "walking",
+            "awaiting_walk_review",
             "completed",
             "aborted",
             "error",

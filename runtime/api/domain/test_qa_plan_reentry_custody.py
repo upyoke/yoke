@@ -203,7 +203,7 @@ def test_review_wait_reenters_after_heartbeats_while_inflight_case_refuses():
         # still carrying the earlier check-in cursor.
         stale = 'qa-communication-outcome-unknown:{"checkin_cursor":2,"resumed":true}'
         conn.execute(
-            "UPDATE qa_plan_executions SET state='awaiting_agent_review',"
+            "UPDATE qa_plan_executions SET state='awaiting_walk_review',"
             "cursor_ordinal=2,release_reason=%s WHERE id=%s",
             (stale, execution_id),
         )
@@ -221,7 +221,7 @@ def test_review_wait_reenters_after_heartbeats_while_inflight_case_refuses():
             assert checked.primary_success, checked.error
             reentered = resume(execution_id)
             assert reentered.primary_success, reentered.error
-            assert reentered.result_payload["state"] == "awaiting_agent_review"
+            assert reentered.result_payload["state"] == "awaiting_walk_review"
         # The boundary heartbeat names no case, so it records no check-in.
         assert (
             conn.execute(

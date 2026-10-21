@@ -34,7 +34,7 @@ def _execution(
             "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
             "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
             "AND execution_target_digest=%s "
-            "AND state IN ('active','waiting','awaiting_agent_review','completed') "
+            "AND state IN ('active','waiting','walking','awaiting_walk_review','completed') "
             "ORDER BY created_at DESC,id DESC LIMIT 1",
             (
                 requirement["deployment_run_id"],
@@ -51,7 +51,7 @@ def _execution(
         rows = query_rows(
             conn,
             "SELECT id,roster_json FROM qa_plan_executions WHERE item_id=%s "
-            "AND state IN ('active','waiting','awaiting_agent_review','completed') "
+            "AND state IN ('active','waiting','walking','awaiting_walk_review','completed') "
             "ORDER BY created_at DESC,id DESC LIMIT 1",
             (int(requirement["item_id"]),),
         )

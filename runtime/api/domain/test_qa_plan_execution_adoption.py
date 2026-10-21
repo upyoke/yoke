@@ -46,7 +46,7 @@ def _adopt(conn, execution, actor, **kwargs):
 
 
 @pytest.mark.parametrize("stamp", ["ended_at", "terminated_at"])
-@pytest.mark.parametrize("state", ["awaiting_agent_review", "aborted"])
+@pytest.mark.parametrize("state", ["awaiting_walk_review", "aborted"])
 def test_successor_reviews_existing_capture_and_preserves_terminal_history(
     stamp, state
 ):

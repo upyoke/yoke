@@ -21,7 +21,7 @@ DEPLOYMENT_SCOPE_COLUMNS = (
     (DEPLOYMENT_MEMBER_COLUMN, "INTEGER"),
 )
 
-LIVE_EXECUTION_STATES = frozenset({"active", "waiting", "awaiting_agent_review"})
+LIVE_EXECUTION_STATES = frozenset({"active", "waiting", "walking", "awaiting_walk_review"})
 LIVE_EXECUTION_STATE_SQL = ",".join(
     f"'{state}'" for state in sorted(LIVE_EXECUTION_STATES)
 )

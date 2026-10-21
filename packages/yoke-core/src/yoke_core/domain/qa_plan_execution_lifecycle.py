@@ -51,7 +51,7 @@ def heartbeat_plan_execution(
     """Refresh execution and held-machine liveness together."""
     from yoke_core.domain.qa_plan_execution_abort_state import abort_request
 
-    if execution["state"] not in {"active", "awaiting_agent_review"} and not (
+    if execution["state"] not in {"active", "walking", "awaiting_walk_review"} and not (
         execution["state"] == "waiting" and abort_request(execution)
     ):
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
@@ -129,7 +129,8 @@ def finish_plan_execution(
         "aborted",
         "error",
         "waiting",
-        "awaiting_agent_review",
+        "walking",
+        "awaiting_walk_review",
     }:
         raise QaPlanExecutionStateError(f"invalid final execution state {state!r}")
     current_state = str(execution["state"])
@@ -180,7 +181,7 @@ def finish_plan_execution(
             )
         settle_unreviewed_execution_captures(conn, execution)
         record_inflight_case_failure(conn, execution, reason=reason)
-    retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(
+    retain_lease = state in {"walking", "awaiting_walk_review"} and _mission_needs_retained_lease(
         execution
     )
     if not retain_lease:
@@ -196,7 +197,7 @@ def finish_plan_execution(
         )
     placeholder = marker(conn)
     now = utc_now()
-    completed_at = None if state in {"waiting", "awaiting_agent_review"} else now
+    completed_at = None if state in {"waiting", "walking", "awaiting_walk_review"} else now
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
@@ -228,7 +229,7 @@ def finish_plan_execution(
             conn, execution, bundle_id=str(stopped_review["bundle_id"])
         )
     if commit:
-        if state == "awaiting_agent_review":
+        if state in {"walking", "awaiting_walk_review"}:
             from yoke_core.domain.qa_plan_agent_review_wake import (
                 notify_scoped_agent_review,
             )

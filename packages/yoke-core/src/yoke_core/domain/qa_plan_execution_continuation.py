@@ -291,7 +291,7 @@ def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:
     continuation command instead.
     """
     state = str(execution["state"])
-    base = f"mission access requires awaiting_agent_review; execution {execution['id']} is {state!r}"
+    base = f"mission access requires walking; execution {execution['id']} is {state!r}"
     if state not in TERMINAL_PLAN_EXECUTION_STATES:
         return base
     if str(execution.get("release_reason") or "") != STALE_PLAN_EXECUTION_REASON:

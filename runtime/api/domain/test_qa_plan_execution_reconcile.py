@@ -128,7 +128,7 @@ def test_orphan_without_judgeable_capture_aborts_with_no_verdict():
         verdict = query_one(conn, "SELECT verdict FROM qa_runs WHERE id=%s", (capture,))
         assert verdict["verdict"] is None
         audit = _receipt(conn, receipt["reconciliation_id"])
-        assert audit["prior_state"] == "awaiting_agent_review"
+        assert audit["prior_state"] == "awaiting_walk_review"
         assert audit["prior_session_id"] == "review-session"
         assert audit["session_id"] == STEERING
         assert audit["reason"] == REASON
@@ -149,7 +149,7 @@ def test_lost_review_passes_to_the_caller_for_review_begin():
         assert receipt["review_bundle_id"] == bundle["bundle_id"]
         assert receipt["next_command"].startswith("yoke qa plan review-begin --item ")
         assert receipt["next_command"].endswith(f"--execution-id {execution['id']}")
-        assert handed["state"] == "awaiting_agent_review"
+        assert handed["state"] == "awaiting_walk_review"
         require_plan_execution_owner(
             handed,
             conn=conn,
@@ -163,7 +163,7 @@ def test_lost_review_passes_to_the_caller_for_review_begin():
         assert recovered["cases"][0]["capture_run_id"] == capture
         audit = _receipt(conn, receipt["reconciliation_id"])
         assert audit["outcome"] == "review_handoff"
-        assert audit["prior_state"] == "awaiting_agent_review"
+        assert audit["prior_state"] == "awaiting_walk_review"
         assert audit["prior_session_id"] == "review-session"
 
 

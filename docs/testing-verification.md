@@ -135,7 +135,7 @@ run; normal QA runs, artifacts, and verdicts remain attached to the
 materialized requirements. Host control always uses the registered
 two-phase execution protocol.
 If any case uses an agent verdict path, deterministic capture finishes first
-and the command returns `state="awaiting_agent_review"` with exit `12`. The
+and the command returns `state="awaiting_walk_review"` with exit `12`. The
 returned typed dispatch contract is mandatory. For `subagent`, dispatch its
 named reviewer over the immutable bundle. For `main_agent_mission`, Main keeps
 ownership, dispatches the declared walkers, aggregates their findings and

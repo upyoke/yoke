@@ -1,7 +1,10 @@
 export function reviewExplanation(review) {
   if (!review) return null;
   const rationale = String(review.rationale || "").trim();
-  if (review.state === "awaiting_agent_review") {
+  if (review.state === "walking") {
+    return "Mission walk in progress; the walker has not handed back.";
+  }
+  if (review.state === "awaiting_walk_review") {
     return "Deterministic capture finished. Agent inspection is pending; " +
       "no human decision has been requested.";
   }

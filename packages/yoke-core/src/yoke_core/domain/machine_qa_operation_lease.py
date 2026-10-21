@@ -97,7 +97,7 @@ def operation_mission(
         for case in execution["roster"]
         if case.get("runner_id") == "agent_mission" and case.get("project") == project
     ]
-    if execution["state"] != "awaiting_agent_review" or not missions:
+    if execution["state"] not in {"walking", "awaiting_walk_review"} or not missions:
         raise MachineQaProtocolError(
             f"mission_operation_unavailable: the lease on {machine} belongs to "
             f"your plan {execution['id']}, which is {execution['state']}; this "
@@ -149,7 +149,7 @@ def begin_operation_execution(
             select_any=False,
             **shape,
         )
-    if shape.get("baselines") and mission["state"] == "awaiting_agent_review":
+    if shape.get("baselines") and mission["state"] in {"walking", "awaiting_walk_review"}:
         raise MachineQaProtocolError(
             "test_machine_cleanup_live_lease: you hold the lease on "
             f"{candidate.settings['resource_name']} for your awaiting mission "

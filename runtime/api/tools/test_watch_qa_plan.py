@@ -30,9 +30,9 @@ class TestPlanClassifier:
         "line",
         [
             "# qa plan run: requirement=13625 outcome=failed",
-            "state awaiting_agent_review",
+            "state awaiting_walk_review",
             "QA capture complete; independent review pending, not a pass.",
-            '{"state": "awaiting_agent_review"}',
+            '{"state": "awaiting_walk_review"}',
         ],
     )
     def test_outcome_and_review_handoff_are_summary(self, line: str) -> None:

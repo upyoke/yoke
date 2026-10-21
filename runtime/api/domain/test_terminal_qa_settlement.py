@@ -79,7 +79,7 @@ def test_terminal_transition_refuses_pending_run_despite_bypass_flags(test_db):
     assert "timed out without a verdict" in result["error"]
 
 
-@pytest.mark.parametrize("state", ["active", "waiting", "awaiting_agent_review"])
+@pytest.mark.parametrize("state", ["active", "waiting", "awaiting_walk_review"])
 def test_terminal_transition_refuses_live_plan_execution(test_db, state):
     insert_item(test_db, id=10, status="release")
     _seed_plan_execution(test_db, state=state)
