@@ -188,7 +188,13 @@ steering seat covering its project may use
 status, merge timestamp and reason in `resolution_comment` in the same
 transaction. It releases item resources through the normal cancellation
 path; it does not undo merged code or claim delivery. Already delivered
-items still refuse cancellation.
+items still refuse cancellation. If a live (`created` or `executing`) deployment
+run still lists the item, abandonment refuses with
+`merged_item_live_deployment_run` and names each run. First remove the item
+with `yoke deployment-runs remove-item RUN ITEM --reason TEXT`, then retry
+abandonment. Removal remains a separate audited operator act and follows
+its existing gates; if removal is unavailable, finish or cancel the run
+first. Terminal run memberships remain as history.
 | ~~`blocked`~~ | **Not a lifecycle status for items.** Items use an orthogonal blocked flag that preserves lifecycle status (cross-reference: see your `items` packet stanza). Epic-task `blocked` is a status. |
 | `stopped` | Work halted unexpectedly or intentionally paused. Terminal for resource release, so claims and lanes are freed, but a pause is not an ending: it never counts as finished work and stays out of Done counts and "finished" card text |
 | `failed` | Work concluded in failure and needs intervention |
