@@ -63,7 +63,7 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
     assert "release the named coordination lease" not in error.recovery_hint
 
 
-@pytest.mark.parametrize("operation", ["golden-capture", "reset", "verify", "screenshot"])
+@pytest.mark.parametrize("operation", ["golden_capture", "reset", "verify", "screenshot"])
 @pytest.mark.parametrize("status, expected", [("error", 1), ("verified", 0)])
 def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, expected):
     from types import SimpleNamespace
