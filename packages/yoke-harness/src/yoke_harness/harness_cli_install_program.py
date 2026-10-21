@@ -1,6 +1,6 @@
 """Host-side probe and verified installer, run as the test user without Yoke."""
 
-HOST_PROGRAM = r'''
+HOST_PROGRAM = r"""
 import filecmp, json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 pattern = re.compile(sys.argv[1])
@@ -62,6 +62,18 @@ def install(harness, names, script, wanted):
         for candidate in dict.fromkeys(candidates):
             if not probe(str(candidate))['version']:
                 continue
+            if harness == 'cursor':
+                try:
+                    # The vendor's static channel prevents a real request from
+                    # relinking the incompatible release after --version passed.
+                    pinned = subprocess.run([str(candidate), 'set-channel', 'static'],
+                        capture_output=True, text=True, errors='replace', timeout=60)
+                    if pinned.returncode:
+                        raise RuntimeError(f'exit {pinned.returncode}: {pinned.stderr[:400]}')
+                except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+                    receipt['install_stderr'] += (
+                        '; Cursor set-channel static failed: ' + str(error)[:400])
+                    return receipt
             local_bin = Path.home() / '.local/bin'
             local_bin.mkdir(parents=True, exist_ok=True)
             for name in names:
@@ -83,4 +95,4 @@ if sys.argv[2] == 'probe':
 else:
     output = install(*json.loads(sys.argv[3]))
 print(json.dumps(output))
-'''
+"""
