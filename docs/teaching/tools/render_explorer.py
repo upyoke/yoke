@@ -5,8 +5,8 @@ from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
-from explorer_types import describe_nodes, describe_scope, describe_sizes, describe_message_estimates
-from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics
+from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
+from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
 from explorer_runtime import add_setup, add_packets, add_delivery_topics
 from explorer_messages import add_hooks, add_replies
 
@@ -134,6 +134,7 @@ def map_nodes(model):
     describe_scope(nodes)
     describe_sizes(nodes)
     describe_message_estimates(nodes)
+    rollup_output_sizes(nodes)
     return nodes
 
 
@@ -145,16 +146,16 @@ def build_explorer(views, pages):
     chunks = []
     batch = []
     for node in nodes:
-        if batch and (len(batch) >= 8 or len(json.dumps(batch + [node])) > 14000):
+        if batch and (len(batch) >= 12 or len(json.dumps(batch + [node])) > 14000):
             name = f'nodes-{len(chunks)}.json'
             chunks.append(name)
-            views['explore/' + name] = json.dumps(batch, indent=1) + '\n'
+            views['explore/' + name] = json.dumps(batch, separators=(',', ':')) + '\n'
             batch = []
         batch.append(node)
     if batch:
         name = f'nodes-{len(chunks)}.json'
         chunks.append(name)
-        views['explore/' + name] = json.dumps(batch, indent=1) + '\n'
+        views['explore/' + name] = json.dumps(batch, separators=(',', ':')) + '\n'
     views['explore/manifest.json'] = json.dumps(chunks) + '\n'
     for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
         views['explore/' + asset] = Path(__file__).with_name(asset).read_text()

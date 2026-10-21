@@ -285,12 +285,17 @@ document.querySelector('#out').onclick = () => zoom(1 / 1.5);
 window.addEventListener('resize', () => { if (focus) fit(focus); else home(); requestRender(); });
 (async () => {
   try {
-    const response = await fetch('manifest.json');
+    const response = await fetch('manifest.json', {cache: 'no-store'});
     if (!response.ok) throw Error('manifest');
     const chunks = await response.json();
-    const data = (await Promise.all(chunks.map(async name => {
-      const r = await fetch(name); if (!r.ok) throw Error(name); return r.json();
-    }))).flat();
+    const data = [];
+    for (let i = 0; i < chunks.length; i += 24) {
+      const batch = await Promise.all(chunks.slice(i, i + 24).map(async name => {
+        const r = await fetch(name, {cache: 'no-store'});
+        if (!r.ok) throw Error(name); return r.json();
+      }));
+      data.push(...batch.flat());
+    }
     data.forEach(node => byId.set(node.id, {...node, children: []}));
     byId.forEach(node => {
       if (node.parent) byId.get(node.parent).children.push(node);

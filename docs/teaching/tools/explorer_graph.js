@@ -164,7 +164,7 @@ function appendSizes(heading, node) {
     estimate.title = node.message_estimate.assumptions;
     heading.append(estimate);
   }
-  if (node.source_size) {
+  if (node.source_size && !node.output_size) {
     const size = node.source_size;
     const badge = text('p', `${size.label} · ${size.lines.toLocaleString()} lines · ${size.bytes.toLocaleString()} B`, 'source-size');
     badge.title = `${size.chars.toLocaleString()} characters · UTF-8 bytes; variable deliveries may differ`;

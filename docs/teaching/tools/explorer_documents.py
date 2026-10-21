@@ -159,3 +159,60 @@ def expand_prose_topics(nodes):
                 nodes.append(dict(id=node['id'] + ':passage:' + str(offset), parent=node['id'],
                                   title=title, summary='', body=paragraph,
                                   form=('section', 'Text passage', 'Passage from ' + node['title'])))
+
+
+def describe_message_estimates(nodes):
+    """Offline examples: no real folders, setup facts, identities or messages."""
+    from pathlib import Path
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from yoke_core.domain import global_orientation
+    from yoke_core.domain.main_agent_packet import render_main_agent_block
+    from yoke_core.hooks.session_launch_attestation import render_launch_instructions
+    from yoke_core.hooks.session_broker_wake import _render
+
+    examples = {}
+    orientation = []
+    for count in (0, 5):
+        folders = [f'/example/workspace/projects/project-{i}' for i in range(count)]
+        with patch.object(global_orientation, '_project_folders', return_value=folders):
+            orientation.append(global_orientation.render_global_orientation(
+                'example-session'.ljust(36, '-'), Path('/example/workspace'),
+                setup_lines=[] if not count else ['Setup: ' + 'example status ' * 20]))
+    examples['hook:global:orientation'] = (
+        orientation, 'Synthetic session and folder; zero to five project folders and zero to 300 characters of setup. Not a guaranteed limit.')
+    startup = render_main_agent_block(include_advisories=False)
+    examples['hook-block:render_main_agent_block'] = (
+        [startup], 'Core message with no installation advisories; conditional notices add bytes.')
+    examples['hook:project:orientation'] = (
+        ['Your Session: ' + '0' * 36 + '\nRoot: /example/workspace/project\n' + startup,
+         'Your Session: ' + '0' * 36 + '\nRoot: /example/workspace/project\n' + startup + 'x' * 600],
+        'Representative identity and root plus startup core; zero to 600 extra characters for setup, Git metadata and notices. Not a limit.')
+    wake = [_render(SimpleNamespace(lease_id='0' * 36, command='x' * n))[0] for n in (40, 180)]
+    examples['hook-block:_render'] = (wake, 'Synthetic lease ID; supplied command between 40 and 180 ASCII characters. Not a limit.')
+    launch = render_launch_instructions(SimpleNamespace(
+        launch_id='0' * 36, message_id='0' * 36, sender_actor_id=1, body=''))
+    examples['hook-block:render_launch_instructions'] = (
+        [launch], 'Empty instructions body with synthetic IDs; add the actual body size. No fixed upper bound.')
+    for node in nodes:
+        if node.get('node_type') == 'action':
+            continue
+        key = node['id']
+        module = node.get('hook_module', '').rsplit('.', 1)[-1]
+        key = {'session_launch_attestation': 'hook-block:render_launch_instructions',
+               'session_broker_wake': 'hook-block:_render'}.get(module, key)
+        if key.endswith(':cursor'):
+            key = key.removesuffix(':cursor')
+        if key not in examples:
+            continue
+        samples, assumptions = examples[key]
+        counts = [len(sample.encode('utf-8')) for sample in samples]
+        low, high = min(counts), max(counts)
+        lines = [len(sample.splitlines()) for sample in samples]
+        line_range = str(min(lines)) if min(lines) == max(lines) else f'{min(lines)}–{max(lines)}'
+        amount = f'{line_range} lines · ' + (f'{low:,}–{high:,} B' if low != high else f'{low:,} B + variable content')
+        node['output_size'] = dict(lines=[min(lines), max(lines)], bytes=[low, high],
+                                   estimated=True, variable=module == 'session_launch_attestation',
+                                   basis=assumptions)
+        node['message_estimate'] = dict(label='Estimated message · ' + amount,
+                                        assumptions=assumptions)

@@ -183,6 +183,7 @@ def add_delivery_topics(nodes):
     """Describe the prose delivered, independently of the delivery implementation."""
     topics = {
         'session_message_delivery': (
+            ('Delivery boundaries', 'Start and end markers identify this delivery and its message.'),
             ('Sender', 'Who sent the message, including the actor and session or surface.'),
             ('Message body', 'The message text, quoted line by line. Actual length varies with the sender’s content.'),
             ('Reminder', 'If already shown: how many times, and whether to act or acknowledge it.'),

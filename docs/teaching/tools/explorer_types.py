@@ -111,55 +111,94 @@ def describe_sizes(nodes):
                                    lines=len(content.splitlines()), label=label)
 
 
-def describe_message_estimates(nodes):
-    """Offline examples: no real folders, setup facts, identities or messages."""
-    from pathlib import Path
-    from types import SimpleNamespace
-    from unittest.mock import patch
-    from yoke_core.domain import global_orientation
-    from yoke_core.domain.main_agent_packet import render_main_agent_block
-    from yoke_core.hooks.session_launch_attestation import render_launch_instructions
-    from yoke_core.hooks.session_broker_wake import _render
 
-    examples = {}
-    orientation = []
-    for count in (0, 5):
-        folders = [f'/example/workspace/projects/project-{i}' for i in range(count)]
-        with patch.object(global_orientation, '_project_folders', return_value=folders):
-            orientation.append(global_orientation.render_global_orientation(
-                'example-session'.ljust(36, '-'), Path('/example/workspace'),
-                setup_lines=[] if not count else ['Setup: ' + 'example status ' * 20]))
-    examples['hook:global:orientation'] = (
-        orientation, 'Synthetic session and folder; zero to five project folders and zero to 300 characters of setup. Not a guaranteed limit.')
-    startup = render_main_agent_block(include_advisories=False)
-    examples['hook-block:render_main_agent_block'] = (
-        [startup], 'Core message with no installation advisories; conditional notices add bytes.')
-    examples['hook:project:orientation'] = (
-        ['Your Session: ' + '0' * 36 + '\nRoot: /example/workspace/project\n' + startup,
-         'Your Session: ' + '0' * 36 + '\nRoot: /example/workspace/project\n' + startup + 'x' * 600],
-        'Representative identity and root plus startup core; zero to 600 extra characters for setup, Git metadata and notices. Not a limit.')
-    wake = [_render(SimpleNamespace(lease_id='0' * 36, command='x' * n))[0] for n in (40, 180)]
-    examples['hook-block:_render'] = (wake, 'Synthetic lease ID; supplied command between 40 and 180 ASCII characters. Not a limit.')
-    launch = render_launch_instructions(SimpleNamespace(
-        launch_id='0' * 36, message_id='0' * 36, sender_actor_id=1, body=''))
-    examples['hook-block:render_launch_instructions'] = (
-        [launch], 'Empty instructions body with synthetic IDs; add the actual body size. No fixed upper bound.')
+def output_samples(samples, basis, variable=False):
+    """Count synthetic output examples, including their terminating newlines."""
+    return dict(lines=[min(len(s.splitlines()) for s in samples), max(len(s.splitlines()) for s in samples)],
+                bytes=[min(len(s.encode('utf-8')) for s in samples), max(len(s.encode('utf-8')) for s in samples)],
+                estimated=len(set(samples)) > 1, variable=variable, basis=basis)
+
+
+def incoming_topic_size(title):
+    from yoke_core.hooks.session_message_rendering import _parent_overflow_notice
+    identity = 'example-message'.ljust(36, '-')
+    examples = {
+        'Sender': ['Authenticated sender: Operator\n',
+                   'Authenticated sender: Example worker via session ' + 's' * 36 + '\n'],
+        'Message body': [''],
+        'Reminder': ['', 'Reminder: shown 99 time(s) and still unacknowledged. '
+                     'If you already acted on it, acknowledge it now; if not, act on it first.\n'],
+        'Read the full message': ['', f'Excerpt only; read the full body with `yoke messages get {identity}`.\n'],
+        'Acknowledge': [f'Acknowledge: `yoke messages acknowledge {identity}`\n'],
+        'More waiting messages': ['', _parent_overflow_notice(999, 's' * 36) + '\n'],
+        'Delivery boundaries': ['=== BEGIN YOKE SESSION MESSAGE DELIVERY '
+                                + 'YOKE_SESSION_MESSAGE_LEASE:' + 'l' * 36 + ' ' + identity
+                                + ' ===\n=== END YOKE SESSION MESSAGE DELIVERY ===\n'],
+    }
+    if title not in examples:
+        return None
+    basis = ('One message, synthetic 36-character IDs; optional notices range from absent to present. '
+             'Sender uses short-name and session-name examples; counts up to 999. Not a hard maximum.')
+    return output_samples(examples[title], basis, variable=title == 'Message body')
+
+
+def rollup_output_sizes(nodes):
+    """Every node describes consumable text; containers sum children, not source code."""
+    by_id = {n['id']: n for n in nodes}
+    children = {}
     for node in nodes:
-        if node.get('node_type') == 'action':
-            continue
-        key = node['id']
-        module = node.get('hook_module', '').rsplit('.', 1)[-1]
-        key = {'session_launch_attestation': 'hook-block:render_launch_instructions',
-               'session_broker_wake': 'hook-block:_render'}.get(module, key)
-        if key.endswith(':cursor'):
-            key = key.removesuffix(':cursor')
-        if key not in examples:
-            continue
-        samples, assumptions = examples[key]
-        counts = [len(sample.encode('utf-8')) for sample in samples]
-        low, high = min(counts), max(counts)
-        lines = [len(sample.splitlines()) for sample in samples]
-        line_range = str(min(lines)) if min(lines) == max(lines) else f'{min(lines)}–{max(lines)}'
-        amount = f'{line_range} lines · ' + (f'{low:,}–{high:,} B' if low != high else f'{low:,} B + variable content')
-        node['message_estimate'] = dict(label='Estimated message · ' + amount,
-                                        assumptions=assumptions)
+        children.setdefault(node['parent'], []).append(node)
+    for node in nodes:
+        parent = by_id.get(node['parent'], {})
+        if parent.get('hook_module') == 'yoke_core.hooks.session_message_delivery':
+            node['output_size'] = incoming_topic_size(node['title'])
+        source = node.get('source_size')
+        if source:
+            node['output_size'] = dict(lines=[source['lines']] * 2, bytes=[source['bytes']] * 2,
+                                       estimated=False, variable=False, basis='Exact UTF-8 guidance text. Includes its nested sections once.')
+
+    def measure(node):
+        if node.get('output_size'):
+            return node['output_size']
+        nested = children.get(node['id'], [])
+        if nested:
+            parts = [measure(child) for child in nested]
+            size = dict(lines=[sum(p['lines'][i] for p in parts) for i in (0, 1)],
+                        bytes=[sum(p['bytes'][i] for p in parts) for i in (0, 1)],
+                        estimated=any(p['estimated'] for p in parts), variable=any(p['variable'] for p in parts),
+                        planning=any(p.get('planning') for p in parts),
+                        basis='Sum of child context amounts. Optional parts may not appear together; links are not counted. This is a content inventory, not one delivery.')
+        else:
+            kind = node.get('node_type', '')
+            # Coarse, visibly labelled planning bands for output not yet sampled.
+            # Never measure the implementation or mistake map summaries for output.
+            lines, count = ([1, 8], [40, 800])
+            if kind in ('command', 'command-group'):
+                lines, count = [5, 80], [250, 8000]
+            elif kind == 'rule':
+                lines, count = [2, 25], [120, 2500]
+            elif kind == 'action':
+                lines, count = [0, 2], [0, 200]
+            elif kind == 'packet':
+                lines, count = [5, 100], [250, 10000]
+            size = dict(lines=lines, bytes=count, estimated=True, variable=False, planning=True,
+                        basis='Coarse planning range for this kind of output; not a measured render or a guaranteed limit. Replace with template samples when available.')
+        node['output_size'] = size
+        return size
+
+    def band(values):
+        low, high = values
+        return f'{low:,}' if low == high else f'{low:,}–{high:,}'
+
+    for node in nodes:
+        size = measure(node)
+        prefix = 'Estimated' if size['estimated'] else 'Text'
+        if children.get(node['id']) and not node.get('source_size') and not node.get('message_estimate'):
+            prefix = 'Total estimate' if size['estimated'] else 'Total'
+        if size.get('planning'):
+            prefix = 'Rough total' if children.get(node['id']) else 'Rough estimate'
+        label = f"{prefix} · {band(size['lines'])} lines · {band(size['bytes'])} B"
+        if size['variable']:
+            label = ('Variable body · lines and bytes' if not size['bytes'][1]
+                     else label + ' + variable body')
+        node['message_estimate'] = dict(label=label, assumptions=size['basis'])

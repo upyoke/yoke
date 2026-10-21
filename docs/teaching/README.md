@@ -234,12 +234,16 @@ project and global event cards link as two views of the same hook. Message secti
 use a neutral text style, distinct from purple event containers. Message bodies are descriptions of templates, not live
 session captures. Readable guidance shows exact UTF-8 byte and line counts (character
 counts on hover); implementation code has no size badge. Generated messages show
-output estimates in lines and bytes, or explicitly variable output when bodies are unbounded. Group totals are omitted
-to avoid double-counting shared sources.
+output estimates in lines and bytes, or explicitly variable output when bodies are unbounded. Containers total their child output estimates; an exact document or whole-message
+sample already includes its children and is counted once. Links do not add text.
 Variable hook messages also show estimates from offline examples: synthetic IDs,
 zero to five project folders, and explicit allowances for setup or other variable
 fields. Hover for each estimate's assumptions. These are illustrative ranges, not
 observed percentiles or hard limits; open-ended instruction bodies show a base size
-plus variable content. Message-section summaries do not inherit their parent's size.
+plus variable content. Every card has a line/byte range or an explicit variable remainder. Incoming message
+parts are measured from output templates with synthetic IDs and optional notices.
+Unsampled output uses visibly labelled rough planning bands, documented on hover;
+these are not measured renders. Parent totals are an inventory, not a claim that
+all conditional messages are delivered together.
 Long Markdown leaves (80 words or more) expose headings or original passages as
 subnodes. Incoming-message and resume-message topics describe the delivered prose.

@@ -216,3 +216,23 @@ def test_delivered_messages_have_topics_without_code_sizes(explorer):
             children = [n for n in nodes if n['parent'] == node['id']]
             assert {n['title'] for n in children} >= {'Sender', 'Message body', 'Acknowledge'}
     assert any(n['id'].startswith('doc:docs/public/') and ':topic:' in n['id'] for n in nodes)
+
+
+def test_output_totals_preserve_known_parts_and_variable_remainder(explorer):
+    model, _, renderer = explorer
+    nodes = renderer.map_nodes(model)
+    for node in nodes:
+        size = node['output_size']
+        assert 0 <= size['bytes'][0] <= size['bytes'][1]
+        assert 0 <= size['lines'][0] <= size['lines'][1]
+        assert node['message_estimate']['label']
+    incoming = next(n for n in nodes if n.get('hook_module') == 'yoke_core.hooks.session_message_delivery')
+    parts = [n for n in nodes if n['parent'] == incoming['id']]
+    assert incoming['output_size']['variable']
+    for field in ('bytes', 'lines'):
+        assert incoming['output_size'][field] == [sum(n['output_size'][field][i] for n in parts) for i in (0, 1)]
+    body = next(n for n in parts if n['title'] == 'Message body')
+    assert body['output_size']['variable']
+    assert next(n for n in parts if n['title'] == 'Acknowledge')['output_size']['bytes'][0] > 0
+    document = next(n for n in nodes if n.get('source_size') and any(c['parent'] == n['id'] for c in nodes))
+    assert document['output_size']['bytes'] == [document['source_size']['bytes']] * 2
