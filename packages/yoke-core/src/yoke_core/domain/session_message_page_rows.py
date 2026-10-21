@@ -12,6 +12,7 @@ past their message's expiry, which read as expired here
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -21,6 +22,7 @@ from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
 from yoke_core.domain.actor_render import render_actor_names
+from yoke_core.domain.session_message_launch_queue import queued_mail_status
 from yoke_core.domain.session_message_reads import ENGINE_SENDER_LABEL
 from yoke_core.domain.session_message_receipt_expiry import project_due_receipts
 from yoke_core.domain.session_message_types import row_dict
@@ -64,7 +66,7 @@ def page_summaries(
         for row in _rows(
             conn,
             "SELECT message_id,sender_actor_id,sender_session_id,body,created_at,"
-            "expires_at,cancelled_at,cancellation_reason,sender_surface "
+            "expires_at,cancelled_at,cancellation_reason,sender_surface,selector_snapshot "
             "FROM session_messages WHERE message_id IN ({ids})",
             ids,
         )
@@ -112,8 +114,38 @@ def page_summaries(
         messages[str(row["message_id"])]["steering_recipient"] = (
             steering_recipient_from_row(conn, row, reads=reads)
         )
+    launch_ids = set()
+    for message in messages.values():
+        message["selector_snapshot"] = json.loads(message["selector_snapshot"])
+        if message["selector_snapshot"].get("anchor") == "launch":
+            launch_ids.add(message["selector_snapshot"]["launch_id"])
+    launches = (
+        {
+            row["launch_id"]: (
+                row["state"],
+                row["registered_session_id"],
+                row["deadline_at"],
+            )
+            for row in _rows(
+                conn,
+                "SELECT launch_id,state,registered_session_id,deadline_at "
+                "FROM session_launches WHERE launch_id IN ({ids})",
+                sorted(launch_ids),
+            )
+        }
+        if launch_ids
+        else {}
+    )
     kinds = _actor_kinds(conn, senders)
     for message in messages.values():
+        launch = launches.get(message["selector_snapshot"].get("launch_id"))
+        if launch:
+            recipient = queued_mail_status(conn, message, now=now, launch_row=launch)
+            if recipient:
+                message.update(state=recipient["state"], recipient_count=1)
+                if recipient["state"] == "cancelled":
+                    message["cancellation_reason"] = recipient["reason"]
+        message.pop("selector_snapshot")
         sender = message["sender_actor_id"]
         message["sender_actor_label"] = (
             ENGINE_SENDER_LABEL if sender is None else names.get(int(sender))

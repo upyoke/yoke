@@ -16,7 +16,6 @@ from yoke_contracts.session_control.terminal_report import (
 )
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.actor_message_recipients import (
-    ResolvedActorRecipient,
     actor_message_limits,
     resolve_actor_recipients,
 )
@@ -48,10 +47,16 @@ from yoke_core.domain.session_message_steering import (
     SteeringAddress,
     resolve_steering_address,
     seat_session_id,
+    record_steering_row,
 )
 from yoke_core.domain.session_message_terminal import (
     reporting_episode_marker,
     resolve_terminal_report_item,
+)
+from yoke_core.domain.session_message_launch_queue import (
+    resolve_item_launch_mail,
+    launch_confirmation,
+    launch_snapshot,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
 from yoke_core.hooks.relayed_session_identity import session_ownership_refusal
@@ -62,12 +67,6 @@ from yoke_core.domain.steering_recipient_projection import (
 
 
 def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
-    return [recipient.public() for recipient in recipients]
-
-
-def _public_actor_recipients(
-    recipients: list[ResolvedActorRecipient],
-) -> list[dict[str, Any]]:
     return [recipient.public() for recipient in recipients]
 
 
@@ -130,18 +129,24 @@ def preview_message(
     actor_recipients = resolve_actor_recipients(
         conn, selector, sender_actor_id=actor_id
     )
-    if address is None:
+    recipients, launch = (
+        resolve_item_launch_mail(conn, selector, recipients, now=now)
+        if not address and not actor_recipients
+        else (recipients, None)
+    )
+    if address is None and launch is None:
         require_recipients(recipients, selector, actor_recipients=actor_recipients)
     policies = _recipient_policies(
         conn,
         actor_id=actor_id,
         recipients=recipients,
-        additional_project_ids=(address.project_id,) if address else (),
+        additional_project_ids=([address.project_id] if address else [])
+        + ([launch["project_id"]] if launch else []),
     )
     if selector.universe:
         authorize_universe(conn, actor_id=actor_id, policies=policies.values())
     public = _public_recipients(recipients)
-    public_actors = _public_actor_recipients(actor_recipients)
+    public_actors = [recipient.public() for recipient in actor_recipients]
     steering = (
         previewed_steering_recipient(
             conn, address, seat_session_id=seat_session_id(conn, address)[0]
@@ -152,10 +157,14 @@ def preview_message(
     return {
         "recipients": public,
         "actor_recipients": public_actors,
-        "recipient_count": len(public) + len(public_actors) + (1 if steering else 0),
+        "recipient_count": len(public)
+        + len(public_actors)
+        + bool(steering)
+        + bool(launch),
         "applied_liveness": list(applied_liveness(selector)),
-        "confirmation_token": confirmation_token(
-            selector, recipients, actor_recipients=actor_recipients
+        "confirmation_token": launch_confirmation(
+            confirmation_token(selector, recipients, actor_recipients=actor_recipients),
+            launch,
         ),
         **({"steering_recipient": steering} if steering else {}),
     }
@@ -211,17 +220,26 @@ def send_message(
         actor_recipients = resolve_actor_recipients(
             conn, selector, sender_actor_id=actor_id
         )
-        if address is None:
+        recipients, launch = (
+            resolve_item_launch_mail(
+                conn, selector, recipients, now=current, for_update=True
+            )
+            if not address and not actor_recipients
+            else (recipients, None)
+        )
+        if address is None and launch is None:
             require_recipients(recipients, selector, actor_recipients=actor_recipients)
         policies = _recipient_policies(
             conn,
             actor_id=actor_id,
             recipients=recipients,
-            additional_project_ids=(address.project_id,) if address else (),
+            additional_project_ids=([address.project_id] if address else [])
+            + ([launch["project_id"]] if launch else []),
         )
         actor_limits = actor_message_limits(conn, actor_recipients)
-        expected_confirmation = confirmation_token(
-            selector, recipients, actor_recipients=actor_recipients
+        expected_confirmation = launch_confirmation(
+            confirmation_token(selector, recipients, actor_recipients=actor_recipients),
+            launch,
         )
         if selector.universe:
             authorize_universe(conn, actor_id=actor_id, policies=policies.values())
@@ -275,7 +293,7 @@ def send_message(
                 or (HARNESS_SESSION_SENDER_SURFACE if sender_session_id else None)
             ),
             body=body,
-            selector_snapshot=_selector_snapshot(selector),
+            selector_snapshot=launch_snapshot(_selector_snapshot(selector), launch),
             idempotency_key=terminal_key or idempotency_key,
             idempotency_intent_only=(
                 terminal_key is not None or idempotency_intent_only
@@ -287,24 +305,25 @@ def send_message(
             wake_after_by_owner=wake_after_by_owner,
         )
         if address is not None and created:
-            _record_steering_row(conn, address, details, current)
+            record_steering_row(conn, address, details, current)
         if commit:
             conn.commit()
         selected = (
             _public_recipients(recipients) if created else public_recipients(details)
         )
         selected_actors = (
-            _public_actor_recipients(actor_recipients)
+            [recipient.public() for recipient in actor_recipients]
             if created
             else details.get("actor_recipients", [])
         )
         steering = stored_steering_recipient(conn, str(details["message_id"]))
+        queued = details.get("recipient_count", 0)
         result = {
             "message_id": details["message_id"],
             "recipients": selected,
             "actor_recipients": selected_actors,
             "recipient_count": (
-                len(selected) + len(selected_actors) + (1 if steering else 0)
+                len(selected) + len(selected_actors) + bool(steering) + bool(queued)
             ),
             "deduplicated": not created,
         }
@@ -313,30 +332,6 @@ def send_message(
         if steering is not None:
             result["steering_recipient"] = steering
         return result
-
-
-def _record_steering_row(
-    conn: Any,
-    address: SteeringAddress,
-    details: dict[str, Any],
-    created_at: datetime,
-) -> None:
-    """Record the durable role-addressed row beside any live seat delivery."""
-    from yoke_core.domain.steering_message_recipients import (
-        record_steering_recipient,
-    )
-
-    seat_id, seat = seat_session_id(conn, address)
-    record_steering_recipient(
-        conn,
-        message_id=str(details["message_id"]),
-        scope=address.scope,
-        project_id=address.project_id,
-        sender_item_id=address.sender_item_id,
-        seat_session_id=seat_id,
-        seat_claim_id=int(seat["claim_id"]) if seat else None,
-        created_at=created_at,
-    )
 
 
 __all__ = ["get_message", "preview_message", "send_message"]

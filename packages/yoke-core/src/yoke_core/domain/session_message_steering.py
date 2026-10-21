@@ -23,6 +23,7 @@ the message belongs to, and the sender's item when there is one.
 
 from __future__ import annotations
 
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
@@ -125,9 +126,7 @@ def resolve_steering_address(
     )
 
 
-def _document_for(
-    conn: Any, item_id: Optional[int]
-) -> Optional[tuple[int, str]]:
+def _document_for(conn: Any, item_id: Optional[int]) -> Optional[tuple[int, str]]:
     """Owning project plus slug of the addressed item's document, if any."""
     return None if item_id is None else item_document_link(conn, int(item_id))
 
@@ -150,3 +149,27 @@ __all__ = [
     "resolve_steering_address",
     "seat_session_id",
 ]
+
+
+def record_steering_row(
+    conn: Any,
+    address: SteeringAddress,
+    details: dict[str, Any],
+    created_at: datetime,
+) -> None:
+    """Record the durable role-addressed row beside any live seat delivery."""
+    from yoke_core.domain.steering_message_recipients import (
+        record_steering_recipient,
+    )
+
+    seat_id, seat = seat_session_id(conn, address)
+    record_steering_recipient(
+        conn,
+        message_id=str(details["message_id"]),
+        scope=address.scope,
+        project_id=address.project_id,
+        sender_item_id=address.sender_item_id,
+        seat_session_id=seat_id,
+        seat_claim_id=int(seat["claim_id"]) if seat else None,
+        created_at=created_at,
+    )

@@ -17,6 +17,7 @@ from yoke_core.domain.actor_message_recipients import expire_due_actor_recipient
 from yoke_core.domain.session_message_delivery_projection import (
     delivery_message_projection,
 )
+from yoke_core.domain.session_message_launch_queue import bind_item_launch_mail
 from yoke_core.domain.session_message_lease_complete import complete_hook_lease
 from yoke_core.domain.session_message_reminders import due_reminder_rows
 from yoke_core.domain.session_message_types import (
@@ -177,6 +178,7 @@ def lease_for_hook(
     leased: list[dict[str, Any]] = []
     _begin_mutation(conn)
     try:
+        bind_item_launch_mail(conn, session_id=session_id, now=current)
         _expire_rows(conn, now=current)
         pending_count = _pending_receipt_count(conn, session_id=session_id, now=current)
         rows = _lease_candidates(

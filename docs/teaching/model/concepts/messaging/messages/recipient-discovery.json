@@ -1,7 +1,9 @@
 {
  "id": "recipient-discovery",
  "title": "Recipient discovery",
- "status": "draft-copy",
+ "status": "observed",
  "page": "messaging",
- "position": 0
+ "position": 0,
+ "current": "A direct item address resolves to its live claim holder. Before a holder exists, mail queues for an in-flight steering launch and is delivered to that launch’s bound session after it claims the item. Without either, sending refuses zero_recipients and names any launch found. Queued mail never follows a replacement worker.",
+ "sources": ["docs/public/sessions/inbox.md", "packages/yoke-core/src/yoke_core/domain/session_message_launch_queue.py", "runtime/api/domain/test_session_message_launch_queue.py"]
 }

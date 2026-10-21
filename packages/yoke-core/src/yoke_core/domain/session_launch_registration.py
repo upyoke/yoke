@@ -281,6 +281,9 @@ def complete_launch_for_message(
             if commit:
                 conn.commit()
             return pending
+        from yoke_core.domain.session_message_launch_queue import bind_item_launch_mail
+
+        bind_item_launch_mail(conn, session_id=session_id, now=current)
         completed = update_launch(
             conn,
             launch_id,

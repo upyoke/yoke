@@ -17,6 +17,7 @@ from yoke_core.domain.actor_message_recipients import (
     insert_actor_recipient_rows,
 )
 from yoke_core.domain.session_message_recipient_rows import insert_session_receipt
+from yoke_core.domain.session_message_launch_queue import message_intent_json
 from yoke_core.domain.session_message_reads import (
     message_details,
     public_recipients,
@@ -74,10 +75,10 @@ def _same_intent(
     """
     if intent_only:
         return existing
-    stored = json.dumps(
-        existing["selector_snapshot"], sort_keys=True, separators=(",", ":")
-    )
-    if existing["body_sha256"] != digest or stored != selector_json:
+    stored = message_intent_json(existing["selector_snapshot"])
+    if existing["body_sha256"] != digest or stored != message_intent_json(
+        json.loads(selector_json)
+    ):
         raise SessionMessageError(
             "idempotency_conflict",
             "idempotency key already names a different message intent",

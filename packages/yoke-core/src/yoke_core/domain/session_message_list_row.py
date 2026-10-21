@@ -69,12 +69,13 @@ def message_list_row(summary: dict[str, Any]) -> dict[str, Any]:
         "sender": (
             summary.get("sender_session_id") or summary.get("sender_actor_label")
         ),
-        "recipient_count": len(rows),
+        "recipient_count": summary.get("recipient_count", len(rows)),
         "recipient_states": sorted(
             {
                 str(record.get("state") or record.get("liveness") or "")
                 for record in rows
             }
+            or ({summary["state"]} if summary.get("state") else set())
         ),
         "recipients": [
             {key: record[key] for key in _RECEIPT_FIELDS if key in record}
