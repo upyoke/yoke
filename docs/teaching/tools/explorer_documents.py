@@ -44,7 +44,7 @@ def tree(add, paths, root, prefix, base):
 
 def add_documents(add):
     public = REPO / 'docs/public'
-    tree(add, public.rglob('*.md'), 'source:docs', 'docs-category:', public)
+    tree(add, public.rglob('*.md'), 'branch:doc-content', 'docs-category:', public)
     # Concrete repository documents, separate from the installed public manual.
     project = REPO / 'docs'
     paths = [p for p in project.rglob('*.md')

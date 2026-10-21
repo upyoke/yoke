@@ -33,8 +33,10 @@ move the camera without opening another page.
 
 The top level separates homepage, public docs, setup, global/project hooks,
 project rules, skills, roles, command help, command replies, context packets,
-scoped instructions and project documentation. Website and installed docs
-link to shared content; agent replies and terminal screens sit under setup.
+scoped instructions and project documentation. Public docs has three children: Website docs page, Installed docs directory,
+and The docs. Both access points link to The docs; the website also links to
+the overview it displays on entry. Under The docs, the overview and actual
+category/file tree appear once; agent replies and terminal screens sit under setup.
 Dashboard teaching stays with the dashboard prototype. Instructions for
 resuming work sit under Skills; changing work state is not teaching content.
 Abandoned proposals are omitted from this reading view but remain in the

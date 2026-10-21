@@ -17,6 +17,7 @@ SOURCE_TYPES = {
     'project': ('file', 'Project documents', 'The project’s own knowledge and rules'),
 }
 BRANCH_TYPES = {
+    'doc-content': ('group', 'Document collection', 'One shared set of public documents'),
     'web-docs': ('page', 'Web page', 'upyoke.com/docs'),
     'installed-docs': ('file', 'Installed directory', '.yoke/docs · local documentation'),
     'ask-agent': ('prompt', 'Human request', 'Words you give your agent'),

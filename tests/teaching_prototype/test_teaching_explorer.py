@@ -44,7 +44,7 @@ def test_public_docs_match_the_actual_files_and_category_titles(explorer):
         assert nodes[key]['document'].endswith(path.relative_to(repo).as_posix())
     assert nodes['docs-category:start']['title'] == 'Get started'
     assert nodes['doc:docs/public/start/install.md']['parent'] == 'docs-category:start'
-    assert nodes['doc:docs/public/index.md']['parent'] == 'source:docs'
+    assert nodes['doc:docs/public/index.md']['parent'] == 'branch:doc-content'
     assert 'overview & contents' in nodes['doc:docs/public/index.md']['title']
     assert 'doc:docs/public/start/index.md' in nodes['doc:docs/public/index.md']['related']
 
@@ -80,6 +80,10 @@ def test_agreed_sources_and_shared_documentation(explorer):
         'homepage', 'docs', 'setup', 'global-hooks', 'project-hooks', 'rules',
         'skills', 'roles', 'help', 'feedback', 'packets', 'instructions', 'project')}
     assert nodes['branch:web-docs']['related'] == nodes['branch:installed-docs']['related']
+    assert {n['id'] for n in nodes.values() if n['parent'] == 'source:docs'} == {
+        'branch:web-docs', 'branch:installed-docs', 'branch:doc-content'}
+    assert {'target': 'doc:docs/public/index.md', 'label': 'Displays on entry'} in nodes['branch:web-docs']['connections']
+    assert nodes['docs-category:start']['parent'] == 'branch:doc-content'
     assert 'topics' not in nodes
     assert nodes['role:engineer']['parent'] == 'source:roles:build'
     assert nodes['skill:dash']['parent'] == 'branch:project-skills:implement-and-deliver'

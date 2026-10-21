@@ -123,7 +123,7 @@ def map_nodes(model):
     by_id['source:homepage']['url'] = 'https://upyoke.com'
     by_id['branch:web-docs']['url'] = 'https://upyoke.com/docs'
     for location in ('web-docs', 'installed-docs'):
-        by_id['branch:' + location]['related'] = ['doc:docs/public/index.md']
+        by_id['branch:' + location]['related'] = ['branch:doc-content']
     connect_document_links(nodes)
     for source, target, label in CONNECTIONS:
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))

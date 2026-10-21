@@ -18,6 +18,7 @@ SOURCES = (
 
 # id, title, parent, summary: intermediate branches are navigation, not new facts.
 BRANCHES = (
+    ('doc-content', 'The docs', 'source:docs', 'The shared overview, categories and documents.'),
     ('web-docs', 'Website docs page', 'source:docs', 'Public guides read at upyoke.com/docs.'),
     ('installed-docs', 'Installed docs (.yoke/docs)', 'source:docs', 'The same public guides, available in an installed project.'),
     ('agent-setup', 'Agent-mode replies', 'source:setup', 'Setup returns questions, choices and the next action to the agent.'),
@@ -103,6 +104,7 @@ CONNECTIONS = (
     ('source:help', 'source:feedback', 'Run the command → read its result'),
     ('source:feedback', 'source:help', 'Recovery points to exact command help'),
     ('source:instructions', 'source:project', 'Project guidance supplies scoped rules'),
-    ('branch:web-docs', 'doc:docs/public/index.md', 'Open overview and contents'),
-    ('branch:installed-docs', 'doc:docs/public/index.md', 'Open overview and contents'),
+    ('branch:web-docs', 'branch:doc-content', 'Browse the docs'),
+    ('branch:web-docs', 'doc:docs/public/index.md', 'Displays on entry'),
+    ('branch:installed-docs', 'branch:doc-content', 'Contains the docs'),
 )
