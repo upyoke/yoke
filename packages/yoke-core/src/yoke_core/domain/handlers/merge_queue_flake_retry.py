@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -15,6 +17,8 @@ from yoke_core.domain.merge_queue_flake_retry import RETRY_EXHAUSTED, RETRY_SECT
 
 
 class ClaimRetryRequest(BaseModel):
+    action: Literal["claim", "release"] = "claim"
+    reservation_id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
     pr_number: str = Field(min_length=1)
     head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
@@ -23,7 +27,8 @@ class ClaimRetryRequest(BaseModel):
 
 
 class ClaimRetryResponse(BaseModel):
-    claimed: bool
+    claimed: bool = False
+    released: bool = False
 
 
 def _error(code, message):
@@ -49,15 +54,22 @@ def reserve_retry(conn, item_id, body, session_id):
     history = json.loads(row[0]) if row else {"retries": []}
     retries = history["retries"]
     identity = (body.pr_number, body.head_sha, body.base_sha)
-    if any(
+    entry = next((entry for entry in retries if (
         (entry["pr_number"], entry["head_sha"], entry["base_sha"]) == identity
-        for entry in retries
-    ):
-        return False
-    retries.append({
-        **body.model_dump(), "session_id": session_id,
-        "recorded_at": format_instant(utc_now()),
-    })
+        and not entry.get("released_at")
+    )), None)
+    if body.action == "release":
+        if (entry is None or entry.get("reservation_id") != body.reservation_id
+                or entry.get("session_id") != session_id):
+            return False
+        entry["released_at"] = format_instant(utc_now())
+    else:
+        if entry is not None:
+            return False
+        retries.append({
+            **body.model_dump(exclude={"action"}), "session_id": session_id,
+            "recorded_at": format_instant(utc_now()),
+        })
     with savepoint(conn, "merge_train_retry", owns=False):
         upsert_json_section(
             conn, item_id=item_id, section=RETRY_SECTION, payload=history, ordering=210
@@ -89,6 +101,12 @@ def handle_claim_retry(request):
             f"{exc}; restore the item's {RETRY_SECTION} record and retry; nothing was armed.",
         )
     if not claimed:
+        if body.action == "release":
+            return _error(
+                "merge_train_flake_retry_release_mismatch",
+                "Release requires this session's exact active reservation id and head/base; "
+                "inspect the item's Merge train retries section before retrying.",
+            )
         return _error(
             RETRY_EXHAUSTED,
             "A retry is already recorded for this pull request and head/base. "
@@ -96,4 +114,6 @@ def handle_claim_retry(request):
             "correct the actual cause and re-verify before re-entering the queue. "
             "Do not use empty commits to reset the budget.",
         )
-    return HandlerOutcome(primary_success=True, result_payload={"claimed": True})
+    return HandlerOutcome(
+        primary_success=True, result_payload={"claimed": body.action == "claim", "released": body.action == "release"}
+    )

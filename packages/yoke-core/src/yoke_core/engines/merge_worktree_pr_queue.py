@@ -90,6 +90,7 @@ class QueueEntryResult:
     success: bool
     pr_num: str = ""
     error_detail: Optional[str] = None
+    rejected: bool = False  # Known rejection, rather than a lost mutation reply.
 
 
 @dataclass(frozen=True)
@@ -179,10 +180,10 @@ def _mutate_pull_request(
         ctx, permissions, required_authority=required_authority
     )
     if auth_err or auth is None:
-        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
+        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err, rejected=True)
     node_id, node_err = _pr_node_id(auth, pr_num)
     if node_err:
-        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err)
+        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err, rejected=True)
     variables = {"pullRequestId": node_id}
     if expected_head_sha:
         variables["expectedHeadOid"] = expected_head_sha
@@ -193,7 +194,10 @@ def _mutate_pull_request(
         required_permissions=permissions,
     )
     if mutation_err:
-        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=mutation_err)
+        return QueueEntryResult(
+            success=False, pr_num=pr_num, error_detail=mutation_err,
+            rejected=mutation_err.startswith("github graphql refused:"),
+        )
     return QueueEntryResult(success=True, pr_num=pr_num)
 
 

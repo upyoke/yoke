@@ -222,3 +222,33 @@ def test_a_provider_read_that_failed_is_retryable(monkeypatch):
     assert run is None
     assert note.retryable is True
     assert "502 upstream" in note.reason
+
+
+def test_missing_run_web_url_still_supports_a_recorded_flake_retry(monkeypatch):
+    from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
+
+    combined, head, base = "c" * 40, "a" * 40, "b" * 40
+    _wire_runs(monkeypatch, [{
+        "id": 123, "path": ".github/workflows/yoke-ci.yml",
+        "head_branch": "gh-readonly-queue/main/pr-42-abc",
+        "conclusion": "failure", "head_sha": combined,
+    }])
+    run, note = train_run_mod.read_train_run(_ctx(), "42", covering_sha=combined)
+    assert note is None
+    claims = []
+    def dispatch(**kwargs):
+        claims.append(kwargs["payload"])
+        return SimpleNamespace(success=True, result={"claimed": True})
+    assert unchanged_failed_train_refusal(
+        _ctx(), "42", lane_head=head, base_branch="main", base_sha=base,
+        parents=[base, head], train=run, public_ref=f"ITEM-{42}",
+        retry_flake="test_clock: unrelated timing", dispatch=dispatch,
+    ) is None
+    assert claims[0]["run_url"] == "https://github.com/upyoke/yoke/actions/runs/123"
+
+
+def test_missing_run_url_uses_the_provider_repository_web_origin():
+    run = train_run_mod._as_train_run({
+        "id": 123, "repository": {"html_url": "https://git.example/org/repo"},
+    }, "org/repo")
+    assert run.url == "https://git.example/org/repo/actions/runs/123"

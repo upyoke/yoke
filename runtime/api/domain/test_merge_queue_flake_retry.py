@@ -164,3 +164,59 @@ def test_retry_write_failure_preserves_the_callers_transaction(monkeypatch):
     with pytest.raises(RuntimeError, match="storage unavailable"):
         handler.reserve_retry(conn, 101, body(), "worker")
     assert conn.execute("SELECT merge_queue_pr_number FROM items WHERE id=101").fetchone()[0] == "caller write"
+
+
+def test_release_restores_only_the_exact_reserving_sessions_budget():
+    conn = observer_connection()
+    reserved = body()
+    assert handler.reserve_retry(conn, 101, reserved, "worker")
+    release = reserved.model_copy(update={"action": "release"})
+    assert not handler.reserve_retry(conn, 101, release, "another worker")
+    assert not handler.reserve_retry(conn, 101, body(action="release"), "worker")
+    assert not handler.reserve_retry(conn, 101, body(), "worker")
+    assert handler.reserve_retry(conn, 101, release, "worker")
+    assert handler.reserve_retry(conn, 101, body(), "worker")
+    assert not handler.reserve_retry(conn, 101, release, "worker")
+    stored = json.loads(conn.execute(
+        "SELECT content FROM item_sections WHERE item_id=? AND section_name=?",
+        (101, RETRY_SECTION),
+    ).fetchone()[0])
+    assert stored["retries"][0]["released_at"]
+    assert "released_at" not in stored["retries"][1]
+
+
+def test_failed_release_reports_the_exact_reservation_for_recovery():
+    from yoke_core.domain.merge_queue_flake_retry import release_retry
+
+    reserved = body().model_dump()
+    error = release_retry(f"ITEM-{42}", reserved, dispatch=lambda **kw: SimpleNamespace(
+        success=False, error=SimpleNamespace(message="storage unavailable"),
+    ))
+    assert "merge_train_flake_retry_release_unrecorded" in error
+    assert reserved["reservation_id"] in error
+    assert "control-plane operator" in error
+
+
+def test_unknown_queue_mutation_never_releases_the_reservation():
+    from yoke_core.domain.merge_queue_flake_retry import release_retry
+
+    def forbidden(**kwargs):
+        raise AssertionError("an uncertain mutation must keep its reservation")
+    assert "entry_uncertain" in release_retry(
+        f"ITEM-{42}", body().model_dump(), dispatch=forbidden, rejected=False,
+    )
+
+
+def test_queue_entry_distinguishes_rejection_from_lost_reply(monkeypatch):
+    from yoke_core.engines import merge_worktree_pr_queue as queue
+
+    monkeypatch.setattr(queue, "resolve_auth_detail", lambda *a, **kw: (None, "token error"))
+    assert queue.enter_merge_queue(ctx(), "42").rejected
+    monkeypatch.setattr(queue, "resolve_auth_detail", lambda *a, **kw: (object(), None))
+    monkeypatch.setattr(queue, "_pr_node_id", lambda *a: ("node", None))
+    for message, rejected in (("github graphql refused: forbidden", True),
+                              ("github graphql transport failure: timed out", False)):
+        monkeypatch.setattr(queue, "graphql_with_auth", lambda *a, **kw: (None, message))
+        result = queue.enter_merge_queue(ctx(), "42")
+        assert not result.success
+        assert result.rejected is rejected
