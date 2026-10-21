@@ -3,8 +3,10 @@
  "title": "Generated surfaces",
  "status": "draft-copy",
  "audience": "Maintainers",
- "commands": ["yoke agents render", "yoke agents render check", "yoke git post-commit", "yoke git pre-commit"],
+ "commands": ["yoke agents render", "yoke agents render check", "yoke git post-commit"],
  "functions": ["agents.render.check", "agents.render.run", "agents.render_relationships.record"],
  "page": "contributing",
- "position": 2
+ "position": 2,
+ "current": "CI repo contracts check generated inline blocks, manifest-backed wake claims and rendered Claude, Codex and Cursor agent surfaces against their canonical sources. Run the renderer named by each failure, commit its outputs and rerun verification; the installed pre-commit hook does not perform render checks.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/ci_generated_surfaces.py"]
 }

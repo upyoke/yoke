@@ -96,7 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="render_harness_role_spawn_inline",
         description=(
             "Render each harness's role-agent spawn into every dispatching "
-            "skill surface. Use --check in CI / pre-commit to fail on drift."
+            "skill surface. Use --check in CI to fail on drift."
         ),
     )
     parser.add_argument(

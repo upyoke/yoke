@@ -5,7 +5,7 @@ into every markdown surface that teaches an agent how to write to its user:
 the project rules file and the user-level ``yoke-global`` skill, which serves
 sessions outside every project. Drift is structurally impossible: the
 :data:`INVENTORY` tuple is the contract, and ``--check`` mode runs in the
-pre-commit hook. The marker mechanics live in
+CI contract. The marker mechanics live in
 :mod:`yoke_core.tools.generated_block_render`.
 
 Markers — content between is REPLACED on every run:
@@ -91,7 +91,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="render_user_writing_inline",
         description=(
             "Render the user-writing rules into every generated-block "
-            "marker file. Use --check in CI / pre-commit to fail on drift."
+            "marker file. Use --check in CI to fail on drift."
         ),
     )
     parser.add_argument(

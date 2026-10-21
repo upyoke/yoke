@@ -89,6 +89,9 @@ def test_contract_roster_names_expected_checks() -> None:
         "changed-path-ruff",
         "atlas-integrity",
         "install-bundle-tree",
+        "generated-blocks",
+        "harness-capability",
+        "agent-render",
     ]
 
 

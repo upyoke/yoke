@@ -1,8 +1,8 @@
 {
  "id": "commit-gate-bypass-recovery",
- "title": "Give every commit gate a recovery that is not a bypass",
+ "title": "Installed commit checks name recovery without bypasses",
  "status": "superseded",
- "text": "Closed in source: file-line gates name splitting or shortening; path-claim coverage names the registered claims.path.widen command with the claim, item and staged paths; worktree status names the implementation-entry skill. Commit-gate recovery tests reject bypass advice and exercise the widening command. Installed hooks receive these fixes with a release.",
+ "text": "Closed in source: the installed pre-commit hook checks authored-file limits and byte budgets and names splitting, shortening or repairing the checker. Path claims and implementation-entry status belong to live tool guards, not commit gates. Generated blocks, wake capability and rendered-agent drift are checked by CI repo contracts. The unused core hook chain and its suppression event were removed; no commit-message token grants path coverage.",
  "surfaces": ["command-feedback"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/check_path_claim_coverage_at_commit.py", "packages/yoke-core/src/yoke_core/domain/check_worktree_status_invariant.py", "packages/yoke-harness/src/yoke_harness/git_hooks/pre_commit.py"]
+ "sources": ["packages/yoke-harness/src/yoke_harness/git_hooks/pre_commit.py", "runtime/harness/test_commit_gate_refusal_recovery.py", "packages/yoke-core/src/yoke_core/tools/ci_generated_surfaces.py", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_validate.py", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_guard.py"]
 }

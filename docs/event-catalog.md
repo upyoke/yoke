@@ -132,7 +132,6 @@
 | PathClaimBoundaryCheckBlocked | lifecycle | path_claim | yoke_core.domain.path_claims_events | WARN | Committed-git boundary check blocked a lifecycle gate (committed work outside declared coverage or unresolved worktree drift) |
 | PathClaimBoundaryCheckPassed | lifecycle | path_claim | yoke_core.domain.path_claims_events | INFO | Committed-git boundary check passed at a lifecycle gate (valid / drifted / rename-resolved) |
 | PathClaimCancelled | lifecycle | path_claim | yoke_core.domain.path_claims_events | INFO | Path claim cancelled — lineage abandoned before reaching the integration target |
-| PathClaimCoverageSuppressed | hook | lint_decision | yoke_core.domain.check_path_claim_coverage_at_commit | WARN | A commit-time path-claim coverage denial was explicitly suppressed; context records the claim, uncovered paths, and suppression token. |
 | PathClaimEditGuardDenied | lifecycle | path_claim | cli | WARN | PreToolUse Edit/Write blocked by path-claim guard for unowned path |
 | PathClaimOverride | lifecycle | path_claim | yoke_core.domain.path_claims_events_override | WARN | Operator-collision approval — last-resort permission for a path claim to proceed past a blocking claim or revalidation conflict |
 | PathClaimRegistered | lifecycle | path_claim | yoke_core.domain.path_claims_events | INFO | Path claim registered (planned or blocked) for an item via the on-ramp surface |

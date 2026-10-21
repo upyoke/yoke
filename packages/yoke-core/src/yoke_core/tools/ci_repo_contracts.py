@@ -27,6 +27,11 @@ import sys
 from typing import Callable, List, Optional, Sequence, Tuple
 
 
+from yoke_core.tools.ci_generated_surfaces import (
+    check_agent_render, check_generated_blocks, check_harness_capability,
+)
+
+
 @dataclass(frozen=True)
 class ChangedPathScope:
     """The one diff every delta contract reads."""
@@ -242,6 +247,9 @@ CONTRACTS: Tuple[Tuple[str, ContractFn], ...] = (
     ("changed-path-ruff", check_changed_path_ruff),
     ("atlas-integrity", check_atlas_integrity),
     ("install-bundle-tree", check_install_bundle_tree),
+    ("generated-blocks", check_generated_blocks),
+    ("harness-capability", check_harness_capability),
+    ("agent-render", check_agent_render),
 )
 
 

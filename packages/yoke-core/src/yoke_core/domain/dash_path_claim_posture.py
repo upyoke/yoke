@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional
 
-from yoke_core.domain.check_path_claim_coverage_at_commit import (
+from yoke_core.domain.path_claim_coverage import (
     files_outside_coverage,
 )
 from yoke_core.domain.dash_posture_read import (

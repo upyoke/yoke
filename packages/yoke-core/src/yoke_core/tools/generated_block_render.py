@@ -10,7 +10,7 @@ carries a marker pair::
 Everything between the markers is replaced on every run, so the canonical
 Python contract stays the only place the text is authored. ``check=True`` is
 the same pass without writing: it reports what would change, which is what the
-pre-commit gate and the doctor health checks consume.
+CI contracts and the doctor health checks consume.
 
 This module owns the mechanics — marker location, orphan detection, the
 inventory walk, and the drift summary. A block family supplies only its slug,

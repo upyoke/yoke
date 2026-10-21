@@ -9,7 +9,7 @@ import pytest
 
 from yoke_contracts.project_contract.file_byte_budget import parse_byte_budgets
 from yoke_core.domain import file_line_check as core_check
-from yoke_core.domain.git_pre_commit import _format_file_line_summary
+from yoke_harness.git_hooks.pre_commit import _format_file_line_summary
 from yoke_harness.git_hooks import file_line_check as harness_check
 
 CHECKERS = pytest.mark.parametrize(
