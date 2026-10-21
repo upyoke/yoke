@@ -47,7 +47,9 @@ def test_project_snapshot_sync_scans_and_dispatches_payload(tmp_path: Path) -> N
 
     assert {call["function_id"] for call in _CALLS} == {"project.snapshot.sync"}
     assert {call["target"].project_id for call in _CALLS} == {"demo"}
-    assert {call["timeout_s"] for call in _CALLS} == {None}
+    assert {(call["payload"]["operation"], call["timeout_s"]) for call in _CALLS} == {
+        ("begin", None), ("append", None), ("finalize", 60.0),
+    }
     payloads = [call["payload"] for call in _CALLS]
     assert {payload["project_id"] for payload in payloads} == {"demo"}
     assert payloads[0]["repo_root"] == str(repo)

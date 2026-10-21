@@ -62,6 +62,16 @@ the checkout's path snapshot after that commit; if the setup checklist still
 shows `setup-checklist-handoff` blocked, `yoke project snapshot sync` repairs
 the snapshot and clears that row.
 
+## Snapshot refresh
+
+`yoke project snapshot sync` skips HEAD-derived context refreshes when the
+commit matches the newest stored snapshot. A changed HEAD refreshes
+architecture classifications, generated-file relationships and derived facts.
+Server logs name each `snapshot_head_refresh` step and its `duration_ms`.
+Chunked finalize waits at least 60 seconds, including in hook mode. A lost
+finalize response leaves server work running; retry snapshot sync to reuse
+completed work or restart an upload whose staging has gone.
+
 ## Install the operating layer
 
 ```bash

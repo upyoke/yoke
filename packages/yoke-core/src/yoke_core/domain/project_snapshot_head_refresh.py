@@ -9,10 +9,15 @@ last HEAD this work ran for, so a sync naming that same commit skips it.
 
 from __future__ import annotations
 
+import logging
+from time import perf_counter
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_derived_facts import converge_derived_facts
+
+
+_LOG = logging.getLogger(__name__)
 
 
 def latest_snapshot_commit(conn: Any, project_id: int) -> str:
@@ -50,13 +55,22 @@ def refresh_after_head_change(
             "render_relationship_refresh": None,
             "derived_facts": None,
         }
-    return {
-        "architecture_refresh": refresh_architecture_context(conn, project_id, rows),
-        "render_relationship_refresh": refresh_render_relationship_context(
-            conn, project_id, rows, warnings
-        ),
-        "derived_facts": converge_derived_facts(conn, project_id, warnings),
-    }
+    result = {}
+    for step, refresh, args in (
+        ("architecture_refresh", refresh_architecture_context, (conn, project_id, rows)),
+        ("render_relationship_refresh", refresh_render_relationship_context,
+         (conn, project_id, rows, warnings)),
+        ("derived_facts", converge_derived_facts, (conn, project_id, warnings)),
+    ):
+        started = perf_counter()
+        try:
+            result[step] = refresh(*args)
+        finally:
+            _LOG.info(
+                "snapshot_head_refresh project_id=%s step=%s duration_ms=%.3f",
+                project_id, step, (perf_counter() - started) * 1000,
+            )
+    return result
 
 
 def refresh_architecture_context(
