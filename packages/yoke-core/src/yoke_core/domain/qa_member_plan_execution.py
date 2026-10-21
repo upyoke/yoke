@@ -36,6 +36,8 @@ def completed_member_result(execution: dict[str, Any]) -> dict[str, Any]:
 
 
 def _partitioned_scope(kwargs: dict[str, Any]) -> bool:
+    if kwargs.get("requirement_id") is not None:
+        return False
     member = kwargs.get("deployment_stage") and kwargs.get("deployment_member")
     item = kwargs.get("public_ref") and kwargs.get("transition_id")
     return bool(member or item)

@@ -22,6 +22,7 @@ def ordered_plan_requirements(
     deployment_member_item_id: int | None = None,
     execution_target_digest: str | None = None,
     plan: str | None = None,
+    requirement_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Return server-authoritative execution order for one QA subject."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -73,6 +74,9 @@ def ordered_plan_requirements(
             f"deployment run {deployment_run_id!r} stage "
             f"{deployment_stage!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
         )
+    if requirement_id is not None:
+        where += f" AND id={marker}"
+        params += (int(requirement_id),)
     if plan is not None:
         where += (
             f" AND plan_id IN (SELECT id FROM qa_plans WHERE slug={marker} "

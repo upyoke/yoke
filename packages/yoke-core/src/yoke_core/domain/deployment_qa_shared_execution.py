@@ -232,6 +232,21 @@ def route_shared_plan_execution(begin):
 
     @wraps(begin)
     def routed(conn, **kwargs):
+        requirement_id = kwargs.get("requirement_id")
+        if requirement_id is not None and kwargs.get("deployment_stage"):
+            from yoke_core.domain.deployment_qa_shared_plans import requirement_subject
+            from yoke_core.domain.qa_plan_execution_begin_admission import begin_inputs
+
+            return begin(
+                conn,
+                **{
+                    **kwargs,
+                    "_deployment_subject": requirement_subject(conn, requirement_id),
+                    "_run_inputs": begin_inputs(
+                        conn, kwargs["deployment_run_id"], kwargs["deployment_stage"]
+                    ),
+                },
+            )
         member = kwargs.get("deployment_member_item_id")
         if member is None or kwargs.get("_deployment_subject") is not None:
             return begin(conn, **kwargs)

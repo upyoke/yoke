@@ -60,7 +60,13 @@ whatever subject that requirement is already bound to. It is the right form for
 an item's own verification gate -- the Command case that is a Dash item's single
 full run.
 
-It is NOT the form that credits a deployment stage. A deployment QA stage
+A mission starts a one-requirement plan execution with the existing retained
+lease, walker dispatch, review bundle and main-agent verdict. Exit 12 requires
+the returned typed review continuation; it is not a passing verdict. Other open
+requirements are untouched. A mission that inherits predecessor state requires
+its ordered plan instead. Repeating the case command resumes its pending review.
+
+For other runners, this is not the form that credits a deployment stage. A deployment QA stage
 credits only the requirements bound to its own stage name, and an item-scoped
 stage needs the member named too. When the requirement already carries a
 run, a stage, and a member, this command refuses and prints the invocation
@@ -156,6 +162,10 @@ def run(args: List[str]) -> int:
             flush=True,
         )
         return INTERRUPTED_EXIT
+    if "execution_id" in result:
+        from yoke_core.domain.qa_plan_execution_cli import report_plan_result
+
+        return report_plan_result(result)
     _report_outcome(result)
     print(json.dumps(result, sort_keys=True))
     if result.get("case_outcome") == "waiting":

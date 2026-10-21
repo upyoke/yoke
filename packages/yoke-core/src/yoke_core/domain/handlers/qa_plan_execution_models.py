@@ -8,6 +8,7 @@ from yoke_core.domain import qa_plan_execution_abort_reason as abort_reasons
 class PlanExecutionBeginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    requirement_id: int | None = Field(default=None, ge=1)
     transition_id: str | None = Field(default=None, min_length=1)
     plan: str | None = Field(default=None, min_length=1)
     source_revision: str | None = None

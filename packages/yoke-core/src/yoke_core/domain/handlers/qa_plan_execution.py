@@ -111,6 +111,7 @@ def handle_plan_execution_begin(
                 item_id=item_id,
                 deployment_run_id=deployment_run_id,
                 transition_id=parsed.transition_id,
+                requirement_id=parsed.requirement_id,
                 deployment_stage=parsed.deployment_stage,
                 deployment_member_item_id=member_item_id,
                 checkout_path=parsed.checkout_path,

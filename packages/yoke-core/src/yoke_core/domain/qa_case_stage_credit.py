@@ -2,8 +2,8 @@
 
 A QA stage credits only requirements bound to its own stage name — and an
 item-scoped stage, the member too. `yoke qa case run` executes one
-requirement by id and records that requirement's verdict; it never creates
-the scoped plan execution the stage reads. Exiting zero with a genuine pass
+requirement by id. Missions create a one-requirement plan execution; other
+runners record a direct verdict rather than the scoped execution a stage reads. Exiting zero with a genuine pass
 is how a caller reports the gate satisfied while the stage stays empty.
 
 This module does not change what a stage credits. It detects the mismatch
@@ -91,6 +91,17 @@ def execute_authorized_case(
     if expected_branch:
         selection["expected_branch"] = expected_branch
     case = cases.fetch_case_execution_context(requirement_id, actor=actor, **selection)
+    if case.get("runner_id") == "agent_mission":
+        return cases.execute_case_context(
+            case,
+            base_url=base_url,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+            timeout_seconds=timeout_seconds,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch,
+            actor=actor,
+        )
     refusal = item_scoped_stage_credit_refusal(case)
     if refusal:
         raise cases.QaCaseExecutionError(refusal)

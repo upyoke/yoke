@@ -114,6 +114,7 @@ def prepare_roster(
     expected_branch: str | None,
     session_id: str,
     machine: str | None,
+    requirement_id: int | None = None,
 ) -> PreparedRoster | dict[str, Any]:
     """Read the roster to freeze, or the answer that replaces starting one.
 
@@ -140,6 +141,7 @@ def prepare_roster(
         **scope,
         execution_target_digest=expected_target_digest,
         plan=plan,
+        **({"requirement_id": requirement_id} if requirement_id is not None else {}),
         host_capability_kinds=host_capability_kinds,
         checkout_path=checkout_path,
         expected_branch=expected_branch,

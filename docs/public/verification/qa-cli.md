@@ -173,3 +173,9 @@ Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 
 - [QA model](model/qa.md)
 - [Body write path](../items/model/body-writes.md)
+
+`yoke qa case run --requirement-id N` starts one `agent_mission` through a
+one-requirement plan execution, leaving sibling requirements untouched. Its
+lease, walker dispatch, review bundle and main-agent verdict use the ordinary
+plan path; exit `12` requires the returned review continuation. An `inherit`
+mission needs its ordered predecessor and refuses with plan-run recovery.

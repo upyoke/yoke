@@ -107,6 +107,20 @@ saved case to `informed_subagent` and rematerialize affected requirements.
 
 ## Execution and Review
 
+Run just one materialized mission without starting its sibling requirements:
+
+```text
+yoke qa case run --requirement-id N
+```
+
+This creates a one-requirement plan execution using the same lease, walk,
+review bundle and main-agent verdict path below, including deployment-member
+missions. Exit code `12` carries the typed review continuation. Repeating the
+case command reprints pending review without recapturing. An `inherit` mission
+cannot run alone because its predecessor must capture in the same execution;
+run the ordered plan instead. A case already owned by a standalone execution
+resumes through that execution rather than creating another one.
+
 Run the attached plan at its transition:
 
 ```text

@@ -48,6 +48,7 @@ def build_execution_roster(
     checkout_path: str | None = None,
     expected_branch: str | None = None,
     session_id: str = "",
+    requirement_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
     from yoke_core.domain.qa_case_execution_context import (
@@ -65,12 +66,11 @@ def build_execution_roster(
         deployment_member_item_id=deployment_member_item_id,
         execution_target_digest=execution_target_digest,
         plan=plan,
+        **({"requirement_id": requirement_id} if requirement_id is not None else {}),
     )
     roster: list[dict[str, Any]] = []
     for ordinal, order in enumerate(ordered):
-        # A walk never certifies against a body already superseded: a copy
-        # whose source moved, or a row whose plan case was amended, refuses
-        # here, at the moment the walk would otherwise freeze it in.
+        # Refuse source drift before freezing the immutable case.
         require_current_requirement(conn, int(order["requirement_id"]))
         context = get_case_execution_context(
             conn,
