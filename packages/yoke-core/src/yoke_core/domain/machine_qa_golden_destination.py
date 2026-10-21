@@ -3,13 +3,14 @@
 A capture never overwrites the baseline it was taken beside. A failed capture
 over the live golden leaves a machine with no baseline at all, and a successful
 one silently retires a directory another host may still be restoring from, so
-the default destination is a new dated directory next to the current one and
+the default destination is a new timestamped directory next to the current one and
 the settings record it only once the capture has succeeded.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -25,7 +26,6 @@ from yoke_contracts.machine_qa_host_control import (
 )
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.machine_qa_capability_rows import (
     TestMachineCapabilityRow,
     select_test_machine_row,
@@ -54,9 +54,10 @@ def selected_test_machine_row(
     )
 
 
-def dated_golden_directory_name(user: str, *, today: str) -> str:
-    """Return the directory name a capture taken today writes into."""
-    return f"{user}-home-{today.replace('-', '')}"
+def timestamped_golden_directory_name(user: str) -> str:
+    """Name a new golden with the current UTC second for capture and refresh."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{user}-home-{stamp}"
 
 
 def resolve_golden_capture_destination(
@@ -75,18 +76,12 @@ def resolve_golden_capture_destination(
             "--destination for the first golden baseline"
         )
     parent = PurePosixPath(validate_golden_baseline_path(declared)).parent
-    candidate = str(
-        parent
-        / dated_golden_directory_name(
-            row.settings["user"],
-            today=iso8601_now()[:10],
-        )
-    )
+    candidate = str(parent / timestamped_golden_directory_name(row.settings["user"]))
     if candidate == declared:
         raise TestMachineCapabilityError(
-            f"{declared} is already today's capture destination for "
-            f"{row.machine!r}; pass an explicit --destination to capture a "
-            "second baseline on the same day"
+            f"golden_capture_destination_collision: {declared} already names "
+            f"the current golden for {row.machine!r}; retry after the UTC "
+            "second changes or pass a different explicit --destination"
         )
     return validate_golden_baseline_path(candidate)
 
@@ -174,7 +169,7 @@ __all__ = [
     "GOLDEN_BASELINE_PATH_KEY",
     "kept_golden_fields",
     "selected_test_machine_row",
-    "dated_golden_directory_name",
+    "timestamped_golden_directory_name",
     "record_captured_golden_baseline",
     "resolve_golden_capture_destination",
 ]

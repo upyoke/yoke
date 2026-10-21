@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -25,6 +27,7 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )
+from yoke_core.domain import machine_qa_golden_destination as destinations
 from yoke_core.domain.handlers.machine_qa_execution_abort import (
     handle_operation_abort,
 )
@@ -194,15 +197,55 @@ def _row(golden_baseline_path: str) -> TestMachineCapabilityRow:
     )
 
 
-def test_a_second_capture_on_one_day_asks_where_to_put_it() -> None:
-    # The dated default already names today's directory, so continuing would
-    # mean overwriting the baseline captured hours earlier.
-    today = resolve_golden_capture_destination(_row(GOLDEN_BASELINE_PATH))
+def test_two_default_captures_on_one_day_register_distinct_goldens(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = make_conn()
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    _declare_golden_baseline(conn)
+    instants = iter(
+        [
+            datetime(2026, 10, 21, 16, 44, 0, tzinfo=timezone.utc),
+            datetime(2026, 10, 21, 18, 0, 0, tzinfo=timezone.utc),
+        ]
+    )
+    monkeypatch.setattr(
+        destinations,
+        "datetime",
+        SimpleNamespace(
+            now=lambda zone: next(instants).astimezone(zone),
+        ),
+    )
+    control = FakeHostControl()
+    for stamp in ("20261021T164400Z", "20261021T180000Z"):
+        submitted, execution = run_operation("golden_capture", control=control)
+        assert submitted.primary_success, submitted.error
+        expected = (
+            f"/Users/Shared/yoke-golden/{TEST_MACHINE_SETTINGS['user']}-home-{stamp}"
+        )
+        assert execution["golden_destination"] == expected
+        assert submitted.result_payload["golden_baseline_path"] == expected
+        detail = machine_detail(conn, project="yoke", machine=MACHINE)
+        assert detail["settings"]["golden_baseline_path"] == expected
+    assert len(set(control.captured_destinations)) == 2
 
+
+def test_an_exact_timestamp_collision_teaches_retry_or_explicit_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        destinations,
+        "datetime",
+        SimpleNamespace(
+            now=lambda zone: datetime(2026, 10, 21, 16, 44, 0, tzinfo=zone),
+        ),
+    )
+    current = resolve_golden_capture_destination(_row(GOLDEN_BASELINE_PATH))
     with pytest.raises(TestMachineCapabilityError) as refused:
-        resolve_golden_capture_destination(_row(today))
-
-    assert "already today's capture destination" in str(refused.value)
+        resolve_golden_capture_destination(_row(current))
+    assert "golden_capture_destination_collision" in str(refused.value)
+    assert "retry after the UTC second changes" in str(refused.value)
     assert "--destination" in str(refused.value)
 
 

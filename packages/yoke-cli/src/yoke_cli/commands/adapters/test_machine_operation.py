@@ -72,7 +72,10 @@ def run_host_operation(
     if with_destination:
         parser.add_argument(
             "--destination",
-            help="Golden capture path on the remote Test Machine; local path claims do not apply to this destination.",
+            help=(
+                "Remote golden capture path; defaults beside the current golden to "
+                "<user>-home-YYYYMMDDTHHMMSSZ in UTC. Local path claims do not apply."
+            ),
         )
         parser.add_argument(
             "--probes-file",

@@ -9,6 +9,13 @@ Linux provisioning at `docs/packs/machine-qa/linux-host-provisioning.md` (instal
 It installs at `docs/packs/machine-qa/linux-host-provisioning.md` with the
 Machine QA Pack. Its audit distinguishes live evidence from unverified steps.
 
+Omitting `--destination` captures beside the current golden in
+`<user>-home-YYYYMMDDTHHMMSSZ`, using UTC, just like automatic harness refresh.
+Later captures on the same day get a new name. An exact collision with the
+registered golden refuses `golden_capture_destination_collision`; retry after
+the UTC second changes or pass a different absolute `--destination`. An explicit
+destination is used as given. The first capture requires an explicit destination.
+
 ## Required desktop browser state
 
 Desktop Chromium browser sign-ins are kept live through Linux reset and are
