@@ -126,7 +126,10 @@ def test_journeys_wait_for_the_screens_setup_actually_shows() -> None:
         f'SelectionRow(\n                        "{value}",' in admission
         for value in ("own", "invite")
     )
-    assert f'"connect.invite_code",\n            STEP_CONNECT,\n            "{INVITE_PROMPT}",' in admission
+    assert (
+        f'"connect.invite_code",\n            STEP_CONNECT,\n            "{INVITE_PROMPT}",'
+        in admission
+    )
     # A prompt's guidance is never drawn, so no journey may wait for it.
     guidance = re.findall(
         r'guidance="([^"]+)"', "\n".join((team_server, admission, approval))
@@ -137,3 +140,19 @@ def test_journeys_wait_for_the_screens_setup_actually_shows() -> None:
                 assert not any(marker in text for text in guidance), marker
     assert APPROVAL_TEXT[0] in approval
     assert LOCAL_REACHABILITY_NOTICE.startswith(LOCAL_NOTICE)
+
+
+def test_agent_invite_handoff_waits_for_a_screen_only_the_wizard_draws() -> None:
+    from yoke_cli.config import onboard_wizard_chrome
+    from yoke_core.domain import machine_qa_setup_agent_driver
+    from yoke_core.domain.installer_campaign_machine_admission_recipes import (
+        WIZARD_CHROME_TEXT,
+    )
+
+    key, label = WIZARD_CHROME_TEXT.split()
+    assert f'("{key}", "{label}")' in inspect.getsource(onboard_wizard_chrome)
+    assert WIZARD_CHROME_TEXT not in inspect.getsource(machine_qa_setup_agent_driver)
+    agent = next(c for c in _admission() if c["case_key"] == "teammate-invite-agent")
+    handoff = agent["method_config"]["actions"][0]
+    assert handoff["step"] == "invite-handoff"
+    assert WIZARD_CHROME_TEXT in handoff["ready_text"]

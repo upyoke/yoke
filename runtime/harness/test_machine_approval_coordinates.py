@@ -38,6 +38,13 @@ def test_a_loopback_self_host_may_use_plain_http():
     assert coordinates.origin == "http://127.0.0.1:19122"
 
 
+def test_a_self_host_approval_page_path_carries_the_code():
+    uri = "http://127.0.0.1:19122/machine-approval/SDP7"
+    coordinates = machine_approval_coordinates(uri, "SDP7")
+    assert coordinates.complete_uri == uri
+    assert coordinates.origin == "http://127.0.0.1:19122"
+
+
 def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
     complete = "https://example.invalid/machine/K7F2"
     assert approval_url(complete, "K7F2")[0] == complete
@@ -48,6 +55,7 @@ def test_self_hosted_code_path_is_preserved_for_the_wizard_opened_tab():
     [
         "http://example.invalid/connect",
         "http://192.168.1.4/connect",
+        "https://example.invalid/connect/K7F2",
         "https://user:password@example.invalid/connect",
         "https://example.invalid/anything",
         "https://example.invalid/connect#fragment",

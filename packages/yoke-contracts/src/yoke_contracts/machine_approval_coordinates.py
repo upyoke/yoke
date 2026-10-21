@@ -3,10 +3,14 @@
 from dataclasses import dataclass
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-from yoke_contracts.machine_authorization import MATCH_CODE_PATTERN
+from yoke_contracts.machine_authorization import (
+    APPROVAL_PAGE_PATH,
+    BROWSER_VERIFICATION_PATHS,
+    MATCH_CODE_PATTERN,
+)
 
 
-_ENTRY_PATHS = frozenset({"/connect", "/machine"})
+_ENTRY_PATHS = frozenset(BROWSER_VERIFICATION_PATHS)
 # A self-host server on this machine's loopback serves plain HTTP.
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _CODE_PATTERN = re.compile(MATCH_CODE_PATTERN)
@@ -42,7 +46,9 @@ def machine_approval_coordinates(
             "credentials or a fragment"
         )
     origin = f"{parsed.scheme}://{parsed.netloc}"
-    if parsed.path == f"/machine/{code}" and not parsed.query:
+    # A self-host server and the hosted machine page carry the code in the path.
+    code_paths = {f"/machine/{code}", f"{APPROVAL_PAGE_PATH}/{code}"}
+    if parsed.path in code_paths and not parsed.query:
         return MachineApprovalCoordinates(uri, origin, code)
     if parsed.path not in _ENTRY_PATHS:
         raise ValueError("machine approval URL is not a supported entry path")
