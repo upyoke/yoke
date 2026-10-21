@@ -45,7 +45,7 @@ def requested_slugs(only: str) -> List[str]:
 
 
 def machine_scope_rows(
-    slugs: Iterable[str], *, quick: bool, fix: bool
+    slugs: Iterable[str], *, quick: bool, fix: bool, only: str | None
 ) -> List[Dict[str, Any]]:
     """Run the machine-scope *slugs*; name every other one as skipped."""
     machine = machine_scope_slugs()
@@ -56,6 +56,7 @@ def machine_scope_rows(
         quick=quick,
         fix=fix,
         slugs=[slug for slug in requested if slug in machine],
+        only=only,
     )
     rows.extend(
         {
@@ -81,7 +82,7 @@ def run_without_project(
     """
     machine = machine_scope_slugs()
     if slugs is None:
-        rows = machine_scope_rows(sorted(machine), quick=quick, fix=fix)
+        rows = machine_scope_rows(sorted(machine), quick=quick, fix=fix, only=None)
         rows.append(
             {
                 "hc": f"HC-{PROJECT_CHECKS_SLUG}",
@@ -96,7 +97,7 @@ def run_without_project(
             f"{', '.join(slugs)}."
         )
     else:
-        rows = machine_scope_rows(slugs, quick=quick, fix=fix)
+        rows = machine_scope_rows(slugs, quick=quick, fix=fix, only=",".join(slugs))
     compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
     result: Dict[str, Any] = {
         "results": rows,

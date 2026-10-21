@@ -79,7 +79,6 @@ def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
             continue
         if slug not in wanted and not slug:
             continue
-        # Heal any checkout-gap N/A when this machine holds the tree.
         if slug in seen:
             continue
         seen.add(slug)
@@ -135,13 +134,14 @@ def run_local_runtime_checks(
     quick: bool,
     fix: bool,
     slugs: Sequence[str],
+    only: str | None = None,
 ) -> List[Dict[str, Any]]:
-    """Execute local-runtime HCs while retaining the HTTPS authority."""
+    """Run local checks with the original selection and HTTPS authority."""
     if not slugs:
         return []
     wanted = set(slugs)
     args = DoctorArgs(
-        only=",".join(sorted(wanted)),
+        only=only,
         quick=quick,
         project=str(project),
         fix=fix,

@@ -19,9 +19,11 @@ from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
 from yoke_core.engines.doctor_hc_harness_unattended_posture import harness_posture
 from yoke_core.engines.doctor_install import (
+    SESSION_REQUIRED_DETAIL,
     harness_auth,
     installed_harness_clis,
 )
+from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -55,6 +57,12 @@ def session_harness() -> tuple[str, str | None] | None:
 
 
 def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    if not build_actor().session_id and not args.only:
+        rec.record(
+            AUTH_SLUG, AUTH_TITLE, NOT_APPLICABLE,
+            SESSION_REQUIRED_DETAIL,
+        )
+        return
     harness = session_harness()
     if harness is None:
         rec.record(AUTH_SLUG, AUTH_TITLE, "FAIL", UNKNOWN_HARNESS)
@@ -80,6 +88,12 @@ def hc_session_harness_cli_auth(conn, args: DoctorArgs, rec: RecordCollector) ->
 def hc_session_harness_unattended_posture(
     conn, args: DoctorArgs, rec: RecordCollector
 ) -> None:
+    if not build_actor().session_id and not args.only:
+        rec.record(
+            POSTURE_SLUG, POSTURE_TITLE, NOT_APPLICABLE,
+            SESSION_REQUIRED_DETAIL,
+        )
+        return
     harness = session_harness()
     if harness is None:
         rec.record(POSTURE_SLUG, POSTURE_TITLE, "FAIL", UNKNOWN_HARNESS)

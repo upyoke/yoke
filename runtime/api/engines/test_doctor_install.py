@@ -12,9 +12,9 @@ from yoke_core.engines.doctor_applicability_declarations import local_runtime_sl
 from yoke_core.engines.doctor_https_local_scope import requested_local_machine_slugs
 
 
-def run(fn, project="42"):
+def run(fn, project="42", **kwargs):
     rec = RecordCollector()
-    fn(None, DoctorArgs(project=project), rec)
+    fn(None, DoctorArgs(project=project, **kwargs), rec)
     assert rec.results
     return rec.results
 
@@ -143,7 +143,7 @@ def test_hook_requires_both_registered_identity_and_observed_delivery(
         checks, "relay", lambda *a: {"session_id": registered, "project_id": 42}
     )
     monkeypatch.setattr(checks, "orientation_delivered", lambda s: delivered)
-    assert run(checks.hc_session_hook_registration)[0].result == verdict
+    assert run(checks.hc_session_hook_registration, only="session-hook-registration")[0].result == verdict
 
 
 @pytest.mark.parametrize(

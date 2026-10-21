@@ -137,6 +137,12 @@ N/A; absent or unknown evidence is not a pass. Guidance checks prove installed
 configuration, while the session check requires both registration and confirmed
 hook delivery. Full-corpus audits remain in the full Doctor selection.
 
+Outside an agent session, ordinary Doctor runs (including `--quick`) report
+session hook registration, harness sign-in and unattended posture as N/A with
+`session_required`. The health receipt shown by `yoke status` retains these
+skips. Explicit `--session`, `--install` or `--only` selections still require
+the selected session evidence and fail when it is missing.
+
 Before onboarding, check only the session you are in:
 
 ```bash

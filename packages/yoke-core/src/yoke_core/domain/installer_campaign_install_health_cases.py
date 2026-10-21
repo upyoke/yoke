@@ -69,7 +69,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         for owner, name, value in patches:
             stack.enter_context(patch.object(owner, name, value))
         records = RecordCollector()
-        fn(None, DoctorArgs(project="42"), records)
+        fn(None, DoctorArgs(project="42", only=",".join(checks.INSTALL_SLUGS)), records)
     if not records.results or any(row.result != "FAIL" or reason not in row.detail or recovery_tokens[scenario] not in row.detail for row in records.results):
         sys.exit("install_health_refusal_missing: inspect the candidate readiness check before rerunning")
     print(scenario + ": " + reason + "; diagnosed recovery verified")

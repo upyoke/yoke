@@ -31,9 +31,9 @@ UNATTENDED_CLAUDE_CLI = '{"permissions":{"defaultMode":"bypassPermissions"}}'
 UNATTENDED_CLAUDE_DESKTOP = '{"preferences":{"bypassPermissionsModeEnabled":true}}'
 
 
-def run(fn):
+def run(fn, **kwargs):
     rec = RecordCollector()
-    fn(None, DoctorArgs(project="42"), rec)
+    fn(None, DoctorArgs(project="42", **kwargs), rec)
     assert len(rec.results) == 1
     return rec.results[0]
 
@@ -207,7 +207,37 @@ def test_unproven_registration_names_new_session_and_hook_approval(monkeypatch):
     monkeypatch.setattr(
         doctor_install, "build_actor", lambda: SimpleNamespace(session_id="")
     )
-    result = run(doctor_install.hc_session_hook_registration)
+    result = run(doctor_install.hc_session_hook_registration, only="session-hook-registration")
     assert result.result == "FAIL"
     assert "Start a new harness session" in result.detail
     assert "Codex's hook-trust prompt" in result.detail
+
+
+@pytest.mark.parametrize("quick", [False, True])
+@pytest.mark.parametrize("fn", [
+    doctor_install.hc_session_hook_registration,
+    checks.hc_session_harness_cli_auth,
+    checks.hc_session_harness_unattended_posture,
+])
+def test_ordinary_health_without_a_session_is_not_applicable(monkeypatch, fn, quick):
+    for module in (doctor_install, checks):
+        monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
+        monkeypatch.setattr(module, "relay", lambda *a: pytest.fail("no session to inspect"))
+    result = run(fn, quick=quick)
+    assert result.result == "N/A"
+    assert "session_required" in result.detail
+    assert "yoke doctor run --session" in result.detail
+
+
+@pytest.mark.parametrize("selection", [checks.SESSION_SLUGS, doctor_install.INSTALL_SLUGS])
+@pytest.mark.parametrize("fn,reason", [
+    (doctor_install.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED"),
+    (checks.hc_session_harness_cli_auth, "SESSION_HARNESS_UNKNOWN"),
+    (checks.hc_session_harness_unattended_posture, "SESSION_HARNESS_UNKNOWN"),
+])
+def test_explicit_readiness_without_a_session_still_fails(monkeypatch, fn, reason, selection):
+    for module in (doctor_install, checks):
+        monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
+    result = run(fn, only=",".join(selection))
+    assert result.result == "FAIL"
+    assert reason in result.detail
