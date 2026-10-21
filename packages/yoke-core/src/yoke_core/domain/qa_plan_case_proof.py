@@ -228,10 +228,14 @@ def _review_state(
     elif agent_run_id is not None:
         state = "agent_reviewed"
     elif run["case_outcome"] == "needs_review" or run["execution_status"] == "captured":
-        from yoke_core.domain.qa_pending_agent_review import pending_review_for_requirement
+        from yoke_core.domain.qa_pending_agent_review import pending_review_requirements
 
-        pending = pending_review_for_requirement(conn, requirement_id)
-        state = pending.state if pending is not None else "awaiting_walk_review"
+        pending = pending_review_requirements(conn, [requirement_id]).get(requirement_id)
+        state = (
+            "walking"
+            if pending is not None and pending.state == "walking"
+            else "awaiting_walk_review"
+        )
     else:
         state = "not_applicable"
     return {

@@ -171,3 +171,32 @@ def record_handback(actor, requirement_id, run_id):
         },
     ))
     assert outcome.primary_success, outcome.error
+
+
+def test_stopped_capture_keeps_the_independent_review_cue(test_db):
+    from yoke_core.domain.qa_plan_review import begin_plan_review
+    from yoke_core.domain.qa_plan_case_proof import _case_result
+    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+
+    execution, _, _ = _capture(test_db, 91008)
+    bundle = begin_plan_review(test_db, execution)
+    assert bundle is not None
+    finish_plan_execution(test_db, execution, state="aborted", reason="stop capture")
+    case = execution["roster"][0]
+    proof = _case_result(
+        test_db, plan_id=case["plan_id"], case_key=case["case_key"],
+        host_baseline=None, deployment_run_id=None,
+    )
+    assert proof["review"]["state"] == "awaiting_walk_review"
+
+
+def assert_walking_proof(conn, execution):
+    from yoke_core.domain.qa_plan_case_proof import _case_result
+
+    case = execution["roster"][0]
+    proof = _case_result(
+        conn, plan_id=case["plan_id"], case_key=case["case_key"],
+        host_baseline=case["host_baseline"], deployment_run_id=None,
+    )
+    assert execution["state"] == proof["review"]["state"] == "walking"
+    assert proof["review"]["capture_runner"] == "agent_mission"
