@@ -8,8 +8,6 @@ from explorer_runtime import CORE, source_node, literal, add_reply_fields, HOOK_
 
 CONTRACTS = 'packages/yoke-contracts/src/yoke_contracts/'
 HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'
-
-
 def add_hooks(add):
     from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING
     from yoke_contracts.hook_runner.guard_scope import applicable_chain, guard_scope
@@ -74,13 +72,13 @@ def add_hooks(add):
         row = next(r for r in ast.parse(path.read_text()).body
                    if isinstance(r, ast.FunctionDef) and r.name == name)
         node = source_node(add, 'hook:' + scope + ':orientation', 'Yoke Orientation',
-                           prefix + 'UserPromptSubmit', 'First prompt in Claude and Codex.',
+                           prefix + 'UserPromptSubmit', 'Shown once, on the first prompt.',
                            path, row, 'reply', 'Startup message')
-        node['order'] = -1
+        node.update(order=-1, applicability=['Codex', 'Claude Code'], delivery_label='First prompt only')
         messages[node['id']] = node
         cursor = add(node['id'] + ':cursor', 'Yoke Orientation', prefix + 'SessionStart',
-                     'At session start in Cursor.')
-        cursor.update(order=-1, form=('reply', 'Startup message', 'Cursor session start'))
+                     'Shown when the session starts.')
+        cursor.update(order=-1, applicability=['Cursor only'], delivery_label='Session start', form=('reply', 'Startup message', 'Cursor session start'))
         copies.append((cursor, node['id']))
     for name, function, title in (
         (CORE + 'main_agent_packet.py', 'render_main_agent_block', 'Main-session startup block'),

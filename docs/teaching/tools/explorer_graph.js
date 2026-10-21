@@ -155,6 +155,11 @@ function typeBadge(node) {
     : 'M12 2a10 10 0 100 20 10 10 0 000-20M2 12h20M12 2c-6 6-6 14 0 20 6-6 6-14 0-20');
   scope.append(scopeIcon, text('span', node.scope_label));
   if ((!node.hook_context || node.node_type === 'hook') && node.node_type !== 'section') badge.append(scope);
+  if (node.applicability) {
+    const applies = text('span', 'Applies to: ' + node.applicability.join(' · '), 'applicability-badge');
+    badge.append(applies);
+    if (node.delivery_label) badge.append(text('span', node.delivery_label, 'delivery-badge'));
+  }
   return badge;
 }
 

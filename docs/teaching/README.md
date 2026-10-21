@@ -254,3 +254,5 @@ Both hook views use session start → prompt → before tool → permission → 
 success/failure → stop → session end. These are lifecycle positions, not a promise
 that every event fires in every harness. Setup keeps its declared step order;
 public documents follow nav.yaml; skills and roles follow their workflow groups.
+
+Harness-specific orientation cards show prominent applicability badges and delivery timing: Codex / Claude Code on the first prompt, Cursor only at session start.

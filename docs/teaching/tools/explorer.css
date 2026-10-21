@@ -140,3 +140,6 @@ header { height: 72px; padding: 0 28px; display: flex; align-items: center; just
 .node[data-type=section] { --type-color: #77877f; background: #fffefa; border: 1px solid #e5e6de; border-radius: 4px; box-shadow: none; }
 .node[data-type=section] .scope-badge { display: none; }
 .node[data-type=action] { --type-color: #76818b; background: #f3f5f6; border: 1px dashed #cdd4da; box-shadow: none; }
+
+.applicability-badge { background: #e3edf8; color: #244c76; border: 1px solid #adc5df; border-radius: 5px; padding: 4px 7px; font-weight: 750; }
+.delivery-badge { color: #40535f; font-weight: 600; }
