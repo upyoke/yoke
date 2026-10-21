@@ -105,17 +105,7 @@ function makeNode(node) {
   const heading = text('div', '', 'node-head');
   heading.append(typeBadge(node), text('h2', node.title),
     text('p', node.summary, 'summary'));
-  if (node.message_estimate) {
-    const estimate = text('p', node.message_estimate.label, 'source-size');
-    estimate.title = node.message_estimate.assumptions;
-    heading.append(estimate);
-  }
-  if (node.source_size) {
-    const size = node.source_size;
-    const badge = text('p', `${size.label} · ${size.lines.toLocaleString()} lines · ${size.bytes.toLocaleString()} B`, 'source-size');
-    badge.title = `${size.chars.toLocaleString()} characters · UTF-8 bytes; variable deliveries may differ`;
-    heading.append(badge);
-  }
+  appendSizes(heading, node);
   const context = text('div', node.type_hint, 'type-context');
   context.title = node.type_hint;
   el.append(context);
