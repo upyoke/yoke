@@ -54,6 +54,7 @@ function choose(node) {
   fit(node);
   document.querySelector('#intro').hidden = true;
   updateTrail();
+  updateConnections();
   requestRender();
 }
 function home() {
@@ -63,6 +64,7 @@ function home() {
   camera = {z, x: (map.clientWidth - 1880 * z) / 2, y: 175};
   document.querySelector('#intro').hidden = false;
   updateTrail();
+  updateConnections();
   requestRender();
 }
 function updateTrail() {
@@ -78,6 +80,32 @@ function updateTrail() {
     const button = text('button', node.title);
     button.onclick = () => choose(node);
     trail.append(button);
+  });
+}
+function updateConnections() {
+  const panel = document.querySelector('#connections');
+  panel.replaceChildren();
+  panel.hidden = !focus;
+  if (!focus) return;
+  const links = [];
+  // Ancestor connections also apply while reading a child instruction.
+  for (let node = focus; node; node = byId.get(node.parent)) {
+    for (const edge of node.connections || []) links.push({...edge, from: node});
+  }
+  byId.forEach(node => {
+    for (const edge of node.connections || []) {
+      if (edge.target === focus.id) links.push({target: node.id,
+        label: 'From ' + node.title + ' · ' + edge.label, from: node});
+    }
+  });
+  panel.hidden = links.length === 0;
+  panel.append(text('b', 'Connected steps and sources'));
+  links.forEach(edge => {
+    const target = byId.get(edge.target);
+    const button = text('button', edge.label + ' ↗');
+    button.title = target.title;
+    button.onclick = () => choose(target);
+    panel.append(button);
   });
 }
 function requestRender() {

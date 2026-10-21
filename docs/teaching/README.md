@@ -182,3 +182,11 @@ Every file here obeys the shared 350-line hard limit, counted at 80 columns;
 memory, checking links, privacy and limits without reading or writing local
 views. CI runs this build validation through
 `tests/teaching_prototype/test_teaching_prototype_check.py`.
+
+The homepage contains the agent request and install command. Named connections
+lead from that command to agent and interactive setup; the connection panel
+also shows incoming routes and the connections inherited from a parent source.
+Setup, hooks, rules, feedback and working guidance group individual instructions
+by purpose. Skills group by work type, roles by responsibility, and nested skills
+sit below their parent procedure. Public topics and command help retain their
+existing trees. These connections describe context routes, not live execution.

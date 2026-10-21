@@ -77,3 +77,118 @@ TEACHING_PARENTS = {
     'skills-roles/04': 'branch:role-guidance',
     'packets-help/01': 'surface:terminal-help',
 }
+
+# A group owns a coherent question; unlisted records remain at their source.
+TEACHING_GROUPS = {
+    'setup-agent': {
+        'Start or resume setup': '01 02 03 setup-facts backup-start desired-02',
+        'Answer questions and authorize access': 'browser-steps desired-01 04 desired-03',
+        'Check readiness and enter a project': '05 06 install-health server-health desired-04',
+        'Adopt the project and begin work': '07 desired-05',
+    },
+    'setup-tui': {
+        'Choose how and where to run': '01 03 backup-start desired-01',
+        'Connect people and repositories': '02 04 browser-steps repository-access desired-02',
+        'Navigate screens and apply choices': '06 back-navigation text-wrapping apply-progress desired-03',
+        'Finish or recover': '05 failure-recovery board-art desired-04',
+    },
+    'global-orientation': {
+        'Know this machine and connection': '01 04 06 machine-setup-facts desired-04',
+        'Choose a project or continue globally': '02 03 05 desired-01 desired-02 desired-03',
+    },
+    'global-hooks': {
+        'Registration and connection health': '01 diagnostics evaluator-readiness',
+        'Messages and next actions': '02 03 desired-02',
+        'Which rules apply here': '04 desired-01',
+    },
+    'project-orientation': {
+        'Identify the session and readiness': '01 02 setup-facts desired-01 desired-02',
+        'Find the next useful work': '03 04 05 desired-03 desired-04',
+    },
+    'project-hooks': {
+        'Check actions and explain blockers': '01 02 destructive-git-scope recursive-delete-scope desired-01',
+        'Deliver timely context': '03 04 05 desired-02',
+        'Hook health and reporting': 'diagnostics control-plane-transport',
+    },
+    'project-native': {
+        'Authority, scope and safe changes': '01 02 desired-01 desired-03',
+        'Load the right instructions': '03 04 desired-02 desired-04',
+        'Communicate and continue work': '05 06 desired-05',
+    },
+    'command-feedback': {
+        'Read outcomes and larger results': '01 02 bounded-replies deployment-run-reads desired-01 desired-03',
+        'Understand refusals and repair them': '03 04 browser-admission project-selection settings desired-02',
+        'Install, setup and cleanup': 'setup-next-action immutable-cli-updates project-uninstall universe-retention',
+        'Work, data and delivery': 'spec-input db-read-item-refs deployment-qa-wait deployment-read-deadline',
+    },
+    'packets-help': {
+        'Schemas and supported capabilities': '02 04 desired-03',
+        'Choose the context needed for work': '03 desired-01 desired-02 setup-facts spec-input migration-composition',
+    },
+    'execution-instructions': {
+        'Scope and delivery timing': '01 02 04 desired-01',
+        'Read, maintain and adopt instructions': '03 desired-02 desired-03 onboard-proposal',
+    },
+    'project-hub': {
+        'Understand the project and direction': '01 02 desired-02',
+        'Find existing project knowledge': '03 desired-01',
+        'Build, test and operate the project': '04 05 desired-03',
+    },
+    'terminal-help': {
+        'Start and choose the right context': '01 02 03 config-selection',
+        'Browse commands and exact recipes': '04 command-tree desired-01 desired-02 desired-03',
+        'Find deeper explanations': '05',
+    },
+    'resume-context': {
+        'Reload the work and instructions': '01 02 desired-01',
+        'Recheck changes and continue': '03 04 desired-02 desired-03',
+    },
+    'skills-roles': {
+        'Enter a procedure and load context': '01 03 desired-01 desired-02 action-only-bodies',
+        'Begin or hand off work': '05 desired-03 setup-next-action spec-input worktree-preparation',
+        'Verify and finish': 'desired-04 consumer-proof migration-composition qa-execution-adoption qa-execution-reconcile',
+    },
+    'agent-help': {
+        'Understand the request and choose a route': '01 02 03 04 desired-01 desired-02 desired-03 topic-routing',
+        'Run and wait for checks': 'headless-command-time-limit remote-ci-wait-end-turn remote-test-selection source-gate-continuation',
+    },
+}
+
+SKILL_GROUPS = {
+    'Direction and adoption': 'yoke strategize onboard steer feed charge',
+    'Define and plan work': 'idea refine shepherd amend',
+    'Implement and deliver': 'dash blitz conduct implement implementing polish simulate usher approve',
+    'Maintain and learn': 'help doctor curate resync models wrapup',
+}
+ROLE_GROUPS = {
+    'Plan and design': 'architect product-designer product-manager',
+    'Build': 'engineer',
+    'Review and verify': 'boss simulator tester tester-browser qa-walker',
+}
+
+# Named cross-source connections, distinct from topic similarity.
+CONNECTIONS = (
+    ('branch:install-human', 'branch:terminal-setup', 'Continue to interactive setup'),
+    ('branch:install-agent', 'branch:agent-setup', 'Continue to agent setup'),
+    ('branch:ask-agent', 'branch:install-command', 'Agent follows the website install route'),
+    ('branch:install-command', 'branch:agent-setup', 'Agent mode → structured setup replies'),
+    ('branch:install-command', 'branch:terminal-setup', 'Interactive mode → terminal setup screens'),
+    ('branch:agent-setup', 'branch:shared-setup', 'Uses shared install and connection checks'),
+    ('branch:terminal-setup', 'branch:shared-setup', 'Uses shared install and connection checks'),
+    ('branch:agent-setup', 'source:global-hooks', 'After machine setup → global context'),
+    ('branch:terminal-setup', 'source:global-hooks', 'After machine setup → global context'),
+    ('source:global-hooks', 'skill:yoke-global', 'Choose or add the project'),
+    ('skill:yoke-global', 'source:project-hooks', 'Open a session in the project folder'),
+    ('source:project-hooks', 'source:rules', 'Project session also loads standing rules'),
+    ('source:rules', 'branch:installed-docs', 'Read the relevant operation home'),
+    ('source:rules', 'source:project', 'Load the project’s own guidance'),
+    ('source:skills', 'source:roles', 'Delegated work supplies a role mandate'),
+    ('source:skills', 'source:instructions', 'Load instructions for the current work'),
+    ('source:skills', 'source:packets', 'Request focused working context'),
+    ('source:skills', 'source:help', 'Check the command recipe before acting'),
+    ('source:help', 'source:feedback', 'Run the command → read its result'),
+    ('source:feedback', 'source:help', 'Recovery points to exact command help'),
+    ('source:instructions', 'source:project', 'Project guidance supplies scoped rules'),
+    ('branch:web-docs', 'branch:doc-content', 'Reads the shared public guides'),
+    ('branch:installed-docs', 'branch:doc-content', 'Reads the shared public guides'),
+)

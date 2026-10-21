@@ -5,7 +5,8 @@ from pathlib import Path
 
 from explorer_sources import (
     SOURCES, BRANCHES, SURFACE_PARENTS, SURFACE_TITLES,
-    EXCLUDED_SURFACES, TEACHING_PARENTS,
+    EXCLUDED_SURFACES, TEACHING_PARENTS, TEACHING_GROUPS,
+    SKILL_GROUPS, ROLE_GROUPS, CONNECTIONS,
 )
 
 ROOT = 'explore/index.html'
@@ -13,7 +14,10 @@ ROOT = 'explore/index.html'
 
 def map_nodes(model):
     nodes = []
-    assigned = set()
+    teaching_parents = dict(TEACHING_PARENTS)
+
+    def group_id(parent, title):
+        return parent + ":" + title.lower().replace(" ", "-")
 
     def add(key, title, parent=None, summary='', status='', record=None):
         node = dict(id=key, title=title, parent=parent, summary=summary, status=status)
@@ -26,6 +30,20 @@ def map_nodes(model):
         add('source:' + sid, title, summary=summary)
     for bid, title, parent, summary in BRANCHES:
         add('branch:' + bid, title, parent, summary)
+    add('branch:ask-agent', 'Tell your agent “install upyoke.com”',
+        'source:homepage', 'Give this request to your agent; it reads the website and follows the install route.')
+    add('branch:install-command', 'Install command', 'source:homepage',
+        'curl -fsSL https://upyoke.com/install | sh — people use interactive mode; agents use agent mode.')
+    add('branch:install-human', 'For people: interactive mode', 'branch:install-command',
+        'Run the install command in a terminal, then follow setup’s interactive screens.')
+    add('branch:install-agent', 'For agents: agent mode', 'branch:install-command',
+        'The agent runs the installer; agent setup returns its first question and the answer command.')
+    for sid, groups in TEACHING_GROUPS.items():
+        for title, members in groups.items():
+            key = group_id('surface:' + sid, title)
+            add(key, title, 'surface:' + sid, 'Zoom in for the individual instructions.')
+            for member in members.split():
+                teaching_parents[sid + '/' + member] = key
     by_id = {node['id']: node for node in nodes}
     by_id['source:homepage']['url'] = 'https://upyoke.com'
     by_id['branch:web-docs']['url'] = 'https://upyoke.com/docs'
@@ -38,7 +56,6 @@ def map_nodes(model):
             model.problem('EXPLORER_SOURCE', 'tools/explorer_sources.py',
                           f'{sid}: assign this surface to an agreed source')
             continue
-        assigned.add(sid)
         add('surface:' + sid, SURFACE_TITLES.get(sid, surface['title']),
             SURFACE_PARENTS[sid], surface.get('encounter', ''), surface['status'], surface)
         for rid in surface['parts']:
@@ -46,17 +63,25 @@ def map_nodes(model):
             if row['status'] == 'superseded':
                 continue
             node = add('teaching:' + rid, row['title'],
-                       TEACHING_PARENTS.get(rid, 'surface:' + sid),
+                       teaching_parents.get(rid, 'surface:' + sid),
                        '', row['status'], row)
             node['related'] = ['topic:' + cid for cid in row.get('topics', [])]
     add('topics', 'Topics in the public guides', 'branch:doc-content',
         'Explore the shared concept tree; a topic mapping does not prove delivery.')
     repo = Path(__file__).resolve().parents[3]
+    skill_parents, role_parents = {}, {}
+    for groups, parent, mapping in ((SKILL_GROUPS, 'branch:project-skills', skill_parents),
+                                    (ROLE_GROUPS, 'source:roles', role_parents)):
+        for title, members in groups.items():
+            key = group_id(parent, title)
+            add(key, title, parent, 'Zoom in to see the individual procedures or roles.')
+            mapping.update({member: key for member in members.split()})
     for path in sorted((repo / '.agents/skills/yoke').rglob('SKILL.md')):
         name = path.parent.relative_to(repo / '.agents/skills/yoke').as_posix()
         if name == '.':
             name = 'yoke'
-        node = add('skill:' + name, name.replace('/', ' / '), 'branch:project-skills',
+        parent = 'skill:' + name.rpartition('/')[0] if '/' in name else skill_parents.get(name, 'branch:project-skills')
+        node = add('skill:' + name, name.replace('/', ' / '), parent,
                    'Read the procedure for this skill.')
         node['document'] = '../../../../' + path.relative_to(repo).as_posix()
     global_docs = 'packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md'
@@ -65,7 +90,7 @@ def map_nodes(model):
     node['document'] = '../../../../' + global_docs
     for path in sorted((repo / 'runtime/agents').glob('*.md')):
         title = path.stem.replace('-', ' ').title()
-        node = add('role:' + path.stem, title, 'source:roles',
+        node = add('role:' + path.stem, title, role_parents.get(path.stem, 'source:roles'),
                    'Read the instructions assigned to this agent role.')
         node['document'] = '../../../../' + path.relative_to(repo).as_posix()
     commands = {}
@@ -85,6 +110,9 @@ def map_nodes(model):
                    'command:' + parent if parent else 'source:help',
                    'Run ' + command + ' --help for current options and recipes.')
         node['related'] = commands.get(command, [])
+    by_id = {node['id']: node for node in nodes}
+    for source, target, label in CONNECTIONS:
+        by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
     return nodes
 
 
@@ -126,6 +154,7 @@ def build_explorer(views, pages):
 <button id="in" aria-label="Zoom in">+</button>
 <button id="up">Up one level</button><button id="home">Whole map</button>
 </div>
+<aside id="connections" aria-label="Connections" hidden></aside>
 <p id="notice" role="status">Loading the context map…</p>
 <div id="future">Later: search will light up related context paths.</div>
 <noscript>This spatial view needs JavaScript. Open the

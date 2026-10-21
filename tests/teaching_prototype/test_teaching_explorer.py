@@ -86,7 +86,25 @@ def test_agreed_sources_and_shared_documentation(explorer):
         'skills', 'roles', 'help', 'feedback', 'packets', 'instructions', 'project')}
     assert nodes['branch:web-docs']['related'] == nodes['branch:installed-docs']['related']
     assert nodes['topics']['parent'] == 'branch:doc-content'
-    assert nodes['role:engineer']['parent'] == 'source:roles'
-    assert nodes['skill:dash']['parent'] == 'branch:project-skills'
+    assert nodes['role:engineer']['parent'] == 'source:roles:build'
+    assert nodes['skill:dash']['parent'] == 'branch:project-skills:implement-and-deliver'
     assert nodes['skill:yoke-global']['parent'] == 'source:skills'
     assert nodes['surface:resume-context']['parent'] == 'branch:skill-guidance'
+
+
+def test_nested_groups_and_install_connections(explorer):
+    model, _, renderer = explorer
+    nodes = {node['id']: node for node in renderer.map_nodes(model)}
+    assert {n['id'] for n in nodes.values() if n['parent'] == 'source:homepage'} == {
+        'branch:ask-agent', 'branch:install-command'}
+    assert {e['target'] for e in nodes['branch:install-command']['connections']} == {
+        'branch:agent-setup', 'branch:terminal-setup'}
+    for node in nodes.values():
+        assert all(edge['target'] in nodes for edge in node.get('connections', []))
+        seen = set()
+        while node['parent']:
+            assert node['id'] not in seen
+            seen.add(node['id'])
+            node = nodes[node['parent']]
+    assert nodes['teaching:setup-agent/05']['parent'].endswith('check-readiness-and-enter-a-project')
+    assert nodes['skill:implement/implementing']['parent'] == 'skill:implement'
