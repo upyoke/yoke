@@ -24,7 +24,8 @@ first materializes a frozen source-bound plan it takes the saved cases instead
 when their source descends from the frozen one and the run's candidate carries
 it. Merged case changes ship with their release; no manual sync or wake is
 needed. A saved source the candidate does not carry keeps the frozen cases and
-logs `qa_frozen_plan_kept` with the reason. An older build leaves a
+logs `qa_frozen_plan_kept` with the reason. A plan the run froze while unbound
+keeps its frozen cases for that run after the plan is bound. An older build leaves a
 newer plan unchanged (`qa_plan_source_newer_kept` in the server log). A plan
 that cannot converge keeps its cases and boot continues; the server log names
 `qa_plan_source_convergence_failed`, the reason and this recovery.

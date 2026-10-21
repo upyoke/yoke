@@ -160,16 +160,25 @@ def current_plan_source(conn: Any, plan_id: int) -> str | None:
 
 
 def require_candidate_plan(conn: Any, plan: Mapping[str, Any], run_id: str) -> None:
-    """A run may materialize only source definitions its own candidate carries."""
+    """A run may materialize only source definitions its own candidate carries.
+
+    A frozen plan whose ``source_revision`` is empty was unbound when the run
+    froze it; its frozen cases stand for that run even after a later sync binds
+    the saved plan. Only a snapshot without the field cannot say which.
+    """
     revision = plan.get("source_revision")
     if not revision:
-        if _column_exists(conn, "qa_plans", "source_revision"):
-            if current_plan_source(conn, int(plan["id"])):
-                raise QaPlanError(
-                    "qa_plan_source_snapshot_missing: this frozen plan predates source "
-                    "binding; retain its evidence and select a source-proven plan for "
-                    "the candidate, or use a run-bound correction."
-                )
+        if (
+            "source_revision" not in plan
+            and _column_exists(conn, "qa_plans", "source_revision")
+            and current_plan_source(conn, int(plan["id"]))
+        ):
+            raise QaPlanError(
+                f"qa_plan_source_snapshot_missing: run {run_id} froze plan "
+                f"{plan['id']} without a source_revision field, so its source "
+                "binding cannot be proven; retain its evidence and select a "
+                "source-proven plan for the candidate, or use a run-bound correction."
+            )
         return
     project_id = int(plan["project_id"])
     try:
