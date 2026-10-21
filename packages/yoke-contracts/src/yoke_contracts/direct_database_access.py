@@ -9,7 +9,9 @@ module is the one place they are listed: diagnostic and repair functions by
 id, and operator commands whose whole process (children included) needs the
 door — schema convergence rehearsal, a deploy that replaces the API serving
 its own run, creation bootstrap from a reviewed source checkout, and an
-explicitly selected admin merge.
+explicitly selected admin merge. A self-deploy driver still sends each
+call to the paired https env first and keeps the door for the calls that env
+cannot serve while its API is replaced (see :func:`self_deploy_https_env`).
 
 Client-side by construction: the answer comes from this machine's declared
 connections, so a CLI-only install can apply it before dispatch.
@@ -109,6 +111,20 @@ def paired_https_env() -> str:
         return ""
 
 
+def self_deploy_https_env(function_id: str) -> str:
+    """The https env a self-deploy driver sends *function_id* to first.
+
+    Empty off a declared self-deploy and for the functions that read or
+    repair the database itself. The door stays the fallback for a call the
+    paired API cannot serve, down or mid-replacement during the deploy.
+    """
+    if function_id in DIRECT_DATABASE_FUNCTIONS:
+        return ""
+    if os.environ.get(DECLARED_COMMAND_ENV, "") != SELF_DEPLOY_EXECUTE_COMMAND:
+        return ""
+    return paired_https_env()
+
+
 def use_https_env_error(function_id: str) -> Optional[FunctionError]:
     """The ``use_https_env`` refusal for a routine call on the door, or None."""
     if function_id in DIRECT_DATABASE_FUNCTIONS:
@@ -147,5 +163,6 @@ __all__ = [
     "direct_database_command",
     "direct_database_environment",
     "paired_https_env",
+    "self_deploy_https_env",
     "use_https_env_error",
 ]

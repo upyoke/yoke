@@ -72,6 +72,7 @@ AUTHORITY_TRANSPORT = (
         "yoke_cli.transport.https_credentials:resolve_token",
         "yoke_cli.transport.relay_telemetry:drain",
         "yoke_cli.transport.source_build_skew:_git",
+        "yoke_contracts.direct_database_access:self_deploy_https_env",
         "yoke_contracts.direct_database_access:use_https_env_error",
         "yoke_contracts.install_binding:_module_path",
         "yoke_contracts.install_binding:_owning_distribution",
