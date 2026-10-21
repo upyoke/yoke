@@ -3,14 +3,15 @@
 A member's refresh covers each shared group it attaches plus its own plan
 cases. Every subject is read first, unlocked and batched across the run's
 members; the run row lock covers only the writes, after the projection's
-fingerprint proves those reads still current.
+fingerprint proves those reads still current. A run that changed in between
+is read again unlocked, never under the lock.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.deployment_runs_lock import lock_run
+from yoke_core.domain.deployment_runs_lock import lock_current_read
 from yoke_core.domain.deployment_qa_presentation_facts import run_presentation
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -106,10 +107,9 @@ def rematerialize_for_deployment_stage(
             plan=plan,
         )
 
-    projection, refreshes = read()
-    lock_run(conn, str(run_id))
-    if not projection.holds(conn):
-        projection, refreshes = read()
+    projection, refreshes = lock_current_read(
+        conn, run_id, read, holds=lambda current: current[0].holds(conn)
+    )
     results = [
         write_subject_refresh(
             conn,

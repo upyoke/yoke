@@ -137,7 +137,7 @@ def test_member_writes_cost_the_same_at_any_run_size(test_db):
         assert locked < total
 
 
-def test_a_membership_change_during_the_read_is_read_again_under_the_lock(
+def test_a_membership_change_during_the_read_is_read_again(
     test_db, monkeypatch
 ):
     """A peer leaving between the read and the lock un-shares their plans."""

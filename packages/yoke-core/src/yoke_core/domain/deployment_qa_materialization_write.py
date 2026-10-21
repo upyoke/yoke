@@ -1,7 +1,12 @@
-"""Apply a prepared QA subject under its run lock, then release the lock."""
+"""Apply a prepared QA subject under its run lock, then release the lock.
+
+The read stays outside the lock: a run that changed since it is read again
+unlocked (:func:`lock_current_read`), so no run-wide query, git or HTTP call
+ever runs while this writer holds the run row.
+"""
 
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
-from yoke_core.domain.deployment_runs_lock import lock_run
+from yoke_core.domain.deployment_runs_lock import lock_current_read
 
 
 def write_prepared_stage(
@@ -25,10 +30,14 @@ def write_prepared_stage(
     )
 
     try:
-        lock_run(conn, str(run_id))
+        stage_read = lock_current_read(
+            conn,
+            str(run_id),
+            reread,
+            prepared=stage_read,
+            holds=lambda current: current.projection.holds(conn),
+        )
         _require_member_still_attached(conn, run_id, member)
-        if not stage_read.projection.holds(conn):
-            stage_read = reread()
         subject, target = stage_read.subject, stage_read.target
         freeze_selected_plans(conn, subject, stage_read.snapshots)
 

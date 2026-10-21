@@ -9,13 +9,15 @@ from yoke_core.domain.deployment_run_member_removal_read import read_removal
 from yoke_core.domain.deployment_run_membership_removals import (
     record_membership_removals,
 )
-from yoke_core.domain.deployment_runs_lock import lock_run
+from yoke_core.domain.deployment_runs_lock import (
+    bounded_run_write,
+    lock_current_read,
+)
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_read_scope import composition_operation
-from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
 #: Removal source for a member whose current candidate moved outside the
 #: frozen lineage at settlement; its newer work rides a later release.
@@ -189,8 +191,9 @@ def cmd_remove_item(
 ) -> str:
     """Remove a created member or one owing executing/failed independent item QA.
 
-    The guard and the run's shared groups are read before the run row lock;
-    the lock covers the fingerprint check and the removal's writes.
+    The guard and the run's shared groups are read before any lock; the
+    bounded item and run locks cover the fingerprint check and the removal's
+    writes, and a run that changed in between is read again unlocked.
     """
     reason = str(reason or "").strip()
     if not reason:
@@ -199,24 +202,27 @@ def cmd_remove_item(
         )
     conn = connect(db_path)
     try:
-        lock_item_workflow_bindings(conn, (int(item_id),))
-        read = read_removal(conn, run_id=run_id, item_ids=(int(item_id),))
-        lock_run(conn, run_id)
-        if not read.projection.holds(conn):
-            read = read_removal(conn, run_id=run_id, item_ids=(int(item_id),))
-        if read.refusal is not None:
-            raise read.refusal
-        status = read.status
-        ref = remove_member_on(
-            conn,
-            run_id,
-            int(item_id),
-            reason=reason,
-            session_id=session_id,
-            actor_id=actor_id,
-            projection=read.projection,
-        )
-        conn.commit()
+        with bounded_run_write(conn, run_id):
+            current = lock_current_read(
+                conn,
+                run_id,
+                lambda: read_removal(conn, run_id=run_id, item_ids=(int(item_id),)),
+                holds=lambda answer: answer.projection.holds(conn),
+                items=(int(item_id),),
+            )
+            if current.refusal is not None:
+                raise current.refusal
+            status = current.status
+            ref = remove_member_on(
+                conn,
+                run_id,
+                int(item_id),
+                reason=reason,
+                session_id=session_id,
+                actor_id=actor_id,
+                projection=current.projection,
+            )
+            conn.commit()
         recovery = f"Re-attach while created with `yoke deployment-runs add-item {run_id} {ref}`."
         if status == "failed":
             recovery = (

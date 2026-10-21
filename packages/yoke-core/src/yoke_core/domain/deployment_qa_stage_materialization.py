@@ -198,7 +198,8 @@ def materialize_deployment_qa_stage(
 
     Every run-wide read happens first, unlocked and batched; the run row
     lock covers only the writes. A change committed in between is caught by
-    the projection's fingerprint and the read is repeated under the lock.
+    the projection's fingerprint, and the lock is released while the read is
+    repeated.
     """
 
     def read() -> _StageRead:
