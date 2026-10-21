@@ -35,10 +35,10 @@ def _installer(*, runner, dry_run=False):
 
 
 def _capture_distribution(runner):
-    """Isolate uv setup while retaining real distribution registration."""
+    """Isolate PATH setup while retaining real distribution registration."""
 
     def run(argv):
-        if list(argv) == ["uv", "tool", "update-shell"]:
+        if list(argv) == ["/bin/yoke", "path", "fix", "--yes", "--json"]:
             return subprocess.CompletedProcess(argv, 0, "shell configured", "")
         return runner(argv)
 
