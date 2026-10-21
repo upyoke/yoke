@@ -2,10 +2,10 @@
 
 Beginning a deployment member's execution reads facts whose count grows with
 the run's members and plan groups. Those reads run before the
-``deployment_runs`` row lock. :func:`begin_inputs` digests what they depended
-on first; :func:`admit_member` takes the lock and compares the digest again,
-so a change committed in between is caught and the reads repeat unlocked
-(:func:`admit_current_roster`).
+``deployment_runs`` row lock. :func:`begin_inputs` fingerprints run facts,
+excluding execution progress; :func:`admit_member` takes the lock and
+compares that fingerprint again. Run changes repeat the reads unlocked
+(:func:`admit_current_roster`); custody is checked under the run lock.
 """
 
 from __future__ import annotations
@@ -25,24 +25,13 @@ class BeginInputsChanged(Exception):
     """A run fact read before the run lock changed before the lock was taken."""
 
 
-def _executions_digest(conn: Any, run_id: str, stage: str | None) -> str:
-    row = conn.execute(
-        "SELECT md5(COALESCE(string_agg(id||':'||state||':'||cursor_ordinal,"
-        "'|' ORDER BY id),'')) FROM qa_plan_executions "
-        "WHERE deployment_run_id=%s AND COALESCE(deployment_stage,'')=%s",
-        (str(run_id), str(stage or "")),
-    ).fetchone()
-    return str(row[0])
-
-
 def begin_inputs(
     conn: Any, run_id: str, stage: str | None, *, run_fingerprint: str | None = None
 ) -> str:
-    """Digest the run's QA facts and its stage executions; constant statements."""
+    """Fingerprint the run's QA facts; execution churn does not change admission."""
     from yoke_core.domain.deployment_run_qa_fingerprint import run_qa_fingerprint
 
-    run = run_fingerprint or run_qa_fingerprint(conn, str(run_id))
-    return f"{run}:{_executions_digest(conn, run_id, stage)}"
+    return run_fingerprint or run_qa_fingerprint(conn, str(run_id))
 
 
 def admit_member(

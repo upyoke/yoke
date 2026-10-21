@@ -92,16 +92,11 @@ def abort_abandoned_holders(
         finish_plan_execution,
     )
 
-    wanted = {int(row["requirement_id"]) for row in roster}
     aborted = False
-    for execution in live_stage_executions(
-        conn, deployment_run_id=deployment_run_id, deployment_stage=deployment_stage
+    for locked in _locked_roster_holders(
+        conn, roster, deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage, session_id=session_id,
     ):
-        if str(execution["session_id"]) == str(session_id) or not wanted & {
-            int(case["requirement_id"]) for case in execution["roster"]
-        }:
-            continue
-        locked = lock_plan_execution(conn, str(execution["id"]))
         if locked["state"] in LIVE_PLAN_EXECUTION_STATES and (
             plan_execution_is_abandoned(conn, locked)
         ):
@@ -112,9 +107,51 @@ def abort_abandoned_holders(
     return aborted
 
 
+def _locked_roster_holders(conn, roster, *, deployment_run_id, deployment_stage, session_id):
+    """Lock overlapping live rows before deciding custody or abandonment."""
+    wanted = {int(row["requirement_id"]) for row in roster}
+    for execution in live_stage_executions(
+        conn, deployment_run_id=deployment_run_id, deployment_stage=deployment_stage
+    ):
+        if str(execution["session_id"]) == str(session_id) or not wanted & {
+            int(case["requirement_id"]) for case in execution["roster"]
+        }:
+            continue
+        locked = lock_plan_execution(conn, str(execution["id"]))
+        if locked["state"] in LIVE_PLAN_EXECUTION_STATES:
+            yield locked
+
+
+def admit_stage_roster(conn, roster, *, deployment_run_id, deployment_stage, session_id):
+    """Refuse held custody or abort abandoned holders under their row locks.
+
+    An abort commits, so the caller must read again and reacquire the run
+    lock before repeating admission. Execution history never invalidates
+    the unlocked roster read.
+    """
+    from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
+    from yoke_core.domain.qa_plan_execution_lifecycle import (
+        STALE_PLAN_EXECUTION_REASON, finish_plan_execution,
+    )
+
+    aborted = False
+    for locked in _locked_roster_holders(
+        conn, roster, deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage, session_id=session_id,
+    ):
+        if not plan_execution_is_abandoned(conn, locked):
+            raise StageRosterHeld(locked)
+        finish_plan_execution(
+            conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+        )
+        aborted = True
+    return aborted
+
+
 __all__ = [
     "StageRosterHeld",
     "abort_abandoned_holders",
+    "admit_stage_roster",
     "held_requirements",
     "live_stage_executions",
 ]

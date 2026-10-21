@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_runs_lock import RUN_READ_ATTEMPTS, DeploymentRunChanging
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import plan_execution_is_abandoned
@@ -41,7 +42,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_execution_roster_change import (
     retire_unstarted_changed_roster,
 )
-from yoke_core.domain.qa_stage_execution_holders import abort_abandoned_holders
+from yoke_core.domain.qa_stage_execution_holders import admit_stage_roster
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -240,15 +241,18 @@ def begin_plan_execution(
                     "another actor or session owns the active QA plan execution"
                 )
             retired = True
-    if stage_wide and abort_abandoned_holders(
-        conn,
-        prepared.roster,
-        deployment_run_id=str(deployment_run_id),
-        deployment_stage=str(deployment_stage),
-        session_id=session_id,
-    ):
-        retired = True
-    if retired:
+    for _attempt in range(RUN_READ_ATTEMPTS + 1):
+        if stage_wide and admit_stage_roster(
+            conn,
+            prepared.roster,
+            deployment_run_id=str(deployment_run_id),
+            deployment_stage=str(deployment_stage),
+            session_id=session_id,
+        ):
+            retired = True
+        if not retired:
+            break
+        retired = False
         # Retiring a live execution committed; read the roster again first.
         if item_id is not None:
             lock_item_workflow_bindings(conn, (int(item_id),))
@@ -272,6 +276,8 @@ def begin_plan_execution(
             )
             if not isinstance(prepared, PreparedRoster):
                 return prepared
+    else:
+        raise DeploymentRunChanging(str(deployment_run_id))
 
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
     execution_target = prepared.execution_target
