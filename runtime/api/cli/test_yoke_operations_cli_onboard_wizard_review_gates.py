@@ -94,8 +94,7 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await accept_project_details(pilot)
-            await pilot.press("down")  # publish: No
-            await pilot.press("enter")
+            await pilot.press("enter")  # publish: No (preselected)
             await skip_hosting(pilot)  # hosting: skip -> Review (blocked)
             await pilot.pause()
             body = _body_text(app)
