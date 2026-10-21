@@ -213,3 +213,70 @@ def test_companion_command_refuses_after_another_host_lease_is_lost(test_db, mis
     )
     assert not outcome.primary_success
     assert "test_machine_set_lease_lost" in outcome.error.message
+
+
+@pytest.mark.parametrize("command_exit", [0, 1])
+def test_companion_debt_survives_driver_walk_end_and_host_release(
+    test_db,
+    mission,
+    command_exit,
+):
+    from yoke_core.domain.coordination_claims import get_claim
+    from yoke_core.domain.machine_reset_debt import reset_owed
+    from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end
+    from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+
+    request, execution = mission
+    leases = execution_host_leases(test_db, execution)
+    assert reset_owed(test_db, COMPANION) is None
+    outcome = handle_agent_mission_access(
+        request.model_copy(
+            update={
+                "payload": {**request.payload, "machine": COMPANION},
+            }
+        )
+    )
+    assert outcome.primary_success, outcome.error
+    contract = outcome.result_payload["execution"]
+    # Releasing a caller transaction cannot undo debt already committed with
+    # the access receipt, before the command is sent to the physical host.
+    test_db.rollback()
+    assert reset_owed(test_db, COMPANION) == "fresh-host"
+
+    class CommandControl(FakeHostControl):
+        def run_command(self, argv, **kwargs):
+            return subprocess.CompletedProcess(argv, command_exit, "", "")
+
+    register_host_control_factory(lambda material: CommandControl())
+    try:
+        result = execute_agent_mission_host_command(
+            contract,
+            argv=["mutate-host"],
+            gui_session=False,
+            timeout_seconds=60,
+        )
+    finally:
+        clear_host_control_factory()
+    assert result["exit_code"] == command_exit
+    driver = handle_agent_mission_access(request)
+    assert driver.primary_success, driver.error
+    register_host_control_factory(lambda material: FakeHostControl())
+    try:
+        ended = execute_agent_mission_walk_end(driver.result_payload["execution"])
+    finally:
+        clear_host_control_factory()
+    assert ended["removed"]
+    assert ended["starting_state_restore"]["restored"]
+    finish_plan_execution(test_db, execution, state="completed", reason="walk-finished")
+    assert all(not get_claim(test_db, claim.id).is_active for claim in leases)
+    assert reset_owed(test_db, COMPANION) == "fresh-host"
+    assert reset_owed(test_db, DRIVER) is None
+
+
+def test_driver_access_does_not_mark_an_untouched_companion_dirty(test_db, mission):
+    from yoke_core.domain.machine_reset_debt import reset_owed
+
+    request, _ = mission
+    outcome = handle_agent_mission_access(request)
+    assert outcome.primary_success, outcome.error
+    assert reset_owed(test_db, COMPANION) is None

@@ -74,7 +74,7 @@ def mission_host_contract(
         lease_id=lease.id,
         allow_released=False,
     )
-    return _issue(
+    contract = _issue(
         conn,
         candidate,
         lease,
@@ -83,3 +83,15 @@ def mission_host_contract(
         baselines=(),
         cases=(),
     )
+    from yoke_core.domain.machine_reset_debt import record_reset_owed
+
+    # Persist before authority leaves the server: even a failed command can
+    # mutate the companion, and driver teardown cannot prove its restoration.
+    record_reset_owed(
+        conn,
+        case=case,
+        machine=selected,
+        lease_id=lease.id,
+        contract_digest=contract.contract_digest,
+    )
+    return contract
