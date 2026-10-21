@@ -193,7 +193,13 @@ def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> b
             if name == ref or parse_public_item_ref(name)[0] is None:
                 continue
             trial_item = name
-        if _parent()._query_item_field(trial_item, "status") != "done":
+        try:
+            status = _parent()._query_item_field(trial_item, "status")
+        except (RuntimeError, ValueError) as exc:
+            print(f"  Preserving trial branch {ref}: its item is unreadable ({exc}).")
+            complete = False
+            continue
+        if status != "done":
             complete = False
             continue
         if _has_foreign_claim(trial_item):
