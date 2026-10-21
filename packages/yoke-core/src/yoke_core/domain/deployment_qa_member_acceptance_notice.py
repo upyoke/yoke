@@ -22,6 +22,7 @@ cannot undo the acceptance that just committed.
 from __future__ import annotations
 
 import hashlib
+import time
 
 from yoke_contracts.timestamps import parse_instant, utc_now
 
@@ -49,6 +50,9 @@ from yoke_contracts.public_ref import format_item_ref
 
 #: One notice per item and the run whose item-scoped QA it accepted.
 ITEM_QA_ACCEPTED_KEY_PREFIX = "release-wait-item-qa-accepted:"
+
+MEMBER_CLOSE_OUT_LIMIT = 2
+MEMBER_CLOSE_OUT_BUDGET_SECONDS = 5.0
 
 _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
 
@@ -157,18 +161,6 @@ def _member_close_out_route(
     )
 
 
-@presentation_operation
-@run_presentation
-def _member_close_out_routes(
-    conn: Any, *, run_id: str, item_ids: tuple[int, ...]
-) -> dict[int, tuple[dict[str, Any], bool] | None]:
-    """Every member's route from one read of the run, before any close-out."""
-    return {
-        item_id: _member_close_out_route(conn, run_id=run_id, item_id=item_id)
-        for item_id in item_ids
-    }
-
-
 def _withdraw_waits(conn: Any, *, run_id: str, item_ids: tuple[int, ...], now) -> None:
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
@@ -215,30 +207,33 @@ def notify_items_qa_accepted(
     run_id: str,
     item_ids: tuple[int, ...],
     now: Optional[datetime] = None,
-) -> None:
-    """:func:`notify_item_qa_accepted` for a dispatch's accepted members.
+) -> tuple[int, ...]:
+    """Close a bounded number of members, returning work for the next dispatch.
 
-    Routes are read in one fresh pass after the acceptances were written,
-    instead of one run-wide read per member. A close-out changes run state
-    a later member's route reads, so the remaining routes are read again
-    after each one; a notice changes nothing a route reads. Each member's
-    close-out or notice commits on its own.
+    Read only the next member's route, outside the previous close-out's QA
+    snapshot. Each close-out or notice commits independently. The time budget
+    stops starting another operation; it cannot interrupt one already running.
     """
     now = parse_instant(utc_now() if now is None else now)
     if not run_id or not item_ids:
-        return
+        return ()
     _withdraw_waits(conn, run_id=str(run_id), item_ids=item_ids, now=now)
     conn.commit()
-    pending = tuple(int(item_id) for item_id in item_ids)
-    routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=pending)
+    pending = tuple(dict.fromkeys(int(item_id) for item_id in item_ids))
+    deadline = time.monotonic() + MEMBER_CLOSE_OUT_BUDGET_SECONDS
+    attempted = 0
     for index, item_id in enumerate(pending):
-        outcome = _close_or_notify(
-            conn, run_id=str(run_id), item_id=item_id, route=routes[item_id], now=now
+        if attempted >= MEMBER_CLOSE_OUT_LIMIT or time.monotonic() >= deadline:
+            return pending[index:]
+        route = _member_close_out_route(conn, run_id=str(run_id), item_id=item_id)
+        if route is None:
+            continue
+        _close_or_notify(
+            conn, run_id=str(run_id), item_id=item_id, route=route, now=now
         )
         conn.commit()
-        rest = pending[index + 1 :]
-        if outcome == "closed" and rest:
-            routes = _member_close_out_routes(conn, run_id=str(run_id), item_ids=rest)
+        attempted += 1
+    return ()
 
 
 def _close_or_notify(

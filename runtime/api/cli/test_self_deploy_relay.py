@@ -13,6 +13,8 @@ from typing import Any
 import pytest
 
 from yoke_cli.transport import dispatcher
+from yoke_cli.transport.https import relay_https as real_relay_https
+from yoke_cli.transport.https_response_policy import RESPONSE_TIMEOUT_DETAIL
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_contracts import direct_database_access as door
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
@@ -179,3 +181,41 @@ def test_without_the_declaration_the_door_still_refuses_routine_calls(
 
     assert response.error is not None and response.error.code == door.USE_HTTPS_ENV
     assert planes.https == [] and planes.door == []
+
+
+@pytest.mark.parametrize("recovery_attempt", [1, 3, None])
+def test_timed_out_dispatch_waits_over_https_without_a_door(planes, monkeypatch, capsys, recovery_attempt):
+    recovered = recovery_attempt is not None
+    transport = dispatcher.https_transport
+    sends = []
+
+    def attempt(request, connection, **kwargs):
+        sends.append((request.model_dump(), kwargs["timeout_s"]))
+        if len(sends) == 1:
+            return _answer(request, success=False, error=FunctionError(
+                code=TRANSPORT_FAILED_CODE, message=RESPONSE_TIMEOUT_DETAIL,
+            )), 1
+        if recovered and len(sends) == 1 + recovery_attempt:
+            return _answer(request, success=True, result={"code": 0}), 1
+        return _answer(request, success=False, error=FunctionError(
+            code=TRANSPORT_FAILED_CODE, message="unreachable",
+        )), 1
+
+    monkeypatch.setattr(transport, "relay_https", real_relay_https)
+    monkeypatch.setattr(transport, "_relay_attempts", attempt)
+    monkeypatch.setattr(transport, "record_outcome", lambda *a, **k: None)
+    response = dispatcher.call_dispatcher(
+        function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+        target=dispatcher.TargetRef(kind="workflow_run", workflow_run_id="run-1"),
+        payload={"stage_name": "item-qa"},
+    )
+    assert len(sends) == (1 + recovery_attempt if recovered else 11)
+    assert all(send[0] == sends[0][0] for send in sends)
+    assert {send[1] for send in sends[1:]} == {60.0}
+    assert planes.door == []
+    assert response.success is recovered
+    if not recovered:
+        assert response.error.code == "control_plane_connection_lost"
+        assert "qa_dispatch_result_unconfirmed" in response.error.message
+        assert "same run" in response.error.recovery_hint
+    assert "waiting up to 600 seconds" in capsys.readouterr().err

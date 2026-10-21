@@ -7,7 +7,8 @@ there first. Only a call that env cannot serve — no connection, the API down
 or mid-replacement, or a serving build that lacks the function — runs through
 the door, with a one-line note. The door re-sends the same request id, so a
 call the API may already have applied replays from the shared ledger instead
-of repeating.
+of repeating. A timed-out QA dispatch waits for that replay over HTTPS;
+an unconfirmed recovery returns to the driver without using this door.
 """
 
 from __future__ import annotations

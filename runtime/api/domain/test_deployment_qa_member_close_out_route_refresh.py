@@ -1,41 +1,55 @@
-"""A batched close-out never acts on a route read before an earlier close-out.
-
-The dispatch reads every accepted member's close-out route in one pass.
-Closing one member changes run state a later member's route reads, so the
-remaining routes are read again after each applied close-out. A notice
-writes nothing a route reads, so it does not cost another run-wide read.
-"""
-
-from __future__ import annotations
-
-from typing import Any
+"""QA close-outs have fresh routes and bounded work on every dispatch."""
 
 from yoke_core.domain import deployment_qa_member_acceptance_notice as notice
 
 
 class _Conn:
-    def commit(self) -> None:
+    def commit(self):
         pass
 
 
-def test_routes_are_read_again_only_after_an_applied_close_out(monkeypatch) -> None:
-    reads: list[tuple[int, ...]] = []
-    acted: list[tuple[int, Any]] = []
-    outcomes = {1: "closed", 2: "delivered", 3: ""}
+def test_twelve_members_close_across_bounded_dispatches(monkeypatch):
+    closed = set()
+    reads = []
+    clock = [0.0]
 
-    def routes(conn, *, run_id, item_ids):
-        reads.append(tuple(item_ids))
-        return {item_id: (f"read-{len(reads)}", item_id) for item_id in item_ids}
+    def route(conn, *, run_id, item_id):
+        reads.append((item_id, frozenset(closed)))
+        return None if item_id in closed else ({"item_id": item_id}, True)
 
-    def close_or_notify(conn, *, run_id, item_id, route, now):
-        acted.append((item_id, route[0]))
-        return outcomes[item_id]
+    def close(conn, *, item_id, route, **kwargs):
+        assert route[0]["item_id"] == item_id
+        closed.add(item_id)
+        clock[0] += 3.0
+        return "closed"
 
     monkeypatch.setattr(notice, "_withdraw_waits", lambda *a, **k: None)
-    monkeypatch.setattr(notice, "_member_close_out_routes", routes)
-    monkeypatch.setattr(notice, "_close_or_notify", close_or_notify)
+    monkeypatch.setattr(notice, "_member_close_out_route", route)
+    monkeypatch.setattr(notice, "_close_or_notify", close)
+    monkeypatch.setattr(notice.time, "monotonic", lambda: clock[0])
+    members = tuple(range(1, 13))
+    for dispatch in range(6):
+        before = clock[0]
+        remaining = notice.notify_items_qa_accepted(_Conn(), run_id="run-sample", item_ids=members)
+        assert len(closed) == 2 * (dispatch + 1)
+        assert clock[0] - before == 6.0  # below the 30-second HTTPS limit
+        assert remaining == members[len(closed):]
+    assert [item for item, state in reads if item not in state] == list(members)
+    assert all(set(range(1, item)) <= state for item, state in reads)
 
-    notice.notify_items_qa_accepted(_Conn(), run_id="run-sample", item_ids=(1, 2, 3))
 
-    assert reads == [(1, 2, 3), (2, 3)]
-    assert acted == [(1, "read-1"), (2, "read-2"), (3, "read-2")]
+def test_slow_close_stops_starting_more_work(monkeypatch):
+    clock = [0.0]
+    acted = []
+    monkeypatch.setattr(notice, "_withdraw_waits", lambda *a, **k: None)
+    monkeypatch.setattr(notice, "_member_close_out_route", lambda *a, **k: ({}, True))
+    monkeypatch.setattr(notice.time, "monotonic", lambda: clock[0])
+
+    def close(conn, *, item_id, **kwargs):
+        acted.append(item_id)
+        clock[0] += 6.0
+        return "closed"
+
+    monkeypatch.setattr(notice, "_close_or_notify", close)
+    assert notice.notify_items_qa_accepted(_Conn(), run_id="run-sample", item_ids=(1, 2, 3)) == (2, 3)
+    assert acted == [1]

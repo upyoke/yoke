@@ -201,6 +201,7 @@ the run above**.
 
 <!-- yoke:contents -->
 - [Start diagnostics](start-diagnostics.md) — Diagnose candidate preparation, containment refresh and start timing.
+- [QA dispatch](qa-dispatch.md) — Bound member close-outs and recover HTTPS response timeouts.
 - [Runs](model/runs.md) — Read deployment run composition and carried-work authority.
 - [Ended runs](model/ended-runs.md) — Read how an ended run cancels the GitHub workflows it dispatched.
 - [Stage receipts](model/stage-receipts.md) — Read durable non-QA deployment-stage attempt evidence.
