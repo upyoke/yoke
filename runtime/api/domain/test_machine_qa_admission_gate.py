@@ -142,3 +142,30 @@ def test_invite_that_cannot_be_issued_refuses_by_name() -> None:
     )
     assert result.error_code == "admission_invite_issue_failed"
     assert result.step_evidence["exit_code"] == 1
+
+
+def test_invite_entry_ignores_completion_text_kept_from_an_earlier_screen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticks = iter(range(10_000))
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_operator_gate.time.monotonic",
+        lambda: float(next(ticks)),
+    )
+    reply = json.dumps({"success": True, "result": {"code": INVITE}})
+    stale = "Earlier case\nConnect GitHub?\n"
+    result, _calls = _run(
+        "admission_invite_entry",
+        [
+            stale + "Enter invite code.",
+            stale + "Enter invite code.\nConnecting your invited machine.",
+            stale + "Enter invite code.\nConnecting your invited machine.",
+            stale + "Enter invite code.\nConnecting your invited machine.\n"
+            "Connect GitHub?",
+        ],
+        [_done(reply)],
+        keys=[],
+    )
+    assert result.ok, result
+    # The stale text alone never completed the step: it waited for the real screen.
+    assert result.step_evidence["waited_seconds"] >= 2

@@ -112,15 +112,13 @@ and `Match code:` context.
 The run performs every step an agent physically can through a typed
 `operator_gate`. `machine_browser_approval` approves the shown code in the
 test machine's signed-in browser tab (sending at most `Enter` first); a case
-that prepares the admission fixture may approve on that fixture's own
-loopback server, which is how company sign-in admits the teammate.
-`admission_owner_approval` runs `yoke machines approve CODE` as the admission
-fixture's owner; `admission_invite_entry` runs the owner's `yoke invite NAME`
-and types the code into the terminal without writing it to evidence. Each
-prints one `machine_qa.operator_gate` line (`self_approving: true`) and waits up
-to `gate_timeout_seconds` (1..600) for `completion_text`; failures name the
-gate (`admission_owner_approval_failed`, `admission_invite_issue_failed`,
-`<gate>_rejected`, `<gate>_timed_out`, `terminal_setup_exited`) with a recovery.
+that prepares the admission fixture may approve on that fixture's own loopback
+server, which is how company sign-in admits the teammate. As the fixture owner,
+`admission_owner_approval` runs `yoke machines approve CODE` and
+`admission_invite_entry` runs `yoke invite NAME` and types the code unrecorded;
+completion counts only after the `Enter invite code.` prompt, never stale text
+from an earlier case. Each logs one `machine_qa.operator_gate` line, waits up to
+`gate_timeout_seconds` (1..600) and refuses by name with a recovery.
 
 `operator_gate: human_action` is only for a password or credential the agent
 may not type: `human_purpose` must be `password_entry`, and any other purpose
