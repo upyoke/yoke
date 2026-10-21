@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "runtime-evidence",
- "position": 4
+ "position": 4,
+ "summary": "Delivery evidence first credits succeeded membership, then checks release containment. The containment walk skips releases with a known completion before the item's recorded merge time. Equal or later completion remains eligible; a missing timestamp proves nothing and retains the containment check. This applies to selected closing flows, carrying releases and flowless items' persistent releases.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/delivery_evidence_ladder.py", "runtime/api/domain/test_delivery_evidence_merge_time.py"]
 }

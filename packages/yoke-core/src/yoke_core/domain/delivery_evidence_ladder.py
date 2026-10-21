@@ -42,6 +42,7 @@ one answer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.delivery_release_candidates import (
@@ -65,6 +66,7 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     candidate_contains_commit,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.time_parse import parse_timestamp_utc
 
 
 DISCHARGED = "discharged"
@@ -118,12 +120,18 @@ def item_merge_identity(conn: Any, item_id: int) -> str:
     return merge_sha or commit_sha
 
 
-def _project_id(conn: Any, item_id: int) -> Optional[int]:
+def _item_delivery_context(
+    conn: Any, item_id: int
+) -> tuple[Optional[int], Optional[datetime]]:
     row = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {_marker(conn)}",
+        f"SELECT project_id, merged_at FROM items WHERE id = {_marker(conn)}",
         (int(item_id),),
     ).fetchone()
-    return int(_cell(row, "project_id", 0)) if row is not None else None
+    if row is None:
+        return None, None
+    return int(_cell(row, "project_id", 0)), parse_timestamp_utc(
+        _cell(row, "merged_at", 1)
+    )
 
 
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
@@ -171,7 +179,7 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
         )
 
     merge_sha = item_merge_identity(conn, int(item_id))
-    project_id = _project_id(conn, int(item_id))
+    project_id, merged_at = _item_delivery_context(conn, int(item_id))
     if not merge_sha or project_id is None:
         return _member_shaped_answer(member, flow=flow)
 
@@ -184,6 +192,12 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
     )
     undetermined: Optional[DeliveryEvidence] = None
     for run in releases:
+        completed_at = parse_timestamp_utc(run.get("completed_at"))
+        # A release finished before the landing cannot have shipped it.
+        # Unknown timestamps prove nothing, so retain the containment read.
+        if merged_at is not None and completed_at is not None:
+            if completed_at < merged_at:
+                continue
         lineage = run["release_lineage"]
         if not lineage:
             continue
