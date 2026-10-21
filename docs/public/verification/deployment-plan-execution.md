@@ -261,10 +261,11 @@ yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
 
-The execution owner can abort after its deployment run ends; the abort records
-the terminal run status in its release reason. An already-settled execution
-reports its recorded state. A failed run does not require returning to an
-active stage to settle an execution.
+The owner can abort after its run ends, failed or not; the reason records the
+run status, and a settled execution reports its state. A steering seat's abort
+of another session's live execution records a stop: `stop_request` names the
+owner, whose runner stops at its next case or heartbeat and settles. Without a
+seat it refuses with `qa_execution_stop_requires_steering`.
 
 An in-flight host abort first records cancellation. Until the interrupted
 case's cleanup proof is recorded, it refuses with `qa_abort_restore_pending`

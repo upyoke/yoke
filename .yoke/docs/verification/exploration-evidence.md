@@ -174,16 +174,24 @@ executions carried an execution target still settles, because resolving that
 target is a precondition for *running* an execution, not for abandoning one.
 For the same reason abandoning a non-progressing execution is open to any
 session on its subject — the session that owned a stranded execution is by
-definition the one that is no longer there — while a live execution, or one
-whose owner is parked and still holding it, keeps its owner-only guard.
+definition the one that is no longer there. A live execution, or one whose
+owner is parked and still holding it, stops from another session only through
+a live steering seat. That abort settles nothing itself: it records a stop
+request, the receipt's `stop_request` names the owner session, and the owner's
+runner stops at its next case check-in or host heartbeat, cleans up its host
+and settles the execution under the steering reason. A waiting or
+awaiting-review execution has no runner driving it, so the steering abort
+settles it directly. Any other caller is refused with
+`qa_execution_stop_requires_steering`.
 
-That parked-owner exemption leaves one execution nobody can end. A member
+That parked-owner exemption leaves one execution that no session ends on its
+own. A member
 parked on a release wait holds an item-level execution its own walk opened,
 and when the run delivering that member scopes it a run-bound execution
 instead, the run-bound one produces the evidence while the item-level row
 stays live forever: the done gate reads any live item-level execution as
 unsettled, so the member can never close. Release settlement resolves it
-without touching the owner-only guard, because the only rows it takes are
+without any session's abort, because the only rows it takes are
 ones that recorded nothing at all — cursor still at zero and no
 `qa_plan_execution_results` row. Such a row carries no evidence, so aborting
 it discards none; it ends with `release_reason`
