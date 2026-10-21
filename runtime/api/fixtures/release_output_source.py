@@ -73,8 +73,8 @@ def insert_flow(conn: Any, flow_id: str, *, binds_own_trunk: bool = False) -> No
     conn.execute(
         "INSERT INTO deployment_flows("
         "id,project_id,name,description,stages,created_at,status,"
-        "definition_schema_version,takes_delivery_custody) "
-        "VALUES (%s,1,%s,'',%s,'2026-09-19T00:00:00Z','active',2,1)",
+        "definition_schema_version,takes_delivery_custody,target_tier) "
+        "VALUES (%s,1,%s,'',%s,'2026-09-19T00:00:00Z','active',2,1,'ephemeral')",
         (flow_id, flow_id, stages),
     )
     conn.commit()
