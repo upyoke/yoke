@@ -13,6 +13,7 @@ from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
 from yoke_core.domain.deployment_run_reopened_members import unready_item_ids
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
 
 
 def _item_label(conn, item_id: int, detail: str) -> str:
@@ -28,10 +29,9 @@ def _item_label(conn, item_id: int, detail: str) -> str:
 
 def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:
     status_of = {int(item_id): status for item_id, status in rows}
-    return [
-        _item_label(conn, item_id, f"status={status_of[item_id]}")
-        for item_id in unready_item_ids(conn, rows, allow_completed=allow_completed)
-    ]
+    unready = unready_item_ids(conn, rows, allow_completed=allow_completed)
+    ref = render_item_ref_lookup(conn, unready)
+    return [f"{ref(item_id)} (status={status_of[item_id]})" for item_id in unready]
 
 
 def cmd_check_batch_compatibility(
@@ -64,8 +64,9 @@ def cmd_check_batch_compatibility(
             tuple(item_ids) + (ident.id,),
         )
         if wrong_project:
+            ref = render_item_ref_lookup(conn, (row[0] for row in wrong_project))
             items_str = ", ".join(
-                _item_label(conn, row[0], f"project={row[1]}") for row in wrong_project
+                f"{ref(row[0])} (project={row[1]})" for row in wrong_project
             )
             errors.append(f"Project mismatch (batch expects {ident.slug}): {items_str}")
 
@@ -87,9 +88,11 @@ def cmd_check_batch_compatibility(
             co_scheduled_blocker_ids=item_ids,
         )
         if blocked:
+            ref = render_item_ref_lookup(
+                conn, [i for d, b, _ in blocked for i in (d, b)]
+            )
             items_str = ", ".join(
-                f"{render_item_ref(conn, int(dependent))} (blocked by "
-                f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
+                f"{ref(dependent)} (blocked by {ref(blocker)}: {verdict.reason})"
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")

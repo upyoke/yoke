@@ -91,15 +91,22 @@ def read_pinned_items(conn: Any, item_ids: Iterable[int]) -> dict[int, PinnedIte
         tuple(ids),
     ).fetchall()
     pinned: dict[int, PinnedItem] = {}
+    runtimes: dict[int, WorkflowRuntime] = {}
     for row in sorted((dict(row) for row in rows), key=lambda row: int(row["id"])):
         complete = all(
             row[key] is not None
             for key in ("workflow_id", "workflow_version_id", "version")
         )
+        runtime = None
+        if complete:
+            version_id = int(row["workflow_version_id"])
+            if version_id not in runtimes:
+                runtimes[version_id] = workflow_runtime_from_row(row)
+            runtime = runtimes[version_id]
         pinned[int(row["id"])] = PinnedItem(
             str(row["status"]),
             int(row["project_id"]),
-            workflow_runtime_from_row(row) if complete else None,
+            runtime,
         )
     return pinned
 

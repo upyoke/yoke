@@ -58,10 +58,9 @@ from yoke_core.domain.deployment_runs_batch_compatibility import (
     _not_delivery_ready,
 )
 from yoke_core.domain.deployment_source_reads import SourcePreparationChanged
-from yoke_core.domain.project_identity import (
-    render_item_ref,
-    resolve_project_slug,
-)
+from yoke_core.domain.project_identity import resolve_project_slug
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.deployment_start_timing import timed_preparation, start_step
 from yoke_core.domain.schema_read_scope import composition_operation
 
 
@@ -114,21 +113,25 @@ def cmd_validate_composition(
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
             # judge the commits this run will actually ship.
-            record_bound_sources(conn, run_id)
-            # Custody walks GitHub containment once per carried project, and
-            # every reader below needs the same answer. Resolving it here --
-            # after the bound sources it reads, before enrollment takes the run
-            # row -- is what keeps the network out of that lock: asking each
-            # reader to walk for itself put three round trips inside it, and a
-            # client that hibernated mid-walk pinned the row until a human
-            # terminated its backend. Custody excludes this run, so enrolling
-            # its own members cannot invalidate the answer.
-            custody = custody or resolve_candidate_custody(conn, run_id)
+            timed_preparation(
+                "validation_bound_sources", record_bound_sources, conn, run_id
+            )
+            # Resolve custody before enrollment takes the run row lock.
+            custody = custody or timed_preparation(
+                "validation_custody", resolve_candidate_custody, conn, run_id
+            )
             # Derived once: enrollment and the skipped notice read one answer.
             if not carried_enrollment_blocked(conn, run_id):
-                carried = carried_work_for_enrollment(conn, run_id)
-                enrollment = plan_carried_enrollment(
-                    conn, run_id, carried_work=carried, custody=custody
+                carried = timed_preparation(
+                    "validation_carried_work", carried_work_for_enrollment, conn, run_id
+                )
+                enrollment = timed_preparation(
+                    "validation_enrollment_plan",
+                    plan_carried_enrollment,
+                    conn,
+                    run_id,
+                    carried_work=carried,
+                    custody=custody,
                 )
             if enrollment is not None and enrollment.basis is None:
                 # This schema cannot prove an unlocked judgement current, so
@@ -166,6 +169,7 @@ def cmd_validate_composition(
             conn.close()
 
 
+@start_step("validation_judgement")
 def judge_composition(
     conn: Any,
     run_id: str,
@@ -202,8 +206,9 @@ def judge_composition(
         (run_id, *carried_projects),
     )
     if wrong_project:
+        ref = render_item_ref_lookup(conn, (row[0] for row in wrong_project))
         items_str = ", ".join(
-            _item_label(conn, row[0], f"project={row[1]}") for row in wrong_project
+            f"{ref(row[0])} (project={row[1]})" for row in wrong_project
         )
         carried_labels = ", ".join(
             resolve_project_slug(conn, project_id) for project_id in carried_projects
@@ -249,9 +254,9 @@ def judge_composition(
             for pair in pending_pairs
         ] + blocked
     if blocked:
+        ref = render_item_ref_lookup(conn, [i for d, b, _ in blocked for i in (d, b)])
         items_str = ", ".join(
-            f"{render_item_ref(conn, int(dependent))} (blocked by "
-            f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
+            f"{ref(dependent)} (blocked by {ref(blocker)}: {verdict.reason})"
             for dependent, blocker, verdict in blocked
         )
         errors.append(f"Unsatisfied hard-block dependencies: {items_str}")

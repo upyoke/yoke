@@ -44,7 +44,7 @@ from yoke_core.domain.schema_read_scope import composition_reads
 
 #: Readers of the composition judgement, which grow with the members.
 _JUDGEMENT_READERS = _MEMBER_READERS | {
-    "load_item_workflow_runtime",
+    "read_pinned_items",
     "unsatisfied_dependency_pairs",
     "companion_requirement_sets",
     "item_qa_membership_verdict",
@@ -92,7 +92,7 @@ def test_validation_holds_the_run_lock_for_the_same_statements_at_any_size(test_
         assert _members_of(test_db, run_id) == carried
         locked = recorder.after_lock()
         assert not _JUDGEMENT_READERS & set(locked), locked
-        assert "load_item_workflow_runtime" in recorder.before_lock()
+        assert "read_pinned_items" in recorder.before_lock()
         windows.append(locked)
     assert windows[0] == windows[1]
 
@@ -113,7 +113,7 @@ def test_validation_judges_again_when_a_candidate_changes_before_its_lock(
     (ok, message), recorder = _validate(test_db, run_id)
 
     # The unlocked judgement saw a candidate that is gone, so it is redone.
-    assert "load_item_workflow_runtime" in recorder.after_lock()
+    assert "read_pinned_items" in recorder.after_lock()
     assert ok, message
     assert f"Enrolled {len(carried) - 1} delivery-ready item(s)" in message
     assert _members_of(test_db, run_id) == carried[1:]
