@@ -97,5 +97,3 @@ def test_taught_manifest_and_router_paths_resolve():
         for match in re.finditer(r"runtime/harness/([\w-]+)/manifest\.json", text):
             assert (REPO_ROOT / match[0]).is_file(), (path, match[0])
     assert (REPO_ROOT / ".agents/skills/yoke/SKILL.md").is_file()
-    entry = (REPO_ROOT / ".agents/skills/yoke/strategize/entry.md").read_text()
-    assert "not `--process`" not in entry

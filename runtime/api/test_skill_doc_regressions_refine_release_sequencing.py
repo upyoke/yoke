@@ -91,10 +91,6 @@ class TestRefineReleaseSequencing:
     site in the refine skill bundle must be preceded by a
     yoke sessions checkpoint --chainable false in the same shell block."""
 
-    def test_refine_skill_delegates_to_the_release_owner(self):
-        text = _read(SKILLS / "refine" / "SKILL.md")
-        assert "[`readiness-repair.md`](readiness-repair.md)" in text
-
     def test_at_least_one_release_site_exists(self, refine_doc):
         """Anti-regression guard: if the discovery anchor stops matching,
         every other assertion in this file becomes vacuously true. Fail

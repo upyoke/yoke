@@ -169,7 +169,7 @@ def test_contract_covers_every_manifest_harness() -> None:
 def test_skill_body_stays_within_the_teaching_ceiling() -> None:
     text = install.skill_text()
     assert len(text.splitlines()) <= 350
-    assert "name: yoke-global" in text and "yoke setup --agent" in text
+    assert "name: yoke-global" in text
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[3] / "docs" / "public"

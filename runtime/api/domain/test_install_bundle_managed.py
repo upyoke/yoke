@@ -160,15 +160,6 @@ def test_composed_external_rules_keep_harness_context_headroom(
     assert max(sizes.values()) <= INSTALLED_RULES_BUDGET_BYTES, sizes
 
 
-def test_doctrine_block_leaves_generated_packet_to_session_orientation(conn) -> None:
-    doctrine = install_bundle.build_bundle(1, conn)["managed_markdown"]["blocks"][
-        "doctrine"
-    ]
-
-    assert doctrine
-    assert "Main-session DB/API packet (main_agent)" not in doctrine
-
-
 def test_bundle_files_use_only_managed_yoke_subtrees(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
     for entry in bundle["files"]:

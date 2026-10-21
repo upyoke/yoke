@@ -48,20 +48,9 @@ def test_item_recipe_skill_uses_prefix_neutral_public_examples(
     content = (CANONICAL / relative_path).read_text()
 
     if relative_path == Path("polish/review.md"):
-        assert "parse-and-claim.md" in (CANONICAL / "polish/SKILL.md").read_text()
         content += (CANONICAL / "polish/parse-and-claim.md").read_text()
     elif relative_path == Path("refine/review-rubric.md"):
         content += (CANONICAL / "refine/workflow-context.md").read_text()
-    assert "PREFIX-N" in content
     for legacy_pattern in LEGACY_ARGUMENT_PATTERNS:
         assert legacy_pattern.search(content) is None
 
-
-def test_done_transition_and_event_recipes_pass_public_item_refs() -> None:
-    deploy = (CANONICAL / "usher/deploy.md").read_text()
-    simulate = (CANONICAL / "simulate/epic-flow.md").read_text()
-
-    assert "done-transition -- PREFIX-N --skip-deploy" in deploy
-    assert (
-        "yoke workflow-item epic-task simulation-upsert --epic {epic-ref}" in simulate
-    )

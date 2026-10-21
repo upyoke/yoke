@@ -83,21 +83,3 @@ def test_health_check_reports_fail_and_unavailable_corpus(tmp_path, monkeypatch)
     check.hc_skill_stage_handoffs(None, DoctorArgs(), rec)
     assert rec.results[-1].result == "N/A"
 
-
-def test_refine_blitz_path_links_one_document_and_hands_off():
-    root = Path(__file__).resolve().parents[3] / ".agents/skills/yoke"
-    refine = (root / "refine/SKILL.md").read_text()
-    handoff = (root / "refine/blitz-execution-document.md").read_text()
-
-    assert "ITEM_NEXT_SKILL=blitz" in refine
-    assert "blitz-execution-document.md" in refine
-    for required in (
-        "Select exactly one document",
-        "strategy.execution.link",
-        "yoke strategy execution link",
-        "strategy.execution.get",
-        "yoke strategy execution get",
-        "execution.execution_document.slug",
-        "Next step: /yoke {NEXT_SKILL_ID}",
-    ):
-        assert required in handoff

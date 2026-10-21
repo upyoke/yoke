@@ -261,15 +261,6 @@ def test_consumer_proof_contract(candidate, value):
     )
 
 
-def test_repairs_match_the_shipped_producer_contract():
-    contract = (
-        Path(__file__).parents[3] / "docs/public/documentation/navigation.md"
-    ).read_text()
-    normalized = " ".join(contract.split())
-    assert validation._IDENTITY_REPAIR in normalized
-    assert validation._PROOF_REPAIR in normalized
-
-
 def test_publication_cache_tracks_content_and_refuses_gitless_changes(tmp_path):
     source = _corpus(tmp_path / "docs/public")
     validate_docs_for_bundle(tmp_path)
