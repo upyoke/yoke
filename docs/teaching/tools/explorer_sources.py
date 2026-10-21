@@ -120,6 +120,7 @@ def order_nodes(nodes):
                     'project', 'skills', 'roles', 'instructions', 'packets', 'help', 'feedback')
     sequences = {
         None: ['source:' + key for key in source_order],
+        'source:help': ['command:yoke', 'branch:command-groups'],
         'source:setup': ['installer:script', 'branch:agent-setup', 'branch:terminal-setup', 'branch:shared-setup'],
         'source:skills': ['skill:yoke-global', 'branch:project-skills'],
         'source:docs': ['branch:web-docs', 'branch:installed-docs', 'branch:doc-content'],

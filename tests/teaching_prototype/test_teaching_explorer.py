@@ -114,6 +114,12 @@ def test_command_map_includes_registered_operations(explorer):
     nodes = {node['id']: node for node in renderer.map_nodes(model)}
     for command in renderer.registered_commands():
         assert 'command:' + command in nodes
+    assert {n['id'] for n in nodes.values() if n['parent'] == 'source:help'} == {
+        'command:yoke', 'branch:command-groups'}
+    assert nodes['command:yoke actors']['parent'] == 'branch:command-groups'
+    assert nodes['help-output:yoke actors']['parent'] == 'command:yoke actors'
+    assert 'Usage: yoke actors' in nodes['help-output:yoke actors']['body']
+    assert nodes['command:yoke']['output_size']['estimated'] is False
     assert 'explore/explorer_graph.js' in views
 
 

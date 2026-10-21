@@ -21,7 +21,7 @@ function place(node, x, y, w, h, depth, color, focused = false) {
   Object.assign(node, {x, y, w, h, depth, color});
   const count = node.children.length;
   if (!count) return;
-  const cols = Math.min(count, Math.ceil(Math.sqrt(count * w / (h * .7) / 1.6)));
+  const cols = Math.min(count, Math.max(1, Math.floor(w / 260)));
   const rows = Math.ceil(count / cols);
   const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
   const top = focused ? 210 : h * .25;
@@ -46,7 +46,11 @@ function zoom(factor, x = map.clientWidth / 2, y = map.clientHeight / 2) {
 }
 function fit(node) {
   // Reflow the selected subtree to the viewport instead of preserving a narrow tile.
-  place(node, 24, 62, map.clientWidth - 48, Math.max(240, map.clientHeight - 145),
+  const width = map.clientWidth - 48;
+  const columns = Math.max(1, Math.floor(width / 260));
+  const rows = Math.ceil(node.children.length / columns);
+  const height = Math.max(240, map.clientHeight - 145, 232 + rows * 200);
+  place(node, 24, 62, width, height,
     node.depth, node.color, true);
   camera = {z: 1, x: 0, y: 0};
 }
@@ -99,9 +103,13 @@ function makeNode(node) {
   context.title = node.type_hint;
   el.append(context);
   el.append(heading);
-  if (!node.parent) {
+  if (node.children.length) {
     const preview = text('div', '', 'preview-children');
-    node.children.slice(0, 2).forEach(child => preview.append(text('span', child.title)));
+    node.children.slice(0, 8).forEach(child => {
+      const entry = text('button', child.title);
+      entry.onclick = () => choose(child);
+      preview.append(entry);
+    });
     el.append(preview);
   }
   el.onpointerenter = () => { hovered = node; requestRender(); };

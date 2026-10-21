@@ -258,3 +258,5 @@ public documents follow nav.yaml; skills and roles follow their workflow groups.
 Harness-specific orientation cards show prominent applicability badges and delivery timing: Codex / Claude Code on the first prompt, Cursor only at session start.
 
 Alternate install-mode cards expose the actual setup subtree in place. Cross-map navigation retains a Back button to the previous view.
+
+Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; large focused collections extend vertically for readable cards.

@@ -105,19 +105,54 @@ def map_nodes(model):
             role_ids.add('role:' + path.parent.name)
         document(add, 'role-file:' + path.relative_to(repo / 'runtime/agents').as_posix(),
                  path, 'role:' + path.parent.name, 'Role reference')
-    commands = {}
-    for command in registered_commands():
-        commands.setdefault(command, [])
+    from io import StringIO
+    from yoke_cli.commands.command_tree import render_root_help
+    from yoke_cli.commands.group_help import emit_group_help_if_available
+    commands = set(registered_commands())
     prefixes = {'yoke'}
     for command in commands:
         words = command.split()
         prefixes.update(' '.join(words[:n]) for n in range(1, len(words) + 1))
+    add('branch:command-groups', 'Command groups', 'source:help',
+        'Browse named groups, their help output, subgroups and individual commands.')
     for command in sorted(prefixes):
         parent = command.rpartition(' ')[0]
+        is_group = any(value.startswith(command + ' ') for value in prefixes)
         node = add('command:' + command, command,
-                   'command:' + parent if parent else 'source:help',
+                   ('source:help' if command == 'yoke' else 'branch:command-groups'
+                    if parent == 'yoke' else 'command:' + parent),
                    'Run ' + command + ' --help for current options and recipes.')
-        node['related'] = commands.get(command, [])
+        if command == 'yoke':
+            node.update(title='yoke --help', body=render_root_help(),
+                        form=('reply', 'Main help', 'Actual root help output'))
+        elif is_group:
+            output = StringIO()
+            emit_group_help_if_available(command.split()[1:] + ['--help'], stream=output)
+            help_node = add('help-output:' + command, command + ' --help', node['id'],
+                            'The help output for this command group.')
+            help_node.update(body=output.getvalue(), order=-1,
+                             form=('reply', 'Group help output', command + ' --help'))
+        else:
+            continue
+        output_node = node if command == 'yoke' else help_node
+        content = output_node['body']
+        output_node['output_size'] = dict(lines=[len(content.splitlines())] * 2,
+            bytes=[len(content.encode())] * 2, estimated=False, variable=False,
+            basis='Rendered by the CLI help formatter; UTF-8 output.')
+        marker = ('Categories and actions (open --help for each):' if command == 'yoke'
+                  else 'Immediate children (open --help for recipes and options):')
+        intro, separator, rest = content.partition(marker)
+        listing, gap, guidance = rest.partition('\n\n')
+        for key, title, prose in (('usage', 'Usage and getting started', intro),
+                                   ('children', 'Available commands', separator + listing),
+                                   ('guidance', 'Options and guidance', guidance)):
+            if not prose.strip():
+                continue
+            child = add(output_node['id'] + ':text:' + key, title, output_node['id'])
+            child.update(body=prose.strip(), form=('section', 'Help text', title),
+                         output_size=dict(lines=[len(prose.splitlines())] * 2,
+                         bytes=[len(prose.encode())] * 2, estimated=False, variable=False,
+                         basis='Section of rendered help output.'))
     nodes = list({node['id']: node for node in nodes}.values())
     nodes.sort(key=lambda n: (n['id'] != 'doc:docs/public/index.md', n.get('order', 0)))
     by_id = {node['id']: node for node in nodes}
