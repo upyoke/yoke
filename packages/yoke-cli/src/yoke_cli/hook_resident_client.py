@@ -12,11 +12,7 @@ from pathlib import Path
 
 from yoke_cli import hook_resident_paths as _resident_paths
 from yoke_contracts import platform_file_lock
-from yoke_contracts.hook_budget import (
-    TOTAL_TIMEOUT_ENV,
-    harness_budget_ceiling_ms,
-    hook_budget_ms,
-)
+from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_contracts.hook_evaluator_protocol import (
     HookClientWallReport,
@@ -67,12 +63,16 @@ class ResidentUnavailable(RuntimeError):
         super().__init__(f"{code}: {detail}")
 
 
-def _wait_deadline(client_started_monotonic: float | None) -> float:
-    """When this hook process stops waiting: the harness ceiling from its start."""
-    started = client_started_monotonic
-    if started is None:
-        started = time.monotonic()
-    return started + harness_budget_ceiling_ms() / 1000.0
+def _budget_deadline(
+    environment: dict[str, str], client_started_monotonic: float | None
+) -> float:
+    """When this hook process's budget ends, measured from its own start."""
+    started = (
+        time.monotonic()
+        if client_started_monotonic is None
+        else client_started_monotonic
+    )
+    return started + hook_budget_ms(environment) / 1000.0
 
 
 def _request(
@@ -109,12 +109,6 @@ def _connect(paths: ResidentPaths, deadline: float) -> socket.socket:
     return peer
 
 
-def _evaluation_budget_ms(environment: dict[str, str], remaining: float) -> int:
-    """The configured evaluation budget, shortened to fit what the wait left."""
-    left_ms = int((remaining - _SETTLEMENT_SECONDS) * 1000)
-    return max(1, min(hook_budget_ms(environment), left_ms))
-
-
 def _exchange(
     peer: socket.socket,
     request: HookEvaluatorRequest,
@@ -126,7 +120,7 @@ def _exchange(
     payload = request.to_mapping()
     payload["environment"] = {
         **request.environment,
-        TOTAL_TIMEOUT_ENV: str(_evaluation_budget_ms(request.environment, remaining)),
+        TOTAL_TIMEOUT_ENV: str(max(1, int((remaining - _SETTLEMENT_SECONDS) * 1000))),
     }
     peer.settimeout(max(0.001, remaining))
     send_frame(peer, payload)
@@ -272,10 +266,12 @@ def evaluate_with_resident(
     client_timing_id: str = "",
     client_started_monotonic: float | None = None,
 ) -> ResidentEvaluation:
-    """Evaluate through the resident within the harness ceiling, or raise why not.
+    """Evaluate through the resident inside the hook budget, or raise why not.
 
-    A cold resident listens before loading, so the caller waits on it rather
-    than loading a second evaluator; a launched one that dies ends the wait.
+    The resident listens before it loads the evaluator, so a cold one is
+    reachable at once: the caller waits on it rather than loading a second
+    evaluator beside it. A launched resident that exits before listening
+    ends the wait at once.
     """
     paths = resident_paths()
     if not resident_transport_available():
@@ -285,7 +281,7 @@ def evaluate_with_resident(
             log_path=paths.log,
         )
     request = _request(event_name, stdin_data, dry_run, client_timing_id)
-    deadline = _wait_deadline(client_started_monotonic)
+    deadline = _budget_deadline(request.environment, client_started_monotonic)
     started = time.monotonic()
     launched: subprocess.Popen | None = None
     start_attempted = False

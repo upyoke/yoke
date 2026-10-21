@@ -1,9 +1,8 @@
-"""A cold or stuck resident never holds a hook past the harness ceiling.
+"""A cold or stuck resident never holds a hook past its budget.
 
-The hook process waits at most the harness ceiling from its own start, which
-ends before every harness's hook timeout; the evaluation itself keeps
-``YOKE_HOOK_TOTAL_TIMEOUT_MS``. The resident listens before it loads the
-evaluator, so a cold one is waited on, not duplicated.
+The budget is ``YOKE_HOOK_TOTAL_TIMEOUT_MS`` from the hook process's own
+start, capped below every harness's hook timeout. The resident listens
+before it loads the evaluator, so a cold one is waited on, not duplicated.
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ import socket
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 from pathlib import Path
 from unittest.mock import Mock
@@ -46,18 +44,11 @@ def paths(monkeypatch):
         log=state_dir / "r.log",
     )
     monkeypatch.setattr(client, "resident_paths", lambda: resident)
-    _ceiling(monkeypatch, 1000)
+    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
     yield resident
     for path in state_dir.iterdir():
         path.unlink()
     state_dir.rmdir()
-
-
-def _ceiling(monkeypatch, ms: int) -> None:
-    monkeypatch.setattr(client, "harness_budget_ceiling_ms", lambda: ms)
-    monkeypatch.setattr(
-        "yoke_contracts.hook_budget.harness_budget_ceiling_ms", lambda: ms
-    )
 
 
 def _launch(monkeypatch, code: str) -> list[subprocess.Popen]:
@@ -111,47 +102,13 @@ def test_a_resident_that_never_listens_ends_inside_the_budget(
 def test_a_launched_resident_that_exits_ends_the_wait_at_once(
     paths, monkeypatch
 ) -> None:
-    _ceiling(monkeypatch, 8000)
+    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "8000")
     _launch(monkeypatch, "raise SystemExit(3)")
     error, elapsed = _evaluate()
     assert error.code == "YOKE_HOOK_RESIDENT_START_FAILED"
     assert "status 3" in error.detail
     assert str(paths.log) == str(error.log_path)
     assert elapsed < 4.0, f"waited {elapsed:.2f}s for a dead resident"
-
-
-def test_a_cold_load_longer_than_the_evaluation_budget_is_waited_out(
-    paths, monkeypatch
-) -> None:
-    # The resident loads for 1.5s; the evaluation budget is 1s, the wait 3s.
-    _ceiling(monkeypatch, 3000)
-    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
-    loading = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    loading.bind(str(paths.socket))
-    loading.listen(8)
-    received: dict = {}
-
-    def answer_once_loaded() -> None:
-        time.sleep(1.5)
-        peer, _ = loading.accept()
-        with peer:
-            received.update(receive_frame(peer))
-            send_frame(
-                peer, {"status": "ok", "stdout": "ok", "stderr": "", "exit_code": 0}
-            )
-
-    thread = threading.Thread(target=answer_once_loaded)
-    thread.start()
-    try:
-        result = client.evaluate_with_resident(
-            "PreToolUse", "{}", client_started_monotonic=time.monotonic()
-        )
-    finally:
-        thread.join(timeout=5)
-        loading.close()
-    assert result.stdout == "ok" and result.resident_wait_ms >= 1400
-    # The evaluation keeps its own budget, shortened only by what the wait left.
-    assert 0 < int(received["environment"]["YOKE_HOOK_TOTAL_TIMEOUT_MS"]) <= 1000
 
 
 def test_a_resident_that_only_ever_restarts_gives_up_inside_the_budget(
@@ -245,7 +202,7 @@ def test_a_spent_budget_refuses_by_name_instead_of_falling_back(
     monkeypatch, tmp_path, capsys
 ) -> None:
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    _ceiling(monkeypatch, 1000)
+    monkeypatch.setenv("YOKE_HOOK_TOTAL_TIMEOUT_MS", "1000")
     monkeypatch.setenv("YOKE_EXECUTOR", "claude-code")
     # The hook process already spent its whole budget waiting on the resident.
     monkeypatch.setattr("yoke_cli.hook_client_wall._process_age", lambda: 1.5)

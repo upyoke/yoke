@@ -87,9 +87,9 @@ and prove it with a dry evaluation, so a first session meets a warm evaluator;
 otherwise the client starts it on demand. It binds its socket before importing
 the evaluator, so callers during a cold start queue and are answered once it
 loads. It retires after ten idle minutes; a request for a different installed
-revision closes acceptance and re-execs, naming both revisions. In-flight
-handlers join before close; shutdown drains observations once for two seconds,
-warns on timeout, and continues.
+revision closes acceptance and re-execs, naming both revisions. Shutdown lets
+in-flight evaluations finish for up to five seconds, drains observations once for
+two seconds, warns on timeout, and continues.
 
 Socket/protocol/startup/crash failures use the canonical in-process evaluator,
 limited to the budget left. A named stderr warning is rate-limited across
@@ -102,17 +102,20 @@ an idle retirement is normal, and the next hook restarts it.
 
 ### Deadlines and degradation
 
-A hook process waits for its answer at most the harness ceiling: 5 seconds below
-the shortest manifest `machine_hooks.hook_timeout_seconds`, measured from the
-process's own start (`yoke_contracts.hook_budget`). A cold resident's load is
-waited out inside that ceiling. The evaluation itself keeps
-`YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms), shortened to what the wait left.
-A launched resident that exits before listening ends the wait
-(`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two seconds,
-the hook skips the fallback: `hook_budget_exhausted` with reason, log and
+One hook process has one budget: `YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms)
+from the process's own start, capped 5 seconds below the shortest manifest
+`machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
+starting, restart handshakes and the answer all spend it; the resident evaluates
+inside what is left. A launched resident that exits before listening ends the
+wait (`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two
+seconds, the hook skips the fallback: `hook_budget_exhausted` with reason, log and
 `yoke hook resident restart`: lifecycle events degrade to an allow with that
-warning, tool events refuse. A resident still loading exits at once on SIGTERM,
-and a restart accepts a resident a live hook launched once the old one exits.
+warning, tool events refuse.
+
+`yoke hook resident stop` and `restart` send SIGTERM, then SIGKILL after ten
+seconds to residents proven by their start time; a resident still loading exits
+at once. A failure names a still-running pid or a held start lock, each with its
+own recovery. A restart accepts a resident a live hook launched meanwhile.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies

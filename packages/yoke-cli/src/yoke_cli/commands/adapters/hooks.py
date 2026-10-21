@@ -171,13 +171,9 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
             client_started_monotonic=client_timing.started_monotonic,
         )
     except ResidentUnavailable as exc:
-        from yoke_contracts.hook_budget import (
-            TOTAL_TIMEOUT_ENV,
-            harness_budget_ceiling_ms,
-            hook_budget_ms,
-        )
+        from yoke_contracts.hook_budget import TOTAL_TIMEOUT_ENV, hook_budget_ms
 
-        remaining_ms = harness_budget_ceiling_ms() - client_timing.elapsed_ms()
+        remaining_ms = hook_budget_ms(os.environ) - client_timing.elapsed_ms()
         # Refuse only when waiting on the resident spent the budget; with no
         # resident to wait on, the in-process evaluator is the only path.
         if exc.resident_wait_ms > 0 and remaining_ms < MINIMUM_FALLBACK_MS:
@@ -202,9 +198,7 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
         fallback_ms: list[int] = []
         # The fallback spends only what is left of this process's budget.
         configured = os.environ.get(TOTAL_TIMEOUT_ENV)
-        os.environ[TOTAL_TIMEOUT_ENV] = str(
-            max(1, min(hook_budget_ms(os.environ), remaining_ms))
-        )
+        os.environ[TOTAL_TIMEOUT_ENV] = str(max(1, remaining_ms))
         try:
             exit_code = _evaluate_inprocess(
                 parsed.event_name,

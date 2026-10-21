@@ -38,13 +38,16 @@ from yoke_contracts.hook_resident_routing import (
 
 
 _SERVER_POLL_SECONDS = 0.25
+_DRAIN_SECONDS = 5.0
 RESTART_FOR_INSTALLED_REVISION = "restart"
 RETIRED_WHILE_IDLE = "idle"
 
 
 class _ResidentServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
-    daemon_threads = False
-    block_on_close = True
+    # Shutdown drains in-flight evaluations for a bounded time; any still
+    # running then end with the process instead of holding it open.
+    daemon_threads = True
+    block_on_close = False
     allow_reuse_address = True
     # Hooks that connect while the evaluator loads wait here, not in a fallback.
     request_queue_size = 128
@@ -285,16 +288,13 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
     server = _ResidentServer(str(socket_path), lock_fd)
     socket_path.chmod(0o600)
 
-    def stop(_signum=None, _frame=None) -> None:
-        server.stop_event.set()
-
     restart = False
     try:
         # Until the evaluator loads, SIGTERM keeps its default and ends the
         # process at once: nothing is in flight, and queued callers retry.
         server.load_evaluator()
-        signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGINT, stop)
+        signal.signal(signal.SIGTERM, lambda *_: server.stop_event.set())
+        signal.signal(signal.SIGINT, lambda *_: server.stop_event.set())
         while not server.stop_event.is_set():
             reason = _exit_reason(server)
             if reason is not None:
@@ -302,9 +302,10 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
                 break
             server.handle_request()
     finally:
-        # In-flight evaluations finish first: handler threads are non-daemon
-        # and ``block_on_close`` joins them here.
         server.server_close()
+        drained_by = time.monotonic() + _DRAIN_SECONDS
+        while server.active_requests and time.monotonic() < drained_by:
+            time.sleep(0.05)
         if hasattr(server, "observations"):  # the evaluator finished loading
             if not server.observations.close(drain_timeout=2.0):
                 from yoke_harness import hook_observation_delivery as delivery

@@ -15,7 +15,9 @@ from yoke_contracts.process_ancestry import process_command_name, process_start_
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 
 LIFECYCLE_USAGE = "yoke hook resident {restart|stop}"
-_STOP_SECONDS = 20.0
+# SIGTERM grace, then SIGKILL for residents proven by their start time.
+_STOP_SECONDS = 10.0
+_KILL_SECONDS = 5.0
 # Covers a cold evaluator import on a small machine; setup and installs wait here.
 _START_SECONDS = 60.0
 _RETRY_SECONDS = 0.05
@@ -26,11 +28,15 @@ class ResidentLifecycleError(RuntimeError):
 
 
 def _failure(
-    code: str, detail: str, paths: client.ResidentPaths
+    code: str, detail: str, paths: client.ResidentPaths, recovery: str = ""
 ) -> ResidentLifecycleError:
     return ResidentLifecycleError(
-        f"{code}: {detail}; inspect {paths.log}, then run "
-        "yoke hook resident restart. For uninstall, close hook callers and retry uninstall."
+        f"{code}: {detail}; "
+        + (
+            recovery
+            or f"inspect {paths.log}, then run yoke hook resident restart. "
+            "For uninstall, close hook callers and retry uninstall."
+        )
     )
 
 
@@ -72,10 +78,34 @@ def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, str]]:
     return residents
 
 
+def _signal(
+    residents: list[tuple[int, str]], signum: int, paths: client.ResidentPaths
+) -> None:
+    for pid, started in residents:
+        if process_start_time(pid) != started:
+            continue
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            pass
+        except OSError as exc:
+            raise _failure("YOKE_HOOK_RESIDENT_STOP_FAILED", str(exc), paths) from None
+
+
+def _wait_for_exit(residents: list[tuple[int, str]], seconds: float) -> list[int]:
+    """The proven residents still running once they exit or the wait ends."""
+    deadline = time.monotonic() + seconds
+    while True:
+        alive = [pid for pid, started in residents if process_start_time(pid) == started]
+        if not alive or time.monotonic() >= deadline:
+            return alive
+        time.sleep(_RETRY_SECONDS)
+
+
 def stop_resident(
     paths: client.ResidentPaths | None = None, *, require_lock_release: bool = True
 ) -> None:
-    """Signal only proven residents and wait for process exit and lock release.
+    """Stop proven residents, escalating to SIGKILL, and name what remains.
 
     A restart passes ``require_lock_release=False``: once the old residents
     exit, a resident a live hook launched meanwhile already runs the
@@ -85,36 +115,41 @@ def stop_resident(
         return
     paths = paths or client.resident_paths()
     residents = _resident_processes(paths)
-    for pid, started in residents:
-        if process_start_time(pid) != started:
-            continue
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        except OSError as exc:
-            raise _failure("YOKE_HOOK_RESIDENT_STOP_FAILED", str(exc), paths) from None
-    deadline = time.monotonic() + _STOP_SECONDS
+    _signal(residents, signal.SIGTERM, paths)
     if residents:
         announce_designed_wait(
             "hook evaluator exit and lock release",
-            max_wait_seconds=_STOP_SECONDS,
+            max_wait_seconds=_STOP_SECONDS + 2 * _KILL_SECONDS,
             cadence=poll_every(_RETRY_SECONDS),
         )
+    alive = _wait_for_exit(residents, _STOP_SECONDS)
+    if alive:
+        _signal(residents, signal.SIGKILL, paths)
+        alive = _wait_for_exit(residents, _KILL_SECONDS)
+    if alive:
+        raise _failure(
+            "YOKE_HOOK_RESIDENT_STOP_TIMEOUT",
+            f"evaluator process {', '.join(map(str, alive))} is still running "
+            "after SIGKILL",
+            paths,
+            "the process is stuck in the kernel; restart this machine, then "
+            "run yoke hook resident restart",
+        )
+    if not require_lock_release:
+        return
+    deadline = time.monotonic() + _KILL_SECONDS
     while time.monotonic() < deadline:
-        alive = any(process_start_time(pid) == started for pid, started in residents)
-        if not alive and not require_lock_release:
+        lock_fd = client._open_start_lock(paths.lock)
+        if lock_fd is not None:
+            os.close(lock_fd)
             return
-        if not alive:
-            lock_fd = client._open_start_lock(paths.lock)
-            if lock_fd is not None:
-                os.close(lock_fd)
-                return
         time.sleep(_RETRY_SECONDS)
     raise _failure(
-        "YOKE_HOOK_RESIDENT_STOP_TIMEOUT",
-        "the evaluator did not exit or another hook caller holds its lock",
+        "YOKE_HOOK_RESIDENT_LOCK_HELD",
+        f"every evaluator exited, but another hook caller holds {paths.lock}",
         paths,
+        "close the harness sessions on this machine so no hook starts a new "
+        "evaluator, then retry",
     )
 
 
