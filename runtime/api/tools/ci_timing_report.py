@@ -85,7 +85,7 @@ def endpoint_metrics(root: Path, reports: Path, python: str, shards: int) -> dic
 def report(root: Path, run: dict, jobs: list[dict], coverage: dict, reports: Path) -> dict:
     if run["status"] != "completed" or run["conclusion"] != "success":
         raise ValueError("use a completed successful run; an active run is not timing evidence")
-    if coverage["run_id"] != run["databaseId"]:
+    if coverage["run_id"] != run["id"]:
         raise ValueError("coverage artifact belongs to a different run")
     if any(job["status"] != "completed" for job in jobs):
         raise ValueError("job metadata is incomplete")
@@ -95,10 +95,10 @@ def report(root: Path, run: dict, jobs: list[dict], coverage: dict, reports: Pat
         for python in coverage["coverage"]["python"]
     }
     return {
-        "run_url": run["url"], "run_id": run["databaseId"],
-        "head_commit": run["headSha"], "tested_commit": coverage["commit"],
+        "run_url": run["html_url"], "run_id": run["id"],
+        "head_commit": run["head_sha"], "tested_commit": coverage["commit"],
         "tested_tree": coverage["tree"], "executed_full_suite": True,
-        "workflow_seconds": seconds(run["createdAt"], max(j["completed_at"] for j in jobs)),
+        "workflow_seconds": seconds(run["created_at"], max(j["completed_at"] for j in jobs)),
         "runner_minutes": sum(j["total_seconds"] for j in metrics) / 60,
         "rounded_runner_minutes_estimate": sum(math.ceil(j["total_seconds"] / 60) for j in metrics),
         "billing_note": "Runner consumption estimate, not an invoice; excludes queue time and account discounts.",

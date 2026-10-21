@@ -21,9 +21,9 @@ def evidence(tmp_path):
         'CI runner capacity: {"cpu_count": 4}\n'
     )
     run = {
-        "status": "completed", "conclusion": "success", "databaseId": 1,
-        "url": "https://example.test/run", "headSha": "a" * 40,
-        "createdAt": "2026-01-01T00:00:00Z",
+        "status": "completed", "conclusion": "success", "id": 1,
+        "html_url": "https://example.test/run", "head_sha": "a" * 40,
+        "created_at": "2026-01-01T00:00:00Z",
     }
     job = {
         "name": "test-shard", "conclusion": "success", "status": "completed",

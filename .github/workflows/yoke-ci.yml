@@ -70,6 +70,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
 
+      - name: Build portable product wheels
+        run: uv run python -m yoke_core.tools.ci_product_wheels --output "$RUNNER_TEMP/product-wheels"
+
+      - name: Share exact-commit product wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-wheels
+          path: ${{ runner.temp }}/product-wheels
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Refresh shard timing profile from retained CI reports
         continue-on-error: true # Missing telemetry leaves the committed profile usable.
         env:
@@ -128,38 +139,10 @@ jobs:
           retention-days: 1
           overwrite: true
           if-no-files-found: error
-  product_wheels:
-    timeout-minutes: 5
-    needs: reuse_coverage
-    if: ${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}
-    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with: {fetch-depth: 0}
-      - name: Read the supported build interpreter
-        id: fan_out
-        run: >-
-          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
-          yoke_core.tools.ci_shards fan-out --write-github-output
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: ${{ steps.fan_out.outputs.python_latest }}
-      - name: Build portable product wheels
-        run: |
-          python -m pip install uv
-          uv sync --all-packages --all-groups --locked
-          uv run python -m yoke_core.tools.ci_product_wheels --output "$RUNNER_TEMP/product-wheels"
-      - name: Share exact-commit product wheels
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: product-wheels
-          path: ${{ runner.temp }}/product-wheels
-          retention-days: 7
-          if-no-files-found: error
   test_shard:
     timeout-minutes: 35
     name: test-shard
-    needs: [repo_contracts, reuse_coverage, product_wheels]
+    needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:

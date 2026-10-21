@@ -48,8 +48,8 @@ GitHub-sync test databases clone the existing per-worker production schema
 template rather than replaying schema DDL for every case; their project and
 actor seeds and connection-close isolation remain per case.
 
-Full CI builds portable product wheels once in `product_wheels`, in parallel
-with repository contracts after the reuse decision. Selection CI builds them
+Full CI builds portable product wheels once in `repo-contracts`, using its
+already prepared build interpreter. Selection CI builds them
 in its plan job and includes them beside the shared timing profile in the
 existing `ci-test-durations` artifact. The product directory contains exactly the four
 `py3-none-any` product wheels plus a manifest with the actual checkout commit,
@@ -63,7 +63,8 @@ core-only clean installation proof still runs. No virtualenv crosses jobs.
 incompatible artifacts refuse as `ci_product_wheels_invalid` and name the
 rebuild/download recovery; an explicit artifact never silently falls back to
 a local build. Without this variable, local tests retain their existing
-locked, per-run build. A reused CI tree skips the product producer with pytest.
+locked, per-run build. Repository contracts and portable-wheel construction
+remain required on reused trees; pytest and its per-job installations are skipped.
 
 Wheel smokes share one session virtual environment, synchronized across xdist
 workers with a file lock. The fixture proves the core-only dependency closure
@@ -77,10 +78,11 @@ The eight import-graph scenarios remain eight parametrized cases in
 
 ## Reproduce a timing comparison
 
-Save one completed run with `gh run view RUN --repo OWNER/REPO --json
-status,conclusion,databaseId,url,headSha,createdAt,jobs`, and save its raw jobs
-from `gh api 'repos/OWNER/REPO/actions/runs/RUN/jobs?per_page=100'` (include all
-pages if the workflow grows beyond that). Download `pytest-output-*` and
+Save the completed run object from GitHub's
+[workflow run REST endpoint](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+as `RUN.json`. Save the complete `jobs` array and pagination envelope from the
+[workflow jobs REST endpoint](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run)
+as `JOBS.json`; include every page. Download `pytest-output-*` and
 `yoke-ci-coverage-*` artifacts from that same run. Then execute:
 
 ```text
