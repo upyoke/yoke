@@ -185,8 +185,15 @@ class TestResolveTarget:
         assert result == ("persistent", 202, "preview")
 
     def test_no_default_returns_empty(self, db_path):
+        with _conn(db_path) as conn:
+            conn.execute(
+                "INSERT INTO deployment_flows "
+                "(id,project_id,name,stages,target_tier,target_environment_id) "
+                "VALUES ('merge-only',1,'Merge only','[]',NULL,NULL)"
+            )
+            conn.commit()
         result = dr.cmd_resolve_target(
-            "yoke", "yoke-internal", db_path=db_path,
+            "yoke", "merge-only", db_path=db_path,
         )
         assert result == ("", None, "")
 
