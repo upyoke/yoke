@@ -89,7 +89,7 @@ def test_accumulated_windows_are_named_when_direct_terminal_control_works(
     monkeypatch.setattr(
         "yoke_harness.ssh_mac_terminal_bridge_diagnose."
         "terminal_system_events_automation",
-        lambda _run: TerminalAutomationProbe(
+        lambda _run, **kw: TerminalAutomationProbe(
             TERMINAL_WINDOW_ACCUMULATION_ERROR_CODE,
             "terminal_window_accumulation:241: Terminal.app command timed out",
             241,

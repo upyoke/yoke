@@ -56,7 +56,7 @@ def test_terminal_case_refuses_before_opening_its_window(
     monkeypatch.setattr(
         "yoke_core.domain.ssh_mac_terminal_app_recipe."
         "terminal_system_events_automation",
-        lambda _run: TerminalAutomationProbe(
+        lambda _run, **kw: TerminalAutomationProbe(
             MISSING,
             "automation_missing:Terminal->System Events: (-1743)",
             diagnostics={"tcc_log": {"output": "pending consent"}},
@@ -204,8 +204,10 @@ def test_timeout_snapshots_process_and_tcc_before_stopping_tree(monkeypatch):
             assert "--last 30s" in command and "com.apple.TCC" in command
             assert "pipefail" in command and "tail -c 8192" in command
             return _completed_output(
-                "-----BEGIN PRIVATE KEY-----hidden-----END PRIVATE KEY----- "
+                "oldest message "
                 + "x" * 9000
+                + " -----BEGIN PRIVATE KEY-----hidden-----END PRIVATE KEY----- "
+                + "host-credential LATEST_TCC_DECISION"
             )
         if command.startswith("/usr/bin/base64"):
             return _completed_output(
@@ -213,13 +215,17 @@ def test_timeout_snapshots_process_and_tcc_before_stopping_tree(monkeypatch):
             )
         return _completed_output("")
 
-    probe = automation_probe.terminal_system_events_automation(run)
+    probe = automation_probe.terminal_system_events_automation(
+        run, secret_values=("host-credential",)
+    )
     assert probe.error_code == TIMEOUT
     assert order == ["ps", "tcc", "stop", "close"]
     assert "123 00:30 S" in probe.diagnostics["system_events_process"]["output"]
     log = probe.diagnostics["tcc_log"]["output"]
     assert len(log) <= 512 and "hidden" not in log
     assert "[REDACTED]" in log
+    assert log.endswith("LATEST_TCC_DECISION")
+    assert "host-credential" not in log and "oldest message" not in log
     assert automation_probe.AUTOMATION_PROBE_TIMEOUT_SECONDS == 15
 
 
@@ -269,3 +275,29 @@ def test_apple_event_timeout_keeps_diagnostics_before_window_cleanup(monkeypatch
     assert result.error_code == TIMEOUT
     assert order == ["ps", "tcc", "close"]
     assert result.diagnostics["tcc_log"]["output"] == "snapshot"
+
+
+def test_diagnostic_redacts_secret_before_selecting_tail():
+    from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
+
+    secret = "z" * 700
+    output = bounded_machine_qa_diagnostic(
+        "old " * 400 + secret + " latest decision", (secret,), tail=True
+    )
+    assert len(output) == 512
+    assert output.startswith("…")
+    assert output.endswith("[REDACTED] latest decision")
+    assert "z" not in output
+
+
+def test_timeout_diagnostics_redact_stdout_and_stderr():
+    def run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            [], 1, "host-credential", "host-credential denied"
+        )
+
+    rows = automation_probe._timeout_diagnostics(run, ("host-credential",))
+    for row in rows.values():
+        assert row["output"] == "[REDACTED]"
+        assert row["stderr"] == "[REDACTED] denied"
+        assert row["reason"] == "terminal_automation_diagnostic_unavailable"

@@ -83,6 +83,7 @@ def control_for(mac):
     control = object.__new__(ssh_mac_transport.SshMacTransport)
     control._run = mac
     control._user = "yoke-test"
+    control.secret_values = ()
     return control
 
 

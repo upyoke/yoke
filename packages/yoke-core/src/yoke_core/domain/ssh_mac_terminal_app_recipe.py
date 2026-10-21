@@ -111,7 +111,7 @@ def run_terminal_app_recipe(
         )
     # Without Terminal -> System Events, the approval helper and GUI-session
     # commands block on a consent prompt until their own timeout; refuse now.
-    automation = terminal_system_events_automation(run)
+    automation = terminal_system_events_automation(run, secret_values=secret_values)
     if automation.error_code is not None:
         return _failure(
             automation.error_code,

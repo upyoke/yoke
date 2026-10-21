@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import shlex
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
@@ -52,7 +52,9 @@ class TerminalAutomationProbe:
         return self.error_code is None
 
 
-def _timeout_diagnostics(run: RunRemote) -> dict[str, Any]:
+def _timeout_diagnostics(
+    run: RunRemote, secret_values: Sequence[str]
+) -> dict[str, Any]:
     """Snapshot live process state and bounded TCC history before cleanup."""
     commands = {
         "system_events_process": shlex.join(
@@ -80,8 +82,10 @@ def _timeout_diagnostics(run: RunRemote) -> dict[str, Any]:
             result = run(command, timeout=5)
             evidence[name] = {
                 "exit_code": result.returncode,
-                "output": bounded_machine_qa_diagnostic(result.stdout),
-                "stderr": bounded_machine_qa_diagnostic(result.stderr),
+                "output": bounded_machine_qa_diagnostic(
+                    result.stdout, secret_values, tail=name == "tcc_log"
+                ),
+                "stderr": bounded_machine_qa_diagnostic(result.stderr, secret_values),
             }
             if result.returncode:
                 evidence[name].update(
@@ -97,12 +101,14 @@ def _timeout_diagnostics(run: RunRemote) -> dict[str, Any]:
     return evidence
 
 
-def terminal_system_events_automation(run: RunRemote) -> TerminalAutomationProbe:
+def terminal_system_events_automation(
+    run: RunRemote, *, secret_values: Sequence[str] = ()
+) -> TerminalAutomationProbe:
     """Ask System Events to act from inside Terminal.app and name the outcome."""
     diagnostics: dict[str, Any] = {}
 
     def before_timeout() -> None:
-        diagnostics.update(_timeout_diagnostics(run))
+        diagnostics.update(_timeout_diagnostics(run, secret_values))
 
     def before_cleanup(result) -> None:
         text = (result.stderr or "") + (result.stdout or "")

@@ -62,17 +62,13 @@ class SshMacTransport(SshTestMachineTransport):
             'print -r -- "${SHELL:-/bin/zsh}"; '
             'print -r -- "${XDG_BIN_HOME:-}"'
         )
-        result = self._run(
-            "/bin/zsh -fc " + shlex.quote(script),
-            timeout=20,
-        )
+        result = self._run("/bin/zsh -fc " + shlex.quote(script), timeout=20)
         if result.returncode:
+            failure_code = "host_control_connection_failed"
+            if result.returncode in (124, 255):
+                failure_code = SSH_UNAVAILABLE
             raise HostControlLocalError(
-                code=(
-                    SSH_UNAVAILABLE
-                    if result.returncode in (124, 255)
-                    else "host_control_connection_failed"
-                ),
+                code=failure_code,
                 phase="host_facts_ssh",
                 detail="SSH could not collect test-machine host facts",
                 exit_code=int(result.returncode),
@@ -156,7 +152,9 @@ class SshMacTransport(SshTestMachineTransport):
             expected_console_user=self._user,
         )
         if ok:
-            automation = terminal_system_events_automation(self._run)
+            automation = terminal_system_events_automation(
+                self._run, secret_values=self.secret_values
+            )
             ok, error_code = automation.ok, automation.error_code
             evidence["terminal_system_events_automation"] = ok
             if error_code:
@@ -178,6 +176,7 @@ class SshMacTransport(SshTestMachineTransport):
         return diagnose_terminal_app_control(
             self._run,
             expected_console_user=self._user,
+            secret_values=self.secret_values,
         )
 
     def capture_golden_baseline(

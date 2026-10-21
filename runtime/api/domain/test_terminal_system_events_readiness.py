@@ -12,6 +12,7 @@ from yoke_harness.test_machine_types import HostActionResult
 def control(monkeypatch):
     control = object.__new__(ssh_mac_transport.SshMacTransport)
     control._user = "tester"
+    control.secret_values = ("host-credential",)
     control._run = lambda *a, **kw: pytest.fail("Unexpected remote command")
     monkeypatch.setattr(ssh_mac_transport, "read_console_user", lambda run: "tester")
     monkeypatch.setattr(
@@ -33,7 +34,8 @@ def test_missing_live_grant_refuses_by_name_before_capture(
     code = f"terminal_system_events_automation_{outcome}"
     calls = []
 
-    def probe(run):
+    def probe(run, *, secret_values):
+        assert secret_values == control.secret_values
         assert run is control._run
         calls.append("automation")
         return TerminalAutomationProbe(
@@ -83,7 +85,9 @@ def test_capture_proves_bridge_before_probes_and_copy(monkeypatch, control):
     monkeypatch.setattr(
         ssh_mac_transport,
         "terminal_system_events_automation",
-        lambda run: calls.append("automation") or TerminalAutomationProbe(None, ""),
+        lambda run, **kw: (
+            calls.append("automation") or TerminalAutomationProbe(None, "")
+        ),
     )
     monkeypatch.setattr(
         ssh_mac_golden_capture,
