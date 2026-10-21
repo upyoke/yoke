@@ -61,14 +61,62 @@ class LiveDriftReport:
     def skipped(self) -> bool:
         return bool(self.skip_reason)
 
-    def refusal(self, project: str) -> str:
-        """Why the landing stopped, and the one command that clears it."""
+    def refusal(self, project: str, *, branch: str) -> str:
+        """Why landing stopped, with recovery checked against the gate branch."""
+        recovery = _drift_recovery(project, branch=branch)
         return (
             f"merge-queue ruleset has drifted from {DECLARATION_RELATIVE_PATH}"
-            ": " + "; ".join(self.drift) + ". Apply the declaration with "
-            f"`yoke github merge-queue apply --project {project or '<project>'}`"
-            ", then retry the merge."
+            ": " + "; ".join(self.drift) + ". " + recovery
         )
+
+
+def _drift_recovery(project: str, *, branch: str) -> str:
+    from yoke_core.domain import gh_rest_transport
+    from yoke_core.domain.merge_queue_declaration import (
+        MergeQueueDeclarationError,
+        parse_declaration,
+    )
+    from yoke_core.domain.project_github_auth import (
+        ProjectGithubAuthError,
+        resolve_project_github_auth,
+    )
+
+    source = f"origin/{branch}"
+    try:
+        auth = resolve_project_github_auth(
+            project,
+            required_permissions={
+                **GITHUB_METADATA_READ_PERMISSION_LEVELS,
+                **GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+            },
+        )
+        owner, repo = gh_rest_transport.split_repo(auth.repo)
+        raw = mq_rest.fetch_file_text(
+            owner, repo, DECLARATION_RELATIVE_PATH, ref=branch, token=auth.token,
+        )
+        if raw is None:
+            raise MergeQueueDeclarationError("gate branch declaration is missing")
+        declared = parse_declaration(raw, source=source)
+        rules, error = live_branch_rules(owner, repo, branch, token=auth.token)
+        if rules is None:
+            raise RestTransportError(str(error))
+    except (ProjectGithubAuthError, RestTransportError, MergeQueueDeclarationError) as exc:
+        return (
+            f"gate_declaration_unverified: {exc}. Restore read access and a valid "
+            f"{DECLARATION_RELATIVE_PATH} on {source}, then retry the merge; "
+            "do not apply the lane's declaration."
+        )
+    if not enforcement_drift(declared, rules=rules):
+        return (
+            f"{source} already matches the live rules. Update this lane from "
+            f"{source}, re-verify, then retry the merge."
+        )
+    return (
+        f"{source} also differs from the live rules. From an up-to-date checkout "
+        f"of {branch}, apply its declaration with "
+        f"`yoke github merge-queue apply --project {project or '<project>'}`, "
+        "then retry the merge."
+    )
 
 
 def live_branch_rules(

@@ -155,11 +155,12 @@ def test_unreachable_branch_rules_report_an_error_rather_than_empty(monkeypatch)
     assert "branch rules unreadable" in error
 
 
-def test_refusal_names_the_declaration_and_the_command_that_clears_it():
+def test_refusal_names_the_declaration_and_the_command_that_clears_it(monkeypatch):
+    monkeypatch.setattr(drift_mod, "_drift_recovery", lambda *a, **k: "apply recovery")
     report = LiveDriftReport(drift=("required checks drifted",))
-    message = report.refusal("yoke")
+    message = report.refusal("yoke", branch="main")
     assert "merge-queue.json" in message
-    assert "yoke github merge-queue apply --project yoke" in message
+    assert "apply recovery" in message
     assert "required checks drifted" in message
 
 
@@ -256,6 +257,9 @@ class TestLandingGate:
         monkeypatch,
     ):
         wire_happy_path(monkeypatch)
+        monkeypatch.setattr(
+            drift_mod, "_drift_recovery", lambda *a, **k: "merge-queue apply",
+        )
         monkeypatch.setattr(
             route_mod,
             "drift_check_before_landing",
