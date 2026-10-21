@@ -111,13 +111,9 @@ def deployment_runs_create(args: List[str]) -> int:
         default=None,
         help=(
             "Commit-ish to bind, resolved in --project-repo-path. Omit both "
-            "to let a flow that waits for CI bind its gate branch tip. "
-            "If the tip has no branch CI run, dispatch that workflow and "
-            "bind the commit it tests. Failed or cancelled tip CI refuses "
-            "(release_source_ci_failed): fix the branch or name a passing "
-            "source. Off-lineage sources refuse (release_source_off_lineage); "
-            "an explicit commit without its own usable run refuses "
-            "(release_source_untested)."
+            "to bind the gate branch tip on a CI-gated flow, dispatching "
+            "its CI workflow if the tip has no run. Failed or cancelled "
+            "tip CI refuses; fix the branch or name a passing source."
         ),
     )
     parser.add_argument(

@@ -90,10 +90,12 @@ def test_the_ci_gate_token_is_scoped_to_actions_and_contents_read():
     assert dict(CI_GATE_READ_PERMISSIONS) == {"actions": "read", "contents": "read"}
 
 
-def test_create_without_a_source_binds_the_newest_tested_commit(private_repo):
-    bound = tested.bind_tested_release_source("platform", "flow", "prod", None)
+def test_create_without_a_source_binds_the_tip_with_its_own_run(private_repo):
+    tip_run = {**RUNS[0], "head_sha": HEAD}
+    with mock.patch.dict(RUNS[0], tip_run):
+        bound = tested.bind_tested_release_source("platform", "flow", "prod", None)
 
-    assert bound == TESTED
+    assert bound == HEAD
 
 
 def test_an_untested_source_refuses_naming_the_newest_tested_commit(private_repo):
@@ -103,7 +105,7 @@ def test_an_untested_source_refuses_naming_the_newest_tested_commit(private_repo
     assert refused.value.code == tested.UNTESTED
     message = str(refused.value)
     assert f"newest commit with its own passing or running run is {TESTED}" in message
-    assert f"omit --source-ref to bind {TESTED}" in message
+    assert f"pass --source-ref {TESTED}" in message
 
 
 @pytest.mark.parametrize(

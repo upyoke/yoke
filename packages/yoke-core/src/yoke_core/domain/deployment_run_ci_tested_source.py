@@ -1,9 +1,4 @@
-"""The commit a CI-gated release binds: one that has its own CI run.
-
-Creation uses the gate branch tip, dispatching missing CI and refusing
-failed CI or divergence from the previous release. Explicit sources need
-an own CI run. Flows without a CI wait are untouched.
-"""
+"""Bind the gate branch tip by default; explicit sources need their own CI."""
 
 from __future__ import annotations
 
@@ -252,6 +247,11 @@ def _untested(
             f"on {target.branch} and binds the commit that run tests if its tip has no run; "
             "a failed tip must be fixed first."
         )
+    tested = (
+        f" The newest commit with its own passing or running run is {newest}."
+        if newest
+        else ""
+    )
     finding = (
         "has no run of its own" if state == "no_runs" else f"has run state {state}"
     )
@@ -259,7 +259,7 @@ def _untested(
         UNTESTED,
         f"release commit {lineage} {finding} in {target.workflow} on "
         f"{target.repo}@{target.branch}, so flow '{target.flow}' would block "
-        f"at its CI gate. Nothing was bound.\n  Recovery: {how}",
+        f"at its CI gate. Nothing was bound.{tested}\n  Recovery: {how}",
     )
 
 
