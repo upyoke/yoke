@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from io import StringIO
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -131,3 +133,63 @@ def test_the_fan_out_prints_when_no_output_file_is_named(capsys, monkeypatch) ->
     assert ci_shards.main(["fan-out"]) == 0
 
     assert capsys.readouterr().out.strip() == "\n".join(ci_shards.fan_out_lines())
+
+
+def test_capacity_probe_uses_the_median_of_three_local_measurements(monkeypatch) -> None:
+    times = iter((0, 0.09, 1, 1.01, 2, 2.02))
+    monkeypatch.setattr(ci_shards.time, "perf_counter", lambda: next(times))
+
+    assert ci_shards.runner_capacity()["python_loop_seconds"] == pytest.approx(0.02)
+
+
+@pytest.mark.parametrize("seconds", [0.050001, 0.067761305, 0.089517232])
+def test_slow_runner_refuses_before_pytest_and_retains_recovery(
+    seconds, tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        ci_shards, "runner_capacity", lambda: {"python_loop_seconds": seconds}
+    )
+    monkeypatch.setattr(
+        ci_shards.subprocess, "Popen", lambda *a, **kw: pytest.fail("pytest started")
+    )
+
+    assert ci_shards.main(["run", "--group", "1"]) == 1
+
+    output = capsys.readouterr().out
+    assert "ci_runner_slow: slow runner, retry" in output
+    assert "Re-run the failed GitHub Actions job." in output
+    assert f"python_loop_seconds={seconds:.6f}" in output
+    assert (tmp_path / ci_shards.OUTPUT_LOG).read_text() == output
+
+
+@pytest.mark.parametrize("seconds", [0.007661470, 0.016993544, 0.022539513, 0.05])
+def test_healthy_runner_and_threshold_run_pytest_and_preserve_its_exit_code(
+    seconds, tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        ci_shards, "runner_capacity", lambda: {"python_loop_seconds": seconds}
+    )
+    commands = []
+
+    def start(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(stdout=StringIO("test progress\n"), wait=lambda: 7)
+
+    monkeypatch.setattr(ci_shards.subprocess, "Popen", start)
+
+    assert ci_shards.main(["run", "--group", "2"]) == 7
+    assert commands == [ci_shards.pytest_command(2)]
+    output = capsys.readouterr().out
+    assert "test progress\n" in output
+    assert "ci_runner_slow" not in output
+    assert (tmp_path / ci_shards.OUTPUT_LOG).read_text() == output
+
+
+def test_pytest_workflow_streams_unbuffered_progress() -> None:
+    import yaml
+
+    jobs = yaml.safe_load(_workflow())["jobs"]
+    step = next(s for s in jobs["test_shard"]["steps"] if s["name"] == "Run pytest")
+    assert str(step["env"]["PYTHONUNBUFFERED"]) == "1"

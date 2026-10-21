@@ -184,6 +184,7 @@ jobs:
       - name: Run pytest
         id: pytest
         env:
+          PYTHONUNBUFFERED: "1"
           YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
         if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-

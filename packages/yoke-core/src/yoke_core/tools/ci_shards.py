@@ -48,6 +48,10 @@ DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
 
+# Recent healthy probes topped out at 0.0226s; stalled hosts measured 0.0678s
+# and 0.0895s. Keep a wide margin above healthy variation (ci-shards.md).
+MAX_PYTHON_LOOP_SECONDS = 0.05
+
 
 def shard_list(count: int = SHARD_COUNT) -> list[int]:
     """The shard numbers, one per matrix job."""
@@ -136,8 +140,21 @@ def _run_shard(group: int) -> int:
     """
     if group < 1 or group > SHARD_COUNT:
         raise SystemExit(f"shard {group} is outside 1..{SHARD_COUNT}")
-    capacity = runner_capacity()
+    measurements = runner_capacity()
+    capacity = "CI runner capacity: " + json.dumps(measurements, sort_keys=True)
     print(capacity, flush=True)
+    with Path(OUTPUT_LOG).open("w", encoding="utf-8") as log:
+        log.write(capacity + "\n")
+        elapsed = measurements["python_loop_seconds"]
+        if elapsed > MAX_PYTHON_LOOP_SECONDS:
+            reason = (
+                f"ci_runner_slow: slow runner, retry; python_loop_seconds={elapsed:.6f} "
+                f"exceeds {MAX_PYTHON_LOOP_SECONDS:.2f}s. "
+                "Re-run the failed GitHub Actions job."
+            )
+            print(reason, flush=True)
+            log.write(reason + "\n")
+            return 1
     process = subprocess.Popen(
         pytest_command(group),
         stdout=subprocess.PIPE,
@@ -146,8 +163,7 @@ def _run_shard(group: int) -> int:
         bufsize=1,
     )
     assert process.stdout is not None
-    with Path(OUTPUT_LOG).open("w", encoding="utf-8") as log:
-        log.write(capacity + "\n")
+    with Path(OUTPUT_LOG).open("a", encoding="utf-8") as log:
         for line in process.stdout:
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -155,8 +171,8 @@ def _run_shard(group: int) -> int:
     return process.wait()
 
 
-def runner_capacity() -> str:
-    """Cheap diagnostic capacity evidence; it never controls test selection."""
+def runner_capacity() -> dict:
+    """Measure local capacity before admitting a shard to pytest."""
     cpuinfo = Path("/proc/cpuinfo")
     model = "unavailable"
     try:
@@ -175,14 +191,11 @@ def runner_capacity() -> str:
         started = time.perf_counter()
         sum(value * value for value in range(300_000))
         samples.append(time.perf_counter() - started)
-    return "CI runner capacity: " + json.dumps(
-        {
-            "cpu_model": model,
-            "cpu_count": os.cpu_count(),
-            "python_loop_seconds": sorted(samples)[1],
-        },
-        sort_keys=True,
-    )
+    return {
+        "cpu_model": model,
+        "cpu_count": os.cpu_count(),
+        "python_loop_seconds": sorted(samples)[1],
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
