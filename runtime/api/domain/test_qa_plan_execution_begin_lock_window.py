@@ -153,3 +153,61 @@ def test_an_execution_begun_between_read_and_lock_is_honoured(test_db, monkeypat
         (run_id,),
     ).fetchall()
     assert [row[0] for row in rows] == ["other-session"]
+
+
+def test_a_changed_route_is_read_again_with_the_run_lock_released(
+    test_db, monkeypatch
+):
+    """Each re-read runs unlocked; a run that keeps changing refuses by name."""
+    import psycopg
+    import pytest
+
+    from runtime.api.fixtures.pg_testdb import connect_test_database
+    from yoke_core.domain import deployment_qa_shared_execution as routing
+    from yoke_core.domain import qa_plan_execution_begin
+    from yoke_core.domain.deployment_runs_lock import (
+        RUN_BUSY_CODE,
+        RUN_READ_ATTEMPTS,
+        DeploymentRunChanging,
+    )
+
+    run_id, members = SMALL
+    _seed(test_db, run_id, members)
+    probe = connect_test_database(test_db.info.dbname)
+    admit, read_route = qa_plan_execution_begin.admit_member, routing._read_route
+    reads: list[bool] = []
+
+    def run_row_locked() -> bool:
+        try:
+            probe.execute(
+                "SELECT 1 FROM deployment_runs WHERE id=%s FOR UPDATE NOWAIT",
+                (run_id,),
+            )
+            return False
+        except psycopg.errors.LockNotAvailable:
+            return True
+        finally:
+            probe.rollback()
+
+    def recorded_read(*args, **kwargs):
+        reads.append(run_row_locked())
+        return read_route(*args, **kwargs)
+
+    def always_changed(*args, **kwargs):
+        admit(*args, **kwargs)
+        return False
+
+    monkeypatch.setattr(routing, "_read_route", recorded_read)
+    monkeypatch.setattr(qa_plan_execution_begin, "admit_member", always_changed)
+    try:
+        with pytest.raises(DeploymentRunChanging) as raised:
+            _begin(test_db, run_id, members[1])
+        assert not run_row_locked()
+    finally:
+        probe.close()
+    assert reads == [False] * RUN_READ_ATTEMPTS
+    assert str(raised.value).startswith(f"{RUN_BUSY_CODE}: deployment run {run_id!r}")
+    assert "(run_read_changed)" in str(raised.value)
+    assert not test_db.execute(
+        "SELECT 1 FROM qa_plan_executions WHERE deployment_run_id=%s", (run_id,)
+    ).fetchone()

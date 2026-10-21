@@ -114,7 +114,16 @@ def refresh_selected_cases(
     shared_target_digest=None,
     group_digests=None,
 ):
-    """Correct only eligible cases, preserving owner and admission provenance."""
+    """Correct only eligible cases, preserving owner and admission provenance.
+
+    A shared group has one owner per attaching member. The plan row and each
+    case's passed check are read once for all of them, and an owner whose
+    selection already matches is not rewritten, so a refresh costs one write
+    per changed owner and no read per owner.
+    """
+    from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
+    from yoke_core.domain.qa_plan_management import _plan_row
+
     owners = selected_plan_owners(
         conn,
         run_id=run_id,
@@ -124,6 +133,8 @@ def refresh_selected_cases(
         shared_target_digest=shared_target_digest,
         group_digests=group_digests,
     )
+    current_plan = semantic_row(dict(_plan_row(conn, plan_id)), PLAN_FIELDS)
+    passed: dict = {}
     for owner in owners:
         _refresh_selected_cases(
             conn,
@@ -134,16 +145,50 @@ def refresh_selected_cases(
             cases=cases,
             allow_added=allow_added,
             shared_target_digest=shared_target_digest,
+            current_plan=current_plan,
+            passed=passed,
         )
 
 
+def _case_passed(conn, passed, *, run_id, stage, plan_id, key, member, digest):
+    """Whether a copy of this case passed acceptance; read once per case."""
+    from yoke_core.domain.qa_deployment_case_correction_window import (
+        determinate_verdict,
+    )
+
+    if (key, member) not in passed:
+        rows = query_rows(
+            conn,
+            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
+            "AND deployment_member_item_id IS NOT DISTINCT FROM %s "
+            "AND (CAST(%s AS TEXT) IS NULL OR execution_target_digest=%s)",
+            (run_id, stage, plan_id, key, member, digest, digest),
+        )
+        passed[(key, member)] = any(
+            determinate_verdict(conn, int(row["id"])) == "pass" for row in rows
+        )
+    return passed[(key, member)]
+
+
 def _refresh_selected_cases(
-    conn, owner, *, run_id, stage, plan_id, cases, allow_added, shared_target_digest
+    conn,
+    owner,
+    *,
+    run_id,
+    stage,
+    plan_id,
+    cases,
+    allow_added,
+    shared_target_digest,
+    current_plan,
+    passed,
 ):
     from yoke_core.domain.deployment_requirement_snapshot_format import semantic_row
 
     table, where, params, field, payload, index = owner
     snapshot = payload[field][index]
+    before = _canonical(payload)
     member = (
         params[1]
         if table == "deployment_run_items" and not shared_target_digest
@@ -152,9 +197,6 @@ def _refresh_selected_cases(
     replacements = {
         str(case["case_key"]): semantic_row(case, CASE_FIELDS) for case in cases
     }
-    from yoke_core.domain.qa_plan_management import _plan_row
-
-    current_plan = semantic_row(dict(_plan_row(conn, plan_id)), PLAN_FIELDS)
     for case in replacements.values():
         for policy_field in ("success_policy_id", "success_policy_params"):
             if (
@@ -165,31 +207,20 @@ def _refresh_selected_cases(
     existing = {str(case["case_key"]) for case in snapshot["cases"]}
     if replacements.keys() - existing and not allow_added:
         incomplete_snapshot(plan_id, "corrected case has no admitted selection")
-    from yoke_core.domain.qa_deployment_case_correction_window import (
-        determinate_verdict,
-    )
-
     for frozen in snapshot["cases"]:
         key = str(frozen["case_key"])
         if key not in replacements or replacements[key] == frozen:
             continue
-        rows = query_rows(
+        if _case_passed(
             conn,
-            "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-            "AND deployment_stage=%s AND plan_id=%s AND plan_case_key=%s "
-            "AND deployment_member_item_id IS NOT DISTINCT FROM %s "
-            "AND (CAST(%s AS TEXT) IS NULL OR execution_target_digest=%s)",
-            (
-                run_id,
-                stage,
-                plan_id,
-                key,
-                member,
-                shared_target_digest,
-                shared_target_digest,
-            ),
-        )
-        if any(determinate_verdict(conn, int(row["id"])) == "pass" for row in rows):
+            passed,
+            run_id=run_id,
+            stage=stage,
+            plan_id=plan_id,
+            key=key,
+            member=member,
+            digest=shared_target_digest,
+        ):
             incomplete_snapshot(plan_id, "case already has passed acceptance")
     snapshot["cases"] = [
         replacements.get(str(case["case_key"]), case) for case in snapshot["cases"]
@@ -199,7 +230,9 @@ def _refresh_selected_cases(
             case for key, case in replacements.items() if key not in existing
         )
     require_complete_snapshot(snapshot)
-    conn.execute(
-        f"UPDATE {table} SET requirement_snapshot=%s WHERE {where}",
-        (_canonical(payload), *params),
-    )
+    after = _canonical(payload)
+    if after != before:
+        conn.execute(
+            f"UPDATE {table} SET requirement_snapshot=%s WHERE {where}",
+            (after, *params),
+        )

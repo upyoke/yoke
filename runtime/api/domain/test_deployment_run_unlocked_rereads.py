@@ -233,12 +233,12 @@ def test_status_update_refuses_a_held_member_lock_within_the_bound(test_db):
     assert status == "executing"
 
 
-def test_materialize_and_refresh_grow_at_most_linearly(test_db):
+def test_materialize_and_refresh_every_member_grow_at_most_linearly(test_db):
     """Forty members cost at most four times ten, so O(n^2) work fails here.
 
-    Materializing every member is linear in members. One refresh of a shared
-    group rewrites each attaching member's frozen selection, so a single
-    member's refresh is itself linear, never worse.
+    A shared group's refresh reads its owners as one set and rewrites only
+    owners whose selection changed, so refreshing every member in turn is
+    linear in members, inside the run lock and out.
     """
     measured = {}
     for run_id, first, size in (
@@ -246,21 +246,21 @@ def test_materialize_and_refresh_grow_at_most_linearly(test_db):
         ("run-unlocked-reread-forty", 26001, 40),
     ):
         members = _seed(test_db, run_id, first, size, requirements=1)
-        recorder = LockWindowRecorder(test_db)
+        materialized, refreshed = LockWindowRecorder(test_db), LockWindowRecorder(test_db)
         for member in members:
             materialize_deployment_qa_stage(
-                recorder,
+                materialized,
                 deployment_run_id=run_id,
                 deployment_stage=STAGE,
                 deployment_member_item_id=member,
             )
-        refresh = LockWindowRecorder(test_db)
-        rematerialize_for_deployment_stage(
-            refresh,
-            deployment_run_id=run_id,
-            deployment_stage=STAGE,
-            deployment_member_item_id=members[-1],
-        )
-        measured[size] = (*recorder.counts(), *refresh.counts())
+        for member in members:
+            rematerialize_for_deployment_stage(
+                refreshed,
+                deployment_run_id=run_id,
+                deployment_stage=STAGE,
+                deployment_member_item_id=member,
+            )
+        measured[size] = (*materialized.counts(), *refreshed.counts())
     ten, forty = measured[10], measured[40]
     assert all(large <= 4 * small for small, large in zip(ten, forty)), measured

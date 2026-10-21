@@ -86,7 +86,7 @@ def begin_plan_execution(
     A member-scoped begin reads its roster before the run lock. ``_run_inputs``
     is the :func:`begin_inputs` digest its router took before reading; when it
     no longer holds under the lock, :class:`BeginInputsChanged` sends the
-    router back to read again under that lock.
+    router back to release the lock and read again unlocked.
     """
     if not str(session_id or "").strip():
         raise QaPlanExecutionStateError(

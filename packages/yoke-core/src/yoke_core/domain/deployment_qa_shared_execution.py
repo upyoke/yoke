@@ -152,8 +152,8 @@ def _read_route(conn, *, run_id, stage, member, selected, session_id):
     return route
 
 
-def _begin_routed(conn, begin, kwargs, *, locked):
-    """Route and begin; ``locked`` means the run lock is already held."""
+def _begin_routed(conn, begin, kwargs):
+    """Route unlocked, then begin; the begin re-checks the route's inputs."""
     member = kwargs["deployment_member_item_id"]
     run_id, stage = kwargs.get("deployment_run_id"), kwargs["deployment_stage"]
     route = _read_route(
@@ -164,7 +164,7 @@ def _begin_routed(conn, begin, kwargs, *, locked):
         selected=kwargs.get("plan"),
         session_id=kwargs.get("session_id"),
     )
-    inputs = None if locked else route.inputs
+    inputs = route.inputs
     if route.no_groups or route.private_first:
         return begin(conn, **{**kwargs, "_run_inputs": inputs})
     from yoke_core.domain.qa_plan_nothing_owed import QaPlanNothingOwed
@@ -235,8 +235,11 @@ def route_shared_plan_execution(begin):
         member = kwargs.get("deployment_member_item_id")
         if member is None or kwargs.get("_deployment_subject") is not None:
             return begin(conn, **kwargs)
+        from yoke_core.domain.deployment_runs_lock import (
+            RUN_READ_ATTEMPTS,
+            DeploymentRunChanging,
+        )
         from yoke_core.domain.qa_plan_execution_authority import (
-            lock_member_admission,
             require_member_attached,
         )
         from yoke_core.domain.qa_plan_execution_begin_admission import (
@@ -250,18 +253,20 @@ def route_shared_plan_execution(begin):
             lock_item_workflow_bindings,
         )
 
-        # The member's own row lock serializes with its removal; the run stays free.
-        lock_item_workflow_bindings(conn, (int(member),))
-        require_member_attached(conn, run_id, member)
-        # Every write commits, so this rollback releases only a read-only answer.
+        # Every write commits, so each rollback releases only a read-only answer.
         try:
-            try:
-                return _begin_routed(conn, begin, kwargs, locked=False)
-            except BeginInputsChanged:
-                pass
-            # A change landed between the read and the lock: read again under it.
-            lock_member_admission(conn, run_id, member)
-            return _begin_routed(conn, begin, kwargs, locked=True)
+            for _attempt in range(RUN_READ_ATTEMPTS):
+                # The member's own row lock serializes with its removal; the
+                # run stays free while the route is read.
+                lock_item_workflow_bindings(conn, (int(member),))
+                require_member_attached(conn, run_id, member)
+                try:
+                    return _begin_routed(conn, begin, kwargs)
+                except BeginInputsChanged:
+                    # A change landed between the read and the lock: release
+                    # the lock and read again unlocked.
+                    conn.rollback()
+            raise DeploymentRunChanging(str(run_id))
         finally:
             conn.rollback()
 
