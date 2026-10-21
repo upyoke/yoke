@@ -19,10 +19,10 @@ If the completion flow has item-scoped QA, answer it before merge: attach a plan
 yoke qa post-deploy record-no-obligation --item ITEM --reason "<why no observable obligation>"
 ```
 
-Selected posture adds proof: path claims cover the touched files; approval-on-done waits for the owner at the terminal transition. When every case passes, close review:
+Selected posture: path claims cover touched files; approval-on-done waits for the owner. When cases pass, laned items follow [merge](merge.md). Only laneless items transition:
 
 ```text
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Implementation complete; verification passed"
 ```
 
-Next: [merge](merge.md), or [close-out](close-out.md) when laneless.
+Laneless next: [close-out](close-out.md).
