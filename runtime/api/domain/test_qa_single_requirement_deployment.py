@@ -128,7 +128,7 @@ def test_host_wait_resumes_the_frozen_execution(monkeypatch):
         "query_one",
         lambda *a, **k: {
             "id": "selected-execution",
-            "roster_json": "[]",
+            "roster_json": '[{"runner_id":"agent_mission"}]',
         },
     )
     command = (
