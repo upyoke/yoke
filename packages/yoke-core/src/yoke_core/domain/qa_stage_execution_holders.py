@@ -72,7 +72,7 @@ def held_requirements(
     }
 
 
-def admit_stage_roster(
+def abort_abandoned_holders(
     conn: Any,
     roster: list[dict[str, Any]],
     *,
@@ -80,10 +80,9 @@ def admit_stage_roster(
     deployment_stage: str,
     session_id: str,
 ) -> bool:
-    """Check custody under the run lock before freezing ``roster``.
+    """Abort other sessions' abandoned executions overlapping ``roster``.
 
-    Refuse an overlapping live holder; abort abandoned holders. Each abort
-    commits, so report whether any ran for the caller to read again.
+    Each abort commits; report whether any ran so the caller reads again.
     """
     from yoke_core.domain.qa_plan_execution_authority import (
         plan_execution_is_abandoned,
@@ -103,19 +102,39 @@ def admit_stage_roster(
         }:
             continue
         locked = lock_plan_execution(conn, str(execution["id"]))
-        if locked["state"] not in LIVE_PLAN_EXECUTION_STATES:
-            continue
-        if not plan_execution_is_abandoned(conn, locked):
-            raise StageRosterHeld(locked)
-        finish_plan_execution(
-            conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
-        )
-        aborted = True
+        if locked["state"] in LIVE_PLAN_EXECUTION_STATES and (
+            plan_execution_is_abandoned(conn, locked)
+        ):
+            finish_plan_execution(
+                conn, locked, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+            )
+            aborted = True
     return aborted
+
+
+def admit_stage_roster(conn, roster, *, deployment_run_id, deployment_stage, session_id):
+    """Check live custody under the run lock, then retire abandoned holders.
+
+    Only live holders matter here; historical execution progress never
+    invalidates the unlocked roster read. An abort commits, so the caller
+    must read again and reacquire the run lock before repeating admission.
+    """
+    scope = dict(
+        deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        session_id=session_id,
+    )
+    held = held_requirements(conn, **scope)
+    for row in roster:
+        holder = held.get(int(row["requirement_id"]))
+        if holder is not None:
+            raise StageRosterHeld(holder)
+    return abort_abandoned_holders(conn, roster, **scope)
 
 
 __all__ = [
     "StageRosterHeld",
+    "abort_abandoned_holders",
     "admit_stage_roster",
     "held_requirements",
     "live_stage_executions",
