@@ -247,3 +247,10 @@ these are not measured renders. Parent totals are an inventory, not a claim that
 all conditional messages are delivered together.
 Long Markdown leaves (80 words or more) expose headings or original passages as
 subnodes. Incoming-message and resume-message topics describe the delivered prose.
+
+Reading order follows the encounter sequence: public entry and installation,
+global context, project rules and context, then work procedures and command use.
+Both hook views use session start → prompt → before tool → permission → tool
+success/failure → stop → session end. These are lifecycle positions, not a promise
+that every event fires in every harness. Setup keeps its declared step order;
+public documents follow nav.yaml; skills and roles follow their workflow groups.

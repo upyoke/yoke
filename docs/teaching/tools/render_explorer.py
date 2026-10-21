@@ -7,6 +7,7 @@ from functools import lru_cache
 from inventory import live_registries
 from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
 from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
+from explorer_sources import order_nodes
 from explorer_runtime import add_setup, add_packets, add_delivery_topics
 from explorer_messages import add_hooks, add_replies
 
@@ -130,6 +131,7 @@ def map_nodes(model):
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
     add_delivery_topics(nodes)
     expand_prose_topics(nodes)
+    order_nodes(nodes)
     describe_nodes(nodes, set(registered_commands()))
     describe_scope(nodes)
     describe_sizes(nodes)

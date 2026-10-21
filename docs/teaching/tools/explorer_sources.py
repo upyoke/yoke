@@ -76,7 +76,7 @@ SKILL_GROUPS = {
     'Maintain and learn': 'help doctor curate resync models wrapup',
 }
 ROLE_GROUPS = {
-    'Plan and design': 'architect product-designer product-manager',
+    'Plan and design': 'product-manager product-designer architect',
     'Build': 'engineer',
     'Review and verify': 'boss simulator tester tester-browser qa-walker',
 }
@@ -108,3 +108,56 @@ CONNECTIONS = (
     ('branch:web-docs', 'doc:docs/public/index.md', 'Displays on entry'),
     ('branch:installed-docs', 'branch:doc-content', 'Contains the docs'),
 )
+
+
+HOOK_LIFECYCLE = ('SessionStart', 'UserPromptSubmit', 'PreToolUse',
+                  'PermissionRequest', 'PostToolUse', 'PostToolUseFailure', 'Stop', 'SessionEnd')
+
+
+def order_nodes(nodes):
+    """Reading order follows encounter/lifecycle; source prose keeps its own order."""
+    source_order = ('homepage', 'docs', 'setup', 'global-hooks', 'rules', 'project-hooks',
+                    'project', 'skills', 'roles', 'instructions', 'packets', 'help', 'feedback')
+    sequences = {
+        None: ['source:' + key for key in source_order],
+        'source:setup': ['installer:script', 'branch:agent-setup', 'branch:terminal-setup', 'branch:shared-setup'],
+        'source:skills': ['skill:yoke-global', 'branch:project-skills'],
+        'source:docs': ['branch:web-docs', 'branch:installed-docs', 'branch:doc-content'],
+    }
+    for scope in ('global', 'project'):
+        prefix = 'hook-event:' + ('global:' if scope == 'global' else '')
+        sequences['source:' + scope + '-hooks'] = [prefix + event for event in HOOK_LIFECYCLE]
+    for groups, prefix, parent_prefix in (
+        (SKILL_GROUPS, 'skill:', 'branch:project-skills:'),
+        (ROLE_GROUPS, 'role:', 'source:roles:'),
+    ):
+        for title, members in groups.items():
+            slug = title.lower().replace(' ', '-')
+            sequences[parent_prefix + slug] = [prefix + member for member in members.split()]
+
+    import re
+    from explorer_documents import REPO
+    paths = re.findall(r'path:\s*["\']?([^"\',\s}]+)', (REPO / 'docs/public/nav.yaml').read_text())
+    manual_order = {path: index for index, path in enumerate(paths)}
+
+    def rank(node):
+        sequence = sequences.get(node['parent'], [])
+        if node['id'] in sequence:
+            return sequence.index(node['id'])
+        if sequence:
+            return len(sequence)
+        if node['id'].startswith('docs-category:'):
+            path = node['id'].removeprefix('docs-category:') + '/index.md'
+            return manual_order.get(path, len(paths))
+        if node['id'].startswith('doc:docs/public/') and ':topic:' not in node['id'] and ':passage:' not in node['id']:
+            return manual_order.get(node['id'].removeprefix('doc:docs/public/'), len(paths))
+        if 'order' in node:
+            return node['order']
+        if node['id'].startswith(('skill-file:', 'role-file:')):
+            return 100000
+        if node.get('document_lines') and not node.get('source_only'):
+            return node['document_lines'][0]
+        return node.get('order', 0)
+
+    # Sorting this flat inventory controls sibling order only, not parentage.
+    nodes.sort(key=rank)

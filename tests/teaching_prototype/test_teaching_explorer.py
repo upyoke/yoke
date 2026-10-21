@@ -236,3 +236,18 @@ def test_output_totals_preserve_known_parts_and_variable_remainder(explorer):
     assert next(n for n in parts if n['title'] == 'Acknowledge')['output_size']['bytes'][0] > 0
     document = next(n for n in nodes if n.get('source_size') and any(c['parent'] == n['id'] for c in nodes))
     assert document['output_size']['bytes'] == [document['source_size']['bytes']] * 2
+
+
+def test_encounter_order_and_hook_lifecycle(explorer):
+    model, _, renderer = explorer
+    nodes = renderer.map_nodes(model)
+    expected = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest',
+                'PostToolUse', 'PostToolUseFailure', 'Stop', 'SessionEnd']
+    for scope in ('global', 'project'):
+        children = [n for n in nodes if n['parent'] == 'source:' + scope + '-hooks']
+        assert [n['id'].rsplit(':', 1)[-1] for n in children] == expected
+    assert next(n for n in nodes if n['parent'] == 'source:setup')['id'] == 'installer:script'
+    assert next(n for n in nodes if n['parent'] == 'source:skills')['id'] == 'skill:yoke-global'
+    assert next(n for n in nodes if n['parent'] == 'source:roles:plan-and-design')['id'] == 'role:product-manager'
+    docs = [n['id'] for n in nodes if n['parent'] == 'branch:doc-content']
+    assert docs[:2] == ['doc:docs/public/index.md', 'docs-category:start']
