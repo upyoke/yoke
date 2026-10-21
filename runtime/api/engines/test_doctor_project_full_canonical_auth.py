@@ -24,6 +24,46 @@ from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
 
+def _apply_db_path_schema() -> None:
+    from yoke_core.domain import projects as p
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+    from yoke_core.domain.github_app_user_verification import VerifiedProjectGitHubBinding
+    from yoke_core.domain.project_github_binding import cmd_bind_project_repo
+    p.cmd_init()
+    conn = connect()
+    try:
+        seed_project_identities(conn)
+    finally:
+        conn.close()
+    verified = VerifiedProjectGitHubBinding(
+        installation_id="12345",
+        account_id="9988",
+        account_login="example-org",
+        account_type="Organization",
+        repository_selection="selected",
+        permissions={},
+        repository_id="4567",
+        github_repo="example-org/externalwebapp",
+        default_branch="main",
+    )
+    cmd_bind_project_repo(
+        "externalwebapp",
+        installation_id="12345",
+        repository_id="4567",
+        github_repo="example-org/externalwebapp",
+        expected_api_url="https://api.github.com",
+        github_user_access_token="user-token",
+        verifier=lambda **_kwargs: verified,
+    )
+    conn = connect()
+    try:
+        conn.execute("DELETE FROM project_github_repo_bindings")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def db_path(tmp_path: Path) -> str:
     """Backend-aware DB token seeded via ``projects.cmd_init``.
@@ -31,51 +71,9 @@ def db_path(tmp_path: Path) -> str:
     The canonical resolver opens its own connection from ``args.db_path``,
     so fixtures must persist through a path token — not just an in-memory conn.
     """
-    from yoke_core.domain import projects as p
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_seed_test_helpers import (
-        seed_project_identities,
-    )
-    from yoke_core.domain.github_app_user_verification import (
-        VerifiedProjectGitHubBinding,
-    )
-    from yoke_core.domain.project_github_binding import cmd_bind_project_repo
 
-    def _apply() -> None:
-        p.cmd_init()
-        conn = connect()
-        try:
-            seed_project_identities(conn)
-        finally:
-            conn.close()
-        verified = VerifiedProjectGitHubBinding(
-            installation_id="12345",
-            account_id="9988",
-            account_login="example-org",
-            account_type="Organization",
-            repository_selection="selected",
-            permissions={},
-            repository_id="4567",
-            github_repo="example-org/externalwebapp",
-            default_branch="main",
-        )
-        cmd_bind_project_repo(
-            "externalwebapp",
-            installation_id="12345",
-            repository_id="4567",
-            github_repo="example-org/externalwebapp",
-            expected_api_url="https://api.github.com",
-            github_user_access_token="user-token",
-            verifier=lambda **_kwargs: verified,
-        )
-        conn = connect()
-        try:
-            conn.execute("DELETE FROM project_github_repo_bindings")
-            conn.commit()
-        finally:
-            conn.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply) as path:
+    with init_test_db(tmp_path, apply_schema=_apply_db_path_schema) as path:
         yield path
 
 

@@ -13,7 +13,6 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain import epic_amend
 from runtime.api.task_files_touched_test_support import declare_task_files
@@ -22,18 +21,9 @@ from yoke_core.domain.epic_task_scope import finalize_generated_task_scopes
 from yoke_core.domain.task_files_touched import parse_files_touched
 
 
-def _seed_conn() -> Any:
-    name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name),
-        name,
-    )
-    initialize_test_schema(conn)
-    from yoke_core.domain.workflow_registry import converge_builtin_workflows
-
-    converge_builtin_workflows(conn)
-    conn.commit()
-    return conn
+class _DatabaseCase(unittest.TestCase):
+    def _seed_conn(self) -> Any:
+        return self.enterContext(pg_testdb.test_database())
 
 
 def _add_row(conn, epic_id, task_num, title, **kwargs):
@@ -91,9 +81,9 @@ def _task_states(conn, epic_id: int) -> list[tuple[int, str]]:
     return [(r["task_num"], parse_files_touched(r["body"]).state) for r in rows]
 
 
-class TestTaskAdd(unittest.TestCase):
+class TestTaskAdd(_DatabaseCase):
     def test_appends_at_next_task_num(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         result = epic_amend.task_add(
             conn,
@@ -109,17 +99,17 @@ class TestTaskAdd(unittest.TestCase):
         assert row["body"] == "body-text"
 
     def test_first_task_starts_at_one(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         result = epic_amend.task_add(conn, 200, title="first")
         assert result.task_num == 1
 
     def test_rejects_empty_title(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         with pytest.raises(ValueError, match="title"):
             epic_amend.task_add(conn, 100, title="")
 
     def test_reopens_finalized_membership_before_add(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         _finalize_rows(conn, 100, 1)
 
@@ -130,9 +120,9 @@ class TestTaskAdd(unittest.TestCase):
         assert not membership_is_finalized(conn, 100)
 
 
-class TestTaskReassign(unittest.TestCase):
+class TestTaskReassign(_DatabaseCase):
     def test_updates_task_lane_reference(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first", worktree="old-wt")
         result = epic_amend.task_reassign(conn, 100, 1, "new-wt")
         assert result.old_worktree == "old-wt"
@@ -145,20 +135,20 @@ class TestTaskReassign(unittest.TestCase):
         assert row["branch"] == "new-wt"
 
     def test_rejects_empty_worktree(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         with pytest.raises(ValueError, match="new_worktree"):
             epic_amend.task_reassign(conn, 100, 1, "")
 
     def test_raises_when_task_missing(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         with pytest.raises(LookupError):
             epic_amend.task_reassign(conn, 100, 99, "any")
 
 
-class TestTaskRemove(unittest.TestCase):
+class TestTaskRemove(_DatabaseCase):
     def test_removes_row(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         _add_row(conn, 100, 2, "second")
         epic_amend.task_remove(conn, 100, 1)
@@ -168,7 +158,7 @@ class TestTaskRemove(unittest.TestCase):
         assert [r["task_num"] for r in rows] == [2]
 
     def test_cascade_removes_dependency_token(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         _add_row(conn, 100, 2, "second", dependencies="1")
         _add_row(conn, 100, 3, "third", dependencies="1,2")
@@ -184,12 +174,12 @@ class TestTaskRemove(unittest.TestCase):
         assert deps[3] == "2"
 
     def test_raises_when_task_missing(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         with pytest.raises(LookupError):
             epic_amend.task_remove(conn, 100, 99)
 
     def test_reopens_finalized_membership_before_remove(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         _add_row(conn, 100, 2, "second")
         _finalize_rows(conn, 100, 1, 2)
@@ -200,9 +190,9 @@ class TestTaskRemove(unittest.TestCase):
         assert not membership_is_finalized(conn, 100)
 
 
-class TestTaskMetadataUpdate(unittest.TestCase):
+class TestTaskMetadataUpdate(_DatabaseCase):
     def test_updates_whitelisted_fields(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first", context_estimate="2k")
         result = epic_amend.task_metadata_update(
             conn,
@@ -221,7 +211,7 @@ class TestTaskMetadataUpdate(unittest.TestCase):
         assert row["github_issue"] == "#42"
 
     def test_rejects_unknown_field(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         with pytest.raises(ValueError, match="item-worktrees path-record"):
             epic_amend.task_metadata_update(
@@ -232,20 +222,20 @@ class TestTaskMetadataUpdate(unittest.TestCase):
             )
 
     def test_rejects_empty_fields(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "first")
         with pytest.raises(ValueError, match="empty"):
             epic_amend.task_metadata_update(conn, 100, 1, {})
 
     def test_raises_when_task_missing(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         with pytest.raises(LookupError):
             epic_amend.task_metadata_update(conn, 100, 99, {"title": "x"})
 
 
-class TestTaskSplit(unittest.TestCase):
+class TestTaskSplit(_DatabaseCase):
     def test_creates_children_at_max_plus_one(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "parent")
         _add_row(conn, 100, 2, "sibling")
         result = epic_amend.task_split(
@@ -270,7 +260,7 @@ class TestTaskSplit(unittest.TestCase):
         assert body_map[3] == "A-body"
 
     def test_redirects_sibling_dependencies_to_first_child(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "parent")
         _add_row(conn, 100, 2, "sibling", dependencies="1")
         _add_row(conn, 100, 3, "other", dependencies="1,2")
@@ -291,13 +281,13 @@ class TestTaskSplit(unittest.TestCase):
         assert deps[3] == "4,2"
 
     def test_rejects_empty_children(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "parent")
         with pytest.raises(ValueError, match="children"):
             epic_amend.task_split(conn, 100, 1, [])
 
     def test_rejects_child_missing_title(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "parent")
         with pytest.raises(ValueError, match="title"):
             epic_amend.task_split(
@@ -308,7 +298,7 @@ class TestTaskSplit(unittest.TestCase):
             )
 
     def test_raises_when_parent_missing(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         with pytest.raises(LookupError):
             epic_amend.task_split(
                 conn,
@@ -318,7 +308,7 @@ class TestTaskSplit(unittest.TestCase):
             )
 
     def test_reopens_finalized_membership_before_split(self):
-        conn = _seed_conn()
+        conn = self._seed_conn()
         _add_row(conn, 100, 1, "parent")
         _add_row(conn, 100, 2, "sibling")
         _finalize_rows(conn, 100, 1, 2)

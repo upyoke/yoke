@@ -7,8 +7,6 @@ import json
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
     PulumiCheckpointImportError,
@@ -18,11 +16,10 @@ from yoke_core.domain.projects_pulumi_state_checkpoint_import import (
 
 @pytest.fixture
 def checkpoint_state_db(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         conn = pg_testdb.connect_test_database(db_name)
         try:
-            initialize_test_schema(conn)
             project_id = resolve_project_id(conn, "yoke")
             conn.execute(
                 "INSERT INTO project_capabilities (created_at, project_id, type, settings) VALUES ('2026-01-01T00:00:00Z', %s, %s, %s)",
@@ -31,13 +28,7 @@ def checkpoint_state_db(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
         yield db_name
-    finally:
-        pg_testdb.drop_test_database(db_name)
 
 
 def _settings(db_name: str) -> dict:

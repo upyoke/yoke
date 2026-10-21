@@ -43,18 +43,21 @@ def _seed(conn) -> None:
     conn.commit()
 
 
-def _connect(tmp_path: Path):
-    from runtime.api.fixtures.file_test_db import init_test_db
+def _apply_connect_schema() -> None:
     from yoke_core.domain import db_backend
+    conn = db_backend.connect()
+    try:
+        _seed(conn)
+    finally:
+        conn.close()
 
-    def _apply() -> None:
-        conn = db_backend.connect()
-        try:
-            _seed(conn)
-        finally:
-            conn.close()
 
-    return init_test_db(tmp_path, apply_schema=_apply), db_backend
+def _connect(tmp_path: Path):
+    from yoke_core.domain import db_backend
+    from runtime.api.fixtures.file_test_db import init_test_db
+
+
+    return init_test_db(tmp_path, apply_schema=_apply_connect_schema), db_backend
 
 
 def test_name_resolves_within_its_own_project(tmp_path: Path) -> None:

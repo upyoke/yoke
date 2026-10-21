@@ -3,7 +3,7 @@
  "title": "CI interpreter coverage and shard timing",
  "status": "observed",
  "audience": "Maintainers",
- "sources": ["docs/testing-verification/ci-shards.md", ".github/workflows/yoke-ci.yml", "runtime/ci_test_selection.py", "runtime/product_wheel_fixture.py", "packages/yoke-core/src/yoke_core/tools/ci_durations_refresh.py", "runtime/api/backlog_github_sync_test_helpers.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_tree_reuse.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_coverage_evidence.py", ".github/workflows/yoke-tests-selection.yml", ".github/actions/yoke-test-runner/action.yml", "packages/yoke-core/src/yoke_core/tools/ci_selection_collect.py", "packages/yoke-core/src/yoke_core/tools/ci_shard_sizing.py"],
+ "sources": ["docs/testing-verification/ci-shards.md", ".github/workflows/yoke-ci.yml", "runtime/ci_test_selection.py", "runtime/product_wheel_fixture.py", "packages/yoke-core/src/yoke_core/tools/ci_durations_refresh.py", "runtime/api/backlog_github_sync_test_helpers.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_tree_reuse.py", "packages/yoke-core/src/yoke_core/tools/yoke_ci_coverage_evidence.py", ".github/workflows/yoke-tests-selection.yml", ".github/actions/yoke-test-runner/action.yml", "packages/yoke-core/src/yoke_core/tools/ci_selection_collect.py", "packages/yoke-core/src/yoke_core/tools/ci_shard_sizing.py", "packages/yoke-core/src/yoke_core/tools/ci_product_wheels.py", "runtime/api/tools/test_ci_product_wheels.py", "packages/yoke-core/src/yoke_core/tools/ci_shards.py", "runtime/api/tools/ci_timing_report.py", "runtime/api/tools/test_ci_timing_report.py", "runtime/api/tools/test_ci_profile_lineage.py"],
  "page": "test-and-evidence-contracts",
  "position": 8
 }

@@ -7,6 +7,7 @@ detection, and the unified analyze_bash_output entry point.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 import json
 import os
 from unittest import mock
@@ -279,7 +280,7 @@ class TestRowCountCollapse:
         from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
         # Disposable per-test DB isolates the inline seed across backends.
-        with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
+        with init_test_db(tmp_path, apply_schema=apply_empty_schema) as db_path:
             conn = connect_test_db(db_path)
             conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
             for i in range(20):
@@ -299,7 +300,7 @@ class TestRowCountCollapse:
         from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
         # Disposable per-test DB isolates the 20-row seed across backends.
-        with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
+        with init_test_db(tmp_path, apply_schema=apply_empty_schema) as db_path:
             conn = connect_test_db(db_path)
             conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
             for i in range(20):

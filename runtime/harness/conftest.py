@@ -142,35 +142,37 @@ def _no_batch_connection(monkeypatch):
     yield
 
 
+def _apply_dispatch_db_schema() -> None:
+    from yoke_core.domain import db_backend
+    conn = db_backend.connect()
+    try:
+        apply_fixture_ddl(
+            conn,
+            """
+    CREATE TABLE epic_dispatch_chains (
+        epic_id INTEGER,
+        item_worktree_id INTEGER,
+        current_task TEXT
+    );
+    CREATE TABLE items (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        status TEXT DEFAULT 'implementing'
+    );
+"""
+            + ITEM_WORKTREES_TABLE_SQL,
+        )
+        install_workflow_registry_and_pin_items(conn)
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def dispatch_db(tmp_path):
     """Create a DB with epic_dispatch_chains and items tables."""
-    from yoke_core.domain import db_backend
 
-    def _apply_schema() -> None:
-        conn = db_backend.connect()
-        try:
-            apply_fixture_ddl(
-                conn,
-                """
-        CREATE TABLE epic_dispatch_chains (
-            epic_id INTEGER,
-            item_worktree_id INTEGER,
-            current_task TEXT
-        );
-        CREATE TABLE items (
-            id INTEGER PRIMARY KEY,
-            title TEXT,
-            status TEXT DEFAULT 'implementing'
-        );
-    """
-                + ITEM_WORKTREES_TABLE_SQL,
-            )
-            install_workflow_registry_and_pin_items(conn)
-        finally:
-            conn.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_dispatch_db_schema) as db_path:
         yield db_path
 
 

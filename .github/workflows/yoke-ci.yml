@@ -70,8 +70,19 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
 
+      - name: Build portable product wheels
+        run: uv run python -m yoke_core.tools.ci_product_wheels --output "$RUNNER_TEMP/product-wheels"
+
+      - name: Share exact-commit product wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-wheels
+          path: ${{ runner.temp }}/product-wheels
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Refresh shard timing profile from retained CI reports
-        continue-on-error: true # Missing telemetry leaves the committed profile usable.
+        continue-on-error: true # Missing compatible telemetry leaves the committed profile usable.
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
@@ -156,6 +167,13 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {name: ci-test-durations}
 
+      - name: Download exact-commit product wheels
+        if: env.SUITE_ALREADY_PROVEN != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: product-wheels
+          path: ${{ runner.temp }}/product-wheels
+
       - name: Prepare the test runner
         if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: ./.github/actions/yoke-test-runner
@@ -165,6 +183,8 @@ jobs:
 
       - name: Run pytest
         id: pytest
+        env:
+          YOKE_CI_PRODUCT_WHEELS: ${{ runner.temp }}/product-wheels
         if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m

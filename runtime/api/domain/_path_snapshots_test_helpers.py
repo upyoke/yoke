@@ -23,11 +23,7 @@ def _project_row_id(project_id: str | int) -> int:
     return {"yoke": 1, "externalwebapp": 2, "demo": 3, "p": 4}.get(text, 100)
 
 
-def _apply_path_snapshot_schema(
-    repo_path: Path | None,
-    project_id: str | int | None,
-    config_root: Path,
-) -> None:
+def _apply_path_snapshot_schema() -> None:
     conn = db_backend.connect()
     try:
         conn.execute(
@@ -38,24 +34,6 @@ def _apply_path_snapshot_schema(
             "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
             "created_at TIMESTAMPTZ NOT NULL)"
         )
-        if project_id is not None and repo_path is not None:
-            p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            numeric_project_id = _project_row_id(project_id)
-            slug = (
-                str(project_id)
-                if not str(project_id).isdigit()
-                else f"project-{project_id}"
-            )
-            # config_root is a per-test temp dir — repo_path may be the LIVE
-            # yoke checkout (the Yoke-repo perf test), whose .parent is the real
-            # .worktrees/ and would be polluted by a config write there.
-            register_machine_checkout(config_root, repo_path, numeric_project_id)
-            conn.execute(
-                "INSERT INTO projects "
-                "(id, slug, name, created_at) "
-                f"VALUES ({p}, {p}, {p}, {p})",
-                (numeric_project_id, slug, slug, NOW),
-            )
         _create_events_table(conn)
         create_path_registry_tables(conn)
         conn.commit()
@@ -72,12 +50,30 @@ def path_snapshot_db(
 ) -> Iterator:
     """Yield a backend-routed DB for path-snapshot tests."""
 
-    def apply_schema() -> None:
-        _apply_path_snapshot_schema(repo_path, project_id, tmp_path / "machine-config")
-
-    with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_path_snapshot_schema) as db_path:
         conn = connect_test_db(db_path)
         try:
+            if project_id is not None and repo_path is not None:
+                p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+                numeric_project_id = _project_row_id(project_id)
+                slug = (
+                    str(project_id)
+                    if not str(project_id).isdigit()
+                    else f"project-{project_id}"
+                )
+                # Machine config uses a per-test temp dir — repo_path may be the LIVE
+                # yoke checkout (the Yoke-repo perf test), whose .parent is the real
+                # .worktrees/ and would be polluted by a config write there.
+                register_machine_checkout(
+                    tmp_path / "machine-config", repo_path, numeric_project_id
+                )
+                conn.execute(
+                    "INSERT INTO projects "
+                    "(id, slug, name, created_at) "
+                    f"VALUES ({p}, {p}, {p}, {p})",
+                    (numeric_project_id, slug, slug, NOW),
+                )
+            conn.commit()
             yield conn
         finally:
             conn.close()

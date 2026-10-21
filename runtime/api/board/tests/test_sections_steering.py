@@ -71,11 +71,14 @@ CREATE TABLE path_claim_targets (
 """
 
 
+def _apply_schema() -> None:
+    apply_inline_ddl(_SCHEMA)
+
 @contextlib.contextmanager
 def _board_db(tmp_path: Path):
     with init_test_db(
         tmp_path,
-        apply_schema=lambda: apply_inline_ddl(_SCHEMA),
+        apply_schema=_apply_schema,
     ) as db_path:
         db = BoardDB(db_path)
         try:

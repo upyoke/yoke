@@ -11,7 +11,6 @@ import pytest
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.domain.coordination_claim_test_support import seed_session
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.test_api_helpers import _install_overrides
 from yoke_core.api.main import app
@@ -30,21 +29,11 @@ import shlex
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 
-def _apply_schema() -> None:
-    from yoke_core.domain import db_backend
-
-    conn = db_backend.connect()
-    try:
-        initialize_test_schema(conn)
-    finally:
-        conn.close()
-
-
 @pytest.fixture(params=("migration", "qa_host"))
 def recovery_api(tmp_path, request):
     with ExitStack() as stack:
         db_path = stack.enter_context(
-            init_test_db(tmp_path, apply_schema=_apply_schema)
+            init_test_db(tmp_path)
         )
         stack.enter_context(_install_overrides(db_path))
         conn = connect_test_db(db_path)

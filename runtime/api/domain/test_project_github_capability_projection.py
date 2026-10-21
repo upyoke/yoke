@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -65,17 +63,8 @@ def _settings(db_name: str) -> dict[str, object]:
 def test_binding_projects_current_capability_fields_and_drops_unknowns(
     monkeypatch,
 ) -> None:
-    db_name = pg_testdb.create_test_database()
-    try:
-        conn = pg_testdb.connect_test_database(db_name)
-        try:
-            initialize_test_schema(conn)
-        finally:
-            conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
 
         _bind()
         assert _settings(db_name) == {
@@ -122,5 +111,3 @@ def test_binding_projects_current_capability_fields_and_drops_unknowns(
             "api_url": "https://api.github.com",
             "permissions": _PERMISSIONS,
         }
-    finally:
-        pg_testdb.drop_test_database(db_name)

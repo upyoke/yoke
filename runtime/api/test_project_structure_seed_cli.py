@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 import json
 from pathlib import Path
 from typing import List
@@ -16,7 +17,7 @@ from runtime.api.project_structure_test_helpers import seed_project
 
 @pytest.fixture
 def db_path(tmp_path: Path):
-    with init_test_db(tmp_path, apply_schema=lambda: None) as path:
+    with init_test_db(tmp_path, apply_schema=apply_empty_schema) as path:
         yield path
 
 

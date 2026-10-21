@@ -49,6 +49,31 @@ closures retain their identity for the worker's lifetime. Use a distinct
 callable for different schema or seed inputs; do not change a callable's
 captured inputs between checkouts and expect the template to change.
 
+Pass a module-level schema function, not a new lambda or nested function on
+every checkout. A fresh callable is a distinct flavor even when its source
+is identical. `apply_empty_schema` provides a stable blank flavor for tests
+that intentionally create their own tables. A bounded schema factory may
+cache explicit immutable inputs, such as the presence of projects/items tables;
+never infer equivalence from callable source text.
+
+Behavior fixtures use `pg_testdb.test_database()` or `init_test_db()` and seed
+the case after checkout. The context owns its connection, database reset and
+ambient DSN restoration. Do not add a redundant `monkeypatch.setenv` for that
+same DSN: fixture teardown could restore an already-exited checkout. Tests
+that deliberately alter ambient authority use an inner `monkeypatch.context()`
+so those changes unwind before the database context. Unittest cases can use
+`self.enterContext(pg_testdb.test_database())` to guarantee cleanup on failure.
+
+Fresh initialization remains intentional in schema/boot/migration/restore
+coverage. `test_fixture_schema_ddl_apply.py` compares a fresh production build
+with the shared template; `test_pg_testdb.py` exercises initialization itself.
+Local callbacks in boot, schema-order and custom-strategy tests retain their
+fresh invocation when that invocation or its captured observations are the
+subject of the test. Migration fixtures may cache their initial schema while
+applying the migration under test after checkout. Path-snapshot and pipeline
+fixtures cache only DDL; repository paths, machine mappings and case-specific
+project settings are seeded on the checked-out database.
+
 Keep machine-local setup outside the schema callable. For example, a fixture
 that registers sessions records its operating actor in each test's redirected
 machine home after checkout, using `record_fixture_operating_actor` for its

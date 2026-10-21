@@ -9,9 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.domain.test_backlog_updates_helpers import _EXTRA_DDL
-from runtime.api.fixtures.production_schema import initialize_test_schema
+from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import db_mutation_gate
 from yoke_core.domain.backlog_updates_helpers import _run_db_mutation_gate
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -20,12 +19,10 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 @pytest.fixture
 def helper_db(tmp_path: Path):
     db_file = tmp_path / "yoke.db"
-    conn = connect_test_db(str(db_file))
-    initialize_test_schema(conn)
-    execute_schema_script(conn, _EXTRA_DDL)
-    conn.commit()
-    yield conn, str(db_file)
-    conn.close()
+    with pg_testdb.test_database() as conn:
+        execute_schema_script(conn, _EXTRA_DDL)
+        conn.commit()
+        yield conn, str(db_file)
 
 
 def test_parent_transaction_owns_declared_attestation_freeze(

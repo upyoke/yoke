@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 
 import pytest
-from typing import Any
 from unittest.mock import ANY, patch
 
 from runtime.api.conftest import insert_epic_task, insert_item
@@ -17,7 +16,6 @@ from yoke_core.domain import (
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog import seed_test_canonical_human
-from runtime.api.fixtures.production_schema import initialize_test_schema
 from yoke_core.domain.render_body import build_body
 
 
@@ -32,17 +30,16 @@ def _issue(number: int, title: str, body: str = "") -> github_rest.Issue:
     return github_rest.Issue(number=number, title=title, state="OPEN", body=body)
 
 
-def _make_db() -> Any:
-    name = pg_testdb.create_test_database()
-    conn = pg_testdb.connect_test_database(name)
-    initialize_test_schema(conn)
-    seed_test_canonical_human(conn)
-    conn.execute(
-        "UPDATE projects SET github_repo = %s, github_sync_mode = %s WHERE id = %s",
-        ("org/externalwebapp", "enabled", SEED_PROJECT_IDS["externalwebapp"]),
-    )
-    conn.commit()
-    return pg_testdb.drop_database_on_close(conn, name)
+@pytest.fixture
+def dedup_db():
+    with pg_testdb.test_database() as conn:
+        seed_test_canonical_human(conn)
+        conn.execute(
+            "UPDATE projects SET github_repo = %s, github_sync_mode = %s WHERE id = %s",
+            ("org/externalwebapp", "enabled", SEED_PROJECT_IDS["externalwebapp"]),
+        )
+        conn.commit()
+        yield conn
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +128,9 @@ class TestSyncItemDedup:
             patch("yoke_core.domain.backlog_github_item_create._regenerate_md"),
         ]
 
-    def test_reuses_existing_github_issue_on_full_match(self):
+    def test_reuses_existing_github_issue_on_full_match(self, dedup_db):
         """Only the complete rendered title and body are reused."""
-        db = _make_db()
+        db = dedup_db
         insert_item(
             db,
             id=20,
@@ -171,11 +168,10 @@ class TestSyncItemDedup:
         ).fetchone()[0]
         assert gh_issue == "#777"
         assert "reusing" in stdout.getvalue()
-        db.close()
 
-    def test_reuses_existing_epic_issue_and_syncs_child_tasks(self):
+    def test_reuses_existing_epic_issue_and_syncs_child_tasks(self, dedup_db):
         """Full-content reuse for epic items also runs child sync."""
-        db = _make_db()
+        db = dedup_db
         insert_item(
             db,
             id=23,
@@ -220,13 +216,12 @@ class TestSyncItemDedup:
         mock_task_sync.assert_called_once_with(
             "EXT-23", conn=db, stdout=stdout, stderr=ANY
         )
-        db.close()
 
-    def test_rejects_fuzzy_substring_match(self):
+    def test_rejects_fuzzy_substring_match(self, dedup_db):
         """Regression: fuzzy candidate (title contains the new YOK-N as a
         substring) must NOT be reused; a fresh issue is created instead.
         """
-        db = _make_db()
+        db = dedup_db
         insert_item(
             db, id=1500, workflow_id="issue", status="idea", project="externalwebapp"
         )
@@ -269,13 +264,12 @@ class TestSyncItemDedup:
         assert gh_issue != "#3543"
         assert gh_issue == "#3545"
         assert "reusing" not in stdout.getvalue()
-        db.close()
 
-    def test_skips_rest_failure_response(self):
+    def test_skips_rest_failure_response(self, dedup_db):
         """A REST transport failure during dedup must NOT be reused;
         the helper surfaces a warning and falls through to creation.
         """
-        db = _make_db()
+        db = dedup_db
         insert_item(
             db, id=42, workflow_id="issue", status="idea", project="externalwebapp"
         )
@@ -318,4 +312,3 @@ class TestSyncItemDedup:
         assert gh_issue == "#4242"
         assert "reusing" not in stdout.getvalue()
         assert "Skipping reuse" in stderr.getvalue()
-        db.close()

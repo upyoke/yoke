@@ -42,11 +42,14 @@ def _entry():
 entry = _entry()
 
 
-@pytest.fixture
-def universe(tmp_path, monkeypatch):
+def _apply_core_schema():
     from yoke_core.domain import schema
 
-    with init_test_db(tmp_path, apply_schema=lambda: schema.cmd_init()) as path:
+    schema.cmd_init()
+
+@pytest.fixture
+def universe(tmp_path, monkeypatch):
+    with init_test_db(tmp_path, apply_schema=_apply_core_schema) as path:
         monkeypatch.setenv("YOKE_DB", path)
         conn = connect_test_db(path)
         try:

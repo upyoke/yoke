@@ -39,7 +39,7 @@ def initialized_db(tmp_path: Path) -> Iterator[str]:
     # database on Postgres (YOKE_PG_DSN repointed for the context). Isolation
     # is the load-bearing property here — without it the Postgres tests share
     # the DSN-pointed database and one test's seeds pollute the next.
-    with init_test_db(tmp_path, apply_schema=lambda: ps.cmd_init()) as path:
+    with init_test_db(tmp_path, apply_schema=ps.cmd_init) as path:
         _seed_demo_project(path)
         yield path
 

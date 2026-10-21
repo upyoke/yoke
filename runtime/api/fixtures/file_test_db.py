@@ -131,6 +131,10 @@ def init_test_db(tmp_path: Path, apply_schema=None):
                 pg_testdb.drop_test_database(name)
 
 
+def apply_empty_schema() -> None:
+    """Select a stable empty database flavor for inline or boot tests."""
+
+
 def apply_test_schema() -> None:
     """Initialize a disposable database through production boot and test seeds."""
     _apply_production_schema()
@@ -180,6 +184,7 @@ def connect_test_db(path: str):
 
 __all__ = [
     "apply_test_schema",
+    "apply_empty_schema",
     "apply_inline_ddl",
     "apply_sql_script",
     "connect_test_db",

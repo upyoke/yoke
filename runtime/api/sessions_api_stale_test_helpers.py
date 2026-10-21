@@ -71,6 +71,18 @@ EVENTS_TABLE_FOR_STALE_DETECTION = """
 """
 
 
+def _apply_session_schema():
+    from runtime.api.test_sessions import _create_schema
+
+    _build_schema(_create_schema)
+
+
+def _apply_ownership_schema():
+    from runtime.api.test_sessions import _create_ownership_schema
+
+    _build_ownership_schema(_create_ownership_schema)
+
+
 @pytest.fixture
 def conn(tmp_path):
     """Postgres replacement for the old in-memory ``conn`` fixture.
@@ -81,9 +93,7 @@ def conn(tmp_path):
     The ``with`` stays open across the yield so the connection and the
     introspection shims share the per-test DB for the whole test.
     """
-    from runtime.api.test_sessions import _create_schema
-
-    with init_test_db(tmp_path, apply_schema=lambda: _build_schema(_create_schema)):
+    with init_test_db(tmp_path, apply_schema=_apply_session_schema):
         c = connect_test_db(str(tmp_path / "yoke.db"))
         seed_fixture_operating_actor(c)
         try:
@@ -100,10 +110,8 @@ def ownership_conn(tmp_path):
     a seeded runnable item (id 100), and the strategy SML files the scheduler
     coherence check reads.
     """
-    from runtime.api.test_sessions import _create_ownership_schema
-
     with init_test_db(
-        tmp_path, apply_schema=lambda: _build_ownership_schema(_create_ownership_schema)
+        tmp_path, apply_schema=_apply_ownership_schema
     ):
         c = connect_test_db(str(tmp_path / "yoke.db"))
         seed_fixture_operating_actor(c)

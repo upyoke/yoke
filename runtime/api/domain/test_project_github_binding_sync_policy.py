@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.production_schema import initialize_test_schema
-from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
 )
@@ -38,11 +36,11 @@ def _verified_binding() -> VerifiedProjectGitHubBinding:
 
 
 def test_bind_preserves_intentional_disabled(monkeypatch):
-    db_name = pg_testdb.create_test_database()
-    try:
+    with pg_testdb.test_database() as database:
+        db_name = database.info.dbname
         conn = pg_testdb.connect_test_database(db_name)
         try:
-            initialize_test_schema(conn)
+            pass
             conn.execute(
                 "UPDATE projects SET github_sync_mode='disabled' "
                 "WHERE slug='externalwebapp'"
@@ -50,10 +48,6 @@ def test_bind_preserves_intentional_disabled(monkeypatch):
             conn.commit()
         finally:
             conn.close()
-        monkeypatch.setenv(
-            db_backend.PG_DSN_ENV,
-            pg_testdb.dsn_for_test_database(db_name),
-        )
 
         status = cmd_bind_project_repo(
             "externalwebapp",
@@ -69,5 +63,3 @@ def test_bind_preserves_intentional_disabled(monkeypatch):
         assert status["binding"]["status"] == "active"
         assert status["github_sync_mode"] == "disabled"
         assert status["automation"] == {"available": True, "reason": "bound"}
-    finally:
-        pg_testdb.drop_test_database(db_name)

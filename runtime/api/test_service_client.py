@@ -209,24 +209,26 @@ def _run_client(args: list[str], db_path: str = None) -> subprocess.CompletedPro
 # ---------------------------------------------------------------------------
 
 
+def _apply_project_structure_db_schema() -> None:
+    from yoke_core.domain import db_backend
+    from yoke_core.domain import project_structure as ps
+    from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+    from runtime.api.test_dependency_schema import PROJECTS_SCHEMA
+    conn = db_backend.connect()
+    try:
+        apply_fixture_ddl(conn, PROJECTS_SCHEMA)
+        ps.create_project_structure_tables(conn)
+    finally:
+        conn.close()
+
+
 @pytest.fixture()
 def project_structure_db(tmp_path):
     """Return a fresh DB with only the project_structure tables initialized."""
-    from yoke_core.domain import db_backend
-    from yoke_core.domain import project_structure as ps
     from runtime.api.fixtures.file_test_db import init_test_db
-    from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-    from runtime.api.test_dependency_schema import PROJECTS_SCHEMA
 
-    def _apply_schema() -> None:
-        conn = db_backend.connect()
-        try:
-            apply_fixture_ddl(conn, PROJECTS_SCHEMA)
-            ps.create_project_structure_tables(conn)
-        finally:
-            conn.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_project_structure_db_schema) as db_path:
         yield db_path
 
 

@@ -29,6 +29,22 @@ from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
 
+def _events_audit_schema() -> None:
+    from yoke_core.domain import db_backend
+
+    c = db_backend.connect()
+    try:
+        apply_fixture_ddl(
+            c,
+            "CREATE TABLE events (id INTEGER PRIMARY KEY);",
+        )
+        _ensure_migration_audit_table(c)
+        c.commit()
+    finally:
+        c.close()
+
+
+
 class TestEventsSyntheticContamination:
     """HC-events-synthetic-contamination."""
 
@@ -273,21 +289,8 @@ class TestAuditFingerprintHelper:
             init_test_db,
         )
 
-        def _apply_schema() -> None:
-            from yoke_core.domain import db_backend
 
-            c = db_backend.connect()
-            try:
-                apply_fixture_ddl(
-                    c,
-                    "CREATE TABLE events (id INTEGER PRIMARY KEY);",
-                )
-                _ensure_migration_audit_table(c)
-                c.commit()
-            finally:
-                c.close()
-
-        with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+        with init_test_db(tmp_path, apply_schema=_events_audit_schema) as db_path:
             setup = connect_test_db(db_path)
             try:
                 # Seed a few rows so pre/post counts are meaningful.

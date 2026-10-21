@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.file_test_db import apply_empty_schema
 from pathlib import Path
 
 import pytest
@@ -43,7 +44,7 @@ class TestCLI:
     def test_init_via_cli(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        with init_test_db(tmp_path, apply_schema=lambda: None) as db_file:
+        with init_test_db(tmp_path, apply_schema=apply_empty_schema) as db_file:
             monkeypatch.setenv("YOKE_DB", db_file)
             qa.main(["init"])
 

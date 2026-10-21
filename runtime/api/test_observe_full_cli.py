@@ -34,20 +34,22 @@ def events_db():
     conn.close()
 
 
+def _apply_events_db_file_schema() -> None:
+    from yoke_core.domain import db_backend
+    conn = db_backend.connect()
+    try:
+        apply_fixture_ddl(conn, _PROJECTS_DDL)
+        _seed_projects(conn)
+        apply_fixture_ddl(conn, _EVENTS_DDL)
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def events_db_file(tmp_path):
-    from yoke_core.domain import db_backend
 
-    def _apply_schema() -> None:
-        conn = db_backend.connect()
-        try:
-            apply_fixture_ddl(conn, _PROJECTS_DDL)
-            _seed_projects(conn)
-            apply_fixture_ddl(conn, _EVENTS_DDL)
-        finally:
-            conn.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_events_db_file_schema) as db_path:
         yield db_path
 
 

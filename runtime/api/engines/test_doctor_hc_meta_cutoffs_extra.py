@@ -159,16 +159,18 @@ CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'idea')
 """
 
 
+def _apply_clobber_conn_schema() -> None:
+    c = db_backend.connect()
+    try:
+        apply_fixture_ddl(c, _CLOBBER_SCHEMA)
+    finally:
+        c.close()
+
+
 @pytest.fixture
 def clobber_conn(tmp_path):
-    def _apply_schema() -> None:
-        c = db_backend.connect()
-        try:
-            apply_fixture_ddl(c, _CLOBBER_SCHEMA)
-        finally:
-            c.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_clobber_conn_schema) as db_path:
         c = connect_test_db(db_path)
         try:
             yield c

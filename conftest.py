@@ -224,7 +224,7 @@ def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(scope="session")
 def product_wheelhouse(tmp_path_factory, pytestconfig: pytest.Config) -> Path:
-    """Build the client product wheels once per pytest run."""
+    """Use exact-commit CI products or build locally; resolve native wheels per job."""
     worker_id = _worker_id(pytestconfig)
     if worker_id == "master":
         wheelhouse = tmp_path_factory.mktemp("product_wheelhouse")
@@ -252,6 +252,12 @@ def _worker_id(pytestconfig: pytest.Config) -> str:
 
 
 def _build_wheelhouse(repo_root: Path, wheelhouse: Path) -> None:
+    shared_products = os.environ.get("YOKE_CI_PRODUCT_WHEELS")
+    if shared_products:
+        from yoke_core.tools.ci_product_wheels import consume_artifact
+
+        consume_artifact(repo_root, Path(shared_products), wheelhouse)
+        return
     build_release.build_product_wheelhouse(
         repo_root=repo_root,
         wheelhouse=wheelhouse,
