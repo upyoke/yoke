@@ -3,10 +3,6 @@
  "title": "Queued walk lifetime",
  "status": "observed",
  "summary": "A waiting QA walk retains its queue place until its owning session records ended_at, independent of heartbeat age and session mode. Missing session evidence does not authorize abandonment. Active walks retain the 30-minute heartbeat rule and live parked-owner protection. Reaping, competing begin, stage-holder cleanup and abort authority share this rule; abandonment retains the stale-heartbeat reason.",
- "sources": [
-  "docs/public/verification/exploration.md",
-  "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_authority.py",
-  "runtime/api/domain/test_qa_waiting_execution_liveness.py"
- ],
+ "sources": ["docs/public/verification/exploration.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_authority.py", "runtime/api/domain/test_qa_waiting_execution_liveness.py"],
  "page": "qa-plans"
 }
