@@ -27,10 +27,11 @@ yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX
 
 ### Manual-wake member QA
 
-Do the owner's check yourself or staff it. If the run cannot produce the
-evidence, ask the operator to waive or remove the case; never waive it.
+Do or staff the owner's check; `yoke qa plan reconcile` an ownerless
+walk. Lacking evidence, have the operator waive or remove the case;
+never waive it.
 
-The run driver owns run-scoped QA:
+The driver owns run-scoped QA:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_project}

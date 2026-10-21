@@ -1,0 +1,9 @@
+{
+ "id": "qa-execution-reconcile",
+ "title": "Reconcile stranded member QA",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Candidate tests cover the steering gate, released and held leases, review handoff and the refusals that name the command; deployed proof pending.",
+ "topics": ["qa-evidence/runs/operator-reconcile"],
+ "sources": [".agents/skills/yoke/steer/release-batches.md", "docs/public/functions/qa.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_reconcile.py"]
+}

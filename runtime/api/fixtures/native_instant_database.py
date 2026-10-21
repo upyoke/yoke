@@ -12,6 +12,7 @@ BORN_NATIVE_AFTER_HISTORY = frozenset(
     | {("deployment_run_timings", "recorded_at")}
     | {("machine_authorization_codes", "decided_at")}
     | {("qa_plan_execution_adoptions", "adopted_at")}
+    | {("qa_plan_execution_reconciliations", "reconciled_at")}
     | {
         ("teammate_invite_codes", column)
         for column in (

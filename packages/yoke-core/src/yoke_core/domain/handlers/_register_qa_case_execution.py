@@ -17,6 +17,11 @@ def register(registry) -> None:
     )
 
     register_adoption(registry)
+    from yoke_core.domain.handlers.qa_plan_execution_reconcile import (
+        register as register_reconcile,
+    )
+
+    register_reconcile(registry)
     from yoke_core.domain.handlers.qa_plan_execution_reentry import (
         PlanExecutionPauseRequest,
         PlanExecutionResumeRequest,

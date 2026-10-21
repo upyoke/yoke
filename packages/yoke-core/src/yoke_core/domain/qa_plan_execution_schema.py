@@ -137,6 +137,22 @@ CREATE TABLE IF NOT EXISTS qa_plan_execution_adoptions (
 CREATE INDEX IF NOT EXISTS idx_qa_plan_execution_adoptions_execution
     ON qa_plan_execution_adoptions(execution_id, adopted_at);
 
+CREATE TABLE IF NOT EXISTS qa_plan_execution_reconciliations (
+    id TEXT PRIMARY KEY,
+    execution_id TEXT NOT NULL REFERENCES qa_plan_executions(id),
+    actor_id TEXT,
+    session_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK(outcome IN ('review_handoff','aborted')),
+    prior_state TEXT NOT NULL,
+    prior_actor_id TEXT,
+    prior_session_id TEXT,
+    released_lease_ids TEXT NOT NULL,
+    reconciled_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qa_plan_execution_reconciliations_execution
+    ON qa_plan_execution_reconciliations(execution_id, reconciled_at);
+
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,
     ordinal INTEGER NOT NULL,
@@ -215,6 +231,22 @@ def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
                 "session_id",
                 "reason",
                 "adopted_at",
+            ),
+        ),
+        (
+            "qa_plan_execution_reconciliations",
+            (
+                "id",
+                "execution_id",
+                "actor_id",
+                "session_id",
+                "reason",
+                "outcome",
+                "prior_state",
+                "prior_actor_id",
+                "prior_session_id",
+                "released_lease_ids",
+                "reconciled_at",
             ),
         ),
         (
