@@ -12,6 +12,7 @@ trunk.
 from __future__ import annotations
 
 import contextlib
+import functools
 import subprocess
 from pathlib import Path
 
@@ -36,18 +37,11 @@ _ITEMS_DDL = "CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER)"
 _PROJECT_IDS = {"alpha": 10, "beta": 11}
 
 
-@contextlib.contextmanager
-def _validator_db(tmp_path, *, projects: bool = True, items: bool = True):
-    """Disposable Postgres DB with the validator's minimal projects/items schema.
-
-    The validator reads ``items.project_id`` and ``projects.default_branch``;
-    checkout location comes from machine config. The skip-on-missing-table
-    paths are exercised by omitting one or both tables; each read fails soft
-    to the skip default on the active backend.
-    """
+@functools.cache
+def _schema_strategy(projects: bool, items: bool):
     from yoke_core.domain import db_backend
 
-    def _apply() -> None:
+    def apply_schema() -> None:
         c = db_backend.connect()
         try:
             if projects:
@@ -58,7 +52,19 @@ def _validator_db(tmp_path, *, projects: bool = True, items: bool = True):
         finally:
             c.close()
 
-    with init_test_db(tmp_path, apply_schema=_apply) as db_path:
+    return apply_schema
+
+
+@contextlib.contextmanager
+def _validator_db(tmp_path, *, projects: bool = True, items: bool = True):
+    """Disposable Postgres DB with the validator's minimal projects/items schema.
+
+    The validator reads ``items.project_id`` and ``projects.default_branch``;
+    checkout location comes from machine config. The skip-on-missing-table
+    paths are exercised by omitting one or both tables; each read fails soft
+    to the skip default on the active backend.
+    """
+    with init_test_db(tmp_path, apply_schema=_schema_strategy(projects, items)) as db_path:
         c = connect_test_db(db_path)
         try:
             yield c

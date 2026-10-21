@@ -129,6 +129,15 @@ def _seed_externalwebapp(
     seed_deploy_default(conn, 2, "managed-production")
 
 
+def _apply_pipeline_schema() -> None:
+    conn = db_backend.connect()
+    try:
+        execute_schema_script(conn, _SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @contextlib.contextmanager
 def _init_db(
     db_dir: Path,
@@ -140,20 +149,10 @@ def _init_db(
     flow_stages: list | None = None,
     default_branch: str = "main",
 ):
-    """Yield a backend-routed control-plane marker with the pipeline schema.
-
-    ``init_test_db`` builds the schema on SQLite (a real file under ``db_dir``)
-    or on a disposable Postgres database; ``_build_schema`` + ``_seed_externalwebapp``
-    seed through the backend factory so the validator (which reads via the same
-    factory) sees the rows on both engines. The marker file at the yielded path
-    satisfies the ``ctx.control_plane_marker.is_file()`` availability gate on
-    Postgres (where the data lives in the DSN-pointed DB, not the file).
-    """
-    def _apply() -> None:
+    """Reset the pipeline schema, then seed this case and its marker file."""
+    def _seed_case() -> None:
         conn = db_backend.connect()
         try:
-            execute_schema_script(conn, _SCHEMA)
-            conn.commit()
             if include_externalwebapp:
                 _seed_externalwebapp(
                     conn,
@@ -168,7 +167,8 @@ def _init_db(
         finally:
             conn.close()
 
-    with init_test_db(db_dir, apply_schema=_apply) as db_path:
+    with init_test_db(db_dir, apply_schema=_apply_pipeline_schema) as db_path:
+        _seed_case()
         Path(db_path).touch()
         yield Path(db_path)
 

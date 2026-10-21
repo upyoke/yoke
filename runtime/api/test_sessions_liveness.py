@@ -27,16 +27,18 @@ def _now_iso(delta_minutes: int = 0) -> str:
     return format_instant(moment)
 
 
+def _apply_conn_schema() -> None:
+    c = db_backend.connect()
+    try:
+        apply_ddl_statements(c, _LIVENESS_SCHEMA)
+    finally:
+        c.close()
+
+
 @pytest.fixture()
 def conn(tmp_path):
-    def apply_schema() -> None:
-        c = db_backend.connect()
-        try:
-            apply_ddl_statements(c, _LIVENESS_SCHEMA)
-        finally:
-            c.close()
 
-    with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
+    with init_test_db(tmp_path, apply_schema=_apply_conn_schema) as db_path:
         c = connect_test_db(db_path)
         try:
             yield c
