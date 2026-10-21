@@ -4,7 +4,9 @@ A session refused a ``QA_HOST:<machine>`` claim, or a scoped QA plan whose
 host is leased or unhealthy, joins the line; the host's next release reserves
 it for the oldest live waiter and wakes that session, and the waiter's next
 acquire consumes the reservation. Scoped QA plan executions and manual
-acquires share one line, ordered by when each session first queued.
+acquires share one line, ordered by when each session first queued; a
+walk recovering an aborted shared walk takes that walk's place
+(``qa_host_turn_inheritance``).
 """
 
 from __future__ import annotations
@@ -103,8 +105,9 @@ def join_host_line(
     resume_command: str,
     rationale: str = "",
     execution_id: str | None = None,
+    queued_at: Any = None,
 ) -> dict[str, Any]:
-    """Queue *session_id* for the host; a session already in line keeps its place."""
+    """Queue *session_id* at *queued_at* or now; a queued session keeps its place."""
     p = _p(conn)
     machine = str(target.machine_id)
     lock_host_turn(conn, target)
@@ -125,7 +128,7 @@ def join_host_line(
                 machine,
                 session_id,
                 int(actor_id),
-                instant_parameter(conn, utc_now()),
+                instant_parameter(conn, queued_at or utc_now()),
                 execution_id,
                 resume_command,
                 rationale,
@@ -294,6 +297,7 @@ def record_host_wait(
     from yoke_core.domain.machine_qa_capability import host_claim_target
     from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+    from yoke_core.domain.qa_host_turn_inheritance import inherited_host_place
 
     p = _p(conn)
     execution_id = str(execution["id"])
@@ -321,6 +325,7 @@ def record_host_wait(
         ),
         rationale=rationale,
         execution_id=execution_id,
+        queued_at=inherited_host_place(conn, execution, machine),
     )
     finish_plan_execution(
         conn,
