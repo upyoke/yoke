@@ -4,7 +4,7 @@ import ast
 import re
 from inventory import live_registries
 from explorer_documents import REPO
-from explorer_runtime import CORE, source_node, literal, add_reply_fields, HOOK_DESCRIPTIONS
+from explorer_runtime import CORE, source_node, literal, add_reply_fields, HOOK_DESCRIPTIONS, CHECK_OUTPUT_TITLES
 
 CONTRACTS = 'packages/yoke-contracts/src/yoke_contracts/'
 HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'
@@ -58,7 +58,7 @@ def add_hooks(add):
                 kind = 'rule' if guard_scope(module) else 'action'
                 if stem in templates or stem in ('session_message_delivery', 'session_resume_block'):
                     kind = 'reply'
-                node = add(parent + ':' + module, names.get(stem, stem.replace('_', ' ')),
+                node = add(parent + ':' + module, CHECK_OUTPUT_TITLES.get(stem, names.get(stem, stem.replace('_', ' '))),
                            parent, condition + '. ' + description)
                 node.update(document='../../../../' + path.relative_to(REPO).as_posix(),
                             source_only=True, hook_module=module, hook_mode=scope, order=1 if kind == 'action' else 0,

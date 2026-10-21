@@ -87,8 +87,14 @@ def describe_sizes(nodes):
     from explorer_documents import REPO
 
     for node in nodes:
+        if node.get('source_only'):
+            continue
         document = node.get('document', '')
         if not document.startswith('../../../../'):
+            if node.get('type_label') == 'Text passage':
+                prose = node['body']
+                node['source_size'] = dict(bytes=len(prose.encode('utf-8')), chars=len(prose),
+                                          lines=len(prose.splitlines()), label='Context text')
             continue
         path = REPO / document.removeprefix('../../../../')
         if not path.is_file():
@@ -100,9 +106,7 @@ def describe_sizes(nodes):
             start, end = excerpt
             content = ''.join(content.splitlines(keepends=True)[start:end])
             raw = content.encode('utf-8')
-        label = 'Source excerpt' if excerpt else 'Source file'
-        if node.get('source_only'):
-            label = 'Definition excerpt' if excerpt else 'Definition file'
+        label = 'Context text' if excerpt else 'Document text'
         node['source_size'] = dict(bytes=len(raw), chars=len(content),
                                    lines=len(content.splitlines()), label=label)
 
@@ -154,6 +158,8 @@ def describe_message_estimates(nodes):
         samples, assumptions = examples[key]
         counts = [len(sample.encode('utf-8')) for sample in samples]
         low, high = min(counts), max(counts)
-        amount = f'{low:,}–{high:,} B' if low != high else f'{low:,} B + variable content'
+        lines = [len(sample.splitlines()) for sample in samples]
+        line_range = str(min(lines)) if min(lines) == max(lines) else f'{min(lines)}–{max(lines)}'
+        amount = f'{line_range} lines · ' + (f'{low:,}–{high:,} B' if low != high else f'{low:,} B + variable content')
         node['message_estimate'] = dict(label='Estimated message · ' + amount,
                                         assumptions=assumptions)

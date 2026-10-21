@@ -192,12 +192,27 @@ def test_source_sizes_measure_exact_utf8_excerpts(explorer, tmp_path, monkeypatc
     raw = 'Heading\r\nCafé 🌍\r\nEnd'.encode('utf-8')
     (tmp_path / 'sample.md').write_bytes(raw)
     nodes = [dict(document='../../../../sample.md'),
-             dict(document='../../../../sample.md', document_lines=[1, 2], source_only=True),
+             dict(document='../../../../sample.md', document_lines=[1, 2]),
              dict(title='A conceptual group')]
     describe_sizes(nodes)
     assert nodes[0]['source_size']['bytes'] == len(raw)
     assert nodes[0]['source_size']['lines'] == 3
     assert nodes[1]['source_size'] == dict(bytes=len('Café 🌍\r\n'.encode()),
                                          chars=len('Café 🌍\r\n'), lines=1,
-                                         label='Definition excerpt')
+                                         label='Context text')
     assert 'source_size' not in nodes[2]
+    code = [dict(document='../../../../sample.md', source_only=True)]
+    describe_sizes(code)
+    assert 'source_size' not in code[0]
+
+
+def test_delivered_messages_have_topics_without_code_sizes(explorer):
+    model, _, renderer = explorer
+    nodes = renderer.map_nodes(model)
+    for node in nodes:
+        if node.get('source_only'):
+            assert 'source_size' not in node
+        if node.get('hook_module') == 'yoke_core.hooks.session_message_delivery':
+            children = [n for n in nodes if n['parent'] == node['id']]
+            assert {n['title'] for n in children} >= {'Sender', 'Message body', 'Acknowledge'}
+    assert any(n['id'].startswith('doc:docs/public/') and ':topic:' in n['id'] for n in nodes)

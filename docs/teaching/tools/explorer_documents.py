@@ -117,3 +117,45 @@ def connect_document_links(nodes):
                 if target in ids and target != node['id']:
                     targets.add(target)
         node['related'] = sorted(targets)
+
+
+def expand_prose_topics(nodes):
+    """Give long Markdown leaves a contents layer using their own headings or paragraphs."""
+    parents = {node['parent'] for node in nodes}
+    for node in list(nodes):
+        document = node.get('document', '')
+        if node['id'] in parents or node.get('source_only') or not document.endswith('.md'):
+            continue
+        lines = (REPO / document.removeprefix('../../../../')).read_text().splitlines()
+        first, last = node.get('document_lines', [0, len(lines)])
+        text = re.sub(r'<!--.*?-->', '', '\n'.join(lines[first:last]), flags=re.S)
+        if len(text.split()) < 80:
+            continue
+        starts, fenced = [], False
+        for index in range(first, last):
+            line = lines[index]
+            if line.startswith(('```', '~~~')):
+                fenced = not fenced
+            match = re.match(r'^(#{1,6}) (.+)', line)
+            if match and not fenced and index > first:
+                starts.append((index, len(match[1]), match[2]))
+        if starts:
+            level = min(depth for _, depth, _ in starts)
+            starts = [(index, title) for index, depth, title in starts if depth == level]
+            if starts[0][0] > first + 2:
+                starts.insert(0, (first, 'Introduction'))
+            for offset, (start, title) in enumerate(starts):
+                end = starts[offset + 1][0] if offset + 1 < len(starts) else last
+                nodes.append(dict(id=node['id'] + ':topic:' + str(start), parent=node['id'],
+                                  title=title, summary='', document=document, document_lines=[start, end],
+                                  form=('section', 'Text section', 'Section of ' + node['title'])))
+        else:
+            paragraphs = [part.strip() for part in re.split(r'\n\s*\n', text) if part.strip()]
+            for offset, paragraph in enumerate(paragraphs):
+                if paragraph.startswith(('#', '```', '~~~', '<!--')):
+                    continue
+                words = re.sub(r'[`*#]', '', paragraph).split()
+                title = ' '.join(words[:8]) + ('…' if len(words) > 8 else '')
+                nodes.append(dict(id=node['id'] + ':passage:' + str(offset), parent=node['id'],
+                                  title=title, summary='', body=paragraph,
+                                  form=('section', 'Text passage', 'Passage from ' + node['title'])))

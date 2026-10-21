@@ -6,8 +6,8 @@ from functools import lru_cache
 
 from inventory import live_registries
 from explorer_types import describe_nodes, describe_scope, describe_sizes, describe_message_estimates
-from explorer_documents import add_documents, add_sections, connect_document_links, document
-from explorer_runtime import add_setup, add_packets
+from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics
+from explorer_runtime import add_setup, add_packets, add_delivery_topics
 from explorer_messages import add_hooks, add_replies
 
 
@@ -128,6 +128,8 @@ def map_nodes(model):
     connect_document_links(nodes)
     for source, target, label in CONNECTIONS:
         by_id[source].setdefault('connections', []).append(dict(target=target, label=label))
+    add_delivery_topics(nodes)
+    expand_prose_topics(nodes)
     describe_nodes(nodes, set(registered_commands()))
     describe_scope(nodes)
     describe_sizes(nodes)

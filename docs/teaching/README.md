@@ -232,12 +232,14 @@ Hook message cards expose their concrete message sections. Both hook views show 
 actions nested inside. Global contents use the runtime applicability filter;
 project and global event cards link as two views of the same hook. Message sections
 use a neutral text style, distinct from purple event containers. Message bodies are descriptions of templates, not live
-session captures. File-backed cards show exact UTF-8 byte and line counts (character
-counts on hover). “Definition” counts measure implementation source, not a generated
-runtime message; excerpt counts use the linked line range. Group totals are omitted
+session captures. Readable guidance shows exact UTF-8 byte and line counts (character
+counts on hover); implementation code has no size badge. Generated messages show
+output estimates in lines and bytes, or explicitly variable output when bodies are unbounded. Group totals are omitted
 to avoid double-counting shared sources.
 Variable hook messages also show estimates from offline examples: synthetic IDs,
 zero to five project folders, and explicit allowances for setup or other variable
 fields. Hover for each estimate's assumptions. These are illustrative ranges, not
 observed percentiles or hard limits; open-ended instruction bodies show a base size
 plus variable content. Message-section summaries do not inherit their parent's size.
+Long Markdown leaves (80 words or more) expose headings or original passages as
+subnodes. Incoming-message and resume-message topics describe the delivered prose.
