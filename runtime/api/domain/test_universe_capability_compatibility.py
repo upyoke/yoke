@@ -16,16 +16,12 @@ from yoke_core.domain.schema_fingerprint import (
 @contextmanager
 def _canonical_test_universe():
     from runtime.api.fixtures import pg_testdb
-    from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
+    from runtime.api.fixtures.file_test_db import booted_universe_database
 
-    name = pg_testdb.create_test_database()
-    dsn = pg_testdb.dsn_for_test_database(name)
-    try:
-        run_init_chain_at_dsn(dsn, emit=lambda _line: None)
+    with booted_universe_database() as name:
+        dsn = pg_testdb.dsn_for_test_database(name)
         with psycopg.connect(dsn) as conn:
             yield conn, dsn
-    finally:
-        pg_testdb.drop_test_database(name)
 
 
 def test_restored_universe_refuses_incompatible_typed_capability_settings():

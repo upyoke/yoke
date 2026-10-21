@@ -18,8 +18,8 @@ from yoke_core.domain.migration_history import (
     load_migration_module,
     ordered_entries,
     ordinal_entries,
-    validate_psycopg_migration_sql,
 )
+from yoke_core.domain.migration_psycopg_sql import validate_psycopg_migration_sql
 
 
 def _write_entry(directory: Path, name: str, body: str = "") -> Path:
@@ -240,3 +240,20 @@ def test_psycopg_check_allows_bare_percent_without_params_argument(
     assert callable(
         load_migration_module(path, "0001_literal", check_psycopg_sql=True).apply
     )
+
+
+def test_psycopg_check_rereads_an_edited_source_after_a_clean_pass(
+    tmp_path: Path,
+) -> None:
+    path = _write_entry(
+        tmp_path,
+        "0001_edited",
+        body="def apply(conn):\n    conn.execute(\"SELECT 1 WHERE id=%s\", (1,))\n",
+    )
+    validate_psycopg_migration_sql(tmp_path)
+    path.write_text(
+        "def apply(conn):\n    conn.execute(\"SELECT '50%' WHERE id=%s\", (1,))\n"
+    )
+
+    with pytest.raises(ModuleContractError, match=r"0001_edited\.py:2:.*bare '%'"):
+        validate_psycopg_migration_sql(tmp_path)
