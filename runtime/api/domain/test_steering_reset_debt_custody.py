@@ -4,6 +4,7 @@ import pytest
 
 from runtime.api.domain import test_agent_mission_cleanup as cleanup_support
 from yoke_core.domain.machine_reset_debt import record_reset_owed
+from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_STATES
 from yoke_core.domain.steering_fleet_report_test_machines import (
     read_reset_debts,
     reset_debt_lines,
@@ -14,7 +15,7 @@ removed_mission = cleanup_support.removed_mission
 
 
 @pytest.mark.parametrize("companion", [False, True])
-@pytest.mark.parametrize("state", ["active", "waiting", "awaiting_agent_review"])
+@pytest.mark.parametrize("state", sorted(LIVE_PLAN_EXECUTION_STATES))
 def test_live_walk_debt_names_execution_without_recovery(
     test_db, removed_mission, companion, state
 ):
