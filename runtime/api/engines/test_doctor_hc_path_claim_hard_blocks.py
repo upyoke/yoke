@@ -12,32 +12,12 @@ from typing import Iterator
 
 import pytest
 
-from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
-from yoke_core.domain import schema, shepherd_init
 from yoke_core.engines.doctor_hc_path_claim_hard_blocks import (
     hc_path_claim_hard_blocks,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-
-
-def _apply_canonical_schema() -> None:
-    """``apply_schema`` strategy: full canonical schema + shepherd tables.
-
-    Both ``schema.cmd_init`` and ``shepherd_init.cmd_init`` resolve their
-    connection through the backend factory, so the tables co-locate on the
-    active backend (SQLite file or the repointed Postgres test database).
-    """
-    from yoke_core.domain import db_backend
-
-    schema.cmd_init()
-    conn = db_backend.connect()
-    try:
-        seed_project_identities(conn)
-        shepherd_init.cmd_init(conn)
-    finally:
-        conn.close()
 
 
 def _insert_item(conn, *, item_id: int, title: str, status: str) -> None:
@@ -79,7 +59,7 @@ def _insert_dependency(
 
 @pytest.fixture
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict]:
-    with init_test_db(tmp_path, apply_schema=_apply_canonical_schema) as db_path:
+    with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         conn = connect_test_db(db_path)
         try:

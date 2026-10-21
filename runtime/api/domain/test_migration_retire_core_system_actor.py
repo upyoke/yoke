@@ -12,7 +12,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures.file_test_db import (
+    apply_booted_schema,
+    connect_test_db,
+    init_test_db,
+)
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.actor_invites import create_invite, get_invite
 from yoke_core.domain.actor_permissions import role_id_by_name, seed_roles_and_permissions
@@ -42,14 +46,9 @@ def _entry():
 entry = _entry()
 
 
-def _apply_core_schema():
-    from yoke_core.domain import schema
-
-    schema.cmd_init()
-
 @pytest.fixture
 def universe(tmp_path, monkeypatch):
-    with init_test_db(tmp_path, apply_schema=_apply_core_schema) as path:
+    with init_test_db(tmp_path, apply_schema=apply_booted_schema) as path:
         monkeypatch.setenv("YOKE_DB", path)
         conn = connect_test_db(path)
         try:

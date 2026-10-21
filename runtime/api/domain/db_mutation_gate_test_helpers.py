@@ -23,13 +23,8 @@ from yoke_core.domain.db_mutation_gate import decision_record_path
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from runtime.api.fixtures.file_test_db import (
-    apply_test_schema,
-    connect_test_db,
-    init_test_db,
-)
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
-from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 def _upsert_set(*columns: str) -> str:
@@ -44,38 +39,6 @@ _PROJECT_UPSERT_SET = _upsert_set("name", "created_at")
 _FLOW_UPSERT_SET = _upsert_set("project_id", "name", "stages", "created_at")
 
 
-_EXTRA_DDL = """
-CREATE TABLE IF NOT EXISTS project_capabilities (
-    id INTEGER PRIMARY KEY,
-    project_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    
-    settings TEXT DEFAULT '{}',
-    verified_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL,
-    UNIQUE(project_id, type)
-);
-
-
-"""
-
-
-def _apply_gate_schema() -> None:
-    """Production boot plus gate-specific fixture tables.
-
-    Audit inserts carry canonical required evidence fields through seed_audit_row.
-    """
-    from yoke_core.domain import db_backend
-
-    apply_test_schema()
-    conn = db_backend.connect()
-    try:
-        execute_schema_script(conn, _EXTRA_DDL)
-        conn.commit()
-    finally:
-        conn.close()
-
-
 @contextlib.contextmanager
 def gate_db_context(tmp_path: Path) -> Iterator[Tuple[sqlite3.Connection, Path]]:
     """Backend-aware ``gate_db`` fixture body shared by the gate suites.
@@ -86,7 +49,7 @@ def gate_db_context(tmp_path: Path) -> Iterator[Tuple[sqlite3.Connection, Path]]
     the gate's own connection. On SQLite that is a real file under
     ``tmp_path``; on Postgres a disposable per-test DSN database.
     """
-    with init_test_db(tmp_path, apply_schema=_apply_gate_schema) as db_path:
+    with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
             yield conn, tmp_path

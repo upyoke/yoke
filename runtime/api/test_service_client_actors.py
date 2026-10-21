@@ -20,15 +20,18 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import seed_human_actor, seed_system_actor, set_actor_name
 from runtime.api.fixtures.backlog import seed_test_canonical_human
-from runtime.api.fixtures.file_test_db import apply_test_schema, init_test_db
+from runtime.api.fixtures.file_test_db import (
+    apply_test_schema,
+    init_test_db,
+    seeded_schema,
+)
 from yoke_core.api.service_client_actors import cmd_actors_get, cmd_actors_list
 
 SYSTEM_COMPONENT = "test-component"
 
 
-def _apply_actors_fixture_schema() -> None:
-    """Production boot plus one named system actor for lookup tests."""
-    apply_test_schema()
+def _seed_actors_fixture() -> None:
+    """Seed the canonical human and one named system actor for lookup tests."""
     conn = db_backend.connect()
     try:
         seed_test_canonical_human(conn)
@@ -36,6 +39,9 @@ def _apply_actors_fixture_schema() -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+_apply_actors_fixture_schema = seeded_schema(apply_test_schema, _seed_actors_fixture)
 
 
 @pytest.fixture

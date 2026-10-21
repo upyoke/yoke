@@ -14,8 +14,12 @@ from pathlib import Path
 
 from psycopg import Error, sql
 
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain import deployment_runs_schema, schema, schema_common_postgres
+from runtime.api.fixtures.file_test_db import (
+    apply_booted_schema,
+    connect_test_db,
+    init_test_db,
+)
+from yoke_core.domain import schema_common_postgres
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.schema_common import _get_columns, _get_indexes, _get_tables
 from yoke_core.domain.schema_init import converge_core_schema
@@ -113,9 +117,7 @@ _BORN_WITH_COLUMN_DIGEST = (
 )
 
 
-def _apply_complete_control_plane_schema() -> None:
-    schema.cmd_init()
-    deployment_runs_schema.cmd_init()
+_apply_complete_control_plane_schema = apply_booted_schema
 
 
 def _column_map(conn) -> dict[str, frozenset[str]]:
