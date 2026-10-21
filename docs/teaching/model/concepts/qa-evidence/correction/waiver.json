@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "page": "qa-evidence",
  "position": 1,
- "summary": "A waiver settles a requirement that still counts. Waiving a retracted, superseded or replaced row refuses with requirement_not_live and names the live copy of the same case to waive instead."
+ "summary": "A waiver settles a requirement that still counts. Waiving a retracted, superseded or replaced row refuses with requirement_not_live and names the live copy of the same case to waive instead. The waiver commits in the request; settlement replay and member close-out follow from a durable queue that a background job drains and retries.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_settlement_followups.py"]
 }
