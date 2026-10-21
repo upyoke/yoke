@@ -62,36 +62,40 @@ def test_local_universe_daemon_serves_without_following_a_release(
     assert "reload_argv" not in daemon_call
 
 
-def test_local_universe_daemon_hosts_github_observation(monkeypatch, tmp_path) -> None:
-    """With no API server, the standing local relay hosts the GitHub observers."""
-    from contextlib import contextmanager
+def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(
+    monkeypatch, tmp_path
+) -> None:
+    """With no API server, each standing local relay cycle runs the upkeep."""
+    import threading
 
-    from yoke_core.domain import pending_github_observation_job as observation
+    from yoke_core.domain import control_plane_upkeep
 
     instance = SimpleNamespace(
         environment="local",
         state_dir=tmp_path / "relay",
         follows_served_release=False,
     )
-    hosting: list[bool] = []
+    ran: list[str] = []
+    threads_at_serve: list[set[str]] = []
 
-    @contextmanager
-    def job():
-        hosting.append(True)
-        yield
-        hosting.append(False)
-
-    def serve_forever(**_kwargs):
-        assert hosting == [True]
+    def serve_forever(**kwargs):
+        threads_at_serve.append({thread.name for thread in threading.enumerate()})
+        kwargs["cycle_maintenance"]()
+        kwargs["cycle_maintenance"]()
         return SimpleNamespace(reason="stopped")
 
     monkeypatch.setattr(
         session_relay_instance, "resolve_relay_instance", lambda: instance
     )
-    monkeypatch.setattr(observation, "pending_github_observation_job", job)
+    monkeypatch.setattr(
+        control_plane_upkeep, "run_control_plane_upkeep", lambda: ran.append("upkeep")
+    )
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
 
-    outcome = release_cli.serve_release_daemon(cycle_maintenance=lambda: None)
+    outcome = release_cli.serve_release_daemon(
+        cycle_maintenance=lambda: ran.append("contained")
+    )
 
     assert outcome.reason == "stopped"
-    assert hosting == [True, False]
+    assert ran == ["contained", "upkeep", "contained", "upkeep"]
+    assert not any(name.startswith("yoke-") for name in threads_at_serve[0])

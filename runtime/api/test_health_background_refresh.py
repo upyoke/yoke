@@ -4,9 +4,18 @@ import asyncio
 import threading
 from unittest import mock
 
+import pytest
+
 import yoke_core.api.main  # noqa: F401 — constructs routes in production order
 from yoke_core.api.routes import items_health
 from yoke_core.api.health_refresh import health_refresh_lifespan
+from yoke_core.domain import control_plane_upkeep
+
+
+@pytest.fixture(autouse=True)
+def _no_upkeep(monkeypatch):
+    """Keep these refresh tests off the database; upkeep has its own tests."""
+    monkeypatch.setattr(control_plane_upkeep, "run_control_plane_upkeep", lambda: None)
 
 
 def test_unprobed_health_fails_closed_without_io():
@@ -99,3 +108,39 @@ def test_health_route_has_no_threadpool_admission_dependency():
     )
     assert asyncio.iscoroutinefunction(health.endpoint)
     assert health.dependant.dependencies == []
+
+
+def test_each_refresh_cycle_runs_upkeep_once_after_its_wait(monkeypatch):
+    calls = []
+    done = threading.Event()
+
+    def refresh():
+        calls.append("refresh")
+
+    def upkeep():
+        calls.append("upkeep")
+        if calls.count("upkeep") == 2:
+            done.set()
+
+    monkeypatch.setattr(items_health, "refresh_health_snapshot", refresh)
+    monkeypatch.setattr(control_plane_upkeep, "run_control_plane_upkeep", upkeep)
+    monkeypatch.setattr(
+        "yoke_core.api.health_refresh.runtime_settings.get_seconds", lambda *_: 0.01
+    )
+    with health_refresh_lifespan():
+        assert done.wait(1)
+    assert calls[:4] == ["refresh", "upkeep", "refresh", "upkeep"]
+
+
+def test_a_process_that_exits_before_one_interval_runs_no_upkeep(monkeypatch):
+    calls = []
+    monkeypatch.setattr(items_health, "refresh_health_snapshot", lambda: None)
+    monkeypatch.setattr(
+        control_plane_upkeep, "run_control_plane_upkeep", lambda: calls.append(1)
+    )
+    monkeypatch.setattr(
+        "yoke_core.api.health_refresh.runtime_settings.get_seconds", lambda *_: 60
+    )
+    with health_refresh_lifespan():
+        pass
+    assert calls == []

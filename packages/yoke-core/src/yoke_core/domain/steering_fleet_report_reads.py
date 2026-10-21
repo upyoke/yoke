@@ -94,6 +94,7 @@ from yoke_core.domain.steering_fleet_report_vendor_errors import (
     VendorErrorSession,
     vendor_error_sessions,
 )
+from yoke_core.domain import steering_fleet_report_settlement_followups as settlement
 from yoke_core.domain.steering_fleet_report_waiting_chains import (
     WaitingChain,
     waiting_chains,
@@ -128,6 +129,7 @@ class ProjectFleetFacts:
     reset_debts: tuple[tuple[str, str], ...] = ()
     levels: LevelReadout | None = None
     deadlocks: tuple[DependencyCycle, ...] = ()
+    settlement_followups: tuple[settlement.FailedSettlementFollowup, ...] = ()
     waiting_chains: tuple[WaitingChain, ...] = ()
 
 
@@ -180,6 +182,9 @@ def read_project_facts(
             conn, project_id=project_id, now=now, holders=holders
         ),
         deadlocks=tuple(cycles_in(live, [project_id])),
+        settlement_followups=settlement.failed_settlement_followups(
+            conn, project_id=project_id
+        ),
         waiting_chains=waiting_chains(conn, live, project_id),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),

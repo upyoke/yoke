@@ -62,6 +62,7 @@ from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessag
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain import steering_fleet_report_awaiting_seat as awaiting
 from yoke_core.domain import steering_fleet_report_waiting_chains as chains
+from yoke_core.domain import steering_fleet_report_settlement_followups as settlement
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,7 @@ class FleetReport:
     level_overrides: tuple[tuple[str, str], ...] = ()
     session_labels: tuple[tuple[str, str], ...] = ()
     deadlocks: tuple[DependencyCycle, ...] = ()
+    settlement_followups: tuple[settlement.FailedSettlementFollowup, ...] = ()
     waiting_chains: tuple[chains.WaitingChain, ...] = ()
     landing_waits: tuple[LandingWait, ...] = ()
 
@@ -191,6 +193,7 @@ class FleetReport:
             or self.messages_awaiting_seat
             or self.reset_debts
             or self.deadlocks
+            or self.settlement_followups
         )
 
     def fingerprint(self) -> str:
@@ -305,6 +308,7 @@ def compose_report(
         reset_debts=facts.reset_debts,
         relay_health=facts.relay_health,
         deadlocks=tuple(seat_cycles(conn, facts.deadlocks, members)),
+        settlement_followups=members_only(facts.settlement_followups, members),
         waiting_chains=chains.seat_chains(facts.waiting_chains, members),
         levels=facts.levels,
         level_overrides=read_level_overrides(conn, refs)

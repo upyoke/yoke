@@ -107,17 +107,20 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     if not instance.follows_served_release:
         # Nothing to follow: this machine serves the plane it polls, so the
         # running process is already the build the universe has. With no API
-        # server, this process also hosts the plane's background jobs.
-        jobs = importlib.import_module(
-            "yoke_core.domain.control_plane_background_jobs"
+        # server, each cycle also runs the plane's upkeep.
+        upkeep = importlib.import_module("yoke_core.domain.control_plane_upkeep")
+
+        def maintain_local_universe() -> None:
+            if cycle_maintenance is not None:
+                cycle_maintenance()
+            upkeep.run_control_plane_upkeep()
+
+        return serve_forever(
+            state_dir=instance.state_dir,
+            inventory_provider=collect_cached_inventory,
+            inventory_refresher=refresh_harness_inventory,
+            cycle_maintenance=maintain_local_universe,
         )
-        with jobs.control_plane_background_jobs():
-            return serve_forever(
-                state_dir=instance.state_dir,
-                inventory_provider=collect_cached_inventory,
-                inventory_refresher=refresh_harness_inventory,
-                cycle_maintenance=cycle_maintenance,
-            )
     installed = release.relay_release_status(instance=instance, refresh_served=False)
     unconverged_launch = release.relay_launch_path(instance.state_dir)
     if (

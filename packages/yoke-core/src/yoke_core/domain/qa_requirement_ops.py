@@ -159,7 +159,7 @@ def waive_requirement(
         (instant_parameter(conn, now), rationale, source, req_id),
     )
     if row["member_item_id"] is not None:
-        # The close-outs this waiver unblocks replay in the background job
+        # The close-outs this waiver unblocks replay in control-plane upkeep
         # (see qa_settlement_followups), owed in this same transaction.
         from yoke_core.domain.qa_settlement_followups import (
             request_settlement_followup,

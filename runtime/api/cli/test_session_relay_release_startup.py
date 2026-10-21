@@ -12,6 +12,7 @@ import pytest
 from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.adapters import session_control_relay_release as release_cli
 from yoke_cli.config import session_relay_instance
+from yoke_core.domain import control_plane_upkeep
 from yoke_core.tools import session_relay_release
 from yoke_core.tools import session_relay_release_install
 from yoke_core.tools.session_relay_release import (
@@ -67,6 +68,12 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
 
     monkeypatch.setattr(session_relay_release_install, "pin_relay_release", pin)
     monkeypatch.setattr(session_relay_daemon, "serve_forever", serve_forever)
+    # A relay that follows a served release has an API server running upkeep.
+    monkeypatch.setattr(
+        control_plane_upkeep,
+        "run_control_plane_upkeep",
+        lambda: prepared.append("upkeep"),
+    )
 
     outcome = release_cli.serve_release_daemon(
         cycle_maintenance=lambda: prepared.append("contained")
