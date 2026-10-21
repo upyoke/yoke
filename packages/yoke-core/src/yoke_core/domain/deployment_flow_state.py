@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.deployment_run_target_resolution import (
     coerce_target_environment_id,
 )
@@ -23,7 +24,7 @@ FLOW_STATUS_DISABLED = "disabled"
 FLOW_STATUSES = frozenset({FLOW_STATUS_ACTIVE, FLOW_STATUS_DISABLED})
 
 
-class MergeOnlyRunRefused(ValueError):
+class MergeOnlyRunRefused(DomainRefusal, ValueError):
     """A merge-only flow completes at merge and cannot own a release run."""
 
     code = "merge_only_flow_no_release_run"

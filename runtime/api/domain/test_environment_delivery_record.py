@@ -88,17 +88,13 @@ def test_succeeded_run_stamps_last_deployed_at(delivery_db) -> None:
     assert stamped[0]
 
 
-def test_merge_only_flow_carries_no_environment(delivery_db) -> None:
-    run_id = dr.cmd_create_run("yoke", "flow-preview", db_path=delivery_db)
-    assert run_id.startswith("run-")
-    assert (
-        dr.cmd_get(
-            run_id,
-            field="target_environment",
-            db_path=delivery_db,
-        )
-        == ""
-    )
+def test_merge_only_flow_refuses_release_run(delivery_db) -> None:
+    from yoke_core.domain.deployment_flow_state import MergeOnlyRunRefused
+
+    with pytest.raises(MergeOnlyRunRefused) as refused:
+        dr.cmd_create_run("yoke", "flow-preview", db_path=delivery_db)
+    assert refused.value.code == "merge_only_flow_no_release_run"
+    assert "merge close-out" in str(refused.value)
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
