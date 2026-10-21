@@ -114,7 +114,7 @@ yoke qa plan reconcile --project P --execution-id ID --reason TEXT
 ```
 
 It never settles an `active` walk (`qa_reconcile_runner_driven` names
-`yoke qa plan abort`), a walk whose owner is parked
+`yoke qa plan abort`), an unfinished walk whose owner is parked
 (`qa_reconcile_owner_parked`), or one still heartbeating
 (`qa_reconcile_execution_live`). A held host lease needs recorded host
 recovery first: the command records cancellation and refuses

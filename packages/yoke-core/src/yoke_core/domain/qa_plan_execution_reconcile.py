@@ -145,7 +145,9 @@ def reconcile_execution(
             f"{PLAN_EXECUTION_STALE_SECONDS // 60} minutes any session may "
             "abandon it. Nothing changed."
         )
-    if owning_session_is_parked(conn, execution):
+    # A parked owner holds an unfinished walk; an ended walk's review is not
+    # held by the park, so only the former refuses.
+    if not terminal and owning_session_is_parked(conn, execution):
         raise QaPlanExecutionStateError(
             f"qa_reconcile_owner_parked: session {execution.get('session_id')} "
             f"is parked and still holds execution {execution_id}. Ask it to "

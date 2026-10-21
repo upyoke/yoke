@@ -78,6 +78,28 @@ def test_parked_owner_keeps_its_walk():
         )
 
 
+def test_parked_owner_does_not_hold_an_ended_walk():
+    with test_database() as conn:
+        execution, bundle, _capture = _awaiting_review(conn, 4945)
+        conn.execute(
+            "UPDATE qa_plan_executions SET state='aborted',completed_at=CURRENT_TIMESTAMP "
+            "WHERE id=%s",
+            (execution["id"],),
+        )
+        register_session_actor(conn, "review-session")
+        conn.execute(
+            "UPDATE harness_sessions SET mode='parked' WHERE session_id=%s",
+            ("review-session",),
+        )
+        conn.commit()
+
+        receipt = _reconcile(conn, execution["id"])
+
+        assert receipt["outcome"] == "review_handoff"
+        assert receipt["review_bundle_id"] == bundle["bundle_id"]
+        assert lock_plan_execution(conn, execution["id"])["state"] == "aborted"
+
+
 def test_sessionless_operator_settles_but_cannot_take_a_review():
     with test_database() as conn:
         judgeable, _bundle, _capture = _awaiting_review(conn, 4943)
