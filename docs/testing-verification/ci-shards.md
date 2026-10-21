@@ -5,6 +5,12 @@ endpoint runs in parallel on every CI event, pull requests included, covering
 interpreter behavior while repository checks, documentation, generated files,
 path snapshots, and installed wheel scenarios stay on the newest leg.
 
+The full matrix uses sixteen shards per Python endpoint, with four xdist
+workers on the measured hosted runners. `ci_shards.SHARD_COUNT` owns the
+fan-out and selection cap; `.yoke/merge-queue.json` declares every required
+shard context. Change these together and verify coverage before applying
+the declaration to GitHub.
+
 `runtime/ci_test_selection.py` owns the interpreter-independent selection. Its
 collection hook runs before pytest-split, so every selected test belongs to
 exactly one shard. Local and newest-interpreter runs retain all tests. Explicit
@@ -102,6 +108,31 @@ slowest cases/files. Workflow elapsed time runs from creation through the last
 job completion. Runner-minute totals exclude queue time; the rounded estimate
 is consumption, not a billing invoice. A reused run has no new coverage artifact
 or complete JUnit set and cannot be represented as an executed full observation.
+
+## Measured fan-out tradeoff
+
+A matched-profile trial on 2026-10-21 measured the optimized fixture and wheel
+layout on both Python endpoints. Every run executed all required cases;
+the eight- and sixteen-shard trials each reported 47,694 cases on Python 3.11
+and 49,468 on Python 3.14, with 94 skips per endpoint.
+
+| Configuration | Workflow elapsed | Runner minutes | Peak concurrent jobs |
+| --- | ---: | ---: | ---: |
+| [Eight shards](https://github.com/upyoke/yoke/actions/runs/39640036607) | 14m32s | 173.98 | 17 |
+| [Sixteen shards](https://github.com/upyoke/yoke/actions/runs/39642454534) | 10m43s | 237.45 | 34 |
+
+Sixteen shards shortened elapsed time by 26% while increasing runner consumption
+by 36%. Shard queue delays were 2–3 seconds and 3–5 seconds respectively, so
+runner availability did not force two waves. Both used four-CPU hosted runners,
+with varying AMD EPYC models; this is an observed comparison, not a guaranteed
+runtime. The eight-minute target was not reached by this trial. Refresh weights
+from the chosen layout because per-worker setup and whole-file allocation change
+when the matrix grows; preserve genuine boot, migration and restore work.
+
+Runner consumption remains a cost measure even where GitHub's public-repository
+standard-runner policy makes compute free. Do not infer invoice charges or an
+account concurrency limit from these measurements. Repeat the report after
+material fixture or scheduling changes, using naturally triggered full runs.
 
 ## Change-scoped selections
 
