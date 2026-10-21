@@ -92,7 +92,8 @@ def test_selected_shared_subject_retries_a_changed_run_before_starting():
 
 
 @pytest.mark.parametrize(
-    "state,code", [("awaiting_agent_review", 12), ("failed", 1), ("waiting", 3)]
+    "state,code",
+    [("walking", 12), ("awaiting_walk_review", 12), ("failed", 1), ("waiting", 3)],
 )
 def test_case_cli_uses_plan_review_and_exit_semantics(monkeypatch, state, code):
     from yoke_core.domain import qa_case_execution_cli as cli
@@ -103,7 +104,7 @@ def test_case_cli_uses_plan_review_and_exit_semantics(monkeypatch, state, code):
     qualify = Mock()
     monkeypatch.setattr(plan_cli, "_qualify_review_dispatch", qualify)
     assert cli.run(["--requirement-id", "51"]) == code
-    assert qualify.call_count == (1 if state == "awaiting_agent_review" else 0)
+    assert qualify.call_count == (1 if state in {"walking", "awaiting_walk_review"} else 0)
 
 
 def test_review_wake_resumes_the_frozen_execution_instead_of_the_whole_scope(test_db):
