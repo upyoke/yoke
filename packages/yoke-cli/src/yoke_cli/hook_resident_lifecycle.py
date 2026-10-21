@@ -72,8 +72,15 @@ def _resident_processes(paths: client.ResidentPaths) -> list[tuple[int, str]]:
     return residents
 
 
-def stop_resident(paths: client.ResidentPaths | None = None) -> None:
-    """Signal only proven residents and wait for process exit and lock release."""
+def stop_resident(
+    paths: client.ResidentPaths | None = None, *, require_lock_release: bool = True
+) -> None:
+    """Signal only proven residents and wait for process exit and lock release.
+
+    A restart passes ``require_lock_release=False``: once the old residents
+    exit, a resident a live hook launched meanwhile already runs the
+    installed build, and its lock must not fail the restart.
+    """
     if not client.resident_transport_available():
         return
     paths = paths or client.resident_paths()
@@ -96,6 +103,8 @@ def stop_resident(paths: client.ResidentPaths | None = None) -> None:
         )
     while time.monotonic() < deadline:
         alive = any(process_start_time(pid) == started for pid, started in residents)
+        if not alive and not require_lock_release:
+            return
         if not alive:
             lock_fd = client._open_start_lock(paths.lock)
             if lock_fd is not None:
@@ -128,7 +137,7 @@ def restart_resident() -> None:
                 "another installer is changing the evaluator",
                 paths,
             ) from None
-        stop_resident(paths)
+        stop_resident(paths, require_lock_release=False)
         request = client._request("PreToolUse", "{}", True, "")
         client._start_resident(paths, request.environment)
         deadline = time.monotonic() + _START_SECONDS

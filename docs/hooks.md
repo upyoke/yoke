@@ -102,15 +102,17 @@ an idle retirement is normal, and the next hook restarts it.
 
 ### Deadlines and degradation
 
-One hook process has one budget: `YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms)
-from the process's own start, capped 5 seconds below the shortest manifest
-`machine_hooks.hook_timeout_seconds` (`yoke_contracts.hook_budget`). Connecting,
-starting, restart handshakes and the answer all spend it; the resident evaluates
-inside what is left. A launched resident that exits before listening ends the
-wait (`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two
-seconds, the hook skips the fallback: `hook_budget_exhausted` with reason, log and
+A hook process waits for its answer at most the harness ceiling: 5 seconds below
+the shortest manifest `machine_hooks.hook_timeout_seconds`, measured from the
+process's own start (`yoke_contracts.hook_budget`). A cold resident's load is
+waited out inside that ceiling. The evaluation itself keeps
+`YOKE_HOOK_TOTAL_TIMEOUT_MS` (default 10000ms), shortened to what the wait left.
+A launched resident that exits before listening ends the wait
+(`YOKE_HOOK_RESIDENT_START_FAILED`). If waiting on it left under two seconds,
+the hook skips the fallback: `hook_budget_exhausted` with reason, log and
 `yoke hook resident restart`: lifecycle events degrade to an allow with that
-warning, tool events refuse.
+warning, tool events refuse. A resident still loading exits at once on SIGTERM,
+and a restart accepts a resident a live hook launched once the old one exits.
 
 The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
 `yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies

@@ -277,10 +277,7 @@ def _exit_reason(server: _ResidentServer) -> str | None:
 
 
 def _unlink_socket(path: Path) -> None:
-    try:
-        path.unlink()
-    except FileNotFoundError:
-        pass
+    path.unlink(missing_ok=True)
 
 
 def _serve(socket_path: Path, lock_fd: int) -> bool:
@@ -291,11 +288,13 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
     def stop(_signum=None, _frame=None) -> None:
         server.stop_event.set()
 
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
     restart = False
     try:
+        # Until the evaluator loads, SIGTERM keeps its default and ends the
+        # process at once: nothing is in flight, and queued callers retry.
         server.load_evaluator()
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
         while not server.stop_event.is_set():
             reason = _exit_reason(server)
             if reason is not None:

@@ -100,9 +100,18 @@ def test_unreleased_lock_refuses_instead_of_claiming_stopped(monkeypatch, tmp_pa
         lifecycle.stop_resident()
 
 
+def test_restart_accepts_a_resident_a_live_hook_relaunched(monkeypatch, tmp_path):
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
+    monkeypatch.setattr(lifecycle, "_resident_processes", lambda paths: [])
+    # A live hook's new resident holds the start lock once the old one exits.
+    monkeypatch.setattr(client, "_open_start_lock", lambda path: None)
+    monkeypatch.setattr(lifecycle, "_STOP_SECONDS", 0.001)
+    lifecycle.stop_resident(require_lock_release=False)
+
+
 def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths: None)
+    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(
         client,
@@ -117,7 +126,7 @@ def test_nonzero_health_refuses_readiness(monkeypatch, tmp_path):
 
 def test_start_timeout_names_log_and_recovery(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths: None)
+    monkeypatch.setattr(lifecycle, "stop_resident", lambda paths, **_: None)
     monkeypatch.setattr(client, "_start_resident", lambda *_: None)
     monkeypatch.setattr(lifecycle, "_START_SECONDS", 0)
     with pytest.raises(
