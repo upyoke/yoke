@@ -3,7 +3,10 @@
 import json
 from pathlib import Path
 
-from explorer_sources import SOURCES
+from explorer_sources import (
+    SOURCES, BRANCHES, SURFACE_PARENTS, SURFACE_TITLES,
+    EXCLUDED_SURFACES, TEACHING_PARENTS,
+)
 
 ROOT = 'explore/index.html'
 
@@ -19,26 +22,52 @@ def map_nodes(model):
         nodes.append(node)
         return node
 
-    for source in SOURCES:
-        add('source:' + source['id'], source['title'], summary=source['summary'])
-        for sid in source['surfaces']:
-            if sid not in model.surfaces or sid in assigned:
-                model.problem('EXPLORER_SOURCE', 'tools/explorer_sources.py',
-                              f'{sid}: assign each existing surface once')
+    for sid, title, summary in SOURCES:
+        add('source:' + sid, title, summary=summary)
+    for bid, title, parent, summary in BRANCHES:
+        add('branch:' + bid, title, parent, summary)
+    by_id = {node['id']: node for node in nodes}
+    by_id['source:homepage']['url'] = 'https://upyoke.com'
+    by_id['branch:web-docs']['url'] = 'https://upyoke.com/docs'
+    by_id['branch:installed-docs']['related'] = ['branch:doc-content']
+    by_id['branch:web-docs']['related'] = ['branch:doc-content']
+    for sid, surface in model.surfaces.items():
+        if sid in EXCLUDED_SURFACES:
+            continue
+        if sid not in SURFACE_PARENTS:
+            model.problem('EXPLORER_SOURCE', 'tools/explorer_sources.py',
+                          f'{sid}: assign this surface to an agreed source')
+            continue
+        assigned.add(sid)
+        add('surface:' + sid, SURFACE_TITLES.get(sid, surface['title']),
+            SURFACE_PARENTS[sid], surface.get('encounter', ''), surface['status'], surface)
+        for rid in surface['parts']:
+            row = model.teaching[rid]
+            if row['status'] == 'superseded':
                 continue
-            assigned.add(sid)
-            surface = model.surfaces[sid]
-            add('surface:' + sid, surface['title'], 'source:' + source['id'],
-                surface.get('encounter', ''), surface['status'], surface)
-            for rid in surface['parts']:
-                row = model.teaching[rid]
-                node = add('teaching:' + rid, row['title'], 'surface:' + sid,
-                           row.get('form', ''), row['status'], row)
-                node['related'] = ['topic:' + cid for cid in row.get('topics', [])]
-    for sid in model.surfaces.keys() - assigned:
-        model.problem('EXPLORER_SOURCE', 'tools/explorer_sources.py',
-                      f'{sid}: assign this surface to its source group')
-    add('topics', 'Concepts', summary='The shared topics beneath all these sources.')
+            node = add('teaching:' + rid, row['title'],
+                       TEACHING_PARENTS.get(rid, 'surface:' + sid),
+                       '', row['status'], row)
+            node['related'] = ['topic:' + cid for cid in row.get('topics', [])]
+    add('topics', 'Topics in the public guides', 'branch:doc-content',
+        'Explore the shared concept tree; a topic mapping does not prove delivery.')
+    repo = Path(__file__).resolve().parents[3]
+    for path in sorted((repo / '.agents/skills/yoke').rglob('SKILL.md')):
+        name = path.parent.relative_to(repo / '.agents/skills/yoke').as_posix()
+        if name == '.':
+            name = 'yoke'
+        node = add('skill:' + name, name.replace('/', ' / '), 'branch:project-skills',
+                   'Read the procedure for this skill.')
+        node['document'] = '../../../../' + path.relative_to(repo).as_posix()
+    global_docs = 'packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md'
+    node = add('skill:yoke-global', 'yoke-global (outside projects)', 'source:skills',
+               'Check machine status, choose or add a project, then open a session in its folder.')
+    node['document'] = '../../../../' + global_docs
+    for path in sorted((repo / 'runtime/agents').glob('*.md')):
+        title = path.stem.replace('-', ' ').title()
+        node = add('role:' + path.stem, title, 'source:roles',
+                   'Read the instructions assigned to this agent role.')
+        node['document'] = '../../../../' + path.relative_to(repo).as_posix()
     commands = {}
     for cid, row in model.concepts.items():
         add('topic:' + cid, row['title'],

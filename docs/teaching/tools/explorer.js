@@ -59,7 +59,7 @@ function choose(node) {
 function home() {
   focus = null;
   const z = Math.min((map.clientWidth - 100) / 1880,
-    Math.max(200, map.clientHeight - 250) / 1040);
+    Math.max(200, map.clientHeight - 250) / (Math.ceil(roots.length / 4) * 370 - 70));
   camera = {z, x: (map.clientWidth - 1880 * z) / 2, y: 175};
   document.querySelector('#intro').hidden = false;
   updateTrail();
@@ -91,10 +91,13 @@ function makeNode(node) {
   el.tabIndex = 0;
   el.setAttribute('aria-label', node.title + '. Zoom into node');
   const heading = text('div', '', 'node-head');
-  heading.append(text('span', node.status || (node.depth ? 'Branch' : 'Context source'), 'kind'),
+  const labels = {'observed': 'Source reviewed', 'draft-copy': 'Draft wording',
+    'candidate': 'Proposed', 'approved': 'Agreed', 'deferred': 'Planned for later',
+    'verified-live': 'Checked in use'};
+  heading.append(text('span', labels[node.status] || (node.depth ? 'Branch' : 'Context source'), 'kind'),
     text('h2', node.title), text('p', node.summary, 'summary'));
   el.append(heading);
-  if (node.record && node.children.length) {
+  if ((node.record || node.document) && node.children.length) {
     const read = text('button', 'Read this node', 'read-node');
     read.onclick = () => {
       node.reading = !node.reading;
@@ -127,14 +130,28 @@ async function fillDetail(node, el) {
       if (!records.has(node.record)) records.set(node.record,
         fetch(node.record).then(r => { if (!r.ok) throw Error(r.status); return r.json(); }));
       const record = await records.get(node.record);
-      for (const [key, value] of Object.entries(record)) {
-        if (['id', 'title', 'page', 'position', 'status'].includes(key)) continue;
+      const labels = {current: 'What is there now', desired: 'What is intended',
+        note: 'Explanation', need: 'What the reader needs', when: 'When it is needed',
+        encounter: 'When it appears', location: 'Where it comes from',
+        audience: 'Who reads it', scope: 'Where it applies'};
+      for (const [key, label] of Object.entries(labels)) {
+        if (!record[key]) continue;
         const row = text('div', '', 'field');
-        row.append(text('b', key.replaceAll('_', ' ')));
-        row.append(text('p', Array.isArray(value) ? value.join(' · ') : String(value)));
+        row.append(text('b', label), text('p', String(record[key])));
         body.append(row);
       }
-      const link = text('a', 'Open canonical record ↗');
+      const research = text('details', '', 'research');
+      research.append(text('summary', 'Research notes and source references'));
+      for (const [key, value] of Object.entries(record)) {
+        if (['id', 'title', 'page', 'position', 'status', 'form', 'topics'].includes(key)
+            || key in labels) continue;
+        const row = text('div', '', 'field');
+        row.append(text('b', key.replaceAll('_', ' ')),
+          text('p', Array.isArray(value) ? value.join(' · ') : String(value)));
+        research.append(row);
+      }
+      body.append(research);
+      const link = text('a', 'Original research record ↗');
       link.href = node.record; link.target = '_blank'; link.rel = 'noopener';
       body.append(link);
     } catch (error) {
@@ -142,8 +159,22 @@ async function fillDetail(node, el) {
       el.dataset.loaded = '';
     }
   }
+  if (node.document) {
+    try {
+      const response = await fetch(node.document);
+      if (!response.ok) throw Error(response.status);
+      const content = (await response.text()).replace(/^---[\s\S]*?---\n/, '');
+      body.append(text('div', content, 'document'));
+    } catch (error) {
+      body.append(text('p', 'Document could not load. Serve the checkout root and reload.'));
+    }
+  }
+  if (node.url) {
+    const link = text('a', 'Open ' + node.title + ' ↗');
+    link.href = node.url; link.target = '_blank'; link.rel = 'noopener'; body.append(link);
+  }
   if (node.related?.length) {
-    body.append(text('b', 'Connected concepts'));
+    body.append(text('b', 'Related teaching'));
     node.related.forEach(id => {
       const target = byId.get(id);
       if (!target) return;
@@ -177,16 +208,8 @@ function render() {
   roots.forEach(visit);
   for (const [id, el] of elements) if (!visible.has(id)) el.hidden = true;
   wires.replaceChildren();
-  // Source order is an encounter guide, not a claim of runtime dependency.
-  roots.slice(0, 10).forEach((node, i, list) => {
-    if (!i || i % 4 === 0) return;
-    const a = screen(list[i - 1]), b = screen(node);
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M${a.x + a.w},${a.y + a.h / 2} L${b.x},${b.y + b.h / 2}`);
-    wires.append(path);
-  });
   document.querySelector('#scale').textContent = `${Math.round(camera.z * 100)}%`;
-  notice.textContent = focus ? `${focus.title} · ${focus.children.length} branches` : '11 source and concept regions · zoom to reveal their contents';
+  notice.textContent = focus ? `${focus.title} · ${focus.children.length} branches` : `${roots.length} teaching sources · zoom to reveal their contents`;
 }
 map.addEventListener('wheel', e => {
   if (e.target.closest('.detail') && !e.ctrlKey && !e.metaKey) return;

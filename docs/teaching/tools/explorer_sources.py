@@ -1,83 +1,79 @@
-"""Editorial navigation over canonical surfaces, not a second teaching inventory."""
+"""Agreed source boxes and editorial placement of the existing teaching records."""
 
 SOURCES = (
-    {
-        "id": "website", "title": "Website & documentation", "stage": "Start",
-        "timing": "When someone reads it", "mark": "↗",
-        "summary": "The public introduction, install instructions and deeper manual.",
-        "delivery": "A person or agent opens a page; its content enters the conversation when read.",
-        "surfaces": ("docs-landing", "manual-overview", "manual-contents",
-                     "category-summary", "detail-home"),
-    },
-    {
-        "id": "setup", "title": "Install & setup replies", "stage": "Start",
-        "timing": "During installation", "mark": "↓",
-        "summary": "Questions, choices and the next action, one command reply at a time.",
-        "delivery": "Without a terminal, the installer starts agent setup and prints its first question. Each answer resumes the saved setup.",
-        "surfaces": ("setup-agent", "setup-install", "setup-tui",
-                     "machine-admission", "connection-recovery"),
-    },
-    {
-        "id": "hooks", "title": "Hooks & orientation", "stage": "Enter a session",
-        "timing": "At supported harness events", "mark": "↳",
-        "summary": "Current machine or project facts, then guidance as events happen.",
-        "delivery": "Installed hooks run at supported events. Global orientation applies outside a project; project orientation adds the current project context. Installing a hook is separate from receiving its output.",
-        "surfaces": ("global-orientation", "global-hooks", "project-orientation",
-                     "project-hooks", "resume-context", "global-native"),
-    },
-    {
-        "id": "rules", "title": "Project rules", "stage": "Enter a session",
-        "timing": "When the harness loads the project", "mark": "≡",
-        "summary": "AGENTS.md supplies standing obligations and pointers to operation rules.",
-        "delivery": "Project installation provides the managed AGENTS.md block. The harness loads native project instructions according to its own discovery rules; a session may need restarting after installation.",
-        "surfaces": ("project-native",),
-    },
-    {
-        "id": "skills", "title": "Skills & agent roles", "stage": "Enter a session",
-        "timing": "Discovered first; read when used", "mark": "◇",
-        "summary": "A discoverable menu of ways to work, with instructions behind each entry.",
-        "delivery": "Skill metadata makes an entry discoverable; its instructions are read when invoked. The global yoke-global skill is available outside projects; full Yoke skills belong to installed projects.",
-        "surfaces": ("skills-roles", "agent-help"),
-    },
-    {
-        "id": "help", "title": "Command help & packets", "stage": "Work",
-        "timing": "When the agent asks for detail", "mark": "?",
-        "summary": "A tree of commands and focused context for the operation at hand.",
-        "delivery": "Root help leads to a command group, then an operation. Topic packets supply the relevant agent reference when explicitly fetched.",
-        "surfaces": ("terminal-help", "packets-help"),
-    },
-    {
-        "id": "feedback", "title": "Command results", "stage": "Work",
-        "timing": "After an operation", "mark": "←",
-        "summary": "What happened, what is needed next, or how to recover from a refusal.",
-        "delivery": "An operation returns its result into the agent's tool context. This continues after setup and can carry relevant next-action teaching.",
-        "surfaces": ("command-feedback",),
-    },
-    {
-        "id": "instructions", "title": "Scoped instructions", "stage": "Work",
-        "timing": "At a configured work boundary", "mark": "⌁",
-        "summary": "Rules for this kind of work, delivered when their scope applies.",
-        "delivery": "Execution-instruction records select their scope and delivery points, such as creation, item reads or stage entry.",
-        "surfaces": ("execution-instructions",),
-    },
-    {
-        "id": "project", "title": "Project knowledge", "stage": "Work",
-        "timing": "When the work needs it", "mark": "▤",
-        "summary": "The project's own documentation, routed to the agents doing the work.",
-        "delivery": "Project context routes point to relevant existing documents. These keep their project owner and are read for the work that needs them.",
-        "surfaces": ("project-hub",),
-    },
-    {
-        "id": "workbench", "title": "Workbench cues", "stage": "Work",
-        "timing": "When a person visits the UI", "mark": "▦",
-        "summary": "Visible state and next steps in Yoke's dashboard.",
-        "delivery": "People encounter cues while using the workbench. UI text does not automatically become agent context.",
-        "surfaces": ("workbench-cues",),
-    },
+    ('homepage', 'Website homepage', 'The introduction to Yoke at upyoke.com.'),
+    ('docs', 'Public docs', 'One set of Yoke guides, delivered on the website and inside installed projects.'),
+    ('setup', 'Install and setup', 'Instructions, questions and recovery while getting Yoke ready.'),
+    ('global-hooks', 'Global hook messages', 'What Yoke tells the agent outside a Yoke project.'),
+    ('project-hooks', 'Project hook messages', 'What Yoke tells the agent at events inside a Yoke project.'),
+    ('rules', 'Project rules (AGENTS.md)', 'Standing Yoke and project rules loaded by the harness.'),
+    ('skills', 'Skills', 'Procedures the agent reads when using a Yoke skill.'),
+    ('roles', 'Agent role instructions', 'Responsibilities and working instructions for each assigned role.'),
+    ('help', 'Command help', 'The help tree: root, command groups, then individual operations.'),
+    ('feedback', 'Command results and error messages', 'Outcome explanations, next steps and recovery instructions.'),
+    ('packets', 'Context packets', 'Focused references the agent requests before particular work.'),
+    ('instructions', 'Scoped execution instructions', 'Saved rules delivered when their project or work scope applies.'),
+    ('project', 'Project documentation', 'The project’s own guides, conventions, architecture notes and runbooks.'),
 )
 
-STAGES = {
-    "Start": "Begin with the public entry point and a conversation with setup.",
-    "Enter a session": "Yoke becomes available to the harness, then context is received.",
-    "Work": "More context arrives when a task, command or person needs it.",
+# id, title, parent, summary: intermediate branches are navigation, not new facts.
+BRANCHES = (
+    ('web-docs', 'Website docs page', 'source:docs', 'Public guides read at upyoke.com/docs.'),
+    ('installed-docs', 'Installed docs (.yoke/docs)', 'source:docs', 'The same public guides, available in an installed project.'),
+    ('doc-content', 'Shared documentation content', 'source:docs', 'The overview, navigation, topic articles and concept tree behind both locations.'),
+    ('agent-setup', 'Agent-mode replies', 'source:setup', 'Setup returns questions, choices and the next action to the agent.'),
+    ('terminal-setup', 'Interactive terminal screens', 'source:setup', 'A person works through setup directly in their terminal.'),
+    ('shared-setup', 'Shared setup guidance', 'source:setup', 'Install checks, machine connection and recovery used across setup routes.'),
+    ('project-skills', 'Project skills', 'source:skills', 'Skills available in a project where Yoke is installed.'),
+    ('skill-guidance', 'How skills guide work', 'source:skills', 'Common instructions, including what to reload when continuing work.'),
+    ('role-guidance', 'How roles guide work', 'source:roles', 'Shared responsibilities for delegated agents.'),
+)
+
+SURFACE_PARENTS = {
+    'docs-landing': 'branch:web-docs',
+    'manual-overview': 'branch:doc-content',
+    'manual-contents': 'branch:doc-content',
+    'category-summary': 'branch:doc-content',
+    'detail-home': 'branch:doc-content',
+    'setup-agent': 'branch:agent-setup',
+    'setup-tui': 'branch:terminal-setup',
+    'setup-install': 'branch:shared-setup',
+    'machine-admission': 'branch:shared-setup',
+    'connection-recovery': 'branch:shared-setup',
+    'global-orientation': 'source:global-hooks',
+    'global-hooks': 'source:global-hooks',
+    'project-orientation': 'source:project-hooks',
+    'project-hooks': 'source:project-hooks',
+    'project-native': 'source:rules',
+    'skills-roles': 'branch:skill-guidance',
+    'agent-help': 'branch:skill-guidance',
+    'resume-context': 'branch:skill-guidance',
+    'terminal-help': 'source:help',
+    'command-feedback': 'source:feedback',
+    'packets-help': 'source:packets',
+    'execution-instructions': 'source:instructions',
+    'project-hub': 'source:project',
+}
+
+SURFACE_TITLES = {
+    'global-orientation': 'First introduction outside a project',
+    'global-hooks': 'Messages during work outside a project',
+    'project-orientation': 'First introduction inside a project',
+    'project-hooks': 'Messages during project work',
+    'skills-roles': 'Common skill instructions',
+    'resume-context': 'Instructions for continuing work',
+    'packets-help': 'What a context packet provides',
+    'project-native': 'Standing project instructions',
+}
+
+EXCLUDED_SURFACES = {
+    'workbench-cues': 'Owned by the dashboard prototype.',
+    'global-native': 'Abandoned startup-message proposal; not part of the current map.',
+}
+
+# Split mixed legacy records according to the agreed source, without copying them.
+TEACHING_PARENTS = {
+    'skills-roles/02': 'branch:role-guidance',
+    'skills-roles/04': 'branch:role-guidance',
+    'packets-help/01': 'surface:terminal-help',
 }

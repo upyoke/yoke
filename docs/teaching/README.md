@@ -31,10 +31,18 @@ nested sources, surfaces, teachings, command branches and concept branches
 in place; leaf detail loads the canonical record. Whole map and Up one level
 move the camera without opening another page.
 
+The top level separates homepage, public docs, setup, global/project hooks,
+project rules, skills, roles, command help, command replies, context packets,
+scoped instructions and project documentation. Website and installed docs
+link to shared content; agent replies and terminal screens sit under setup.
+Dashboard teaching stays with the dashboard prototype. Instructions for
+resuming work sit under Skills; changing work state is not teaching content.
+Abandoned proposals are omitted from this reading view but remain in the
+research catalogue. Research notes sit beneath plain-language explanations.
+
 Source groups in `tools/explorer_sources.py` are editorial navigation, not
 new authorities. New surfaces must be assigned to a group; the build reports
-`EXPLORER_SOURCE` otherwise. Node status stays attached, including superseded
-proposals. Availability never establishes actual context receipt.
+`EXPLORER_SOURCE` otherwise. Included nodes retain their recorded status. Availability never establishes actual context receipt.
 
 Serve the checkout root over loopback: `python3 -m http.server 8765 --bind
 127.0.0.1` from the checkout, then open
