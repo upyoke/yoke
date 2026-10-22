@@ -215,6 +215,9 @@ root:
         - title: Run members and QA
           summary: Read member custody, target occupancy and run-bound QA.
           path: deployments/model/run-members.md
+        - title: Frozen member plans
+          summary: Match admitted QA attachments and remove incomplete members.
+          path: deployments/model/member-plan-snapshots.md
         - title: Release authorities
           summary: Read deployed revision checks and release-to-done QA authority.
           path: deployments/model/releases.md
