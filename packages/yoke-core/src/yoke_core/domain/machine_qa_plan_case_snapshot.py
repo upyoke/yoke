@@ -98,9 +98,10 @@ def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
         from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
 
         target = stored.get("execution_target") or {}
-        if (
-            current.get("execution_target_digest") == stored.get("execution_target_digest")
-            and inherited_target(conn, str(current.get("deployment_run_id") or ""), target)
+        if current.get("execution_target_digest") == stored.get(
+            "execution_target_digest"
+        ) and inherited_target(
+            conn, str(current.get("deployment_run_id") or ""), target
         ):
             current["deployment_run_id"] = stored.get("deployment_run_id")
     if canonical(current) != canonical(stored):

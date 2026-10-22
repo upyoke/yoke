@@ -80,10 +80,7 @@ def test_capture_transition_wakes_parked_owner_and_reentry_does_not_recapture(
     assert _recipients(test_db, key) == [OWNER]
     [body] = _bodies(test_db, key)
     ref = render_item_ref(test_db, MEMBER)
-    assert (
-        f"yoke watch qa-plan -- --deployment-run-id {run_id} "
-        f"--stage {STAGE} --member {ref} --project yoke"
-    ) in body
+    assert (f"yoke watch qa-plan -- --item {ref} --project yoke") in body
     assert "no QA verdict exists yet" in body
     assert "--plan" not in body
     snapshot = test_db.execute(
@@ -153,7 +150,8 @@ def test_gone_owner_reaches_steering_with_normal_restaffing_recovery(test_db, go
     [body] = _bodies(test_db, key)
     assert f"Owning session {OWNER} is gone" in body
     assert "idle/gone-holder starvation and restaffing" in body
-    assert "--stage" in body and "--member" in body
+    assert f"--item {render_item_ref(test_db, MEMBER)}" in body
+    assert f"--resume-execution-id {execution['id']}" in body
 
 
 def test_delegated_capture_wakes_execution_owner_rather_than_another_holder(test_db):
@@ -298,9 +296,10 @@ def test_review_submission_not_receipt_expiry_cancels_the_wake(test_db, monkeypa
     # Expiry runs inside acknowledge and relay claim; it never sweeps.
     expire_due_recipients(test_db)
     assert reason() is None
-    assert withdraw_settled_agent_review_wakes(
-        test_db, execution_id=str(execution["id"])
-    ) == 1
+    assert (
+        withdraw_settled_agent_review_wakes(test_db, execution_id=str(execution["id"]))
+        == 1
+    )
     assert str(reason()).startswith(SETTLED_REVIEW_WAKE_REASON)
 
 

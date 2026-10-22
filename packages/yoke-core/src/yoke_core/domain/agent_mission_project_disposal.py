@@ -67,7 +67,10 @@ def _authorized_execution(conn: Any, request: FunctionCallRequest, parsed) -> di
     from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 
     request = resolve_execution_request(conn, request, execution)
-    item_id, deployment_run_id = request.target.item_id, request.target.deployment_run_id
+    item_id, deployment_run_id = (
+        request.target.item_id,
+        request.target.deployment_run_id,
+    )
     from yoke_core.domain.qa_plan_execution_schema import (
         TERMINAL_PLAN_EXECUTION_STATES,
     )

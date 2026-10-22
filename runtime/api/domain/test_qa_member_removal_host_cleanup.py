@@ -114,7 +114,7 @@ def test_the_runner_keeps_its_subject_after_membership_ends(test_db, removed_inf
     request = FunctionCallRequest(
         function="qa.plan_execution.heartbeat",
         actor=ActorContext(actor_id="1", session_id=SESSION),
-        target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+        target=TargetRef(kind="global", project_id="yoke"),
         payload={"execution_id": execution_id},
     )
     assert resolve_run_qa_subject(test_db, request) == (1, "yoke", MEMBER)

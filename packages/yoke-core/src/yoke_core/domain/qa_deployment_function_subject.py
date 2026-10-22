@@ -21,15 +21,18 @@ class QaSubjectProjectError(ValueError):
     """A QA write does not name the project of its verified subject."""
 
 
-SCOPED_RUN_FUNCTIONS = frozenset(
-    {
-        "qa.browser_context.get",
-        "qa.requirement.add",
-        "qa.plan.materialize",
-        "qa.plan.rematerialize",
-        "qa.plan_execution.begin",
-    }
-) | EXECUTION_FUNCTIONS
+SCOPED_RUN_FUNCTIONS = (
+    frozenset(
+        {
+            "qa.browser_context.get",
+            "qa.requirement.add",
+            "qa.plan.materialize",
+            "qa.plan.rematerialize",
+            "qa.plan_execution.begin",
+        }
+    )
+    | EXECUTION_FUNCTIONS
+)
 
 
 def _execution_subject(

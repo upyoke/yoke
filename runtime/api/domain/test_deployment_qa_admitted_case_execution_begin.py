@@ -124,7 +124,7 @@ def test_an_admitted_mission_copy_begins_without_a_roster_drift_refusal(
         FunctionCallRequest(
             function="test_machine.plan_case.begin",
             actor=ACTOR,
-            target=TargetRef(kind="deployment_run", deployment_run_id=RUN_ID),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={
                 "execution_id": str(execution["id"]),
                 "requirement_id": admitted_mission_requirement,

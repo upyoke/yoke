@@ -39,10 +39,7 @@ def test_missing_review_identity_refuses_instead_of_emitting_a_command(monkeypat
 
 
 def test_non_item_review_subjects_need_only_the_execution_identity():
-    assert (
-        subjects.subject_flag({"deployment_run_id": "run"}, None)
-        == ""
-    )
+    assert subjects.subject_flag({"deployment_run_id": "run"}, None) == ""
     assert (
         subjects.subject_flag(
             {"standalone_plan_id": 7}, {"project": {"slug": "example"}}

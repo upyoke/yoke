@@ -13,7 +13,9 @@ def terminal_run_status(conn, execution):
     if status == "failed":
         from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
         from yoke_core.domain.qa_deployment_run_settlement import preserves_inherited_qa
-        from yoke_core.domain.qa_plan_execution_target_snapshot import decode_execution_target
+        from yoke_core.domain.qa_plan_execution_target_snapshot import (
+            decode_execution_target,
+        )
 
         target = execution.get("execution_target") or decode_execution_target(execution)
         if (

@@ -70,7 +70,7 @@ def _run_plan(test_db, execution_id: str, *, remove: bool, abort_view=None):
             if abort_view is not None:
                 return abort_view
             outcome = handle_plan_execution_abort(_request(execution_id))
-            assert outcome.primary_success
+            assert outcome.primary_success, outcome.error
             return outcome.result_payload
         return {}
 
@@ -142,7 +142,7 @@ def test_abort_of_a_removed_member_execution_returns_the_removal_reason(
 
     outcome = handle_plan_execution_abort(_request(execution_id))
 
-    assert outcome.primary_success
+    assert outcome.primary_success, outcome.error
     assert outcome.result_payload["release_reason"] == "deployment-member-removed"
     assert member_removed(outcome.result_payload)
 

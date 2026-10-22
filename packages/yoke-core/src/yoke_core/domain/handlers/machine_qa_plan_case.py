@@ -27,7 +27,9 @@ from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 from yoke_core.domain.machine_qa_host_unreachable import wait_if_host_unreachable
 from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
 from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
-from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot as _assert_current_snapshot
+from yoke_core.domain.machine_qa_plan_case_snapshot import (
+    assert_current_snapshot as _assert_current_snapshot,
+)
 
 
 def _owned_case(
@@ -50,7 +52,10 @@ def _owned_case(
     from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 
     request = resolve_execution_request(conn, request, execution)
-    item_id, deployment_run_id = request.target.item_id, request.target.deployment_run_id
+    item_id, deployment_run_id = (
+        request.target.item_id,
+        request.target.deployment_run_id,
+    )
     if request.target.kind == "global":
         from yoke_core.domain.qa_standalone_execution import require_standalone_project
 

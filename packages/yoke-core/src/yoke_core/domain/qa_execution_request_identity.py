@@ -41,12 +41,33 @@ def resolve_execution_request(conn, request, execution=None):
             "item or project only when supplying an authorization scope"
         )
     if execution is None:
-        execution = select_plan_execution(
-            conn, str((request.payload or {}).get("execution_id") or ""), lock=False
-        )
+        execution_id = str((request.payload or {}).get("execution_id") or "")
+        if not execution_id:
+            raise QaSubjectProjectError(
+                "qa_execution_id_required: supply execution_id to resolve continuation authority"
+            )
+        execution = select_plan_execution(conn, execution_id, lock=False)
     run_id = execution.get("deployment_run_id")
     member = execution.get("deployment_member_item_id")
-    if run_id:
+    if (
+        run_id
+        and request.function == "qa.plan_execution.abort"
+        and not execution.get("execution_target")
+    ):
+        from yoke_core.domain.qa_deployment_function_subject import (
+            resolve_run_qa_subject,
+        )
+
+        # Abandoning a cursor does not dispatch cases or require a target snapshot.
+        stopped = request.model_copy(
+            update={
+                "target": TargetRef(
+                    kind="deployment_run", deployment_run_id=str(run_id)
+                )
+            }
+        )
+        project_id, slug, _ = resolve_run_qa_subject(conn, stopped)
+    elif run_id:
         project_id, slug = _checkin_project(conn, execution["id"], member)
     else:
         project_id = execution_project_id(conn, execution)

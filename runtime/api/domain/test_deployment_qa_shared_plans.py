@@ -170,9 +170,7 @@ def test_shared_execution_resolves_registered_project_and_review_policy(test_db)
     request = FunctionCallRequest(
         function="qa.plan_execution.heartbeat",
         request_id=str(uuid4()),
-        target=TargetRef(
-            kind="deployment_run", deployment_run_id=RUN, project_id="yoke"
-        ),
+        target=TargetRef(kind="global", project_id="yoke"),
         actor=ActorContext(actor_id="2", session_id="shared-qa"),
         payload={"execution_id": execution["id"]},
     )

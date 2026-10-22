@@ -43,18 +43,26 @@ def inherited_member_target(conn, run_id, stage_name, member):
     from copy import deepcopy
     from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
     from yoke_core.domain.qa_execution_environment_target import canonical_target
+    from yoke_core.domain.deployment_qa_presentation_facts import stage_requirement_rows
 
     def read():
-        rows = query_rows(
-            conn,
-            "SELECT DISTINCT execution_target_json FROM qa_requirements "
-            "WHERE deployment_run_id=%s AND deployment_stage=%s "
-            "AND deployment_member_item_id IS NULL AND execution_target_json IS NOT NULL",
-            (run_id, stage_name),
-        )
+        rows = stage_requirement_rows(conn, run_id, stage_name)
+        if rows is None:
+            rows = query_rows(
+                conn,
+                "SELECT DISTINCT execution_target_json,deployment_member_item_id FROM qa_requirements "
+                "WHERE deployment_run_id=%s AND deployment_stage=%s "
+                "AND deployment_member_item_id IS NULL AND execution_target_json IS NOT NULL",
+                (run_id, stage_name),
+            )
         targets = {}
         attachments = {}
         for row in rows:
+            if (
+                row["deployment_member_item_id"] is not None
+                or not row["execution_target_json"]
+            ):
+                continue
             raw = row["execution_target_json"]
             target = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
             shared = (target.get("deployment") or {}).get("shared_plan")

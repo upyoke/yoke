@@ -102,7 +102,8 @@ def register(registry) -> None:
             owner_module="yoke_core.domain.handlers.qa_plan_execution",
             target_kinds=(
                 ["item", "deployment_run", "global"]
-                if function_id == "qa.plan_execution.begin" else ["item", "global"]
+                if function_id == "qa.plan_execution.begin"
+                else ["item", "global"]
             ),
             minimum_serving_version="next-release",
             side_effects=[

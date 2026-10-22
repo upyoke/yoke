@@ -41,10 +41,7 @@ def _fail_run(conn, execution):
 
 
 def _review_begin(run_id: str, execution: dict) -> str:
-    return (
-        f"yoke qa plan review-begin --deployment-run-id {run_id} "
-        f"--execution-id {execution['id']}"
-    )
+    return f"yoke qa plan review-begin --execution-id {execution['id']}"
 
 
 def test_failed_run_abort_keeps_the_review_visible_and_wakes_its_owner(test_db):
@@ -97,10 +94,7 @@ def test_gone_owner_hands_the_review_to_each_waiting_member(test_db):
     assert _recipients(test_db, key) == [HOLDER]
     [body] = _bodies(test_db, key)
     assert f"Its capture session {OWNER} has ended" in body
-    assert (
-        f"yoke qa plan adopt --deployment-run-id {run_id} "
-        f"--execution-id {execution['id']}"
-    ) in body
+    assert (f"yoke qa plan adopt --execution-id {execution['id']}") in body
     assert _review_begin(run_id, execution) in body
 
 

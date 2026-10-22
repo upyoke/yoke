@@ -89,6 +89,9 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
+            "Partial release-surface fixtures need qa_requirements.execution_target_json "
+            "for failed_qa_owner_sql; assuming deployment_run_id alone describes "
+            "inherited ownership causes an undefined-column failure. "
             "A partial fixture adding item_sections must also supply "
             "qa_requirements.qa_kind/item_id and qa_runs.case_outcome/raw_result: "
             "assuming the receipt table alone is enough makes "

@@ -60,9 +60,7 @@ def _call(handler, actor, execution_id, **payload):
         FunctionCallRequest(
             function="qa.plan_execution.abort",
             actor=actor,
-            target=TargetRef(
-                kind="deployment_run", deployment_run_id=RUN_ID, project_id="yoke"
-            ),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={"execution_id": execution_id, **payload},
         )
     )

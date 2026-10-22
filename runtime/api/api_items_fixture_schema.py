@@ -86,7 +86,7 @@ CREATE TABLE qa_requirements (
     requirement_source TEXT NOT NULL DEFAULT 'explicit',
     success_policy TEXT NOT NULL DEFAULT 'blocking', capability_requirements TEXT,
     suite_id TEXT, waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ NOT NULL,
-    plan_case_key TEXT, deployment_member_item_id INTEGER,
+    plan_case_key TEXT, deployment_member_item_id INTEGER, execution_target_json TEXT,
     superseded_by_requirement_id INTEGER
 );
 CREATE TABLE qa_runs (

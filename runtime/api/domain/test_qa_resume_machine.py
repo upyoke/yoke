@@ -277,7 +277,4 @@ def test_wait_recipe_is_rendered_from_its_execution_instead_of_saved_text(monkey
             "resume_command": "saved command --machine linux-lab",
         },
     )
-    assert (
-        command
-        == "yoke qa plan run --deployment-run-id run --project example --stage item-qa"
-    )
+    assert command == "yoke qa plan run --resume-execution-id walk"

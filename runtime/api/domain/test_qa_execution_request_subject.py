@@ -134,9 +134,7 @@ def _dispatch(run_id: str, execution: dict, function: str, payload: dict) -> Non
         FunctionCallRequest(
             function=function,
             actor=ActorContext(actor_id=actor_id, session_id=SESSION),
-            target=TargetRef(
-                kind="deployment_run", deployment_run_id=run_id, project_id="yoke"
-            ),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={"execution_id": str(execution["id"]), **payload},
         )
     )

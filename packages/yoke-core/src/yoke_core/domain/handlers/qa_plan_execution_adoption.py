@@ -35,7 +35,9 @@ def handle_execution_adopt(request):
     conn = connect()
     try:
         bound_checkin_queries(conn)
-        from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+        from yoke_core.domain.qa_execution_request_identity import (
+            resolve_execution_request,
+        )
         from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 
         execution = lock_plan_execution(conn, parsed.execution_id)

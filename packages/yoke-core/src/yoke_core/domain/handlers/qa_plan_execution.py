@@ -20,7 +20,9 @@ from yoke_core.domain.handlers.qa_plan_execution_models import (
     PlanExecutionAbortRequest,
     PlanExecutionStateResponse,
 )
-from yoke_core.domain.handlers.machine_qa_plan_case_request import target_plan_subject as _subject
+from yoke_core.domain.handlers.machine_qa_plan_case_request import (
+    target_plan_subject as _subject,
+)
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -158,10 +160,15 @@ def _owned_execution(
         if request.function in BOUNDED_CHECKIN_FUNCTIONS:
             bound_checkin_queries(conn)
         execution = lock_plan_execution(conn, parsed.execution_id)
-        from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+        from yoke_core.domain.qa_execution_request_identity import (
+            resolve_execution_request,
+        )
 
         request = resolve_execution_request(conn, request, execution)
-        item_id, deployment_run_id = request.target.item_id, request.target.deployment_run_id
+        item_id, deployment_run_id = (
+            request.target.item_id,
+            request.target.deployment_run_id,
+        )
         if request.target.kind == "global":
             from yoke_core.domain.qa_standalone_execution import (
                 require_standalone_project,

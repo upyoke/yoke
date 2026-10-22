@@ -177,7 +177,9 @@ def _notify_stopped(
     members = (
         _answered_members(conn, execution)
         if run_id
-        else [int(execution["item_id"])] if execution.get("item_id") else []
+        else [int(execution["item_id"])]
+        if execution.get("item_id")
+        else []
     )
     if not members:
         return []

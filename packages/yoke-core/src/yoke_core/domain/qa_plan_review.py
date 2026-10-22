@@ -168,7 +168,11 @@ def execution_missions_walkable(execution: Mapping[str, Any]) -> bool:
 
 
 def _public_bundle(
-    conn: Any, stored: Mapping[str, Any], *, execution: Mapping[str, Any], missions_walkable: bool = True
+    conn: Any,
+    stored: Mapping[str, Any],
+    *,
+    execution: Mapping[str, Any],
+    missions_walkable: bool = True,
 ) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
     from yoke_core.domain.qa_mission_stop_settlement import mission_review_cases
@@ -218,7 +222,10 @@ def begin_plan_review(
     )
     if existing is not None:
         bundle = _public_bundle(
-            conn, existing, execution=execution, missions_walkable=execution_missions_walkable(execution)
+            conn,
+            existing,
+            execution=execution,
+            missions_walkable=execution_missions_walkable(execution),
         )
         return bundle if bundle["cases"] else None
     from yoke_core.domain.qa_plan_execution_store import result_rows
@@ -311,7 +318,10 @@ def begin_plan_review(
     )
     assert stored is not None
     return _public_bundle(
-        conn, stored, execution=execution, missions_walkable=execution_missions_walkable(execution)
+        conn,
+        stored,
+        execution=execution,
+        missions_walkable=execution_missions_walkable(execution),
     )
 
 

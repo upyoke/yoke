@@ -56,8 +56,9 @@ class PendingAgentReview:
 
     def review_begin_command(self) -> str:
         return (
-            f"yoke qa plan review-begin {self.scope_flag} "
-            f"--execution-id {self.execution_id}"
+            "yoke qa plan review-begin "
+            + (f"{self.scope_flag} " if self.scope_flag else "")
+            + f"--execution-id {self.execution_id}"
         )
 
     def next_action(self) -> str:
@@ -69,7 +70,8 @@ class PendingAgentReview:
             "returned bundle names, and submits its complete verdict batch "
             "with `yoke qa plan review-submit`; when that session has ended, "
             "its successor first runs `yoke qa plan adopt "
-            f"{self.scope_flag} --execution-id {self.execution_id} --reason "
+            + (f"{self.scope_flag} " if self.scope_flag else "")
+            + f"--execution-id {self.execution_id} --reason "
             '"Review captured QA after restaffing"`. Re-running `yoke qa plan '
             "run` cannot supply this verdict; the requirement and stage settle "
             "from the submission"
@@ -204,10 +206,12 @@ def pending_review_verdict_refusal(
 def stage_review_pending_blocker(pending: PendingAgentReview) -> str:
     """Stage wait line for captures whose independent review is pending."""
     return compose_refusal(
-        ("scoped QA mission walk is in progress; walker hand-back is pending"
-         if pending.state == "walking" else
-         "scoped QA captures are recorded and independent agent review is "
-         "pending; no QA verdict exists yet"),
+        (
+            "scoped QA mission walk is in progress; walker hand-back is pending"
+            if pending.state == "walking"
+            else "scoped QA captures are recorded and independent agent review is "
+            "pending; no QA verdict exists yet"
+        ),
         evaluated=(
             f"plan execution {pending.execution_id} is {pending.state} "
             f"with pending review bundle {pending.bundle_id}"

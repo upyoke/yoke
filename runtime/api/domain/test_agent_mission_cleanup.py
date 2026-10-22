@@ -155,18 +155,14 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
     assert get_claim(test_db, original["lease_id"]).is_active != restored_before_removal
     current = lock_plan_execution(test_db, execution_id)
     test_db.rollback()
-    assert current["state"] == (
-        "aborted" if restored_before_removal else "walking"
-    )
+    assert current["state"] == ("aborted" if restored_before_removal else "walking")
     assert member_removal_pending(current) == (
         end_kind == "removed" and not restored_before_removal
     )
     cleanup = request.model_copy(
         update={
             "function": "test_machine.mission.access",
-            "target": TargetRef(
-                kind="global", project_id="yoke"
-            ),
+            "target": TargetRef(kind="global", project_id="yoke"),
             "payload": {
                 "execution_id": execution_id,
                 "requirement_id": requirement,
@@ -183,13 +179,16 @@ def test_removed_member_walk_end_clears_staged_secrets_and_restores_start(
 ):
     from yoke_core.domain import machine_qa_mission_walk
     from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
     from yoke_core.domain.yoke_function_dispatch_qa_claims import (
         qa_subject_claim_verdict,
     )
 
     request, control, original = removed_mission
     assert qa_subject_claim_verdict(request) == (True, None, None)
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", ITEM)
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", ITEM)
     acquired = handle_agent_mission_access(request)
     assert acquired.primary_success, acquired.error
     contract = acquired.result_payload["execution"]

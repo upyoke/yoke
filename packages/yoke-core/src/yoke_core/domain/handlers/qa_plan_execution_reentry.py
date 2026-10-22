@@ -29,7 +29,9 @@ def require_resume_inputs(conn, execution, parsed):
     from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
     for key in ("transition_id", "deployment_stage"):
-        if getattr(parsed, key) is not None and getattr(parsed, key) != execution.get(key):
+        if getattr(parsed, key) is not None and getattr(parsed, key) != execution.get(
+            key
+        ):
             raise ValueError(
                 f"qa_resume_subject_mismatch: use the execution's original {key}"
             )
@@ -44,9 +46,17 @@ def require_resume_inputs(conn, execution, parsed):
     if shared and member is not None:
         from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
 
-        if member not in attaching_members(conn, str(execution["deployment_run_id"]), int(shared["plan_id"])):
-            raise ValueError("qa_resume_subject_mismatch: use a member attached to this execution's shared plan")
-    if member is not None and not shared and member != execution.get("deployment_member_item_id"):
+        if member not in attaching_members(
+            conn, str(execution["deployment_run_id"]), int(shared["plan_id"])
+        ):
+            raise ValueError(
+                "qa_resume_subject_mismatch: use a member attached to this execution's shared plan"
+            )
+    if (
+        member is not None
+        and not shared
+        and member != execution.get("deployment_member_item_id")
+    ):
         raise ValueError(
             "qa_resume_subject_mismatch: use the execution's original member"
         )
