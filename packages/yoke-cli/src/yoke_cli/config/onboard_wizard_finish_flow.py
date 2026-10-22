@@ -45,7 +45,10 @@ class FinishBodyFlow:
         )
 
     def _review_status_lines(self) -> list[str]:
-        lines: list[str] = shell_change_lines(self.result.path_repair)
+        lines: list[str] = (
+            shell_change_lines(self.result.path_repair)
+            if getattr(self, "_review_show_all", False) else []
+        )
         verification = self.result.yoke_token_verification
         machine_lines = machine_finish_lines(self.result)
         if machine_lines:

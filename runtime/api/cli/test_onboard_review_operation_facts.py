@@ -116,3 +116,18 @@ def test_review_distinguishes_prior_path_writes(machine):
     assert "already" in prompt.subtitle and "PATH" in prompt.subtitle
     assert "Cancel keeps" in prompt.subtitle
     assert all("update-shell-path" not in line for line in prompt.detail_lines)
+
+
+def test_prior_shell_file_inventory_stays_behind_show_all(monkeypatch):
+    from types import SimpleNamespace
+    from yoke_cli.config import onboard_wizard_finish_flow as finish
+
+    monkeypatch.setattr(finish, "machine_finish_lines", lambda _result: [])
+    flow = finish.FinishBodyFlow()
+    flow.result = SimpleNamespace(
+        path_repair={"changed_files": ["/home/person/.profile"]},
+        yoke_token_verification=None, hosting_verification=None,
+    )
+    assert flow._review_status_lines() == []
+    flow._review_show_all = True
+    assert any("/home/person/.profile" in line for line in flow._review_status_lines())
