@@ -21,7 +21,7 @@ for scoped QA` per minute and exits 5 at timeout; re-drive on exit. Longer
 silence is stuck. Stop walks via `yoke qa plan abort`, never kill the runner.
 
 ```text
-yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}
+yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project {_project}
 ```
 
 Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
