@@ -173,7 +173,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "Refresh the Yoke project scaffold (.yoke/)",
         AGENT_RULES_LINE,
         TOOL_PERMISSIONS_LINE,
-        HARNESS_HOOKS_LINE,
+        next(line for line in grouped["repo"] if line.startswith(HARNESS_HOOKS_LINE)),
         GIT_HOOKS_LINE,
         "Add a progress map and three art headers, rebuild BOARD.md, and commit the art",
         "Commit locally (no remote)",

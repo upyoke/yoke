@@ -233,8 +233,8 @@ POSTURE_DECLINE_HELP = (
 #: How to undo it, stated in the step itself: an operator agreeing to widen
 #: what a harness runs without asking is owed the reversal in the same breath.
 POSTURE_REVERSAL = (
-    "To undo: delete those keys from the files named above, or rerun the "
-    "installer with --skip-harness-permissions to leave them alone."
+    "To undo: remove only the keys Yoke added from the files named above. "
+    "--skip-harness-permissions skips future posture changes; it does not undo earlier writes."
 )
 
 
@@ -244,34 +244,35 @@ def posture_plan_step() -> Dict[str, str]:
 
 
 def posture_plan_summary() -> str:
-    """One review line naming each harness, its files, and what is written.
-
-    Modes are seeded only where unset; the ``yoke`` allow entry is always
-    added, so Yoke runs even where the operator's own mode is kept.
-    """
+    """Name applicable configs; seed unset modes and preserve chosen modes."""
     from yoke_contracts.harness_yoke_allow import YOKE_COMMAND_ALLOW as allow
 
+    from yoke_contracts.harness_machine_hooks import installed_machine_hooks
+
+    descriptions = {
+        CLAUDE_FAMILY: (
+            f"claude-code: {CLAUDE_SETTINGS_PATH} "
+            f"{CLAUDE_PERMISSIONS_CONTAINER}.{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}, "
+            f"plus permissions.allow {allow[CLAUDE_FAMILY]}"
+        ),
+        CODEX_FAMILY: (
+            f"codex: {codex_config_path()} {CODEX_APPROVAL_POLICY_KEY} and "
+            f"{CODEX_SANDBOX_MODE_KEY}, plus "
+            f"{codex_config_path().parent / 'rules/yoke.rules'} {allow[CODEX_FAMILY]}"
+        ),
+        CURSOR_FAMILY: (
+            f"cursor: {CURSOR_CLI_CONFIG_PATH} {CURSOR_APPROVAL_MODE_KEY} "
+            f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}, "
+            f"plus permissions.allow {allow[CURSOR_FAMILY]}"
+        ),
+    }
+    if claude_config_path().is_file():
+        descriptions[CLAUDE_FAMILY] += (
+            f"; {claude_config_path()} preferences.{CLAUDE_BYPASS_KEY}"
+        )
     return "; ".join(
-        [
-            (
-                f"claude-code: {claude_config_path()} "
-                f"preferences.{CLAUDE_BYPASS_KEY} and {CLAUDE_SETTINGS_PATH} "
-                f"{CLAUDE_PERMISSIONS_CONTAINER}."
-                f"{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}, plus "
-                f"{CLAUDE_PERMISSIONS_CONTAINER}.allow {allow[CLAUDE_FAMILY]}"
-            ),
-            (
-                f"codex: {CODEX_CONFIG_DISPLAY_PATH} "
-                f"{CODEX_APPROVAL_POLICY_KEY} and {CODEX_SANDBOX_MODE_KEY}, "
-                f"plus rules/yoke.rules {allow[CODEX_FAMILY]}"
-            ),
-            (
-                f"cursor: {CURSOR_CLI_CONFIG_PATH} {CURSOR_APPROVAL_MODE_KEY} "
-                f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}, "
-                f"plus permissions.allow {allow[CURSOR_FAMILY]}"
-            ),
-        ]
-    )
+        descriptions[spec.harness_id] for spec in installed_machine_hooks()
+    ) or "no detected harness configuration (no posture writes)"
 
 
 #: One recovery line, shared by every surface that reports a prompting harness.
