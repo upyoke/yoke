@@ -130,13 +130,13 @@ test("a relay-only machine reads next up beside a connected one", async (t) => {
   const idle = alphaCards.get("claude-vscode");
   assert.equal(
     byClass(idle, "activation-card-status")[0].textContent,
-    "installed · last seen Jul 27",
+    "last seen Jul 27",
   );
   assert.equal(idle.attributes.get("data-hook-health"), "orange");
   // A surface this machine never reported says so rather than disappearing.
   assert.equal(
     byClass(alphaCards.get("cursor"), "activation-card-status")[0].textContent,
-    "not installed",
+    "not observed",
   );
   // The second box carries only its own installed surface, without a hit.
   const betaClaude = byClass(rows[1], "activation-card").find(

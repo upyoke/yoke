@@ -26,7 +26,7 @@ export function wizardSubmodules(done = {}, machineDetail = null) {
 
 // Health, last-seen, trust, and version maps mirror the engine's target
 // sub-signal. The engine answers for every supported surface, so this
-// fixture does too; a surface with no facts reads "not installed".
+// fixture does too; a surface with no facts reads "not observed".
 export function harnessTargets(
   hits = {}, health = {}, trustSurfaces = {}, lastSeen = {},
   versions = {}, statuses = {},
@@ -35,6 +35,7 @@ export function harnessTargets(
     ["claude-code", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"],
     ["claude-cli", "Claude CLI"], ["codex-cli", "Codex CLI"],
     ["cursor-cli", "Cursor CLI"],
+    ["claude-desktop", "Claude Desktop"], ["codex-desktop", "Codex Desktop"],
     ["claude-vscode", "Claude in VS Code"], ["cursor-desktop", "Cursor IDE"],
   ].map(([key, label]) => ({
     key,
