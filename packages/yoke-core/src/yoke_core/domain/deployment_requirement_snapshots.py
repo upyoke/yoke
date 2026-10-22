@@ -243,7 +243,7 @@ def snapshot_member_requirements(
     for plan_id in sorted(plan_ids):
         if plan_id in withdrawn_plans:
             continue
-        attached = admission.attachment(item_id, plan_id)
+        attached = admission.attachment(item_id, plan_id, requirements=requirements)
         if attached is None and plan_id not in selected["plan_ids"]:
             phases = {
                 r["qa_phase"] for r in requirements if r.get("plan_id") == plan_id

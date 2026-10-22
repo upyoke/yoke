@@ -150,13 +150,22 @@ def _require_removable(conn: Any, run_id: str, item_id: int, status: str) -> Non
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
         )
-    answer = _item_qa_answer(
-        conn,
-        run_id=run_id,
-        item_id=item_id,
-        current_stage=stage_name,
-        stages=stages,
-    )
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    try:
+        answer = _item_qa_answer(
+            conn,
+            run_id=run_id,
+            item_id=item_id,
+            current_stage=stage_name,
+            stages=stages,
+        )
+    except QaPlanError as exc:
+        # Incomplete evidence cannot settle QA, but must not trap its owner
+        # in this run. Cleanup still protects every remaining shared owner.
+        if str(exc).startswith("qa_frozen_plan_snapshot_incomplete:"):
+            return
+        raise
     if answer is None or answer.accepted:
         reason = "already settled" if answer is not None else "QA cannot be evaluated"
         raise ValueError(

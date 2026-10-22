@@ -40,15 +40,24 @@ class AdmissionReads:
             if row["qa_phase"] == "post_deploy" and row["live"] and row["active"]
         }
 
-    def attachment(self, item_id, plan_id):
-        return next(
-            (
-                row
-                for row in self.attachments.get(item_id, ())
-                if int(row["plan_id"]) == plan_id and row["live"]
-            ),
-            None,
-        )
+    def attachment(self, item_id, plan_id, *, requirements=()):
+        rows = [
+            row
+            for row in self.attachments.get(item_id, ())
+            if int(row["plan_id"]) == plan_id and row["live"]
+        ]
+        admitted = [r for r in requirements if r.get("plan_id") == plan_id]
+        for row in rows:
+            if any(
+                row["qa_phase"] == r["qa_phase"]
+                and (
+                    not r.get("workflow_transition_id")
+                    or row["transition_id"] == r["workflow_transition_id"]
+                )
+                for r in admitted
+            ):
+                return row
+        return next(iter(rows), None)
 
     def project_id(self, item_id):
         if item_id not in self.projects:
