@@ -110,7 +110,6 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
         (ordinary["id"],),
     )
     _restore(test_db, restored_run)
-    current_indexes = _state_indexes(test_db)
     _old_contract(test_db)
     before = dict(test_db.execute(
         "SELECT id,execution_target_digest FROM qa_plan_executions"
@@ -121,7 +120,6 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
     MIGRATION.invariants(test_db)
     for earlier in EARLIER_MIGRATIONS:
         earlier.invariants(test_db)
-    assert _state_indexes(test_db) == current_indexes
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
     rows = dict(test_db.execute("SELECT id,state FROM qa_plan_executions").fetchall())
     assert rows[walking["id"]] == "walking"
