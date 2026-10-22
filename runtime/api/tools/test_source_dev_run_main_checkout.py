@@ -273,7 +273,7 @@ def isolated_environment_probe(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("args", [[], ["--check"], ["--live"]])
+@pytest.mark.parametrize("args", [[], ["--check"]])
 def test_mapped_main_teaching_build_preserves_git_status(monkeypatch, args):
     import subprocess
 
@@ -292,7 +292,7 @@ def test_mapped_main_teaching_build_preserves_git_status(monkeypatch, args):
     assert source_dev_run.run(["python3", "docs/teaching/tools/build.py", *args]) == 0
 
     assert subprocess.check_output(["git", "status", "--porcelain"], cwd=root) == before
-    if not args or args == ["--live"]:
-        assert (root / "docs/teaching/views/index.html").is_file()
-    if args == ["--live"]:
-        assert (root / "docs/teaching/live/commands.html").is_file()
+    if not args:
+        assert (root / "docs/teaching/views/explore/index.html").is_file()
+        assert not (root / "docs/teaching/views/index.html").exists()
+        assert not (root / "docs/teaching/live").exists()

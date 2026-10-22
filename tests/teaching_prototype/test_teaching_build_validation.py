@@ -8,7 +8,7 @@ import pytest
 TOOLS = Path(__file__).resolve().parents[2] / "docs/teaching/tools"
 
 
-@pytest.mark.parametrize("args", [[], ["--check"], ["--live"]])
+@pytest.mark.parametrize("args", [[], ["--check"]])
 def test_dangling_references_fail_before_rendering(monkeypatch, tmp_path, capsys, args):
     monkeypatch.syspath_prepend(str(TOOLS))
     import build
@@ -30,7 +30,7 @@ def test_dangling_references_fail_before_rendering(monkeypatch, tmp_path, capsys
     def refuse_render(*_args, **_kwargs):
         pytest.fail("invalid model reached rendering")
 
-    monkeypatch.setattr(build, "Pages", refuse_render)
+    monkeypatch.setattr(build, "GuideData", refuse_render)
     assert build.main(args) == 1
     output = capsys.readouterr().out
     assert output.count("DANGLING_REFERENCE:") == 3
@@ -121,7 +121,7 @@ def test_untracked_source_recovery_stages_the_named_file(monkeypatch, tmp_path):
     assert "is missing; create and git-add" in validate()[0].message
 
 
-def test_over_limit_view_refusal_names_the_page_field(monkeypatch, tmp_path):
+def test_over_limit_view_refusal_names_chunking(monkeypatch, tmp_path):
     monkeypatch.syspath_prepend(str(TOOLS))
     import build
     import model
@@ -133,8 +133,7 @@ def test_over_limit_view_refusal_names_the_page_field(monkeypatch, tmp_path):
     by_where = {problem.where: problem for problem in loaded.problems}
     view = by_where["docs/teaching/views/concepts/topic.html"]
     assert view.code == "LINE_LIMIT"
-    assert "`page`" in view.message
-    assert '"page": "qa-cases"' in view.message
+    assert "smaller chunks" in view.message
     note = by_where["docs/teaching/notes.md"]
     assert "`page`" not in note.message
     assert "split it into a new file" in note.message
@@ -163,19 +162,10 @@ def _owned_model(monkeypatch, tmp_path, part_page):
     return model.load()
 
 
-def test_surface_part_page_renders_on_its_own_page(monkeypatch, tmp_path):
+def test_record_identity_is_independent_of_former_page_layout(monkeypatch, tmp_path):
     loaded = _owned_model(monkeypatch, tmp_path, "help-cases")
     assert loaded.problems == []
-    from render_pages import Pages
-
-    views = {}
-    pages = Pages(loaded, {}, {}, {}, lambda _path: None)
-    pages.owned_pages(views, "surfaces", loaded.surfaces, loaded.teaching, "S")
-    assert 'id="help/core"' in views["surfaces/help.html"]
-    assert 'id="help/case"' not in views["surfaces/help.html"]
-    assert 'href="help-cases.html#help/case"' in views["surfaces/help.html"]
-    assert 'id="help/case"' in views["surfaces/help-cases.html"]
-    assert "Help (continued)" in views["surfaces/help-cases.html"]
+    assert set(loaded.teaching) == {"help/core", "help/case"}
 
 
 def test_surface_part_page_cannot_take_another_surface_page(monkeypatch, tmp_path):

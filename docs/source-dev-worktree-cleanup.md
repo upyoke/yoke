@@ -216,10 +216,10 @@ and is reported as unknown residue.
 
 That is why a product surface which renders a gitignored view into every
 checkout must be declared. In this repository the Atlas renderer writes
-`docs/atlas.md` and the teaching build writes `docs/teaching/views/` and
-`docs/teaching/live/` into every lane, so the `yoke` project declares all
-three; without a declaration every landed lane refused retirement on it, and
-both the worktree and the merged remote branch survived. Add a missing render
+`docs/atlas.md` and the teaching build writes `docs/teaching/views/`. These
+generated paths need disposable declarations. The retired `docs/teaching/live/`
+path may remain declared to clean older lanes; the current builder removes it.
+Without declarations, generated residue prevents lane and branch retirement. Add a missing render
 with `yoke projects capability-settings merge --project <slug> --cap-type
 project-policy --set 'disposable_generated_paths=[...]'`, repeating the
 entries already declared. Read the live declaration with
