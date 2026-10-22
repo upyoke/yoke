@@ -1,0 +1,167 @@
+"""Read-only Git policy must survive setup, work entry, and governed pushes."""
+
+from pathlib import Path
+import subprocess
+
+import pytest
+
+from yoke_cli.config import credentialed_git, project_onboard, project_clone_support
+from yoke_cli.config import project_publication_destination as destination
+from yoke_cli.config import onboard_publication
+from yoke_cli.project_install import publication_eligibility, publication_commit_ownership
+from yoke_core.domain import worktree_preflight_upstream
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ['git', '-C', str(root), *args], check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+
+
+@pytest.fixture
+def checkout(tmp_path):
+    source = tmp_path / 'source.git'
+    source.mkdir()
+    git(source, 'init', '--bare', '--initial-branch=main')
+    root = tmp_path / 'checkout'
+    subprocess.run(['git', 'clone', str(source), str(root)], check=True,
+                   capture_output=True)
+    git(root, 'config', 'user.email', 'test@example.com')
+    git(root, 'config', 'user.name', 'Test')
+    (root / 'README').write_text('source\n')
+    git(root, 'add', 'README')
+    git(root, 'commit', '-m', 'source')
+    git(root, 'push', 'origin', 'main')
+    return root, source
+
+
+@pytest.mark.parametrize('reused', [False, True])
+def test_read_only_preserves_fetch_and_refuses_all_publication(checkout, monkeypatch, reused):
+    root, source = checkout
+    original = git(source, 'rev-parse', 'main')
+    project_onboard._apply_clone_outcome(
+        root, remote_url=str(source), default_branch='main',
+        plan=project_clone_support.ClonePlan(), clone_reused=reused,
+    )
+    assert git(root, 'remote', 'get-url', 'origin') == str(source)
+    git(root, 'fetch', 'origin')
+    (root / 'work').write_text('must stay local\n')
+    git(root, 'add', 'work')
+    git(root, 'commit', '-m', 'local work')
+    blocked = credentialed_git.run(['-C', str(root), 'push', 'origin', 'main'])
+    assert blocked.returncode != 0
+    assert 'publication_destination_read_only' in blocked.stderr
+    assert git(source, 'rev-parse', 'main') == original
+    outcome = publication_eligibility.push_eligibility(
+        root, branch='main', remote='origin',
+        territory=publication_commit_ownership.InstallerTerritory(),
+    )
+    assert outcome['status'] == 'publication_pending'
+    assert 'publication_destination_read_only' in outcome['recovery']
+    monkeypatch.setattr(worktree_preflight_upstream, 'refresh_base_branch',
+                        lambda *_: pytest.fail('must refuse before work/fetch'))
+    gate = worktree_preflight_upstream.gate_upstream_for_preparation(
+        str(root), {'project': {'default_branch': 'main'}}, no_worktree=False,
+    )
+    assert gate.block_kind == 'publication_destination_read_only'
+    assert 'writable' in gate.narrative
+
+
+def test_explicit_source_selection_restores_push_without_changing_fetch(checkout):
+    root, source = checkout
+    destination.prevent_push(root)
+    project_onboard._apply_clone_outcome(
+        root, remote_url=str(source), default_branch='main',
+        plan=project_clone_support.ClonePlan(outcome=project_clone_support.CLONE_OUTCOME_SOURCE),
+    )
+    assert not destination.read_only(root)
+    assert git(root, 'remote', 'get-url', 'origin') == str(source)
+    (root / 'work').write_text('owned destination\n')
+    git(root, 'add', 'work')
+    git(root, 'commit', '-m', 'owned work')
+    git(root, 'push', 'origin', 'main')
+    assert git(source, 'rev-parse', 'main') == git(root, 'rev-parse', 'HEAD')
+
+
+def test_read_only_review_does_not_offer_credential_fallback(checkout, tmp_path):
+    root, source = checkout
+    step = onboard_publication.plan_step({
+        'checkout': str(root), 'remote_url': str(source), 'default_branch': 'main',
+        'clone': project_clone_support.ClonePlan(),
+    }, tmp_path / 'config.json')
+    assert 'fetch-only' in step['target']
+    assert 'publication pending' in step['target']
+    assert 'try to push' not in step['target']
+
+
+def test_fork_without_authorization_does_not_silently_keep_source(checkout):
+    root, source = checkout
+    with pytest.raises(project_onboard.ProjectOnboardError, match='publication_destination_unresolved'):
+        project_onboard._apply_clone_outcome(
+            root, remote_url=str(source), default_branch='main',
+            plan=project_clone_support.ClonePlan(outcome=project_clone_support.CLONE_OUTCOME_FORK),
+        )
+    assert git(root, 'remote', 'get-url', 'origin') == str(source)
+
+
+def test_independent_adoption_uses_shared_destination_applier(checkout, tmp_path, monkeypatch):
+    from yoke_cli.config import onboard_project
+    from yoke_cli.config.onboard_wizard import WizardResult
+
+    root, source = checkout
+    result = WizardResult(
+        env_name="prod", api_url="", config_path=str(tmp_path / "config.json"),
+        project_mode=onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
+        project_checkout=str(root), project_remote_url=str(source),
+        project_clone_outcome=project_clone_support.CLONE_OUTCOME_JUST_CLONE,
+    )
+    plan = result.build_clone_plan()
+    calls = []
+    monkeypatch.setattr(onboard_project.project_onboard, 'import_project',
+                        lambda **kwargs: calls.append(kwargs) or {'status': 'preview'})
+    onboard_project.project_report(
+        config_path=tmp_path / 'config.json', apply=False,
+        inputs={'mode': result.project_mode, 'checkout': str(root),
+                'remote_url': str(source), 'clone': plan, 'slug': 'owned',
+                'name': 'Owned', 'default_branch': 'main', 'public_item_prefix': 'OWN'},
+    )
+    assert calls[0]['clone'].outcome == project_clone_support.CLONE_OUTCOME_JUST_CLONE
+    assert calls[0]['remote_url'] == str(source)
+
+
+def test_duplicate_refuses_unrelated_local_commit_before_creation(checkout, monkeypatch):
+    from yoke_cli.config import github_publish
+    from yoke_cli.config.project_publish_support import PublishRequest
+
+    root, source = checkout
+    (root / 'unpublished').write_text('operator work\n')
+    git(root, 'add', 'unpublished')
+    git(root, 'commit', '-m', 'unpublished operator work')
+    monkeypatch.setattr(github_publish, 'create_repo',
+                        lambda *_a, **_k: pytest.fail('must refuse before creating'))
+    plan = project_clone_support.ClonePlan(
+        outcome=project_clone_support.CLONE_OUTCOME_MAKE_IT_MINE,
+        publish=PublishRequest(owner='owned', name='copy', user_login='owned', token='test'),
+    )
+    with pytest.raises(project_onboard.ProjectOnboardError, match='publication_source_unverified'):
+        project_onboard._apply_clone_outcome(
+            root, remote_url=str(source), default_branch='main', plan=plan,
+        )
+    assert git(root, 'remote', 'get-url', 'origin') == str(source)
+
+
+def test_governed_merge_refuses_read_only_before_integration(checkout):
+    from types import SimpleNamespace
+    from yoke_core.engines.merge_worktree_prepare_preflight import preflight_checks
+
+    root, source = checkout
+    original = git(root, 'rev-parse', 'HEAD')
+    destination.prevent_push(root)
+    code, message = preflight_checks(SimpleNamespace(repo_root=str(root)))
+    assert code != 0
+    assert 'publication_destination_read_only' in message
+    native_push = subprocess.run(['git', '-C', str(root), 'push', 'origin', 'main'],
+                                 capture_output=True, text=True)
+    assert native_push.returncode != 0
+    assert git(source, 'rev-parse', 'main') == original

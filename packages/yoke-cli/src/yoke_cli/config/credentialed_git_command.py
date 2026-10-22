@@ -79,15 +79,20 @@ def contact_url(args: Sequence[str], cwd: str | None) -> str:
     repo = command_cwd(args, cwd)
     if operand and ("://" in operand or "@" in operand or "/" in operand):
         return operand
-    return remote_url(repo, operand or "origin")
+    return remote_url(repo, operand or "origin", push=subcommand == "push")
 
 
-def remote_url(repo: str | None, remote: str) -> str:
+def remote_url(repo: str | None, remote: str, *, push: bool = False) -> str:
     """Return the configured URL of ``remote``, or ``""`` when it has none."""
+    if push and repo:
+        from yoke_cli.config import project_publication_destination as destination
+
+        if destination.read_only(repo, remote):
+            return destination.READ_ONLY_PUSH_URL
     argv = ["git"]
     if repo:
         argv += ["-C", str(repo)]
-    argv += ["remote", "get-url", remote]
+    argv += ["remote", "get-url", *(["--push"] if push else []), remote]
     try:
         result = terminal_detached_process.run(
             argv, capture_output=True, text=True, timeout=30

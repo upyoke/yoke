@@ -58,11 +58,11 @@ class ProjectIdentityFlow:
             self._lookup_recorded_project(local_ref, value)
             return
         if not remote or not self.result.project_github_repo:
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         token = self._yoke_token_for_project_lookup()
         if not token:
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         self._run_checking(
             step=STEP_PROJECT,
@@ -220,6 +220,9 @@ class ProjectIdentityFlow:
             or onboard_project.DEFAULT_NEW_REPO_BRANCH
         )
         self.result.project_public_item_prefix = values["prefix"].upper()
+        if self.result.project_clone_outcome:
+            self._after_name_clone()
+            return
         if self.result.project_mode in PUBLISH_MODES:
             self._goto_publish_prompt()
             return
@@ -247,7 +250,7 @@ class ProjectIdentityFlow:
         local_source: str | None = None,
     ) -> None:
         if project is None or apply_facts.own_project(self, project):
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         if (
             self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT

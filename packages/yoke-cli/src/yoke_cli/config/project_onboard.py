@@ -115,6 +115,8 @@ def import_project(
     local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
+    if existing_project_id is not None and clone is None:
+        clone = ClonePlan(outcome="")
     requested_plan, remote_url = apply_clone.normalize_clone_request(
         remote_url,
         clone,
@@ -180,7 +182,7 @@ def import_project(
                 "the reused checkout is no longer the exact worktree and remote "
                 "selected for this onboarding run"
             )
-        outcome = None
+        clone_reused = True
     else:
         onboard_apply_progress.emit(
             progress, checkout_action, progress_target, "running"
@@ -206,17 +208,9 @@ def import_project(
             progress_target,
             "skipped" if clone_reused else "done",
         )
-        outcome_action = progress_steps.clone_outcome_action(plan)
-        if outcome_action:
-            with onboard_apply_progress.step(progress, outcome_action):
-                outcome = _apply_clone_outcome(
-                    root,
-                    remote_url=remote_url,
-                    default_branch=default_branch,
-                    plan=plan,
-                    clone_reused=clone_reused,
-                )
-        else:
+    outcome_action = progress_steps.clone_outcome_action(plan)
+    if outcome_action:
+        with onboard_apply_progress.step(progress, outcome_action):
             outcome = _apply_clone_outcome(
                 root,
                 remote_url=remote_url,
@@ -224,6 +218,14 @@ def import_project(
                 plan=plan,
                 clone_reused=clone_reused,
             )
+    else:
+        outcome = _apply_clone_outcome(
+            root,
+            remote_url=remote_url,
+            default_branch=default_branch,
+            plan=plan,
+            clone_reused=clone_reused,
+        )
     project_onboard_installed_layer.apply_decision(
         root, plan.existing_layer_decision, progress=progress,
     )

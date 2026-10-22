@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_contracts.github_app_installation_permissions import ACCESS_WRITE
-from yoke_cli.config import github_app_machine_access
+from yoke_cli.config import github_app_machine_access, onboard_project
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_project_screens as project_screens
 from yoke_cli.config import onboard_wizard_steps as steps
@@ -17,6 +17,19 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 
 
 class CloneOutcomeFlow:
+    def _goto_checkout_destination(self: _Shell) -> None:
+        remote = self.result.project_checkout_origin_url
+        if remote and self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT:
+            from pathlib import Path
+
+            remote_root = Path(self.result.project_checkout).expanduser()
+            self.result.project_remote_url = remote
+            from yoke_cli.config import project_installed_layer
+
+            self._show_checkout_inspection(project_installed_layer.scan(remote_root))
+            return
+        self._goto_project_details()
+
     def _source_push_access(self: _Shell) -> Optional[bool]:
         """Return whether connected GitHub authorization can push to the source."""
         source_repo = project_screens.default_repo(
@@ -88,11 +101,7 @@ class CloneOutcomeFlow:
             == clone_support.CLONE_OUTCOME_MAKE_IT_MINE
         ):
             if not github_connected(self.result):
-                self.result.project_clone_outcome = (
-                    clone_support.CLONE_OUTCOME_JUST_CLONE
-                )
-                steps.reset_project_publish_fields(self.result)
-                self._after_repo("")
+                self._goto_publish_cannot_create()
                 return
             self.result.project_publish_to_github = True
             self._goto_owner_picker()

@@ -45,13 +45,15 @@ from yoke_cli.config.project_git_diagnostics import scrub_git_diagnostic
 from yoke_cli.config.project_git_process import run_network_git
 from yoke_cli.config.project_publish_support import PublishRequest
 
-# The three post-clone outcomes the wizard offers. ``just-clone`` leaves origin
-# pointing at the source; ``make-it-mine`` re-homes onto a new private repo;
+# The post-checkout outcomes the wizard offers. ``just-clone`` leaves origin
+# fetch-only on the source; ``make-it-mine`` re-homes onto a new private repo;
 # ``fork`` forks the source and tracks it as upstream.
 CLONE_OUTCOME_JUST_CLONE = "just-clone"
+CLONE_OUTCOME_SOURCE = "source"
 CLONE_OUTCOME_MAKE_IT_MINE = "make-it-mine"
 CLONE_OUTCOME_FORK = "fork"
 CLONE_OUTCOMES = (
+    CLONE_OUTCOME_SOURCE,
     CLONE_OUTCOME_JUST_CLONE,
     CLONE_OUTCOME_MAKE_IT_MINE,
     CLONE_OUTCOME_FORK,
@@ -265,27 +267,13 @@ def rehome_to_new_origin(
     token: str | None = None,
     github_web_url: str | None = None,
 ) -> str:
-    """Re-point ``origin`` at a repo the user owns, keeping or dropping the source.
+    """Re-home onto the owned destination and push its live branch.
 
-    The source remote currently named ``origin`` becomes ``upstream`` (when
-    ``keep_upstream``) or is removed (a clean copy); ``origin`` is then set to
-    ``new_origin_url`` (a clean HTTPS URL) and the cloned repo's CURRENT branch
-    pushed with upstream tracking. The branch is detected from the working copy
-    rather than assumed to be ``default_branch``: a cloned source repo checks out
-    whatever its HEAD points at (often ``master`` or a project-specific default),
-    so pushing a hardcoded ``main`` would fail with ``src refspec main does not
-    match any`` and abort onboarding. ``default_branch`` is retained as an
-    optional caller hint but the pushed/returned branch is always the live one.
-    The push authenticates with ``token`` carried as a URL-scoped header
-    (never persisted to the remote or ``.git/config``), so the freshly created
-    private repo pushes without an interactive prompt. Returns the branch pushed.
-
-    Idempotent on a resume: when a prior run already re-pointed ``origin`` at
-    ``new_origin_url``, the remote choreography is skipped and only the push is
-    re-attempted (a no-op when the branch already landed) — so re-running after a
-    push that failed mid-way completes the step instead of erroring on the
-    already-renamed remote.
+    Preserve the source as fetch-only upstream when requested; resume against
+    an already selected origin without changing its destination.
     """
+    from yoke_cli.config import project_publication_destination as destination
+
     branch = git_current_branch(root)
     if not origin_is(root, new_origin_url, web_url=github_web_url):
         if keep_upstream and not clone_resume.remote_url(root, "upstream"):
@@ -293,6 +281,8 @@ def rehome_to_new_origin(
         elif not keep_upstream:
             run_git(root, "remote", "remove", "origin")
         run_git(root, "remote", "add", "origin", new_origin_url)
+    if clone_resume.remote_url(root, "upstream"):
+        destination.prevent_push(root, "upstream")
     run_git(
         root,
         "push",
@@ -311,29 +301,27 @@ def set_fork_remotes(
     fork_url: str,
     github_web_url: str | None = None,
 ) -> None:
-    """Point ``origin`` at the user's fork and track the source as ``upstream``.
+    """Track the owned fork as origin and the fetch-only source as upstream."""
+    from yoke_cli.config import project_publication_destination as destination
 
-    The fresh clone has the source as ``origin``; the fork flow renames that to
-    ``upstream`` (so the source stays reachable for pulling updates and opening
-    pull requests back) and adds the fork as the new ``origin``.
-
-    Idempotent on a resume: when ``origin`` already points at the fork, the
-    remote choreography is skipped so re-running after a partial fork doesn't
-    error on the already-renamed remote.
-    """
-    if origin_is(root, fork_url, web_url=github_web_url):
-        return
-    if not clone_resume.remote_url(root, "upstream"):
-        run_git(root, "remote", "rename", "origin", "upstream")
-    elif clone_resume.remote_url(root, "origin"):
-        run_git(root, "remote", "remove", "origin")
-    run_git(root, "remote", "add", "origin", fork_url)
+    if not origin_is(root, fork_url, web_url=github_web_url):
+        if not clone_resume.remote_url(root, "upstream"):
+            run_git(root, "remote", "rename", "origin", "upstream")
+        elif clone_resume.remote_url(root, "origin"):
+            run_git(root, "remote", "remove", "origin")
+        run_git(root, "remote", "add", "origin", fork_url)
+    if clone_resume.remote_url(root, "upstream"):
+        destination.prevent_push(root, "upstream")
+    branch = git_current_branch(root)
+    run_git(root, "config", f"branch.{branch}.remote", "origin")
+    run_git(root, "config", f"branch.{branch}.merge", f"refs/heads/{branch}")
 
 
 __all__ = [
     "CLONE_OUTCOMES",
     "CLONE_OUTCOME_FORK",
     "CLONE_OUTCOME_JUST_CLONE",
+    "CLONE_OUTCOME_SOURCE",
     "CLONE_OUTCOME_MAKE_IT_MINE",
     "CloneAccessError",
     "CloneOutcome",
