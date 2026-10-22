@@ -270,6 +270,8 @@ def read_structure(
         numeric_project_id = resolve_project_id(conn, project_id)
         p = _placeholder(conn)
         if family is not None:
+            from .project_structure_validation import _require_known_family
+
             _require_known_family(family)
             rows = query_rows(
                 conn,
@@ -306,32 +308,7 @@ def read_structure(
         conn.close()
 
 
-from .project_structure_validation import (  # noqa: E402,F401
-    _require_known_family,
-    _validate_envelope,
-    _validate_payload,
-)
-from .project_structure_write import (  # noqa: E402,F401
-    _apply_put,
-    _apply_remove,
-    _derive_attachment_kind,
-    _format_identity,
-    _normalize_op,
-    apply_patch,
-)
-from .project_structure_seeds import (  # noqa: E402,F401
-    cmd_seed,
-)
-from .project_structure_cli import (  # noqa: E402,F401
-    _build_parser,
-    _parse_patch_input,
-    cmd_family_list,
-    cmd_get,
-    cmd_patch,
-    cmd_seed_cli,
-    main,
-)
-
-
 if __name__ == "__main__":
+    from .project_structure_cli import main
+
     sys.exit(main())

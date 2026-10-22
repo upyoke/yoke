@@ -33,6 +33,7 @@ import argparse
 import sys
 from typing import Dict, List, Optional
 
+from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.project_structure import CONTEXT_ROUTING_ALWAYS_KEY
 
@@ -111,7 +112,7 @@ def set_entry(
         raise ValueError("entry_key must be a non-empty string")
     if not isinstance(docs, list) or not docs:
         raise ValueError("docs must be a non-empty list of strings")
-    ps.apply_patch(
+    apply_patch(
         project_id,
         ops=[{
             "op": "put",
@@ -143,7 +144,7 @@ def clear_entry(
     )
     if not present:
         return False
-    ps.apply_patch(
+    apply_patch(
         project_id,
         ops=[{
             "op": "remove",
