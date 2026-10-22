@@ -260,3 +260,14 @@ def test_marker_write_failure_teaches_repair_and_allows_retry(lifecycle, monkeyp
     assert not delivery.orientation_delivered("session")
     retry = lifecycle.invoke("UserPromptSubmit")
     assert_emitted_marker(retry)
+
+
+def test_registration_error_alone_stays_within_shared_budget(lifecycle):
+    lifecycle.invoke("SessionStart", source="resume")
+    lifecycle.register.return_value = "registration_unavailable: " + "長" * 5000
+    body = lifecycle.invoke("UserPromptSubmit")
+    assert "registration_unavailable" in body
+    assert "yoke sessions identity --json" in body
+    assert "full reason in hook stderr" in body
+    assert lifecycle.register.return_value in lifecycle.stderr
+    assert orientation.ORIENTATION_HEADING not in body

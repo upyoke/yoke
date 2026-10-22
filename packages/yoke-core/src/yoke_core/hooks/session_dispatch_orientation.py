@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -29,13 +30,24 @@ def registration_failure_stdout(
     if not reason:
         return ""
     from yoke_harness.hooks.decision_render import render_context_stdout
+    from yoke_contracts.hook_context_compose import compose_context_list
+    from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 
     recovery = _connected_env_remediation(reason) or (
         "Run: yoke sessions identity --json to diagnose registration; "
         "repair the named cause before resuming work."
     )
+    prefix = "WARNING: Session registration failed: "
+    body = f"{prefix}{reason}\n{recovery}"
+    budget = inline_context_bytes_for_harness("codex")
+    if len(body.encode()) > budget:
+        sys.stderr.write(body + "\n")
+        suffix = f"… (full reason in hook stderr)\n{recovery}"
+        available = budget - len((prefix + suffix).encode())
+        reason = reason.encode()[: max(0, available)].decode("utf-8", errors="ignore")
+        body = prefix + reason + suffix
     return render_context_stdout(
-        f"WARNING: Session registration failed: {reason}\n{recovery}", event_name
+        compose_context_list([body], harness_id="codex"), event_name
     )
 
 
