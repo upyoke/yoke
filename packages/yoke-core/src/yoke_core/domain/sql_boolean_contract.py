@@ -102,6 +102,41 @@ def _top_level_parts(expression: str, operator: str) -> list[str]:
     return parts
 
 
+def _any_array_elements(atom: str, start: int) -> tuple[list[str], int]:
+    """Split the literal list that opens at ``start`` and return its end."""
+    elements: list[str] = []
+    element_start = start
+    quoted = False
+    for position in range(start, len(atom)):
+        character = atom[position]
+        if character == "'":
+            quoted = not quoted
+        elif not quoted and character in ",]":
+            elements.append(atom[element_start:position])
+            element_start = position + 1
+            if character == "]":
+                return elements, position
+    return [atom[start:]], len(atom)
+
+
+def _unordered_any_arrays(atom: str) -> str:
+    """Compare ``= ANY (ARRAY[...])`` operands as sets; all else stays exact."""
+    marker = "=any(array["
+    result: list[str] = []
+    position = 0
+    while (found := atom.find(marker, position)) >= 0:
+        if atom[:found].count("'") % 2:
+            result.append(atom[position : found + len(marker)])
+            position = found + len(marker)
+            continue
+        start = found + len(marker)
+        elements, end = _any_array_elements(atom, start)
+        result.append(atom[position:start] + ",".join(sorted(set(elements))))
+        position = end
+    result.append(atom[position:])
+    return "".join(result)
+
+
 def _boolean_tree(expression: str) -> Any:
     value = _strip_outer_parentheses(expression)
     for operator in ("or", "and"):
@@ -116,11 +151,12 @@ def _boolean_tree(expression: str) -> Any:
             else:
                 children.append(child)
         return operator, tuple(children)
-    return "atom", _map_sql_syntax(value, lambda part: re.sub(r"\s+", "", part))
+    atom = _map_sql_syntax(value, lambda part: re.sub(r"\s+", "", part))
+    return "atom", _unordered_any_arrays(atom)
 
 
 def canonical_boolean_expression(value: str) -> Any:
-    """Normalize spelling and redundant parentheses without losing grouping."""
+    """Normalize spelling, redundant parentheses and ANY-array element order."""
     normalized = _normalize_syntax(value)
     if normalized.startswith("check"):
         normalized = normalized[len("check") :].strip()
