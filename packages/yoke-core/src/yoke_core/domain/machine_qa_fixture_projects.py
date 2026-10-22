@@ -23,6 +23,7 @@ from yoke_contracts.machine_config.schema_projects import (
 
 HOST_GIT = "/usr/bin/git"
 _EVIDENCE_LIMIT = 400
+_CHECKOUT_ABSENT_EXIT = 44
 
 
 class FixtureProjectDiscoveryError(RuntimeError):
@@ -85,6 +86,22 @@ def uninstall_host_project(
         timeout=timeout_seconds,
     )
     if int(listing.returncode) != 0:
+        presence = _run(
+            control,
+            [
+                "python3",
+                "-c",
+                "import os, sys\n"
+                "try: os.lstat(sys.argv[1])\n"
+                f"except FileNotFoundError: sys.exit({_CHECKOUT_ABSENT_EXIT})\n"
+                "except OSError: sys.exit(2)\n",
+                checkout,
+            ],
+            timeout_seconds,
+        )
+        result["steps"].append(presence)
+        if presence["exit_code"] == _CHECKOUT_ABSENT_EXIT:
+            return {**result, "uninstalled": True, "reason": "checkout_absent"}
         return {**result, "uninstalled": False, "reason": "checkout_unreadable"}
     for path in _linked_worktrees(str(listing.stdout or ""), checkout):
         step = _run(
