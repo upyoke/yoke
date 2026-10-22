@@ -167,8 +167,12 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             )
         )
     if action == harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION:
+        hook_path = (
+            str(harness_machine_hooks.machine_hooks_for_harness("codex").user_config_path())
+            if target == "~/.codex/hooks.json" else target
+        )
         return (
-            f"Install Yoke's machine-wide hooks in {target}"
+            f"Install Yoke's machine-wide hooks in {hook_path}"
             + (
                 f" and trusted_hash entries for Yoke handlers in "
                 f"{harness_unattended_posture.codex_config_path()}"

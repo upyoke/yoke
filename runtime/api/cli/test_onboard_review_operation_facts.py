@@ -68,6 +68,9 @@ def test_codex_review_paths_and_keys_match_real_project_writes(machine):
     assert parsed["approval_policy"] == "on-request"
     assert parsed["sandbox_mode"] == "read-only"
     assert "trusted_hash" in config.read_text()
+    machine_hooks = labels.friendly_line("install-machine-hooks", "~/.codex/hooks.json")
+    assert str(config.parent / "hooks.json") in machine_hooks
+    assert str(config) in machine_hooks and "trusted_hash" in machine_hooks
     summary = posture.posture_plan_summary()
     assert str(config) in summary
     assert str(config.parent / "rules/yoke.rules") in summary
