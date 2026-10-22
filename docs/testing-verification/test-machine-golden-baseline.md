@@ -196,6 +196,11 @@ executing machine's SSH access before repairing the host. When the server still
 refuses a receipt, `test_machine_operation_submit_failed` repeats the host's
 own error code, reason and recovery, because the refused receipt is not
 recorded anywhere else.
+Success counters are emitted only after final process/load validation. A
+`test_mac_reset_reap_processes_failed` receipt keeps `reset_phase` and
+`process_state` with `surviving_reap_failures`, `surviving_matches` and
+`load_average`; inspect these values before choosing a host repair. Missing
+historical stdout cannot establish which check failed.
 System packages remain outside home-only restoration and may additionally be
 owned by a mission fixture's package journal.
 

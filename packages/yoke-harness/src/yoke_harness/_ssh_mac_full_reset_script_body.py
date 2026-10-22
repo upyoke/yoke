@@ -279,11 +279,6 @@ run_reset_step "$reset_phase_verify_restored_home" verify_restored_home
 reset_step="$reset_phase_emit_outcomes"
 count_reap_matches
 record_load_average
-print -r -- "$restored_entries_prefix$restored_entry_count"
-print -r -- "$relay_unloaded_prefix$relay_unloaded_count"
-print -r -- "$self_host_containers_prefix$self_host_containers_removed"
-print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
-print -r -- "$self_host_images_prefix$self_host_images_removed"
 if [[ -z "$load_average_1min" ]] \
   || (( reap_failed_count > 0 || reap_match_count > 0 )) \
   || load_exceeds_capacity; then
@@ -291,6 +286,11 @@ if [[ -z "$load_average_1min" ]] \
   failure_detail="$reap_failed_count $reap_match_count ${load_average_1min:-0}"
   exit 1
 fi
+print -r -- "$restored_entries_prefix$restored_entry_count"
+print -r -- "$relay_unloaded_prefix$relay_unloaded_count"
+print -r -- "$self_host_containers_prefix$self_host_containers_removed"
+print -r -- "$self_host_volumes_prefix$self_host_volumes_removed"
+print -r -- "$self_host_images_prefix$self_host_images_removed"
 print -r -- "$reset_process_reaped_prefix$reap_target_count"
 print -r -- "$reset_load_average_prefix$load_average_1min"
 print -r -- "$full_reset_marker"
