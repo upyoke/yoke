@@ -1,0 +1,23 @@
+"""Permission disclosure from the launch declarations used by native workers."""
+
+from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
+from yoke_contracts.session_control import launch_permission_bypass as bypass
+
+
+def permission_summary(*, expanded: bool) -> list[str]:
+    lines = [
+        "Workers: autonomous launches bypass command approval; "
+        "Codex bypasses its sandbox and CLI hook-trust checks."
+    ]
+    if expanded:
+        lines.extend(
+            f"{harness} worker CLI: {' '.join(bypass.cli_bypass_arguments(harness))}"
+            for harness in CANONICAL_HARNESS_IDS
+        )
+        thread = bypass.codex_thread_bypass_parameters()
+        lines.append(
+            f"Codex app-server worker: approvalPolicy={thread['approvalPolicy']}, "
+            f"sandbox={thread['sandbox']}; CLI hook-trust flags do not apply. "
+            "Operator-opened sessions use their saved settings."
+        )
+    return lines

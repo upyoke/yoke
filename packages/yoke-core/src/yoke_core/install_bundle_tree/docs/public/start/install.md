@@ -79,7 +79,13 @@ that home takes precedence over a config-file environment override. See
 4. **Project** — create, clone, import, or bind a checkout. A clone is
    fetched here, not at Apply, so you see what the repository holds — and
    decide what happens to any Yoke files it already carries — first
-5. **Review** — preview persistent writes, then apply
+5. **Review** — check compact change counts, then Apply. **Show all changes**
+   lists applicable configuration and hook-trust writes; **Show summary** returns
+   to the counts. Shell PATH files changed during Install are already applied
+   and stay changed if you cancel. Worker launches bypass command approval;
+   Codex workers also bypass the sandbox and CLI hook-trust checks. Expanded
+   Review names the actual launch arguments. Saved operator settings stay in
+   place; missing permission modes are seeded for unattended use.
 
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this

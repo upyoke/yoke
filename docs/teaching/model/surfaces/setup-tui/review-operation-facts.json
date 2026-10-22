@@ -1,0 +1,9 @@
+{
+ "id": "review-operation-facts",
+ "title": "Review keeps compact counts and expands applicable writes and worker permissions.",
+ "status": "observed",
+ "form": "Teach",
+ "topics": ["installation/entry/interactive-terminal-setup", "installation/entry/apply-progress", "agents/harnesses"],
+ "verification": "Source separates already-applied shell PATH changes from remaining Apply writes, names detected Codex configuration and hook trust, omits absent Claude Desktop files, and reads launch bypass declarations. Focused source tests cover reporting; installed shared regression remains owed.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_review_steps.py", "packages/yoke-contracts/src/yoke_contracts/harness_unattended_posture.py", "packages/yoke-cli/src/yoke_cli/config/onboard_permission_review.py", "runtime/api/cli/test_onboard_review_operation_facts.py"]
+}

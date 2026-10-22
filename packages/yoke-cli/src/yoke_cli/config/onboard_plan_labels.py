@@ -78,7 +78,9 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             "yoke without asking, by writing "
             f"{harness_unattended_posture.posture_plan_summary()}. Only a key "
             "that is absent is written; anything you set yourself is left "
-            f"alone. {harness_unattended_posture.POSTURE_REVERSAL}"
+            "alone. Unset modes permit commands without approval and disable "
+            "the Codex/Cursor sandbox. "
+            f"{harness_unattended_posture.POSTURE_REVERSAL}"
         )
     from yoke_cli.config.onboard_machine_setup import BROWSER_SETUP_ACTION
 
@@ -154,11 +156,25 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "project-install-harness-hooks":
         return (
             "Install harness hooks in .claude/settings.json, "
-            ".codex/hooks.json, and .cursor/hooks.json"
+            ".codex/hooks.json, and .cursor/hooks.json. "
+            + (
+                f"Trust {target}/.codex/hooks.json handlers (trusted_hash) and "
+                f"the project folder (projects trust_level) in "
+                f"{harness_unattended_posture.codex_config_path()}; "
+                "seed absent approval_policy/sandbox_mode keys, preserve configured values"
+                if harness_unattended_posture.codex_config_path().parent.is_dir()
+                else "Codex is absent: no machine config or hook-trust writes"
+            )
         )
     if action == harness_machine_hooks.MACHINE_HOOKS_PLAN_ACTION:
         return (
-            f"Install Yoke's machine-wide hooks in {target} (sessions outside a "
+            f"Install Yoke's machine-wide hooks in {target}"
+            + (
+                f" and trusted_hash entries for Yoke handlers in "
+                f"{harness_unattended_posture.codex_config_path()}"
+                if target == "~/.codex/hooks.json" else ""
+            )
+            + " (sessions outside a "
             "project register and run machine guards; inside a project its own "
             "hooks run instead; keeps your other hooks)"
         )

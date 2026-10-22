@@ -31,10 +31,6 @@ class FinishBodyFlow:
         grouped = classify_plan(self._review_plan)
         if not any(grouped.get(key) for _label, _css, key in _PLAN_GROUPS):
             widgets[-1:-1] = machine_finish_widgets(self.result)
-        widgets[-1:-1] = [
-            Static(escape(line), classes="onboard-plan-line")
-            for line in shell_change_lines(self.result.path_repair)
-        ]
         return widgets
 
     def _finish_prompt(self):
