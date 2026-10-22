@@ -96,6 +96,20 @@ Cursor renders `readonly: false`; a stale adapter refuses as
 Unsupported executors refuse as `agent_mission_executor_invalid`: update the
 saved case to `informed_subagent` and rematerialize affected requirements.
 
+## Fixture repositories and teardown
+
+Create every mission-owned GitHub fixture repository as private, using
+`gh repo create OWNER/NAME --private`, including a repository created from
+cloned public history. Record each exact `OWNER/NAME` as cleanup debt when
+created; never delete an upstream or pre-existing repository.
+
+At teardown, delete every repository the mission created with
+`gh repo delete OWNER/NAME --yes`. The printed walk-end command cleans up
+mission projects and host state; it does not delete external GitHub repositories.
+If deletion is refused, record the refusal and its recovery and list every
+exact `OWNER/NAME` still present as external cleanup debt in the walker report
+and the main agent's final verdict. Do not report that external cleanup is complete.
+
 ## Execution and Review
 
 Run just one materialized mission without starting its sibling requirements:

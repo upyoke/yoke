@@ -3,7 +3,7 @@
  "title": "Bounded mission work",
  "status": "observed",
  "form": "Do",
- "verification": "Source guidance only; runtime speedup remains unproven.",
+ "verification": "Source guidance only; runtime speedup remains unproven. Fixture teaching requires private GitHub repositories, exact OWNER/NAME cleanup debt on creation, teardown deletion with gh repo delete OWNER/NAME --yes, and exact remaining names plus refusal/recovery in the report and final verdict if deletion refuses. Walk-end does not delete external repositories; installed proof remains unverified.",
  "topics": ["agents/roles/qa-walker", "qa-methods/extended/exploratory-missions"],
  "sources": ["runtime/agents/qa-walker.md", "docs/public/verification/exploration.md", "docs/public/verification/case-attachment.md", ".agents/skills/yoke/steer/loop.md"]
 }
