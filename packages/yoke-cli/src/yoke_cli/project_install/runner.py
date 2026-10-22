@@ -58,6 +58,7 @@ def install(
     commit: bool = True,
     require_default_branch: bool = True,
     publish_skip_reason: str = "",
+    owns_registration: bool = False,
 ) -> Dict[str, Any]:
     """Install (or refresh — same code path) the project-local layer.
 
@@ -69,6 +70,8 @@ def install(
     ``publish_skip_reason`` keeps the commit local and reports that reason:
     ``--no-publish``, or setup deferring publication to its own final step. GitHub sign-in
     converges before upstream reads and publication on every install or refresh.
+    ``owns_registration`` says the caller wrote the checkout mapping for this
+    install, so uninstall may retire it like one install registered itself.
     """
     root = files_layer.resolve_repo_root(repo_root)
     if not (root / ".git").exists() or not checkout_gate.is_git_checkout(root):
@@ -138,6 +141,7 @@ def install(
     registered = _register_in_machine_config(
         root, resolved_id, config_path, explicit_given
     )
+    owned = registered or owns_registration
 
     def regenerate() -> Dict[str, Any]:
         result = repository_layer.write_repository_layer(
@@ -147,7 +151,7 @@ def install(
             source=source,
             mode=resolved_mode,
         )
-        if registered:
+        if owned:
             from yoke_cli.project_install.owned_cleanup import record_registration
 
             record_registration(root, resolved_id, config_path)

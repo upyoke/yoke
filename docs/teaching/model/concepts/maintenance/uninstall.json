@@ -2,7 +2,7 @@
  "id": "uninstall",
  "title": "Uninstall",
  "status": "observed",
- "note": "Project uninstall removes exact installer-owned checkout registration and folder trust only with exclusive ownership proof, including trust granted to the checkout's lanes, the Codex hook trust install minted for the checkout's hooks file and the copies mirrored onto its lanes. Shared, modified and unknown entries are preserved. The removal commit records only files Git already tracked, so ignored local views stay out of history and strategy documents stay on disk untracked; partial cleanup retains its manifest and reports recovery. Machine uninstall remains a separate operation.",
+ "note": "Project uninstall removes exact installer-owned checkout registration and folder trust only with exclusive ownership proof, including trust granted to the checkout's lanes, the Codex hook trust install minted for the checkout's hooks file and the copies mirrored onto its lanes. Shared, modified and unknown entries are preserved. The removal commit records only files Git already tracked, so ignored local views stay out of history and strategy documents stay on disk untracked; the checkout mapping onboarding or install wrote counts as installer-owned. Partial cleanup keeps its manifest and .yoke/.gitignore, so the checkout stays clean and the same command retries to completion after the reported recovery. Machine uninstall remains a separate operation.",
  "commands": ["yoke project uninstall", "yoke self-host teardown", "yoke uninstall"],
  "functions": ["project.uninstall.run"],
  "page": "maintenance",
