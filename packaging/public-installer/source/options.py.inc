@@ -36,7 +36,7 @@ PLAIN_GUTTER_ICON = "*"
 # (see Installer._resolve_color).
 GUTTER = GUTTER_ICON
 
-# Truecolor SGR sequences mirroring the onboard wizard palette.
+# Truecolor SGR sequences require an explicit terminal capability.
 _SGR_CODES = {
     "brand": "1;38;2;63;185;80",  # bold accent #3fb950
     "bright": "38;2;86;211;100",  # accent-bright #56d364
@@ -45,11 +45,20 @@ _SGR_CODES = {
     "amber": "38;2;210;153;34",  # amber #d29922 (the sun)
 }
 
+_ANSI_CODES = {
+    "brand": "1;32",
+    "bright": "32",
+    "dim": "39",
+    "danger": "1;31",
+    "amber": "33",
+}
+
 
 def _paint(text: str, key: str, *, enabled: bool) -> str:
     if not enabled:
         return text
-    return f"\033[{_SGR_CODES[key]}m{text}\033[0m"
+    codes = _SGR_CODES if os.environ.get("COLORTERM") in {"truecolor", "24bit"} else _ANSI_CODES
+    return f"\033[{codes[key]}m{text}\033[0m"
 
 
 _DEV_VERSION_RE = re.compile(r"^(?P<base>\d+\.\d+(?:\.\d+)?)\.dev\d+\+(?P<local>.+)$")

@@ -84,6 +84,7 @@ def _run_shim_capture(
     brew: bool,
     curl: bool,
     answer: str,
+    colorterm: str = "",
 ) -> str:
     bin_dir = _shim_bin(tmp_path, os_name=os_name, brew=brew, curl=curl)
     prompt_in = tmp_path / "prompt-in"
@@ -91,6 +92,7 @@ def _run_shim_capture(
     env = {
         "PATH": f"{bin_dir}:/usr/bin:/bin",
         "COLUMNS": "80",
+        "COLORTERM": colorterm,
         "TERM": "xterm-256color" if force_color == "1" else "dumb",
         "YOKE_INSTALL_BASE_URL": "https://api.upyoke.com",
         "YOKE_INSTALL_FORCE_COLOR": force_color,

@@ -12,3 +12,8 @@ verifies the candidate and atomically
 publishes the stable launcher. Commands lease their selected environment before
 importing its code; retirement checks leases and process snapshots. The relay
 and manual update both reuse this path. No service or public download is added.
+
+Installer colors use 24-bit SGR only when `COLORTERM` is `truecolor` or `24bit`;
+other color terminals use their basic ANSI palette. Body text uses the terminal's
+default foreground so the completion instructions work on light backgrounds.
+`NO_COLOR`, non-terminal output and `TERM=dumb` disable color.

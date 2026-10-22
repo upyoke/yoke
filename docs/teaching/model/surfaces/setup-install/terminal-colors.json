@@ -1,0 +1,9 @@
+{
+ "id": "terminal-colors",
+ "title": "Installer instructions follow terminal color capabilities and default body foreground",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source regression tests cover truecolor and 24bit capability declarations, basic ANSI output without either declaration, color-off output and completion instructions. No deployed terminal capture is claimed.",
+ "topics": ["installation/entry", "installation/prerequisites/terminal-and-runtime-dependencies"],
+ "sources": ["packaging/public-installer/install", "packaging/public-installer/source/options.py.inc", "tests/installer/test_installer_colors.py"]
+}
