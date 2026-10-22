@@ -186,10 +186,21 @@ def meter_wall(
     Missing session, unnamed model, unreadable meter, and a pool that still
     has remaining quota are all None: this refuses only what it can prove.
     """
-    stamp = parse_instant(now)
     row = _session_row(conn, session_id)
     if row is None:
         return None
+    return meter_wall_for_session(conn, row, now, limits=limits)
+
+
+def meter_wall_for_session(
+    conn: Any,
+    row: Mapping[str, Any],
+    now: datetime | str,
+    *,
+    limits: tuple[MachinePlanLimit, ...] | None = None,
+) -> MeterWall | None:
+    """Evaluate an already-read session using the wake's exact meter rules."""
+    stamp = parse_instant(now)
     model = pinned_model(row)
     surface = str(row.get("executor_surface") or "").strip()
     machine_id = str(row.get("machine_id") or "").strip()
@@ -208,7 +219,7 @@ def meter_wall(
         else load_plan_limits(conn, project_id=int(project_id), now=stamp)
     )
     return _wall_from_windows(
-        session_id=str(session_id),
+        session_id=str(row["session_id"]),
         project_id=int(project_id),
         machine_id=machine_id,
         surface=surface,
@@ -324,6 +335,7 @@ __all__ = [
     "SKIP_METER_EXHAUSTED",
     "SKIP_REASON_METER_EXHAUSTED",
     "meter_wall",
+    "meter_wall_for_session",
     "overlay_resume_state",
     "pinned_model",
     "record_wake_meter_skip",

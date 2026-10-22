@@ -28,7 +28,7 @@ from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_wake_meter import (
     MeterWall,
     RECOVERY,
-    meter_wall,
+    meter_wall_for_session,
     pinned_model,
 )
 from yoke_core.domain.session_vendor_error_states import vendor_error_states
@@ -232,7 +232,7 @@ def stranded_sessions(
         native_models = available_models(
             native_doc.get(surface) if native_doc else None
         )
-        wall = meter_wall(conn, session_id, now, limits=limits)
+        wall = meter_wall_for_session(conn, row, now, limits=limits)
         kinds = _kinds_for(
             row,
             wall=wall,
