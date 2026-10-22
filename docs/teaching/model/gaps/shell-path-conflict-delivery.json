@@ -1,0 +1,7 @@
+{
+ "id": "shell-path-conflict-delivery",
+ "title": "Observe shell PATH conflict and manual correction after delivery",
+ "status": "observed",
+ "sources": ["tests/installer/test_path_context_reporting.py", "docs/public/start/install.md"],
+ "text": "Source regressions exercise clean shell resolution, a late interactive Bash override, matching check/fix/verify context results, owned-block repair and repeat idempotence while preserving user configuration and launchers. A small controlled conflict/correction observation remains owed in the shared installer regression; previous clean installation evidence remains valid and no separate host walk is needed."
+}

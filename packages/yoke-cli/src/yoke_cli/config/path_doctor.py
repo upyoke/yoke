@@ -182,8 +182,6 @@ def _preferred_yoke_path(bindir: str) -> str:
 def _shadowing_yoke_path(resolved: list[ToolResolution], *, bindir: str) -> str:
     """Return the path that wins over the installed Yoke shim, or ``""``."""
     preferred = _preferred_yoke_path(bindir)
-    if not Path(preferred).exists():
-        return ""
     by_name = {res.name: res.path for res in resolved}
     winner = by_name.get("yoke")
     shadowed = winner and Path(winner).expanduser() != Path(preferred).expanduser()
@@ -230,9 +228,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         bindir=bindir,
     )
     future_ok = _resolves_required_tools(future_resolved, required_tools)
-    login_needs_fix = (
-        not future_ok or bool(yoke_shadowed_by) or bool(future_yoke_shadowed_by)
-    )
+    login_needs_fix = not future_ok or bool(future_yoke_shadowed_by)
     ssh_startup = default_ssh_startup_file(shell, startup_home)
     ssh_adds_bin = False
     ssh_managed_block_present = False
@@ -265,6 +261,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         future_resolved=future_resolved,
         needs_fix=login_needs_fix
         or ssh_needs_fix
+        or bool(yoke_shadowed_by)
         or any(row["needs_fix"] for row in contexts),
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else "",
         ssh_adds_bin=ssh_adds_bin,

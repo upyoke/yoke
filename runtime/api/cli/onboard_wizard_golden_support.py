@@ -277,6 +277,9 @@ def render(
     with (
         golden_color_env(),
         patch("yoke_cli.config.onboard_clipboard.remote_session", return_value=False),
+        # Each drive owns its screen's inputs. Automatic Install would probe
+        # and repair the runner's real shell files before reaching that screen.
+        patch.object(app, "_start_front"),
     ):
         return asyncio.run(scenario())
 
