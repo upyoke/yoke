@@ -18,7 +18,10 @@ claimed.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.machine_config.directories import (
+    create_private_directory,
+    shortest_temp_directory,
+)
 
 import hashlib
 import os
@@ -26,7 +29,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
@@ -85,21 +87,12 @@ def socket_dir_for_root(root: Path) -> Optional[Path]:
         return None
     uid = getattr(os, "getuid", lambda: 0)()
     digest = hashlib.sha256(os.fsencode(root.absolute())).hexdigest()[:12]
-    candidates = (Path(tempfile.gettempdir()), Path("/tmp"))
-    bases = {
-        os.fsencode(candidate): candidate
-        for candidate in candidates
-        if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
-    }
-    if not bases:
+    base = shortest_temp_directory()
+    if base is None:
         raise PostgresClusterError(
             "no writable temporary directory is available for a Postgres Unix "
             f"socket (cluster root {root}). Create a writable temp directory and retry."
         )
-    base = min(
-        bases.values(),
-        key=lambda candidate: (len(os.fsencode(candidate)), os.fsencode(candidate)),
-    )
     fallback = base / f"yoke-pg-{uid}-{digest}"
     if len(os.fsencode(fallback / socket_name)) > _MAX_POSTGRES_SOCKET_PATH_BYTES:
         raise PostgresClusterError(

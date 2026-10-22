@@ -91,13 +91,14 @@ revision closes acceptance and re-execs, naming both revisions. Shutdown lets
 in-flight evaluations finish for up to five seconds, drains observations once for
 two seconds, warns on timeout, and continues.
 
-Socket/protocol/startup/crash failures use the canonical in-process evaluator,
-limited to the budget left. A named stderr warning is rate-limited across
-processes to once per five minutes (an unwritable marker stays quiet and still
-evaluates); `HookDispatchTelemetry` names `evaluator=inprocess` and the reason.
-`yoke watch doctor -- --only hook-resident` (client machines only) reports
-a down or stale resident as FAIL with `yoke hook resident restart` and the log;
-an idle retirement is normal, and the next hook restarts it.
+Socket/protocol/startup/crash failures use the canonical in-process evaluator, limited to
+the budget left. An over-long socket path moves under the shorter of `TMPDIR` and `/tmp`,
+else refuses `YOKE_HOOK_RESIDENT_SOCKET_PATH_TOO_LONG`. A named stderr warning is
+rate-limited across processes to once per five minutes (an unwritable marker stays quiet
+and still evaluates); `HookDispatchTelemetry` names `evaluator=inprocess` and the reason.
+`yoke watch doctor -- --only hook-resident` (client machines only) reports a down or stale
+resident as FAIL with `yoke hook resident restart` and the log; an idle retirement is
+normal, and the next hook restarts it.
 
 ### Deadlines and degradation
 

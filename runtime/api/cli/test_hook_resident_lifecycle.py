@@ -1,13 +1,17 @@
 """Installation readiness and safe evaluator retirement."""
 
+import os
 import signal
 import subprocess
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from yoke_cli import hook_resident_client as client
 from yoke_cli import hook_resident_lifecycle as lifecycle
+from yoke_cli import hook_resident_paths as resident_paths
 
 
 def test_restart_warms_a_real_evaluator_and_replaces_same_version(
@@ -34,6 +38,40 @@ def test_restart_warms_a_real_evaluator_and_replaces_same_version(
         lifecycle.stop_resident()
 
 
+def test_long_tmpdir_still_binds_a_short_evaluator_socket(monkeypatch, tmp_path):
+    long_home = tmp_path / ("nested-machine-home-" * 6)
+    long_tmpdir = long_home / "tmp"
+    long_tmpdir.mkdir(parents=True)
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: long_home)
+    monkeypatch.setenv("TMPDIR", str(long_tmpdir))
+    monkeypatch.setattr(tempfile, "tempdir", None)
+    paths = client.resident_paths()
+    assert len(os.fsencode(long_tmpdir / paths.socket.name)) > 100
+    assert paths.socket.parent == Path("/tmp")
+    try:
+        lifecycle.restart_resident()
+        assert paths.socket.is_socket()
+        result = client.evaluate_with_resident("PreToolUse", "{}", dry_run=True)
+        assert result.exit_code == 0
+    finally:
+        lifecycle.stop_resident()
+
+
+def test_unbindable_socket_path_refuses_with_its_recovery(monkeypatch, tmp_path):
+    long_home = tmp_path / ("nested-machine-home-" * 6)
+    monkeypatch.setattr(client.machine_config, "cache_dir", lambda: long_home)
+    monkeypatch.setattr(resident_paths, "shortest_temp_directory", lambda: None)
+
+    with pytest.raises(
+        lifecycle.ResidentLifecycleError, match="YOKE_HOOK_RESIDENT_SOCKET_PATH_TOO_LONG"
+    ) as failure:
+        lifecycle.restart_resident()
+    assert "set TMPDIR to a short writable directory" in str(failure.value)
+    with pytest.raises(client.ResidentUnavailable) as unavailable:
+        client.evaluate_with_resident("PreToolUse", "{}", dry_run=True)
+    assert unavailable.value.code == "YOKE_HOOK_RESIDENT_SOCKET_PATH_TOO_LONG"
+
+
 def test_missing_evaluator_is_a_successful_stop(monkeypatch, tmp_path):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
     lifecycle.stop_resident()
@@ -43,7 +81,7 @@ def test_unsupported_transport_stops_cleanly_and_refuses_restart(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(client.machine_config, "cache_dir", lambda: tmp_path)
-    monkeypatch.setattr(client, "resident_transport_available", lambda: False)
+    monkeypatch.delattr(client.socket, "AF_UNIX", raising=False)
 
     lifecycle.stop_resident()
     with pytest.raises(

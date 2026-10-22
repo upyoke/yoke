@@ -26,6 +26,7 @@ from yoke_contracts.hook_evaluator_protocol import (
 ResidentPaths = _resident_paths.ResidentPaths
 resident_paths = _resident_paths.resident_paths
 resident_transport_available = _resident_paths.resident_transport_available
+resident_transport_refusal = _resident_paths.resident_transport_refusal
 # Compatibility seam for lifecycle callers and tests that redirect the cache root.
 machine_config = _resident_paths.machine_config
 
@@ -274,12 +275,9 @@ def evaluate_with_resident(
     ends the wait at once.
     """
     paths = resident_paths()
-    if not resident_transport_available():
-        raise ResidentUnavailable(
-            "YOKE_HOOK_RESIDENT_UNSUPPORTED",
-            "Unix-domain socket transport is unavailable on this platform",
-            log_path=paths.log,
-        )
+    refusal = resident_transport_refusal(paths)
+    if refusal is not None:
+        raise ResidentUnavailable(*refusal, log_path=paths.log)
     request = _request(event_name, stdin_data, dry_run, client_timing_id)
     deadline = _budget_deadline(request.environment, client_started_monotonic)
     started = time.monotonic()
@@ -343,4 +341,5 @@ __all__ = [
     "evaluate_with_resident",
     "resident_paths",
     "resident_transport_available",
+    "resident_transport_refusal",
 ]

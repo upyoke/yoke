@@ -156,12 +156,9 @@ def stop_resident(
 def restart_resident() -> None:
     """Restart even a same-version install; a dry evaluation proves readiness."""
     paths = client.resident_paths()
-    if not client.resident_transport_available():
-        raise _failure(
-            "YOKE_HOOK_RESIDENT_UNSUPPORTED",
-            "Unix-domain socket transport is unavailable on this platform",
-            paths,
-        )
+    refusal = client.resident_transport_refusal(paths)
+    if refusal is not None:
+        raise _failure(*refusal, paths)
     lock_fd = os.open(paths.state_dir / "lifecycle.lock", os.O_CREAT | os.O_RDWR, 0o600)
     try:
         try:
