@@ -55,6 +55,7 @@ def launch_connection() -> sqlite3.Connection:
             keepalive_until TEXT,
             keepalive_reason TEXT,
             native_process_gone_at TEXT,
+            native_process_gone_evidence TEXT,
             ended_at TEXT,
             terminated_at TEXT
         );

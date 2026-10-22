@@ -162,9 +162,6 @@ def test_a_delivered_wake_absorbs_a_later_native_exit() -> None:
         "WHERE attempt_id=?",
         ("2026-08-22T12:01:00.000000Z", WAKE_DELIVERED_RESULT, job.job_id),
     )
-    conn.execute(
-        "ALTER TABLE harness_sessions ADD COLUMN native_process_gone_evidence TEXT"
-    )
     conn.commit()
 
     settled = report_relay_job(
