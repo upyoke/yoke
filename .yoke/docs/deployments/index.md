@@ -206,6 +206,7 @@ the run above**.
 - [Ended runs](model/ended-runs.md) — Read how an ended run cancels the GitHub workflows it dispatched.
 - [Stage receipts](model/stage-receipts.md) — Read durable non-QA deployment-stage attempt evidence.
 - [Run members and QA](model/run-members.md) — Read member custody, target occupancy and run-bound QA.
+- [Frozen member plans](model/member-plan-snapshots.md) — Match admitted QA attachments and remove incomplete members.
 - [Release authorities](model/releases.md) — Read deployed revision checks and release-to-done QA authority.
 - [Release notices](model/release-notices.md) — Read caseless QA, settled-result and owner delivery notices.
 - [Sites, environments and flows](model/flows.md) — Read deployment targets, flow definitions and supported stage contracts.

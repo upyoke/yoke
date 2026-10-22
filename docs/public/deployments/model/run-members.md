@@ -4,7 +4,7 @@
 [Yoke](../../index.md) > [Deployments](../index.md) > Run members and QA
 <!-- /yoke:breadcrumbs -->
 
-Read deployment membership, target occupancy and run-bound QA authority before changing a release membership.
+Read [frozen member plans](member-plan-snapshots.md) before changing a release.
 
 ## Member reads and completion diagnostics
 
