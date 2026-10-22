@@ -179,9 +179,8 @@ list every refusal and its recovery.
 
 ## Real machine admission fixture
 
-`fixture.machine-admission-prepare` runs the candidate's
-`machine_qa_admission_host start MODE` with the release's
-`tools/yoke-cli/bin/python3`; failures keep their reason in case evidence.
+`fixture.machine-admission-prepare` runs `machine_qa_admission_host start MODE`
+with the release's `tools/yoke-cli/bin/python3`; case evidence keeps failures.
 `self-hosted` (port 19121) and `self-hosted-company-sign-in` (port 19122) boot the unchanged self-host
 server entrypoint on loopback, as `YOKE_SERVER_MODE=self-host` like the
 bundle, against a disposable embedded Postgres under
@@ -201,9 +200,9 @@ consumed by the new machine) or `nothing-admitted`. A mismatch fails as
 `machine_admission_state_mismatch` with the changed rows and
 `new_issued_invites` (0 means the invite never reached this universe), and the
 case keeps the journey's evidence; other failures name reason and recovery in
-the operation row. Crashes keep the bounded stderr tail and exception. Cleanup
-retries failures; its final attempt must stop the server and remove the cluster
-and root to pass. Evidence retains every attempt.
+the operation row. Crashes retain bounded stderr and exception details. Cleanup
+retries; its final attempt must remove the server, cluster and root to pass.
+Evidence keeps every attempt.
 
 ## Machine admission journeys
 
