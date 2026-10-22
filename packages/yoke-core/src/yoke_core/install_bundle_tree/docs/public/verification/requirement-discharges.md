@@ -36,7 +36,7 @@ pass. Failed/error admitted cases on a named stage can be corrected (never a
 passed/no-verdict case): author only the corrected case and execute:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}
+yoke watch qa-plan -- --item PREFIX-N --stage {STAGE} --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}
 ```
 
 Materialization/declaration commit together; old failure remains history,

@@ -182,7 +182,6 @@ def run(args: List[str]) -> int:
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--stage")
-    parser.add_argument("--member")
     parser.add_argument("--transition")
     parser.add_argument("--plan")
     parser.add_argument("--project")
@@ -253,14 +252,8 @@ def run(args: List[str]) -> int:
         parser.error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
         parser.error("--deployment-run-id requires --project")
-    if parsed.member and not parsed.stage:
-        parser.error("--member requires --stage")
-    if standalone and (
-        parsed.stage or parsed.member or parsed.transition or parsed.replaces
-    ):
-        parser.error(
-            "standalone run does not accept transition, stage, member or replacements"
-        )
+    if standalone and (parsed.stage or parsed.transition or parsed.replaces):
+        parser.error("standalone run does not accept transition, stage or replacements")
     if parsed.replaces and not (parsed.deployment_run_id or parsed.stage):
         parser.error(
             "--replaces declares at materialization; for --item run "
@@ -276,7 +269,6 @@ def run(args: List[str]) -> int:
             transition_id=parsed.transition,
             deployment_run_id=parsed.deployment_run_id,
             deployment_stage=parsed.stage,
-            deployment_member=parsed.member,
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,

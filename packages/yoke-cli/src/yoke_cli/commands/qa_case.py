@@ -24,9 +24,9 @@ QA_CASE_RUN_USAGE = (
 )
 QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
-    "(--item PREFIX-N --transition TRANSITION | "
-    "--deployment-run-id RUN --stage STAGE [--member PREFIX-N] | "
-    "--plan PLAN --project P) [--replaces CASE_KEY=REQUIREMENT_ID] "
+    "(--item PREFIX-N (--transition TRANSITION | --stage STAGE) | "
+    "--deployment-run-id RUN --stage STAGE | "
+    "--plan PLAN --project P | --resume-execution-id ID) [--replaces CASE_KEY=REQUIREMENT_ID] "
     "[--project P] [--base-url URL] [--machine NAME] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--checkout-path PATH] "
@@ -34,7 +34,7 @@ QA_PLAN_RUN_USAGE = (
     "[--session-id S]"
 )
 QA_PLAN_ADOPT_USAGE = (
-    "yoke qa plan adopt (--item PREFIX-N | --deployment-run-id RUN) "
+    "yoke qa plan adopt [--item PREFIX-N] "
     "--execution-id ID --reason TEXT [--session-id S] [--json]"
 )
 QA_PLAN_RECONCILE_USAGE = (
@@ -42,32 +42,32 @@ QA_PLAN_RECONCILE_USAGE = (
     "[--session-id S] [--json]"
 )
 QA_PLAN_ABORT_USAGE = (
-    "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN | --project P) "
+    "yoke qa plan abort [--item PREFIX-N | --project P] "
     "--execution-id ID --reason TEXT [--project P] [--session-id S]"
 )
 QA_PLAN_REVIEW_SUBMIT_USAGE = (
     "yoke qa plan review-submit "
-    "(--item PREFIX-N | --deployment-run-id RUN) --execution-id ID "
+    "[--item PREFIX-N] --execution-id ID "
     "--bundle-id ID --bundle-digest SHA256 --stdin [--session-id S]"
 )
 QA_PLAN_REVIEW_BEGIN_USAGE = (
-    "yoke qa plan review-begin (--item PREFIX-N | --deployment-run-id RUN | --project P) "
+    "yoke qa plan review-begin [--item PREFIX-N | --project P] "
     "--execution-id ID [--session-id S] [--json]"
 )
 QA_MISSION_HOST_COMMAND_USAGE = (
     "yoke qa mission host-command "
-    "(--item PREFIX-N | --deployment-run-id RUN | --project P) "
+    "[--item PREFIX-N | --project P] "
     "--execution-id ID --requirement-id N [--gui-session] "
     "[--timeout-seconds N] [--session-id S] -- ARGV..."
 )
 QA_MISSION_WALK_START_USAGE = (
     "yoke qa mission walk-start "
-    "(--item PREFIX-N | --deployment-run-id RUN | --project P) "
+    "[--item PREFIX-N | --project P] "
     "--execution-id ID --requirement-id N [--session-id S]"
 )
 QA_MISSION_WALK_END_USAGE = (
     "yoke qa mission walk-end "
-    "(--item PREFIX-N | --deployment-run-id RUN | --project P) "
+    "[--item PREFIX-N | --project P] "
     "--execution-id ID --requirement-id N --run-id N [--timeout-seconds N] [--session-id S]"
 )
 

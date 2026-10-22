@@ -83,9 +83,7 @@ def test_a_run_pinning_an_item_scoped_stage_reports_it_with_its_scope() -> None:
     with test_database() as conn:
         _run(conn, ITEM_SCOPED_STAGES)
 
-        assert pinned_qa_stages(conn, RUN_ID) == [
-            {"name": "item-qa", "scope": "item"}
-        ]
+        assert pinned_qa_stages(conn, RUN_ID) == [{"name": "item-qa", "scope": "item"}]
 
 
 def test_the_run_wide_write_is_refused_with_the_binding_invocation() -> None:
@@ -103,7 +101,7 @@ def test_the_run_wide_write_is_refused_with_the_binding_invocation() -> None:
     message = str(refusal.value)
     assert "pins QA stage(s) 'item-qa' (scope item)" in message
     assert (
-        f"--deployment-run-id {RUN_ID} --stage item-qa --member PREFIX-N "
+        "--item PREFIX-N --stage item-qa "
         "--plan release-boundary-qa --project yoke" in message
     )
 
@@ -146,7 +144,7 @@ def test_the_refusal_names_every_pinned_qa_stage() -> None:
     message = str(refusal.value)
     assert "'item-qa'" in message
     assert "'release-qa'" in message
-    assert "--stage item-qa --member PREFIX-N" in message
+    assert "--item PREFIX-N --stage item-qa" in message
     assert "--stage release-qa --plan" in message
 
 

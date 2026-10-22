@@ -9,6 +9,12 @@ stage does not count.
 from __future__ import annotations
 
 from unittest.mock import patch
+import pytest
+from runtime.api.cli.test_yoke_operations_cli_qa import (
+    _run,
+    _stub_ok,
+    _CAPTURED_REQUESTS,
+)
 
 from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_materialize_for_item,
@@ -43,7 +49,7 @@ def test_the_stage_and_item_reach_the_handler() -> None:
     assert kwargs["payload"]["deployment_stage"] == "item-qa"
     assert kwargs["target"].kind == "item"
     assert kwargs["target"].public_ref == "PREFIX-7"
-    assert kwargs["payload"]["deployment_member"] is None
+    assert "deployment_member" not in kwargs["payload"]
 
 
 def test_a_member_without_its_stage_is_refused() -> None:
@@ -88,3 +94,72 @@ def test_item_rematerialize_refuses_plan_filter(capsys) -> None:
         )
     dispatch.assert_not_called()
     assert "item_plan_filter_unsupported" in capsys.readouterr().err
+
+
+class TestQaDeploymentPlanMaterialize:
+    @pytest.fixture(autouse=True)
+    def reset_captured(self):
+        _CAPTURED_REQUESTS.clear()
+
+    def test_dispatches_real_deployment_run_subject(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "materialize",
+            "--deployment-run-id",
+            "run-20260728-901",
+            "--plan",
+            "installer-campaign",
+            "--project",
+            "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "qa.plan.materialize"
+        assert req.target.kind == "deployment_run"
+        assert req.target.deployment_run_id == "run-20260728-901"
+        assert req.target.project_id == "yoke"
+        assert req.payload == {
+            "transition_id": None,
+            "plan": "installer-campaign",
+            "project": "yoke",
+            "deployment_stage": None,
+        }
+
+    def test_replaces_declares_each_failed_requirement(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "materialize",
+            "--deployment-run-id",
+            "run-20260728-901",
+            "--stage",
+            "run-visual-qa",
+            "--plan",
+            "corrected",
+            "--project",
+            "yoke",
+            "--replaces",
+            "desktop=32796",
+            "--replaces",
+            "narrow=32797",
+        )
+        assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].payload["replacements"] == [
+            {"case_key": "desktop", "requirement_id": 32796},
+            {"case_key": "narrow", "requirement_id": 32797},
+        ]
+
+    def test_requires_named_plan_and_project(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "materialize",
+            "--deployment-run-id",
+            "run-20260728-901",
+        )
+        assert rc == 2
+        assert _CAPTURED_REQUESTS == []

@@ -206,5 +206,5 @@ def test_failed_correction_notice_teaches_a_public_member_or_run_scope(
     assert outcome.primary_success
     recovery = outcome.result_payload["correction_notice"]["recovery"]
     assert "901" not in recovery
-    assert ("--member YOK-7" in recovery) == (member is not None)
-    assert ("--member" in recovery) == (member is not None)
+    assert ("--item YOK-7" in recovery) == (member is not None)
+    assert ("--item" in recovery) == (member is not None)

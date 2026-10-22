@@ -32,8 +32,8 @@ A run with members has two roles. Each command's `--help` carries its full matri
 ## The member owner owns its item
 
 - Run the member's stage QA with
-  `yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N`. Dropping `--stage`
-  or `--member` passes every case while the stage stays unsatisfied. `yoke qa case run` never
+  `yoke qa plan run --item PREFIX-N --stage STAGE`. Dropping `--stage`
+  or selecting another item does not answer that obligation. `yoke qa case run` never
   credits a stage.
 - A refused automatic close-out wakes you with its blockers; read
   `yoke qa gate-summary --item PREFIX-N --target implemented`. It retries when they settle.

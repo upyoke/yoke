@@ -20,8 +20,8 @@ from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
 
-def _execution(conn, monkeypatch, *, apply=True):
-    plan = create_smoke_plan(conn, project="yoke", slug="run-takeover-identity")
+def _execution(conn, monkeypatch, *, apply=True, plan=None):
+    plan = plan or create_smoke_plan(conn, project="yoke", slug="run-takeover-identity")
     stages = item_qa_stage_definitions(plan)
     stages[1].update(name=takeover.RUN_QA_STAGE, scope="run")
     seed_run_standing_on_qa_stage(
@@ -68,6 +68,15 @@ def test_real_run_execution_continues_before_successor_deploys(
     assert execution["execution_target"]["deployment"]["run_id"] == takeover.OLD
     assert execution["execution_target"]["deployment"]["member_item_id"] is None
     validate_deployment_execution_target(test_db, execution)
+    from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+
+    current_case = get_case_execution_context(
+        test_db, requirement_id=execution["roster"][0]["requirement_id"]
+    )
+    assert (
+        current_case["deployment_source_revision"]
+        == execution["roster"][0]["deployment_source_revision"]
+    )
     from yoke_core.domain.browser_qa_deployment_identity import (
         resolve_run_pinned_source,
     )
@@ -229,3 +238,65 @@ def test_completion_callback_resolves_owner_again_after_its_commit(
     assert seen == [
         {"run_id": takeover.NEW, "stage": takeover.RUN_QA_STAGE, "member": None}
     ]
+
+
+def test_stale_inherited_mission_continues_by_execution_before_deployment(
+    test_db, monkeypatch, tmp_path
+):
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+    from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+    from yoke_core.domain.qa_plan_management import replace_plan_cases
+    from yoke_core.domain.qa_plan_execution_lifecycle import (
+        finish_plan_execution,
+        STALE_PLAN_EXECUTION_REASON,
+    )
+    from yoke_core.domain.handlers.qa_plan_execution_reentry import (
+        handle_execution_reentry,
+    )
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    sync_machine_qa_pack_methods(test_db)
+    plan = create_smoke_plan(test_db, project="yoke", slug="inherited-mission")
+    replace_plan_cases(
+        test_db,
+        plan_id=plan,
+        cases=[
+            {
+                "case_key": "command-smoke",
+                "position": 1,
+                "method_id": "exploratory-mission",
+                "instructions": "Continue the recorded exploration",
+                "expected_outcome": "Return findings",
+                "method_config": {"executor": "informed_subagent"},
+                "host_baselines": ["fresh-host"],
+            }
+        ],
+    )
+    execution = _execution(test_db, monkeypatch, plan=plan)
+    finish_plan_execution(
+        test_db, execution, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
+    )
+    outcome = handle_execution_reentry(
+        FunctionCallRequest(
+            function="qa.plan_execution.resume",
+            target=TargetRef(kind="global"),
+            actor=ActorContext(actor_id="1", session_id=takeover.DRIVER_SESSION),
+            payload={"execution_id": execution["id"], "continue_mission": True},
+        )
+    )
+    assert outcome.primary_success, outcome.error
+    continued = select_plan_execution(
+        test_db, outcome.result_payload["execution_id"], lock=False
+    )
+    assert continued["continues_execution_id"] == execution["id"]
+    assert continued["deployment_run_id"] == takeover.NEW
+    assert continued["execution_target_digest"] == execution["execution_target_digest"]
+    assert continued["roster"][0]["host_baseline"] == "fresh-host"
+    from yoke_core.domain.qa_plan_execution_continuation import contract_baselines
+
+    assert contract_baselines(continued, continued["roster"][0]) == ()

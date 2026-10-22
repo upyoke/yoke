@@ -49,7 +49,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "yoke qa plan materialize "
         "(--item PREFIX-N (--transition T | --stage S) | "
         "--deployment-run-id RUN --plan PLAN --project P "
-        f"[--stage STAGE [--member PREFIX-N]]) [--replaces {REPLACES_METAVAR} ...] "
+        f"[--stage STAGE]) [--replaces {REPLACES_METAVAR} ...] "
         "[--json]"
     )
     parser = argparse.ArgumentParser(
@@ -71,26 +71,20 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
             "Use --item for item-scoped deployment QA."
         ),
     )
-    parser.add_argument(
-        "--member",
-        help="The run member item an item-scoped QA stage credits.",
-    )
     add_replaces_argument(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if parsed.item and parsed.stage and (parsed.transition or parsed.member):
-        return usage_error("item stage excludes transition and member selectors")
+    if parsed.item and parsed.stage and parsed.transition:
+        return usage_error("item stage excludes a transition selector")
     if parsed.item and not (parsed.transition or parsed.stage):
         return usage_error("--item requires --transition or --stage")
     if parsed.item and parsed.plan and not parsed.stage:
         return usage_error("--item uses attached plans and does not accept --plan")
     if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         return usage_error("--deployment-run-id requires --plan")
-    if parsed.member and not parsed.stage:
-        return usage_error("--member requires --stage")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
@@ -109,7 +103,6 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "plan": parsed.plan,
         "project": parsed.project,
         "deployment_stage": parsed.stage,
-        "deployment_member": parsed.member,
     }
     if parsed.replaces:
         payload["replacements"] = parsed.replaces
@@ -126,7 +119,7 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     usage = (
         "yoke qa plan rematerialize "
         "(--item PREFIX-N (--transition T | --stage S) | "
-        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P]) "
+        "--deployment-run-id RUN --stage S [--plan P]) "
         "[--json]"
     )
     parser = argparse.ArgumentParser(
@@ -144,9 +137,6 @@ def qa_plan_rematerialize(args: List[str]) -> int:
         "--stage", help="The pinned deployment QA stage whose cases to refresh."
     )
     parser.add_argument(
-        "--member", help="The run member item an item-scoped QA stage credits."
-    )
-    parser.add_argument(
         "--plan", help="Refresh only cases materialized from this plan."
     )
     add_session_arg(parser)
@@ -158,16 +148,14 @@ def qa_plan_rematerialize(args: List[str]) -> int:
         return usage_error(
             "item_plan_filter_unsupported: remove --plan; --item refreshes attached plans"
         )
-    if parsed.item and parsed.stage and (parsed.transition or parsed.member):
-        return usage_error("item stage excludes transition and member selectors")
+    if parsed.item and parsed.stage and parsed.transition:
+        return usage_error("item stage excludes a transition selector")
     if parsed.item and not (parsed.transition or parsed.stage):
         return usage_error("--item requires --transition or --stage")
     if parsed.deployment_run_id and not parsed.stage:
         return usage_error("--deployment-run-id requires --stage")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
-    if parsed.member and not parsed.stage:
-        return usage_error("--member requires --stage")
     target = (
         item_target("item", parsed.item, parsed.project)
         if parsed.item
@@ -182,7 +170,6 @@ def qa_plan_rematerialize(args: List[str]) -> int:
         if parsed.item and not parsed.stage
         else {
             "deployment_stage": parsed.stage,
-            "deployment_member": parsed.member,
             "plan": parsed.plan,
         }
     )

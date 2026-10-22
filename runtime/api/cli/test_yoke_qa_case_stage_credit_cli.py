@@ -10,10 +10,7 @@ RUN_ID = "run-20260101-001"
 STAGE = "item-qa"
 MEMBER_REF = "YOK-42"
 PROJECT = "yoke"
-PLAN_RUN = (
-    f"yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} "
-    f"--member {MEMBER_REF} --project {PROJECT}"
-)
+PLAN_RUN = f"yoke qa plan run --item {MEMBER_REF} --stage {STAGE} --project {PROJECT}"
 
 ITEM_SCOPED_CASE = {
     "requirement_id": 41,

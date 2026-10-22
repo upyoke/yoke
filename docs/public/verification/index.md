@@ -4,7 +4,7 @@
 [Yoke](../index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Define QA cases, run project plans and inspect the evidence that satisfies workflow and deployment gates.
+Run QA plans and cases; inspect evidence for workflow and deployment gates.
 
 Workbench **QA** tabs:
 
@@ -257,7 +257,7 @@ function through `yoke qa browser setup`. Screenshot captures use the platform
 temporary directory unless an output directory is supplied.
 
 Scoped release QA can require several Test Machines. Use `yoke watch qa-plan --
---deployment-run-id RUN --stage STAGE --member ITEM --project P` without a host
+--item ITEM --stage STAGE --project P` without a host
 pin. The command gives each machine its own ordered execution and FIFO lease,
 then credits all results to the same member. After a host wait or independent
 review, repeat that command to continue. Every required host must pass before
@@ -296,6 +296,7 @@ project operator to repair the named definition or target if it persists.
 - [Consumer proof](consumer-proof.md) — Use the release-time exact-pair gate and diagnose producer failures.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
+- [Deployment QA continuity](deployment-qa-continuity.md) — Continue existing QA through takeover and recover the exact execution.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.
 - [Browser evidence](browser-evidence.md) — Read captures and distinguish execution from inspected verdicts.

@@ -70,7 +70,7 @@ def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any
     if len(digests) != 1 or not next(iter(digests)):
         raise QaPlanError(
             f"{subject} has ambiguous materialized target history ({len(digests)} "
-            "distinct targets); select an attaching --member or resolve it against "
+            "distinct targets); select an attaching --item or resolve it against "
             "the active stage receipt before rematerializing"
         )
     raw = rows[0]["execution_target_json"]

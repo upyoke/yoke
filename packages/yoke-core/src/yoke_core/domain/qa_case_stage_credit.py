@@ -39,10 +39,7 @@ def item_scoped_stage_plan_run_command(case: Mapping[str, Any]) -> str | None:
         member_ref = "ATTACHING_MEMBER"
     elif not member_ref or case.get("deployment_member_item_id") is None:
         return None
-    return (
-        f"yoke qa plan run --deployment-run-id {run_id} --stage {stage} "
-        f"--member {member_ref} --project {project}"
-    )
+    return f"yoke qa plan run --item {member_ref} --stage {stage} --project {project}"
 
 
 def item_scoped_stage_credit_refusal(case: Mapping[str, Any]) -> str | None:

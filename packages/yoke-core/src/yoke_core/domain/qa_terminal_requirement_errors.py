@@ -49,7 +49,7 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     if requirement.get("qa_phase") == "post_deploy":
         return (
             "Finish the admitted post-deploy QA through `yoke watch qa-plan -- "
-            "--deployment-run-id RUN --stage STAGE --member ITEM --project P`; "
+            "--item ITEM --stage STAGE --project P`; "
             "the selected completion run must accept this source's copies "
             "at its recorded candidate and target before done can settle"
         )

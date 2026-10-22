@@ -15,8 +15,7 @@ Select an item, deployment run, or manual project plan.
       naming a published branch or tag at that commit. Its named workflow
       dispatches with the case's declared inputs; no lane is pushed.
       Abort with `yoke qa plan abort --project P --execution-id ID --reason TEXT`;
-      --continue-mission resumes a
-      walk settled by the stale sweep while preserving its host state.
+      Use --resume-execution-id ID --continue-mission for a stale-settled walk.
 
   --item PREFIX-N --transition TRANSITION
       An item's own attached plans, for a lifecycle transition's QA gate.
@@ -27,16 +26,19 @@ Select an item, deployment run, or manual project plan.
       run passed at the lane's recorded head are skipped; the rest run one
       execution target at a time, each after the previous one passed.
 
-  --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
-      --project PROJECT
-      One frozen QA stage of a deployment run. The stage must be the run's
-      active pinned QA stage.
-      PROJECT is the member's project for item QA, or the run's for run QA.
-      Cases already passed on the stage's target, and cases a stopped
-      execution's pending review holds, are skipped. With nothing owed it
-      refuses qa_plan_nothing_owed and lists the stage's blockers with their
-      next commands, such as `yoke qa plan review-begin`; it never replays a
-      passed roster.
+  --item PREFIX-N --stage STAGE [--plan PLAN] --project PROJECT
+      Fresh item QA uses its current completion authority, including a carrier
+      release from another project. A selected plan names its target environment.
+      Missing or unready delivery authority refuses with its recovery.
+
+  --deployment-run-id RUN --stage STAGE [--plan PLAN] --project PROJECT
+      Initial run-level orchestration only. The stage must be the run's active
+      pinned QA stage. Item QA uses --item instead.
+
+Passed cases and stopped executions awaiting review are retained. With nothing
+owed, qa_plan_nothing_owed lists the remaining blockers and recovery commands.
+Existing executions resume by --resume-execution-id ID; their current owner is
+resolved from stored authority, without selecting a release or member.
 
 Release-time scope: a stage credits only its own name
 -----------------------------------------------------
@@ -57,21 +59,12 @@ owner_session_id.
 Keep the claim and park with
 yoke sessions touch --mode parked --reason "waiting for shared QA". Passing shared
 evidence credits attaching members; settlement wakes members still owing QA
-to retry their own stage/member command. The owner resumes its walk as usual.
+to retry their own item/stage command. The owner resumes its walk as usual.
 
-So the scope flags are not optional decoration:
-
-  * Run-scoped stage  -> --stage STAGE, no --member.
-  * Item-scoped stage -> --stage STAGE --member PREFIX-N. The run-wide form is
-    refused here rather than recording a pass the stage would ignore.
-
-Dropping --stage or --member is the failure that looks like success: cases run,
-verdicts record, and the stage still reads unsatisfied because nothing credited
-it. For non-mission runners, `yoke qa case run --requirement-id N` refuses
-an item-scoped binding and names this command instead of recording an
-uncredited pass. An agent_mission instead starts a one-requirement plan
-execution with the same retained lease, review bundle and main-agent verdict;
-other open requirements stay untouched. An inherit mission needs its ordered
+Use --item PREFIX-N --stage STAGE for item QA. Run-level orchestration retains
+its run/stage context. An exact --requirement-id selects the stored case binding;
+an agent_mission starts a one-requirement execution with its retained lease,
+review bundle and main-agent verdict. An inherit mission needs its ordered
 predecessor and must use the plan command.
 
 When the stage names no concrete cases, --plan records the executor's
@@ -82,10 +75,11 @@ atomic correction binds each case to the same run, stage, member and target;
 it does not add an unrelated second set of obligations.
 Materialization stamps the member project's deployed target for member QA,
 or the run project's target for run QA,
-onto the cases, so a plan authored before this release still verifies it. A
-deployment case is bound to the candidate the run deployed, not to your lane
-or the project checkout: each case runs in a disposable checkout the runner
-clones at that revision and removes afterwards, so no flag is needed however
+onto the cases. Takeover preserves that start-time context, case evidence and
+custody while changing the owning release. Inherited QA can observe multiple
+builds at the same authorized environment; Browser evidence records the served
+revision. Command cases retain their admitted source checkout. Each command
+runs in a disposable checkout the runner removes afterwards, however
 far the default branch has moved. --checkout-path overrides that tree and is
 refused unless it sits at the candidate; --allow-tree-mismatch declares the
 case reads nothing from the checkout.
@@ -105,10 +99,10 @@ multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
 Recover an unknown response on the same execution
 ------------------------------------------------
-  yoke qa plan run --plan PLAN --project P --resume-execution-id EXECUTION_ID
+  yoke qa plan run --resume-execution-id EXECUTION_ID
 
-For item or deployment QA, keep its original subject, stage/member, source and
-machine flags and add --resume-execution-id. A lost reply is an unknown outcome,
+The execution supplies its subject, stage and target. Supplied item, source and
+machine hints must agree with its stored authority. A lost reply is an unknown outcome,
 not a failed action. Only a check-in retries briefly with the same request id;
 it uses the durable request ledger to recover a late success. Other operations
 never replay automatically. outcome_unknown exits with the waiting status and
@@ -124,6 +118,9 @@ the durable cursor; no command replays an unrecorded case submission. A lost
 heartbeat during cleanup is captured and does not block result submission;
 if submission also loses its response, its payload is saved as outcome_unknown. Do not reset hosts, replay one-shot actions,
 create a new campaign or revive terminal history to recover communication.
+For a walk explicitly settled by the stale sweep, use --resume-execution-id ID
+--continue-mission. This preserves the old history and host state, and refuses
+if another eligible walk has replaced the named source.
 Pause/resume requires a serving release carrying those registered functions;
 a version-skew refusal names that floor and the control-plane operator.
 
@@ -142,7 +139,7 @@ Replacing a failed case with a corrected one
 When an admitted case failed because its capture or probe was wrong, create a
 plan containing only its corrected case and name the failed requirement:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] \\
+  yoke qa plan run --item PREFIX-N --stage STAGE \\
       --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 
 The selected --plan limits this invocation to that plan's correction rows,
@@ -165,7 +162,7 @@ leaves its roster immediately; the corrected case still needs a pass.
 
 Stopping a host case
 -------------------
-  yoke qa plan abort --deployment-run-id RUN --execution-id ID --reason TEXT
+  yoke qa plan abort --execution-id ID --reason TEXT
 
 --reason holds at most 200 characters: a code and a short diagnosis. Put the
 full rationale in the Progress Log or an artifact and cite it.
@@ -198,9 +195,9 @@ it already holds the result. A holder or steering recipient should read:
 Determine whether the environment, case, or member code caused the failure.
 Claim or staff ITEM before changing it if its holder is gone.
 For an environment failure, leave the item in release and run fresh QA on the
-same deployed revision:
+current authorized environment:
 
-  yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM \\
+  yoke watch qa-plan -- --item ITEM --stage STAGE \\
       --project PROJECT
 
 For a defective case, use the correction-only plan and --replaces recipe

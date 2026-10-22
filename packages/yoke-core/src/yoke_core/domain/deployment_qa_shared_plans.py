@@ -143,7 +143,7 @@ def resolve_shared_subject(
     if len(matches) != 1:
         raise ValueError(
             f"shared_plan_subject_unresolved: plan {plan_id} has {len(matches)} matching "
-            f"groups in run {run_id} stage {stage_name}; select an attaching --member "
+            f"groups in run {run_id} stage {stage_name}; select an attaching --item "
             "to disambiguate, or restore its plan attachment and current producer receipt"
         )
     return next(iter(matches.values()))

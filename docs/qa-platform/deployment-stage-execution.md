@@ -11,14 +11,14 @@ frozen member against its project's deployed stage or production target (run QA 
 
 ```text
 yoke qa plan run \
-  --deployment-run-id <run-id> \
+  --item <PREFIX-N> \
   --stage <stage-name> \
-  [--member <PREFIX-N>] \
   [--plan <agent-selected-project-plan>] \
   --project <project>
 ```
 
-The member flag is required for item scope and forbidden for run scope. Named
+Fresh item QA resolves current completion membership from --item; initial
+run-level orchestration retains --deployment-run-id and --stage. Named
 flow cases and selected member requirements come from the run's immutable
 admission snapshots, excluding retracted requirements and withdrawn member plan attachments. A replacement active attachment supplies its own cases. If an older build populated a frozen run from a withdrawn plan, repeat `yoke qa item-plan retract --item ITEM --project PROJECT --plan-id PLAN --transition release --reason "withdraw the mis-scoped plan"` to retire its remaining copies, then re-drive the run or execute the member stage. This preserves withdrawal history and refuses passing copies. If no concrete method case was admitted or configured,
 the executor supplies `--plan`; its frozen cases are materialized separately
@@ -40,11 +40,16 @@ Each QA target names `source_stage`, an earlier non-QA stage whose executor
 produces a durable `deployment_stage_receipts` attempt before dispatch. Attempt
 numbers are allocated under the run lock; a repeated correlation ID is
 idempotent only when its immutable dispatch inputs match. The latest attempt is
-authoritative even when an older callback arrives later. Only a latest `ready`
+authoritative even when an older callback arrives later. Fresh QA requires a latest `ready`
 attempt with the exact target and release lineage can start QA; when the run
 pins an artifact identity, the receipt must observe that exact artifact too.
 Run-preview receipts must also carry the observed URL; command-only persistent
-targets may omit one.
+targets may omit one. Inherited executions retain their original receipt and
+target snapshot after takeover; continuation checks current ownership and
+same-target ancestry without requiring successor deployment readiness.
+Private, shared and run-level QA retain IDs, evidence, custody and progress.
+Successor deployment failure preserves inherited QA for retry or takeover,
+while normal release prerequisites and human approvals remain required.
 
 Materialization records the resolved tenant, member's project (or run project for run scope), configured environment,
 site and endpoints together with the receipt ID, attempt, correlation, observed
@@ -174,8 +179,7 @@ When the plan itself was corrected, refresh the whole subject rather than
 each row:
 
 ```text
-yoke qa plan rematerialize --deployment-run-id <run-id> --stage <stage-name> \
-  [--member <PREFIX-N>] [--plan <plan>]
+yoke qa plan rematerialize --item <PREFIX-N> --stage <stage-name> [--plan <plan>]
 ```
 
 A materialized case is unique on
@@ -184,8 +188,7 @@ corrected plan case cannot arrive as a second row under the same key —
 refreshing in place is the route, and before this there was none for a
 deployment subject at all. Authority follows the subject, as it does for
 `yoke qa plan materialize`: an item-scoped stage checks the member's claim,
-resolved from `--member`, since a deployment target carries no item of its
-own; a run-scoped stage has no member to claim, so the run itself authorizes
+resolved from `--item`; a run-scoped stage has no member to claim, so the run itself authorizes
 the refresh and a run's QA agent can follow the recovery a plan edit printed.
 The refresh keeps the deployment target the stage receipt pinned; it never
 re-points a frozen run at whatever environment the plan names today. It
@@ -215,7 +218,7 @@ case is materialized:
   failed requirement it replaces:
 
   ```text
-  yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] \
+  yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
   ```
 
@@ -301,8 +304,7 @@ and the runner names the missing recipient so the member can be staffed.
 
 The evidence decides the route. An environment or asset-delivery failure is
 retryable against the same deployed revision: leave the item in `release` and
-run fresh QA with `yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE
---member ITEM --project PROJECT`. A member code defect uses the pinned
+run fresh QA with `yoke watch qa-plan -- --item ITEM --stage STAGE --project PROJECT`. A member code defect uses the pinned
 workflow's ordinary backward transition, `yoke lifecycle transition ITEM
 --from release --to implementing --reason "..."`, without an operator
 approval step. Refresh any conflict survey its activation gate requires.

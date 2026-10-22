@@ -21,7 +21,7 @@ RELEASE_ROLE_HINT = (
     "claim; it never runs a member's item QA or closes a member out. A member "
     "owner stays parked at its release wait, holding its claim. When the "
     "deployment wake asks for its stage, it runs `yoke qa plan run "
-    "--deployment-run-id RUN --stage STAGE --member PREFIX-N --project P` "
+    "--item PREFIX-N --stage STAGE --project P` "
     "(add `--plan PLAN` only when the wake says the stage names no cases). A "
     "stage held by another session returns waiting: keep the claim and park. "
     "Run `yoke merge item PREFIX-N --result ... --verification ...` only when "

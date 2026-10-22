@@ -19,10 +19,7 @@ MEMBER_ID = 3454
 MEMBER_REF = "YOK-42"
 PROJECT = "yoke"
 
-PLAN_RUN = (
-    f"yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} "
-    f"--member {MEMBER_REF} --project {PROJECT}"
-)
+PLAN_RUN = f"yoke qa plan run --item {MEMBER_REF} --stage {STAGE} --project {PROJECT}"
 
 
 def _item_scoped_case(**overrides):

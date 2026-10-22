@@ -179,21 +179,6 @@ def resolve_run_pinned_source(
     ).fetchone()
     if row is None:
         return {"sha": "", "branch": "", "project": ""}
-    project_id = int(_scalar(row, 0, "project_id") or 0)
-    project_row = conn.execute(
-        f"SELECT slug, default_branch FROM projects WHERE id={marker}",
-        (project_id,),
-    ).fetchone()
-    return {
-        "sha": run_delivered_sha(conn, str(run_id), project_id).strip(),
-        # The branch labels the commit for a reader; the commit is the proof.
-        "branch": str(_scalar(project_row, 1, "default_branch") or "").strip(),
-        "project": str(_scalar(project_row, 0, "slug") or "").strip(),
-        **_inherited_identity_scope(conn, str(run_id), row),
-    }
-
-
-def _inherited_identity_scope(conn, run_id, row):
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
         decode_execution_target,
     )
@@ -205,9 +190,27 @@ def _inherited_identity_scope(conn, run_id, row):
             "execution_target_digest": _scalar(row, 2, "execution_target_digest"),
         }
     )
-    if target and inherited_target(conn, run_id, target):
-        return {"identity_scope": "environment"}
-    return {}
+    project_id = int(
+        ((target or {}).get("project") or {}).get("id")
+        or _scalar(row, 0, "project_id")
+        or 0
+    )
+
+    project_row = conn.execute(
+        f"SELECT slug, default_branch FROM projects WHERE id={marker}",
+        (project_id,),
+    ).fetchone()
+    return {
+        "sha": run_delivered_sha(conn, str(run_id), project_id).strip(),
+        # The branch labels the commit for a reader; the commit is the proof.
+        "branch": str(_scalar(project_row, 1, "default_branch") or "").strip(),
+        "project": str(_scalar(project_row, 0, "slug") or "").strip(),
+        **(
+            {"identity_scope": "environment"}
+            if target and inherited_target(conn, str(run_id), target)
+            else {}
+        ),
+    }
 
 
 def validate_deployment_identity(
