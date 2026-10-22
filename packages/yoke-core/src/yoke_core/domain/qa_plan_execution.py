@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import ActorContext
+from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
     aggregate_state as _aggregate_state,  # noqa: F401 -- public test seam
@@ -60,15 +60,26 @@ def execute_plan(
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
-    target, begin_payload = build_plan_execution_target(
-        public_ref=public_ref,
-        transition_id=transition_id,
-        deployment_run_id=deployment_run_id,
-        deployment_stage=deployment_stage,
-        deployment_member=deployment_member,
-        plan=plan,
-        project=project,
-        **({"requirement_id": requirement_id} if requirement_id is not None else {}),
+    target, begin_payload = (
+        (
+            TargetRef(kind="item", public_ref=public_ref, project_id=project)
+            if public_ref
+            else TargetRef(kind="global", project_id=project),
+            {},
+        )
+        if resume_execution_id
+        else build_plan_execution_target(
+            public_ref=public_ref,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member=deployment_member,
+            plan=plan,
+            project=project,
+            **(
+                {"requirement_id": requirement_id} if requirement_id is not None else {}
+            ),
+        )
     )
     resolved_actor = execution_actor(actor)
     begin_payload.update(
@@ -82,7 +93,11 @@ def execute_plan(
         )
     if requirement_id is not None:
         begin_payload["requirement_id"] = requirement_id
-    if deployment_run_id and not resume_execution_id and requirement_id is None:
+    if (
+        (deployment_run_id or deployment_stage)
+        and not resume_execution_id
+        and requirement_id is None
+    ):
         materialize_payload = {"plan": plan, "project": project}
         if deployment_stage:
             materialize_payload["deployment_stage"] = deployment_stage
@@ -153,7 +168,17 @@ def execute_plan(
 
         return completed_member_result(execution)
     execution_id = begun_execution_id(execution)
-    if resume_execution_id and execution_id != resume_execution_id:
+    if target.kind == "deployment_run":
+        target = TargetRef(kind="global", project_id=project)
+    if (
+        resume_execution_id
+        and (
+            execution.get("continues_execution_id")
+            if continue_mission
+            else execution_id
+        )
+        != resume_execution_id
+    ):
         raise QaPlanExecutionError(
             "qa_resume_identity_mismatch: preserve both receipts and report to the control-plane operator"
         )
@@ -161,14 +186,18 @@ def execute_plan(
         begun = validate_begun_execution(
             execution, machine=machine, base_url=base_url, public_ref=public_ref
         )
-        if deployment_run_id and deployment_stage:
+        if (
+            execution.get("deployment_run_id")
+            and deployment_stage
+            and not resume_execution_id
+        ):
             from yoke_core.domain.deployment_qa_start_identity import (
                 require_start_identity,
             )
 
             # Before any host reset or human gate the roster below reaches.
             if drift := require_start_identity(
-                execution, run_id=deployment_run_id, stage=deployment_stage
+                execution, run_id=execution["deployment_run_id"], stage=deployment_stage
             ):
                 raise QaPlanExecutionError(drift)
         from yoke_core.domain.qa_standalone_command import preflight_standalone_runners
@@ -185,11 +214,7 @@ def execute_plan(
             target=target,
             execution_id=execution_id,
             subject_flag=(
-                f"--deployment-run-id {deployment_run_id}"
-                if deployment_run_id
-                else f"--item {public_ref}"
-                if public_ref
-                else f"--project {project}"
+                f"--item {public_ref}" if public_ref else f"--project {project}"
             ),
             actor=resolved_actor,
             error=exc,

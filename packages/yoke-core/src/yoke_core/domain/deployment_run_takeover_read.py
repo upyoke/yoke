@@ -4,8 +4,8 @@ Whether the new candidate contains the older one is a commit comparison on
 the repository host, and the removal's QA cleanup asks which shared groups
 the remaining members attach. Both are read here with no run lock held. The
 takeover then locks the older run and re-checks them in constant time: the
-older run's recorded lineage, and the removal projection's fingerprint. A
-change committed in between is read again under the lock.
+older run's recorded lineage, eligibility and the projection's fingerprint.
+A change committed in between refuses the attempt before any ownership write.
 """
 
 from __future__ import annotations
@@ -60,21 +60,30 @@ def read_takeover(
 def current_takeover_read(
     conn: Any, read: TakeoverRead, new_run: Mapping[str, Any], old: dict[str, Any]
 ) -> TakeoverRead:
-    """Under the older run's lock: *read*, with each moved fact read again.
+    """Confirm the unlocked read; never call the repository host under a lock."""
+    from yoke_core.domain.deployment_run_target_takeover import TakeoverRefused
 
-    Updates ``old["release_lineage"]`` when it moved, so a refusal names the
-    lineage it judged.
-    """
     old_id = str(old["id"])
     row = conn.execute(
-        "SELECT release_lineage FROM deployment_runs WHERE id=%s", (old_id,)
+        "SELECT release_lineage,status,current_stage,settling_at,superseded_by_run_id "
+        "FROM deployment_runs WHERE id=%s",
+        (old_id,),
     ).fetchone()
-    lineage = str(row["release_lineage"] or "") if row else ""
-    if lineage != read.old_lineage:
-        old["release_lineage"] = lineage
-        read = TakeoverRead(lineage, _verdict(conn, new_run, lineage), read.projection)
-    if not read.projection.holds(conn):
-        read = TakeoverRead(read.old_lineage, read.verdict, _projection(conn, old_id))
+    if (
+        row is None
+        or str(row["release_lineage"] or "") != read.old_lineage
+        or any(
+            row[key] != old[key] for key in ("status", "current_stage", "settling_at")
+        )
+        or row["superseded_by_run_id"] is not None
+        or not read.projection.holds(conn)
+    ):
+        raise TakeoverRefused(
+            "takeover_inputs_changed",
+            f"run {old_id} changed while takeover was prepared; no QA ownership "
+            "was changed. Retry the same run creation request to read its current "
+            "membership, QA and candidate containment before locking again.",
+        )
     return read
 
 

@@ -222,7 +222,7 @@ Machine still holds every bit of state the walk built. The way back in is a
 continuation:
 
 ```text
-yoke qa plan run --item PREFIX-N --transition T --continue-mission
+yoke qa plan run --resume-execution-id EXECUTION_ID --continue-mission
 ```
 
 Host-wait and continuation commands omit `--machine`. Simultaneous cases keep
@@ -237,7 +237,7 @@ A continuation records new runs over the same roster without resetting hosts.
 Its latest runs supersede the swept `error`; the prior runs retain their
 `stale-heartbeat` history.
 
-The flag is refused unless the subject's most recent execution is terminal,
+The flag is refused unless the named execution is the latest eligible source, is terminal,
 ended with `release_reason` `stale-heartbeat`, ran at least one
 `agent_mission` case, and runs no `host_control` case whose own host baseline
 would reset the very host a continuation inherits. Each refusal names the

@@ -162,12 +162,13 @@ def terminalize_run_on(
     # recorded the answer; a read derives one for a run that never did.
     from yoke_core.domain.qa_deployment_run_settlement import settle_unsuccessful_run
 
-    settle_unsuccessful_run(
+    preserved = settle_unsuccessful_run(
         conn, run_id, reason=f"deployment run {run_id} {final_status}: {clean_reason}"
     )
-    withdraw_deployment_qa_wait_wakes(
-        conn, run_id=run_id, reason=f"run_terminal:{final_status}"
-    )
+    if not preserved:
+        withdraw_deployment_qa_wait_wakes(
+            conn, run_id=run_id, reason=f"run_terminal:{final_status}"
+        )
     event_id = _append_event(
         conn,
         run_id=run_id,

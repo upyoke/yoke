@@ -64,10 +64,7 @@ def test_deployment_plan_machine_case_uses_durable_serial_lease_and_evidence(
                 actor_id="1",
                 session_id="deployment-machine",
             ),
-            target=TargetRef(
-                kind="deployment_run",
-                deployment_run_id=RUN_ID,
-            ),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={
                 "execution_id": str(execution["id"]),
                 "ordinal": 0,

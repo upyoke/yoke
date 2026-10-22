@@ -115,9 +115,22 @@ def qa_subject_claim_verdict(
     through the same helper.
     """
     from yoke_core.domain.agent_mission_cleanup import cleanup_claim_authority
+    from yoke_core.domain.qa_execution_request_identity import (
+        is_execution_request,
+        resolve_execution_request,
+    )
 
     if cleanup_claim_authority(request):
         return True, None, None
+    if is_execution_request(request):
+        from yoke_core.domain.db_helpers import connect
+
+        try:
+            with connect() as conn:
+                request = resolve_execution_request(conn, request)
+        except (LookupError, ValueError) as exc:
+            return False, "qa_execution_subject_invalid", str(exc)
+
     target = request.target
     payload = request.payload
     actor_session = request.actor.session_id

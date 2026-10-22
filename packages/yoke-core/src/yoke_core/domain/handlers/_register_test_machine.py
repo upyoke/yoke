@@ -24,7 +24,7 @@ def register(registry) -> None:
         stability="stable",
         minimum_serving_version="next-release",
         owner_module=__name__,
-        target_kinds=["item", "deployment_run", "global"],
+        target_kinds=["item", "global"],
         side_effects=["qa_plan_execution_write", "coordination_claim"],
         emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
         guardrails=[
@@ -46,7 +46,7 @@ def register(registry) -> None:
         stability="stable",
         minimum_serving_version="next-release",
         owner_module=__name__,
-        target_kinds=["item", "deployment_run", "global"],
+        target_kinds=["item", "global"],
         side_effects=[
             "qa_plan_execution_write",
             "coordination_claim_heartbeat",

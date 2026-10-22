@@ -55,24 +55,12 @@ def _target(parsed: argparse.Namespace) -> TargetRef:
         return TargetRef(
             kind="item", public_ref=f"{prefix}-{sequence}", project_id=parsed.project
         )
-    if parsed.deployment_run_id is None:
-        if not parsed.project:
-            raise ValueError(
-                "standalone_project_required: name --project for the standalone mission"
-            )
-        return TargetRef(kind="global", project_id=parsed.project)
-    return TargetRef(
-        kind="deployment_run",
-        deployment_run_id=parsed.deployment_run_id,
-        project_id=parsed.project,
-    )
+    return TargetRef(kind="global", project_id=parsed.project)
 
 
 def add_mission_subject_arguments(parser: argparse.ArgumentParser) -> None:
     """Declare how every mission client command addresses its lease."""
-    subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
+    parser.add_argument("--item")
     parser.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
     parser.add_argument("--requirement-id", type=int, required=True)

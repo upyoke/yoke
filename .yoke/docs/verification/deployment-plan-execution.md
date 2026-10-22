@@ -4,10 +4,10 @@
 [Yoke](../index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-Use the attaching member's pinned stage to run or resume its owed cases:
+Use the item and its pinned stage to start its owed cases:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
 Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
@@ -20,6 +20,9 @@ plan supplies the executable stage cases. A deployment-stage target (persistent 
 `target_env` even when a correction case has no `target_envs` selector, so its
 scope matches the case it replaces.
 
+[QA continuity](deployment-qa-continuity.md) describes current item authority,
+release takeover, cross-build observations and exact-execution recovery.
+
 ## Shared plan credit
 
 Members attaching the same post-deploy plan share its case rows and ordered
@@ -30,8 +33,8 @@ A plan only one run member attaches stays that member's private copy and keeps
 its `deployment_member_item_id`; a formed group stays shared until its last
 attaching member leaves.
 The shared execution records the member that requested it, separately from its
-run-wide subject. Continuation and host-wait commands retain that member as
-`--member`; another attaching member resuming it does not change the requester.
+run-wide subject. Continuation and host-wait commands use its execution ID;
+another attaching member does not change the recorded requester.
 The shared target omits `deployment.member_item_id` and records
 `deployment.shared_plan`; the run and stage remain explicit. Each member waits
 only for its attached groups. A failing shared case blocks every attaching
@@ -46,7 +49,7 @@ persisted. Record an unpersisted verdict again after repairing the cause; for a
 persisted one, re-drive the run with `yoke watch deploy -- RUN` so its runner
 adopts it.
 
-Use the `--stage` / `--member` command above. It runs unfinished private
+Use the `--item` / `--stage` command above. It runs unfinished private
 member cases first, retaining their own target, order, host prerequisites and
 reviews. Completing that private roster ends this invocation; it does not
 start an attached shared campaign. Private evidence alone does not accept a
@@ -59,13 +62,13 @@ and park with `yoke sessions touch --mode parked --reason "waiting for shared QA
 The deployment's member stage
 line retains the wait. Passing shared evidence credits every attaching member;
 completion, abort or error wakes members still owing QA to retry their own
-stage/member command. The owner resumes its existing execution as usual.
+item/stage command. The owner resumes its existing execution as usual.
 Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
 For a correction, name its plan and failed requirement:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
+yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
@@ -256,7 +259,7 @@ blocks execution. Continuations preserve the existing walk and journal.
 ## Stop host work safely
 
 ```text
-yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
+yoke qa plan abort --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
 
@@ -315,15 +318,8 @@ own roster: abort it first to drop cases passed elsewhere.
 
 ## Recover communication on the frozen execution
 
-```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
-    --project P --resume-execution-id EXECUTION_ID
-```
-
-Keep the scope and source arguments; omit `--member` for run-scoped stages.
-Resume preserves the cursor, frozen candidate and custody, without new cases.
-For a lost reply, follow [check-in recovery](standalone-plans.md#recover-a-lost-check-in-response)
-with its pause receipts and saved evidence; do not abort or replay the action.
+Use the [exact execution recovery](deployment-qa-continuity.md#recover-communication-on-the-frozen-execution)
+recipe; preserve its saved receipts and host state.
 
 ## Related
 

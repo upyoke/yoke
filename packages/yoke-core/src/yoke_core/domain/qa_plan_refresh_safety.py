@@ -89,12 +89,12 @@ def refresh_invocation(conn: Any, row: Any) -> str:
             is None
         ):
             return ""
-        member_arg = f" --member {render_item_ref(conn, int(member))}" if member else ""
-        return (
-            "yoke qa plan rematerialize --deployment-run-id "
-            f"{row['deployment_run_id']} --stage {row['deployment_stage']}"
-            f"{member_arg}"
+        subject = (
+            f"--item {render_item_ref(conn, int(member))}"
+            if member
+            else f"--deployment-run-id {row['deployment_run_id']}"
         )
+        return f"yoke qa plan rematerialize {subject} --stage {row['deployment_stage']}"
     if row["item_id"]:
         return (
             "yoke qa plan rematerialize --item "
@@ -140,24 +140,8 @@ def _abort_command(
     item_id: Optional[int],
     deployment_run_id: Optional[str],
 ) -> str:
-    """The abort invocation that actually reaches THIS execution.
-
-    ``yoke qa plan abort`` takes a subject, the execution id and a reason, and
-    refuses without all three. Naming the bare command would hand the reader a
-    usage error instead of the recovery, so the subject is chosen from the
-    same arguments the refusal was raised for.
-    """
-    from yoke_core.domain.project_identity import render_item_ref
-
-    subject_flag = (
-        f"--item {render_item_ref(conn, int(item_id))}"
-        if item_id is not None
-        else f"--deployment-run-id {deployment_run_id}"
-    )
-    return (
-        f"yoke qa plan abort {subject_flag} --execution-id {execution_id} "
-        '--reason "<why>"'
-    )
+    """The execution identifies current ownership for abandonment."""
+    return f'yoke qa plan abort --execution-id {execution_id} --reason "<why>"'
 
 
 def carry_into_live_rosters(

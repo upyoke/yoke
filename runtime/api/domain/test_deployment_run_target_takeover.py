@@ -1,4 +1,4 @@
-"""Creating a run takes over an older run on its target that only waits on item QA."""
+"""Creating a run takes over an older run on its target that waits on QA."""
 
 from __future__ import annotations
 
@@ -179,10 +179,13 @@ def test_without_run_qa_open_members_move_and_the_older_run_succeeds(
     assert old["status"] == "succeeded" and old["superseded_by_run_id"] == NEW
     assert new["supersedes_run_id"] == OLD
     retracted = test_db.execute(
-        "SELECT id,retracted_at FROM qa_requirements WHERE id IN (%s,%s)",
+        "SELECT id,deployment_run_id,retracted_at FROM qa_requirements WHERE id IN (%s,%s)",
         (cases[WAITING], stranded),
     ).fetchall()
-    assert all(row["retracted_at"] for row in retracted)
+    assert all(
+        row["retracted_at"] is None and row["deployment_run_id"] == NEW
+        for row in retracted
+    )
     passed = test_db.execute(
         "SELECT retracted_at FROM qa_requirements WHERE id=%s", (cases[PASSED],)
     ).fetchone()
@@ -225,18 +228,19 @@ def test_with_run_qa_every_unclosed_member_moves_and_nothing_passes(
     assert _run(test_db, NEW)["supersedes_run_id"] == OLD
     assert _open_memberless(test_db, OLD) == []
     check = test_db.execute(
-        "SELECT r.retracted_at,(SELECT count(*) FROM qa_runs q "
+        "SELECT r.deployment_run_id,r.retracted_at,(SELECT count(*) FROM qa_runs q "
         "WHERE q.qa_requirement_id=r.id AND q.verdict='pass') AS passes "
         "FROM qa_requirements r WHERE r.id=%s",
         (run_check,),
     ).fetchone()
-    assert check["retracted_at"] and check["passes"] == 0
+    assert check["retracted_at"] is None and check["passes"] == 0
+    assert check["deployment_run_id"] == NEW
     assert (
         test_db.execute(
             "SELECT count(*) AS n FROM qa_requirements WHERE deployment_run_id=%s",
             (NEW,),
         ).fetchone()["n"]
-        == 0
+        == 3
     )
 
 

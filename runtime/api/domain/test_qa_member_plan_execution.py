@@ -165,7 +165,13 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
         for call in calls
         if call["function_id"] == "qa.plan_execution.complete"
     ] == list(machines)
-    assert all(call["target"].deployment_run_id == "run-hosts" for call in calls)
+    for call in calls:
+        fresh = call["function_id"] in {
+            "qa.plan.materialize",
+            "qa.plan_execution.begin",
+        }
+        assert call["target"].deployment_run_id == ("run-hosts" if fresh else None)
+        assert call["target"].kind == ("deployment_run" if fresh else "global")
     assert all(
         call["payload"]["deployment_member"] == "member"
         for call in calls

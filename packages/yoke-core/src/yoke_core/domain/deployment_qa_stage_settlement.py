@@ -13,8 +13,40 @@ from typing import Any, Mapping
 from yoke_core.domain.project_identity import render_item_ref
 
 
+def _current_execution(conn, execution_id):
+    from yoke_core.domain.deployment_run_qa_transfer import qa_ownership_write
+    from yoke_core.domain.deployment_runs_lock import lock_run_with_stable_membership
+    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+
+    # Takeover locks membership/run before executions. Use the same order and
+    # release only this attempt's locks if ownership changed while acquiring it.
+    class OwnerChanged(Exception):
+        pass
+
+    for _attempt in range(3):
+        try:
+            with qa_ownership_write(conn):
+                before = select_plan_execution(conn, execution_id, lock=False)
+                owner = before.get("deployment_run_id")
+                if owner:
+                    lock_run_with_stable_membership(conn, str(owner))
+                current = select_plan_execution(conn, execution_id, lock=True)
+                if current.get("deployment_run_id") != owner:
+                    raise OwnerChanged
+                return current
+        except OwnerChanged:
+            continue
+    raise ValueError(
+        "qa_execution_owner_changed: QA ownership changed during settlement; "
+        "retry completion using the same execution ID"
+    )
+
+
 def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] | None:
     """Settle the active stage for one completed, target-bound execution."""
+    if not execution.get("deployment_stage"):
+        return None
+    execution = _current_execution(conn, str(execution["id"]))
     run_id = str(execution.get("deployment_run_id") or "")
     stage = str(execution.get("deployment_stage") or "")
     if not run_id or not stage or execution.get("state") != "completed":

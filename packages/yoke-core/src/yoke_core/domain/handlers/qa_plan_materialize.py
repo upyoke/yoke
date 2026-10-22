@@ -66,6 +66,12 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
+            from yoke_core.domain.qa_item_deployment_request import (
+                resolve_item_deployment_request,
+            )
+
+            request = resolve_item_deployment_request(conn, request)
+            payload = MaterializeRequest.model_validate(request.payload)
             from yoke_core.domain.qa_requirement_correction_selection import (
                 resolve_correction_selection,
             )
@@ -211,13 +217,13 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     if request.target.kind == "item" and request.target.item_id is not None:
-        if payload.plan is not None:
+        if payload.plan is not None and not payload.deployment_stage:
             return _error(
                 "item_plan_filter_unsupported",
                 "Item refresh uses attached plans. Remove plan and retry with the item transition.",
                 "$.payload.plan",
             )
-        if not payload.transition_id:
+        if not (payload.transition_id or payload.deployment_stage):
             return _error(
                 "payload_invalid",
                 "qa.plan.rematerialize on an item requires transition_id",
@@ -242,6 +248,12 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
+            from yoke_core.domain.qa_item_deployment_request import (
+                resolve_item_deployment_request,
+            )
+
+            request = resolve_item_deployment_request(conn, request)
+            payload = RematerializeRequest.model_validate(request.payload)
             if request.target.kind == "item":
                 result = rematerialize_for_item(
                     conn,

@@ -65,3 +65,41 @@ def test_a_planned_case_that_lost_its_positions_is_named_as_drift() -> None:
     message = str(refusal.value)
     assert "lost the plan positions this execution froze" in message
     assert "yoke qa plan abort" in message
+
+
+def test_transferred_case_keeps_definition_and_target_checks(monkeypatch):
+    from yoke_core.domain.machine_qa_plan_case_snapshot import assert_current_snapshot
+
+    stored = {
+        **_case(plan_id=431),
+        "deployment_run_id": "original",
+        "execution_target": {"deployment": {"run_id": "original"}},
+        "execution_target_digest": "same",
+        "instructions": "Keep this definition",
+    }
+    current = {**stored, "deployment_run_id": "successor"}
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_case_currency.require_current_requirement",
+        lambda *args: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_execution_context.get_case_execution_context",
+        lambda *args, **kwargs: dict(current),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.query_one",
+        lambda *args: {"case_position": 1, "baseline_position": 1},
+    )
+    lineage = [True]
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_takeover_identity.inherited_target",
+        lambda *args: lineage[0],
+    )
+    assert_current_snapshot(object(), stored)
+    current["instructions"] = "Changed definition"
+    with pytest.raises(ValueError, match="snapshot changed"):
+        assert_current_snapshot(object(), stored)
+    current["instructions"] = stored["instructions"]
+    lineage[0] = False
+    with pytest.raises(ValueError, match="snapshot changed"):
+        assert_current_snapshot(object(), stored)

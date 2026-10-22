@@ -106,6 +106,15 @@ def test_every_registered_item_target_resolves_its_stored_project(item_dispatch)
     )
     for entry in entries:
         request = _request(entry.function_id, actor_id, payload={"project": "yoke"})
+        from yoke_core.domain.qa_execution_request_identity import is_execution_request
+        from yoke_core.domain.qa_deployment_function_subject import (
+            QaSubjectProjectError,
+        )
+
+        if is_execution_request(request):
+            with pytest.raises(QaSubjectProjectError, match="qa_execution_id_required"):
+                resolve_project_context(connection, entry, request)
+            continue
         if entry.function_id == "claims.path.override":
             request.payload["path_claim_id"] = 1048
         assert resolve_project_context(connection, entry, request) == (

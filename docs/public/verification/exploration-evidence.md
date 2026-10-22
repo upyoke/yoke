@@ -82,7 +82,7 @@ naming `mission_scratch_not_removed`, `starting_state_restore_failed` (with the
 `yoke test-machine reset` recovery) or `starting_state_restore_unrecorded`.
 `yoke qa plan review-submit` refuses with `mission_walk_unfinished` while any
 mission's scratch is still on the host. Both delete a stale owner marker.
-Member removal (including a run takeover) keeps a walk's Test Machine: the
+Genuine member removal keeps a walk's Test Machine: the
 execution stays under a recorded abort and holds its lease, so no other QA gets
 that host before teardown. Its original session runs `walk-end` on the held
 lease; finishing it releases the host and settles the execution aborted with
@@ -93,7 +93,12 @@ ended, the refusal names
 [`yoke qa plan reconcile`](../functions/qa.md#reconcile-a-stranded-execution)
 for a steering seat instead.
 
-After a deployment run fails or otherwise ends, the original session can still
+A release takeover preserves the execution, evidence and custody under its new
+owner; it does not request removal cleanup. Inherited QA also survives successor
+deployment failure and remains available for continuation and review. The same
+execution-ID commands resolve current authority without rewriting saved evidence.
+
+When a non-inherited deployment run fails or an explicit cancellation ends it, the original session can still
 run the dispatched `walk-end` command on its recorded host. Teardown removes
 scratch, records starting-state restore, releases its cleanup lease and settles
 a pending abort with the run status in the release reason. Other sessions

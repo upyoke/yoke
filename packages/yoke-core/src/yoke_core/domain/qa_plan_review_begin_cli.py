@@ -19,9 +19,8 @@ def main(argv: list[str] | None = None) -> int:
         "An aborted or errored execution remains terminal after their review. "
         "After restaffing, acquire the item work claim and use yoke qa plan adopt first.",
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
+    subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
     subject.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
     parser.add_argument("--session-id")
@@ -36,12 +35,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
         target = TargetRef(kind="item", public_ref=f"{prefix}-{sequence}")
-    elif parsed.project:
-        target = TargetRef(kind="global", project_id=parsed.project)
     else:
-        target = TargetRef(
-            kind="deployment_run", deployment_run_id=parsed.deployment_run_id
-        )
+        target = TargetRef(kind="global", project_id=parsed.project)
     try:
         result = _call_plan_function(
             function_id="qa.plan_review.begin",

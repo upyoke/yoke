@@ -73,7 +73,7 @@ run, a stage, and a member, this command refuses and prints the invocation
 that would credit the stage, rather than exiting zero with a pass the stage
 ignores:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+  yoke qa plan run --item PREFIX-N --stage STAGE --project P
 
 Add `--plan PLAN` for a stage that names no cases, or with `--replaces
 CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a correction-only plan.

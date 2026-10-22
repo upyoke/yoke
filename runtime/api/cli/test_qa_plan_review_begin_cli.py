@@ -14,7 +14,7 @@ _FIXTURE_ITEM_REF = f"YOK-{42}"
     "flag,value,kind",
     [
         ("--item", _FIXTURE_ITEM_REF, "item"),
-        ("--deployment-run-id", "run-captures", "deployment_run"),
+        (None, None, "global"),
         ("--project", "example", "global"),
     ],
 )
@@ -38,8 +38,7 @@ def test_review_begin_retrieves_and_qualifies_terminal_capture_bundle(
         assert (
             qa_plan_review_begin_cli.main(
                 [
-                    flag,
-                    value,
+                    *([flag, value] if flag else []),
                     "--execution-id",
                     "execution-captures",
                     "--session-id",

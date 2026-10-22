@@ -165,6 +165,7 @@ def test_takeover_cost_does_not_grow_with_its_moving_members(test_db, monkeypatc
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (new,)
         ).fetchall()
         assert sorted(int(row["item_id"]) for row in moved) == members
+    print(f"membership statement counts: {costs}")
     assert costs[0] == costs[1]
 
 

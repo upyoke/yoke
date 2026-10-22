@@ -116,7 +116,7 @@ def test_rematerialize_refuses_a_case_the_live_walk_has_reached(
     message = str(excinfo.value)
     assert ROSTER_CASE_REACHED_CODE in message
     assert f"yoke qa plan abort --execution-id {execution['id']}" in message
-    assert f"--deployment-run-id {run_id}" in message
+    assert "--deployment-run-id" not in message
     # Rolled back whole: the frozen body is exactly as the walk saw it.
     row = test_db.execute(
         "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
@@ -176,8 +176,7 @@ def test_a_walk_refuses_an_unjudged_case_its_selected_plan_has_since_amended(
     message = str(excinfo.value)
     assert STALE_PLAN_CASE_CODE in message
     assert (
-        f"yoke qa plan rematerialize --deployment-run-id {run_id} --stage item-qa "
-        f"--member {render_item_ref(test_db, member)}"
+        f"yoke qa plan rematerialize --item {render_item_ref(test_db, member)} --stage item-qa"
     ) in message
 
     rematerialize_for_deployment_stage(test_db, **subject)

@@ -19,16 +19,14 @@ show recency for every outcome, and keep complete review reasons expandable.
 Activity shows the latest 500 cases per project, including earlier days,
 with text, outcome and local-date filters and page controls. The loaded
 boundary stays visible; filtering does not search older cases outside it.
-Rows appear without waiting for optional item-name lookups. Visible cases
-initially use the item identity available, then show its public reference when
-resolved; slow or failed name lookups leave the history usable.
+Rows show available item identities immediately; public references appear
+when name lookups finish.
 Failed reads have Retry and stay distinct from a successful empty result.
 
 ## How gates work
 
 Workflows attach plans to transitions (for example reviewing-implementation).
-The case run **is** the verdict-producing execution — do not hand-run the same
-full suite and then re-run it through QA.
+Run the full suite once through its QA case:
 
 ```bash
 yoke qa case run --requirement-id <id>
@@ -257,7 +255,7 @@ function through `yoke qa browser setup`. Screenshot captures use the platform
 temporary directory unless an output directory is supplied.
 
 Scoped release QA can require several Test Machines. Use `yoke watch qa-plan --
---deployment-run-id RUN --stage STAGE --member ITEM --project P` without a host
+--item ITEM --stage STAGE --project P` without a host
 pin. The command gives each machine its own ordered execution and FIFO lease,
 then credits all results to the same member. After a host wait or independent
 review, repeat that command to continue. Every required host must pass before
@@ -296,6 +294,7 @@ project operator to repair the named definition or target if it persists.
 - [Consumer proof](consumer-proof.md) — Use the release-time exact-pair gate and diagnose producer failures.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
+- [Deployment QA continuity](deployment-qa-continuity.md) — Continue existing QA through takeover and recover the exact execution.
 - [Failed item QA](failed-item-qa.md) — Keep correction ownership, wait for delivery and retest the qualifying candidate.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.

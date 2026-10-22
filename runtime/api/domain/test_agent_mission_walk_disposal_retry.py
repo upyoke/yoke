@@ -192,11 +192,8 @@ def _assert_owned_retry(
         "--run-id",
         str(subject.payload["run_id"]),
     ]
-    args += (
-        ["--deployment-run-id", subject.target.deployment_run_id]
-        if cleanup
-        else ["--item", f"ITEM-{7861}"]
-    )
+    if not cleanup:
+        args += ["--item", f"ITEM-{7861}"]
 
     assert agent_mission_walk_cli.run_end(args) == 3
     output = capsys.readouterr()

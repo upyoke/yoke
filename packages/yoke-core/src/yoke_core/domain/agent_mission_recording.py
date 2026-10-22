@@ -201,6 +201,15 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         bound_checkin_queries(conn)
         execution = lock_plan_execution(conn, parsed.execution_id)
+        from yoke_core.domain.qa_execution_request_identity import (
+            resolve_execution_request,
+        )
+
+        request = resolve_execution_request(conn, request, execution)
+        item_id, deployment_run_id = (
+            request.target.item_id,
+            request.target.deployment_run_id,
+        )
         if request.target.kind == "global":
             require_standalone_project(conn, execution, str(request.target.project_id))
         require_plan_execution_owner(
@@ -216,9 +225,10 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             member_removed,
         )
 
-        if execution["state"] not in {"walking", "awaiting_walk_review"} or member_removal_pending(
-            execution
-        ):
+        if execution["state"] not in {
+            "walking",
+            "awaiting_walk_review",
+        } or member_removal_pending(execution):
             if member_removed(execution) or member_removal_pending(execution):
                 raise ValueError(
                     "mission_member_removed: this walk cannot resume; its original "
@@ -297,7 +307,7 @@ def register(registry: Any) -> None:
             response_model,
             stability="stable",
             owner_module=__name__,
-            target_kinds=["item", "deployment_run", "global"],
+            target_kinds=["item", "global"],
             minimum_serving_version="next-release",
             side_effects=[
                 "qa_plan_execution_write",

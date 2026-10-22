@@ -30,6 +30,7 @@ from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.deployment_run_driver_fixture import DRIVER_SESSION
+from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     create_smoke_plan,
@@ -269,11 +270,11 @@ def test_a_lineage_committed_between_the_takeover_read_and_the_lock_is_judged(
         judged.append(commit_sha)
         if len(judged) == 1:
             # Committed after the unlocked comparison, before the run lock.
-            test_db.execute(
-                "UPDATE deployment_runs SET release_lineage=%s WHERE id=%s",
-                (MOVED_LINEAGE, old),
-            )
-            test_db.commit()
+            with connect_test_database(test_db.info.dbname) as writer:
+                writer.execute(
+                    "UPDATE deployment_runs SET release_lineage=%s WHERE id=%s",
+                    (MOVED_LINEAGE, old),
+                )
         if commit_sha == OLD_LINEAGE:
             return containment.ContainmentVerdict(containment.CONTAINED)
         return containment.ContainmentVerdict(containment.NOT_CONTAINED, "why")
@@ -283,6 +284,13 @@ def test_a_lineage_committed_between_the_takeover_read_and_the_lock_is_judged(
         _take_over(test_db, new)
     test_db.rollback()
 
+    assert judged == [OLD_LINEAGE]
+    assert "takeover_inputs_changed" in str(refused.value)
+    assert takeover_case._members(test_db, new) == set()
+    # A fresh attempt compares the changed lineage before acquiring the lock.
+    with pytest.raises(TakeoverRefused) as refused:
+        _take_over(test_db, new)
+    test_db.rollback()
     assert judged == [OLD_LINEAGE, MOVED_LINEAGE]
     assert NOT_CONTAINED_CODE in str(refused.value)
     assert MOVED_LINEAGE in str(refused.value)

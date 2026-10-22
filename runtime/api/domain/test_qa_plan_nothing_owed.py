@@ -45,10 +45,7 @@ def test_review_held_roster_refuses_with_review_begin(test_db):
     message = str(refused.value)
     assert "qa_plan_nothing_owed: nothing owed" in message
     assert f"#{requirement_id}" in message
-    assert (
-        f"yoke qa plan review-begin --deployment-run-id {run_id} "
-        f"--execution-id {execution['id']}"
-    ) in message
+    assert (f"yoke qa plan review-begin --execution-id {execution['id']}") in message
     assert _count(test_db) == before
 
 

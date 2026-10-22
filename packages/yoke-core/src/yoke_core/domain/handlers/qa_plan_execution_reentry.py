@@ -29,7 +29,9 @@ def require_resume_inputs(conn, execution, parsed):
     from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
     for key in ("transition_id", "deployment_stage"):
-        if getattr(parsed, key) != execution.get(key):
+        if getattr(parsed, key) is not None and getattr(parsed, key) != execution.get(
+            key
+        ):
             raise ValueError(
                 f"qa_resume_subject_mismatch: use the execution's original {key}"
             )
@@ -42,17 +44,19 @@ def require_resume_inputs(conn, execution, parsed):
     target = execution.get("execution_target") or {}
     shared = (target.get("deployment") or {}).get("shared_plan")
     if shared and member is not None:
-        from yoke_core.domain.deployment_qa_shared_plans import resolve_shared_subject
+        from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
 
-        resolve_shared_subject(
-            conn,
-            run_id=str(execution["deployment_run_id"]),
-            stage_name=str(execution["deployment_stage"]),
-            plan_id=int(shared["plan_id"]),
-            member_item_id=member,
-            expected_target=target,
-        )
-    if not shared and member != execution.get("deployment_member_item_id"):
+        if member not in attaching_members(
+            conn, str(execution["deployment_run_id"]), int(shared["plan_id"])
+        ):
+            raise ValueError(
+                "qa_resume_subject_mismatch: use a member attached to this execution's shared plan"
+            )
+    if (
+        member is not None
+        and not shared
+        and member != execution.get("deployment_member_item_id")
+    ):
         raise ValueError(
             "qa_resume_subject_mismatch: use the execution's original member"
         )
@@ -98,7 +102,14 @@ def handle_execution_reentry(request):
             )
         else:
             require_resume_inputs(conn, execution, parsed)
-            result = resume_execution(conn, execution)
+            if parsed.continue_mission:
+                from yoke_core.domain.qa_plan_execution_continue import (
+                    continue_execution,
+                )
+
+                result = continue_execution(conn, execution, parsed, request.actor)
+            else:
+                result = resume_execution(conn, execution)
             if execution.get("deployment_stage"):
                 from yoke_core.domain.deployment_qa_start_identity import (
                     START_IDENTITY_FIELD,

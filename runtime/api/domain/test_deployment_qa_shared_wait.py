@@ -129,7 +129,7 @@ def test_held_group_waits_on_durable_membership_and_receives_settlement_wake(
     notices = _notices(test_db, first)
     assert {row["session_id"] for row in notices} == {"member-9901", "member-9902"}
     assert all("Shared group evidence comes from" in row["body"] for row in notices)
-    assert all("--member YOK-" in row["body"] for row in notices)
+    assert all("--item YOK-" in row["body"] for row in notices)
     if settlement == "completed":
         # The passed group owes nothing: no replay, and the refusal names the
         # other group's case still waiting for its run.
@@ -222,11 +222,12 @@ def test_settlement_wake_names_each_member_s_real_blocker(test_db):
     notices = _notices(test_db, first)
     assert notices
     for row in notices:
-        assert f"shared execution {first['id']} settled aborted; member YOK-" in (
-            row["body"]
+        assert (
+            f"shared execution {first['id']} settled aborted; member YOK-"
+            in (row["body"])
         )
         assert "latest verdict is missing" in row["body"]
-        assert "yoke qa plan run --deployment-run-id" in row["body"]
+        assert "yoke qa plan run --item" in row["body"]
 
 
 @pytest.mark.parametrize("settlement", ["completed", "aborted", "error"])
@@ -248,16 +249,25 @@ def test_unavailable_wake_read_preserves_committed_settlement(
                 test_db, execution, state=settlement, reason="stop shared walk"
             )
     test_db.rollback()
-    assert select_plan_execution(test_db, execution["id"], lock=False)["state"] == settlement
+    assert (
+        select_plan_execution(test_db, execution["id"], lock=False)["state"]
+        == settlement
+    )
     warning = capsys.readouterr().out
     assert "shared_qa_wake_unavailable" in warning
     assert f"yoke deployment-runs get {RUN}" in warning
     assert "re-drive its QA stage through the control-plane operator" in warning
 
 
-def test_abort_cli_succeeds_after_committed_abort_with_unavailable_wake(test_db, capsys):
+def test_abort_cli_succeeds_after_committed_abort_with_unavailable_wake(
+    test_db, capsys
+):
     from uuid import uuid4
-    from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
     from yoke_core.domain.handlers import qa_plan_execution as handlers
     from yoke_core.domain import qa_plan_execution_abort_cli as cli
 
@@ -267,28 +277,49 @@ def test_abort_cli_succeeds_after_committed_abort_with_unavailable_wake(test_db,
     actor = ActorContext(actor_id="2", session_id="first-owner")
 
     def call_abort(**kwargs):
-        outcome = handlers.handle_plan_execution_abort(FunctionCallRequest(
-            function=kwargs["function_id"], request_id=str(uuid4()),
-            target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
-            actor=actor, payload=kwargs["payload"],
-        ))
+        outcome = handlers.handle_plan_execution_abort(
+            FunctionCallRequest(
+                function=kwargs["function_id"],
+                request_id=str(uuid4()),
+                target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+                actor=actor,
+                payload=kwargs["payload"],
+            )
+        )
         assert outcome.primary_success, outcome
         return outcome.result_payload
 
     with (
-        mock.patch.object(handlers, "_owned_execution", return_value=(test_db, execution)),
+        mock.patch.object(
+            handlers, "_owned_execution", return_value=(test_db, execution)
+        ),
         mock.patch.object(test_db, "close"),
-        mock.patch("yoke_core.domain.deployment_qa_stage_outstanding.qa_stage_outstanding",
-                   return_value=None),
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_outstanding.qa_stage_outstanding",
+            return_value=None,
+        ),
         mock.patch.object(cli, "_call_plan_function", side_effect=call_abort),
-        mock.patch("yoke_core.api.service_client_structured_api_adapter.build_actor",
-                   return_value=actor),
+        mock.patch(
+            "yoke_core.api.service_client_structured_api_adapter.build_actor",
+            return_value=actor,
+        ),
     ):
-        code = cli.run(["--deployment-run-id", RUN, "--execution-id", execution["id"],
-                        "--reason", "operator-interrupt", "--project", "yoke"])
+        code = cli.run(
+            [
+                "--execution-id",
+                execution["id"],
+                "--reason",
+                "operator-interrupt",
+                "--project",
+                "yoke",
+            ]
+        )
     assert code == 0
     output = capsys.readouterr().out
     assert "shared_qa_wake_unavailable" in output
     assert json.loads(output.splitlines()[-1])["state"] == "aborted"
     test_db.rollback()
-    assert select_plan_execution(test_db, execution["id"], lock=False)["state"] == "aborted"
+    assert (
+        select_plan_execution(test_db, execution["id"], lock=False)["state"]
+        == "aborted"
+    )

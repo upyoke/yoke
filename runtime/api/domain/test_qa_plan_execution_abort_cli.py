@@ -33,8 +33,6 @@ def test_abort_prints_compact_receipt(capsys) -> None:
     ):
         exit_code = qa_plan_execution_abort_cli.run(
             [
-                "--deployment-run-id",
-                "run-1",
                 "--execution-id",
                 "execution-1",
                 "--reason",
@@ -59,4 +57,5 @@ def test_abort_prints_compact_receipt(capsys) -> None:
         "execution_id": "execution-1",
         "reason": "operator-interrupt",
     }
-    assert call.call_args.kwargs["target"].deployment_run_id == "run-1"
+    assert call.call_args.kwargs["target"].deployment_run_id is None
+    assert call.call_args.kwargs["target"].project_id == "yoke"

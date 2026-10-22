@@ -48,9 +48,7 @@ def test_bounded_call_refuses_with_recovery_when_the_execution_row_stays_locked(
                 actor=ActorContext(
                     actor_id=str(execution["actor_id"]), session_id=SESSION
                 ),
-                target=TargetRef(
-                    kind="deployment_run", deployment_run_id=run_id, project_id="yoke"
-                ),
+                target=TargetRef(kind="global", project_id="yoke"),
                 payload={"execution_id": str(execution["id"]), **payload},
             )
         )

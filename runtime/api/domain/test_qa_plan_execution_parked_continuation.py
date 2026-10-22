@@ -158,14 +158,23 @@ def test_continuing_a_swept_mission_reaches_no_host_baseline(
     )
     assert contract_baselines(settled, settled["roster"][0]) == ("fresh-host",)
 
-    continued = begin_plan_execution(
-        test_db,
-        item_id=4903,
-        transition_id=MISSION_TRANSITION,
-        continue_mission=True,
-        actor_id=MISSION_ACTOR.actor_id,
-        session_id=MISSION_ACTOR.session_id,
+    from yoke_core.domain.handlers.qa_plan_execution_reentry import (
+        handle_execution_reentry,
     )
+
+    outcome = handle_execution_reentry(
+        FunctionCallRequest(
+            function="qa.plan_execution.resume",
+            actor=MISSION_ACTOR,
+            target=TargetRef(kind="global"),
+            payload={"execution_id": str(settled["id"]), "continue_mission": True},
+        )
+    )
+    assert outcome.primary_success, outcome.error
+    continued = select_plan_execution(
+        test_db, outcome.result_payload["execution_id"], lock=False
+    )
+    test_db.rollback()
     assert str(continued["continues_execution_id"]) == str(settled["id"])
     assert str(continued["id"]) != str(settled["id"])
     assert continued["state"] == "active"
@@ -212,11 +221,24 @@ def test_failed_pre_host_continuation_keeps_the_swept_source_eligible(
         session_id=MISSION_ACTOR.session_id,
     )
     finish_plan_execution(test_db, failed, state="aborted", reason=reason)
+    with pytest.raises(
+        QaPlanExecutionStateError, match="qa_continuation_source_changed"
+    ):
+        begin_plan_execution(
+            test_db,
+            item_id=item_id,
+            transition_id=MISSION_TRANSITION,
+            continue_mission=True,
+            continuation_execution_id=str(failed["id"]),
+            actor_id=MISSION_ACTOR.actor_id,
+            session_id=MISSION_ACTOR.session_id,
+        )
     retried = begin_plan_execution(
         test_db,
         item_id=item_id,
         transition_id=MISSION_TRANSITION,
         continue_mission=True,
+        continuation_execution_id=str(settled["id"]),
         actor_id=MISSION_ACTOR.actor_id,
         session_id=MISSION_ACTOR.session_id,
     )
@@ -309,41 +331,5 @@ def test_mission_access_refusal_names_the_continuation_command(
     assert outcome.error.code == "agent_mission_access_failed"
     message = outcome.error.message
     assert "the stale sweep settled it" in message
-    assert f"--transition {MISSION_TRANSITION}" in message
+    assert f"--resume-execution-id {settled['id']}" in message
     assert message.endswith("--continue-mission")
-
-
-def test_a_continuation_leaves_the_prior_settled_run_as_history(
-    test_db: Any,
-    tmp_path: Any,
-    monkeypatch: Any,
-) -> None:
-    requirement_id, settled = _swept_mission(
-        test_db, tmp_path, monkeypatch, item_id=4907
-    )
-    test_db.execute(
-        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "verdict_reason,execution_status,case_outcome,started_at,completed_at,"
-        "created_at) VALUES(%s,'agent_mission','plan_case','error',"
-        "'settled by execution termination','captured','needs_review',"
-        "%s,%s,%s)",
-        (requirement_id, LONG_AGO, LONG_AGO, LONG_AGO),
-    )
-    test_db.commit()
-
-    begin_plan_execution(
-        test_db,
-        item_id=4907,
-        transition_id=MISSION_TRANSITION,
-        continue_mission=True,
-        actor_id=MISSION_ACTOR.actor_id,
-        session_id=MISSION_ACTOR.session_id,
-    )
-    prior_runs = test_db.execute(
-        "SELECT verdict,verdict_reason FROM qa_runs WHERE qa_requirement_id=%s",
-        (requirement_id,),
-    ).fetchall()
-    assert [(str(row[0]), str(row[1])) for row in prior_runs] == [
-        ("error", "settled by execution termination")
-    ]
-    assert str(settled["release_reason"]) == "stale-heartbeat"

@@ -47,6 +47,8 @@ def _request(
             kind="qa_requirement", qa_requirement_id=requirement_id, project_id=project
         )
         if requirement_id is not None
+        else TargetRef(kind="global", project_id=project)
+        if execution_id
         else TargetRef(kind="deployment_run", deployment_run_id=RUN, project_id=project)
     )
     payload = (

@@ -115,7 +115,7 @@ cleared dependency. Then identify the qualifying deployed run, stage, member
 and target before executing:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM --project P
+yoke watch qa-plan -- --item ITEM --stage STAGE --project P
 ```
 
 A dependency-cleared notice cannot retarget an old frozen run. If the correction

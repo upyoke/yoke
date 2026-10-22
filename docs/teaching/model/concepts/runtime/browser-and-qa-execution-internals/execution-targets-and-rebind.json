@@ -4,5 +4,6 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "page": "runtime-execution",
- "position": 4
+ "position": 4,
+ "summary": "Frozen targets retain admission context across authorized takeover. Current execution ownership, same-target ancestry, tenant/project/member or shared-group authority, target digest and endpoint checks remain required. Browser observations record actual served revisions instead of imposing the successor revision on inherited QA. Command cases preserve the original project source revision. Neither observation changes nor early verdicts grant release approval."
 }

@@ -150,10 +150,10 @@ share one execution and verdict across their members; other plans and targets
 remain separate. Unscoped execution is refused when a stage is pinned:
 
 ```text
-yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {PLAN} --project {PROJECT}
+yoke qa plan run --item PREFIX-N --stage {STAGE} --plan {PLAN} --project {PROJECT}
 ```
 
-Run scope omits --member. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit)
+Run-level orchestration uses its run and stage. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit)
 name the execution and owner; keep the claim and park for settlement credit or
 a wake to retry your own member command.
 A direct case uses qa.requirement.add targeted at

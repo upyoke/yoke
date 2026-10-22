@@ -40,15 +40,15 @@ default that field. Deployment-run-attached requirements are the one exception:
 their operator-debug creation path may omit a workflow transition because the
 run owns its delivery context.
 
-For a run's item-scoped QA stage, `--member` must name an attached item in the
-run's frozen membership and `--project` must name that item's project. The
+For fresh item deployment QA, `--item` resolves current completion membership and `--project` must name that item's project. The
 member's current work claim and project permission authorize the plan walk;
 its materialized requirements, case execution context, activity reads, and
 evidence storage retain the same project authority. Run-scoped QA continues
 to use the run's project. A wrong
 project hint, inactive or wrong stage, missing member, or plan from another
-project is refused before evidence is written. The case runner still verifies
-the exact deployed candidate; a newer deployment cannot certify an older run.
+project is refused before evidence is written. Execution-facing commands use the execution ID and current stored ownership.
+Inherited browser observations may record multiple builds at the same
+authorized environment; command checkouts retain the admitted source.
 
 | Command | Args | Description |
 |---|---|---|
@@ -56,8 +56,8 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Bring live rows to their plan's current text, retaining QA run history; corrects cases a live walk has not reached and refuses by name rather than move a case a walk reached or an answered admitted copy |
-| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
-| `yoke qa plan review-submit` | `(--item PREFIX-N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--resume-execution-id ID --continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
+| `yoke qa plan review-submit` | `[--item PREFIX-N] --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic PREFIX-N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
 | `yoke qa requirement get` | `N` or `--requirement-id N` | Get one requirement |

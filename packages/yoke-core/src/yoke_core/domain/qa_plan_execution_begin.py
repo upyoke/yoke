@@ -70,6 +70,7 @@ def begin_plan_execution(
     expected_branch: str | None = None,
     machine: str | None = None,
     continue_mission: bool = False,
+    continuation_execution_id: str | None = None,
     actor_id: str | None,
     session_id: str,
     _deployment_subject: dict | None = None,
@@ -182,8 +183,7 @@ def begin_plan_execution(
         )
         if not isinstance(prepared, PreparedRoster):
             return prepared
-    existing_id = live_plan_execution_id(
-        conn,
+    subject_key = dict(
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
@@ -191,20 +191,18 @@ def begin_plan_execution(
         deployment_member_item_id=deployment_member_item_id,
         session_id=session_id,
     )
-    continues_execution_id = (
-        resolve_continuation_source(
+    existing_id = live_plan_execution_id(conn, **subject_key)
+
+    def continuation_source():
+        return resolve_continuation_source(
             conn,
-            live_execution_id=existing_id,
-            item_id=item_id,
-            transition_id=transition_id,
-            deployment_run_id=deployment_run_id,
-            deployment_stage=deployment_stage,
-            deployment_member_item_id=deployment_member_item_id,
-            session_id=session_id,
+            live_execution_id=live_plan_execution_id(conn, **subject_key),
+            expected_execution_id=continuation_execution_id,
+            **subject_key,
         )
-        if continue_mission
-        else None
-    )
+
+    continues_execution_id = continuation_source() if continue_mission else None
+    admission_repeated = False
     retired = False
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
@@ -258,6 +256,7 @@ def begin_plan_execution(
         if not retired:
             break
         retired = False
+        admission_repeated = True
         # Retiring a live execution committed; read the roster again first.
         if item_id is not None:
             lock_item_workflow_bindings(conn, (int(item_id),))
@@ -284,6 +283,8 @@ def begin_plan_execution(
     else:
         raise DeploymentRunChanging(str(deployment_run_id))
 
+    if continue_mission and admission_repeated:
+        continues_execution_id = continuation_source()
     roster, remaining, digest = prepared.roster, prepared.remaining, prepared.digest
     execution_target = prepared.execution_target
     execution_target_digest = prepared.execution_target_digest

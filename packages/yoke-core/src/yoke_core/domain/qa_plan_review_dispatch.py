@@ -98,8 +98,9 @@ def dispatch_contract(
             "a missing or different target authority."
         )
         submit_command = (
-            f"yoke qa plan review-submit {subject_argument} "
-            f"--execution-id {bundle['execution_id']} --bundle-id {bundle_id} "
+            "yoke qa plan review-submit "
+            + (f"{subject_argument} " if subject_argument else "")
+            + f"--execution-id {bundle['execution_id']} --bundle-id {bundle_id} "
             f"--bundle-digest {digest} --stdin"
         )
     else:

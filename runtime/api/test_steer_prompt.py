@@ -121,7 +121,7 @@ class TestSteerSkillContract:
         assert "--source-ref {PINNED_SHA}" in batches
         assert "yoke merge item PREFIX-N --result" in batches
         assert "`--skip-deploy`" in batches
-        assert "--stage STAGE --member PREFIX-N" in batches
+        assert "--item PREFIX-N --stage STAGE" in batches
         assert (
             "## Live status — steering snapshot (refresh or replace on "
             "next steering handoff)"

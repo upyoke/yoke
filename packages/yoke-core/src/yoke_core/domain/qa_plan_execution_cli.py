@@ -20,8 +20,6 @@ from yoke_core.domain.qa_plan_execution import (
 
 AGENT_REVIEW_REQUIRED_EXIT = 12
 
-#: Result fields restated on stderr for a case that did not pass, as
-#: ``label=value`` pairs after the requirement id.
 _REPORTED_CASE_FIELDS = (
     ("case", "case_key"),
     ("outcome", "case_outcome"),
@@ -176,10 +174,7 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan run",
-        description=(
-            "Execute item, deployment, or standalone project cases in immutable "
-            "plan/case/baseline order through their registered runners."
-        ),
+        description="Execute ordered QA cases through their registered runners.",
         epilog=QA_PLAN_RUN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -187,7 +182,6 @@ def run(args: List[str]) -> int:
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--stage")
-    parser.add_argument("--member")
     parser.add_argument("--transition")
     parser.add_argument("--plan")
     parser.add_argument("--project")
@@ -201,10 +195,7 @@ def run(args: List[str]) -> int:
     parser.add_argument("--timeout-seconds", type=int)
     parser.add_argument(
         "--checkout-path",
-        help=(
-            "Execute cases in this checkout. A deployment case needs none: "
-            "the runner checks out its run's candidate itself."
-        ),
+        help="Use this checkout; deployment cases check out their recorded candidate.",
     )
     parser.add_argument(
         "--allow-tree-mismatch",
@@ -230,20 +221,30 @@ def run(args: List[str]) -> int:
     add_replaces_argument(parser)
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
-    if parsed.resume_execution_id and (parsed.continue_mission or parsed.replaces):
-        parser.error(
-            "--resume-execution-id cannot continue terminal history or replace cases"
-        )
+    if parsed.resume_execution_id and parsed.replaces:
+        parser.error("--resume-execution-id cannot replace cases")
+    if parsed.continue_mission and not parsed.resume_execution_id:
+        parser.error("--continue-mission requires --resume-execution-id")
     if parsed.recovery_file and not parsed.resume_execution_id:
         parser.error("--recovery-file requires --resume-execution-id")
+    if parsed.resume_execution_id and parsed.deployment_run_id:
+        parser.error(
+            "resume resolves ownership from --resume-execution-id; omit --deployment-run-id"
+        )
     standalone = not parsed.item and not parsed.deployment_run_id
-    if standalone and (not parsed.plan or not parsed.project):
+    if (
+        standalone
+        and not parsed.resume_execution_id
+        and (not parsed.plan or not parsed.project)
+    ):
         parser.error("standalone run requires --plan PLAN --project P")
     if bool(parsed.expected_branch) != bool(parsed.expected_sha) and not standalone:
         parser.error("--expected-branch and --expected-sha must be paired")
-    if parsed.item and not parsed.transition:
-        parser.error("--item requires --transition")
-    if parsed.item and parsed.plan:
+    if parsed.item and not (
+        parsed.transition or parsed.stage or parsed.resume_execution_id
+    ):
+        parser.error("--item requires --transition or --stage")
+    if parsed.item and parsed.plan and not parsed.stage:
         parser.error("--item uses attached plans and does not accept --plan")
     if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         parser.error("--deployment-run-id requires --plan")
@@ -251,15 +252,9 @@ def run(args: List[str]) -> int:
         parser.error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
         parser.error("--deployment-run-id requires --project")
-    if parsed.member and not parsed.stage:
-        parser.error("--member requires --stage")
-    if standalone and (
-        parsed.stage or parsed.member or parsed.transition or parsed.replaces
-    ):
-        parser.error(
-            "standalone run does not accept transition, stage, member or replacements"
-        )
-    if parsed.replaces and not parsed.deployment_run_id:
+    if standalone and (parsed.stage or parsed.transition or parsed.replaces):
+        parser.error("standalone run does not accept transition, stage or replacements")
+    if parsed.replaces and not (parsed.deployment_run_id or parsed.stage):
         parser.error(
             "--replaces declares at materialization; for --item run "
             "yoke qa plan materialize --item PREFIX-N --transition T --replaces ..."
@@ -274,7 +269,6 @@ def run(args: List[str]) -> int:
             transition_id=parsed.transition,
             deployment_run_id=parsed.deployment_run_id,
             deployment_stage=parsed.stage,
-            deployment_member=parsed.member,
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,
@@ -318,11 +312,12 @@ def report_plan_result(result: dict[str, Any]) -> int:
         return WAITING_RETRY_EXIT
     if state in {"walking", "awaiting_walk_review"}:
         print(
-            ("QA mission walking; hand-back pending, not a pass. "
-             if state == "walking" else
-             "QA capture complete; independent review pending, not a pass. ")
-            +
-            "Dispatch the returned typed reviewer contract now; its submitted "
+            (
+                "QA mission walking; hand-back pending, not a pass. "
+                if state == "walking"
+                else "QA capture complete; independent review pending, not a pass. "
+            )
+            + "Dispatch the returned typed reviewer contract now; its submitted "
             "verdict batch is the QA verdict.",
             file=sys.stderr,
         )

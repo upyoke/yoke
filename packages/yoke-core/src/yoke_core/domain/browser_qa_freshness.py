@@ -270,16 +270,19 @@ def _establish_deployment_freshness(
         # origin. A pre-merge candidate on another origin returned above.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         run_source = context.get("run_source") or {}
+        inherited = run_source.get("identity_scope") == "environment"
+        observed = []
         failure = validate_deployment_identity(
-            expected_sha,
+            "" if inherited else expected_sha,
             target=target,
             project=str(run_source.get("project") or project),
             fetch=fetch_identity,
+            **({"record_observation": observed.append} if inherited else {}),
         )
         if failure is not None:
             return failure, "", ""
         origin = credential_free_origin(target.origin) if target.origin else ""
-        return None, origin, expected_sha
+        return None, origin, observed[0] if inherited else expected_sha
 
     # Unbound cases only. qa.browser_context.get populates
     # context.deployment_target from the case/run/stage target, so a

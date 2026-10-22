@@ -152,6 +152,14 @@ def _admit(conn, run_id, candidate_containment):
         )
         if status is None:
             return f"Error: deployment run '{run_id}' not found"
+        successor = conn.execute(
+            "SELECT superseded_by_run_id FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()[0]
+        if successor:
+            return (
+                f"Error: deployment_run_superseded: run {run_id} transferred ownership "
+                f"to {successor}; continue that successor instead of retrying this run"
+            )
         if refusal := terminal_run_refusal(
             run_id,
             status,

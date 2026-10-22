@@ -170,13 +170,15 @@ def test_shared_execution_resolves_registered_project_and_review_policy(test_db)
     request = FunctionCallRequest(
         function="qa.plan_execution.heartbeat",
         request_id=str(uuid4()),
-        target=TargetRef(
-            kind="deployment_run", deployment_run_id=RUN, project_id="yoke"
-        ),
+        target=TargetRef(kind="global", project_id="yoke"),
         actor=ActorContext(actor_id="2", session_id="shared-qa"),
         payload={"execution_id": execution["id"]},
     )
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", None)
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", None)
     assert stage_review_verdicts(test_db, execution) == ("pass", "fail")
 
 
@@ -293,6 +295,6 @@ def test_shared_direct_case_teaches_an_attaching_member_command(test_db):
     refusal = item_scoped_stage_credit_refusal(context)
     assert refusal is not None
     assert "--stage item-qa" in refusal
-    assert "--member" in refusal
+    assert "--item" in refusal
     assert "ATTACHING_MEMBER" in refusal
     assert "yoke qa plan get" in refusal

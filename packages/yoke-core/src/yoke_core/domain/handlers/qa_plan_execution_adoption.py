@@ -35,6 +35,14 @@ def handle_execution_adopt(request):
     conn = connect()
     try:
         bound_checkin_queries(conn)
+        from yoke_core.domain.qa_execution_request_identity import (
+            resolve_execution_request,
+        )
+        from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
+
+        execution = lock_plan_execution(conn, parsed.execution_id)
+        resolved = resolve_execution_request(conn, request, execution)
+        subject = resolved.target.item_id, resolved.target.deployment_run_id
         result = adopt_execution(
             conn,
             parsed.execution_id,
@@ -68,7 +76,7 @@ def register(registry):
         PlanExecutionAdoptResponse,
         stability="stable",
         owner_module=__name__,
-        target_kinds=["item", "deployment_run"],
+        target_kinds=["item", "global"],
         minimum_serving_version="next-release",
         side_effects=["qa_plan_execution_write", "qa_plan_execution_adoption_write"],
         emitted_event_names=["YokeFunctionCalled"],

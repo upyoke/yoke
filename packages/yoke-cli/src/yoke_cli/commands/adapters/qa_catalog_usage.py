@@ -183,7 +183,7 @@ An item refresh considers shared copies only on runs it still belongs to.
 Removed members leave shared rows and live walks to the remaining members.
 --plan is a deployment-only filter; with --item, remove --plan and retry.
 
-With --member, --plan selects by owner. A shared plan the member attaches
+With --item and --stage, --plan selects by owner. A shared plan the member attaches
 refreshes that shared group's run-wide rows. The member's own plan refreshes
 only that member's rows, so a live run-wide walk of a shared plan does not
 block it.
@@ -211,7 +211,7 @@ plan_execution_in_flight: the refresh would add a case to a subject a live
 walk is running; its roster cannot carry the new case. Abort with the named
 `yoke qa plan abort` invocation, refresh, then run the plan again.
 
-shared_plan_refresh_selection: --member with a --plan that is neither a
+shared_plan_refresh_selection: --item with a --plan that is neither a
 shared plan the member attaches nor one of its own materialized plans.
 
 admitted_copy_in_flight: the refresh would change an admitted deployment-stage

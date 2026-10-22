@@ -83,11 +83,14 @@ def _seed(conn, tmp_path, monkeypatch, cases, *, separate_plans=True):
     plans = []
     for index, group in enumerate(groups):
         plan = create_plan(
-            conn, project="yoke", slug=f"shared-hosts-{index}",
+            conn,
+            project="yoke",
+            slug=f"shared-hosts-{index}",
             infer_target_environment=False,
         )
         replace_plan_cases(
-            conn, plan_id=int(plan["id"]),
+            conn,
+            plan_id=int(plan["id"]),
             cases=[{**case, "position": i} for i, case in enumerate(group, 1)],
         )
         plans.append(int(plan["id"]))
@@ -120,7 +123,7 @@ def _case_begin(execution, session):
         FunctionCallRequest(
             function="test_machine.plan_case.begin",
             actor=ActorContext(actor_id="1", session_id=session),
-            target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={
                 "execution_id": execution["id"],
                 "ordinal": 0,

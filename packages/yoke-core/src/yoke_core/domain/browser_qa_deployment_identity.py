@@ -158,29 +158,18 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
 def resolve_run_pinned_source(
     conn: Any, run_id: str, *, requirement_id: int
 ) -> dict[str, str]:
-    """Return the commit *run_id* delivered for this case's project, and its branch.
+    """Return the case project's release source and inherited observation scope.
 
-    This is what the deployment under test is supposed to be serving, and it
-    is the only expectation a run-bound Browser case may be judged against:
-    an expectation supplied on the command line describes whatever the caller
-    believed, while the run records what was actually frozen and shipped.
-
-    A run can carry members of more than one project, and each project's
-    target serves that project's own build. A member's case is judged against
-    the commit the run delivered for the member's project (see
-    :func:`~yoke_core.domain.deployment_run_project_sources.delivered_source_sha`);
-    a case with no member is about the run's own project.
-
-    ``sha`` is empty when the run delivered no commit for that project -- a
-    fact the caller refuses on, because there is then nothing for the
-    environment's own answer to be compared with. ``project`` names whose
-    commit ``sha`` is, so a refusal can say so.
+    Fresh QA validates the delivered commit. Inherited QA observes the build
+    served at its authorized environment, even before its new owner deploys.
+    The frozen target and recorded takeover ancestry establish that exception.
     """
     from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 
     marker = _p(conn)
     row = conn.execute(
-        "SELECT COALESCE(i.project_id, dr.project_id) AS project_id "
+        "SELECT COALESCE(i.project_id, dr.project_id) AS project_id, "
+        "r.execution_target_json,r.execution_target_digest "
         "FROM deployment_runs dr "
         "LEFT JOIN qa_requirements r "
         f"ON r.deployment_run_id = dr.id AND r.id = {marker} "
@@ -190,7 +179,23 @@ def resolve_run_pinned_source(
     ).fetchone()
     if row is None:
         return {"sha": "", "branch": "", "project": ""}
-    project_id = int(_scalar(row, 0, "project_id") or 0)
+    from yoke_core.domain.qa_plan_execution_target_snapshot import (
+        decode_execution_target,
+    )
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    target = decode_execution_target(
+        {
+            "execution_target_json": _scalar(row, 1, "execution_target_json"),
+            "execution_target_digest": _scalar(row, 2, "execution_target_digest"),
+        }
+    )
+    project_id = int(
+        ((target or {}).get("project") or {}).get("id")
+        or _scalar(row, 0, "project_id")
+        or 0
+    )
+
     project_row = conn.execute(
         f"SELECT slug, default_branch FROM projects WHERE id={marker}",
         (project_id,),
@@ -200,6 +205,11 @@ def resolve_run_pinned_source(
         # The branch labels the commit for a reader; the commit is the proof.
         "branch": str(_scalar(project_row, 1, "default_branch") or "").strip(),
         "project": str(_scalar(project_row, 0, "slug") or "").strip(),
+        **(
+            {"identity_scope": "environment"}
+            if target and inherited_target(conn, str(run_id), target)
+            else {}
+        ),
     }
 
 
@@ -209,6 +219,7 @@ def validate_deployment_identity(
     target: DeploymentUnderTest,
     project: str = "",
     fetch: Optional[Callable[[str], object]] = None,
+    record_observation: Optional[Callable[[str], None]] = None,
 ) -> Optional[FreshnessFailure]:
     """Judge whether the run's deployment is serving *expected_sha* NOW.
 
@@ -276,7 +287,7 @@ def validate_deployment_identity(
             "not proof; check that this path belongs to the deployment under "
             "test and serves its exact commit identity.",
         )
-    if outcome.kind == probe.MISMATCH:
+    if outcome.kind == probe.MISMATCH and (expected_sha or record_observation is None):
         return FreshnessFailure(
             SHA_MISMATCH,
             f"The environment at {outcome.url} is serving {outcome.served}, not "
@@ -292,9 +303,11 @@ def validate_deployment_identity(
             "replaced what the run under test deployed; run this case against "
             "the deployment that is actually live.",
         )
+    if record_observation is not None:
+        record_observation(outcome.served)
     _bqa._log(
         "Freshness check passed against the revision served at "
-        f"{outcome.url}: environment={target.environment}, sha={expected_sha}"
+        f"{outcome.url}: environment={target.environment}, sha={outcome.served}"
     )
     return None
 

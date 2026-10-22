@@ -35,7 +35,8 @@ def native_clocks(clocks, monkeypatch):
     clocks.execute("CREATE TABLE environments (id integer PRIMARY KEY, name text)")
     clocks.execute(
         "ALTER TABLE deployment_runs ADD target_tier text, "
-        "ADD target_environment_id integer, ADD created_by text"
+        "ADD target_environment_id integer, ADD created_by text, "
+        "ADD supersedes_run_id text, ADD superseded_by_run_id text"
     )
     clocks.execute(
         "ALTER TABLE items ADD merge_queue_pr_number text, ADD merge_queue_enqueued_at text, ADD merge_queue_notified_at text"
@@ -50,7 +51,7 @@ def native_clocks(clocks, monkeypatch):
         "CREATE TABLE deployment_run_items (run_id text,item_id integer,delivery_intent text,requirement_selection text,requirement_snapshot text)"
     )
     clocks.execute(
-        "CREATE TABLE qa_requirements (id integer,item_id integer,qa_kind text,deployment_run_id text,method_id integer,waived_at text,execution_target_digest text,plan_case_key text,"
+        "CREATE TABLE qa_requirements (id integer,item_id integer,qa_kind text,deployment_run_id text,method_id integer,waived_at text,execution_target_digest text,execution_target_json text,deployment_member_item_id integer,plan_case_key text,"
         "superseded_by_requirement_id integer,replacement_requirement_id integer,retracted_at text,retraction_rationale text,retraction_source text,"
         "waiver_rationale text,waiver_source text,superseded_at text,supersession_rationale text,supersession_source text)"
     )

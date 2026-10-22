@@ -193,6 +193,7 @@ def begin_standalone_execution(
     session_id: str,
     machine: str | None = None,
     continue_mission: bool = False,
+    continuation_execution_id: str | None = None,
     source_revision: str | None = None,
     source_ref: str | None = None,
     checkout_path: str | None = None,
@@ -248,7 +249,11 @@ def begin_standalone_execution(
         selected = _plan(conn, plan, project)
     continuation = None
     if continue_mission:
-        continuation = require_continuable_execution(conn, standalone_plan_id=plan_id)
+        continuation = require_continuable_execution(
+            conn,
+            standalone_plan_id=plan_id,
+            expected_execution_id=continuation_execution_id,
+        )
     execution_id = str(uuid4())
     roster = _roster(
         conn,

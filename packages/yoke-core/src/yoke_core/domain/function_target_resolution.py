@@ -52,6 +52,13 @@ def resolve_project_context(
     visible_project_ids: Collection[int] | None = None,
 ) -> tuple[int, str] | None:
     """Resolve the real target project for a PROJECT-scoped op (or None)."""
+    from yoke_core.domain.qa_execution_request_identity import (
+        is_execution_request,
+        resolve_execution_request,
+    )
+
+    if is_execution_request(request):
+        request = resolve_execution_request(conn, request)
     if entry.function_id == "claims.path.override":
         try:
             return resolve_path_claim_project(

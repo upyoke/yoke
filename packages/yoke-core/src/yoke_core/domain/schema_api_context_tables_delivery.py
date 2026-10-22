@@ -92,6 +92,9 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("created_by_session_id", "TEXT"),
         ],
         "notes": (
+            "Partial deployment clock fixtures need supersedes_run_id and "
+            "superseded_by_run_id for preserves_inherited_qa; omitting the takeover "
+            "links causes an undefined-column failure during failed-run settlement. "
             "`flow` column joins to `deployment_flows.id`. There is no "
             "`item_id` column on this table. Item-bound delivery joins "
             "through `deployment_run_items`. Use `deployment_runs.id` in "

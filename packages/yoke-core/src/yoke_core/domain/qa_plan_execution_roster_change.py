@@ -24,17 +24,7 @@ ROSTER_CHANGED_REASON = "qa-roster-changed-before-start"
 
 def abort_command(conn: Any, execution: dict[str, Any]) -> str:
     """The exact operator command that aborts ``execution``."""
-    if execution.get("deployment_run_id"):
-        subject = f"--deployment-run-id {execution['deployment_run_id']}"
-    elif execution.get("item_id") is not None:
-        from yoke_core.domain.project_identity import render_item_ref
-
-        subject = f"--item {render_item_ref(conn, int(execution['item_id']))}"
-    else:
-        subject = f"--project {execution['roster'][0]['project']}"
-    return (
-        f"yoke qa plan abort --execution-id {execution['id']} {subject} --reason TEXT"
-    )
+    return f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT"
 
 
 def retire_unstarted_changed_roster(

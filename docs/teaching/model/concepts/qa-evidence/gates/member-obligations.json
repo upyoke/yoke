@@ -3,5 +3,6 @@
  "title": "Member obligations",
  "status": "draft-copy",
  "page": "qa-evidence",
- "position": 3
+ "position": 3,
+ "summary": "Fresh item deployment QA resolves current completion-flow membership, including cross-project carriers and explicitly selected target environments. Transferred passed, failed and unfinished obligations retain their evidence; a failed inherited owner does not erase them. QA acceptance remains separate from successor deployment prerequisites and human release approvals."
 }

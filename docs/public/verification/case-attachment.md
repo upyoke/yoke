@@ -64,8 +64,8 @@ refuses as `qa_abort_restore_required`: abort through the plan command, wait
 for the interrupted case's cleanup proof, then retry removal. A declared
 baseline requires restoration; an `as_is` case or chain without a baseline
 settles on its no-restore cleanup receipt. To clean
-an older removal's residue, a holder runs `yoke qa plan abort --deployment-run-id
-RUN --execution-id ID --reason TEXT --project P` (read its `--help` first). The
+an older removal's residue, a holder runs `yoke qa plan abort
+--execution-id ID --reason TEXT --project P` (read its `--help` first). The
 audited removal keeps abort authority under the member's item claim and
 execution ownership; it never authorizes continuing QA for a removed member.
 
@@ -151,8 +151,7 @@ either scope, refuses the run-wide form and names the binding invocation; a
 run whose flow pins no QA stage keeps it:
 
 ```text
-yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
-  --member <PREFIX-N> --project <project>
+yoke qa plan run --item <PREFIX-N> --stage <stage-name> --project <project>
 ```
 
 [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the
@@ -165,9 +164,9 @@ authored, or materialized by an earlier selection — refuses `--plan`, because
 a plan there materializes a second set of obligations beside the ones the
 stage credits.
 
-`yoke qa plan materialize` takes the same `--stage` / `--member` pair when
-only the requirement rows are wanted. A run-scoped stage takes `--stage`
-alone; `--member` without `--stage` is refused.
+`yoke qa plan materialize` takes the same `--item` / `--stage` pair when
+only requirement rows are wanted. Fresh item QA resolves its current delivery
+membership; run-level orchestration retains its internal run/stage context.
 
 Materialize and rematerialize read the whole run's plan groups first, without
 holding the run, then hold the `deployment_runs` row only for the writes.

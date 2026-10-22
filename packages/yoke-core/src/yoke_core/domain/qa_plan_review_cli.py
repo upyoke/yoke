@@ -126,9 +126,8 @@ def run(args: List[str]) -> int:
         epilog=_help_epilogue(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
+    subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
     subject.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
     parser.add_argument("--bundle-id", required=True)
@@ -153,11 +152,6 @@ def run(args: List[str]) -> int:
         TargetRef(kind="item", public_ref=f"{prefix}-{sequence}")
         if parsed.item is not None
         else TargetRef(kind="global", project_id=parsed.project)
-        if parsed.project
-        else TargetRef(
-            kind="deployment_run",
-            deployment_run_id=str(parsed.deployment_run_id),
-        )
     )
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
