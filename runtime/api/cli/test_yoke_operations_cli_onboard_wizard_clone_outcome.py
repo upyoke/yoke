@@ -137,7 +137,7 @@ def test_writable_variant_preserves_explicit_read_only_choice() -> None:
     assert rows[0].label == "Use source for pushes"
     assert rows[0].hint == "push to acme/widgets; access confirmed by GitHub"
     assert rows[2].label == "Duplicate it"
-    assert rows[2].hint == "push to a new remote repo we'll create"
+    assert rows[2].hint == "owned copy; needs GitHub creation/access"
 
 
 def test_readonly_variant_is_three_rows_clone_default() -> None:

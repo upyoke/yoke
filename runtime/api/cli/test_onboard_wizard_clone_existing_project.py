@@ -12,7 +12,6 @@ from textual.widgets import Static  # noqa: E402
 
 from yoke_cli.config import existing_project_lookup  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
-from yoke_cli.config import project_clone_support as clone  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_clone_test_support import (  # noqa: E402
     configure_clone_flow,
@@ -113,7 +112,7 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
     ]
     plan = applied["project_clone"]
     assert plan is not None
-    assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
+    assert plan.outcome == ""  # preserve the configured destination
     assert plan.fallback_token is None
     assert plan.use_machine_github is True
 

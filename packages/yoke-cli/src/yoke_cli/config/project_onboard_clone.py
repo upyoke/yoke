@@ -191,6 +191,13 @@ def apply_clone_outcome(
     """Apply the selected destination to a new or independently cloned checkout."""
     from yoke_cli.config import project_publication_destination as destination
 
+    if plan.outcome in (CLONE_OUTCOME_JUST_CLONE, CLONE_OUTCOME_SOURCE) and not origin_is(
+        root, remote_url, web_url=plan.fork_web_url,
+    ):
+        raise ProjectOnboardError(
+            "publication_destination_changed: the source origin changed after selection. "
+            "Restore the selected source or re-run setup to review its actual destination."
+        )
     if plan.outcome == CLONE_OUTCOME_JUST_CLONE:
         destination.prevent_push(root)
     elif plan.outcome == CLONE_OUTCOME_SOURCE:

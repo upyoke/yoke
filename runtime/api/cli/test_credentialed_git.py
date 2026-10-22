@@ -74,7 +74,7 @@ def test_contact_url_resolves_a_named_remote_through_the_checkout(monkeypatch):
     monkeypatch.setattr(
         cgc,
         "remote_url",
-        lambda repo, remote: f"{repo}:{remote}",
+        lambda repo, remote, **_kwargs: f"{repo}:{remote}",
     )
     assert cgc.contact_url(["-C", "/repo", "fetch", "origin"], None) == "/repo:origin"
     assert cgc.contact_url(["push", "--force"], "/repo") == "/repo:origin"
@@ -104,7 +104,7 @@ def test_a_non_github_remote_runs_without_a_github_credential(monkeypatch):
     monkeypatch.setattr(
         cgc,
         "remote_url",
-        lambda repo, remote: "https://gitlab.example/a/b.git",
+        lambda repo, remote, **_kwargs: "https://gitlab.example/a/b.git",
     )
     with cg.git_environment(["-C", "/repo", "fetch", "origin"], cwd=None) as env:
         assert env["GIT_TERMINAL_PROMPT"] == "0"
@@ -115,7 +115,7 @@ def test_a_github_push_carries_the_stored_token_as_a_scoped_header(
     stored_token,
 ):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
     with cg.git_environment(["-C", "/repo", "push", "origin", "main"], cwd=None) as env:
         values = _config_values(env)
         # The key is reset before it is set, so an ambient value for the same
@@ -144,7 +144,7 @@ def test_an_ssh_origin_is_rewritten_onto_https_so_the_token_serves_it(
     stored_token,
 ):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: SSH_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: SSH_ORIGIN)
     with cg.git_environment(["-C", "/repo", "fetch", "origin"], cwd=None) as env:
         values = _config_values(env)
         rewrites = values["url.https://github.com/.insteadOf"]
@@ -158,7 +158,7 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
 
     def _unavailable(config_path, **kwargs):
         raise RuntimeError("machine GitHub App authorization is not configured")
@@ -182,7 +182,7 @@ def test_an_empty_credential_refuses_rather_than_running_uncredentialed(monkeypa
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
     monkeypatch.setattr(
         "yoke_cli.config.github_git_credential_store.access_token_from_machine_config",
         lambda config_path, **kwargs: {},
@@ -202,7 +202,7 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
     busy machine.
     """
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
     seen: list[dict] = []
 
     def _store(config_path, **kwargs):
@@ -234,7 +234,7 @@ def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
 
     def _refuse(url):
         raise cg.CredentialedGitError("no credential. run `yoke github connect`")
@@ -252,7 +252,7 @@ def test_run_with_check_raises_the_refusal_for_callers_that_want_it(monkeypatch)
         lambda _path: {"authorization": {"status": "authorized"}},
     )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
     monkeypatch.setattr(
         cg,
         "resolve_token",
@@ -272,7 +272,7 @@ def test_run_executes_a_local_command_and_returns_its_output(tmp_path):
 
 def test_a_timeout_names_what_stalled_instead_of_reading_as_a_hang(monkeypatch):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: "")
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: "")
 
     def _timeout(argv, **kwargs):
         raise subprocess.TimeoutExpired(argv, kwargs.get("timeout") or 15)
@@ -294,7 +294,7 @@ def test_the_credential_is_proven_against_the_pinned_merge_connection(monkeypatc
     the moment it tries to publish.
     """
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: HTTPS_ORIGIN)
     seen: dict = {}
 
     class _Selection:

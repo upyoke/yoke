@@ -191,3 +191,14 @@ def test_saved_read_only_setup_reopens_destination_without_remote_mutation(check
     assert shell.result.project_clone_existing_layer_decision == 'keep'
     assert destination.read_only(root)
     assert git(root, 'remote', 'get-url', 'origin') == str(source)
+
+
+def test_changed_source_refuses_before_read_only_configuration(checkout):
+    root, source = checkout
+    git(root, 'remote', 'set-url', 'origin', str(source.parent / 'different.git'))
+    with pytest.raises(project_onboard.ProjectOnboardError, match='publication_destination_changed'):
+        project_onboard._apply_clone_outcome(
+            root, remote_url=str(source), default_branch='main',
+            plan=project_clone_support.ClonePlan(),
+        )
+    assert not destination.read_only(root)

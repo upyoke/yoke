@@ -221,6 +221,16 @@ class ProjectIdentityFlow:
         )
         self.result.project_public_item_prefix = values["prefix"].upper()
         if self.result.project_clone_outcome:
+            intended = self.result.project_checkout_github_repo
+            if self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT and intended:
+                try:
+                    onboard_local_checkout_identity.require_matching_origin(
+                        self.result.project_checkout, github_repo=intended,
+                        web_url=onboard_wizard_github_state.clone_web_url(self.result),
+                    )
+                except RuntimeError as exc:
+                    self._goto_publish_origin_mismatch(exc)
+                    return
             self._after_name_clone()
             return
         if self.result.project_mode in PUBLISH_MODES:

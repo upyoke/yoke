@@ -67,7 +67,7 @@ _CLONE_IT_READONLY = SelectionRow(
     CLONE_OUTCOME_JUST_CLONE, "Read-only source", "fetch from {repo}; Yoke pushes disabled"
 )
 _DUPLICATE_IT = SelectionRow(
-    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it", "push to a new remote repo we'll create"
+    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it", "owned copy; needs GitHub creation/access"
 )
 _FORK_IT = SelectionRow(
     CLONE_OUTCOME_FORK,
@@ -112,7 +112,7 @@ def clone_outcome_rows(
     if push_access is None:
         rows = [*rows, SelectionRow(
             CLONE_OUTCOME_SOURCE, "Use source for pushes",
-            "push to {repo} with your Git credentials; write access unverified",
+            "push to {repo}; write access unverified",
         )]
     keep_fork = bool(parsed) and has_token
     if not keep_fork:
