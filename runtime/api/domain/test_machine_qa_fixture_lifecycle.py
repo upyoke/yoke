@@ -249,7 +249,7 @@ def test_primary_failed_result_still_runs_post_state_and_cleanup() -> None:
     assert events == ["setup", "primary", "post-state", "close"]
 
 
-def test_cleanup_retry_preserves_attempts_and_fails_case_closed() -> None:
+def test_cleanup_retry_preserves_attempts_and_passes_case() -> None:
     result, _execution, events = run_lifecycle(
         cleanup=[
             action_result(False, "fixture.yoke-api-start"),
@@ -257,8 +257,8 @@ def test_cleanup_retry_preserves_attempts_and_fails_case_closed() -> None:
         ]
     )
 
-    assert result.case_outcome == "failed"
-    assert result.error_code == "fixture_cleanup_failed"
+    assert result.case_outcome == "passed"
+    assert result.error_code is None
     assert events == [
         "setup",
         "primary",

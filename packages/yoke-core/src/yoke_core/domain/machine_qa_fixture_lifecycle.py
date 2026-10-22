@@ -289,9 +289,7 @@ def execute_case_with_fixture_lifecycle(
         cleanup_attempts=cleanup_attempts,
         secrets=_secret_values(execution),
     )
-    cleanup_ok = bool(cleanup_attempts) and all(
-        attempt.ok for attempt in cleanup_attempts
-    )
+    cleanup_ok = bool(cleanup_attempts) and cleanup_attempts[-1].ok
     if not cleanup_ok:
         return _failed_case(
             execution,

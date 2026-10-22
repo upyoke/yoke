@@ -14,6 +14,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
+
 from yoke_core.domain.machine_qa_fixture_runtime import (
     RemoteFixtureFailure,
     ServiceCleanup,
@@ -44,10 +46,14 @@ class MachineQaFixtureAdmissionOperations:
                 "restore SSH to the test machine, then rerun the case."
             ) from exc
         if returncode != 0:
-            output = str(getattr(result, "stderr", "") or "").strip()
+            lines = str(getattr(result, "stderr", "") or "").strip().splitlines()
+            # A named refusal leads its output; a crash ends with its exception.
+            crashed = any(line.startswith("Traceback") for line in lines)
             raise RemoteFixtureFailure(
-                output.splitlines()[0]
-                if output
+                bounded_machine_qa_diagnostic(
+                    "\n".join(lines[-4:]) if crashed else lines[0], tail=crashed
+                )
+                if lines
                 else f"machine_admission_host_failed: exit {returncode}"
             )
 
