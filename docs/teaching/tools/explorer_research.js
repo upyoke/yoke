@@ -84,5 +84,5 @@ async function showBuildInfo() {
   box.append(text('p', `Checkout: ${info.commit}${info.dirty ? ' + uncommitted changes' : ''}`));
   box.append(text('p', `Input fingerprint: ${info.input_digest}`));
   box.append(text('p', 'Source content and inventories are rebuilt from this checkout. Research retains its recorded state; rebuilding does not reverify evidence.'));
-  box.append(text('p', 'Refresh source data: yoke dev run -- python3 docs/teaching/tools/build.py --live'));
+  box.append(text('p', 'Refresh source data: yoke dev run -- python3 docs/teaching/tools/build.py'));
 }

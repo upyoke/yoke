@@ -19,9 +19,9 @@ def tools(monkeypatch):
     import model
     import inventory
     import privacy
-    import render
+    import limits
 
-    return model, inventory, privacy, render
+    return model, inventory, privacy, limits
 
 
 @pytest.mark.parametrize(
@@ -78,23 +78,6 @@ def test_coverage_counts_only_direct_mappings(tools):
     assert model.coverage(loaded) == {"parent": ["entry/lesson"], "parent/child": []}
 
 
-def test_overview_survives_independent_model_additions(tools):
-    model, *_ = tools
-    from render_overview import index_page
-
-    loaded = model.Model()
-    views = {}
-    index_page(views, "Teaching overview")
-    before = views["index.html"]
-    loaded.teaching["another-surface/lesson"] = {"title": "A new lesson"}
-    loaded.concepts["another-topic"] = {"title": "A new topic"}
-    index_page(views, "Teaching overview")
-    assert views["index.html"] == before
-    assert 'href="explore/index.html"' in before
-    assert 'location.replace' in before
-
-
-
 @pytest.mark.parametrize(
     "line",
     [
@@ -118,7 +101,6 @@ def test_privacy_patterns_allow_repository_paths(tools):
 def test_wrapped_line_count_uses_eighty_columns(tools):
     *_, render = tools
     assert render.wrapped_lines("x" * 80 + "\n" + "y" * 81 + "\n\n") == 4
-    assert all(len(line) <= 80 for line in render.wrap("word " * 60))
 
 
 def test_check_does_not_depend_on_local_views(tools, monkeypatch, tmp_path):
@@ -139,16 +121,26 @@ def test_build_recreates_html_and_stylesheet(tools, monkeypatch, tmp_path):
     import build
 
     monkeypatch.setattr(build, "VIEWS_ROOT", tmp_path / "views")
+    monkeypatch.setattr(build, "LIVE_ROOT", tmp_path / "live")
+    for path in ("views/index.html", "views/style.css", "views/old.json", "live/commands.html"):
+        stale = tmp_path / path
+        stale.parent.mkdir(parents=True, exist_ok=True)
+        stale.write_text("obsolete")
     record = tmp_path / "record.json"
     original = '{"id":"example"}\n'
     record.write_text(original)
     monkeypatch.setattr(build, "model_files", lambda: [record])
     assert build.main([]) == 0
     assert record.read_text() == original
-    assert (tmp_path / "views/index.html").read_text().startswith("<!doctype html>")
-    assert (tmp_path / "views/style.css").read_text() == (
-        TOOLS / "style.css"
+    assert (tmp_path / "views/explore/index.html").read_text().startswith("<!doctype html>")
+    assert (tmp_path / "views/explore/explorer.css").read_text() == (
+        TOOLS / "explorer.css"
     ).read_text()
+
+    assert not (tmp_path / "views/index.html").exists()
+    assert not (tmp_path / "views/style.css").exists()
+    assert not (tmp_path / "views/old.json").exists()
+    assert not (tmp_path / "live").exists()
 
 
 def test_generated_views_are_untracked_and_ignored():

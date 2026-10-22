@@ -5,6 +5,6 @@
  "text": "The nested source tree and documentation cascade now have direct homes. Every current registry command, function and skill has a direct concept mapping; the live crosswalk is checked without inheriting parent coverage. The four individual JOURNEYS gaps name tracking-choice, qa-adoption, preview-recipe and strategy-closeout with their owners, direct topics and evidence. Draft lesson questions remain research; a direct mapping does not prove teaching quality or live delivery. Existing FIRST-USER and COREWORK needs remain current work, while only the explicitly evidenced JOURNEYS depth is deferred.",
  "position": 3,
  "owner": "Current source reconciliation; JOURNEYS only for separately evidenced journey depth",
- "sources": ["docs/teaching/README.md", "docs/teaching/tools/render_live.py", "docs/teaching/tools/model.py", "docs/public/documentation/index.md"],
+ "sources": ["docs/teaching/README.md", "docs/teaching/tools/explorer_inventory.py", "docs/teaching/tools/model.py", "docs/public/documentation/index.md"],
  "gaps": ["tracking-choice", "qa-adoption", "preview-recipe", "strategy-closeout"]
 }

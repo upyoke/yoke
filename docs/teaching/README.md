@@ -11,14 +11,13 @@ material: it lives only in the Yoke source repository and never ships in the
 install bundle.
 
 Build the local views with `yoke dev run -- python3 docs/teaching/tools/build.py`,
-then open `docs/teaching/views/index.html` in a browser from that checkout.
+then open `docs/teaching/views/explore/index.html` in a browser from that checkout.
 This registered scanner works on the mapped main checkout without a work claim
-and in a claimed lane. It writes only ignored views (and `live/` with `--live`);
+and in a claimed lane. It writes only ignored guide files;
 it never rewrites the model.
 Agents read the model JSON directly. If a review tool refuses `file:` URLs,
 serve this directory locally (`python3 -m http.server` from `docs/teaching`).
-The responsive guide is the only reading interface. Former catalogue pages and
-record anchors redirect to the corresponding guide node. Model JSON files retain
+The responsive guide is the only reading interface. The old catalogue pages and compatibility routes are removed. Model JSON files retain
 their identities and remain the editable source of research truth.
 
 ## Canonical source and access
@@ -71,18 +70,15 @@ machine paths. The check refuses private paths and identifiers.
 | `model/docs-graph.json` | Documentation areas for the live docs graph |
 | `views/` | Untracked generated HTML and CSS; build locally to read |
 | `tools/` | The builder and check |
-| `live/` | Untracked live pages, written by `--live` |
 
-Every record has a stable `id`; it is the HTML anchor of the record's view.
+Every record has a stable `id`; the guide uses it to identify the record's node.
 A concept's full id is its path (`context/hooks`), stored at
 `model/concepts/context/hooks.json`. Teaching and lesson ids are prefixed by
 their owner (`setup-agent/desired-01`), stored at
 `model/surfaces/setup-agent/desired-01.json`. Each filename matches its
 record's local `id`. Add a record by creating its file; claim that concrete
 path without changing or claiming its parent record. Optional `position`
-sets display order (then filename). `page` names the generated page a record
-renders on: give a large concept branch its own page by setting `page` on the
-child and each descendant; surface and scenario parts move the same way.
+sets display order (then filename). Legacy `page` metadata does not create pages or routes in the guide.
 Evidence collection metadata lives at
 `model/evidence/<collection>.json`, with records in the matching directory.
 `docs-graph.json` remains the documentation graph configuration.
@@ -99,7 +95,7 @@ existing record files without an array source retain their data and receive
 canonical formatting. Rebuild and check afterwards.
 
 Commands, functions and skills are never copied here. Concept records name
-them, and the check resolves every name against the live registries. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/style.css`.
+them, and the check resolves every name against the live registries. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/explorer.css`.
 
 ## Record status
 
@@ -144,15 +140,11 @@ prototype change, file a linked Yoke item (`/yoke idea` in the yoke project)
 that names the exact node ids, the requested change, the evidence and the
 producer/consumer relationship.
 
-## Live pages
+## Source inventories
 
-```text
-yoke dev run -- python3 docs/teaching/tools/build.py --live
-```
-
-refreshes compatibility routes at `live/commands.html` and `live/docs-graph.html`.
-Their inventories now live inside the guide and are rebuilt on every normal build:
-registry entries with topic coverage, and documents with incoming/outgoing links.
+Every build refreshes registry entries with topic coverage and documents with
+incoming/outgoing links inside the guide. It removes obsolete generated files
+and the retired `live/` directory; no compatibility pages are produced.
 
 ## Check failures
 
@@ -170,7 +162,7 @@ Fix the named records, rebuild, then run `--check`:
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
 | `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
-| `LINE_LIMIT` | For a view, move a large child branch or part group to its own page with `page`; for another file, split it at a meaningful boundary. Keep record content; rebuild |
+| `LINE_LIMIT` | For generated data, split nodes into smaller chunks; for another file, split it at a meaningful boundary. Keep record content; rebuild |
 | `PAGE_COLLISION` | Give the part a `page` name no other surface or scenario uses |
 | `PRIVATE_MATERIAL` | Remove the private path or id |
 
@@ -275,8 +267,7 @@ citation. Research has its own status explanation and no agent-output size badge
 research prose is not delivered context. History isolates superseded proposals.
 `explorer_inventory.py` folds registry coverage and document-link counts into the
 same UI, with connections from Command help, Public docs and Project documentation.
-Old page paths and anchors are generated as compatibility redirects; `page` fields
-now preserve those routes, while the guide displays each record independently.
+The guide displays each record independently; old page paths and anchors are retired.
 
 
 Source freshness shows the build time, checkout commit, dirty state and a digest

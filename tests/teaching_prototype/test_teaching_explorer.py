@@ -13,10 +13,10 @@ def explorer(monkeypatch):
     monkeypatch.syspath_prepend(str(TOOLS))
     import model
     import render_explorer
-    from render_pages import Pages
+    from guide_data import GuideData
 
     loaded = model.load()
-    pages = Pages(loaded, {}, model.coverage(loaded), {}, lambda _: None)
+    pages = GuideData(loaded, {}, {}, lambda _: None)
     views = {}
     render_explorer.build_explorer(views, pages)
     assert not loaded.problems

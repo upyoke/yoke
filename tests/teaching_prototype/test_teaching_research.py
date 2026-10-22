@@ -1,7 +1,6 @@
 """Research survives the unified guide with explicit, reversible source links."""
 import json
 from pathlib import Path
-import re
 
 import pytest
 
@@ -14,12 +13,12 @@ def guide():
     sys.path.insert(0, str(TOOLS))
     import model
     import inventory
-    from render_pages import Pages
+    from guide_data import GuideData
     from render_explorer import build_explorer
     loaded = model.load()
     live = inventory.live_registries()
     docs = inventory.documents(inventory.tracked_files())
-    pages = Pages(loaded, live, model.coverage(loaded), docs,
+    pages = GuideData(loaded, live, docs,
                   lambda path: inventory.area_of(path, loaded.docs_graph))
     views = {}
     build_explorer(views, pages)
@@ -68,25 +67,16 @@ def test_proposals_and_history_do_not_change_source_output_totals(guide):
     assert nodes['research:surface:workbench-cues']['parent'] == 'research-index:dashboard'
 
 
-def test_every_former_record_anchor_redirects_to_existing_node(guide):
-    loaded, pages, nodes, views = guide
-    pages.concept_pages(views)
-    for kind, owners, parts in [('surfaces', loaded.surfaces, loaded.teaching),
-                               ('scenarios', loaded.scenarios, loaded.lessons)]:
-        pages.owned_pages(views, kind, owners, parts, '')
-    pages.evidence_pages(views)
-    pages.record_page(views, 'gaps.html', '', loaded.gaps)
-    pages.record_page(views, 'boundaries.html', '', loaded.boundaries)
-    pages.docs_pages(views)
-    pages.commands_page(views)
-    for path, content in views.items():
-        if not path.endswith('.html') or path.startswith('explore/'):
-            continue
-        route = json.loads(re.search(r'const route = (.*);', content).group(1))
-        assert route['default'] in nodes
-        assert all(target in nodes for target in route['anchors'].values())
-        assert 'location.replace' in content
-    assert '"base": "../views/explore/index.html"' in views['../live/commands.html']
+def test_only_unified_guide_is_generated_and_every_node_is_reachable(guide):
+    _, _, nodes, views = guide
+    assert [path for path in views if path.endswith('.html')] == ['explore/index.html']
+    assert all(path.startswith('explore/') for path in views)
+    for node in nodes.values():
+        seen = set()
+        while node['parent']:
+            assert node['id'] not in seen
+            seen.add(node['id'])
+            node = nodes[node['parent']]
 
 
 def test_live_inventories_preserve_every_registry_entry_and_document(guide):
