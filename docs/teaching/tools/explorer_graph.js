@@ -218,3 +218,21 @@ function updateTrail() {
     trail.append(button);
   });
 }
+
+function fitPreview(el) {
+  const preview = el.querySelector('.preview-children');
+  if (!preview || !preview.getClientRects().length) return;
+  const key = `${el.clientWidth}:${el.clientHeight}:${el.className}`;
+  if (preview.dataset.fit === key) return;
+  preview.dataset.fit = key;
+  const entries = [...preview.children];
+  entries.forEach(entry => { entry.hidden = false; });
+  const bottom = el.clientHeight - 58;
+  // Measure the wrapped rows before hiding any entries, so a partial row never leaks out.
+  const fits = entries.map(entry => entry.offsetTop + entry.offsetHeight <= bottom);
+  entries.forEach((entry, i) => { entry.hidden = !fits[i]; });
+  const shown = fits.filter(Boolean).length;
+  const all = el.querySelector('.count');
+  all.textContent = `Show all ${entries.length} →`;
+  all.title = `${shown} of ${entries.length} shown. Open this node to explore every child.`;
+}

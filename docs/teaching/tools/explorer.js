@@ -105,7 +105,7 @@ function makeNode(node) {
   el.append(heading);
   if (node.children.length) {
     const preview = text('div', '', 'preview-children');
-    node.children.slice(0, 8).forEach(child => {
+    node.children.forEach(child => {
       const entry = text('button', child.title);
       entry.onclick = () => choose(child);
       preview.append(entry);
@@ -126,8 +126,11 @@ function makeNode(node) {
     };
     el.append(read);
   }
-  if (node.children.length) el.append(text('span',
-    `${node.children.length} ${node.children.length === 1 ? 'branch' : 'branches'} ↗`, 'count'));
+  if (node.children.length) {
+    const all = text('button', `Show all ${node.children.length} →`, 'count');
+    all.onclick = () => choose(node);
+    el.append(all);
+  }
   const detail = text('div', '', 'detail');
   el.append(detail);
   el.onclick = e => { if (!e.target.closest('a,button,.detail')) choose(node); };
@@ -243,6 +246,7 @@ function render() {
     el.classList.toggle('reading', Boolean(node.reading));
     el.classList.toggle('compact', s.h < 185);
     el.style.setProperty('--head-size', `${Math.min(28, Math.max(12, s.w * .058))}px`);
+    fitPreview(el);
     if (expanded && !node.children.length) fillDetail(node, el);
     if (expanded && roomForChildren && !node.reading) node.children.forEach(visit);
   }

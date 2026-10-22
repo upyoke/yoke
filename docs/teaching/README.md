@@ -260,3 +260,5 @@ Harness-specific orientation cards show prominent applicability badges and deliv
 Alternate install-mode cards expose the actual setup subtree in place. Cross-map navigation retains a Back button to the previous view.
 
 Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; large focused collections extend vertically for readable cards.
+
+Child previews fill the available card area using measured wrapped rows; Show all opens the same node as clicking its card, across every map branch.

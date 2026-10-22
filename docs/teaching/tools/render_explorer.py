@@ -1,6 +1,7 @@
 """A single spatial map; zoom reveals children and the canonical record in place."""
 
 import json
+import hashlib
 from pathlib import Path
 from functools import lru_cache
 
@@ -234,3 +235,9 @@ def build_explorer(views, pages):
 <a href="../index.html">research catalogue</a> instead.</noscript>
 </body></html>
 '''
+    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
+        version = hashlib.sha256(views['explore/' + asset].encode()).hexdigest()[:12]
+        stem, suffix = asset.rsplit('.', 1)
+        versioned = stem + '-' + version + '.' + suffix
+        views['explore/' + versioned] = views['explore/' + asset]
+        views[ROOT] = views[ROOT].replace('"' + asset + '"', '"' + versioned + '"')
