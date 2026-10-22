@@ -1,6 +1,7 @@
 """Self-host preview and repository selection using the shared wizard input."""
 
 from yoke_cli.config import server_image_repository as repository
+from yoke_cli.config import onboard_docker_prerequisites as docker
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SelectionRow, SetupPrompt
 
@@ -21,7 +22,7 @@ def preview_lines(setup) -> list[str]:
                 "Start writes the bundle and privately hands host-opened secrets to Docker.",
             ]
         ),
-        "Requires Docker + Compose; Yoke does not install them.",
+        *docker.preparation_guidance(),
         "You own reachable networking and TLS for team access.",
     ]
 

@@ -1,7 +1,9 @@
 {
  "id": "machine-qa-pack",
  "title": "Machine QA Pack",
- "status": "draft-copy",
+ "status": "observed",
  "page": "test-machine-setup",
- "position": 4
+ "position": 4,
+ "summary": "Projects own manual baseline inventories, preparation and extra probes. Machine QA supplies reusable OS procedures and registers, captures, restores and verifies declared state; it does not impose Yoke fixture packages or automatic runtime installation on other projects.",
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md"]
 }

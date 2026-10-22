@@ -1,304 +1,336 @@
-# Golden baseline semantics
+# Golden baseline semantics and Yoke preparation
 
-Preparing, signing in, saving, restoring and repairing a Test Machine has one
-complete ordered procedure per OS in the Machine QA Pack:
+This is Yoke's project-owned manual baseline inventory and preparation policy.
+Follow it with the existing ordered Machine QA procedures for
+[macOS](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md),
+[Linux](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md), or
+[Windows/WSL2](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md).
+The [provisioning index](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md)
+installs as `docs/packs/machine-qa/host-provisioning.md`. Complete its account,
+network, tools, sign-in and GUI steps; add the runtime preparation below before
+capture. Neither a package command nor a successful capture establishes readiness.
 
-- [macOS](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/windows-host-provisioning.md)
+## Ownership and inventory
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/host-provisioning.md) installs
-as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
-behind its evidence, without providing a second preparation procedure.
+Preparation is manual, project-specific work with explicit host custody.
+Generic Yoke/Machine QA registers, captures, restores and verifies declared
+state; it does not install this project's baseline for other projects. Pack
+recipes supply reusable OS steps, not a universal Docker or fixture policy.
+Read registered settings and leases before acting; never operate a peer's host.
+Substitute the dedicated account, private endpoint and approved paths from that
+record. A fixture home must differ from ordinary worker and operator homes.
 
-`fresh-host` is user-equivalent: vendor harnesses and their signed-in fixture
-state remain available while Yoke state and launchers are absent.
-`shell-preconfigured` adds the current Yoke shell launcher. Baseline identity
-therefore matters independently of the operation's success flag.
+| Required Yoke state | Owner and proof |
+| --- | --- |
+| Private SSH access, dedicated non-root account, sufficient RAM/disk | OS procedure, registered secrets and actual exec |
+| Declared desktop/session, input and capture permissions | OS procedure, bridge diagnosis and non-blank screenshot |
+| Claude, Codex and Cursor vendor CLIs and live sign-ins | Supported vendor installs, versions and canonical tiny real requests |
+| Claude bypass acceptance in dedicated fixture only | Canonical acceptance check; not authority for unrelated work |
+| Mac saver Never, readable unlocked login Keychain, TCC grants | Canonical GUI checks plus effective bridge operation |
+| Docker daemon, Compose v2, real Linux containers | Manual preparation and positive workload checks below |
+| Mac runtime outside restored home, stable CLI/socket/context | External profile plus live-daemon/bind/reset proof below |
+| Private-address Mac server when declared by a case | Host-address configuration and real companion/isolation proof |
+| Browser application sign-in and separate browser identity store | Existing browser procedure and actual signed-in app page |
 
-The sealed home lives outside the restored home. Its manifest binds identity,
-size/digest and probe document; modes and ACLs remain part of captured state.
-macOS capture excludes the exact root:wheel regular audiovisual preference
-`Library/Group Containers/group.com.apple.secure-control-center-preferences/Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist`.
-The shared preservation contract validates its owner/type and rejects symlink
-ancestors, records the exclusion in the sealed manifest, and keeps the live
-entry during reset alongside SSH access, user TCC, the live harness logins
-(the login Keychain `Library/Keychains`, `.claude/.credentials.json` and
-`.codex/auth.json`), the browser identity store and Safari's cookie store
-(`Library/Containers/com.apple.Safari/Data/Library/Cookies`).
-`PRESERVED_HOME_ENTRIES` is the one declared list; capture prunes every entry
-on it, the manifest seals it as `preserved_home_entries`, and a reset keeps
-each one live, requiring only SSH access and user TCC to be present. A restored
-login or cookie would be the golden's rotated one. Every other foreign entry
-still refuses. Older manifests remain readable and their captured copies of
-preserved entries are never restored; a present declaration may name only kept
-entries and the entries it declares must not be captured. An entry kept only
-since the seal is inert in that golden.
+`fresh-host` keeps supported vendor tools/sign-ins and removes Yoke launchers
+and state. `shell-preconfigured` adds the current Yoke shell launcher. Neither
+means an empty OS. System packages, services, WSL registration and external VM
+disks survive home restoration; declare and verify them separately. A running
+container writing the restored home is a writer, not inert captured state.
 
-Safari writes its cookie store when it quits. macOS capture and reset first ask
-a running Safari to quit and wait for it to exit
-(`yoke_harness.ssh_mac_sign_in_apps`); they never force-quit it, and refuse
-`test_machine_sign_in_app_quit_not_proved` before copying or clearing when it
-stays open. Only pgrep's "no match" exit means Safari is not running; any other
-exit, such as an SSH failure, refuses `test_machine_sign_in_app_probe_failed`
-with the probe's exit code, stderr and recovery.
-The archive is private fixture material, not a QA artifact. Whole-home content,
-CLI liveness, persistent OS grants and the actual visible desktop are separate
-proofs: a passing one cannot establish the others.
+Yoke uses Ubuntu 24.04 Linux (including arm64), Intel macOS Monterey and current
+Apple Silicon macOS, and Windows Server with WSL2 Ubuntu 24.04. These are tested
+fixture shapes, not support for every OS/version. Monterey supports remote-core
+work only: packaged local PostgreSQL requires macOS 26 or newer; see
+[operation constraints](test-machine-operations.md). Check each vendor's current
+OS/architecture requirements before installing; version output alone is insufficient.
+On older Macs use a runnable harness release as the OS guide describes, retaining
+its actual version evidence. Windows runs Linux containers and CLIs in WSL, not
+native Windows Yoke or Windows containers. Its real desktop proof remains required.
 
-macOS capture omits sockets and FIFOs while retaining resource forks, extended
-attributes, ACLs and file flags. Its tar stream carries extended attributes in
-AppleDouble metadata rather than duplicate PAX xattr headers: sandbox container
-attributes can exceed the tar reader's 1 MiB special-header limit. Any copy
-error still fails capture and reports its path and message in the receipt;
-partial destinations cannot be registered as a baseline.
+## Linux and Windows/WSL runtime
 
-The probes seal reports upload and chmod failures separately in the existing
-`golden_probes_seal_failed` refusal. It retains the sidecar path, sub-step,
-exit code and bounded remote stderr; transport exceptions name their type
-when no exit status exists. Recovery preserves the failed capture and calls
-for repairing the named access or SSH failure before using a new destination.
-macOS chmod receives its option delimiter before the mode, so it cannot mistake
-the delimiter for another file and report failure after sealing the sidecar.
+Complete the OS guide first, including private SSH, non-root account, permitted
+sudo policy, supported harnesses/sign-ins, and xrdp/XFCE/input/browser tools where
+declared. On Windows enable WSL2 and systemd for the registered Windows user's
+default Ubuntu distribution, then use its dedicated Linux account. Cloud
+instance-running is not readiness: wait for instance-status-ok and prove WSL
+exec before starting its desktop. Virtualization must work, not merely be advertised.
 
-Restore cannot govern objects outside the home merely by copying files.
-Product-owned Compose resources, running home writers, service-manager jobs
-and declared temporary residue have independent ownership/absence checks.
-Compose labels protect unrelated workloads; PID start times protect reused
-process ids; service inventory checks protect against deleted definitions whose
-jobs remain loaded. A failed prerequisite preserves its diagnostic in the
-operation receipt, and a partial restore cannot establish a new baseline.
-On macOS a booted iOS Simulator device is such a writer: it runs from the
-home's CoreSimulator device set and repopulates it through the clear, so the
-reset reaps its device tree first. Other macOS daemons keep running and can
-recreate their directory while the restore copies it, so each captured
-directory is merged into place with `ditto` rather than created by `cp -R`,
-which would stop on `File exists`. A restore that stops names each unrestored
-entry with a bounded, printable excerpt of its copier stderr
-(`restore_state.entry_errors`), because the scratch log holding that stderr is
-removed when the reset program exits.
+For Ubuntu 24.04's distribution packages, run as the administrator in Linux/WSL:
 
-Linux golden capture proves its own reset roundtrip and sealed probes, starts
-the fixture desktop through xrdp, validates a non-blank screenshot, and ends the
-session before registration. Its receipt names the failing step when any check
-fails. Desktop discovery counts active logged-in fixture users, excluding
-greeters, closing sessions and other users. Reset ends the fixture desktop.
+```sh
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2
+sudo systemctl enable --now docker
+sudo usermod -aG docker TESTUSER
+```
 
-Before it writes, capture compares free space on the destination filesystem
-with the home's file bytes. `golden_capture_insufficient_space` names that
-parent and the recovery: remove every other snapshot there, keep each
-project's registered golden for this machine (`yoke test-machine get` shows
-`golden_baseline_path`) and their `.probes`, `.manifest` and `.harness-clis` files, then retry
-`yoke test-machine golden-capture`. A check that cannot read the home or the
-filesystem refuses `golden_capture_space_check_failed` instead of a traceback.
-After the new golden is registered, capture deletes retired snapshots beside
-it. A parent directory named for the test user is that user's golden root, so
-every other child goes, including dated homes, mixed captures, `.yoke-golden-*`
-temporaries and retired browser profiles. A shared parent deletes only this
-user's `USER-home-*` and `home-*` snapshots, so another user's baseline stays.
-One machine can be registered in several projects that share a golden parent.
-The capture result's `kept_golden_paths` names every project's registered
-golden for this machine in that parent, and each one stays with its sidecars;
-only snapshots no project registers are deleted. A symlink is left in place.
-Capture seals each golden read-only and keeps macOS deny-delete ACLs, so
-removal first clears a snapshot's ACLs and makes its directories
-owner-writable. Sidecar files go before any snapshot folder, and each name is
-removed on its own: a name that fails is kept and the rest still go. A
-successful capture lists the removed names as `removed_snapshots`, and a
-refresh prints them.
-`golden_snapshot_retention_failed` means the new golden is already registered
-and some leftovers are still there. Its reason lists the removed names and each
-kept name with why (`failed`, `symlink`), with the host's own error; remove them, keep every project's
-registered golden, and do not capture again until they are gone. When the
-server cannot name the other projects' goldens (`kept_golden_paths` absent or
-`kept_golden_paths_unknown` set), nothing is deleted and the refusal says why. Windows/WSL capture uses this same Linux archive, so the
-same check and retention apply there.
+Log the test account out/in so new group membership applies. Docker group access
+is privileged; retain the fixture's approved access policy and Unix socket,
+not an unauthenticated TCP daemon. As the test user prove `id`, `sudo -n true`,
+`systemctl is-active docker`, `docker version` (client AND server) and
+`docker compose version` (v2), then run the workloads below. Fix permission or
+service failures before capture. Packages/services are outside the home golden.
 
-A golden carries the harness CLIs a reset restores, so it also records them.
-Capture runs each CLI's `--version` as the test user (searching `~/.local/bin`
-first) and writes `GOLDEN.harness-clis`, which the capture receipt repeats as
-`harness_cli_versions`; a CLI whose version cannot be read refuses
-`golden_harness_cli_version_unreadable`. A QA plan's first reset on each Test
-Machine compares that record with each vendor's latest release
-(`yoke_contracts.harness_cli_releases`). A current golden costs one record read.
-A golden that is behind, or has no record, is refreshed once for that plan:
-reset to it, install the newer releases with the vendor installers
-(`yoke_harness.golden_harness_clis`), then capture through
-`test_machine.operation.begin` with `plan_execution_id`, which borrows the
-plan's own host lease, into a UTC-stamped sibling (`USER-home-YYYYMMDDTHHMMSSZ`,
-so a second refresh on one day never collides with the registered golden), and begin the case again so every later reset restores
-the refreshed golden (`yoke_core.domain.golden_harness_refresh`). The capture
-prunes preserved logins, keychains and cookies as above. A refresh that cannot
-read a release channel, reset, install, verify the installed version or
-capture stops the plan with `golden_refresh_*` and the step to repair, so no
-case runs with an unreadable CLI. After each install, refresh runs `--version`
-in the same context as capture (the GUI session on macOS). When a new binary
-cannot run, it restores a runnable prior executable; Cursor selects the newest
-runnable retained release and re-points its CLI links. For a held-back Cursor,
-refresh runs the retained vendor CLI's `set-channel static` command, preserving
-other config keys, so a real request cannot auto-update those links.
-Refresh still uses the vendor installer to try the latest release on later
-plans. Refresh prints
-`held back: HARNESS VERSION does not run on this host` with the exit code,
-stderr and selected version, then captures that host-supported version and
-continues. The ordinary sidecar records actual runnable versions; a later
-plan may retry the published release, without a Yoke hold setting.
-No runnable version stops refresh naming that harness and its stderr. Full
-refresh diagnostics remain in the runner error even if execution abort refuses;
-the durable abort reason retains a bounded opening diagnosis. Leftover old snapshots after a verified refresh
-capture do not stop the plan: it prints a `golden_snapshot_retention_failed`
-warning with the removed and kept names, the host's error and the cleanup, and continues, because the next
-capture's space check still refuses a crowded disk. A server older than the `plan_execution_id` argument
-refuses with its floor; capture by hand with
-`yoke test-machine golden-capture` after updating the CLIs.
+Do not mix Ubuntu's `docker.io` packaging with Docker CE packages. An alternative
+is Docker's [Ubuntu repository procedure](https://docs.docker.com/engine/install/ubuntu/)
+and its [Compose plugin](https://docs.docker.com/compose/install/linux/): install
+`docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin`
+after its repository/conflicting-package steps. Keep the chosen package family
+and version evidence. Docker Desktop is not needed for the proved WSL Engine path.
 
-Linux user-service mutations share the relay's 180-second operation budget;
-inventory probes retain a 30-second limit. Timeout receipts name the command
-and unsettled job. Archive failures preserve bounded, redacted native exit,
-stdout and stderr through mission preparation, including malformed receipts.
+## Manual Mac runtime preparation
 
-The SSH access needed to finish restore remains live. Linux/WSL reset never
-rolls a harness sign-in back: the Claude, Codex and Cursor login files
-(`.claude/.credentials.json`, `.codex/auth.json`, `.config/cursor/auth.json`)
-are live-preserved entries (`yoke_harness.ssh_linux_preserved_entries`), left
-out of every capture and kept live with their modes through reset, as macOS
-keeps its logins. A copy an older golden sealed is never restored, and reset
-runs no sign-in probe before clearing. Linux capture and reset first ask a
-running desktop Chromium to quit and wait for it to exit
-(`yoke_harness.ssh_linux_browser_approval`), the same rule macOS applies to
-Safari, refusing `test_machine_sign_in_app_quit_not_proved` before copying or
-clearing when it stays open. Windows state and WSL registration remain
-outside the Linux home.
+Keep every OS-guide prerequisite: dedicated console account, private SSH,
+Command Line Tools/Git, Python, GUI Terminal, privacy grants, harness sign-ins,
+Claude acceptance, screen saver and Keychain. Do not replace these with Docker checks.
+For a fresh install choose supported native binaries for `uname -m` and `sw_vers`.
+The proved combination was Colima 0.10.3/Lima 2.2.1 with Docker CLI and Compose v2;
+these are evidence versions, not mandatory patch pins for future machines.
 
-A completed sign-in on any test machine is saved at once with
-`yoke test-machine golden-capture`: it proves the real requests, quits Safari
-on macOS or the desktop Chromium on Linux and seals a new baseline, so no later reset rolls the sign-in back.
-Only a diagnosed authentication failure or an unmet baseline setting calls for
-repairing that state; a generic native failure does not establish a login problem.
+Follow [Colima installation](https://colima.run/docs/installation/),
+[Lima installation](https://lima-vm.io/docs/installation/),
+[Docker static binaries](https://docs.docker.com/engine/install/binaries/), and
+[Compose releases](https://github.com/docker/compose/releases).
+On supported current macOS, `brew install colima docker docker-compose` is an
+installation choice; follow the formula's plugin-discovery caveat. Check its OS
+support first. The proved portable manual route installs release binaries:
 
-Every test-machine operation exits nonzero when its receipt has `status: error`.
-macOS capture and restore copy tools use `LC_ALL=en_US.UTF-8`, independent
-of the controller locale forwarded by SSH. `golden_capture_copy_home_failed`
-quotes a short excerpt and points to the full `copy_stderr` receipt field;
-repair that reported cause and capture to a new destination. The tools already
-set the locale, so a remaining locale warning means the host lacks it: run
-`locale -a` on the host and repair its locale installation.
+| Host | Colima/Lima asset arch | Docker archive arch | Compose asset arch | VM |
+| --- | --- | --- | --- | --- |
+| Apple Silicon | arm64 | aarch64 | aarch64 | VZ on supported macOS |
+| Intel | x86_64 | x86_64 | x86_64 | QEMU on Monterey |
 
-A reset or capture receipt names what failed. Each check row's `name` and `ok`
-belong to the operation, never to nested evidence. A failed macOS reset keeps
-the first error code: a later failure, such as removing the uploaded reset
-program, never replaces it. Its `failed_calls` evidence lists every failed call
-(`preclean`, `upload`, `mode`, `reset`, `cleanup`) with its exit code and
-bounded stderr, or the exception type and message. Exit 124 is the runner's own
-SSH failure (timed out or could not start), reported as
-`test_mac_reset_transport_failed`; the host may be fine, so check the
-executing machine's SSH access before repairing the host. When the server still
-refuses a receipt, `test_machine_operation_submit_failed` repeats the host's
-own error code, reason and recovery, because the refused receipt is not
-recorded anywhere else.
-Success counters are emitted only after final process/load validation. A
-`test_mac_reset_reap_processes_failed` receipt keeps `reset_phase` and
-`process_state` with `surviving_reap_failures`, `surviving_matches` and
-`load_average`; inspect these values before choosing a host repair. Missing
-historical stdout cannot establish which check failed.
-System packages remain outside home-only restoration and may additionally be
-owned by a mission fixture's package journal.
+Select reviewed release tags from each vendor and verify published checksums
+before installation. Download Colima's `colima-Darwin-ARCH`, Lima's
+`lima-VERSION-Darwin-ARCH.tar.gz`, Docker's `mac/static/stable/ARCH/docker-VERSION.tgz`,
+and Compose's `docker-compose-darwin-ARCH` from those vendor pages. Preserve
+existing binaries/configuration before replacing anything. Administrator installs
+Colima and Docker executables mode 0755 in `/usr/local/bin`; extract Lima's full
+`bin`, `share` and `libexec` distribution under `/usr/local`, preserving its
+relative layout. Do not copy only `limactl`. Install the Compose executable mode
+0755 as the test user's `~/.docker/cli-plugins/docker-compose`; this is captured
+home state. Confirm native `colima version`, `limactl --version`, `docker --version`
+and `docker compose version` in SSH and GUI Terminal. Reset must find Docker at
+`/usr/local/bin/docker` or `/opt/homebrew/bin/docker`, not only a custom shell alias.
 
-Structure is not liveness: a captured credential may expire. Canonical
-standard per-OS probes are sealed with every new capture, alongside extra
-checks. A named harness check requires a tiny native request; status-only
-output and credential-file presence are insufficient. Output stays on the
-host, while readiness records retain classified cause, reason and recovery.
-Each sealed standard probe exits with a code from one table
-(`yoke_harness.baseline_probe_failure_causes`) that the classifier reads back:
-executable missing, request timed out, launch failed, unknown harness non-zero
-exit, unanswered reply, check unmet, or a diagnosed native refusal. Explicit
-native error envelopes and fixed error phrases distinguish exhausted quota,
-authentication rejection, model rejection, transient transport failure and
-request throttling. A Claude weekly-limit error remains quota exhaustion even
-when the native exits nonzero and also reports `rate_limit`. Quota recovery
-waits for the provider window or restored plan capacity; transport and throttling
-recovery checks the service and retries after recovery. These causes never
-advise sign-in, resetting credentials or recapturing a baseline. Authentication
-advice requires native authentication evidence. Unknown failures remain unknown
-and direct the operator to local diagnostics while preserving the golden.
-No failure defaults to "not signed in", and
-`expectation_met` is null when nothing was expected.
-An unanswered reply is one the shared reply parser rejected while the harness
-exited 0. Nonzero native exits also keep a sanitized `reply_rejection` record,
-including the original native exit code; the sealed exit code retains the
-native diagnosis. Receipt `cause` stays `probe_harness_exit_nonzero` for these
-execution failures; `reason` and `recovery` retain the specific diagnosis.
-Cursor workspace trust keeps its distinct existing refusal cause.
-The parser prints only this record; raw native output stays on the host.
-It holds the rejection branch,
-the stream's event types in order, the final event's shape, the booleans
-`exact_ok_reply`, `tool_use` and `degraded_context` (lines that were not JSON
-events), and the harness exit code. It never holds reply text, account output
-or a transcript. Cursor ask mode cannot disable tools. A Cursor `tool_call`
-whose payload is only a read, grep, list, or glob inspection does not reject
-when the final result is success and the reply is exactly OK. Write, shell,
-and any other tool call still reject. When such a tool call is the only fault
-of an exact OK reply, the standard Cursor probe runs once more inside the same
-110-second budget, so a rare call does not fail the capture or restore.
-The first Cursor attempt has a 50-second cap. A timeout also permits that
-single retry, using only the remaining budget; a second timeout fails with
-`probe_request_timed_out`. Each timeout prints a sanitized rejection record:
-`event_count` counts complete JSON event objects, and `event_types` holds
-only the last event's type (empty when none arrived). Partial lines and event
-content stay on the host. The failed probe row retains the final timeout's
-record; check the host network and provider status before retrying.
-A
-`tool_call` event type names its payload kind, such as
-`tool_call:shellToolCall`. `tool_use` stays true on a rejection
-record whenever a tool call was present. The failed probe row keeps the record, so an operator-run
-reset or verify returns it in its result. A QA run whose baseline rejected a
-reply stores each record as a `probe_reply_rejection` JSON artifact and names
-the branch, diagnosed reason and recovery in its verdict reason. A golden sealed
-before these records returns none; its reason says so and directs inspection
-of native diagnostics on the host. Preserve failed captures and retry only after
-the diagnosed cause is repaired; failed probes never seal or pass.
-An undeclared nonzero exit is retried exactly once before `baseline_probe_failed`;
-evidence retains the first attempt as `retrying`. Declared causes, unmet
-expectations and unavailable bridges fail immediately. A repeated
-`probe_exit_undeclared` calls for recapturing the golden with current probes.
-An undelivered bridge probe is distinct from a program that ran and refused.
-Older sealed sidecars remain historical state, not implicit inputs to a new
-capture's required check set.
+Monterey cannot use current Docker Desktop's supported OS range. The proved
+Intel path uses [MacPorts](https://www.macports.org/install.php)' signed/notarized
+installer for that exact OS, then `sudo port -N install qemu +target_x86_64`.
+Put `/opt/local/bin` on the test user's PATH and prove `qemu-system-x86_64 --version`.
+Use [Lima's QEMU requirements](https://lima-vm.io/docs/config/vmtype/qemu/).
+Do not upgrade hardware/OS or accept a Desktop agreement as an implied repair.
+Licensing, personal sign-in, password and 2FA gates go to the operator when needed.
 
-The separate browser-profile seal belongs to a different component from
-the clean home. It binds the private profile to its project/user/home and is
-outside ordinary home restoration. Its archive receipt establishes identity
-and integrity; signed-in application UI remains an independent proof.
+### External profile, environment and first start
 
-[Operation contracts](test-machine-operations.md) cover leases and receipts;
-[testing and verification](../testing-verification.md) covers QA verdicts.
+Choose a test-user-owned mode-0700 directory such as
+`/Users/Shared/colima-TESTUSER`, outside the captured home AND every golden
+retention parent. Administrator creates/chowns only that new directory; do not
+change ownership of another user's state. In the account's captured `.zshenv`
+(and any declared non-zsh launch environment) set the actual absolute paths:
 
-## Yoke application sign-ins
+```sh
+export COLIMA_HOME=/Users/Shared/colima-TESTUSER
+export LIMA_HOME="$COLIMA_HOME/_lima"
+export COLIMA_CACHE_HOME="$COLIMA_HOME/cache"
+export PATH="/usr/local/bin:/opt/homebrew/bin:/opt/local/bin:$PATH"
+```
 
-Yoke's hosted machine-connection tests use an account able to approve a test
-machine in the application paired with their plan's bound environment.
-The installed `installer-campaign` plan is bound to Production and uses
-`https://app.upyoke.com`. Its source template is projected onto that one plan
-target; source labels are not separate environment branches in a test.
-No installed machine case requires a Stage application sign-in. Installing
-wheels and reaching a browser wait screen alone do not need an application
-sign-in. These are Yoke test facts, not Machine QA Pack prerequisites.
+Prove the same values in SSH and GUI Terminal. Quiesce the old runtime only with
+custody and no foreign workload; preserve its stopped home-based tree outside
+the home/retention parents. Create a clean vendor profile rather than moving
+absolute-path VM metadata blindly. Never capture/copy a running VM disk into a
+golden: reset can replace it while the hypervisor still writes it, corrupting
+state and hiding the live daemon from ownership cleanup.
 
-Yoke's agent-driven walker case restores the separate saved profile after
-candidate installation and uses it for its own fresh machine approval. The case
-instructions own pages, paths, labels, controls, refusal text and completion
-checks. Its existing retained host-command keeps the candidate terminal alive;
-`yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
-observed step at a time. Read those commands' `--help` before execution. Do not
-add an approval command or extend the scripted terminal recipe contract.
-Follow the Machine QA Pack's [setup responsibilities](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/setup-responsibilities.md).
-Agents complete every software-capable setup step and system permission prompt.
-Only browser sign-in and OS permissions that software cannot grant need the
-operator. Product code alone enters passwords from stored secrets; nobody types
-them by hand. Verify a fresh authorization link belongs to this execution and
-the visible signed-in identity is the intended test account before clicking.
-Actual candidate application UI and terminal completion are separate proofs
-from the snapshot seal. Scripted terminal cases keep their current route.
-The proven Mac Safari route remains in place until the walker has completed a
-real test-mac approval.
+Start as the test user, never root. The proved first-start shape is:
+
+```sh
+colima start --runtime docker --cpus 2 --memory 4 --disk 20 --ssh-config=false
+```
+
+On supported Apple Silicon add `--vm-type vz`; the proved Monterey build chooses
+QEMU and omits that unsupported flag. Preserve project-approved DNS/mount/resource
+settings; the fixture used explicit `--dns` values, not universal DNS policy.
+Require `colima status`, a responding Docker server and a context whose endpoint
+is `unix://$COLIMA_HOME/default/docker.sock` (`docker context inspect colima`).
+If needed create/select the context using `docker context create colima --docker
+"host=unix://$COLIMA_HOME/default/docker.sock"` and `docker context use colima`;
+inspect an existing context before changing it. Clear an unintended `DOCKER_HOST`
+or `DOCKER_CONTEXT` override in the owned launch environment. Keep registry auth
+and other Docker config keys. If an obsolete `credsStore=desktop` helper blocks
+this runtime, back up private config and repair that diagnosed key only.
+
+The live disk is under `$LIMA_HOME/_disks/colima/datadisk`; cache, VM metadata and
+socket remain external, while context/plugin/env references restore with home.
+A daemon failure requires the same environment and `colima start`, followed by
+actual workloads, not a claim that the Docker executable proves readiness.
+Sealed runtime extras must ensure the declared daemon is up and leave it running.
+
+### A Mac serving its own LAN/Tailscale address
+
+Loopback remains the default. A Linux VM IP is not the Mac's LAN/Tailscale IP.
+For a declared numeric private-address server, use Colima's existing
+[host-address option](https://github.com/abiosoft/colima/blob/v0.10.3/embedded/defaults/colima.yaml).
+Read the installed `colima start --help`; the proved flag is
+`--network-host-addresses=true`, with `--network-address=false`. With host custody,
+no foreign workloads and a saved copy of the external `default/colima.yaml`:
+
+```sh
+colima stop
+colima start --network-host-addresses=true --network-address=false
+```
+
+Compare parsed before/after config: only `network.hostAddresses` changes to true;
+`network.address` stays false and all resource/runtime/mount/DNS settings stay.
+`colima ssh -- ip -j address` must show the actual chosen Mac address replicated
+on guest loopback. This does not authorize wildcard listeners, bridging, a proxy,
+Tailscale rewrites or replacing the Mac server with Linux.
+
+Use an unused private port and two uniquely named/labeled owned HTTP probe
+containers. A tested image is Docker Official `busybox:1.37` with `/bin/busybox
+httpd -f -p 8080 -h /tmp/www`; write a unique nonce to its `/tmp/www/index.html`.
+Alpine's BusyBox build may lack `httpd`: first prove the app responds locally.
+Publish the positive only with `-p MAC_PRIVATE_IP:PORT:8080`. From the companion
+Mac require HTTP 200 and that nonce through MAC_PRIVATE_IP; the server's loopback
+must not reach this private-only port. Independently publish the control only
+with `-p 127.0.0.1:CONTROL_PORT:8080`; require local nonce success and failed
+companion access through MAC_PRIVATE_IP. Inspect Docker PortBindings and native
+listener addresses. No host mount is needed. Preserve command/output/config
+hashes; remove only the exact owned labeled container IDs. A dead HTTP service
+is not a passing isolation control. Repeat after both baselines and final reset.
+
+For example, in the Mac server's native shell, substitute an approved address
+and unused ports; choose unique names and keep returned IDs privately:
+
+```sh
+mac_ip=MAC_PRIVATE_IP
+probe=baseline-http-UNIQUE
+control=baseline-loopback-UNIQUE
+nonce=baseline-nonce-UNIQUE
+image=busybox:1.37
+docker run -d --name "$probe" --label baseline.proof="$nonce" \
+  -p "$mac_ip:55225:8080" "$image" /bin/sh -c \
+  "mkdir -p /tmp/www; printf '%s' '$nonce' >/tmp/www/index.html; exec /bin/busybox httpd -f -p 8080 -h /tmp/www"
+docker run -d --name "$control" --label baseline.proof="$nonce" \
+  -p 127.0.0.1:55226:8080 "$image" /bin/sh -c \
+  "mkdir -p /tmp/www; printf '%s' '$nonce' >/tmp/www/index.html; exec /bin/busybox httpd -f -p 8080 -h /tmp/www"
+curl --fail --max-time 5 http://127.0.0.1:55226/
+docker inspect --format '{{json .HostConfig.PortBindings}}' "$probe" "$control"
+lsof -nP -iTCP:55225 -iTCP:55226 -sTCP:LISTEN
+```
+
+From the companion require `curl --fail --max-time 5 http://MAC_PRIVATE_IP:55225/`
+to return the nonce and status 200; port 55226 must fail from that same companion.
+On the server port 55225 must fail through 127.0.0.1. Retry only application
+startup until the local control responds; preserve failures. Inspect labels and
+remove the two exact recorded IDs with `docker rm -f ID ID`, never a broad prune.
+
+## Runtime probes, capture and reset proof
+
+As the fixture user in each declared execution context, require server output,
+Compose v2, zero exits and expected markers from real workloads:
+
+```sh
+docker version
+docker compose version
+docker run --rm --network none alpine:3.22 /bin/echo docker-container-ok
+docker compose -p baseline-runtime-check -f - run --rm check <<'YAML'
+services:
+  check:
+    image: alpine:3.22
+    network_mode: none
+    command: [/bin/echo, compose-container-ok]
+YAML
+```
+
+Use a unique project name when another check might run. Remove that project's
+containers/networks/images through its owned cleanup, leaving unrelated images,
+volumes and workloads alone. Record native exits and output, not CLI presence.
+For restored-home proof, capture a harmless unique-token file in the home, then
+run a container with `--mount type=bind,src=ABSOLUTE_RESTORED_FILE,dst=/proof,readonly`
+and require the token read from `/proof` after each restore. No credential file
+or whole-home mount belongs in a probe. Remove only the owned temporary evidence.
+
+Prepare custom probes by retaining EVERY canonical standard name from the OS
+procedure and adding real runtime/Compose/bind assertions with absolute argv
+and positive expected output. Capture replaces standard programs with canonical
+ones and seals extras; it never imports an older sidecar implicitly. Mac's six
+standards include real requests, bypass, saver and GUI Keychain; Linux's five
+include desktop input; Windows/WSL's four do not establish desktop rendering.
+Preserve standard checks and credential/GUI acceptance, even when Docker passes.
+Keep private probe programs, raw reports, manifests and archives out of Git.
+
+Before every capture ATTEMPT, choose a distinct new destination PARENT outside
+the home, e.g. `/Users/Shared/yoke-golden-attempt-DATE-UNIQUE/home` or
+`/var/lib/yoke-golden-attempt-DATE-UNIQUE/home`. Check space and record every
+project's current golden and sidecars (`.manifest`, `.probes`, `.harness-clis`).
+Current capture retention can delete unregistered siblings, including failed
+attempts. A new basename in the same parent does not preserve them. Never
+approve deletion merely to retry; preserve existing paths/evidence and use a
+separate parent, including on failure. An already lost snapshot is not preserved.
+
+Read served command help, then use the registered capture with the complete
+`--probes-file`, followed by verify and a final fresh-host reset under custody:
+
+```text
+yoke test-machine golden-capture --project P --machine NAME --destination NEW_PARENT/home --probes-file PRIVATE_PROBES_FILE
+yoke test-machine verify --project P --machine NAME
+yoke test-machine reset --project P --machine NAME --baseline fresh-host
+yoke test-machine get --project P --machine NAME
+```
+
+These are destructive operations, requiring separate provisioning authority.
+For EACH restore (`fresh-host`, `shell-preconfigured`, final `fresh-host`), have
+the daemon responding BEFORE reset and seed only recorded, project-owned canary
+container/volume/image IDs under the product's `com.docker.compose.project=yoke-server`
+ownership label, with no foreign workload or home writer. Preserve the IDs in
+external private evidence. Require the receipt's removal evidence and live
+daemon queries proving those exact IDs absent, then real Docker/Compose and
+restored readonly-bind proof. An unreachable daemon cannot prove cleanup.
+Verify ends shell-preconfigured; final reset must prove Yoke launcher absent.
+On a private-address Mac repeat config/guest address/companion/loopback controls
+after each reset. Remove final owned canaries/probes and leave the external
+runtime running. Do not recapture for an external-only profile change.
+
+## Evidence limits and recovery
+
+On 2026-10-22 Ubuntu passed capture, both baselines and final fresh-host with
+all canonical and Docker/Compose probes. Both Intel and Apple Silicon Macs
+passed the external-runtime roundtrip, actual labeled cleanup and restored
+readonly bind; their daemons stayed running. Apple Silicon's private-address
+HTTP and loopback controls also passed after fresh-host, shell-preconfigured
+and final fresh-host, preserving the sealed golden and probes unchanged.
+Windows/WSL passed real Docker/Compose, capture and both home restores, but
+verify failed `screenshot_png_invalid` (blank XFCE/xrdp desktop). It is NOT fully
+ready; successful desktop verification and final fresh-host proof remain owed.
+A later live read found no window-manager/compositor owner, so old compositor
+warnings do not establish the cause. Repair the selected desktop startup under
+separate authority; preserve screenshot validation, goldens and failure evidence.
+
+Capture is a private archive/manifest/probe seal, not live sign-in or desktop
+proof. SSH access, TCC, live harness logins/Keychain and browser identities are
+preserved rather than restored from stale credentials; consult the OS procedure
+for its exact exclusions. Never export credentials to bypass a GUI boundary.
+Mac capture omits sockets/FIFOs and preserves ACLs/xattrs; unexpected foreign
+owners still refuse. A partial home restore is never a new baseline.
+
+A refusal's named phase, reason and recovery own the next step. Preserve failed
+receipts and copies. Quota means wait for capacity; transport means repair the
+route/service; only diagnosed authentication calls for sign-in. Never reset
+credentials for an unknown exit. `test_machine_sign_in_app_quit_not_proved`
+requires quitting the named app through its UI before copying; never force past
+it. `golden_capture_copy_home_failed` retains `copy_stderr`; repair its cause
+and choose a new parent. `golden_snapshot_retention_failed` can follow successful
+registration: read removed/kept paths before any further capture. A failed
+reset retains `reset_phase`, process/load state and `failed_calls` where available;
+missing stdout proves no cause. Fix the named writer/permission/transport and
+retry the sealed restore; never weaken a probe or edit a seal to make it pass.
+
+[Operation contracts](test-machine-operations.md) own leases and receipts.
+For hosted approval, the production installer campaign uses `https://app.upyoke.com`;
+no installed machine case requires Stage sign-in. The existing OS browser
+procedure owns live signed-in application proof and password/2FA handoff;
+actual candidate UI and terminal completion remain separate evidence.

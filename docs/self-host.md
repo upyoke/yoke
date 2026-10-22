@@ -13,7 +13,6 @@ Docker Desktop includes Compose; Docker Engine installations need the Compose
 plugin. Init checks this prerequisite before writing or changing the bundle.
 If Docker or Compose is missing, install Docker (with Compose) and run
 `yoke self-host init` again; Yoke does not install them for you.
-
 On the server host:
 
 ```bash
@@ -43,11 +42,8 @@ yoke status
 ```
 
 The host command opens each mode `0600` input as its non-root operator and streams it on stdin through Docker exec. The container drops to its runtime user and writes private tmpfs copies; no host file is mounted or chowned and no credential is placed in an environment variable. The admin token returns over that same private handoff, outside Docker logs; the host atomically writes its owner-only token file and acknowledges durable storage before token creation commits. A failed handoff refuses with a reason and retry command.
-
 Start/restart an existing bundle with `yoke self-host init --dir PATH --protect-existing --start`. This refreshes the packaged Compose template, preserving `.env`, database credentials, and the Postgres volume. Keep runtime settings in `.env`; reapply any custom Compose changes after a template refresh. Automatic container restart is disabled: after a host/daemon restart, run that host command again so it can reopen the protected inputs. Raw Compose starts alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
-
 A new bundle requires `--admin-name`, written to `.env` as `YOKE_ADMIN_NAME`; first boot refuses to birth a universe without it and names the fix (set it in `.env`, then restart). `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By default it resolves the installed CLI's immutable release manifest and writes that release's exact `<repository>:<BASE.YYYYMMDDHHMM>` image to `.env`. The repository defaults to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine config, or choose **Image repository** in the self-host onboarding preview, to use a fork, mirror, or private registry. Enter a lowercase registry/repository without a tag or digest; it must carry the same immutable release version tags. Every fresh bundle therefore starts with matching CLI and server versions, and a later container restart keeps the same server. `--image` remains an explicit operator override. Generated credentials stay in host-owned files under `secrets/` rather than `.env`, whose values Compose `$`-interpolates.
-
 Refresh older bundles while preserving `.env` and database credentials:
 
 ```bash
@@ -55,6 +51,30 @@ yoke self-host init --dir /path/to/yoke-server --protect-existing
 ```
 
 The command preserves operator-authored `.gitignore` rules and reports that credentials were not regenerated. The bundle and `secrets/` must be real operator-owned directories; `secrets/` must be mode `0700`. It refuses symlinked paths and secrets already tracked by Git. Remove reported paths from the index, rotate any exposed credential, and retry.
+
+## Mac runtime and private-address preparation
+
+On supported macOS choose [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/)
+or [Colima with Docker CLI and Compose](https://colima.run/docs/installation/).
+Check vendor OS/architecture support; current Desktop does not support older
+macOS such as Monterey. Follow Colima/Lima's QEMU instructions for those hosts.
+Install Compose as a Docker CLI plugin; `docker compose version` must report v2.
+Start your chosen runtime yourself: open Desktop and finish its approved first
+run, or run `colima start` in the owning user's Colima environment/context.
+Require `docker info` to succeed before Start; Yoke installs or starts no runtime.
+Setup's interactive and agent modes share this check and explain what to repair.
+Loopback hosting needs no Colima host-address change. For a numeric Mac LAN or
+Tailscale `--listen` address, Colima must forward that HOST address into its VM.
+Read the installed `colima start --help` and [vendor hostAddresses configuration](https://github.com/abiosoft/colima/blob/v0.10.3/embedded/defaults/colima.yaml).
+With permission to stop that runtime, save its profile and ensure no unrelated
+workload is running, then run `colima stop` followed by
+`colima start --network-host-addresses=true --network-address=false`.
+Preserve every other profile setting. The VM address is not the Mac address.
+Verify a container published only on the chosen Mac private IP from another
+machine; separately require a loopback-only control to remain unreachable there.
+An unsupported flag or failed bind needs runtime configuration repair before
+retrying the existing bundle with `--protect-existing --start`; widening to
+`0.0.0.0` is not the repair. These Colima settings do not apply to Docker Desktop.
 
 ## Move an existing universe here
 
@@ -68,13 +88,9 @@ yoke self-host import ~/Downloads/acme-universe-20260714T120000Z.tar \
 ```
 
 The tar carries the database dump and freeze receipt (see [Universe portability](universe-portability.md)); that receipt supplies checksum verification. Type `replace` at the prompt, or pass `--yes` for a non-interactive replacement.
-
 The command requires Docker with Compose, validates the bundle, and refuses while `core` runs. The archive must be a current-owner, single-link regular file with no group/world access. Compose starts only the database and streams the archive to a one-off process in the pinned image; it never bind-mounts the host archive.
-
 Uploaded DDL never runs. Yoke creates the trusted destination schema, validates the bounded archive, and restores approved data and sequences in one transaction; retry replaces a failed or interrupted attempt.
-
 Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, re-credentials the archive's org-admin person (an archive with none refuses), and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
-
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
 
@@ -103,7 +119,6 @@ generated Compose bundle marks the runtime with
 `YOKE_SERVER_MODE=self-host`; without that explicit marker the core endpoint
 is hidden. Hosted Platform tenants continue through Platform's
 fleet-coordinated download route instead of this self-host boundary.
-
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, pass `--listen ADDRESS` at init, for example
 `yoke self-host init --admin-name "Your Name" --listen 100.101.102.103 --start`.
@@ -133,7 +148,6 @@ See [People and machines](self-host-people.md) to connect engineers and approve 
 The host stays connected after setup. If this machine loses its connection,
 rerun `yoke setup` on the host and choose **Host a server here**: it finds the existing bundle, restarts it, and
 reconnects with `secrets/first-boot-admin-token` without asking anything new.
-
 If that credential is lost or revoked, the first-boot and recovery bootstrap
 is available on the server host:
 
@@ -162,19 +176,16 @@ server, never an upyoke Product App or Yoke Development. Configure its URLs on t
 server's HTTPS origin. Project rows store verified installation/repository
 bindings; the App private key is never stored in `capability_secrets` or any
 per-project setting.
-
 Registration, least-privilege installation scope, hosted secret ownership,
 dual-key rotation, and incident response are defined in
 [GitHub App Operations](github-app-operations.md). Use that runbook before
 creating the runtime file below.
-
 When the same App also serves engineer-machine authorization, enable **Device
 Flow** and **Expire user authorization tokens** in its registration before
 connecting any machine. The first enables browser device authorization; the
 second supplies the expiring access token, refresh token, and expiries that the
 local credential store requires. Use the baseline repository grant in the
 operations runbook.
-
 Install the downloaded App private key through Yoke's owner-only ingress. From
 outside the bundle, run:
 
@@ -190,7 +201,6 @@ symlinks, validates a nonempty private-key-shaped PEM, writes a mode `0600`
 temporary file in the bundle's `secrets/` directory, fsyncs it, atomically
 replaces `github-app-private-key.pem`, and fsyncs the directory. Rotation never
 publishes a partial key and never regenerates the bundle's database credentials.
-
 Then set these non-secret/runtime bindings in `.env`:
 
 ```text
@@ -213,7 +223,6 @@ The key stays mode `0600` in the host bundle. The host command opens it and
 streams it to the bootstrap alongside the database DSN and optional OIDC secret.
 The runtime user writes mode `0600` copies in private tmpfs after the privilege
 drop; host ownership and modes stay unchanged.
-
 Hosted/stage deployments use the same runtime contract but source the key from
 AWS Secrets Manager. The deploy environment's `environments.settings` contains
 only this non-secret reference block:
@@ -237,7 +246,6 @@ only this non-secret reference block:
 Omit `public` for a private/operator-only App that must never become the
 default machine Connect profile. If `public` is present it must be complete;
 the outer `api_url` is its single API-origin authority.
-
 The origin instance role resolves that ARN locally. Deployment writes
 `github-app-private-key.pem` as mode `0640`, owned by the deploy user and a
 dedicated host secrets group, and grants only that numeric supplemental group
