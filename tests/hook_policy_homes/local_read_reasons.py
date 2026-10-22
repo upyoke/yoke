@@ -93,6 +93,9 @@ AUTHORITY_RELEASE_MACHINERY = (
     (
         "yoke_cli.config.credentialed_git:_run",
         "yoke_cli.config.credentialed_git_command:remote_url",
+        # Same authority-owned release checkout as remote_url, before a push;
+        # client work-entry checks invoke it locally on their explicit checkout.
+        "yoke_cli.config.project_publication_destination:push_urls",
         "yoke_cli.config.github_git_credential_document:_default_machine_home",
         "yoke_cli.config.github_git_credential_document:machine_secrets_dir",
         "yoke_cli.config.github_git_credential_file:_assert_stable_lock",

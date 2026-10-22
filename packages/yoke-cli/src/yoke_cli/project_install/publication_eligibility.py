@@ -31,6 +31,14 @@ def push_eligibility(
     territory: ownership.InstallerTerritory,
 ) -> dict[str, Any]:
     """Refuse to publish anything but the installer's own unpushed commits."""
+    from yoke_cli.config import project_publication_destination as destination
+
+    if destination.read_only(repo_root, remote):
+        return outcome_layer.pending(
+            repo_root, remote=remote, branch=branch,
+            detail="The source is configured for read-only fetching.",
+            recovery=destination.recovery(remote),
+        )
     state = reconcile_layer.read_remote_state(
         repo_root, branch=branch, remote=remote,
     )

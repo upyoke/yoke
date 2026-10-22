@@ -18,7 +18,6 @@ from yoke_core.domain.project_attribution import resolved_project
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
     from yoke_core.engines.merge_worktree_prepare import MergeContext
 
-# Runtime parent imports avoid the prepare/preflight module cycle.
 
 
 def _parent():
@@ -33,7 +32,9 @@ def _context_item_ref(ctx) -> str:
 
 
 def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
-    """Run preflight checks. Returns (exit_code, message) on failure, None on success."""
+    from yoke_cli.config import project_publication_destination as destination
+    if destination.read_only(ctx.repo_root):
+        return (1, destination.recovery())
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
@@ -42,7 +43,6 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     fail = False
     exit_code = 1
 
-    # PF-1: Worktree cleanliness
     dirty_tracked = _run_git(
         ["diff", "--name-only"], cwd=ctx.worktree_path, capture=True
     )
@@ -51,7 +51,6 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         cwd=ctx.worktree_path,
         capture=True,
     )
-    # Include staged deletions: they have no working-tree counterpart.
     dirty_staged = _run_git(
         ["diff", "--cached", "--name-only"], cwd=ctx.worktree_path, capture=True
     )
@@ -92,7 +91,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     else:
         _print("  OK: Worktree clean (no uncommitted non-Yoke files)")
 
-    # PF-2: Branch tracking
+    # Branch tracking
     local_head = _run_git(["rev-parse", "HEAD"], cwd=ctx.worktree_path, capture=True)
     remote_head = _run_git(
         ["rev-parse", f"origin/{ctx.args.branch}"], cwd=ctx.worktree_path, capture=True

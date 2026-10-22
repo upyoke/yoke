@@ -50,7 +50,7 @@ class Flow(manual.ManualPublishFlow, project_access.ProjectGithubAccessFlow):
             machine_github_verification=None,
             destination=onboard_destinations.DESTINATION_LOCAL,
             api_url="",
-            project_github_repo=None,
+            project_github_repo=None, project_clone_outcome=None,
         )
         self.attached = None
         self.backs = 0

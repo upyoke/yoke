@@ -85,7 +85,7 @@ def test_review_names_connected_remote_and_branch(
         },
         tmp_path / "config.json",
     )
-    assert "Commit Yoke setup and push to destination trunk" in lines["repo"]
+    assert "Commit Yoke setup and push to https://github.com/other/project.git (destination trunk)" in lines["repo"]
     assert all("Bind this project" not in line for line in lines["core"])
 
 
@@ -100,7 +100,8 @@ def test_review_disconnected_github_names_later_push(checkout, tmp_path, github)
         tmp_path / "config.json",
     )
     assert (
-        "Commit Yoke setup and try to push with your own git credentials; "
+        "Commit Yoke setup and try to push to https://github.com/other/project.git "
+        "(origin trunk) with your own git credentials (write access unverified); "
         "otherwise commit locally, not pushed because GitHub is not connected "
         "(push later with: git push origin trunk)"
     ) in lines["repo"]
@@ -188,7 +189,7 @@ def test_review_future_clone_and_created_remote(tmp_path, github, monkeypatch):
     )
     assert onboard_publication.plan_step(inputs, tmp_path / "config.json")[
         "target"
-    ] == ("Commit Yoke setup and push to origin trunk")
+    ] == ("Commit Yoke setup and push to https://github.com/mine/project.git (origin trunk)")
 
 
 def test_review_rehome_previews_new_origin(checkout, tmp_path, github, monkeypatch):
@@ -211,7 +212,7 @@ def test_review_rehome_previews_new_origin(checkout, tmp_path, github, monkeypat
     }
     assert onboard_publication.plan_step(inputs, tmp_path / "config.json")[
         "target"
-    ] == ("Commit Yoke setup and push to origin trunk")
+    ] == ("Commit Yoke setup and push to https://github.com/mine/project.git (origin trunk)")
 
 
 def test_review_existing_repo_without_remote_can_publish(
@@ -227,7 +228,7 @@ def test_review_existing_repo_without_remote_can_publish(
     }
     assert onboard_publication.plan_step(inputs, tmp_path / "config.json")[
         "target"
-    ] == ("Commit Yoke setup and push to origin trunk")
+    ] == ("Commit Yoke setup and push to https://github.com/mine/project.git (origin trunk)")
 
 
 def test_review_does_not_contact_github(checkout, tmp_path, github, monkeypatch):

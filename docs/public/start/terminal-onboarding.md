@@ -73,6 +73,18 @@ then apply that reviewed plan with `--apply`. An installed Pack uses
 `yoke packs update` for repeats and newer versions. See the installed
 `docs/packs/webapp-scaffold/README.md` for boundaries and conflict recovery.
 
+When cloning or adopting an independently cloned folder, choose where Yoke
+publishes: **Read-only source** keeps fetching available and disables source
+pushes in Git's existing push URL configuration; **Use source for pushes** names
+the source as the destination and states whether write access was confirmed or
+remains unverified; **Fork** and **Duplicate** select an owned destination through
+the available GitHub capabilities. A configured project's existing destination
+stays selected. Review names the destination and branch before Apply.
+Read-only setup stays `publication-pending`; publication-required item work
+refuses with `publication_destination_read_only` before preparing its lane.
+Choose/configure an owned writable destination using the refusal's recovery,
+then retry setup and work preparation. Source fetching remains usable.
+
 Review names the setup commit's remote and branch before Apply. With stored
 GitHub authorization, Apply commits Yoke setup and attempts to push it; an
 empty remote takes that commit as its first push, and branch
@@ -81,7 +93,7 @@ Review names an optional push with your own git credentials and the exact
 command to push later. If no helper or SSH key works, Apply completes with the
 setup committed locally and not pushed; it never asks for credentials. A checkout without a remote stays local-only. Skipping
 GitHub shows no GitHub App binding in Review; it disables GitHub automation,
-and does not change the existing setup-publication behavior. Cancel at Review
+and does not disable Git pushes to a selected writable destination. Cancel at Review
 to leave Apply's writes undone.
 
 A local-only project can finish its first item. With a merge-only flow,

@@ -186,6 +186,7 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
+            await pilot.press("enter")  # explicit read-only source destination
             await accept_project_details(pilot, branch_from_source=True)
             assert "How should Yoke manage this project on GitHub?" in str(
                 list(app._history[-1].builder())[0].render()
@@ -234,6 +235,7 @@ def test_changed_checkout_origin_back_returns_to_project_name(
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
             await app.workers.wait_for_complete()
+            await pilot.press("enter")  # explicit read-only source destination
             subprocess.run(
                 [
                     "git",

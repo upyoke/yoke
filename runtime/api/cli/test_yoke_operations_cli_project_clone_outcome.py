@@ -267,5 +267,7 @@ def test_fork_sets_origin_fork_and_upstream_source(tmp_path: Path, monkeypatch) 
     # Fork keeps the source/fork branch; the clone checked out `main`.
     assert outcome.branch == "main"
     assert seen == {"owner": "acme", "repo": "widgets"}
+    assert _git(target, "config", "branch.main.remote") == "origin"
+    assert _git(target, "remote", "get-url", "--push", "upstream") == "disabled://yoke-read-only"
     assert _git(target, "remote", "get-url", "origin") == str(fork)
     assert _git(target, "remote", "get-url", "upstream") == str(source)
