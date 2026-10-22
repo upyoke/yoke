@@ -60,7 +60,7 @@ SESSION_END_EVENT = "SessionEnd"
 
 # The recurring context-bearing event that re-delivers an orientation block
 # the startup event lost. Claude and Codex accept context on every prompt, so
-# the startup event is its own second chance; Cursor's prompt hook answers
+# the prompt event repeats their delivery chance; Cursor's prompt hook answers
 # block/allow only, leaving the tool-result event as its one repeating
 # injection channel. Both mappings follow the harness manifests'
 # ``inject_events`` capability rather than restating it.

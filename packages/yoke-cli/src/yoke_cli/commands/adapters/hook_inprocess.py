@@ -159,6 +159,13 @@ def _confirm_orientation(printed: str) -> None:
     try:
         module = importlib.import_module("yoke_core.domain.session_orientation")
         envelope = json.loads(printed)
+        inner = envelope.get("hookSpecificOutput", {})
+        if (
+            envelope.get("permission") == "deny"
+            or envelope.get("decision") == "block"
+            or inner.get("permissionDecision") == "deny"
+        ):
+            return
         body = envelope.get("additional_context")
         if body is None:
             body = envelope.get("hookSpecificOutput", {}).get("additionalContext")
@@ -176,22 +183,27 @@ def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
         capture = active_output_capture()
     except Exception:
         capture = None
+    exit_code = None
     if capture is not None:
         mark = capture.stdout_mark()
         try:
-            return evaluate()
+            exit_code = evaluate()
+            return exit_code
         finally:
-            _confirm_orientation(capture.stdout_since(mark))
+            if exit_code == 0:
+                _confirm_orientation(capture.stdout_since(mark))
 
     buffered = io.StringIO()
     try:
         with contextlib.redirect_stdout(buffered):
-            return evaluate()
+            exit_code = evaluate()
+            return exit_code
     finally:
         printed = buffered.getvalue()
         if printed:
             sys.stdout.write(printed)
-        _confirm_orientation(printed)
+        if exit_code == 0:
+            _confirm_orientation(printed)
 
 
 def _active_local_universe() -> bool:

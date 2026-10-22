@@ -114,7 +114,9 @@ def lifecycle(monkeypatch, tmp_path, capsys):
             event, json.dumps(payload), dry_run=False, cursor_invocation=False
         )
         assert rc == 0
-        out = capsys.readouterr().out
+        captured = capsys.readouterr()
+        state.stderr = captured.err
+        out = captured.out
         if not out:
             return ""
         envelope = json.loads(
@@ -209,3 +211,52 @@ def test_first_prompt_emission_failure_retries_without_repeating_lifecycle(
     assert lifecycle.invoke("UserPromptSubmit") == ""
     lifecycle.register.assert_called_once()
     lifecycle.prompt.assert_called_once()
+
+
+@pytest.mark.parametrize("fault", ["nonzero", "deny-envelope", "malformed"])
+def test_invalid_or_denied_emission_never_confirms(
+    lifecycle, monkeypatch, capsys, fault
+):
+    from yoke_harness.hooks.decision_render import render_context_stdout
+
+    body = orientation.orientation_for_hook(
+        "UserPromptSubmit",
+        json.dumps({"session_id": "session", "cwd": str(lifecycle.root)}),
+    )
+    wire = render_context_stdout(body, "UserPromptSubmit")
+    if fault == "deny-envelope":
+        envelope = json.loads(wire)
+        envelope["hookSpecificOutput"]["permissionDecision"] = "deny"
+        wire = json.dumps(envelope)
+    elif fault == "malformed":
+        wire = "legacy raw prefix" + wire
+
+    def emit():
+        print(wire)
+        return 2 if fault == "nonzero" else 0
+
+    client._evaluate_confirming_orientation(emit)
+    capsys.readouterr()
+    assert not delivery.orientation_delivered("session")
+    retry = lifecycle.invoke("UserPromptSubmit")
+    assert_emitted_marker(retry)
+
+
+def test_marker_write_failure_teaches_repair_and_allows_retry(lifecycle, monkeypatch):
+    marker = delivery._delivered_marker("session")
+    write_text = type(marker).write_text
+
+    def fail_marker_write(path, *args, **kwargs):
+        if path == marker:
+            raise PermissionError("write access denied")
+        return write_text(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(type(marker), "write_text", fail_marker_write)
+        body = lifecycle.invoke("SessionStart", source="resume")
+    assert orientation.ORIENTATION_HEADING in body
+    assert "orientation_delivery_marker_unwritable" in lifecycle.stderr
+    assert "YOKE_SCRATCH_ROOT" in lifecycle.stderr
+    assert not delivery.orientation_delivered("session")
+    retry = lifecycle.invoke("UserPromptSubmit")
+    assert_emitted_marker(retry)
