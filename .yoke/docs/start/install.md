@@ -231,9 +231,15 @@ appears; otherwise the checkout keeps teaching the previous release.
 - [Remove Yoke](uninstall.md)
 - [Get started](index.md)
 
-Run `yoke path check --json` to see login, interactive, non-login and SSH
-results for each installed supported shell. Any unresolved or shadowed Yoke
-sets `needs_fix=true` and exits nonzero with a named context and recovery.
-Run `yoke path fix --yes`, open a new terminal, and retry `yoke path verify`.
-If repair still fails, check the named shell startup files for PATH overrides
-and file permissions. Setup uses the same repair and verification.
+Run `yoke path check` to see the actual winning executable and expected canonical
+launcher in each installed shell's login, interactive, non-login and SSH context.
+`--json` includes the same per-context resolutions. Any unresolved or shadowed
+Yoke sets `needs_fix=true` and exits nonzero, even when login or SSH succeeds.
+Run `yoke path fix --yes` to repair only Yoke-owned blocks, then open a new terminal
+and run `yoke path verify`. Both commands report every context and fail while any
+required context remains wrong. If later user configuration overrides PATH,
+repair names the remaining winner, context and startup files to inspect, including
+files they source. Remove or reorder the competing PATH entry so the canonical
+tool directory comes first; Yoke preserves user configuration and launchers.
+Repeating unchanged block repair cannot fix that override. Correct startup errors
+or file permissions when named, then rerun verification. Setup uses the same probes.

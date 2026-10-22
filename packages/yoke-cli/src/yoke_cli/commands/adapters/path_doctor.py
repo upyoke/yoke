@@ -48,55 +48,62 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
 
 
 def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
-    plan = path_repair_plan.build(diag)
-    future_ok = path_repair_plan.verification_ok(diag.future_resolved, plan)
-    ssh_ok = path_repair_plan.verification_ok(diag.ssh_resolved, plan)
     lines = [
         f"current shell : {diag.current_shell}",
         f"tool bin dir  : {diag.tool_bin_dir}",
         f"on PATH now   : {'yes' if diag.current_on_path else 'no'}",
         f"login file    : {diag.startup_file}",
         "login shell   : "
-        + ("resolves required tools" if future_ok else "needs PATH repair"),
+        + ("needs PATH repair" if diag.login_needs_fix else "resolves canonical Yoke"),
     ]
     if diag.ssh_startup_file:
         lines.extend(
             [
                 f"ssh file      : {diag.ssh_startup_file}",
                 "ssh command   : "
-                + ("resolves required tools" if ssh_ok else "needs PATH repair"),
+                + ("needs PATH repair" if diag.ssh_needs_fix else "resolves canonical Yoke"),
                 "ssh reason    : non-login shells never read the login startup file",
             ]
         )
     for row in diag.contexts:
+        winner = row["resolved"].get("yoke") or "not found"
+        status = row["reason"] if row["needs_fix"] else "ok"
+        lines.append(
+            f"{row['shell']} {row['context']}: {status}; "
+            f"yoke -> {winner}; expected {diag.preferred_yoke_path}"
+        )
         if row["needs_fix"]:
-            lines.append(
-                f"{row['shell']} {row['context']}: {row['reason']}; {row['recovery']}"
-            )
+            lines.append(f"  recovery: {row['recovery']}")
     lines.append("managed dirs  : " + ", ".join(diag.managed_path_dirs))
     for resolution in diag.harness_clis:
         lines.append(
             f"{resolution.executable:14}: "
             + (resolution.path or "not installed; repair remains re-runnable")
         )
-    for label, winner in (
-        ("current yoke", diag.yoke_shadowed_by),
-        ("future yoke", diag.future_yoke_shadowed_by),
-        ("ssh yoke", diag.ssh_yoke_shadowed_by),
+    for label, resolved in (
+        ("current yoke", diag.current_resolved),
+        ("future yoke", diag.future_resolved),
+        ("ssh yoke", diag.ssh_resolved),
     ):
-        if winner:
-            lines.append(
-                f"{label:14}: {diag.preferred_yoke_path} exists, but {winner} wins"
-            )
-    if diag.needs_fix:
+        winner = _resolutions(resolved).get("yoke") or "not found"
         lines.append(
-            "fix           : run `yoke path fix --yes`, then open a new terminal"
+            f"{label:14}: {winner}; expected {diag.preferred_yoke_path}"
+        )
+    if diag.yoke_shadowed_by:
+        lines.append(
+            "shell_path_shadowed: the current terminal still selects "
+            f"{diag.yoke_shadowed_by}. Put {diag.tool_bin_dir} first on PATH "
+            "or open a new terminal after correcting startup configuration; "
+            "run `yoke path verify` again."
         )
     return "\n".join(lines)
 
 
 def path_check(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke path check")
+    parser = argparse.ArgumentParser(
+        prog="yoke path check",
+        description="Show actual and canonical Yoke paths for every supported shell context.",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
     diag = doctor.diagnose()
@@ -104,11 +111,17 @@ def path_check(args: List[str]) -> int:
         print(json.dumps(_diagnosis_json(diag), indent=2))
     else:
         print(_render_diagnosis(diag))
+        if diag.needs_fix:
+            print("Repair owned blocks with `yoke path fix --yes`; remaining user-owned "
+                  "PATH overrides require the context recovery above.")
     return 1 if diag.needs_fix else 0
 
 
 def path_fix(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke path fix")
+    parser = argparse.ArgumentParser(
+        prog="yoke path fix",
+        description="Repair only Yoke-owned blocks; remaining overrides need manual correction.",
+    )
     parser.add_argument("--yes", action="store_true")
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
@@ -130,7 +143,6 @@ def path_fix(args: List[str]) -> int:
             else str(exc)
         )
         return 1
-    resolved = doctor.verify_fresh_login()
     diag = doctor.diagnose()
     verified = not diag.needs_fix
     if parsed.json_mode:
@@ -142,43 +154,39 @@ def path_fix(args: List[str]) -> int:
                     "login_verified": not diag.login_needs_fix,
                     "verified": verified,
                     "contexts": list(diag.contexts),
-                    "resolved": _resolutions(resolved),
+                    "resolved": _resolutions(diag.future_resolved),
                 }
             )
         )
     else:
+        print("Yoke-owned PATH block repair:")
         print(output.strip())
-        print("Open a new terminal to use the updated PATH.")
+        print(_render_diagnosis(diag))
+        if verified:
+            print("PATH verified. Open a new terminal to use the updated PATH.")
     if not verified and not parsed.json_mode:
-        for row in diag.contexts:
-            if row["needs_fix"]:
-                print(
-                    f"{row['shell']} {row['context']}: {row['reason']}; {row['recovery']}"
-                )
         print(
-            "shell_path_unresolved: run `yoke path fix --yes`, "
-            "check shell configuration that overrides PATH, then open a new terminal."
+            "shell_path_unresolved: PATH verification failed; follow the context "
+            "recovery above. Repeating unchanged owned-block repair cannot fix "
+            "user-owned PATH overrides."
         )
     return 0 if verified else 1
 
 
 def path_verify(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke path verify")
+    parser = argparse.ArgumentParser(
+        prog="yoke path verify",
+        description="Fail if any required shell context cannot resolve canonical Yoke.",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
     diag = doctor.diagnose()
-    resolved = doctor.verify_fresh_login(
-        diag.current_shell, managed_path_dirs=diag.managed_path_dirs
-    )
-    ssh_resolved = doctor.verify_ssh_command(
-        diag.current_shell, managed_path_dirs=diag.managed_path_dirs
-    )
     if parsed.json_mode:
         print(
             json.dumps(
                 {
-                    "resolved": _resolutions(resolved),
-                    "ssh_resolved": _resolutions(ssh_resolved),
+                    "resolved": _resolutions(diag.future_resolved),
+                    "ssh_resolved": _resolutions(diag.ssh_resolved),
                     "contexts": list(diag.contexts),
                     "verified": not diag.needs_fix,
                 },
@@ -186,17 +194,8 @@ def path_verify(args: List[str]) -> int:
             )
         )
     else:
-        for res in resolved:
-            print(f"  {res.name:6} -> {res.path or 'not found'}")
-        if ssh_resolved:
-            print("  SSH command probe:")
-            for res in ssh_resolved:
-                print(f"  {res.name:6} -> {res.path or 'not found'}")
-    if diag.needs_fix:
-        if not parsed.json_mode:
-            print(_render_diagnosis(diag))
-        return 1
-    return 0
+        print(_render_diagnosis(diag))
+    return 1 if diag.needs_fix else 0
 
 
 def path_group(args: List[str]) -> int:

@@ -3,7 +3,7 @@
  "title": "Install checks required tools and repairs owned PATH blocks automatically for login, interactive, non-login and SSH shells; only failures need a screen.",
  "status": "observed",
  "form": "Do",
- "verification": "Scripted source tests cover automatic advance, failure, retry and shell receipts. Installer campaign waits for the next real screen without Install confirmation keys; deployed proof remains release-bound.",
+ "verification": "Scripted source tests cover automatic advance, failure, retry and shell receipts. PATH regressions cover per-context winners, a late interactive Bash override, owned-block repair and repeat idempotence without changing user configuration or launchers. Deployed conflict/correction observation remains owed in the shared installer regression.",
  "topics": ["installation/entry", "installation/readiness"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_path.py", "runtime/api/cli/test_onboard_install_checks.py", "runtime/api/domain/test_installer_campaign_interaction_rows.py", "tests/installer/test_path_context_reporting.py"]
 }
