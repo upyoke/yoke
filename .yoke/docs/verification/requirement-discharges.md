@@ -85,7 +85,11 @@ Waiver/supersession answer every gate, including Dash verification/close-out.
 Supersession still needs current same-candidate pass within accepted revisions
 (including current reworked lane head); unfinished successor names owed evidence.
 Deployment acceptance and done honor admitted discharge and validated same-scope
-member supersession after stage acceptance. Unsettled failures keep done blocked.
+member supersession after stage acceptance. Full same-target, same-member discharge
+also answers a completed failed execution without creating aggregate acceptance
+or changing its FAIL, captures or artifacts. Existing settlement retries close
+the member only when shared-stage, run-wide and other member gates allow it.
+Partial discharge and unsettled failures keep done blocked.
 
 Run-local supersession never retires its item source: an outstanding source
 would be admitted again. Receipts name admitted_from_requirement_id and
