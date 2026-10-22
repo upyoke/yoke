@@ -15,8 +15,8 @@ and requirement ids:
 
 ```text
 yoke deployment-runs get RUN
-yoke qa requirement get --requirement-id N
-yoke qa run list --requirement-id N
+yoke qa requirement get --requirement-id <requirement-id>
+yoke qa run list --requirement-id <requirement-id>
 yoke items dependency list ITEM --json
 yoke workflows item get ITEM
 ```
