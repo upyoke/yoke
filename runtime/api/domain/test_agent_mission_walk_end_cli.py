@@ -40,9 +40,13 @@ def _run_walk_end(
         calls.append("uninstall")
         return fixture_projects
 
-    def teardown(contract: Any, *, timeout_seconds: int) -> dict:
-        calls.append("restore")
-        return dict(result)
+    def teardown(contract: Any, *, timeout_seconds: int, restore_host=True) -> dict:
+        calls.append("restore" if restore_host else "scratch")
+        return (
+            dict(result)
+            if restore_host
+            else {k: v for k, v in result.items() if k != "starting_state_restore"}
+        )
 
     monkeypatch.setattr(
         machine_qa_mission_walk, "execute_agent_mission_project_uninstall", uninstall
@@ -70,7 +74,7 @@ def _run_walk_end(
         + ["--requirement-id", "18152", "--run-id", "991"]
     )
     if fixture_projects["error"]:
-        assert calls == ["uninstall"]
+        assert calls == ["uninstall", "scratch"]
     else:
         assert disposals[0]["run_id"] == 991
         assert disposals[0]["host_projects"] == fixture_projects["host_projects"]
@@ -163,10 +167,9 @@ def test_walk_end_settles_an_already_removed_fixture(monkeypatch, capsys, tmp_pa
     assert captured.err == ""
 
 
-def test_a_recorded_but_unsettled_disposal_still_restores_and_fails(
-    monkeypatch, capsys
-):
+def test_a_recorded_but_unsettled_disposal_preserves_the_host(monkeypatch, capsys):
     blocked = "fixture_project_not_disposed: project cedar is blocked"
+    calls = []
 
     exit_code = _run_walk_end(
         monkeypatch,
@@ -174,10 +177,17 @@ def test_a_recorded_but_unsettled_disposal_still_restores_and_fails(
         None,
         disposal=([blocked], [], True),
         fixture_projects=WITH_PROJECT,
+        calls=calls,
     )
 
     assert exit_code == 3
-    assert blocked in capsys.readouterr().err
+    assert calls == ["uninstall", "dispose", "scratch"]
+    output = capsys.readouterr()
+    assert blocked in output.err
+    assert all(
+        "starting_state_restore" not in json.loads(line)
+        for line in output.out.splitlines()
+    )
 
 
 def test_an_unrecorded_disposal_leaves_the_host_unrestored(monkeypatch, capsys):
@@ -194,7 +204,7 @@ def test_an_unrecorded_disposal_leaves_the_host_unrestored(monkeypatch, capsys):
     )
 
     assert exit_code == 3
-    assert calls == ["uninstall", "dispose"]
+    assert calls == ["uninstall", "dispose", "scratch"]
     err = capsys.readouterr().err
     assert failed in err and "fixture_project_disposal_unrecorded" in err
 

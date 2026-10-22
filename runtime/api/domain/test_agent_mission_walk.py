@@ -286,3 +286,19 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
     assert "never a loose path under /tmp" in walker["prompt"]
     assert "walk-end uninstalls every project the host registers" in walker["prompt"]
     assert "one walker at a time" in contract["prompt"]
+
+
+def test_unsettled_walk_removes_staged_secrets_without_restoring(monkeypatch):
+    control = FakeHostControl()
+    scratch = mission_scratch_path(EXECUTION_ID)
+    control.existing_paths.add(scratch + "/staged-token")
+    reached = _patch_execution(monkeypatch, control, _walk_contract())
+
+    result = machine_qa_mission_walk.execute_agent_mission_walk_end(
+        {"c": 1}, restore_host=False
+    )
+
+    assert result["removed"]
+    assert not any(p.startswith(scratch) for p in control.existing_paths)
+    assert reached == []
+    assert "starting_state_restore" not in result
