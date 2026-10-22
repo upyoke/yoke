@@ -214,18 +214,17 @@ def _settle_reads(
         )
     )
     reasons = failure_reasons(failures)
+    if obligations_fully_discharged(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=current_target_digest,
+    ):
+        # Discharge answers the obligation even after a completed failure;
+        # the execution and its verdict remain historical evidence.
+        return discharged()
     if execution is None:
-        if obligations_fully_discharged(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=current_target_digest,
-        ):
-            # See deployment_qa_stage_acceptance: a subject whose every case
-            # is waived or superseded has nothing left to run, so the missing
-            # execution is the expected end state rather than a blocker.
-            return discharged()
         member_answer = member_post_deploy_answer(conn, subject)
         if member_answer.discharges_without_cases:
             # Recorded emptiness or a carried member's own-flow exemption.
