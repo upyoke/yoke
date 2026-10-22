@@ -1,147 +1,77 @@
-/* One camera over stable nested nodes. Detail is revealed by screen size. */
+/* Responsive context catalogue: normal document flow and explicit navigation. */
 'use strict';
-const map = document.querySelector('#map');
 const world = document.querySelector('#world');
-const wires = document.querySelector('#wires');
 const notice = document.querySelector('#notice');
-const byId = new Map();
-const elements = new Map();
-const records = new Map();
-let roots = [], camera = {x: 0, y: 0, z: 1}, focus = null, drag = null;
-let scheduled = false;
+const byId = new Map(), records = new Map();
+let roots = [], focus = null;
 const navigation = [];
-const palette = ['#487568', '#a37c46', '#657ca5', '#8972a0', '#737c4d'];
 const text = (tag, value, className = '') => {
   const el = document.createElement(tag);
   el.textContent = value;
   el.className = className;
   return el;
 };
-function place(node, x, y, w, h, depth, color, focused = false) {
-  Object.assign(node, {x, y, w, h, depth, color});
-  const count = node.children.length;
-  if (!count) return;
-  const cols = Math.min(count, Math.max(1, Math.floor(w / 260)));
-  const rows = Math.ceil(count / cols);
-  const gap = focused ? 20 : w * .018, inset = focused ? 22 : w * .04;
-  const top = focused ? 210 : h * .25;
-  const cw = (w - inset * 2 - gap * (cols - 1)) / cols;
-  const ch = (h - top - inset - gap * (rows - 1)) / rows;
-  node.children.forEach((child, i) => place(child,
-    x + inset + (i % cols) * (cw + gap),
-    y + top + Math.floor(i / cols) * (ch + gap), cw, focused && !child.children.length && !child.record && !child.document ? Math.min(ch, 230) : ch,
-    depth + 1, color, focused));
-}
-function screen(node) {
-  return {x: node.x * camera.z + camera.x, y: node.y * camera.z + camera.y,
-    w: node.w * camera.z, h: node.h * camera.z};
-}
-function zoom(factor, x = map.clientWidth / 2, y = map.clientHeight / 2) {
-  const next = Math.min(1e9, Math.max(.12, camera.z * factor));
-  const ratio = next / camera.z;
-  camera.x = x - (x - camera.x) * ratio;
-  camera.y = y - (y - camera.y) * ratio;
-  camera.z = next;
-  requestRender();
-}
-function fit(node) {
-  // Reflow the selected subtree to the viewport instead of preserving a narrow tile.
-  const width = map.clientWidth - 48;
-  const columns = Math.max(1, Math.floor(width / 260));
-  const rows = Math.ceil(node.children.length / columns);
-  const height = Math.max(240, map.clientHeight - 145, 232 + rows * 200);
-  place(node, 24, 62, width, height,
-    node.depth, node.color, true);
-  camera = {z: 1, x: 0, y: 0};
-}
 function choose(node, remember = true) {
-  if (!node) return;
   if (remember && focus && focus !== node) navigation.push(focus);
   focus = node;
-  node.reading = false;
-  updateConnections();
-  fit(node);
-  document.querySelector('#intro').hidden = true;
-  updateTrail();
-  updateSourceList();
-  requestRender();
+  if (remember) history.pushState(null, '', node ? '#' + encodeURIComponent(node.id) : location.pathname);
+  render();
+  window.scrollTo(0, 0);
 }
-function home() {
-  if (!roots.length) return;
-  focus = null;
+function home() { navigation.length = 0; choose(null); }
+window.addEventListener('popstate', () => {
   navigation.length = 0;
-  updateConnections();
-  const cols = map.clientWidth > 1150 ? 4 : map.clientWidth > 750 ? 3 : 2;
-  const gap = 22, rows = Math.ceil(roots.length / cols), inset = 36;
-  const w = (map.clientWidth - inset * 2 - gap * (cols - 1)) / cols;
-  const h = Math.max(135, (map.clientHeight - 250 - gap * (rows - 1)) / rows);
-  roots.forEach((node, i) => place(node, inset + i % cols * (w + gap),
-    165 + Math.floor(i / cols) * (h + gap), w, h, 0, palette[i % palette.length]));
-  camera = {z: 1, x: 0, y: 0};
-  document.querySelector('#intro').hidden = false;
-  updateTrail();
-  updateSourceList();
-  requestRender();
-}
-function requestRender() {
-  if (scheduled) return;
-  scheduled = true;
-  requestAnimationFrame(() => { scheduled = false; render(); });
-}
-function makeNode(node) {
-  const el = text('article', '', 'node');
-  el.dataset.type = node.node_type;
-  el.dataset.scope = node.guidance_scope;
-  el.style.setProperty('--accent', node.color);
-  el.tabIndex = 0;
-  el.setAttribute('aria-label', node.title + '. Zoom into node');
-  const heading = text('div', '', 'node-head');
-  heading.append(typeBadge(node), text('h2', node.title),
-    text('p', node.summary, 'summary'));
-  appendSizes(heading, node);
-  const context = text('div', node.type_hint, 'type-context');
-  context.title = node.type_hint;
-  el.append(context);
-  el.append(heading);
-  if (node.children.length) {
-    const preview = text('div', '', 'preview-children');
-    node.children.forEach(child => {
-      const entry = text('button', child.title);
-      entry.onclick = () => choose(child);
-      preview.append(entry);
-    });
-    el.append(preview);
-  }
-  el.onpointerenter = () => { hovered = node; requestRender(); };
-  el.onpointerleave = () => { if (hovered === node) hovered = null; requestRender(); };
-  el.onfocus = () => { hovered = node; requestRender(); };
-  el.onblur = () => { hovered = null; requestRender(); };
-  if ((node.record || node.document || node.body) && node.children.length) {
-    const read = text('button', 'Read details', 'read-node');
-    read.onclick = () => {
-      node.reading = !node.reading;
-      read.textContent = node.reading ? 'Show branches' : 'Read details';
-      fillDetail(node, el);
-      requestRender();
-    };
-    el.append(read);
-  }
-  if (node.children.length) {
-    const all = text('button', `Show all ${node.children.length} →`, 'count');
-    all.onclick = () => choose(node);
-    el.append(all);
-  }
-  const detail = text('div', '', 'detail');
-  el.append(detail);
-  el.onclick = e => { if (!e.target.closest('a,button,.detail')) choose(node); };
-  el.onkeydown = e => {
-    if (e.target === el && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault(); choose(node);
-    }
+  choose(byId.get(decodeURIComponent(location.hash.slice(1))) || null, false);
+});
+function nodeLink(node, label, className = '') {
+  const link = text('a', label, className);
+  link.href = '#' + encodeURIComponent(node.id);
+  link.onclick = event => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault(); choose(node);
   };
-  world.append(el);
-  elements.set(node.id, el);
-  return el;
+  return link;
+}
+function makeCard(node) {
+  const card = text('article', '', 'node');
+  card.dataset.type = node.node_type;
+  card.dataset.scope = node.guidance_scope;
+  card.append(typeBadge(node));
+  const title = text('h2', '');
+  title.append(nodeLink(node, node.title));
+  card.append(title);
+  if (node.summary) card.append(text('p', node.summary, 'summary'));
+  appendSizes(card, node);
+  card.append(nodeLink(node, node.children.length
+    ? `Explore ${node.children.length} ${node.children.length === 1 ? 'entry' : 'entries'} →`
+    : 'Read details →', 'card-link'));
+  return card;
+}
+function render() {
+  world.replaceChildren();
+  updateTrail(); updateSourceList(); updateConnections();
+  const heading = text('section', '', 'page-heading');
+  if (focus) heading.append(typeBadge(focus));
+  heading.append(text('h1', focus ? focus.title : 'What teaches Yoke'));
+  heading.append(text('p', focus ? focus.summary : 'Browse the sources, then open a topic to see its contents.', 'summary'));
+  if (focus) appendSizes(heading, focus);
+  world.append(heading);
+  const children = focus ? focus.children : roots;
+  if (children.length) {
+    const grid = text('div', '', 'card-grid');
+    children.forEach(node => grid.append(makeCard(node)));
+    world.append(grid);
+  }
+  if (focus && (focus.body || focus.document || focus.record || focus.url)) {
+    const section = document.createElement(children.length ? 'details' : 'section');
+    section.className = 'full-content';
+    if (children.length) section.append(text('summary', 'Read full content'));
+    section.append(text('div', '', 'detail'));
+    world.append(section);
+    if (children.length) section.ontoggle = () => { if (section.open) fillDetail(focus, section); };
+    else fillDetail(focus, section);
+  }
+  notice.textContent = `${children.length} ${children.length === 1 ? 'entry' : 'entries'}`;
 }
 async function fillDetail(node, el) {
   if (el.dataset.loaded) return;
@@ -222,69 +152,6 @@ async function fillDetail(node, el) {
     });
   }
 }
-function render() {
-  if (!roots.length) return;
-  const visible = new Set();
-  function visit(node) {
-    const s = screen(node);
-    if (s.x + s.w < 0 || s.y + s.h < 0 || s.x > map.clientWidth || s.y > map.clientHeight) return;
-    if (s.w < 20 || s.h < 12) return;
-    visible.add(node.id);
-    const el = elements.get(node.id) || makeNode(node);
-    el.hidden = false;
-    Object.assign(el.style, {left: `${s.x}px`, top: `${s.y}px`,
-      width: `${s.w}px`, height: `${s.h}px`, zIndex: node.depth + 1});
-    const child = node.children[0];
-    const roomForChildren = child && child.w * camera.z >= 175 && child.h * camera.z >= 105;
-    const expanded = focus === node || (focus ? roomForChildren || (!child && s.w > 340 && s.h > 180)
-      : camera.z > 1.4 && s.w > 620 && s.h > 370);
-    el.classList.toggle('expanded', expanded);
-    el.classList.toggle('branches-visible', Boolean(expanded && roomForChildren && !node.reading));
-    el.classList.toggle('tiny', s.w < 190 || s.h < 110);
-    el.classList.toggle('selected', focus === node);
-    el.classList.toggle('leaf', !node.children.length);
-    el.classList.toggle('reading', Boolean(node.reading));
-    el.classList.toggle('compact', s.h < 185);
-    el.style.setProperty('--head-size', `${Math.min(28, Math.max(12, s.w * .058))}px`);
-    fitPreview(el);
-    if (expanded && !node.children.length) fillDetail(node, el);
-    if (expanded && roomForChildren && !node.reading) node.children.forEach(visit);
-  }
-  (focus ? [focus] : roots).forEach(visit);
-  for (const [id, el] of elements) if (!visible.has(id)) el.hidden = true;
-  drawConnections(visible);
-  document.querySelector('#scale').textContent = `${Math.round(camera.z * 100)}%`;
-  notice.textContent = focus ? `${focus.title} · ${focus.children.length} branches` : `${roots.length} teaching sources · zoom to reveal their contents`;
-}
-map.addEventListener('wheel', e => {
-  if (e.target.closest('.detail') && !e.ctrlKey && !e.metaKey) return;
-  e.preventDefault();
-  const rect = map.getBoundingClientRect();
-  zoom(Math.exp(-e.deltaY * .002), e.clientX - rect.left, e.clientY - rect.top);
-}, {passive: false});
-map.addEventListener('pointerdown', e => {
-  if (e.target.closest('button,a,.detail') || e.button !== 0) return;
-  drag = {x: e.clientX, y: e.clientY, cx: camera.x, cy: camera.y, moved: false};
-});
-window.addEventListener('pointermove', e => {
-  if (!drag) return;
-  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
-  if (drag.moved) { camera.x = drag.cx + dx; camera.y = drag.cy + dy; requestRender(); }
-});
-window.addEventListener('pointerup', () => {
-  if (drag?.moved) map.addEventListener('click', e => e.stopPropagation(), {capture: true, once: true});
-  drag = null;
-});
-map.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { e.preventDefault(); up(); }
-});
-function up() { const parent = byId.get(focus?.parent); if (parent) choose(parent); else home(); }
-document.querySelector('#home').onclick = home;
-document.querySelector('#up').onclick = up;
-document.querySelector('#in').onclick = () => zoom(1.5);
-document.querySelector('#out').onclick = () => zoom(1 / 1.5);
-window.addEventListener('resize', () => { if (focus) fit(focus); else home(); requestRender(); });
 (async () => {
   try {
     const response = await fetch('manifest.json', {cache: 'no-store'});
@@ -304,10 +171,8 @@ window.addEventListener('resize', () => { if (focus) fit(focus); else home(); re
       else roots.push(node);
     });
     expandRepresentations();
-    roots.forEach((node, i) => place(node, (i % 4) * 480,
-      Math.floor(i / 4) * 370, 440, 300, 0, palette[i % palette.length]));
-    updateSourceList();
-    home();
+    const selected = byId.get(decodeURIComponent(location.hash.slice(1)));
+    choose(selected || null, false);
   } catch (error) {
     notice.textContent = 'Map could not load. Serve the checkout over localhost, rebuild the views, then reload.';
     notice.classList.add('error');

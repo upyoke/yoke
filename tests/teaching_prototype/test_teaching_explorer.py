@@ -1,4 +1,4 @@
-"""The spatial view preserves canonical context nodes and relationship chains."""
+"""The responsive guide preserves canonical context nodes and relationship chains."""
 
 import json
 from pathlib import Path
@@ -268,3 +268,17 @@ def test_install_modes_represent_real_setup_subtrees(explorer):
         assert any(node['parent'] == target for node in nodes.values())
         assert nodes[alias]['message_estimate'] == nodes[target]['message_estimate']
         assert not nodes[alias]['connections']
+
+
+def test_guide_uses_document_grid_without_canvas_controls(explorer):
+    _, views, _ = explorer
+    html = views['explore/index.html']
+    assert '<main id="main">' in html
+    assert 'id="wires"' not in html
+    assert 'id="tools"' not in html
+    css = views['explore/explorer.css']
+    assert 'grid-template-columns: repeat(auto-fit' in css
+    script = views['explore/explorer.js']
+    assert 'history.pushState' in script
+    assert "addEventListener('wheel'" not in script
+    assert 'function place(' not in script

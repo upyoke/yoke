@@ -25,11 +25,10 @@ that shared page so independent model edits can land together.
 
 ### Human reading view
 
-Open `views/explore/index.html` after building for the single-page context
-map. Drag to pan, scroll to zoom, or click a node to focus it. Zooming reveals
-nested sources, actual files, named sections, setup questions, hook events and
-command branches in place; leaf detail opens the corresponding source. Whole map and Up one level
-move the camera without opening another page.
+Open `views/explore/index.html` after building for the responsive context guide.
+Each page shows its immediate children in a normal CSS grid. Cards grow with
+content and the browser scrolls naturally. Open a card to read or explore it;
+breadcrumbs, the source navigator and browser Back preserve navigation.
 
 The top level separates homepage, public docs, setup, global/project hooks,
 project rules, skills, roles, command help, command replies, context packets,
@@ -200,16 +199,11 @@ Scoped instructions show the shipped text and the command that reads privately
 scoped instructions; no private records or live session payloads are copied.
 These connections describe source routes, not proof of live delivery.
 
-Clicking a node reflows its subtree to the viewport and hides neighboring trees.
-Nested nodes expand while their children have readable space; click a smaller
-node to give it the full viewport. Breadcrumbs and Whole map restore context.
-Node headings omit research-status labels.
-
-The explorer includes a persistent source navigator and a separate connection
-panel. Hover or keyboard-focus a visible node to highlight its connected sources;
-Show connections displays the named routes between visible groups. Collapsed
-children map their connections to the visible parent. Command nodes come from
-the registered command inventory, with teaching references attached where known.
+Each page keeps the title, summary, applicability and output size above its cards.
+Leaf pages show their full content; parents provide a Read full content disclosure.
+Related-source links appear below the grid. Hash URLs restore the selected node
+on refresh, including alternate representations with their arrival breadcrumbs.
+There is no canvas, pan/zoom, hover tracing, clipped card preview or floating control.
 
 Node types describe content form, not review status. Every node carries a short
 label, icon and form-specific card treatment: pages, files, conceptual groups,
@@ -259,6 +253,6 @@ Harness-specific orientation cards show prominent applicability badges and deliv
 
 Alternate install-mode cards expose the actual setup subtree in place. Cross-map navigation retains a Back button to the previous view.
 
-Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; large focused collections extend vertically for readable cards.
+Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; all groups remain available through normal page scrolling.
 
-Child previews fill the available card area using measured wrapped rows; Show all opens the same node as clicking its card, across every map branch.
+Cards have no fixed heights or nested preview layers; each title and Explore link opens the next level.

@@ -212,27 +212,14 @@ def build_explorer(views, pages):
 <script src="explorer.js" defer></script>
 </head>
 <body>
-<header><a class="brand" href="index.html" aria-label="Yoke context map"><span class="brand-mark">y</span>yoke<span class="brand-divider">/</span><span class="brand-name">Context map</span></a>
-<div class="header-actions"><button id="trace" aria-pressed="false">Show connections</button><span class="review">Design preview</span></div></header>
-<aside id="sources" aria-label="Teaching sources"><div class="rail-title">Explore</div><nav id="source-list"></nav><div class="rail-foot"><span class="live-dot"></span> A map of what teaches Yoke<br><small>Sources → instructions → connections</small></div></aside>
-<nav id="trail" aria-label="Map position"></nav>
-<div id="map" tabindex="0" role="region" aria-label="Zoomable context map">
-<svg id="wires" aria-hidden="true"></svg><div id="world"></div>
-</div>
-<aside id="intro"><h1>How Yoke learns to work.</h1>
-<p>Every instruction has a home. Explore the sources and follow what connects them.</p>
-<p class="muted">Select a source to explore inside. Hover to trace its connections.</p></aside>
-<div id="tools" aria-label="Map controls">
-<button id="out" aria-label="Zoom out">−</button>
-<output id="scale">100%</output>
-<button id="in" aria-label="Zoom in">+</button>
-<button id="up">Up one level</button><button id="home">Whole map</button>
-</div>
-<aside id="connections" aria-label="Connections" hidden></aside>
-<p id="notice" role="status">Loading the context map…</p>
-<div id="future">Drag to pan <span>·</span> Scroll to zoom <span>·</span> Esc to go back</div>
-<noscript>This spatial view needs JavaScript. Open the
-<a href="../index.html">research catalogue</a> instead.</noscript>
+<header class="site-header"><a class="brand" href="index.html">yoke <span>Context guide</span></a><span class="review">Design preview</span></header>
+<div class="page-layout">
+<aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
+<main id="main"><nav id="trail" aria-label="Breadcrumbs"></nav><div id="world"></div>
+<p id="notice" role="status">Loading sources…</p>
+<aside id="connections" aria-label="Related sources" hidden></aside>
+<noscript>This guide needs JavaScript. <a href="../index.html">Open the research catalogue</a>.</noscript>
+</main></div>
 </body></html>
 '''
     for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
