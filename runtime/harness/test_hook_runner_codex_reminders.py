@@ -1,187 +1,211 @@
-"""hook runner codex reminders regression coverage."""
+"""Combined Codex lifecycle and client output uses one confirmed envelope."""
 
-# ruff: noqa: F401
 from __future__ import annotations
 
-import os
-import unittest
-import uuid
-from pathlib import Path
-from unittest import mock
-import yoke_core.domain.main_agent_packet as main_agent_packet
-from yoke_core.domain.main_agent_packet import (
-    INSTALL_ADVISORY_COMMAND,
-    INSTALL_ADVISORY_HEADING,
-    INSTALL_ADVISORY_POINTER,
-)
-from yoke_core.hooks.codex_payload import (
-    prompt_marker_path,
-    runtime_cache_path,
-    session_marker_path,
-)
-from yoke_core.hooks import session_dispatch
-from yoke_core.hooks.types import HookContext
+import hashlib
+import json
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 import pytest
 
-from runtime.harness.test_hook_runner_session_dispatch_codex import (
-    _Invoker,
-    _ctx,
-    _first_prompt_events,
-    _fresh_codex_session_id,
-    _payload,
-    pytestmark,
-)
+from yoke_cli.commands.adapters import hook_inprocess as client
+from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
+from yoke_contracts.session_model_facts import SessionModelFacts
+from yoke_core.domain import session_orientation as orientation
+from yoke_core.domain import session_orientation_delivery as delivery
+from yoke_core.hooks import codex_payload, local_entry, session_dispatch
+from yoke_core.hooks.types import HookContext
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 
-class TestCodexReminderInstallAdvisory(unittest.TestCase):
-    """Coverage for the install advisory on the hook-enhanced Codex reminder.
+@pytest.fixture()
+def lifecycle(monkeypatch, tmp_path, capsys):
+    root = tmp_path / "project"
+    (root / ".yoke").mkdir(parents=True)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    monkeypatch.setenv("YOKE_EXECUTOR", "codex")
+    monkeypatch.setattr(delivery, "_composed_session", None)
+    monkeypatch.setattr("yoke_harness.hooks.identity.detect_executor", lambda: "codex")
+    monkeypatch.setattr(local_entry, "detect_executor", lambda: "codex")
+    monkeypatch.setattr(client, "_touch_detached_resume", lambda: None)
+    monkeypatch.setattr(client, "_active_local_universe", lambda: True)
+    monkeypatch.setattr(
+        "yoke_cli.transport.https.resolve_https_connection", lambda: None
+    )
+    monkeypatch.setattr(
+        "yoke_harness.hooks.command_workdir_stamp.stamp_command_workdir",
+        lambda text, _: text,
+    )
+    for name in (
+        "record_client_anchor",
+        "ensure_machine_hooks_for_executor",
+        "capture_codex_session",
+        "record_model_facts_shipped",
+        "settle_projection",
+    ):
+        monkeypatch.setattr(local_entry, name, lambda *a, **k: None)
+    monkeypatch.setattr(
+        local_entry, "stamp_hook_input", lambda p, text, *a: (text, None)
+    )
+    monkeypatch.setattr(local_entry, "relay_identity_payload", lambda *a, **k: {})
+    monkeypatch.setattr(local_entry, "collect_client_facts", lambda *a, **k: {})
+    monkeypatch.setattr(
+        local_entry,
+        "resolve_hook_project_scope",
+        lambda _: SimpleNamespace(project_id=None),
+    )
+    monkeypatch.setattr(local_entry, "event_chain", lambda *a: [])
+    monkeypatch.setattr(local_entry, "confirmed_served_model", lambda *a: None)
+    monkeypatch.setattr(local_entry, "resolve_capability", lambda _: None)
+    monkeypatch.setattr(session_dispatch, "_root_and_db", lambda _: (str(root), "db"))
+    monkeypatch.setattr(session_dispatch, "_is_yoke_target", lambda *a: True)
+    monkeypatch.setattr(session_dispatch, "_reap_stale_sessions", lambda *a: None)
+    monkeypatch.setattr(
+        "yoke_harness.hooks.session_lifecycle.sync_session_main_checkout",
+        lambda *a: None,
+    )
+    monkeypatch.setattr(codex_payload, "resolve_session_id", lambda _: "session")
+    facts = SessionModelFacts(requested_model="requested", model="served")
+    monkeypatch.setattr(session_dispatch, "_codex_model_facts", lambda *a: facts)
+    monkeypatch.setattr(
+        "yoke_core.hooks.codex_model.resolve_entrypoint", lambda: "codex-cli"
+    )
+    register = Mock(return_value="")
+    prompt = Mock()
+    monkeypatch.setattr(session_dispatch, "_register_codex", register)
+    monkeypatch.setattr(
+        "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
+        prompt,
+    )
+    monkeypatch.setattr(
+        orientation, "_advisory_lines", lambda _: ["Install: yoke setup --agent"]
+    )
+    monkeypatch.setattr(orientation, "_git_line", lambda *a: "")
+    monkeypatch.setattr(
+        orientation, "_startup_block_lines", lambda: ["Use yoke help for commands."]
+    )
+    monkeypatch.setattr(
+        "yoke_cli.config.setup_facts_summary.orientation_lines", lambda _: []
+    )
+    state = SimpleNamespace(
+        root=root, register=register, prompt=prompt, fault="", facts=facts
+    )
 
-    The reminder is the first model-visible output for the typical fresh-Codex
-    case where SessionStart suppresses orientation (``source="startup"`` with
-    no ``transcript_path``). When ``yoke`` is missing on PATH, the advisory
-    must surface here. When orientation already rendered (SESSION_MARKER
-    armed) or when ``yoke`` resolves on PATH, the reminder must omit it.
-    """
-
-    def setUp(self) -> None:
-        self.session_id = _fresh_codex_session_id()
-        self.session_marker = session_marker_path(self.session_id)
-        self.prompt_marker = prompt_marker_path(self.session_id)
-        self.runtime_cache = runtime_cache_path(self.session_id)
-        self.addCleanup(self._cleanup_session_marker)
-        self.addCleanup(self._cleanup_prompt_marker)
-        self.addCleanup(self._cleanup_runtime_cache)
-        # Stub capability-registry helpers so the reminder body is deterministic
-        # and independent of registry contents.
-        patcher_prompt = mock.patch(
-            "yoke_core.domain.harness_capability_registry.prompt_reminder_lines",
-            return_value=["  /yoke refine  -- review work"],
+    def run(event, *, stdin_data, controls, **_):
+        controls.final_outcome = "deny" if state.fault == "denied" else "allow"
+        payload = json.loads(stdin_data)
+        payload.update(controls.payload_extra)
+        decision = session_dispatch.evaluate(
+            HookContext(event, "codex", "codex-cli", payload)
         )
-        patcher_paths = mock.patch(
-            "yoke_core.domain.harness_capability_registry.shared_downstream_paths",
-            return_value=["refine", "implement"],
+        if state.fault == "interrupted":
+            raise KeyboardInterrupt()
+        if state.fault == "denied":
+            return '{"hookSpecificOutput":{"permissionDecision":"deny"}}', 0
+        return decision.audit_fields.get("stdout", ""), 0
+
+    monkeypatch.setattr(local_entry, "run_event", run)
+
+    def invoke(event, **extra):
+        payload = {"session_id": "session", "cwd": str(state.root), **extra}
+        rc = client.evaluate_inprocess(
+            event, json.dumps(payload), dry_run=False, cursor_invocation=False
         )
-        patcher_prompt.start()
-        patcher_paths.start()
-        self.addCleanup(patcher_prompt.stop)
-        self.addCleanup(patcher_paths.stop)
+        assert rc == 0
+        out = capsys.readouterr().out
+        if not out:
+            return ""
+        envelope = json.loads(
+            out
+        )  # A raw prefix or two concatenated envelopes fails here.
+        body = envelope.get("hookSpecificOutput", {}).get("additionalContext", "")
+        assert len(body.encode()) <= INLINE_CONTEXT_BYTES["codex"]
+        return body
 
-    def _cleanup_session_marker(self) -> None:
-        try:
-            os.unlink(self.session_marker)
-        except FileNotFoundError:
-            pass
+    state.invoke = invoke
+    return state
 
-    def _cleanup_prompt_marker(self) -> None:
-        try:
-            os.unlink(self.prompt_marker)
-        except FileNotFoundError:
-            pass
 
-    def _cleanup_runtime_cache(self) -> None:
-        try:
-            os.unlink(self.runtime_cache)
-        except FileNotFoundError:
-            pass
+def assert_emitted_marker(body):
+    encoded = body.encode()
+    assert json.loads(delivery._delivered_marker("session").read_text()) == {
+        "byte_count": len(encoded),
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+    }
 
-    def _arm_session_marker(self) -> None:
-        Path(self.session_marker).touch()
 
-    def _render(self) -> str:
-        return session_dispatch._render_codex_reminder(
-            self.session_id,
-            "/repo",
-            "",
-            "gpt-5",
-            "codex-entry",
-        )
+@pytest.mark.parametrize("source", ["startup", "resume"])
+def test_early_delivery_suppresses_prompt_orientation_but_keeps_lifecycle(
+    lifecycle, source
+):
+    body = lifecycle.invoke("SessionStart", source=source, transcript_path="transcript")
+    assert body.count(orientation.ORIENTATION_HEADING) == 1
+    assert "Install:" in body and "yoke help" in body
+    assert_emitted_marker(body)
+    assert lifecycle.invoke("UserPromptSubmit") == ""
+    assert lifecycle.invoke("UserPromptSubmit") == ""
+    assert lifecycle.register.call_count == 2
+    assert lifecycle.register.call_args.args[2] == lifecycle.facts
+    lifecycle.prompt.assert_called_once_with("", "session")
+    assert codex_payload.read_runtime_cache_field("session", "source") == source
 
-    def test_reminder_renders_advisory_when_orientation_suppressed(self) -> None:
-        """SESSION_MARKER unarmed + yoke missing → reminder owns the advisory."""
 
-        with mock.patch.object(main_agent_packet.shutil, "which", return_value=None):
-            output = self._render()
-        # Advisory leads the reminder so the operator sees it before the
-        # command catalog, matching the bootstrap-compact contract.
-        self.assertTrue(
-            output.startswith(INSTALL_ADVISORY_HEADING),
-            f"reminder must lead with the install advisory; got: {output!r}",
-        )
-        self.assertIn(INSTALL_ADVISORY_COMMAND, output)
-        self.assertIn(INSTALL_ADVISORY_POINTER, output)
-        self.assertIn("Yoke/Codex safe operator commands", output)
+@pytest.mark.parametrize("miss", ["missing", "suppressed", "denied", "interrupted"])
+@pytest.mark.parametrize("projectless", [False, True])
+def test_missed_startup_recovers_once_on_prompt(lifecycle, miss, projectless):
+    if projectless:
+        lifecycle.root = lifecycle.root.parent / "outside"
+        lifecycle.root.mkdir()
+    if miss == "suppressed":
+        assert lifecycle.invoke("SessionStart", source="startup") == ""
+    elif miss in ("denied", "interrupted"):
+        lifecycle.fault = miss
+        if miss == "interrupted":
+            with pytest.raises(KeyboardInterrupt):
+                lifecycle.invoke("SessionStart", source="resume")
+        else:
+            assert lifecycle.invoke("SessionStart", source="resume") == ""
+        lifecycle.fault = ""
+    assert not delivery.orientation_delivered("session")
+    body = lifecycle.invoke("UserPromptSubmit", source="startup")
+    assert body.count(orientation.ORIENTATION_HEADING) == 1
+    assert ("outside every Yoke project" in body) == projectless
+    assert_emitted_marker(body)
+    assert lifecycle.invoke("UserPromptSubmit") == ""
+    lifecycle.prompt.assert_called_once_with("", "session")
+    assert lifecycle.register.call_count >= 1
 
-    def test_prompt_after_startup_suppression_renders_advisory(self) -> None:
-        """startup/no-transcript suppression does not hide the first real prompt advisory."""
 
-        startup = HookContext(
-            event_name="SessionStart",
-            executor_family="codex",
-            executor_surface="codex",
-            payload=_payload(self.session_id, source="startup"),
-        )
-        prompt = HookContext(
-            event_name="UserPromptSubmit",
-            executor_family="codex",
-            executor_surface="codex",
-            payload=_payload(self.session_id, transcript_path="/tmp/codex.jsonl"),
-        )
-        root = str(Path.cwd())
-        with (
-            mock.patch.dict(os.environ, {}, clear=False),
-            mock.patch(
-                "yoke_core.hooks.codex_payload.resolve_session_id",
-                return_value=self.session_id,
-            ),
-            mock.patch(
-                "yoke_core.hooks.codex_model.resolve",
-                return_value="gpt-5",
-            ),
-            mock.patch(
-                "yoke_core.hooks.session_dispatch._touch",
-                return_value=0,
-            ),
-            mock.patch(
-                "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
-            ),
-            mock.patch.object(
-                main_agent_packet.shutil,
-                "which",
-                return_value=None,
-            ),
-        ):
-            self.assertEqual(
-                session_dispatch._run_codex_session_start(startup, root), ""
-            )
-            self.assertFalse(os.path.exists(self.session_marker))
-            output = session_dispatch._run_codex_prompt_submit(prompt, root)
+def test_registration_failure_keeps_recovery_in_one_budgeted_envelope(lifecycle):
+    lifecycle.register.return_value = "registration_unavailable: repair the connection"
+    body = lifecycle.invoke("SessionStart", source="resume")
+    assert "registration_unavailable" in body
+    assert "yoke sessions identity --json" in body
+    assert body.count(orientation.ORIENTATION_HEADING) == 1
+    assert_emitted_marker(body)
+    prompt = lifecycle.invoke("UserPromptSubmit")
+    assert "registration_unavailable" in prompt
+    assert orientation.ORIENTATION_HEADING not in prompt
+    lifecycle.prompt.assert_called_once()
 
-        self.assertTrue(output.startswith(INSTALL_ADVISORY_HEADING), output)
-        self.assertIn(INSTALL_ADVISORY_COMMAND, output)
-        self.assertIn(INSTALL_ADVISORY_POINTER, output)
-        self.assertIn("Yoke/Codex safe operator commands", output)
 
-    def test_reminder_omits_advisory_when_orientation_already_rendered(self) -> None:
-        """SESSION_MARKER armed (orientation fired) → reminder must NOT duplicate it."""
-
-        self._arm_session_marker()
-        with mock.patch.object(main_agent_packet.shutil, "which", return_value=None):
-            output = self._render()
-        self.assertNotIn(INSTALL_ADVISORY_HEADING, output)
-        self.assertNotIn(INSTALL_ADVISORY_COMMAND, output)
-        self.assertTrue(output.startswith("Yoke/Codex safe operator commands"))
-
-    def test_reminder_omits_advisory_when_yoke_on_path(self) -> None:
-        """Installed sessions see no advisory regardless of SESSION_MARKER state."""
-
-        # Even with orientation suppressed, an installed session must stay quiet.
-        with mock.patch.object(
-            main_agent_packet.shutil,
-            "which",
-            return_value="/usr/local/bin/yoke",
-        ):
-            output = self._render()
-        self.assertNotIn(INSTALL_ADVISORY_HEADING, output)
-        self.assertNotIn(INSTALL_ADVISORY_COMMAND, output)
-        self.assertTrue(output.startswith("Yoke/Codex safe operator commands"))
-        self.assertIn("yoke board art variant create", output)
+@pytest.mark.parametrize("fault", ["denied", "interrupted"])
+def test_first_prompt_emission_failure_retries_without_repeating_lifecycle(
+    lifecycle, fault
+):
+    lifecycle.fault = fault
+    if fault == "interrupted":
+        with pytest.raises(KeyboardInterrupt):
+            lifecycle.invoke("UserPromptSubmit")
+    else:
+        assert lifecycle.invoke("UserPromptSubmit") == ""
+    assert not delivery.orientation_delivered("session")
+    lifecycle.fault = ""
+    body = lifecycle.invoke("UserPromptSubmit")
+    assert orientation.ORIENTATION_HEADING in body
+    assert_emitted_marker(body)
+    assert lifecycle.invoke("UserPromptSubmit") == ""
+    lifecycle.register.assert_called_once()
+    lifecycle.prompt.assert_called_once()

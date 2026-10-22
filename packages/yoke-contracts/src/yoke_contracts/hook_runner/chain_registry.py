@@ -45,8 +45,8 @@ _LIFECYCLE_EVENTS: frozenset[str] = TERMINAL_HOOK_EVENTS | frozenset(
 )
 
 # The default event on which a client composes session orientation. Claude
-# and Codex accept context on UserPromptSubmit; Cursor's model-visible startup
-# channel is SessionStart instead. Both the product adapter and the shared
+# accepts context on UserPromptSubmit; Codex and Cursor also carry early
+# orientation on SessionStart. Both the product adapter and the shared
 # composer call ``session_orientation_event`` so hot-path events can skip the
 # engine without independently reconstructing that harness mapping.
 SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
@@ -67,9 +67,13 @@ SESSION_END_EVENT = "SessionEnd"
 SESSION_ORIENTATION_REDELIVERY_EVENT = "PostToolUse"
 
 
-def session_orientation_event(*, cursor: bool = False) -> str:
+def session_orientation_event(*, cursor: bool = False, executor: str = "") -> str:
     """Return the context-bearing startup event for one harness family."""
-    return SESSION_START_EVENT if cursor else SESSION_ORIENTATION_EVENT
+    return (
+        SESSION_START_EVENT
+        if cursor or executor == "codex"
+        else SESSION_ORIENTATION_EVENT
+    )
 
 
 def session_orientation_redelivery_event(*, cursor: bool = False) -> str:

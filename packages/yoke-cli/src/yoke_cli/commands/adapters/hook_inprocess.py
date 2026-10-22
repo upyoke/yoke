@@ -131,8 +131,10 @@ def _session_orientation(
     cursor: bool,
 ) -> str:
     """Compose this machine's harness-timed session orientation, or ``""``."""
+    from yoke_harness.hooks.identity import detect_executor
+
     if event_name not in (
-        session_orientation_event(cursor=cursor),
+        session_orientation_event(cursor=cursor, executor=detect_executor()),
         session_orientation_redelivery_event(cursor=cursor),
     ):
         return ""

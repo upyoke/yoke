@@ -13,12 +13,10 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.hooks import session_dispatch_codex_lifecycle as _codex_lifecycle
 from yoke_core.hooks.session_dispatch_orientation import (
     _render_claude_orientation,
-    _render_codex_orientation,
-    _render_codex_reminder,
+    registration_failure_stdout,
 )
 
 _register_codex = _codex_lifecycle.register
-_session_begin_recovery_command = _codex_lifecycle.recovery_command
 _touch = _codex_lifecycle.touch  # retained for adapter wiring tests
 
 
@@ -135,10 +133,9 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
     raw = _payload_json(record.payload)
     session_id = _codex.resolve_session_id(raw)
     if not session_id:
-        return (
-            "## Yoke Orientation (Codex hook-enhanced)\n\n"
-            "WARNING: No stable session ID available. Running in degraded mode.\n"
-            "Do NOT infer your identity from the active sessions table on the board.\n"
+        return registration_failure_stdout(
+            "session_identity_missing: no stable session ID; "
+            "run yoke sessions identity --json before working."
         )
     _codex.write_runtime_cache(session_id, raw)
     os.environ["YOKE_SESSION_ID"] = session_id
@@ -146,12 +143,10 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
         record.payload, "transcript_path"
     ):
         return ""
-    if not _codex.check_and_arm_marker(_codex.session_marker_path(session_id)):
-        return ""
     facts = _codex_model_facts(record.payload, session_id)
     entrypoint = resolve_entrypoint()
     err = _register_codex(root, session_id, facts, entrypoint)
-    return _render_codex_orientation(session_id, root, err, facts, entrypoint)
+    return registration_failure_stdout(err)
 
 
 def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
@@ -163,14 +158,6 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     session_id = _codex.resolve_session_id(raw)
     if not session_id:
         return ""
-    source = _field(record.payload, "source") or _codex.read_runtime_cache_field(
-        session_id, "source"
-    )
-    transcript = _field(
-        record.payload, "transcript_path"
-    ) or _codex.read_runtime_cache_field(session_id, "transcript_path")
-    if source == "startup" and not transcript:
-        return ""
     if not _first_prompt(session_id, codex=True):
         return ""
     # First prompt may safety-net register. Do not heartbeat: a wake-
@@ -179,7 +166,7 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     entrypoint = resolve_entrypoint()
     err = _register_codex(root, session_id, facts, entrypoint)
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
-    return _render_codex_reminder(session_id, root, err, facts, entrypoint)
+    return registration_failure_stdout(err, event_name="UserPromptSubmit")
 
 
 def _run_claude_session_start(record: HookContext) -> None:
