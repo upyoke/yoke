@@ -280,12 +280,15 @@ def test_posture_state_reports_each_outcome(tmp_path: Path, monkeypatch) -> None
         assert posture_state("codex") == state
 
 
-def test_the_wizard_step_names_every_harness_file_and_key():
+def test_the_wizard_step_names_every_harness_file_and_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    for name in (".claude", ".codex", ".cursor"):
+        (tmp_path / name).mkdir()
     """The operator sees what will be written before agreeing to it."""
     from yoke_cli.config.onboard_plan_labels import friendly_line
     from yoke_contracts.harness_unattended_posture import (
         CLAUDE_SETTINGS_PATH,
-        CODEX_CONFIG_DISPLAY_PATH,
         CURSOR_CLI_CONFIG_PATH,
         POSTURE_PLAN_ACTION,
     )
@@ -294,7 +297,7 @@ def test_the_wizard_step_names_every_harness_file_and_key():
     assert "Unattended harness posture" in line
     for named in (
         CLAUDE_SETTINGS_PATH,
-        CODEX_CONFIG_DISPLAY_PATH,
+        str(tmp_path / ".codex/config.toml"),
         CURSOR_CLI_CONFIG_PATH,
     ):
         assert named in line

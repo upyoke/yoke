@@ -1,0 +1,11 @@
+{
+ "id": "completed-failure-waiver",
+ "title": "Discharge after a completed failed execution",
+ "status": "observed",
+ "audience": "agent",
+ "when": "An operator waives every applicable blocking case after a failed mission completed.",
+ "need": "Full discharge for the exact target and member answers stage acceptance even when a completed failed execution exists. Preserve FAIL, execution, captures, artifacts and operator waiver. Existing settlement followups retry ordinary close-out; partial waiver and unrelated shared-stage, member or run-wide gates still block. Never synthesize PASS or force done.",
+ "surface": "Requirement discharge documentation and stage acceptance readers",
+ "sources": ["docs/public/verification/requirement-discharges.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_acceptance.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_stage_gate.py", "runtime/api/domain/test_completed_failed_qa_waiver.py"],
+ "review": "Focused source regression; production observation remains owed after deployment."
+}

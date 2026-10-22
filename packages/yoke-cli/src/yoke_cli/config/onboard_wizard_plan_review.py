@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # machine approval, the hosting credential at Save & verify), so an unqualified
 # "On this machine" heading would read as a promise nothing is written yet.
 _PLAN_GROUPS = (
-    ("Apply — on this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
+    ("Apply — on this machine", "onboard-plan-group-machine", "machine"),
     ("Apply — in the Yoke core database", "onboard-plan-group-core", "core"),
     ("Apply — in your project folder", "onboard-plan-group-repo", "repo"),
     ("Apply — Yoke source", "onboard-plan-group-source", "source"),
@@ -43,7 +43,7 @@ _PLAN_GROUPS = (
 # Distinct labels for the "already set up, Apply reuses these" block so it is not
 # confused with the write-plan groups above (which share the same locations).
 _REUSE_GROUPS = (
-    ("Already on this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
+    ("Already on this machine", "onboard-plan-group-machine", "machine"),
     ("Already in the Yoke core database", "onboard-plan-group-core", "core"),
     ("Already in your project folder", "onboard-plan-group-repo", "repo"),
     ("Already set up from Yoke source", "onboard-plan-group-source", "source"),

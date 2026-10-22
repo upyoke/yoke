@@ -103,7 +103,7 @@ def build_plan(
     # way whether their control plane is local, a team server, or hosted.
     if harness_posture:
         steps.append(harness_unattended_posture.posture_plan_step())
-    # Machine-wide hooks for every installed harness, with or without a project.
+    # Machine-wide hooks for every existing harness home, with or without a project.
     steps.extend(harness_machine_hooks.machine_hooks_plan_steps())
     steps.extend(
         onboard_session_relay.plan_steps(
@@ -249,12 +249,14 @@ def source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> s
 
 
 def next_steps(cfg_path: Path, project_mode: str) -> list[str]:
+    from yoke_cli.config.project_onboarding_handoff import onboard_command
+
     if project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
         return [f"yoke status --config {cfg_path}"]
     if project_mode != PROJECT_MODE_MACHINE_ONLY:
         return [
             f"yoke status --config {cfg_path}",
-            "/yoke onboard --run-id <run-id>",
+            onboard_command("--run-id <run-id>"),
         ]
     return [
         f"yoke status --config {cfg_path}",

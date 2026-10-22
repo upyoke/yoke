@@ -40,6 +40,14 @@ skill or machine-wide harness hooks, from any folder:
 yoke doctor run --only harness-setup --fix
 ```
 
+Harness homes identify configuration that setup can manage; they do not prove
+that a CLI, desktop app or editor extension is installed. CLI checks use the
+same PATH-first, then bundled-executable resolver as relay probes. Dashboard
+onboarding and machine detail use the same surface-specific relay observations:
+“not observed” means installation is unproved, including unsupported extension
+detection. Hook trust and session activity describe configuration and readiness
+separately; the session roster does not scan unrelated desktop applications.
+
 Each check has a 45-second budget. Each PostgreSQL transaction arms the
 remaining budget as its statement timeout once, when it starts. The wall clock
 is checked at I/O boundaries and again when the check returns; running Python,
@@ -134,13 +142,18 @@ hook registration, foreign install residue, installed guidance and instruction
 discovery. Outside a project it runs the machine checks and reports GitHub
 auth, residue, guidance and discovery as N/A. Each failure gives one next step. Intentional GitHub disablement is
 N/A; absent or unknown evidence is not a pass. Guidance checks prove installed
-configuration, while the session check requires both registration and confirmed
-hook delivery. Full-corpus audits remain in the full Doctor selection.
+configuration. In an active agent session, the session check requires both
+registration and confirmed hook delivery; in an ordinary terminal, the install
+roster reports that check N/A with `session_required`. The other install checks
+still run normally. Full-corpus audits remain in the full Doctor selection.
+For a packaged local dashboard, the served build comes from source-commit metadata
+owned by the package serving its assets. Missing or inconsistent metadata leaves
+the build unverified; restart advice never certifies an unidentified package.
 
 Outside an agent session, ordinary Doctor runs (including `--quick`) report
 session hook registration, harness sign-in and unattended posture as N/A with
 `session_required`. The health receipt shown by `yoke status` retains these
-skips. Explicit `--session`, `--install` or `--only` selections still require
+skips. Explicit `--session` or `--only` selections still require
 the selected session evidence and fail when it is missing.
 
 Before onboarding, check only the session you are in:

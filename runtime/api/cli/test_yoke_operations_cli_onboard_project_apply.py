@@ -10,6 +10,7 @@ import pytest
 from runtime.api.cli.project_onboarding_test_helpers import ProjectOnboardApi, run_git
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import path_doctor
+from yoke_cli.config import project_onboarding_handoff as handoff
 
 pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
 
@@ -19,6 +20,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     monkeypatch,
     capsys,
 ) -> None:
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: "codex")
     monkeypatch.setattr(path_doctor, "supported_startup_files", lambda _home: ())
     monkeypatch.setattr(path_doctor, "update_shell", lambda: "already configured")
     monkeypatch.setattr(
@@ -85,7 +87,7 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert project_report["project"]["id"] == 44
     assert project_report["handoff"]["run_id"] == "run-handoff"
     assert project_report["handoff"]["agent_command"].startswith(
-        "/yoke onboard --run-id "
+        "$yoke onboard --run-id "
     )
     assert project_report["github_adoption"]["choice"] == "disabled"
     project_reads = api.function_calls("projects.get")

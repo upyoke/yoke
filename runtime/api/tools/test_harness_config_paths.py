@@ -14,6 +14,7 @@ def test_linux_claude_config_and_review_name_the_same_path(
 ):
     monkeypatch.setattr(posture.sys, "platform", "linux")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.delenv("WSL_DISTRO_NAME", raising=False)
     if wsl:
@@ -24,6 +25,10 @@ def test_linux_claude_config_and_review_name_the_same_path(
     expected = root / "Claude" / "claude_desktop_config.json"
     assert posture.claude_config_path() == expected
     assert posture.managed_config_paths()[posture.CLAUDE_FAMILY] == expected
+    (tmp_path / ".claude").mkdir()
+    assert str(expected) not in posture.posture_plan_summary()
+    expected.parent.mkdir(parents=True)
+    expected.write_text("{}")
     assert str(expected) in posture.posture_plan_summary()
 
 

@@ -93,8 +93,8 @@ def obligations_fully_discharged(
 ) -> bool:
     """True when this subject has cases and every one is waived or superseded.
 
-    A subject in that state has nothing left to execute, so the absence of a
-    scoped execution is the expected end state rather than a missing one. An
+    A subject in that state has nothing left to execute, regardless of any
+    completed execution and its historical verdict. An
     empty case set is deliberately not "fully discharged": a member with no
     materialized cases has an unanswered obligation, not a settled one.
     """

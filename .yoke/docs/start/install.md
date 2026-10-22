@@ -19,8 +19,8 @@ To keep your harness permission settings unchanged, run
 `curl -fsSL https://upyoke.com/install | sh -s -- --skip-harness-permissions`;
 the installer passes the flag to the `yoke setup` it starts or names.
 
-Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
-consent). Yoke supports Python 3.11–3.14. When no supported interpreter is
+Prerequisites: a shell and `curl`. The installer installs `uv` automatically
+when it is missing. Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and
 `yoke update`, without changing your system Python. Native Windows is a best-effort
 compatibility path requiring Python 3.12 or newer; WSL follows the Linux path.
@@ -79,7 +79,13 @@ that home takes precedence over a config-file environment override. See
 4. **Project** — create, clone, import, or bind a checkout. A clone is
    fetched here, not at Apply, so you see what the repository holds — and
    decide what happens to any Yoke files it already carries — first
-5. **Review** — preview persistent writes, then apply
+5. **Review** — check compact change counts, then Apply. **Show all changes**
+   lists applicable configuration and hook-trust writes; **Show summary** returns
+   to the counts. Shell PATH files changed during Install are already applied
+   and stay changed if you cancel. Worker launches bypass command approval;
+   Codex workers also bypass the sandbox and CLI hook-trust checks. Expanded
+   Review names the actual launch arguments. Saved operator settings stay in
+   place; missing permission modes are seeded for unattended use.
 
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this
@@ -171,7 +177,7 @@ server's admin upgrades it; hosted servers update with each hosted release.
 Install, reinstall and upgrade restart the machine's hook evaluator and check
 that it answers; on failure, read the named log, run `yoke hook resident
 restart` and retry. Hook timing stays in the diagnostics log. Setup also
-writes Yoke's machine-wide hooks into each installed harness's user config,
+writes Yoke's machine-wide hooks into each existing harness home's user config,
 so sessions outside a project register; inside one, the project's hooks run.
 
 The installed CLI follows your active connection (`active_env`, set by
@@ -231,9 +237,15 @@ appears; otherwise the checkout keeps teaching the previous release.
 - [Remove Yoke](uninstall.md)
 - [Get started](index.md)
 
-Run `yoke path check --json` to see login, interactive, non-login and SSH
-results for each installed supported shell. Any unresolved or shadowed Yoke
-sets `needs_fix=true` and exits nonzero with a named context and recovery.
-Run `yoke path fix --yes`, open a new terminal, and retry `yoke path verify`.
-If repair still fails, check the named shell startup files for PATH overrides
-and file permissions. Setup uses the same repair and verification.
+Run `yoke path check` to see the actual winning executable and expected canonical
+launcher in each installed shell's login, interactive, non-login and SSH context.
+`--json` includes the same per-context resolutions. Any unresolved or shadowed
+Yoke sets `needs_fix=true` and exits nonzero, even when login or SSH succeeds.
+Run `yoke path fix --yes` to repair only Yoke-owned blocks, then open a new terminal
+and run `yoke path verify`. Both commands report every context and fail while any
+required context remains wrong. If later user configuration overrides PATH,
+repair names the remaining winner, context and startup files to inspect, including
+files they source. Remove or reorder the competing PATH entry so the canonical
+tool directory comes first; Yoke preserves user configuration and launchers.
+Repeating unchanged block repair cannot fix that override. Correct startup errors
+or file permissions when named, then rerun verification. Setup uses the same probes.

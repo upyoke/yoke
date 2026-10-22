@@ -99,7 +99,7 @@ def test_prompt_answer_never_gates_uv_install(tmp_path: Path) -> None:
     assert "was installed but is not on PATH" in result.stderr
 
 
-def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
+def test_missing_uv_installs_automatically_via_astral(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     log = tmp_path / "commands.log"
     # curl is the Astral installer here: it drops a uv that serves the fake

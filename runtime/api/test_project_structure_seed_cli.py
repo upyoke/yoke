@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import List
 
+from yoke_core.domain.project_structure_seeds import cmd_seed
+from yoke_core.domain.project_structure_cli import main
 import pytest
 
 from yoke_core.domain import project_structure as ps
@@ -65,7 +67,7 @@ class TestSeed:
     def test_seed_yoke_populates_every_required_net_new_family(
         self, initialized_db: str
     ):
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         structure = ps.read_structure("yoke", db_path=initialized_db)
         for family in ps.NET_NEW_FAMILIES:
             if family in self._SEED_COVERAGE_OPTIONAL:
@@ -76,7 +78,7 @@ class TestSeed:
 
 
     def test_recipe_applies_to_any_project(self, initialized_db: str):
-        ps.cmd_seed("externalwebapp", "yoke-source", db_path=initialized_db)
+        cmd_seed("externalwebapp", "yoke-source", db_path=initialized_db)
         structure = ps.read_structure(
             "externalwebapp", family="context_routing", db_path=initialized_db
         )
@@ -84,7 +86,7 @@ class TestSeed:
 
     def test_seed_populates_context_routing(self, initialized_db: str):
         """Seed materializes Yoke's project-wide context entry."""
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         yoke_cr = ps.read_structure(
             "yoke", family="context_routing", db_path=initialized_db
         )
@@ -92,13 +94,13 @@ class TestSeed:
         assert "always" in yoke_keys
 
     def test_seed_is_idempotent(self, initialized_db: str):
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
-        second = ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        second = cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         assert second["applied_ops"] == []
 
     def test_seed_unknown_recipe_errors_with_known_recipes(self, initialized_db: str):
         with pytest.raises(ps.UsageError, match="Known recipes: yoke-source"):
-            ps.cmd_seed("yoke", "nonexistent", db_path=initialized_db)
+            cmd_seed("yoke", "nonexistent", db_path=initialized_db)
 
     def test_seed_dogfoods_apply_patch_contract(self, initialized_db: str):
         """Seed goes through apply_patch, so structure rows exist post-seed.
@@ -106,7 +108,7 @@ class TestSeed:
         The invariant is that seed flowed through ``apply_patch`` and
         persisted entries in ``project_structure``.
         """
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
+        cmd_seed("yoke", "yoke-source", db_path=initialized_db)
         from yoke_core.domain.db_helpers import connect
 
         conn = connect(initialized_db)
@@ -122,7 +124,7 @@ class TestSeed:
 class TestCli:
     def _run(self, argv: List[str], monkeypatch, db_path: str) -> int:
         monkeypatch.setenv("YOKE_DB", db_path)
-        return ps.main(argv)
+        return main(argv)
 
     def test_init_subcommand_creates_tables(self, db_path: str, monkeypatch):
         rc = self._run(["init"], monkeypatch, db_path)

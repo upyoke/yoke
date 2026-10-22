@@ -67,13 +67,92 @@ def test_a_staged_change_also_stops_certification(repository):
 
 @pytest.mark.parametrize("root", [None, ""])
 def test_no_checkout_publishes_nothing(root):
-    """A packaged wheel has no serving checkout, so it names no commit —
-    saying nothing is honest where inventing one is not."""
+    """The checkout resolver alone cannot name a packaged build."""
     assert identity.served_build(root) == ""
 
 
 def test_a_directory_that_is_not_a_repository_publishes_nothing(tmp_path):
     assert identity.served_build(tmp_path) == ""
+
+
+@pytest.fixture()
+def serving_wheel(tmp_path, monkeypatch):
+    import json
+    from importlib.metadata import Distribution
+
+    import yoke_core
+    from yoke_contracts import install_binding
+
+    site = tmp_path / "site-packages"
+    module = site / "yoke_core" / "__init__.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("")
+    metadata = site / "yoke_core-1.2.3.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text("Name: yoke-core\nVersion: 1.2.3\n")
+    (metadata / "RECORD").write_text("yoke_core/__init__.py,,\n")
+    (metadata / "scm_version.json").write_text(json.dumps({"node": "g" + "a" * 40}))
+    monkeypatch.setattr(yoke_core, "__file__", str(module))
+    monkeypatch.setattr(
+        install_binding, "_distribution", lambda name: Distribution.at(metadata)
+    )
+    return module, metadata
+
+
+def test_packaged_serving_module_publishes_recorded_build_despite_path_shadowing(
+    serving_wheel, tmp_path, monkeypatch
+):
+    shadow = tmp_path / "bin"
+    shadow.mkdir()
+    (shadow / "yoke").write_text("unrelated executable")
+    monkeypatch.setenv("PATH", str(shadow))
+    monkeypatch.setenv("YOKE_BUILD_SHA", "b" * 40)
+
+    assert identity.served_install()["kind"] == "packaged_wheel"
+    assert identity.served_build_identity() == "a" * 40
+
+
+@pytest.mark.parametrize(
+    "metadata_problem", ["missing", "malformed", "invalid", "foreign", "unrecorded"]
+)
+def test_unproven_package_metadata_never_certifies_a_build(
+    serving_wheel, tmp_path, monkeypatch, metadata_problem
+):
+    import yoke_core
+
+    module, metadata = serving_wheel
+    scm = metadata / "scm_version.json"
+    if metadata_problem == "missing":
+        scm.unlink()
+    elif metadata_problem == "malformed":
+        scm.write_text("not json")
+    elif metadata_problem == "invalid":
+        scm.write_text('{"node": "gnot-a-commit"}')
+    elif metadata_problem == "foreign":
+        foreign = tmp_path / "other" / "yoke_core" / "__init__.py"
+        foreign.parent.mkdir(parents=True)
+        foreign.write_text("")
+        monkeypatch.setattr(yoke_core, "__file__", str(foreign))
+    else:
+        (metadata / "RECORD").write_text("yoke_core/unrelated.py,,\n")
+
+    assert identity.served_build_identity() == ""
+
+
+@pytest.mark.parametrize("dirty", [False, True])
+def test_checkout_identity_takes_precedence_over_package_metadata(
+    repository, monkeypatch, dirty
+):
+    monkeypatch.setattr(
+        identity,
+        "served_install",
+        lambda: {"checkout_root": str(repository), "source_commit": "b" * 40},
+    )
+    if dirty:
+        (repository / "served.txt").write_text("changed\n")
+    assert identity.served_build_identity() == _head(repository) + (
+        identity.DIRTY_SUFFIX if dirty else ""
+    )
 
 
 def test_the_packet_the_server_publishes_carries_the_serving_commit():

@@ -134,8 +134,7 @@ def run_probe() -> None:
             again = setup.reconcile_harness_setup()
             after = {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
             if before != after or any(
-                r.outcome not in ("already_set", "skipped_not_installed")
-                for r in again.rows
+                r.outcome not in ("already_set", "skipped_no_home") for r in again.rows
             ):
                 raise RuntimeError(
                     "harness_setup_not_idempotent: inspect writer output before rerunning"

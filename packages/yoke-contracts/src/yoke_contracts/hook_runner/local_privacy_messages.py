@@ -79,8 +79,8 @@ _LIVE_RECOVERY = {
     HOME_DISCOVERY: (
         "Anchor the search at the repository, the worktree, or a named "
         "harness dot-directory. For native harness binary discovery use "
-        "resolve_native_cli / resolve_native_cli_source; _CLI_FALLBACKS owns "
-        "bundled application paths."
+        "yoke_cli.config.path_harness_clis.resolve_native_cli_source; "
+        "harness_cli_manifest bundled_candidates owns bundled application paths."
     ),
 }
 

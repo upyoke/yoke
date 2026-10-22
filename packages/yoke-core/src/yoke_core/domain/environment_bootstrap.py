@@ -43,7 +43,7 @@ INIT_MODULE_CHAIN: tuple = (
     "yoke_core.domain.schema",
     "yoke_core.domain.shepherd",
     "yoke_core.domain.projects",
-    "yoke_core.domain.project_structure",
+    "yoke_core.domain.project_structure_cli",
     _FLOW_INIT_MODULE,
     "yoke_core.domain.events_crud",
     "yoke_core.domain.qa",

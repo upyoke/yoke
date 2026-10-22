@@ -83,7 +83,7 @@ class HarnessMachineHooks:
     deferrals: tuple[str, ...] = ()
 
     def home_path(self, environ: Optional[Mapping[str, str]] = None) -> Path:
-        """The harness home; its absence means the harness is not installed."""
+        """The harness configuration home, independent of application installation."""
         env = os.environ if environ is None else environ
         override = env.get(self.home_env) if self.home_env else None
         if override:
@@ -219,7 +219,11 @@ def installed_machine_hooks(
     environ: Optional[Mapping[str, str]] = None,
 ) -> list[HarnessMachineHooks]:
     """Harnesses whose home exists on this machine."""
-    return [spec for spec in HARNESS_MACHINE_HOOKS.values() if spec.home_path(environ).is_dir()]
+    return [
+        spec
+        for spec in HARNESS_MACHINE_HOOKS.values()
+        if spec.home_path(environ).is_dir()
+    ]
 
 
 def machine_hooks_plan_steps() -> list[dict[str, str]]:

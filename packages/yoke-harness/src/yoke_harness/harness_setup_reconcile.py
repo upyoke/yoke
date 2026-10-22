@@ -245,9 +245,7 @@ def _walk(
                     "global_skill",
                 ):
                     rows.append(
-                        HarnessSetupRow(
-                            str(target), harness, facet, "skipped_not_installed"
-                        )
+                        HarnessSetupRow(str(target), harness, facet, "skipped_no_home")
                     )
             continue
         for target, source in targets:

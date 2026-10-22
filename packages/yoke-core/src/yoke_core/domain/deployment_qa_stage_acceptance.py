@@ -164,19 +164,17 @@ def stage_acceptance(
     )
     failures = failure_reasons(cases)
     red_ids = tuple(case.requirement_id for case in cases if case.red)
+    if obligations_fully_discharged(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=digest,
+    ):
+        # Discharge answers the obligation even after a completed failure;
+        # the execution and its verdict remain historical evidence.
+        return StageAcceptance(STAGE_DISCHARGED, ())
     if execution is None:
-        if obligations_fully_discharged(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=digest,
-        ):
-            # Waiving or superseding every case leaves no case to run, so
-            # demanding a scoped execution here would block on evidence the
-            # discharge already stood in for -- the trap that made a
-            # fully-waived member unreleasable until its discharge was read.
-            return StageAcceptance(STAGE_DISCHARGED, ())
         if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())
         execution = None if failures else stopped_case_execution(

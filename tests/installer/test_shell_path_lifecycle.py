@@ -105,7 +105,9 @@ def test_diagnosis_aggregates_ssh_failure_when_login_succeeds(tmp_path, monkeypa
     monkeypatch.setattr(
         doctor,
         "verify_fresh_login",
-        lambda *a, **kw: [doctor.ToolResolution("yoke", "/test/yoke")],
+        lambda *a, **kw: [
+            doctor.ToolResolution("yoke", str(tmp_path / ".local" / "bin" / "yoke"))
+        ],
     )
     monkeypatch.setattr(doctor, "verify_ssh_command", lambda *a, **kw: [])
     diagnosis = doctor.diagnose(
@@ -141,4 +143,5 @@ def test_probe_timeout_names_context_and_recovery(tmp_path, monkeypatch):
     assert all(
         row["needs_fix"] and row["reason"] == "shell_probe_timeout" for row in rows
     )
-    assert all("yoke path fix" in row["recovery"] for row in rows)
+    assert all("Fix the shell startup failure" in row["recovery"] for row in rows)
+    assert all("yoke path verify" in row["recovery"] for row in rows)

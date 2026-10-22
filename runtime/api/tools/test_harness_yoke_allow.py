@@ -171,7 +171,7 @@ def test_claude_surface_selects_its_own_mode(machine):
     assert yoke_posture("claude-code", "claude-cli").blocking
 
 
-def test_review_summary_names_every_allow_entry():
+def test_review_summary_names_every_allow_entry(machine):
     summary = posture_plan_summary()
     for entry in YOKE_COMMAND_ALLOW.values():
         assert entry in summary

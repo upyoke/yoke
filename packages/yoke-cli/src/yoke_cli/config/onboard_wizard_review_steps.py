@@ -8,6 +8,7 @@ from rich.markup import escape
 from textual.widgets import Static
 
 from yoke_cli.config.onboard_wizard_palette import BRAND
+from yoke_cli.config.onboard_permission_review import permission_summary
 from yoke_cli.config.onboard_wizard_plan_review import (
     _PLAN_GROUPS,
     classify_plan,
@@ -22,7 +23,7 @@ from yoke_cli.config.setup_prompt import SelectionRow, SetupPrompt
 CONFIRM_ROWS = [
     SelectionRow("apply", "Apply", "writes everything above"),
     SelectionRow("show-all", "Show all changes", "exact complete plan"),
-    SelectionRow("cancel", "Cancel", "nothing is saved"),
+    SelectionRow("cancel", "Cancel", "stop; earlier setup changes stay saved"),
 ]
 CONFIRM_ROWS_AFTER_GITHUB = [
     SelectionRow("apply", "Apply", "writes the remaining setup above"),
@@ -34,7 +35,7 @@ CONFIRM_ROWS_AFTER_GITHUB = [
     ),
 ]
 REVIEW_TITLE = f"Review what {BRAND} will save."
-REVIEW_SUBTITLE = "Nothing is written until you choose Apply."
+REVIEW_SUBTITLE = "Apply saves the remaining setup; earlier setup changes stay saved."
 # By the time Review renders, two secrets can already be on disk: the API token
 # was saved when this machine was approved, and the hosting credential at Save
 # & verify. Saying "nothing is written yet" there would be false, so the
@@ -57,7 +58,7 @@ REVIEW_AFTER_GITHUB_SUBTITLE = (
 )
 REVIEW_BLOCKED_ROWS = [
     SelectionRow("back", "Back to fix that", "step back and correct it"),
-    SelectionRow("cancel", "Quit", "nothing is saved"),
+    SelectionRow("cancel", "Quit", "stop; earlier setup changes stay saved"),
 ]
 REVIEW_BLOCKED_ROWS_AFTER_GITHUB = [
     SelectionRow("back", "Back to fix that", "step back and correct it"),
@@ -121,6 +122,10 @@ def finish_body(
         widgets.extend(render_write_plan(plan))
     else:
         widgets.extend(render_plan_summary(plan))
+    widgets.extend(
+        Static(line, markup=False, classes="onboard-plan-line")
+        for line in permission_summary(expanded=show_all)
+    )
     widgets.extend(
         Static(line, markup=False, classes="onboard-plan-line")
         for line in (status_lines or [])
@@ -187,7 +192,7 @@ def review_prompt(
             choices=rows,
             guidance=(
                 "Tell the person what must change; answer back to correct the "
-                "earlier answer, or cancel to stop without saving."
+                "earlier answer, or cancel to keep only earlier setup changes."
             ),
         )
     detail = [
@@ -195,6 +200,7 @@ def review_prompt(
         for label, _css, key in _PLAN_GROUPS
         for line in grouped.get(key, [])
     ]
+    detail.extend(permission_summary(expanded=show_all))
     detail.extend(status_lines or [])
     detail.extend(f"Note: {line}" for line in notes or [])
     return SetupPrompt(
@@ -216,6 +222,12 @@ def _review_subtitle(plan: dict, machine_github_saved: bool) -> str:
     inner = plan.get("plan") if isinstance(plan, dict) else None
     reuse = inner.get("reuse") if isinstance(inner, dict) else None
     reuse = reuse if isinstance(reuse, dict) else {}
+    path_repair = inner.get("path_repair") if isinstance(inner, dict) else None
+    if isinstance(path_repair, dict) and path_repair.get("changed_files"):
+        return (
+            "Install already updated shell PATH files; Cancel keeps those changes. "
+            "Apply saves the remaining setup."
+        )
     if reuse.get("project_clone_checkout"):
         return REVIEW_FETCHED_CHECKOUT_SUBTITLE
     if reuse.get("token_reference") and reuse.get("aws_admin"):

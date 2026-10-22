@@ -146,10 +146,11 @@ universes mark supplied client context so lifecycle dispatch keeps registration
 and resume handling without emitting a second orientation.
 
 After fresh install and repeated refresh, inspect the native skills menu:
-each native Yoke entry should appear once. For Codex, open the skill picker and search
-Onboard. For Cursor, type `/onboard` without submitting it; distinguish Yoke's
-description from Cursor's built-in Onboard. Claude Code discovers one `/yoke` router through its native link; invoke
-nested commands as `/yoke onboard`. Inspect `/config` for Project instructions
+each native Yoke entry should appear once. Select the installed `yoke` skill,
+which routes to onboarding; there is no separate Yoke Onboard picker entry.
+In Codex, search the skill picker for `yoke` and invoke `$yoke onboard`.
+In Cursor, invoke `/yoke onboard`. Claude Code discovers one `/yoke` router
+through its native link; invoke `/yoke onboard`. Inspect `/config` for Project instructions
 and `/memory` in a fresh supported session. Directory counts alone do not prove
 native discovery or instruction loading.
 
@@ -250,7 +251,7 @@ repository nested inside it does not. A machine connection or a folder named
 
 Outside managed projects, hooks apply machine safety rules: privacy-database
 protection, literal search quoting and unmatched path globs. Setup writes
-these machine-wide hooks into each installed harness's user config (the
+these machine-wide hooks into each existing harness home's user config (the
 manifest's `machine_hooks` names the file and events); inside a managed
 project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.

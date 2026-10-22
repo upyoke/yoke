@@ -37,11 +37,38 @@ class HarnessCliResolution:
         }
 
 
-def _bundled_resolution(manifest: HarnessCliManifest) -> str | None:
-    for raw in manifest.bundled_candidates:
-        candidate = Path(raw).expanduser()
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return str(candidate)
+@dataclass(frozen=True)
+class ResolvedNativeCli:
+    """The executable and the installation route that supplied it."""
+
+    path: str
+    source: str
+
+
+def resolve_native_cli_source(
+    command_name: str,
+    *,
+    path_value: str | None = None,
+    manifests: Iterable[HarnessCliManifest] | None = None,
+) -> ResolvedNativeCli | None:
+    """Resolve explicit, PATH, then manifest-declared bundled executables."""
+    if os.sep in command_name:
+        candidate = Path(command_name)
+        return (
+            ResolvedNativeCli(command_name, "explicit")
+            if candidate.is_file() and os.access(candidate, os.X_OK)
+            else None
+        )
+    found = shutil.which(command_name, path=path_value)
+    if found:
+        return ResolvedNativeCli(found, "path")
+    for manifest in HARNESS_CLI_MANIFESTS if manifests is None else manifests:
+        if manifest.executable != command_name:
+            continue
+        for raw in manifest.bundled_candidates:
+            candidate = Path(raw).expanduser()
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return ResolvedNativeCli(str(candidate), "bundled")
     return None
 
 
@@ -50,20 +77,19 @@ def resolve_harness_clis(
     *,
     manifests: Iterable[HarnessCliManifest] = HARNESS_CLI_MANIFESTS,
 ) -> tuple[HarnessCliResolution, ...]:
+    manifests = tuple(manifests)
     resolutions = []
     for manifest in manifests:
-        found = shutil.which(manifest.executable, path=path_value)
-        source = "path"
-        if not found:
-            found = _bundled_resolution(manifest)
-            source = "bundled" if found else "missing"
+        resolved = resolve_native_cli_source(
+            manifest.executable, path_value=path_value, manifests=manifests
+        )
         resolutions.append(
             HarnessCliResolution(
                 manifest.harness_id,
                 manifest.surface_id,
                 manifest.executable,
-                found,
-                source,
+                resolved.path if resolved else None,
+                resolved.source if resolved else "missing",
             )
         )
     return tuple(resolutions)
@@ -84,6 +110,8 @@ def managed_path_directories(
 
 __all__ = [
     "HarnessCliResolution",
+    "ResolvedNativeCli",
+    "resolve_native_cli_source",
     "managed_path_directories",
     "resolve_harness_clis",
 ]

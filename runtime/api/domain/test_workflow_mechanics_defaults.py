@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from contextlib import nullcontext
+from unittest.mock import patch
+
+from yoke_cli.main import main as cli_main
+from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_core.domain.handlers.workflow_mechanics import handle_delivery_default_set
 
 import pytest
 
@@ -25,7 +31,6 @@ from yoke_core.domain.workflow_project_defaults import (
     get_delivery_default,
     list_delivery_defaults,
     list_testing_defaults,
-    set_delivery_default,
     set_testing_default,
 )
 from yoke_core.domain.workflow_registry import get_workflow_version
@@ -186,12 +191,27 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     )
     test_db.commit()
 
-    result = set_delivery_default(
-        test_db,
-        project="yoke",
-        workflow_id="dash",
-        flow_id="workflows-prod",
-    )
+    results = []
+
+    def dispatch(request):
+        assert request.function == "workflows.delivery_default.set"
+        outcome = handle_delivery_default_set(request)
+        assert outcome.primary_success, outcome.error
+        results.append(outcome.result_payload["result"])
+        return FunctionCallResponse(
+            success=True, function=request.function, version=request.version,
+            request_id=request.request_id, result=outcome.result_payload,
+        )
+
+    with patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(test_db)):
+        with patch("yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=dispatch):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+                with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
+                    assert cli_main([
+                        "workflows", "delivery-default", "set", "--project", "yoke",
+                        "--workflow", "dash", "--flow", "workflows-prod",
+                    ]) == 0
+    result = results[0]
 
     assert result["workflow_ids"] == ["dash"]
     defaults = list_delivery_defaults(test_db)

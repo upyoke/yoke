@@ -57,7 +57,13 @@ def summary_lines(report: Mapping[str, Any], *, orientation: bool = False) -> li
 
 
 def next_line(action: Mapping[str, Any]) -> str:
-    return f"Next: {action['command']} ({action['reason']}) — more: {action['home']}"
+    from yoke_cli.config.project_onboarding_handoff import onboard_command
+
+    command = action["command"]
+    before, router, arguments = command.partition("/yoke onboard")
+    if router and (not arguments or arguments.startswith((" ", "."))):
+        command = before + onboard_command(arguments.strip())
+    return f"Next: {command} ({action['reason']}) — more: {action['home']}"
 
 
 def read_project(

@@ -73,3 +73,37 @@ def test_new_manifest_entry_is_resolved_without_a_hardcoded_cli_list(
         "codex",
         "cursor",
     )
+
+
+def test_setup_relay_and_doctor_share_path_and_bundled_resolution(
+    monkeypatch, tmp_path
+):
+    from dataclasses import replace
+    from yoke_cli.config import path_harness_clis as resolver
+    from yoke_core.engines import doctor_install
+
+    manifest = next(row for row in HARNESS_CLI_MANIFESTS if row.harness_id == "codex")
+    bundled = tmp_path / "bundled" / "codex"
+    standalone = tmp_path / "bin" / "codex"
+    for executable in (bundled, standalone):
+        executable.parent.mkdir()
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o755)
+    manifest = replace(manifest, bundled_candidates=(str(bundled),))
+    original = resolver.resolve_native_cli_source
+    monkeypatch.setattr(resolver, "HARNESS_CLI_MANIFESTS", (manifest,))
+    monkeypatch.setattr(
+        resolver,
+        "resolve_native_cli_source",
+        lambda name, **kw: original(name, **{**kw, "manifests": (manifest,)}),
+    )
+    for directory, expected, source in (
+        (standalone.parent, standalone, "path"),
+        (tmp_path / "empty", bundled, "bundled"),
+    ):
+        monkeypatch.setenv("PATH", str(directory))
+        resolved = resolve_harness_clis(str(directory), manifests=(manifest,))[0]
+        assert resolved.path == str(expected)
+        assert resolved.source == source
+        assert session_relay_surface_probes.resolve_native_cli("codex") == str(expected)
+        assert doctor_install.installed_harness_clis()["codex"] == str(expected)

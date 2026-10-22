@@ -31,10 +31,6 @@ class FinishBodyFlow:
         grouped = classify_plan(self._review_plan)
         if not any(grouped.get(key) for _label, _css, key in _PLAN_GROUPS):
             widgets[-1:-1] = machine_finish_widgets(self.result)
-        widgets[-1:-1] = [
-            Static(escape(line), classes="onboard-plan-line")
-            for line in shell_change_lines(self.result.path_repair)
-        ]
         return widgets
 
     def _finish_prompt(self):
@@ -49,7 +45,10 @@ class FinishBodyFlow:
         )
 
     def _review_status_lines(self) -> list[str]:
-        lines: list[str] = shell_change_lines(self.result.path_repair)
+        lines: list[str] = (
+            shell_change_lines(self.result.path_repair)
+            if getattr(self, "_review_show_all", False) else []
+        )
         verification = self.result.yoke_token_verification
         machine_lines = machine_finish_lines(self.result)
         if machine_lines:

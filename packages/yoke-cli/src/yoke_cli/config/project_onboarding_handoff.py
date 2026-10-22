@@ -20,6 +20,7 @@ from yoke_contracts.onboard_checklist import (
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 from yoke_cli.config.onboard_setup_facts import collect
 from yoke_contracts.onboard_checklist import SCHEMA_VERSION
+from yoke_contracts.harness_family_identity import nearest_harness_family
 
 DispatchFn = Callable[[str, Mapping[str, Any], str | Path | None], Mapping[str, Any]]
 
@@ -176,14 +177,18 @@ def _repair_commands(install: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _agent_command(run_id: str) -> str:
-    return shlex.join(
-        [
-            "/yoke",
-            "onboard",
-            "--run-id",
-            run_id,
-        ]
-    )
+    return onboard_command(shlex.join(["--run-id", run_id]))
 
 
-__all__ = ["create_handoff"]
+def onboard_command(arguments: str = "") -> str:
+    """Name the installed router in this harness, or teach both native forms."""
+    suffix = f" {arguments}" if arguments else ""
+    family = nearest_harness_family()
+    if family == "codex":
+        return f"$yoke onboard{suffix}"
+    if family in ("claude-code", "cursor"):
+        return f"/yoke onboard{suffix}"
+    return f"Codex: $yoke onboard{suffix}; Claude Code/Cursor: /yoke onboard{suffix}"
+
+
+__all__ = ["create_handoff", "onboard_command"]

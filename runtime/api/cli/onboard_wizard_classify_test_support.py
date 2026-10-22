@@ -71,5 +71,5 @@ def assert_post_checkout_install_destinations(
         assert scaffold_line in repo
     assert AGENT_RULES_LINE in repo
     assert TOOL_PERMISSIONS_LINE in repo
-    assert HARNESS_HOOKS_LINE in repo
+    assert any(line.startswith(HARNESS_HOOKS_LINE) for line in repo)
     assert GIT_HOOKS_LINE in repo

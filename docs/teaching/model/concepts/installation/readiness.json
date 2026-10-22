@@ -5,5 +5,7 @@
  "surface_refs": ["global-orientation", "setup-agent", "setup-tui"],
  "commands": ["yoke local demo seed", "yoke path check", "yoke path fix", "yoke path verify"],
  "page": "installation",
- "position": 4
+ "position": 4,
+ "text": "PATH check, fix and verify report actual winning Yoke executables against the canonical launcher for each installed shell context. Any required unresolved or shadowed context fails verification. Repair changes only owned blocks; later user overrides need manual correction in the named startup files, not repeated unchanged repair.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/path_shell_contexts.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/path_doctor.py", "tests/installer/test_path_context_reporting.py"]
 }

@@ -29,7 +29,9 @@ with TemporaryDirectory(prefix="install-health-") as directory:
             (checks, "collect_execution_provenance", lambda: {"source_sha": "a" * 40}),
         ]),
         "session-hook-unobserved": (checks.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED", [
-            (checks, "build_actor", lambda: SimpleNamespace(session_id="")),
+            (checks, "build_actor", lambda: SimpleNamespace(session_id="fixture-session")),
+            (checks, "relay", lambda *args: {"session_id": "fixture-session", "project_id": 42}),
+            (checks, "orientation_delivered", lambda session: False),
         ]),
         "foreign-install-binding": (guidance.hc_install_residue, "INSTALL_RESIDUE", [
             (guidance, "project_root", lambda args: root),

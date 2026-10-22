@@ -91,7 +91,9 @@ def run_end(args: list[str]) -> int:
             "mission's owner-only secret staging, restore the Test Machine "
             "to the mission's declared starting state, and record that "
             "restore and the fixture_project_disposal receipt on the "
-            "mission's run (--run-id)."
+            "mission's run (--run-id). Unresolved disposal removes secret "
+            "staging but preserves the host and owner custody; resolve the "
+            "named cause and retry through the same owner's walk-end."
         ),
     )
     add_mission_subject_arguments(parser)
@@ -123,18 +125,56 @@ def run_end(args: list[str]) -> int:
         disposal_failures, notices, recorded = _dispose_fixture_projects(
             parsed, fixture_projects
         )
+        if not recorded and not disposal_failures:
+            disposal_failures = [
+                "fixture_project_disposal_unrecorded: no receipt; retry walk-end"
+            ]
         for notice in notices:
             print(f"{PROG_END}: {notice}", file=sys.stderr)
-        if not recorded:
-            print(json.dumps({FIXTURE_PROJECTS: fixture_projects}, sort_keys=True))
+        if disposal_failures or not recorded:
             for failure in disposal_failures:
                 print(f"{PROG_END}: {failure}", file=sys.stderr)
+            staging = {}
+            try:
+                staging = execute_agent_mission_walk_end(
+                    contract, timeout_seconds=parsed.timeout_seconds, restore_host=False
+                )
+            finally:
+                print(
+                    json.dumps(
+                        {FIXTURE_PROJECTS: fixture_projects, **staging}, sort_keys=True
+                    )
+                )
             print(
-                f"{PROG_END}: fixture_project_disposal_unrecorded: the Test "
+                f"{PROG_END}: "
+                f"{'fixture_project_disposal_unsettled' if recorded else 'fixture_project_disposal_unrecorded'}: the Test "
                 "Machine was left unrestored so a rerun can find its projects; "
-                "rerun this walk-end",
+                "resolve the named cause under the existing owner and rerun "
+                "this same walk-end; do not reset the host",
                 file=sys.stderr,
             )
+            for key, reason, path in (
+                ("removed", "mission_scratch_not_removed", staging["scratch_path"]),
+                (
+                    "stale_owner_marker_removed",
+                    "stale_owner_marker_not_removed",
+                    f"~/{STALE_OWNER_MARKER}",
+                ),
+            ):
+                if not staging[key]:
+                    print(
+                        f"{PROG_END}: {reason}: restore host write access to "
+                        f"{path} and rerun this walk-end",
+                        file=sys.stderr,
+                    )
+            if getattr(parsed, "cleanup_lease", False):
+                print(
+                    f"{PROG_END}: mission_cleanup_deferred: cleanup lease stays "
+                    "held; retry this walk-end. To give up the host, run "
+                    f"yoke claims work release --claim-id {contract['lease_id']} "
+                    "--reason 'fixture disposal unsettled'",
+                    file=sys.stderr,
+                )
             return 3
         result = execute_agent_mission_walk_end(
             contract, timeout_seconds=parsed.timeout_seconds
@@ -185,15 +225,6 @@ def run_end(args: list[str]) -> int:
         )
     )
     failures = list(disposal_failures or [])
-    if failures and getattr(parsed, "cleanup_lease", False):
-        failures.append(
-            "mission_cleanup_deferred: the cleanup lease stays held and the "
-            "restore unrecorded until disposal settles; rerun this walk-end. "
-            "If the blocker cannot be resolved, give up the host and abort "
-            "the execution with yoke claims work release "
-            f"--claim-id {contract['lease_id']} --reason 'fixture disposal "
-            "unsettled', leaving the named projects for an administrator"
-        )
     if not result["stale_owner_marker_removed"]:
         failures.append(
             f"stale_owner_marker_not_removed: ~/{STALE_OWNER_MARKER} is still "

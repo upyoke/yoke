@@ -72,10 +72,18 @@ class PathFlow:
                     "then open a new terminal and retry Install."
                 )
             if not plan.get("login_verified"):
+                failures = " ".join(
+                    f"{row['shell']} {row['context']}: {row['reason']}; "
+                    f"yoke -> {row['resolved'].get('yoke') or 'not found'}; "
+                    f"{row['recovery']}"
+                    for row in plan.get("contexts", []) if row["needs_fix"]
+                )
                 raise RuntimeError(
                     "fresh_login_path_unresolved: shell repair did not verify Yoke. "
-                    "Run `yoke path fix --yes`, check shell files that override PATH, "
-                    "then open a new terminal and retry Install."
+                    + failures
+                    + " Correct remaining shell configuration or the current terminal's PATH, "
+                    "then open a new terminal and retry Install. "
+                    "Repeating unchanged owned-block repair cannot fix user-owned overrides."
                 )
             return plan, ""
         except Exception as exc:  # noqa: BLE001 - all failures need a recovery view

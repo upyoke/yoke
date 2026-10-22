@@ -105,8 +105,7 @@ a pending abort with the run status in the release reason. Other sessions
 cannot take over this cleanup path.
 
 A walk creates Yoke projects only by installing them on the Test Machine, and
-`walk-end` disposes of them on a finished or aborted walk, before it removes
-scratch, restores the host or releases a cleanup lease. It reads the host's
+`walk-end` disposes of them on a finished or aborted walk, before it restores the host or releases a cleanup lease. It reads the host's
 `~/.yoke/config.json`, force-removes each mapped checkout's linked worktrees
 and runs `yoke project uninstall` there. A checkout already removed from the
 host settles as `checkout_absent`; an existing but unreadable checkout still
@@ -115,12 +114,17 @@ blocks cleanup. Then
 records an intent receipt naming every candidate, keeps only projects created
 while the execution was live that the walking actor administers, releases
 their claims, cancels their open items, retires them and records the result.
-Both receipts are `fixture_project_disposal` artifacts on the run, so a rerun
-after the restore still reaches the candidates. Any other project is left
+Both receipts are `fixture_project_disposal` artifacts on the run, so a retry
+still reaches previously reported candidates. Any other project is left
 untouched. A blocker exits non-zero with `fixture_projects_unreadable`,
 `fixture_project_uninstall_failed`, `fixture_project_not_disposed` or
-`fixture_project_disposal_failed`; resolve it and rerun `walk-end`. Without a
-recorded receipt the host stays unrestored, and an aborted walk keeps its
+`fixture_project_disposal_failed`. Failed or unrecorded disposal removes
+owner-only secret staging independently but leaves the host unrestored,
+preserving fixture checkout, discovery and original failure for a real retry.
+Resolve only the named cause under existing owner authority, then retry the
+same owner's `walk-end`: it must actually uninstall and retire the fixture
+before restoring the baseline and recording cleanup success. Never bypass
+dirty-tree protection or reset around the refusal. An aborted walk keeps its
 cleanup lease (`mission_cleanup_deferred`) until disposal settles; that
 message names the `yoke claims work release --claim-id <lease>` command that
 gives up the host and aborts the execution when the blocker cannot be

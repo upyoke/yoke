@@ -118,7 +118,9 @@ def test_a_failed_git_read_settles_only_a_confirmed_absent_checkout(
     assert result["reason"] == (
         "checkout_absent" if presence_exit == 44 else "checkout_unreadable"
     )
-    assert not any(command[1:3] == ["project", "uninstall"] for command in host.commands)
+    assert not any(
+        command[1:3] == ["project", "uninstall"] for command in host.commands
+    )
 
 
 def test_an_already_removed_checkout_is_settled_on_the_host(tmp_path) -> None:
@@ -137,3 +139,23 @@ def test_an_already_removed_checkout_is_settled_on_the_host(tmp_path) -> None:
     assert result["uninstalled"] is True
     assert result["reason"] == "checkout_absent"
     assert result["removed_worktrees"] == []
+
+
+def test_command_diagnostics_keep_bounded_head_and_tail():
+    from yoke_core.domain.machine_qa_fixture_projects import _run
+
+    class Host:
+        def run_command(self, argv, **kwargs):
+            output = (
+                "dirty_tree: preserve uv.lock\n"
+                + "x" * 2000
+                + "\nretry after resolving"
+            )
+            return subprocess.CompletedProcess(argv, 1, output, output)
+
+    step = _run(Host(), ["yoke", "project", "uninstall"], 60)
+    for stream in ("stdout", "stderr"):
+        assert len(step[stream]) <= 400
+        assert step[stream].startswith("dirty_tree: preserve uv.lock")
+        assert step[stream].endswith("retry after resolving")
+        assert "output omitted" in step[stream]
