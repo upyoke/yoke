@@ -178,11 +178,12 @@ def test_writable_variant_drops_fork_even_when_forkable() -> None:
     assert clone.CLONE_OUTCOME_FORK not in [row.value for row in rows]
 
 
-def test_clone_outcome_prompt_title_only_no_subtitle() -> None:
-    """The clone-outcome screen asks with a title and no subtitle."""
+def test_destination_prompt_explains_publication_work_requirement() -> None:
+    """Both prompt consumers get the early-work publication boundary."""
     prompt = screens.clone_outcome_prompt("https://github.com/acme/widgets.git")
     assert prompt.title == "Where should Yoke publish work from acme/widgets?"
-    assert prompt.subtitle is None
+    assert "blocks publication-required" in prompt.subtitle
+    assert "writable destination" in prompt.subtitle
 
 
 def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:

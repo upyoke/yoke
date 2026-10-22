@@ -134,7 +134,7 @@ def clone_outcome_prompt(
         key="project.clone_outcome",
         step=STEP_PROJECT,
         title=f"Where should Yoke publish work from {repo}?",
-        message=("Read-only keeps fetching available and blocks publication-required "
+        subtitle=("Read-only keeps fetching available and blocks publication-required "
                  "item work until you choose a writable destination."),
         choices=tuple(clone_outcome_rows(
             remote_url,
