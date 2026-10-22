@@ -256,6 +256,9 @@ def test_run_qa_wait_transfers_failed_requirement_and_cursor_without_rewriting(
 
 
 def test_failed_successor_keeps_obligations_for_another_takeover(test_db, monkeypatch):
+    from yoke_core.domain.deployment_qa_execution_target import (
+        validate_deployment_execution_target,
+    )
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
     from yoke_core.domain.qa_plan_execution_store import roster_digest
 
@@ -276,6 +279,19 @@ def test_failed_successor_keeps_obligations_for_another_takeover(test_db, monkey
     takeover_case._seed_new(test_db)
     takeover_case._contains(monkeypatch)
     assert takeover_case._take_over(test_db) == takeover_case.OLD
+    target = json.loads(
+        test_db.execute(
+            "SELECT execution_target_json FROM qa_requirements WHERE id=%s",
+            (cases[takeover_case.WAITING],),
+        ).fetchone()[0]
+    )
+    subject = {
+        "deployment_run_id": takeover_case.NEW,
+        "deployment_stage": takeover_case.ITEM_QA_STAGE,
+        "deployment_member_item_id": takeover_case.WAITING,
+        "execution_target": target,
+    }
+    validate_deployment_execution_target(test_db, subject)
     test_db.execute(
         "UPDATE deployment_runs SET status='executing' WHERE id=%s",
         (takeover_case.NEW,),
@@ -289,6 +305,7 @@ def test_failed_successor_keeps_obligations_for_another_takeover(test_db, monkey
         session_id=DRIVER_SESSION,
     )
     test_db.commit()
+    validate_deployment_execution_target(test_db, subject)
     assert (
         test_db.execute(
             "SELECT state FROM qa_plan_executions WHERE id='carried-cursor'"
@@ -313,6 +330,9 @@ def test_failed_successor_keeps_obligations_for_another_takeover(test_db, monkey
         == takeover_case.NEW
     )
     assert takeover_case._run(test_db, takeover_case.NEW)["status"] == "failed"
+    validate_deployment_execution_target(
+        test_db, {**subject, "deployment_run_id": third}
+    )
     assert test_db.execute(
         "SELECT deployment_run_id,state FROM qa_plan_executions WHERE id='carried-cursor'"
     ).fetchone() == (third, "waiting")

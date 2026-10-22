@@ -141,13 +141,21 @@ def deployment_qa_execution_target(
 
         return frozen_shared_target(conn, subject)
     project = target_project(conn, subject)
+    frozen = first_materialized_execution_target(
+        conn,
+        run_id=str(subject["id"]),
+        stage_name=str(subject["stage"]["name"]),
+        member_item_id=subject.get("member_item_id"),
+    )
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    if (
+        frozen is not None
+        and (frozen.get("project") or {}).get("id") == project["id"]
+        and inherited_target(conn, str(subject["id"]), frozen)
+    ):
+        return frozen
     if receipt_id is None:
-        frozen = first_materialized_execution_target(
-            conn,
-            run_id=str(subject["id"]),
-            stage_name=str(subject["stage"]["name"]),
-            member_item_id=subject.get("member_item_id"),
-        )
         pinned = subject["stage"].get("target")
         source_stage = (
             str(pinned.get("source_stage") or "").strip()

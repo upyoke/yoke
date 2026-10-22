@@ -206,6 +206,7 @@ def execution_subject(
     import json
 
     from yoke_core.domain.qa_request_subjects import execution_subject_once
+    from yoke_core.domain.deployment_qa_takeover_identity import read_execution_subject
 
     target = (
         execution.get("execution_target")
@@ -218,35 +219,9 @@ def execution_subject(
         execution,
         target,
         require_active=require_active,
-        read=lambda active: _read_execution_subject(
+        read=lambda active: read_execution_subject(
             conn, execution, target, require_active=active
         ),
-    )
-
-
-def _read_execution_subject(
-    conn: Any, execution: Mapping, target: Mapping, *, require_active: bool
-) -> dict:
-    from yoke_core.domain.deployment_qa_stage_contract import (
-        deployment_qa_stage_subject,
-    )
-
-    shared = (target.get("deployment") or {}).get("shared_plan")
-    if shared:
-        return resolve_shared_subject(
-            conn,
-            run_id=str(execution["deployment_run_id"]),
-            stage_name=str(execution["deployment_stage"]),
-            plan_id=int(shared["plan_id"]),
-            expected_target=target,
-            require_active=require_active,
-        )
-    return deployment_qa_stage_subject(
-        conn,
-        run_id=str(execution["deployment_run_id"]),
-        stage_name=str(execution["deployment_stage"]),
-        member_item_id=execution.get("deployment_member_item_id"),
-        require_active=require_active,
     )
 
 

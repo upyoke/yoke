@@ -263,6 +263,14 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
             session_id=session_id,
             actor_id=actor_id,
         )
+    conn.execute(
+        f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",
+        (new_run_id, old_id),
+    )
+    conn.execute(
+        f"UPDATE deployment_runs SET {SUPERSEDES_COLUMN}=%s WHERE id=%s",
+        (old_id, new_run_id),
+    )
     if not apply:
         return old_id
     if old["status"] == "failed":
@@ -278,14 +286,6 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         )
     else:
         succeed_taken_over_run(conn, old_id, new_run_id, old["stages"])
-    conn.execute(
-        f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",
-        (new_run_id, old_id),
-    )
-    conn.execute(
-        f"UPDATE deployment_runs SET {SUPERSEDES_COLUMN}=%s WHERE id=%s",
-        (old_id, new_run_id),
-    )
     return old_id
 
 
