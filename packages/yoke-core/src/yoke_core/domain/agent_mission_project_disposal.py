@@ -64,6 +64,10 @@ def _authorized_execution(conn: Any, request: FunctionCallRequest, parsed) -> di
     if isinstance(target, HandlerOutcome):
         raise ValueError(target.error.message if target.error else "invalid target")
     execution = lock_plan_execution(conn, parsed.execution_id)
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    request = resolve_execution_request(conn, request, execution)
+    item_id, deployment_run_id = request.target.item_id, request.target.deployment_run_id
     from yoke_core.domain.qa_plan_execution_schema import (
         TERMINAL_PLAN_EXECUTION_STATES,
     )
@@ -80,7 +84,7 @@ def _authorized_execution(conn: Any, request: FunctionCallRequest, parsed) -> di
 
         require_standalone_project(conn, execution, str(request.target.project_id))
     require_plan_execution_subject(
-        execution, item_id=target[0], deployment_run_id=target[1]
+        execution, item_id=item_id, deployment_run_id=deployment_run_id
     )
     if not same_owner(
         execution, actor_id=request.actor.actor_id, session_id=request.actor.session_id
@@ -290,7 +294,7 @@ def register(registry: Any) -> None:
         MissionProjectDisposalResponse,
         stability="stable",
         owner_module=__name__,
-        target_kinds=["item", "deployment_run", "global"],
+        target_kinds=["item", "global"],
         minimum_serving_version="next-release",
         side_effects=[
             "cancel_item",

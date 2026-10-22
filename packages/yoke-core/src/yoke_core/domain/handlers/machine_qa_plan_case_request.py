@@ -14,6 +14,8 @@ def target_plan_subject(
     request: FunctionCallRequest,
     function_id: str,
 ) -> tuple[int | None, str | None] | HandlerOutcome:
+    if request.target.kind == "global" and request.payload.get("execution_id"):
+        return None, None
     if request.target.kind == "item" and request.target.item_id is not None:
         return int(request.target.item_id), None
     if request.target.kind == "deployment_run" and request.target.deployment_run_id:

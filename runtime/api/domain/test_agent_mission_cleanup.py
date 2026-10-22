@@ -165,7 +165,7 @@ def removed_mission(test_db, tmp_path, monkeypatch, request):
         update={
             "function": "test_machine.mission.access",
             "target": TargetRef(
-                kind="deployment_run", deployment_run_id=RUN, project_id="yoke"
+                kind="global", project_id="yoke"
             ),
             "payload": {
                 "execution_id": execution_id,

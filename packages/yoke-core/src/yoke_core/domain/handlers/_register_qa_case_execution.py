@@ -47,7 +47,7 @@ def register(registry) -> None:
             response,
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_execution_reentry",
-            target_kinds=["item", "deployment_run", "global"],
+            target_kinds=["item", "global"],
             minimum_serving_version="next-release",
             side_effects=["qa_plan_execution_write"],
             emitted_event_names=["YokeFunctionCalled"],
@@ -100,7 +100,10 @@ def register(registry) -> None:
             ),
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_execution",
-            target_kinds=["item", "deployment_run", "global"],
+            target_kinds=(
+                ["item", "deployment_run", "global"]
+                if function_id == "qa.plan_execution.begin" else ["item", "global"]
+            ),
             minimum_serving_version="next-release",
             side_effects=[
                 "qa_plan_execution_write",
@@ -142,7 +145,7 @@ def register(registry) -> None:
             response_model,
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_review",
-            target_kinds=["item", "deployment_run", "global"],
+            target_kinds=["item", "global"],
             minimum_serving_version="next-release",
             side_effects=[
                 "qa_plan_review_write",

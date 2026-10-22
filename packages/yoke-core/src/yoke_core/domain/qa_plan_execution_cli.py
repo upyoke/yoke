@@ -236,12 +236,14 @@ def run(args: List[str]) -> int:
         )
     if parsed.recovery_file and not parsed.resume_execution_id:
         parser.error("--recovery-file requires --resume-execution-id")
+    if parsed.resume_execution_id and parsed.deployment_run_id:
+        parser.error("resume resolves ownership from --resume-execution-id; omit --deployment-run-id")
     standalone = not parsed.item and not parsed.deployment_run_id
-    if standalone and (not parsed.plan or not parsed.project):
+    if standalone and not parsed.resume_execution_id and (not parsed.plan or not parsed.project):
         parser.error("standalone run requires --plan PLAN --project P")
     if bool(parsed.expected_branch) != bool(parsed.expected_sha) and not standalone:
         parser.error("--expected-branch and --expected-sha must be paired")
-    if parsed.item and not parsed.transition:
+    if parsed.item and not parsed.transition and not parsed.resume_execution_id:
         parser.error("--item requires --transition")
     if parsed.item and parsed.plan:
         parser.error("--item uses attached plans and does not accept --plan")

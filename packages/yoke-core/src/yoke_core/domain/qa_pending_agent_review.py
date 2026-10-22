@@ -37,13 +37,11 @@ _PENDING_REVIEW_SQL = (
 
 def review_scope_flag(conn: Any, execution: Mapping[str, Any]) -> str:
     """The subject flag ``review-begin`` and ``adopt`` take for this execution."""
-    if execution.get("deployment_run_id"):
-        return f"--deployment-run-id {execution['deployment_run_id']}"
     if execution.get("item_id"):
         from yoke_core.domain.project_identity import render_item_ref
 
         return f"--item {render_item_ref(conn, int(execution['item_id']))}"
-    return "--project PROJECT"
+    return ""
 
 
 @dataclass(frozen=True)

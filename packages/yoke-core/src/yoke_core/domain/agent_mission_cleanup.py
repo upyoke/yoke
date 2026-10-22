@@ -48,6 +48,9 @@ def cleanup_authority(conn: Any, request: Any, execution: dict) -> bool:
 
     if not cleanup_request(request) or not cleanup_execution(conn, execution):
         return False
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    request = resolve_execution_request(conn, request, execution)
     require_plan_execution_subject(
         execution,
         item_id=request.target.item_id,

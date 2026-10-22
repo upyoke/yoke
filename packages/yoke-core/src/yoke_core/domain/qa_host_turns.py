@@ -30,12 +30,7 @@ _LIVE = "('waiting','reserved')"
 
 
 def _plan_resume_command(conn: Any, execution: Any) -> str:
-    from yoke_core.domain.qa_plan_execution_continuation import continuation_recipe
-
-    command = continuation_recipe(conn, execution).removesuffix(" --continue-mission")
-    if any(case.get("runner_id") == "agent_mission" for case in execution["roster"]):
-        return f"{command} --resume-execution-id {execution['id']}"
-    return command
+    return f"yoke qa plan run --resume-execution-id {execution['id']}"
 
 
 def _resume_command(conn: Any, wait: Any) -> str:

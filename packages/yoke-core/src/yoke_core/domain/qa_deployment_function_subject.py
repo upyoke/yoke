@@ -14,6 +14,7 @@ from yoke_core.domain.function_target_row_project import (
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain.qa_execution_request_identity import EXECUTION_FUNCTIONS
 
 
 class QaSubjectProjectError(ValueError):
@@ -27,17 +28,8 @@ SCOPED_RUN_FUNCTIONS = frozenset(
         "qa.plan.materialize",
         "qa.plan.rematerialize",
         "qa.plan_execution.begin",
-        "qa.plan_execution.adopt",
-        "qa.plan_execution.heartbeat",
-        "qa.plan_execution.pause",
-        "qa.plan_execution.resume",
-        "qa.plan_execution.advance",
-        "qa.plan_execution.complete",
-        "qa.plan_execution.abort",
-        "qa.plan_review.begin",
-        "qa.plan_review.submit",
     }
-)
+) | EXECUTION_FUNCTIONS
 
 
 def _execution_subject(
