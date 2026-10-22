@@ -37,12 +37,13 @@ A wrong pre-release binding blocks admission and completion; rebind the
 existing row with `yoke qa requirement update --requirement-id N --field
 workflow_transition_id --value release`. The same creation rules apply.
 
-When item QA needs another item's shipped fix, record the wait on the existing
-dependency edge before retrying:
+When item QA needs another item's correction, follow
+[failed item QA recovery](failed-item-qa.md) and record the dependency before waiting.
+For a completion-only wait:
 
 ```text
 yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
-  --satisfaction status:done --rationale "QA requires the blocker's shipped fix"
+  --satisfaction status:done --rationale "QA requires the blocker's completion"
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use

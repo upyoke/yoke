@@ -19,6 +19,9 @@ deployment runs and require `DONE` through `yoke say --steering --stdin`.
 
 ## Rework
 
+For failed delivery QA, follow [failed item recovery](../../../../.yoke/docs/verification/failed-item-qa.md)
+for diagnosis, correction ownership, delivery dependencies and retest scope.
+
 ```text
 yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: correction"
 ```

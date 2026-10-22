@@ -10,7 +10,7 @@ Use the item and its pinned stage to start its owed cases:
 yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
-Read `yoke qa plan run --help` for correction and continuation options.
+Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
 [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
 owns the scope and target-binding contract.
 

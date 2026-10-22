@@ -1,7 +1,9 @@
 {
  "id": "directional-dependencies",
  "title": "Directional dependencies",
- "status": "draft-copy",
+ "status": "observed",
  "page": "coordination",
- "position": 4
+ "position": 4,
+ "current": "The failed item is the dependent and a separately owned correction is its blocker. A closure gate names when completion stops; satisfaction names what the correction must prove. Record the edge before waiting, retain the claim and lane, and resolve cyclic completion waits with steering.",
+ "sources": ["docs/public/verification/failed-item-qa.md", "docs/public/items/model/dependencies.md"]
 }

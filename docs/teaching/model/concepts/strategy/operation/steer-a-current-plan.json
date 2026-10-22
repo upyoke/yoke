@@ -2,8 +2,8 @@
  "id": "steer-a-current-plan",
  "title": "Steer a current plan",
  "status": "observed",
- "current": "Steering's standing rules require establishing the root cause of every defect or friction before proposing the minimal right fix set for operator approval: why it happened, why it did not happen before, and what changed. Use a subagent if needed. Before filing or amending a spec that makes a major design or scope decision (a recurring process, a new table, columns or migration, a new service, new infrastructure, a new external dependency, or a new mechanism where an existing one could be reused), steering presents it to the operator as a named scope decision with what it adds, why, and the simplest alternative, and waits for an explicit yes; a reviewer asked to vet a PR is asked whether it adds any of these.",
- "sources": [".agents/skills/yoke/steer/SKILL.md"],
+ "current": "Steering's standing rules require establishing the root cause of every defect or friction before proposing the minimal right fix set for operator approval: why it happened, why it did not happen before, and what changed. Use a subagent if needed. Before filing or amending a spec that makes a major design or scope decision (a recurring process, a new table, columns or migration, a new service, new infrastructure, a new external dependency, or a new mechanism where an existing one could be reused), steering presents it to the operator as a named scope decision with what it adds, why, and the simplest alternative, and waits for an explicit yes; a reviewer asked to vet a PR is asked whether it adds any of these. After failed item delivery QA, confirm and staff correction ownership, arrange qualifying delivery, preserve the original owner, inspect notice delivery and arrange supported resume/restaff if the surface lacks automatic wake. A dependency notice reports facts; activation GO remains a steering instruction.",
+ "sources": [".agents/skills/yoke/steer/SKILL.md", "docs/public/verification/failed-item-qa.md", ".agents/skills/yoke/steer/worker-lifecycle.md"],
  "skills": ["steer"],
  "page": "strategy",
  "position": 2

@@ -1,0 +1,9 @@
+{
+ "id": "failed-item-qa",
+ "title": "Failed member QA leads to one recovery recipe",
+ "status": "observed",
+ "form": "Inline recovery and installed documentation reference",
+ "verification": "Source walkthrough and existing focused regressions cover failure routing, notices, dependency readiness and frozen candidates. Actual live delivery and resumed owner work remain unproven.",
+ "topics": ["qa-plans/cases/wake-path", "qa-plans/requirements/stage-and-member-binding", "planning/dependencies/unblocking-evidence", "coordination/path-claims/directional-dependencies", "strategy/operation/steer-a-current-plan"],
+ "sources": ["docs/public/verification/failed-item-qa.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_cli_help.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/item_dependency.py", ".agents/skills/yoke/steer/loop.md", ".agents/skills/yoke/steer/worker-lifecycle.md", "packages/yoke-cli/src/yoke_cli/commands/qa_case.py", "runtime/api/cli/test_yoke_qa_plan_cli_deployment_subject.py"]
+}

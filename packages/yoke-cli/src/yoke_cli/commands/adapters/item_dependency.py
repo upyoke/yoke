@@ -95,9 +95,11 @@ unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk.
 Reserve fact:deployed:<environment-name> for a dependent that needs that code running
-in a registered environment before the blocker reaches done. A succeeded
-run satisfies it only when the blocker is an actual run member, even when the
-run belongs to another project. Mere code containment does not satisfy it.
+in a registered environment. It requires the blocker at done with durable
+completion delivery attribution to that environment, run and candidate, including
+source-bound cross-project delivery. Merge or release status alone is insufficient.
+Later sibling failure or cancellation does not erase completed attribution.
+For failed delivery QA, see .yoke/docs/verification/failed-item-qa.md.
 Add and update refuse an environment not registered for the blocking item's project.
 
 Examples:

@@ -184,34 +184,25 @@ A blocking reset finishes before cancellation is acted on.
 
 Failed member QA recovery
 -------------------------
-The one-line notice names RUN, STAGE, ITEM and each failed requirement ID.
-No notice is sent back to the session whose execution produced that verdict;
-it already holds the result. A holder or steering recipient should read:
+Inspect the failed requirement and its QA runs, then classify product defect,
+setup failure, case defect, or unclear cause. Current-item failures belong to
+that item: retain the claim and lane, correct and verify the work. If a separate
+correction is justified, name its owner and record ITEM -> FIX with a closure
+dependency before parking: status:done for completion, fact:deployed:ENV for
+completion with durable delivery attribution in that registered environment.
+Checkpoint the failed run/stage/member/target, diagnosis, exact milestone and
+next scoped command. Keep the claim while waiting; steering staffs corrections,
+arranges delivery and resumes an owner whose surface cannot wake automatically.
+A dependency notice is not proof that every blocker cleared or that an old
+frozen candidate contains the correction. Reread current evidence and run the
+stage/member command on the qualifying deployed candidate; a code correction
+outside the old lineage requires a later run. Case corrections use --replaces
+above. The verdict owner receives its result without a duplicate failure notice.
 
-  yoke deployment-runs get RUN
-  yoke qa requirement get --requirement-id FAILED_REQUIREMENT_ID
-  yoke qa run list --requirement-id FAILED_REQUIREMENT_ID
+Complete owner/steering recipe (installed project documentation):
+  .yoke/docs/verification/failed-item-qa.md
+Source: docs/public/verification/failed-item-qa.md
 
-Determine whether the environment, case, or member code caused the failure.
-Claim or staff ITEM before changing it if its holder is gone.
-For an environment failure, leave the item in release and run fresh QA on the
-current authorized environment:
-
-  yoke watch qa-plan -- --item ITEM --stage STAGE \\
-      --project PROJECT
-
-For a defective case, use the correction-only plan and --replaces recipe
-above (through yoke watch qa-plan --), or declare the corrected direct
-requirement before running the scoped plan without --plan.
-For a member code defect, refresh any survey required by its pinned workflow,
-then take the ordinary backward transition, without operator approval:
-
-  yoke lifecycle transition ITEM --from release --to implementing \\
-      --reason 'Post-deploy QA found a member code defect'
-
-Keep the claim and worktree; correct, verify and merge the item. Have the run
-driver settle the old run without changing its pin. The failed run and QA
-remain history; a new run must deploy the corrected commit.
 """
 
 
