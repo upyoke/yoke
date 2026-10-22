@@ -1,0 +1,10 @@
+{
+ "id": "codex-emission",
+ "title": "Budgeted Codex orientation outside projects",
+ "status": "observed",
+ "form": "State and recovery",
+ "verification": "Combined source lifecycle/client checks cover suppressed, missing, denied and interrupted startup outside projects. Installed published receiving proof remains pending in orientation-installed-emission.",
+ "topics": ["context/hooks"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "runtime/harness/test_hook_runner_codex_reminders.py"],
+ "position": 30
+}
