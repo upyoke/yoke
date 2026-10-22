@@ -204,16 +204,30 @@ def glob_segment_bases(command: str, cwd: str) -> list[tuple[str, str | None]]:
     return located
 
 
+def _brace_alternatives(token: str):
+    """Expand comma alternatives, including nested groups, without a shell."""
+    pending = [token]
+    while pending:
+        pattern = pending.pop()
+        group = re.search(r"\{([^{}]*,[^{}]*)\}", pattern)
+        if group is None:
+            yield pattern
+        else:
+            pending.extend(pattern[:group.start()] + choice + pattern[group.end():]
+                           for choice in group[1].split(","))
+
+
 def path_glob_is_unmatched(token: str, cwd: str) -> bool:
     """Check home, absolute and cwd-relative globs on the executing machine.
 
     An unexpanded ``$`` or backtick, or an unknown base, is allowed. A denial
-    requires a resolved directory and a fully literal pattern.
+    requires a resolved directory and literal brace-expanded alternatives.
     """
     if not cwd or "$" in token or "`" in token:
         return False
     try:
-        return not glob.glob(str(expanded_glob_path(token, cwd)))
+        return any(not glob.glob(str(expanded_glob_path(pattern, cwd)))
+                   for pattern in _brace_alternatives(token))
     except (OSError, ValueError):
         return False
 

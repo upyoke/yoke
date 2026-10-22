@@ -1,15 +1,42 @@
-"""Execute glob repairs and compare the files they select."""
+"""Parse repairs and enumerate their selected files without external tools."""
 
+import glob
 from pathlib import Path
 import re
-import subprocess
+import shlex
 from unittest import mock
 
 import pytest
 
-from yoke_contracts.hook_runner.shell_guard_repairs import glob_repair
+from yoke_contracts.hook_runner.shell_guard_repairs import (
+    _brace_alternatives,
+    glob_repair,
+)
 from yoke_core.domain import lint_unmatched_path_glob as core
 from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+
+
+def _selected_files(command: str, cwd: Path) -> set[Path]:
+    """Validate the emitted argv and enumerate its anchored glob in Python."""
+    words = shlex.split(command)
+    if words[0] == "cd":
+        assert words[2] == "&&"
+        cwd = Path(words[1])
+        words = words[3:]
+    assert words[0] == "rg"
+    assert words[1:-3] in (["--files"], ["-l", "needle"])
+    assert words[-2] == "--glob"
+    assert words[-1].startswith("/")
+    root = (cwd / words[-3]).resolve()
+    assert root.is_dir()
+    selected = set()
+    for pattern in _brace_alternatives(words[-1][1:]):
+        for name in glob.glob(str(cwd / pattern), recursive=True):
+            path = Path(name).resolve()
+            assert path.is_relative_to(root)
+            if path.is_file():
+                selected.add(path)
+    return selected
 
 
 @pytest.mark.parametrize("hook", ["core", "client"])
@@ -17,14 +44,13 @@ from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 @pytest.mark.parametrize(
     "pattern, expected",
     [
-        (".yoke/{install*,docs/index.md}", {"install.py", "docs/index.md"}),
-        (".yoke/{install*,docs/{index,extra}.md}",
-         {"install.py", "docs/index.md", "docs/extra.md"}),
-        (".yoke/*/{index,extra}.md", {"docs/index.md", "docs/extra.md"}),
+        (".yoke/{install*,docs/missing*.md}", {"install.py"}),
+        (".yoke/{absent*,docs/{index,extra}.md}", {"docs/index.md", "docs/extra.md"}),
+        (".yoke/*/{index,absent}.md", {"docs/index.md"}),
         (".yoke/install*.py", {"install.py"}),
     ],
 )
-def test_printed_repairs_select_intact_patterns(tmp_path: Path, hook, invocation, pattern, expected):
+def test_printed_repairs_select_intact_patterns(tmp_path, hook, invocation, pattern, expected):
     tree = tmp_path / ".yoke"
     (tree / "docs").mkdir(parents=True)
     for name in ("install.py", "docs/index.md", "docs/extra.md", "docs/other.md"):
@@ -33,7 +59,6 @@ def test_printed_repairs_select_intact_patterns(tmp_path: Path, hook, invocation
         "tool_name": "Bash", "cwd": str(tmp_path),
         "tool_input": {"command": f"{invocation} {pattern}", "shell": "/bin/zsh"},
     }
-    # A star with matching files normally passes; exercise its repair directly.
     with mock.patch.object(core, "_read_mode", return_value="deny"):
         if "{" in pattern:
             reason = (core.evaluate_payload(payload)[1] if hook == "core"
@@ -42,11 +67,7 @@ def test_printed_repairs_select_intact_patterns(tmp_path: Path, hook, invocation
         else:
             repaired = glob_repair(payload["tool_input"]["command"], pattern,
                                    str(tmp_path))[0]
-    result = subprocess.run(["sh", "-c", repaired], cwd=tmp_path,
-                            capture_output=True, text=True, check=False)
-    assert result.returncode == 0, result.stderr
-    assert {str(Path(name).relative_to(".yoke"))
-            for name in result.stdout.splitlines()} == expected
+    assert _selected_files(repaired, tmp_path) == {(tree / name).resolve() for name in expected}
 
 
 @pytest.mark.parametrize(
@@ -87,13 +108,36 @@ def test_missing_root_has_no_repair(tmp_path: Path):
 def test_external_search_root_does_not_include_nested_names(tmp_path: Path, root_name):
     tree = tmp_path / root_name
     (tree / "nested").mkdir(parents=True)
-    (tree / "Meeting.txt").write_text("needle\n")
+    target = tree / "Meeting.txt"
+    target.write_text("needle\n")
     (tree / "nested" / "Meeting.txt").write_text("needle\n")
     cwd = tmp_path / "repository"
     cwd.mkdir()
     token = str(tree / "Meeting*")
     repaired = glob_repair(f"rg -l needle '{token}'", token, str(cwd))[0]
-    result = subprocess.run(["sh", "-c", repaired], cwd=cwd, capture_output=True,
-                            text=True, check=False)
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["./Meeting.txt"]
+    assert _selected_files(repaired, cwd) == {target.resolve()}
+
+
+@pytest.mark.parametrize("hook", ["core", "client"])
+@pytest.mark.parametrize("missing", ["none", "some", "all"])
+@pytest.mark.parametrize("pattern", ["docs/{a*,b*}.md", "docs/{a*,{b*,c*}}.md"])
+def test_brace_matching_checks_each_expanded_operand(tmp_path, hook, missing, pattern):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    if missing != "all":
+        (docs / "alpha.md").write_text("a")
+    if missing == "none":
+        (docs / "beta.md").write_text("b")
+        (docs / "charlie.md").write_text("c")
+    payload = {"tool_name": "Bash", "cwd": str(tmp_path),
+               "tool_input": {"command": f"ls {pattern}", "shell": "/bin/zsh"}}
+    with mock.patch.object(core, "_read_mode", return_value="deny"):
+        denied = (core.evaluate_payload(payload) is not None if hook == "core"
+                  else lint_unmatched_path_glob(payload).outcome == "deny")
+    assert denied is (missing != "none")
+
+
+def test_nested_brace_expansion_retains_whole_paths():
+    assert set(_brace_alternatives(".yoke/{install*,docs/{index,other}.md}")) == {
+        ".yoke/install*", ".yoke/docs/index.md", ".yoke/docs/other.md",
+    }
