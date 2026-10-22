@@ -99,18 +99,18 @@ Inside that Ubuntu home, an administrator installs:
 
 ```text
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl git tmux python3 python3-venv nodejs npm docker.io docker-compose-v2
-sudo systemctl enable --now docker
-sudo usermod -aG docker TESTUSER
+sudo apt-get install -y ca-certificates curl git tmux python3 python3-venv nodejs npm
 sudo install -d -m 0700 -o TESTUSER -g TESTUSER /var/lib/yoke-golden/TESTUSER
 ```
 
-Reopen the user's session after group changes. Give the dedicated test user
+Complete the project's manual runtime preparation inside WSL; if it declares
+Docker, install/verify Compose v2, daemon/service access and real workloads, then
+reopen the session after group changes. Give the dedicated test user
 passwordless sudo for automatic Chromium library setup, through a validated
 0440 `/etc/sudoers.d/yoke-test-user` drop-in containing
 `TESTUSER ALL=(ALL) NOPASSWD: ALL`. Administrator runs `visudo -c`; the user
-proves `sudo -n true`, `docker info` and `docker compose version` (v2). Docker-group membership alone is not
-the privileged-library prerequisite.
+proves `sudo -n true` plus the project-declared runtime workload checks.
+Runtime group membership is not the privileged-library prerequisite.
 Require Ubuntu24.04, Git/tmux/Python versions, non-root ownership and supported
 vendor Node/runtime versions. Packages/services are outside the saved home.
 Keep repositories in the Linux filesystem; native Windows Yoke and Windows-side

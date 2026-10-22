@@ -23,15 +23,14 @@ RAM. The administrator installs base tools and creates that account:
 
 ```text
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl git tmux python3 python3-venv nodejs npm docker.io docker-compose-v2
-sudo systemctl enable --now docker
+sudo apt-get install -y ca-certificates curl git tmux python3 python3-venv nodejs npm
 sudo adduser --disabled-password --gecos '' TESTUSER
-sudo usermod -aG docker TESTUSER
 sudo install -d -m 0700 -o TESTUSER -g TESTUSER /var/lib/yoke-golden/TESTUSER
 ```
 
-Log in again after group changes. This dedicated rig needs passwordless sudo
-for automatic Chromium library setup, not just Docker-group access. As the
+Complete the project's manual runtime preparation, including service/group
+readiness and real containers/Compose v2 when Docker is declared. This rig needs
+passwordless sudo for Chromium library setup, independently of runtime access. As the
 administrator, prepare a drop-in substituting the actual test account:
 
 ```text
@@ -43,8 +42,8 @@ sudo -u TESTUSER sudo -n true
 ```
 
 Require a nonzero `id -u`, Ubuntu24.04 in `/etc/os-release`, and working
-`git --version`, `tmux -V`, `python3 --version`, `docker info`,
-`docker compose version` (v2), `sudo -n true`
+`git --version`, `tmux -V`, `python3 --version`, `sudo -n true` and the
+project-declared runtime workload checks
 as the user. System packages, services and sudo policy are outside the home
 golden. Do not record QA package changes as the permanent machine baseline.
 
