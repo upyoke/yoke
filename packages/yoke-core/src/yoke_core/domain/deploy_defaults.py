@@ -23,6 +23,7 @@ import argparse
 import sys
 from typing import Any, List, Optional
 
+from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.project_identity import resolve_project_id
@@ -68,7 +69,7 @@ def set_default_flow(
     payload = {"deployment_flow": flow_id}
     if isinstance(existing.get("workflow_defaults"), dict):
         payload["workflow_defaults"] = existing["workflow_defaults"]
-    ps.apply_patch(
+    apply_patch(
         project_id,
         ops=[{
             "op": "put",
@@ -138,7 +139,7 @@ def clear_default_flow(
     state = ps.read_structure(project_id, family=FAMILY, db_path=db_path)
     if not state.get("entries"):
         return False
-    ps.apply_patch(
+    apply_patch(
         project_id,
         ops=[{
             "op": "remove",

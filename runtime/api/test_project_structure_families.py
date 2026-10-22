@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Iterator
 
+from yoke_core.domain.project_structure_write import apply_patch
 import pytest
 
 from yoke_core.domain import project_structure as ps
@@ -58,7 +59,7 @@ class TestContextRoutingFamily:
     def test_put_entry_accepted(self, initialized_db: str, entry_key: str):
         """Both the reserved ``always`` key and arbitrary topic names accept
         a non-empty ``docs`` list payload."""
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("context_routing", "project",
                       {"docs": ["AGENTS.md", "docs/OVERVIEW.md"]},
@@ -78,14 +79,14 @@ class TestContextRoutingFamily:
     ])
     def test_payload_validation_rejects(self, initialized_db, payload, match):
         with pytest.raises(ps.ValidationError, match=match):
-            ps.apply_patch(
+            apply_patch(
                 "test", ops=[_put("context_routing", "project", payload, entry_key="always")],
                 db_path=initialized_db,
             )
 
     def test_keyed_set_rejects_missing_entry_key(self, initialized_db: str):
         with pytest.raises(ps.ValidationError, match="entry_key is required"):
-            ps.apply_patch(
+            apply_patch(
                 "test", ops=[_put("context_routing", "project", {"docs": ["AGENTS.md"]})],
                 db_path=initialized_db,
             )
@@ -93,7 +94,7 @@ class TestContextRoutingFamily:
 
 class TestWriteReadRoundTrip:
     def test_first_put(self, initialized_db: str):
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "core area"}, entry_key="core")],
             db_path=initialized_db,
@@ -105,12 +106,12 @@ class TestWriteReadRoundTrip:
         assert areas[0]["payload"] == {"description": "core area"}
 
     def test_put_creates_then_updates_same_identity(self, initialized_db: str):
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "v1"}, entry_key="core")],
             db_path=initialized_db,
         )
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "v2"}, entry_key="core")],
             db_path=initialized_db,
@@ -121,12 +122,12 @@ class TestWriteReadRoundTrip:
         assert entries[0]["payload"] == {"description": "v2"}
 
     def test_remove_deletes_entry(self, initialized_db: str):
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "x"}, entry_key="k")],
             db_path=initialized_db,
         )
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_remove("areas", "project", entry_key="k")],
             db_path=initialized_db,
@@ -136,14 +137,14 @@ class TestWriteReadRoundTrip:
 
     def test_remove_nonexistent_entry_errors(self, initialized_db: str):
         with pytest.raises(ps.ValidationError, match="Cannot remove nonexistent"):
-            ps.apply_patch(
+            apply_patch(
                 "test",
                 ops=[_remove("areas", "project", entry_key="missing")],
                 db_path=initialized_db,
             )
 
     def test_family_slice_matches_whole_structure(self, initialized_db: str):
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "a"}, entry_key="a")],
             db_path=initialized_db,
@@ -157,7 +158,7 @@ class TestAtomicity:
     def test_all_ops_fail_if_any_op_fails(self, initialized_db: str):
         """If the second op has an invalid envelope, the first must not land."""
         with pytest.raises(ps.ValidationError):
-            ps.apply_patch(
+            apply_patch(
                 "test",
                 ops=[
                     _put("areas", "project", {"description": "ok"}, entry_key="ok"),
@@ -174,7 +175,7 @@ class TestAtomicity:
             _put("areas", "project", {"description": "b"}, entry_key="b"),
             _put("areas", "project", {"description": "c"}, entry_key="c"),
         ]
-        ps.apply_patch(
+        apply_patch(
             "test", ops=ops, db_path=initialized_db,
         )
         structure = ps.read_structure("test", db_path=initialized_db)
@@ -226,7 +227,7 @@ class TestArchitectureModelFamily:
 
     def test_round_trip_minimal_payload(self, initialized_db: str):
         payload = _minimal_architecture_model()
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("architecture_model", "project", payload)],
             db_path=initialized_db,
@@ -239,7 +240,7 @@ class TestArchitectureModelFamily:
 
     def test_singleton_rejects_entry_key(self, initialized_db: str):
         with pytest.raises(ps.ValidationError, match="singleton"):
-            ps.apply_patch(
+            apply_patch(
                 "test",
                 ops=[_put("architecture_model", "project",
                           _minimal_architecture_model(),
@@ -276,7 +277,7 @@ class TestArchitectureModelFamily:
     ):
         payload = _mutate(_minimal_architecture_model(), mutate)
         with pytest.raises(ps.ValidationError, match=match):
-            ps.apply_patch(
+            apply_patch(
                 "test",
                 ops=[_put("architecture_model", "project", payload)],
                 db_path=initialized_db,
@@ -290,7 +291,7 @@ class TestArchitectureModelFamily:
         payload["cross_cutting_entrypoints"]["storage_access"][
             "guarded_imports"
         ] = ["sqlite3.connect"]
-        ps.apply_patch(
+        apply_patch(
             "test",
             ops=[_put("architecture_model", "project", payload)],
             db_path=initialized_db,

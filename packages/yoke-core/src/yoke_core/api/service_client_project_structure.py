@@ -18,6 +18,8 @@ import json
 import sys
 from typing import Any, Dict, Optional, Sequence
 
+from yoke_core.domain.project_structure_write import apply_patch
+from yoke_core.domain.project_structure_seeds import cmd_seed
 from yoke_core.domain import project_structure as ps
 
 
@@ -74,7 +76,7 @@ def cmd_project_structure_patch(argv: Sequence[str]) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     try:
-        result = ps.apply_patch(
+        result = apply_patch(
             args.project_id,
             ops=payload["ops"],
             actor=args.actor or payload.get("actor"),
@@ -95,7 +97,7 @@ def cmd_project_structure_seed(argv: Sequence[str]) -> int:
     parser.add_argument("--recipe", required=True)
     args = parser.parse_args(list(argv))
     try:
-        result = ps.cmd_seed(args.project_id, args.recipe)
+        result = cmd_seed(args.project_id, args.recipe)
     except (ps.ValidationError, ps.UsageError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

@@ -9,6 +9,7 @@ import pytest
 
 from yoke_core.domain import context_routing
 from yoke_core.domain import project_structure as ps
+from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.db_helpers import connect
 from runtime.api.fixtures.file_test_db import init_test_db
 
@@ -45,7 +46,7 @@ def initialized_db(tmp_path: Path) -> Iterator[str]:
 
 
 def test_helpers_read_project_wide_docs_and_topics(initialized_db: str) -> None:
-    ps.apply_patch(
+    apply_patch(
         "demo",
         ops=[
             {

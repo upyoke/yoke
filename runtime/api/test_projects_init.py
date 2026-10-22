@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterator
 
+from yoke_core.domain.project_structure_write import apply_patch
+from yoke_core.domain.project_structure_seeds import cmd_seed
 import pytest
 
 from yoke_core.domain import projects
@@ -124,7 +126,6 @@ class TestInit:
         Project Structure seed) leaves an operator-edited deployment default
         alone."""
         from yoke_core.domain import deploy_defaults
-        from yoke_core.domain import project_structure as ps
 
         projects.cmd_init(db_path=empty_db)
         conn = connect(empty_db)
@@ -132,9 +133,9 @@ class TestInit:
             seed_project_identities(conn)
         finally:
             conn.close()
-        ps.cmd_seed("yoke", "yoke-source", db_path=empty_db)
+        cmd_seed("yoke", "yoke-source", db_path=empty_db)
 
-        ps.apply_patch(
+        apply_patch(
             "yoke",
             ops=[
                 {

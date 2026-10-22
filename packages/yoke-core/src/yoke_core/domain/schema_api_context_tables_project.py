@@ -154,7 +154,11 @@ PROJECT_TABLES: dict[str, dict] = {
             "context_routing (per-topic doc paths), and deploy_defaults "
             "(default deployment_flow). Read through the family-specific "
             "domain helpers. There is no top-level context_routing table — "
-            "raw queries against that name fail."
+            "raw queries against that name fail. Wrong guess: project_structure "
+            "re-exports writers or CLI helpers. Import apply_patch from "
+            "project_structure_write, cmd_seed from project_structure_seeds, "
+            "and CLI helpers from project_structure_cli. Reverse eager imports "
+            "cause a circular ImportError in workflows.delivery_default.set."
         ),
     },
     "path_snapshots": {

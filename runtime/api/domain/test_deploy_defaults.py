@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.domain.project_structure_write import apply_patch
 import pytest
 
 from yoke_core.domain import db_backend
@@ -85,7 +86,7 @@ class TestSetDefaultFlow:
         # underlying family validator must reject a malformed put so
         # operators who bypass the helper still hit a structural error.
         with pytest.raises(ps.ValidationError):
-            ps.apply_patch(
+            apply_patch(
                 "solo",
                 ops=[
                     {

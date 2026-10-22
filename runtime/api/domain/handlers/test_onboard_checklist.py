@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from yoke_core.domain.project_structure_write import apply_patch
 import pytest
 from uuid import uuid4
 
@@ -221,8 +222,6 @@ def test_onboard_checklist_run_handler_rejects_invalid_row(onboarding_db) -> Non
 
 
 def test_read_only_get_preserves_profile_and_rechecks_changed_settings(onboarding_db):
-    from yoke_core.domain import project_structure
-
     profile = {"hosting": "deferred", "delivery": "no-default"}
     first = onboard_checklist.handle_onboard_checklist_init(
         _request(
@@ -243,7 +242,7 @@ def test_read_only_get_preserves_profile_and_rechecks_changed_settings(onboardin
     assert same["execution_profile"] == profile
     assert same["profile_changed"] is False
     assert same["updated_at"] == first["updated_at"]
-    project_structure.apply_patch(
+    apply_patch(
         "9",
         ops=[
             {
