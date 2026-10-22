@@ -249,12 +249,14 @@ def source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> s
 
 
 def next_steps(cfg_path: Path, project_mode: str) -> list[str]:
+    from yoke_cli.config.project_onboarding_handoff import onboard_command
+
     if project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
         return [f"yoke status --config {cfg_path}"]
     if project_mode != PROJECT_MODE_MACHINE_ONLY:
         return [
             f"yoke status --config {cfg_path}",
-            "/yoke onboard --run-id <run-id>",
+            onboard_command("--run-id <run-id>"),
         ]
     return [
         f"yoke status --config {cfg_path}",

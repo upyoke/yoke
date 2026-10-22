@@ -6,6 +6,6 @@
  "commands": ["yoke init", "yoke setup"],
  "page": "installation",
  "position": 0,
- "current": "https://upyoke.com/ shows install upyoke.com with Copy and a Claude Code, Codex or Cursor caption in the hero and installer. The installer also retains the curl command, Copy command and console.",
+ "current": "https://upyoke.com/ shows install upyoke.com with Copy and a Claude Code, Codex or Cursor caption in the hero and installer. The installer also retains the curl command, Copy command and console. A missing uv is installed automatically; installation does not ask for uv consent. The final handoff names the installed yoke skill, with $yoke onboard for Codex and /yoke onboard for Claude Code or Cursor.",
  "desired": "Prove a real agent follows the public first-turn fetch → correct install action; the shipped visible entry alone does not prove that journey."
 }

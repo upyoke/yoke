@@ -52,14 +52,15 @@ work. See [onboarding](install.md#onboard-wizard) for server token options.
 ## Add your first project
 
 Open Claude Code, Codex or Cursor yourself in your project's checkout. Ask its
-agent: “Add this checkout to my connected Yoke universe, then run `/yoke onboard`
-with me.” The agent checks existing project bindings, asks for the project's
+agent: “Add this checkout to my connected Yoke universe, then use the installed
+Yoke skill to onboard with me.” Invoke `$yoke onboard` in Codex or
+`/yoke onboard` in Claude Code or Cursor. The agent checks existing project bindings, asks for the project's
 identity and previews the supported project setup. Approve the choices it
 shows; the agent adds the project. Yoke does not open an interactive agent
 session for you.
 
 Expected: the checkout carries its Yoke operating guidance, `yoke status` names
-its project mapping, and `/yoke onboard` connects existing work to a first
+its project mapping, and the Yoke onboard skill connects existing work to a first
 delivery. If the project already exists and only needs guidance, see
 [Project installation](project-install.md). [Concepts](concepts.md) explains
 universes, projects, items and workflows.

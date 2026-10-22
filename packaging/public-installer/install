@@ -3,11 +3,9 @@
 # is present, downloads the thin install.py helper, and hands off. uv owns the
 # Python, the isolated tool environment, dependency resolution, and the PATH
 # shim, so this shell layer carries no Python/Node/git/browser prerequisite
-# logic. The consent prompt this file shows is the uv/uvx install prompt, led by
-# a branded welcome banner (figlet + tagline, color when the terminal supports
-# it; a single plain line otherwise). It prefers /dev/tty for `curl ... | sh`;
-# for script-file invocation, piped stdin is safe to use because stdin is not
-# the script body.
+# logic. A branded welcome banner precedes automatic uv installation when uv
+# is missing (figlet + tagline, color when the terminal supports it; a single
+# plain line otherwise).
 
 set -u
 
@@ -310,7 +308,7 @@ print_path_guidance_after_onboard() {
   printf '%s  %s  open Claude Code, Codex, or Cursor in your project folder%s\n' \
     "$(handoff_bar)" "$handoff_step" "$(sgr_reset)"
   handoff_step=$((handoff_step + 1))
-  printf '%s  %s  run %s%s/yoke onboard%s\n' \
+  printf '%s  %s  use the installed yoke skill: %s%s$yoke onboard (Codex); /yoke onboard (Claude Code/Cursor)%s\n' \
     "$(handoff_bar)" "$handoff_step" \
     "$(c_bright)" "$(c_bold)" "$(sgr_reset)"
 }

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from yoke_cli.commands.adapters import install, config_write_project, onboard_checklist
 from yoke_cli.config import setup_facts_summary, setup_agent_answering
+from yoke_cli.config import project_onboarding_handoff as handoff
 
 ACTION = {
     "row_id": "strategy-setup",
@@ -74,7 +75,8 @@ def test_register_summary_preserves_machine_config_selection(
         assert "Next: /yoke onboard" in out
 
 
-def test_checklist_init_uses_response_next_action():
+def test_checklist_init_uses_response_next_action(monkeypatch):
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: "codex")
     stream = StringIO()
     onboard_checklist._render_init_human(
         SimpleNamespace(
@@ -88,7 +90,7 @@ def test_checklist_init_uses_response_next_action():
         stream,
         StringIO(),
     )
-    assert "Next: /yoke onboard" in stream.getvalue()
+    assert "Next: $yoke onboard" in stream.getvalue()
     assert "Next:\n  - yoke setup" not in stream.getvalue()
 
 
@@ -115,6 +117,7 @@ def test_refresh_preview_never_reads_live_setup(monkeypatch, capsys):
 
 
 def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tmp_path):
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: "codex")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(setup_facts_summary, "read_project", lambda *a, **kw: SUMMARY)
     flow = setup_agent_answering.AnswerFlow()
@@ -122,7 +125,7 @@ def test_setup_done_keeps_readiness_before_shared_project_action(monkeypatch, tm
     flow.report_path = None
     result = flow._done_fields()
     assert "doctor run --session" in result["next"][0]
-    assert "/yoke onboard" in result["next"][1]
+    assert "$yoke onboard" in result["next"][1]
     assert result["next_action"] == ACTION
 
 
