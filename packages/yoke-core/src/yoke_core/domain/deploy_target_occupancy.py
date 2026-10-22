@@ -193,8 +193,11 @@ def occupancies(
     if not wanted:
         return []
     p = _marker(conn)
+    from yoke_core.domain.qa_deployment_run_settlement import failed_qa_owner_sql
+
     rows = conn.execute(
-        f"{_RUN_SQL} WHERE dr.status = {p} AND dr.id <> {p} ORDER BY dr.id",
+        f"{_RUN_SQL} WHERE (dr.status = {p} OR ({failed_qa_owner_sql(conn, 'dr')})) "
+        f"AND dr.superseded_by_run_id IS NULL AND dr.id <> {p} ORDER BY dr.id",
         (OCCUPYING_STATUS, excluding_run),
     ).fetchall()
     held: list[Occupancy] = []

@@ -24,7 +24,6 @@ from yoke_core.domain.deployment_run_member_removal import (
     SETTLEMENT_REMOVED_BY,
     remove_member_on,
 )
-from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_gates import GateTarget, check_done_gate
@@ -203,7 +202,7 @@ def _notices(conn):
     ).fetchall()
 
 
-def _take_over(conn, *, live: bool):
+def _remove_for_later_release(conn, *, live: bool):
     _project(conn)
     _red_member(conn)
     _parked_owner(conn, HOLDER_A, ITEM)
@@ -228,26 +227,25 @@ def _take_over(conn, *, live: bool):
         ),
         session_id="remover",
         actor_id=2,
-        removed_by=TAKEOVER_REMOVED_BY,
+        removed_by="steering",
     )
     conn.commit()
     return new_run
 
 
-def test_takeover_without_a_running_execution_sends_nothing(test_db):
-    _take_over(test_db, live=False)
-    assert _notices(test_db) == []
+def test_removal_without_a_running_execution_notifies_the_holder(test_db):
+    _remove_for_later_release(test_db, live=False)
+    assert len(_notices(test_db)) == 1
 
 
-def test_takeover_that_aborts_a_running_execution_wakes_naming_the_new_run(test_db):
-    new_run = _take_over(test_db, live=True)
+def test_removal_that_aborts_a_running_execution_notifies_the_holder(test_db):
+    new_run = _remove_for_later_release(test_db, live=True)
     rows = _notices(test_db)
     assert len(rows) == 1
     body = rows[0]["body"]
     assert new_run in body
-    assert "continues on the new run" in body
-    assert "stay parked" in body
-    assert "rides a later release" not in body
+    assert "cancelled (not passed)" in body
+    assert "classification" in body
     assert "re-park" not in body
     assert explicit_stopped_wake_requested(rows[0]["routing_snapshot"])
     assert rows[0]["wake_after"] != rows[0]["expires_at"]

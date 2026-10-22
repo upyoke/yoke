@@ -16,18 +16,51 @@ from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 from yoke_core.domain.schema_common import _table_exists
 
 
-def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> None:
+def inherited_qa_sql(alias: str = "") -> str:
+    """Transferred ownership differs from the immutable starting release."""
+    prefix = f"{alias}." if alias else ""
+    return (
+        f"COALESCE(NULLIF({prefix}execution_target_json,''),'{{}}')::jsonb "
+        f"#>> '{{deployment,run_id}}' <> {prefix}deployment_run_id"
+    )
+
+
+def preserves_inherited_qa(conn: Any, run_id: str) -> bool:
+    """A failed successor keeps its inherited work until retry or takeover."""
+    row = conn.execute(
+        "SELECT 1 FROM deployment_runs WHERE id=%s AND status='failed' "
+        "AND supersedes_run_id IS NOT NULL AND superseded_by_run_id IS NULL",
+        (run_id,),
+    ).fetchone()
+    return row is not None
+
+
+def failed_qa_owner_sql(conn: Any, alias: str) -> str:
+    """Failed ownership exists only where inherited QA records exist."""
+    if not _table_exists(conn, "qa_requirements"):
+        return "false"
+    return (
+        f"{alias}.status='failed' AND {alias}.supersedes_run_id IS NOT NULL "
+        f"AND {alias}.superseded_by_run_id IS NULL AND EXISTS ("
+        f"SELECT 1 FROM qa_requirements q WHERE q.deployment_run_id={alias}.id "
+        f"AND q.retracted_at IS NULL AND ({inherited_qa_sql('q')}))"
+    )
+
+
+def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> bool:
     """Abort live cursors and retract unfulfilled run obligations without committing.
 
     A cursor already settling through a recorded abort is left to that abort.
     """
+    preserve = preserves_inherited_qa(conn, run_id)
+    ordinary = f"AND NOT COALESCE(({inherited_qa_sql()}),false) " if preserve else ""
     executions = [
         lock_plan_execution(conn, str(row["id"]))
         for row in (
             query_rows(
                 conn,
                 "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-                f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) ORDER BY id",
+                f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) {ordinary}ORDER BY id",
                 (run_id,),
             )
             if _table_exists(conn, "qa_plan_executions")
@@ -53,11 +86,12 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> None:
             conn, execution, state="aborted", reason=reason, commit=False
         )
     if not _table_exists(conn, "qa_requirements"):
-        return
+        return preserve
     rows = query_rows(
         conn,
         "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
-        f"AND NOT {settled_obligation_sql(conn, 'r')} "
+        + (f"AND NOT COALESCE(({inherited_qa_sql('r')}),false) " if preserve else "")
+        + f"AND NOT {settled_obligation_sql(conn, 'r')} "
         "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
         f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
         (run_id,),
@@ -65,6 +99,7 @@ def settle_unsuccessful_run(conn: Any, run_id: str, *, reason: str) -> None:
     retract_requirements(
         conn, [int(row["id"]) for row in rows], reason=reason, source="deployment_run"
     )
+    return preserve
 
 
 def restore_retry_obligations(conn: Any, run_id: str) -> None:
@@ -78,6 +113,7 @@ def restore_retry_obligations(conn: Any, run_id: str) -> None:
             "UPDATE qa_requirements SET retracted_at=NULL, "
             "retraction_rationale=NULL, retraction_source=NULL "
             "WHERE deployment_run_id=%s AND retraction_source='deployment_run' "
+            f"AND NOT COALESCE(({inherited_qa_sql()}),false) "
             "AND (deployment_member_item_id IS NULL OR deployment_member_item_id IN "
             "(SELECT item_id FROM deployment_run_items WHERE run_id=%s))",
             (run_id, run_id),

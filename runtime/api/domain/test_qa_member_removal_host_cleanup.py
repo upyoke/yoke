@@ -23,7 +23,6 @@ from yoke_core.domain.deployment_member_removal_notice import (
     removal_notice_body,
 )
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
-from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
 from yoke_core.domain.qa_deployment_run_settlement import settle_unsuccessful_run
 from yoke_core.domain.qa_plan_execution_abort_reason import (
@@ -126,7 +125,7 @@ def test_the_owner_notice_names_the_pending_host_cleanup():
         run_id=RUN,
         public_ref="YOK-1",
         reason="taken over",
-        removed_by=TAKEOVER_REMOVED_BY,
+        removed_by="steering",
         red=(),
         host_cleanup_pending=True,
     )

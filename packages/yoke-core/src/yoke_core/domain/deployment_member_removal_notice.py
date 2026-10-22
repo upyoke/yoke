@@ -15,7 +15,6 @@ from yoke_core.domain.deployment_run_member_removal import (
     REOPENED_REMOVED_BY,
     SETTLEMENT_REMOVED_BY,
 )
-from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_latest_execution import latest_executions
 
 _SEND_SAVEPOINT = "_yoke_removed_member_notice"
@@ -30,7 +29,6 @@ _REWORK = (
 #: already moved past this run: a red verdict here owes no new rework.
 _NO_REWORK_SOURCES = frozenset(
     {
-        TAKEOVER_REMOVED_BY,
         CORRECTION_RELEASE_REMOVED_BY,
         SETTLEMENT_REMOVED_BY,
         REOPENED_REMOVED_BY,
@@ -99,11 +97,6 @@ def _next_step(
     park = (
         f"`yoke sessions touch --mode parked --reason 'awaiting {public_ref} delivery'`"
     )
-    if removed_by == TAKEOVER_REMOVED_BY:
-        return (
-            lead + "The member's QA continues on the new run. "
-            "Keep the work claim and stay parked."
-        )
     if removed_by == REOPENED_REMOVED_BY:
         return (
             lead + "Continue its rework and re-land it through `yoke merge item`; "
@@ -139,15 +132,11 @@ def notify_removed_member(
     reason: str,
     removed_by: str,
     removed_at: str,
-    execution_aborted: bool = False,
     host_cleanup_pending: bool = False,
     cancelled_requirement_ids: Iterable[int] = (),
 ) -> None:
     """Queue a notice with the removal, without risking its durable write.
 
-    A takeover that aborted no running execution sends nothing: the new run's
-    item-QA wake already names that run. A takeover that stopped a running
-    execution still wakes the owner, and says QA continues on the new run.
     An execution left holding its host names the cleanup that releases it.
     A red verdict among the cancelled requirements keeps the rework
     instruction unless the removal source already carries the member past
@@ -156,9 +145,6 @@ def notify_removed_member(
     grants a pass. A send that ended the caller's transaction raises
     ``SavepointLostError``, so the removal fails loudly instead.
     """
-    takeover = removed_by == TAKEOVER_REMOVED_BY
-    if takeover and not execution_aborted:
-        return
     red: tuple[int, ...] | None = None
     if removed_by in _NO_REWORK_SOURCES:
         red = ()

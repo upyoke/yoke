@@ -221,21 +221,23 @@ def cmd_update(
                         "WHERE id=%s",
                         (value, instant_parameter(conn, utc_now()), run_id),
                     )
+                preserved = False
                 if value in {"failed", "cancelled"}:
                     from yoke_core.domain.qa_deployment_run_settlement import (
                         settle_unsuccessful_run,
                     )
 
-                    settle_unsuccessful_run(
+                    preserved = settle_unsuccessful_run(
                         conn, run_id, reason=f"deployment run {run_id} {value}"
                     )
                 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
                     withdraw_deployment_qa_wait_wakes,
                 )
 
-                withdraw_deployment_qa_wait_wakes(
-                    conn, run_id=run_id, reason=f"run_terminal:{value}"
-                )
+                if not preserved:
+                    withdraw_deployment_qa_wait_wakes(
+                        conn, run_id=run_id, reason=f"run_terminal:{value}"
+                    )
                 conn.commit()
                 if value in {"failed", "cancelled"}:
                     from yoke_core.domain.deployment_run_workflow_cancellation import (

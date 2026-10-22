@@ -17,7 +17,6 @@ from yoke_core.domain.schema_common import _column_exists
 
 SUPERSEDED_BY_COLUMN = "superseded_by_run_id"
 SUPERSEDES_COLUMN = "supersedes_run_id"
-TAKEOVER_REMOVED_BY = "run takeover"
 NOT_CONTAINED_CODE = "takeover_candidate_not_contained"
 
 _CLOSED_ITEM_STATUSES = frozenset({"done", "cancelled", "stopped"})
@@ -70,13 +69,16 @@ def _waits_only_on_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
 def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     """The executing run on this flow and target still held by QA."""
     from yoke_core.domain.deploy_target_occupancy import open_qa_lines
+    from yoke_core.domain.qa_deployment_run_settlement import failed_qa_owner_sql
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
 
     rows = query_rows(
         conn,
-        "SELECT id,current_stage,settling_at,release_lineage FROM deployment_runs "
+        "SELECT id,status,current_stage,settling_at,release_lineage,supersedes_run_id "
+        "FROM deployment_runs "
         "WHERE project_id=%s AND flow=%s AND target_environment_id=%s "
-        "AND status='executing' AND id<>%s ORDER BY id",
+        f"AND (status='executing' OR ({failed_qa_owner_sql(conn, 'deployment_runs')})) "
+        "AND superseded_by_run_id IS NULL AND id<>%s ORDER BY id",
         (
             new_run["project_id"],
             new_run["flow"],
@@ -86,9 +88,10 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     )
     for row in rows:
         stages = pinned_stages(conn, str(row["id"]))
-        if _waits_only_on_qa(row, stages) and open_qa_lines(
-            conn, str(row["id"]), first_wait=True
-        ):
+        eligible = (
+            row["status"] == "failed" and not row["settling_at"]
+        ) or _waits_only_on_qa(row, stages)
+        if eligible and open_qa_lines(conn, str(row["id"]), first_wait=True):
             return {**dict(row), "stages": stages}
     return None
 
@@ -119,8 +122,12 @@ def takeover_will_succeed(conn: Any, old_id: str) -> bool:
     """Project settlement for unlocked preparation; locked takeover rechecks."""
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
 
-    return not has_shared_gates(pinned_stages(conn, old_id)) and _delivered_any(
-        conn, old_id
+    row = query_one(conn, "SELECT status FROM deployment_runs WHERE id=%s", (old_id,))
+    return (
+        row is not None
+        and row["status"] == "executing"
+        and not has_shared_gates(pinned_stages(conn, old_id))
+        and _delivered_any(conn, old_id)
     )
 
 
@@ -196,7 +203,7 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     read = read_takeover(conn, new_run, old)
     if apply:
         status, _held = lock_run_with_stable_membership(conn, old_id)
-        if status != "executing":
+        if status != old["status"]:
             return None
     moving = _moving_members(conn, old)
     if apply:
@@ -258,7 +265,9 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         )
     if not apply:
         return old_id
-    if shared or not _delivered_any(conn, old_id):
+    if old["status"] == "failed":
+        pass  # The failed predecessor keeps its failure evidence and status.
+    elif shared or not _delivered_any(conn, old_id):
         terminalize_run_on(
             conn,
             old_id,
@@ -284,7 +293,6 @@ __all__ = [
     "NOT_CONTAINED_CODE",
     "SUPERSEDED_BY_COLUMN",
     "SUPERSEDES_COLUMN",
-    "TAKEOVER_REMOVED_BY",
     "TakeoverRefused",
     "has_shared_gates",
     "take_over_waiting_run",
