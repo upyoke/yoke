@@ -176,6 +176,7 @@ def test_relay_subset_reports_client_free_path_roots(
 
 
 def test_product_local_subset_denies_missing_path_glob(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
     result = local_subset.evaluate_local_subset(
         "PreToolUse",
         json.dumps(
@@ -193,7 +194,7 @@ def test_product_local_subset_denies_missing_path_glob(tmp_path: Path) -> None:
 
     assert result.denied is True
     assert "docs/deploy*" in result.stdout
-    assert "rg --files docs --glob 'deploy*'" in result.stdout
+    assert "rg --files docs --glob '/docs/deploy*'" in result.stdout
 
 
 def test_product_local_subset_repairs_ripgrep_replace_flag(tmp_path: Path) -> None:

@@ -47,6 +47,7 @@ def _eval(
 
 
 def test_unmatched_path_glob_denies_and_names_rg_files(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
     result = _eval("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
     assert result is not None
     mode, reason, outcome = result
@@ -54,7 +55,7 @@ def test_unmatched_path_glob_denies_and_names_rg_files(tmp_path: Path) -> None:
     assert outcome == "denied"
     assert "docs/deploy*" in reason
     assert "rg --files" in reason
-    assert "rg -n PATTERN docs --glob 'deploy*'" in reason
+    assert "rg -n PATTERN docs --glob '/docs/deploy*'" in reason
 
 
 def test_glob_denial_lists_bounded_stem_matches(tmp_path: Path) -> None:
@@ -307,9 +308,9 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
         ("wc -l ${S}/*.md", True, ""),
         ("cd $D && ls a/*", True, ""),
         ("wc -l `pwd`/*.md", True, ""),
-        ("rg -n PATTERN docs/missing* 2>/dev/null", False, "2>/dev/null"),
-        ("rg -n PATTERN docs/missing* >out.txt", False, ">out.txt"),
-        ("rg -n PATTERN docs/missing* <in.txt", False, "<in.txt"),
+        ("rg -n PATTERN docs/missing* 2>/dev/null", False, ""),
+        ("rg -n PATTERN docs/missing* >out.txt", False, ""),
+        ("rg -n PATTERN docs/missing* <in.txt", False, ""),
     ]
     for command, allowed, marker in cases:
         for hook in ("core", "client"):
@@ -322,6 +323,9 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
                 denied = verdict.outcome == DENY
                 reason = verdict.message
             assert denied is not allowed, command
+            if not allowed and any(char in command for char in "<>"):
+                assert "Repaired command:" not in reason
+                assert "rg --files" in reason
             if marker:
                 assert marker in reason, command
                 assert f"'{marker}'" not in reason, command

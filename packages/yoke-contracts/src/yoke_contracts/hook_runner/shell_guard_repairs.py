@@ -107,7 +107,6 @@ def ripgrep_replace_repair(command: str) -> str | None:
 
 
 _CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@"})
-_REDIRECT_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
 
 
 def expanded_glob_path(token: str, cwd: str) -> Path:
@@ -205,51 +204,92 @@ def glob_segment_bases(command: str, cwd: str) -> list[tuple[str, str | None]]:
     return located
 
 
+def _brace_alternatives(token: str):
+    """Expand comma alternatives, including nested groups, without a shell."""
+    pending = [token]
+    while pending:
+        pattern = pending.pop()
+        group = re.search(r"\{([^{}]*,[^{}]*)\}", pattern)
+        if group is None:
+            yield pattern
+        else:
+            pending.extend(pattern[:group.start()] + choice + pattern[group.end():]
+                           for choice in group[1].split(","))
+
+
 def path_glob_is_unmatched(token: str, cwd: str) -> bool:
     """Check home, absolute and cwd-relative globs on the executing machine.
 
     An unexpanded ``$`` or backtick, or an unknown base, is allowed. A denial
-    requires a resolved directory and a fully literal pattern.
+    requires a resolved directory and literal brace-expanded alternatives.
     """
     if not cwd or "$" in token or "`" in token:
         return False
     try:
-        return not glob.glob(str(expanded_glob_path(token, cwd)))
+        return any(not glob.glob(str(expanded_glob_path(pattern, cwd)))
+                   for pattern in _brace_alternatives(token))
     except (OSError, ValueError):
         return False
 
 
-def _is_shell_redirection(token: str) -> bool:
-    return token.startswith(_REDIRECT_PREFIXES)
-
-
 def glob_repair(command: str, token: str, cwd: str) -> tuple[str, list[str]] | None:
-    """Return a quoted rg glob command and nearby files sharing its stem.
+    """Repair a simple search/list command, or keep the safe manual recipe.
 
-    ``cwd`` is the directory the unmatched glob was checked against. Shell
-    redirections stay unquoted so they are not turned into arguments.
+    Parsed words retain brace groups and nested patterns. Shell programs and
+    redirections cannot be faithfully rebuilt by joining their argument words.
     """
-    for segment in shell_segments(command):
-        if (
-            not segment
-            or segment[0].rsplit("/", 1)[-1]
-            not in {"rg", "grep", "egrep", "fgrep", "ls"}
-            or token not in segment
-        ):
-            continue
-        return _repaired_glob_command(segment, token, cwd)
-    return None
+    if any(char in command for char in "<>$`();&|#\\\n"):
+        return None
+    segments = shell_segments(command)
+    if len(segments) != 1:
+        return None
+    segment = segments[0]
+    name = segment[0].rsplit("/", 1)[-1]
+    if name not in {"rg", "ls"} or segment.count(token) != 1 or segment[-1] != token:
+        return None
+    arguments = segment[1:-1]
+    if name == "ls":
+        if arguments:
+            return None
+        arguments = ["--files"]
+    elif arguments != ["--files"]:
+        flags = {"-n", "-l", "-i", "-F", "-S", "-s", "-w", "-x", "-c", "-q"}
+        if not arguments or any(arg not in flags for arg in arguments[:-1]):
+            return None
+        if arguments[-1].startswith("-") or arguments[-1] == token:
+            return None
+    return _repaired_glob_command(arguments, token, cwd)
 
 
 def _repaired_glob_command(
-    segment: list[str], token: str, cwd: str
+    arguments: list[str], token: str, cwd: str
 ) -> tuple[str, list[str]] | None:
-    expanded = expanded_glob_path(token, cwd)
-    parent, name = str(expanded.parent), expanded.name
-    if not token.startswith(("~", "/")):
-        parent = str(Path(token).parent)
+    # Split before the first pattern component, never at a slash inside braces.
+    first = re.search(r"[*?\[{]", token)
+    if first is None:
+        return None
+    prefix, _, _ = token[:first.start()].rpartition("/")
+    parent = prefix or ("/" if token.startswith("/") else ".")
+    name = token[len(prefix) + 1:] if "/" in token[:first.start()] else token
+    # Restrict emitted globs to syntax whose shell and rg meanings agree.
+    if any(char in name for char in "[]") or "***" in name:
+        return None
+    remaining = name
+    while "{" in remaining:
+        group = re.search(r"\{([^{}]*)\}", remaining)
+        if group is None or "," not in group[1] or "" in group[1].split(","):
+            return None
+        remaining = remaining[:group.start()] + "*" + remaining[group.end():]
+    if "}" in remaining:
+        return None
+    expanded = expanded_glob_path(parent, cwd)
+    if not expanded.is_dir():
+        return None
+    if token.startswith(("~", "/")):
+        parent = str(expanded)
+
     stem = re.split(r"[*?\[]", name, maxsplit=1)[0]
-    directory = expanded.parent
+    directory = expanded
     local = (
         (path for path in directory.glob(stem + "*") if path.is_file())
         if directory.is_dir()
@@ -276,34 +316,13 @@ def _repaired_glob_command(
                 )[:STEM_MATCH_LIMIT]
         except (OSError, subprocess.TimeoutExpired):
             pass
-    redirections = [arg for arg in segment[1:] if _is_shell_redirection(arg)]
-    command_name = segment[0].rsplit("/", 1)[-1]
-    if command_name == "ls":
-        arguments = ["--files"]
-    elif command_name in {"grep", "egrep", "fgrep"}:
-        arguments = [
-            next(
-                (
-                    arg
-                    for arg in segment[1:]
-                    if arg != token
-                    and not arg.startswith("-")
-                    and not _is_shell_redirection(arg)
-                ),
-                "",
-            )
-        ]
-        if not arguments[0]:
-            return None
-    else:
-        arguments = [
-            arg
-            for arg in segment[1:]
-            if arg != token and not _is_shell_redirection(arg)
-        ]
-    repaired = shlex.join(["rg", *arguments, parent, "--glob", name])
-    if redirections:
-        repaired = f"{repaired} {' '.join(redirections)}"
+    # rg anchors slash-containing globs at its cwd, not its search operand.
+    relative = os.path.relpath(expanded, cwd)
+    outside = relative == ".." or relative.startswith("../")
+    pattern = "/" + (name if outside or relative == "." else relative + "/" + name)
+    repaired = shlex.join(["rg", *arguments, "." if outside else parent, "--glob", pattern])
+    if outside:
+        repaired = shlex.join(["cd", str(expanded)]) + " && " + repaired
     return repaired, matches
 
 
