@@ -1,6 +1,9 @@
 """Continue one named stale walk through the existing subject admission."""
 
-from yoke_core.domain.qa_plan_execution_store import plan_execution_view
+from yoke_core.domain.qa_plan_execution_store import (
+    QaPlanExecutionStateError,
+    plan_execution_view,
+)
 
 
 def continue_execution(conn, execution, parsed, actor):
@@ -33,7 +36,10 @@ def continue_execution(conn, execution, parsed, actor):
             read_execution_subject,
         )
 
-        from yoke_core.domain.qa_plan_execution_begin_admission import begin_inputs
+        from yoke_core.domain.qa_plan_execution_begin_admission import (
+            BeginInputsChanged,
+            begin_inputs,
+        )
 
         run_id = execution.get("deployment_run_id")
         inputs = (
@@ -48,17 +54,24 @@ def continue_execution(conn, execution, parsed, actor):
             if execution.get("deployment_stage")
             else None
         )
-        continued = begin_plan_execution(
-            conn,
-            item_id=execution.get("item_id"),
-            transition_id=execution.get("transition_id"),
-            deployment_run_id=execution.get("deployment_run_id"),
-            deployment_stage=execution.get("deployment_stage"),
-            deployment_member_item_id=execution.get("deployment_member_item_id"),
-            checkout_path=parsed.checkout_path,
-            expected_branch=parsed.expected_branch,
-            _deployment_subject=subject,
-            _run_inputs=inputs,
-            **common,
-        )
+        try:
+            continued = begin_plan_execution(
+                conn,
+                item_id=execution.get("item_id"),
+                transition_id=execution.get("transition_id"),
+                deployment_run_id=execution.get("deployment_run_id"),
+                deployment_stage=execution.get("deployment_stage"),
+                deployment_member_item_id=execution.get("deployment_member_item_id"),
+                checkout_path=parsed.checkout_path,
+                expected_branch=parsed.expected_branch,
+                _deployment_subject=subject,
+                _run_inputs=inputs,
+                **common,
+            )
+        except BeginInputsChanged as exc:
+            conn.rollback()
+            raise QaPlanExecutionStateError(
+                "qa_continuation_source_changed: admission changed; retry the same "
+                "execution id after its current owner settles"
+            ) from exc
     return plan_execution_view(conn, continued)

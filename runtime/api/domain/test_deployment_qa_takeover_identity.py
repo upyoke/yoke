@@ -240,8 +240,9 @@ def test_completion_callback_resolves_owner_again_after_its_commit(
     ]
 
 
+@pytest.mark.parametrize("admission_changed", [False, True])
 def test_stale_inherited_mission_continues_by_execution_before_deployment(
-    test_db, monkeypatch, tmp_path
+    test_db, monkeypatch, tmp_path, admission_changed
 ):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
     from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
@@ -281,6 +282,16 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
     finish_plan_execution(
         test_db, execution, state="aborted", reason=STALE_PLAN_EXECUTION_REASON
     )
+    if admission_changed:
+        from yoke_core.domain import qa_plan_execution_begin
+        from yoke_core.domain.qa_plan_execution_begin_admission import (
+            BeginInputsChanged,
+        )
+
+        def changed(*args, **kwargs):
+            raise BeginInputsChanged(takeover.NEW)
+
+        monkeypatch.setattr(qa_plan_execution_begin, "begin_plan_execution", changed)
     outcome = handle_execution_reentry(
         FunctionCallRequest(
             function="qa.plan_execution.resume",
@@ -289,6 +300,14 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
             payload={"execution_id": execution["id"], "continue_mission": True},
         )
     )
+    if admission_changed:
+        assert not outcome.primary_success
+        assert "qa_continuation_source_changed" in str(outcome.error)
+        assert (
+            select_plan_execution(test_db, execution["id"], lock=False)["state"]
+            == "aborted"
+        )
+        return
     assert outcome.primary_success, outcome.error
     continued = select_plan_execution(
         test_db, outcome.result_payload["execution_id"], lock=False

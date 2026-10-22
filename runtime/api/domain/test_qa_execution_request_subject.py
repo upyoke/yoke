@@ -197,6 +197,7 @@ def test_execution_request_statements_grow_at_most_linearly(test_db):
         _request_statements(test_db, f"run-subject-linear-{size}", size)
         for size in sizes
     ]
+    print(f"execution request statement counts for {sizes}: {counts}")
     for function in counts[0]:
         small, middle, large = (count[function] for count in counts)
         # Linear cost adds the same statements per doubling step at most
