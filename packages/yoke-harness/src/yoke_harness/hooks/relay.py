@@ -230,7 +230,7 @@ def relay_hook_event(
             http_request,
             timeout_seconds=timeout_s,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
             sensitive_values=(connection.token,),
             opener=opener or urllib.request.urlopen,

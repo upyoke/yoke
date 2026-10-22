@@ -8,10 +8,8 @@ checks pass does it write the token as a Yoke-owned machine secret file
 and the connection entry in machine config, then point ``active_env`` at
 the new entry unless the caller opts out.
 
-Scheme policy: ``https://`` is the normal shape. Plain ``http://`` is
-accepted only for a numeric loopback endpoint (for example,
-``http://127.0.0.1``). Any other scheme or non-loopback plaintext target is
-refused before the actor credential leaves the machine.
+Scheme policy: HTTPS or private-network HTTP; public HTTP is refused before
+credentials leave the machine.
 """
 
 from __future__ import annotations
@@ -20,6 +18,8 @@ import ipaddress
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, Mapping, Optional
+
+from yoke_contracts.private_network_http import allows_http_host
 
 from yoke_cli.config import writer
 from yoke_cli.transport import server_reach_failure
@@ -114,7 +114,7 @@ def _normalized_api_url(url: str) -> str:
     if not candidate.startswith(_ALLOWED_SCHEMES):
         raise ServerConnectError(
             f"unsupported URL scheme in {candidate!r}: use https:// (normal) "
-            "or http:// with a numeric loopback address"
+            "or http:// with a private-network address"
         )
     try:
         parsed = urllib.parse.urlsplit(candidate)
@@ -127,17 +127,12 @@ def _normalized_api_url(url: str) -> str:
         or parsed.password is not None
     ):
         raise ServerConnectError("server URL must name a host without credentials")
-    if parsed.scheme.lower() == "http":
-        try:
-            loopback = ipaddress.ip_address(parsed.hostname).is_loopback
-        except ValueError:
-            loopback = False
-        if not loopback:
-            raise ServerConnectError(
-                "plain HTTP server URLs require a numeric loopback address; "
-                "use the server's https:// URL. "
-                + server_reach_failure.CHECK_SERVER_MACHINE
-            )
+    if parsed.scheme.lower() == "http" and not allows_http_host(parsed.hostname):
+        raise ServerConnectError(
+            "public_http_refused: plain HTTP requires numeric loopback, a private "
+            "network address or a *.ts.net name; use the server's https:// URL. "
+            + server_reach_failure.CHECK_SERVER_MACHINE
+        )
     return candidate
 
 
@@ -222,7 +217,7 @@ def _http_get_json(url: str, *, headers: Mapping[str, str], timeout_s: float) ->
             request,
             timeout_seconds=timeout_s,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             opener=urllib.request.urlopen,
         )
     except BoundedJsonHttpError as exc:

@@ -48,7 +48,7 @@ def sign_in_methods(url: str) -> SignInMethods:
             urllib.request.Request(origin + START_PATH, method="GET"),
             timeout_seconds=15,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
         )
     except BoundedJsonHttpError as exc:
         # A 404 here may be a Yoke server older than this discovery path,

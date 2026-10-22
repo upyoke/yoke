@@ -100,6 +100,14 @@ machine with a display.
   [Browser Sign-In](https://github.com/upyoke/yoke/blob/main/docs/self-host-browser-sign-in.md)
 - Members and Billing tabs do not apply (Cloud-only platform features)
 
+`yoke self-host init` keeps loopback-only by default; add `--listen ADDRESS`
+to publish on a LAN or Tailscale IP (or `0.0.0.0` for all IPv4 interfaces).
+Teammates use the printed `yoke connect http://ADDRESS:PORT` command with a
+reachable private address. Private HTTP allows 10/8, 172.16/12, 192.168/16,
+100.64/10, fd00::/8 and `*.ts.net`. Each connect warns that the machine token
+travels unencrypted: safe on Tailscale or a VPN; use TLS on a shared LAN.
+Public HTTP is refused; use HTTPS.
+
 `yoke self-host init` warns when `YOKE_API_PUBLISH` in the bundle's `.env`
 publishes beyond loopback. Docker bypasses ufw/firewalld for published ports;
 bind to `127.0.0.1` behind a TLS reverse proxy, or restrict access upstream.

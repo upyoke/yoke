@@ -1,0 +1,11 @@
+{
+ "id": "private-network-server",
+ "title": "Reach a self-hosted server over a LAN or Tailscale",
+ "status": "observed",
+ "audience": "both",
+ "when": "A teammate connects from a different machine on a private network.",
+ "need": "Initialize with --listen and connect to the printed reachable private address. The token travels unencrypted over HTTP; use Tailscale or a VPN, or add TLS on shared LANs. Public HTTP requires HTTPS.",
+ "surface": "Self-host init output, connect help and self-host guides",
+ "review": "Source regression tests cover the policy and transport; deployed private-network proof remains pending.",
+ "sources": ["docs/self-host.md", "docs/self-host-people.md", "runtime/api/cli/test_private_network_http.py"]
+}

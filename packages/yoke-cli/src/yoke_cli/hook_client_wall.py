@@ -150,7 +150,7 @@ def record_client_wall(event_id: str, client_wall_ms: int) -> None:
             request,
             timeout_seconds=2.0,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
             sensitive_values=(connection.token,),
         )

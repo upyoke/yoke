@@ -105,12 +105,12 @@ def test_https_relay_default_opener_uses_bounded_caller_owned_post(
 ) -> None:
     seen = {}
 
-    def bounded(request, *, deadline, replay_safe, allow_loopback_http, opener):
+    def bounded(request, *, deadline, replay_safe, allow_private_http, opener):
         seen.update(
             request=request,
             deadline=deadline,
             replay_safe=replay_safe,
-            allow_loopback_http=allow_loopback_http,
+            allow_private_http=allow_private_http,
             opener=opener,
         )
         return FakeResponse(envelope(result={"ok": True}))
@@ -126,7 +126,7 @@ def test_https_relay_default_opener_uses_bounded_caller_owned_post(
     assert response.result == {"ok": True}
     assert seen["request"].get_method() == "POST"
     assert seen["replay_safe"] is False
-    assert seen["allow_loopback_http"] is True
+    assert seen["allow_private_http"] is True
     assert seen["opener"] is None
 
 

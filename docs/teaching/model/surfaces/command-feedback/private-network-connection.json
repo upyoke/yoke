@@ -1,0 +1,9 @@
+{
+ "id": "private-network-connection",
+ "title": "Connect over private HTTP with an unencrypted-token warning; keep public HTTP refused.",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source tests cover private range boundaries, connection persistence, warning repetition, transport requests, listen output and default loopback. Deployed network proof remains pending.",
+ "topics": ["modes/self-hosted"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/connect.py", "packages/yoke-cli/src/yoke_cli/commands/self_host.py", "runtime/api/cli/test_private_network_http.py"]
+}

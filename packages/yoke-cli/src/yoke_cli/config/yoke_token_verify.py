@@ -183,7 +183,7 @@ def _request_json(
             request,
             timeout_seconds=_TIMEOUT_S,
             replay_safe=body is None,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(token,),
             opener=urllib.request.urlopen,
         )

@@ -61,7 +61,7 @@ def _request(
             request,
             timeout_seconds=timeout,
             replay_safe=method.upper() in {"GET", "HEAD"},
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(token,) if token else (),
             opener=urllib.request.urlopen,
         )

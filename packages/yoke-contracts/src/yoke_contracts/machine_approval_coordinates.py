@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from yoke_contracts.private_network_http import allows_http_host
 from yoke_contracts.machine_authorization import (
     APPROVAL_PAGE_PATH,
     BROWSER_VERIFICATION_PATHS,
@@ -11,8 +12,6 @@ from yoke_contracts.machine_authorization import (
 
 
 _ENTRY_PATHS = frozenset(BROWSER_VERIFICATION_PATHS)
-# A self-host server on this machine's loopback serves plain HTTP.
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _CODE_PATTERN = re.compile(MATCH_CODE_PATTERN)
 
 
@@ -32,7 +31,7 @@ def machine_approval_coordinates(
     if _CODE_PATTERN.fullmatch(code) is None:
         raise ValueError("machine approval code has an invalid shape")
     secure = parsed.scheme == "https" or (
-        parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS
+        parsed.scheme == "http" and allows_http_host(parsed.hostname or "")
     )
     if (
         not secure
@@ -42,7 +41,7 @@ def machine_approval_coordinates(
         or parsed.fragment
     ):
         raise ValueError(
-            "machine approval needs an HTTPS (or loopback HTTP) entry without "
+            "machine approval needs an HTTPS (or private-network HTTP) entry without "
             "credentials or a fragment"
         )
     origin = f"{parsed.scheme}://{parsed.netloc}"

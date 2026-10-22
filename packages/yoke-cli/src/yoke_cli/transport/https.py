@@ -129,14 +129,21 @@ def relay_https(
         sleep=sleep,
     )
     from yoke_cli.transport.https_dispatch_result_wait import (
-        RESULT_WAIT_SECONDS, recover_dispatch_result,
+        RESULT_WAIT_SECONDS,
+        recover_dispatch_result,
     )
 
     response, recovery_attempts = recover_dispatch_result(
-        request, response, connection,
+        request,
+        response,
+        connection,
         relay=lambda: _relay_attempts(
-            request, connection, timeout_s=RESULT_WAIT_SECONDS, handshake=handshake,
-            max_attempts=1, sleep=sleep,
+            request,
+            connection,
+            timeout_s=RESULT_WAIT_SECONDS,
+            handshake=handshake,
+            max_attempts=1,
+            sleep=sleep,
         ),
     )
     attempts += recovery_attempts
@@ -294,7 +301,7 @@ def _open_function_relay(
             request,
             deadline=deadline,
             replay_safe=False,
-            allow_loopback_http=True,
+            allow_private_http=True,
             opener=None,
         )
     except HttpOpenPolicyError as exc:

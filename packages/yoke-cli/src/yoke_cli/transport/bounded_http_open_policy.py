@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import ipaddress
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from typing import Any
 
+from yoke_contracts.private_network_http import allows_http_host
+
 from yoke_cli.transport.https_urlopen import NoRedirect, open_no_redirect
 from yoke_cli.transport.response_deadline_open import (
     open_caller_owned,
     open_https_caller_owned,
-    open_loopback_http_caller_owned,
+    open_private_http_caller_owned,
     open_replay_safe,
 )
 
 
 _DEFAULT_URLOPEN = urllib.request.urlopen
-_LOOPBACK_OPENER = urllib.request.build_opener(
+_PRIVATE_HTTP_OPENER = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
     NoRedirect(),
 )
@@ -37,14 +38,14 @@ def open_bounded_request(
     *,
     deadline: float,
     replay_safe: bool,
-    allow_loopback_http: bool,
+    allow_private_http: bool,
     opener: Callable[..., Any] | None,
 ) -> Any:
     """Open one request with redirect denial and method-aware ownership."""
 
     scheme = _validated_scheme(
         request.full_url,
-        allow_loopback_http=allow_loopback_http,
+        allow_private_http=allow_private_http,
     )
     selected_opener = opener or _DEFAULT_URLOPEN
     if selected_opener is not _DEFAULT_URLOPEN:
@@ -74,10 +75,10 @@ def open_bounded_request(
     if replay_safe:
         return open_replay_safe(
             request,
-            opener=_LOOPBACK_OPENER.open,
+            opener=_PRIVATE_HTTP_OPENER.open,
             deadline=deadline,
         )
-    return open_loopback_http_caller_owned(
+    return open_private_http_caller_owned(
         request,
         deadline=deadline,
         handlers=(urllib.request.ProxyHandler({}), NoRedirect()),
@@ -102,7 +103,7 @@ def require_requested_final_url(
         raise HttpFinalUrlError("JSON response final URL did not match the request URL")
 
 
-def _validated_scheme(url: str, *, allow_loopback_http: bool) -> str:
+def _validated_scheme(url: str, *, allow_private_http: bool) -> str:
     try:
         parsed = urllib.parse.urlsplit(url)
         port = parsed.port
@@ -121,17 +122,12 @@ def _validated_scheme(url: str, *, allow_loopback_http: bool) -> str:
         raise HttpOpenPolicyError("JSON request endpoint must not contain a fragment")
     if scheme == "https":
         return scheme
-    if scheme != "http" or not allow_loopback_http:
+    if scheme != "http" or not allow_private_http:
         raise HttpOpenPolicyError("credential-bearing JSON requests require HTTPS")
-    try:
-        address = ipaddress.ip_address(parsed.hostname)
-    except ValueError as exc:
+    if not allows_http_host(parsed.hostname):
         raise HttpOpenPolicyError(
-            "plain HTTP JSON requests require a numeric loopback address"
-        ) from exc
-    if not address.is_loopback:
-        raise HttpOpenPolicyError(
-            "plain HTTP JSON requests require a numeric loopback address"
+            "public_http_refused: plain HTTP JSON requests require a private-network "
+            "or numeric loopback address; use HTTPS"
         )
     if port is not None and not 1 <= port <= 65535:
         raise HttpOpenPolicyError("JSON request endpoint port is invalid")

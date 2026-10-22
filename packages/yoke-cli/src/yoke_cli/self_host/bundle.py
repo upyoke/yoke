@@ -15,6 +15,7 @@ so credentials live in host-opened stdin handoffs to private runtime files, neve
 from __future__ import annotations
 
 import secrets
+import ipaddress
 from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -80,6 +81,7 @@ def write_bundle(
     *,
     directory: Optional[str] = None,
     port: Optional[int] = None,
+    listen: str | None = None,
     image: Optional[str] = None,
     image_repository: str | None = None,
     admin_name: str | None = None,
@@ -98,7 +100,18 @@ def write_bundle(
             f"{exc}. Pass --admin-name with your name; first boot creates "
             "this universe's first admin as that person"
         ) from None
-    selected_port = int(port or DEFAULT_API_PORT)
+    try:
+        listen_address = ipaddress.ip_address(listen or "127.0.0.1")
+    except ValueError:
+        raise SelfHostBundleError(
+            "listen_address_invalid: pass --listen with a numeric IP address, "
+            "for example 0.0.0.0 or a Tailscale IP"
+        ) from None
+    selected_port = int(port if port is not None else DEFAULT_API_PORT)
+    if not 1 <= selected_port <= 65535:
+        raise SelfHostBundleError(
+            "listen_port_invalid: pass --port between 1 and 65535"
+        )
     matched_release = None
     if image is None:
         try:
@@ -132,7 +145,8 @@ def write_bundle(
     except protection.SelfHostProtectionError as exc:
         raise SelfHostBundleError(str(exc)) from exc
 
-    publish_spec = f"127.0.0.1:{selected_port}"
+    host = f"[{listen_address}]" if listen_address.version == 6 else str(listen_address)
+    publish_spec = f"{host}:{selected_port}"
     password = secrets.token_hex(_PASSWORD_ENTROPY_BYTES)
     dsn = f"host=db port=5432 dbname={_DB_NAME} user={_DB_USER} password={password}"
 

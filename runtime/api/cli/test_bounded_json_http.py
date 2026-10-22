@@ -191,7 +191,7 @@ def test_open_and_body_share_one_absolute_deadline(monkeypatch) -> None:
         )
 
 
-def test_plain_http_is_numeric_loopback_only() -> None:
+def test_plain_http_refuses_public_hosts() -> None:
     with pytest.raises(
         transport.BoundedJsonHttpConfigurationError,
         match="numeric loopback",
@@ -200,7 +200,7 @@ def test_plain_http_is_numeric_loopback_only() -> None:
             _request(url="http://api.example/v1/x"),
             timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             opener=lambda *_args, **_kwargs: pytest.fail(
                 "unsafe endpoint reached the opener"
             ),
@@ -210,7 +210,7 @@ def test_plain_http_is_numeric_loopback_only() -> None:
         _request(url="http://127.0.0.1:8765/v1/x"),
         timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
         replay_safe=True,
-        allow_loopback_http=True,
+        allow_private_http=True,
         opener=lambda *_args, **_kwargs: _Response(
             b'{"ok": true}',
             final_url="http://127.0.0.1:8765/v1/x",
@@ -285,7 +285,7 @@ def test_browser_daemon_clients_keep_post_caller_owned(
     assert module.daemon_request("/api/health", state=state) == {"status": "ok"}
     assert seen["request"].get_method() == "POST"
     assert seen["replay_safe"] is False
-    assert seen["allow_loopback_http"] is True
+    assert seen["allow_private_http"] is True
     assert seen["sensitive_values"] == ("daemon-secret",)
 
 

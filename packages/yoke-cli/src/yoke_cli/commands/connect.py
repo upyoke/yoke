@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import urllib.parse
 import json
 import platform
 import sys
 from typing import Callable, Dict, List, Tuple
+
+from yoke_contracts.private_network_http import PRIVATE_HTTP_WARNING
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.config import secrets as machine_secrets
@@ -45,10 +48,9 @@ def connect(args: List[str]) -> int:
             "Verify server health and identity, then save a connection and "
             "owner-only credential file. Failed verification saves no connection. "
             "Use browser approval, a teammate invite code, or an explicit token. "
-            "HTTPS is required for every network server. Plain "
-            "http:// is accepted only for a numeric loopback endpoint "
-            "(for example, http://127.0.0.1:8765). Other schemes and "
-            "non-loopback plaintext endpoints are refused. A human terminal opens the "
+            "HTTP permits loopback, private IPs and *.ts.net, with an unencrypted "
+            "token warning for network addresses. Public HTTP is refused; use HTTPS. "
+            "A human terminal opens the "
             "approval link after a notice; agent, non-TTY and --json runs print "
             "the link only. "
             "With --json, authorization link/code/instructions arrive as JSON "
@@ -136,6 +138,16 @@ def connect(args: List[str]) -> int:
     parsed.self_host = bool(
         parsed.url and parsed.url.rstrip("/") not in hosted_platform_urls
     )
+    if parsed.url:
+        try:
+            parsed.url = server_connect._normalized_api_url(parsed.url)
+        except server_connect.ServerConnectError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        if urllib.parse.urlsplit(
+            parsed.url
+        ).scheme == "http" and not server_connect._is_loopback(parsed.url):
+            print(PRIVATE_HTTP_WARNING, file=sys.stderr)
     if active_connection_is_local(parsed.config_path):
         print(LOCAL_REACHABILITY_NOTICE, file=sys.stderr)
     offer_invite = False

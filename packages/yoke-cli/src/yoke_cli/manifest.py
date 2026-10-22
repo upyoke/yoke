@@ -207,7 +207,7 @@ def _fetch(connection) -> Optional[Dict[str, Any]]:
             _manifest_request(connection),
             timeout_seconds=_FETCH_TIMEOUT_S,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(connection.token,),
             opener=urllib.request.urlopen,
         )
@@ -254,7 +254,7 @@ def diagnose_env_manifest_fetch(env_name: str) -> str:
             _manifest_request(connection),
             timeout_seconds=_FETCH_TIMEOUT_S,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             sensitive_values=(connection.token,),
             opener=urllib.request.urlopen,
         )

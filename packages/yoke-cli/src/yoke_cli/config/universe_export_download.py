@@ -55,7 +55,7 @@ def download_universe(
             request,
             deadline=deadline,
             replay_safe=True,
-            allow_loopback_http=True,
+            allow_private_http=True,
             opener=None,
         )
         with response:

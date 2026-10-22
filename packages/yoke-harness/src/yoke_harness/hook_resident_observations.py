@@ -224,7 +224,7 @@ class ObservationQueue:
                     request,
                     timeout_seconds=10.0,
                     replay_safe=False,
-                    allow_loopback_http=True,
+                    allow_private_http=True,
                     response_limit_bytes=SMALL_JSON_RESPONSE_LIMIT_BYTES,
                     sensitive_values=(batch[0].authorization,),
                     opener=self._opener,

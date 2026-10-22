@@ -13,7 +13,7 @@ from yoke_cli.transport.pre_resolved_https import (
     ResponseOpenDeadlineError,
     ResponseOpenError,
     open_https_caller_owned as _open_https_caller_owned,
-    open_loopback_http_caller_owned as _open_loopback_http_caller_owned,
+    open_private_http_caller_owned as _open_private_http_caller_owned,
 )
 
 
@@ -87,15 +87,15 @@ def open_https_caller_owned(
     )
 
 
-def open_loopback_http_caller_owned(
+def open_private_http_caller_owned(
     request: urllib.request.Request,
     *,
     deadline: float,
     handlers: Iterable[Any] = (),
     clock: Callable[[], float] | None = None,
 ) -> Any:
-    """Open numeric-loopback HTTP synchronously under one absolute deadline."""
-    return _open_loopback_http_caller_owned(
+    """Open private-network HTTP synchronously under one absolute deadline."""
+    return _open_private_http_caller_owned(
         request,
         deadline=deadline,
         handlers=handlers,
@@ -148,6 +148,6 @@ __all__ = [
     "ResponseOpenError",
     "open_caller_owned",
     "open_https_caller_owned",
-    "open_loopback_http_caller_owned",
+    "open_private_http_caller_owned",
     "open_replay_safe",
 ]
