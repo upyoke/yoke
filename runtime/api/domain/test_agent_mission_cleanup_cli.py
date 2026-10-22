@@ -1,4 +1,4 @@
-"""Walk-end finishes cleanup custody once disposal settles, even after local failure."""
+"""Walk-end retains cleanup custody until disposal settles."""
 
 from types import SimpleNamespace
 
@@ -121,6 +121,16 @@ def test_unsettled_disposal_defers_cleanup_and_names_the_release(
 
     blocked = "fixture_project_not_disposed: project cedar is blocked"
     sent = []
+    restore_modes = []
+
+    def teardown(*args, restore_host=True, **kwargs):
+        restore_modes.append(restore_host)
+        return {
+            "removed": True,
+            "stale_owner_marker_removed": True,
+            "scratch_path": "/tmp/mission",
+        }
+
     monkeypatch.setattr(agent_mission_walk_cli, "resolve_mission_contract", resolve)
     monkeypatch.setattr(
         machine_qa_mission_walk,
@@ -130,11 +140,7 @@ def test_unsettled_disposal_defers_cleanup_and_names_the_release(
     monkeypatch.setattr(
         machine_qa_mission_walk,
         "execute_agent_mission_walk_end",
-        lambda *args, **kwargs: {
-            "removed": True,
-            "stale_owner_marker_removed": True,
-            "starting_state_restore": {"restored": True, "baseline": "fresh-host"},
-        },
+        teardown,
     )
     monkeypatch.setattr(
         agent_mission_project_disposal,
@@ -154,6 +160,7 @@ def test_unsettled_disposal_defers_cleanup_and_names_the_release(
     assert code == 3
     # The lease stays held so the execution is live for the rerun.
     assert sent == []
+    assert restore_modes == [False]
     assert get_claim(test_db, original["lease_id"]).is_active
     err = capsys.readouterr().err
     assert blocked in err and "mission_cleanup_deferred" in err

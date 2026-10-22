@@ -74,8 +74,9 @@ def execute_agent_mission_walk_end(
     raw_contract: dict[str, Any],
     *,
     timeout_seconds: int = 60,
+    restore_host: bool = True,
 ) -> dict[str, Any]:
-    """Remove the mission scratch, then restore the declared starting state."""
+    """Remove secret staging; restore the host only after disposal settles."""
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     teardown = remove_mission_scratch(
@@ -83,13 +84,14 @@ def execute_agent_mission_walk_end(
         execution_id=str(contract.plan_execution_id),
         timeout_seconds=timeout_seconds,
     )
-    restore = restore_chain_start(
-        contract.cases[0],
-        execution.reach_baseline,
-        machine=contract.settings["resource_name"],
-    )
+    if restore_host:
+        teardown[STARTING_STATE_RESTORE] = restore_chain_start(
+            contract.cases[0],
+            execution.reach_baseline,
+            machine=contract.settings["resource_name"],
+        )
     redacted = redact_machine_qa_value(
-        {**teardown, STARTING_STATE_RESTORE: restore},
+        teardown,
         tuple(execution.material.secrets.values()),
     )
     ensure_secret_free_result(redacted)

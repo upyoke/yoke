@@ -49,13 +49,23 @@ def discover_host_projects(control: Any) -> list[dict[str, Any]]:
         ) from exc
 
 
+def _bounded_output(value: Any) -> str:
+    text = str(value or "")
+    if len(text) <= _EVIDENCE_LIMIT:
+        return text
+    marker = "\n... output omitted ...\n"
+    head = (_EVIDENCE_LIMIT - len(marker)) // 2
+    tail = _EVIDENCE_LIMIT - len(marker) - head
+    return text[:head] + marker + text[-tail:]
+
+
 def _run(control: Any, argv: list[str], timeout: int) -> dict[str, Any]:
     completed = control.run_command(argv, timeout=timeout)
     return {
         "argv": argv,
         "exit_code": int(completed.returncode),
-        "stdout": str(completed.stdout or "")[-_EVIDENCE_LIMIT:],
-        "stderr": str(completed.stderr or "")[-_EVIDENCE_LIMIT:],
+        "stdout": _bounded_output(completed.stdout),
+        "stderr": _bounded_output(completed.stderr),
     }
 
 
