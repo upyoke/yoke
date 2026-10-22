@@ -330,6 +330,7 @@ def test_process_gone_parked_workers_free_lanes_and_resume_counts_again():
 
     conn = launch_connection()
     add_relay(conn)
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     for index in range(71):
         _live_session(conn, f"worker-{index}")
     conn.execute(
