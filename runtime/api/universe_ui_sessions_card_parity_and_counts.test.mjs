@@ -174,3 +174,33 @@ test("the sessions-shown tile carries the page against the filtered match", asyn
   assert.deepEqual(statValues(root)[0], ["5 of 4,759", "sessions shown"]);
   mounted.unmount();
 });
+
+test("Active excludes process-gone workers while Parked retains claims", async (t) => {
+  const { root, mounted } = await mountSessions(t, {
+    "session_control.relay.list": () => ok({ relays: [] }),
+    "sessions.list": (request) => {
+      if (request.payload.usage_last_24h) return ok({ rows: [] });
+      assert.ok(request.payload.open, "Parked needs no ended history");
+      return ok({ rows: [
+        { ...BASE_ROW, session_id: "running", liveness: "active" },
+        { ...BASE_ROW, session_id: "parked", liveness: "waiting", mode: "parked",
+          native_process_gone_at: "2026-08-22T12:00:00Z" },
+        { ...BASE_ROW, session_id: "gone", liveness: "stale",
+          native_process_gone_at: "2026-08-22T12:00:00Z" },
+      ] });
+    },
+  });
+  assert.deepEqual(statValues(root)[0], ["1", "session shown"]);
+  assert.equal(byClass(root, "session-card").length, 1);
+  const state = byClass(root, "session-roster-filter").find(
+    (field) => field.children[0]?.textContent === "State",
+  ).children[1];
+  state.value = "parked";
+  state.dispatchEvent(new Event("change"));
+  await settle();
+  assert.deepEqual(statValues(root).slice(0, 2), [
+    ["1", "session shown"], ["1", "item claimed"],
+  ]);
+  assert.equal(byClass(root, "session-item-link")[0].textContent, "YOK-1");
+  mounted.unmount();
+});

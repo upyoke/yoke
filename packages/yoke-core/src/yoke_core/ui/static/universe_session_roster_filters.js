@@ -45,10 +45,12 @@ function setOptionEntries(documentNode, control, defaultLabel, entries) {
     ? selected : "";
 }
 
-function matchesState(liveness, selected) {
-  const value = String(liveness || "").toLowerCase();
+function matchesState(row, selected) {
+  const value = String(row.liveness || "").toLowerCase();
   if (!selected) return true;
-  if (selected === DEFAULT_STATE) return sessionIsLive({ liveness: value });
+  if (selected === DEFAULT_STATE) return sessionIsLive(row) && !row.native_process_gone_at;
+  if (selected === "parked") return sessionIsLive(row)
+    && (row.mode === "parked" || row.turn_posture === "waiting");
   return selected === "ended" && value === "ended";
 }
 
@@ -69,7 +71,8 @@ export function sessionRosterFilters(documentNode, onChange) {
   host.appendChild(search.wrapper);
   const state = input(documentNode, "State", "select");
   for (const [value, label] of [
-    ["active", "Active"], ["ended", "Ended"], ["", "All"],
+    ["active", "Active"], ["parked", "Parked"],
+    ["ended", "Ended"], ["", "All"],
   ]) {
     state.control.appendChild(option(documentNode, value, label));
   }
@@ -134,7 +137,7 @@ export function sessionRosterFilters(documentNode, onChange) {
           || includes(row.executor_surface, harness)
           || includes(row.presentation_surface, harness))
         && (includes(row.machine_id, machine) || includes(row.machine_name, machine))
-        && (!includeState || matchesState(row.liveness, controls.state.value));
+        && (!includeState || matchesState(row, controls.state.value));
     });
   };
   return {

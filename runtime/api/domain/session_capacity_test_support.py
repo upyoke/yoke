@@ -49,7 +49,6 @@ def capacity_connection(
     seed_initial_catalog(conn)
     ref = _seed_pinned_item(conn, status="implementing")
     for declaration in (
-        "native_process_gone_at TEXT",
         "actor_id INTEGER DEFAULT 1",
         "last_tool_call_at TEXT",
         "turn_posture TEXT DEFAULT 'waiting'",

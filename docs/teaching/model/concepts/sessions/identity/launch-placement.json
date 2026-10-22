@@ -2,8 +2,9 @@
  "id": "launch-placement",
  "title": "Launch placement, model pairs and quota",
  "status": "observed",
- "sources": ["docs/public/agents/levels.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py"],
+ "sources": ["docs/public/agents/levels.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py", "docs/public/agents/capacity-recovery.md"],
  "commands": ["yoke session-control launch preview", "yoke universe level-capacity get"],
  "functions": ["session_control.launch.preview", "universe.level_capacity.get"],
- "page": "session-identity"
+ "page": "session-identity",
+ "summary": "Machine lane capacity counts registered workers whose native process is alive plus unregistered in-flight worker launches. Process-gone parked workers retain claims without using a lane; resumed workers count again."
 }

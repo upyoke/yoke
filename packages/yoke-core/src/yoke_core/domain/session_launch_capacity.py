@@ -124,6 +124,7 @@ def _live_lane_rows(conn: Any, now: datetime) -> tuple[str, tuple[Any, ...]]:
     return (
         "SELECT s.machine_id FROM harness_sessions s "
         "WHERE s.ended_at IS NULL AND s.terminated_at IS NULL "
+        "AND s.native_process_gone_at IS NULL "
         "AND EXISTS (SELECT 1 FROM session_launches linked "
         "WHERE linked.registered_session_id = s.session_id "
         f"AND {worker}) UNION ALL "
@@ -194,7 +195,7 @@ def capacity_refusal(capacities: Iterable[MachineCapacity]) -> str:
         or "every eligible machine is at its lane cap"
     )
     return (
-        f"{details}. Recovery: wait for a landing to free a lane, raise "
+        f"{details}. Recovery: wait for a worker process to exit and free a lane, raise "
         f"{MAX_WORKER_LANES_KEY} under settings in ~/.yoke/config.json on that "
         "machine, or pass --machine to place the launch elsewhere"
     )

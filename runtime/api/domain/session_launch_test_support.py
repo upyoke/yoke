@@ -54,6 +54,8 @@ def launch_connection() -> sqlite3.Connection:
             requested_context_window_tokens INTEGER DEFAULT NULL,
             keepalive_until TEXT,
             keepalive_reason TEXT,
+            native_process_gone_at TEXT,
+            native_process_gone_evidence TEXT,
             ended_at TEXT,
             terminated_at TEXT
         );

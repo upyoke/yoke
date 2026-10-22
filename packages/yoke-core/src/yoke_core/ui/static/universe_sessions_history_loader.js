@@ -170,7 +170,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
   const emit = () => {
     if (context.isMounted()) onChange();
   };
-  const historyVisible = () => filters.state() !== "active";
+  const historyVisible = () => ["", "ended"].includes(filters.state());
   const resetHistory = () => {
     generation += 1;
     if (searchTimer) clearTimeout(searchTimer);
@@ -282,7 +282,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
     filtersChanged,
     rows() {
       const state = filters.state();
-      if (state === "active") return visibleOpenRows();
+      if (state === "active" || state === "parked") return visibleOpenRows();
       if (state === "ended") return visibleHistoryRows();
       return [...visibleOpenRows(), ...visibleHistoryRows()];
     },
@@ -293,7 +293,7 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
       const state = filters.state();
       const historyMatches = filters.outsideProjectOnly()
         ? visibleHistoryRows().length : matchedCount;
-      if (state === "active") return visibleOpenRows().length;
+      if (state === "active" || state === "parked") return visibleOpenRows().length;
       if (state === "ended") return historyMatches;
       return visibleOpenRows().length + historyMatches;
     },

@@ -126,7 +126,7 @@ def test_a_machine_at_its_cap_is_refused_with_the_numbers_and_the_recovery() -> 
     message = str(refused.value)
     assert "lanes 2/2 · free 44 MB · load 31.2 on 18 cores" in message
     assert "cap derived from 48.0 GB total memory" in message
-    assert "wait for a landing" in message
+    assert "wait for a worker process to exit" in message
     assert "max_worker_lanes" in message
     assert "--machine" in message
 
@@ -292,7 +292,8 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
         conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
         conn.execute(
             "CREATE TABLE harness_sessions (session_id TEXT, machine_id TEXT, "
-            "ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ)"
+            "ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ, "
+            "native_process_gone_at TIMESTAMPTZ)"
         )
         conn.execute(
             "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, "
@@ -300,7 +301,7 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
             "deadline_at TIMESTAMPTZ, level_placement TEXT)"
         )
         conn.execute(
-            "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL)", (MACHINE,)
+            "INSERT INTO harness_sessions VALUES ('worker', %s, NULL, NULL, NULL)", (MACHINE,)
         )
         conn.execute(
             "INSERT INTO session_launches "
@@ -322,3 +323,25 @@ def test_native_lane_deadline_comparison_preserves_exact_microseconds(
         assert sorted(row[0] for row in clocks) == [
             anchor + timedelta(microseconds=delta) for delta in (-1, 0, 1)
         ]
+
+
+def test_process_gone_parked_workers_free_lanes_and_resume_counts_again():
+    from yoke_core.domain.session_launch_capacity import live_lane_counts
+
+    conn = launch_connection()
+    add_relay(conn)
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
+    for index in range(71):
+        _live_session(conn, f"worker-{index}")
+    conn.execute(
+        "UPDATE harness_sessions SET mode='parked', native_process_gone_at=? "
+        "WHERE session_id NOT IN (" + ",".join("?" for _ in range(6)) + ")",
+        (NOW, *(f"worker-{index}" for index in range(6))),
+    )
+    assert live_lane_count(conn, machine_id=MACHINE, now=parse_instant(NOW)) == 6
+    assert live_lane_counts(conn, now=parse_instant(NOW)) == {MACHINE: 6}
+    conn.execute(
+        "UPDATE harness_sessions SET native_process_gone_at=NULL "
+        "WHERE session_id='worker-6'"
+    )
+    assert live_lane_count(conn, machine_id=MACHINE, now=parse_instant(NOW)) == 7
