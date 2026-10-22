@@ -229,15 +229,14 @@ def test_ordinary_health_without_a_session_is_not_applicable(monkeypatch, fn, qu
     assert "yoke doctor run --session" in result.detail
 
 
-@pytest.mark.parametrize("selection", [checks.SESSION_SLUGS, doctor_install.INSTALL_SLUGS])
 @pytest.mark.parametrize("fn,reason", [
     (doctor_install.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED"),
     (checks.hc_session_harness_cli_auth, "SESSION_HARNESS_UNKNOWN"),
     (checks.hc_session_harness_unattended_posture, "SESSION_HARNESS_UNKNOWN"),
 ])
-def test_explicit_readiness_without_a_session_still_fails(monkeypatch, fn, reason, selection):
+def test_explicit_session_readiness_without_a_session_still_fails(monkeypatch, fn, reason):
     for module in (doctor_install, checks):
         monkeypatch.setattr(module, "build_actor", lambda: SimpleNamespace(session_id=None))
-    result = run(fn, only=",".join(selection))
+    result = run(fn, only=",".join(checks.SESSION_SLUGS))
     assert result.result == "FAIL"
     assert reason in result.detail

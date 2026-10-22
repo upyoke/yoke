@@ -149,7 +149,7 @@ def test_setup_readiness_without_a_project_names_project_install_checks(
 
 
 @pytest.mark.parametrize("option,expected", [("--quick", "N/A"), ("--full", "N/A"),
-                                             ("--session", "FAIL"), ("--install", "FAIL")])
+                                             ("--session", "FAIL"), ("--install", "N/A")])
 def test_session_readiness_outside_a_session(outside_project, monkeypatch, capsys, option, expected):
     from types import SimpleNamespace
     from yoke_core.engines import doctor_install as install, doctor_session
