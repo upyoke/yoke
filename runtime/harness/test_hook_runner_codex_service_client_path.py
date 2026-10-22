@@ -225,17 +225,19 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
     ]
 
 
-def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> None:
+def test_lifecycle_recovery_command_uses_target_service_client_path(monkeypatch) -> None:
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
 
-    command = session_dispatch._session_begin_recovery_command(
-        "sid-codex",
-        "/Users/x/externalwebapp",
-        "gpt-5.5",
-        "codex-desktop",
+    command = session_lifecycle_client.session_begin_recovery_command(
+        root="/Users/x/externalwebapp",
+        session_id="sid-codex",
+        executor="codex",
+        provider="openai",
+        requested_model="gpt-5.5",
+        entrypoint="codex-desktop",
     )
 
     assert command.startswith(
