@@ -51,8 +51,8 @@ class ManualWakeRequirement:
     def run_command(self) -> str:
         """The member's stage run, exactly as an automatic stage wake names it."""
         return (
-            f"yoke qa plan run --deployment-run-id {self.run_id} --stage "
-            f"{self.stage} --member {self.item_ref} --project {self.project_slug}"
+            f"yoke qa plan run --item {self.item_ref} --stage "
+            f"{self.stage} --project {self.project_slug}"
         )
 
     def idempotency_key(self) -> str:

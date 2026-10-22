@@ -64,15 +64,18 @@ def handle_plan_execution_begin(
 
     conn = connect()
     try:
-        member_item_id = None
-        if parsed.deployment_member is not None:
-            from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+        from yoke_core.domain.qa_item_deployment_request import (
+            resolve_item_deployment_request,
+            execution_member_id,
+        )
 
-            member_item_id = resolve_item_ref_or_none(conn, parsed.deployment_member)
-            if member_item_id is None:
-                raise QaPlanExecutionStateError(
-                    f"deployment member {parsed.deployment_member!r} not found"
-                )
+        request = resolve_item_deployment_request(conn, request)
+        item_id, deployment_run_id = (
+            request.target.item_id,
+            request.target.deployment_run_id,
+        )
+        parsed = PlanExecutionBeginRequest.model_validate(request.payload)
+        member_item_id = execution_member_id(conn, parsed.deployment_member)
         if request.target.kind == "global":
             if parsed.requirement_id is not None:
                 raise QaPlanExecutionStateError(

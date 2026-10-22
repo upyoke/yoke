@@ -149,5 +149,5 @@ def require_single_execution_target(
             f"but cases also require {', '.join(missing)}. Materialize the attached "
             "item plan and execute each requirement with yoke qa case run, or "
             "execute each matching deployment QA stage with yoke qa plan run "
-            "--deployment-run-id RUN --stage STAGE --member ITEM."
+            "--item ITEM --stage STAGE."
         )

@@ -93,7 +93,11 @@ def execute_plan(
         )
     if requirement_id is not None:
         begin_payload["requirement_id"] = requirement_id
-    if deployment_run_id and not resume_execution_id and requirement_id is None:
+    if (
+        (deployment_run_id or deployment_stage)
+        and not resume_execution_id
+        and requirement_id is None
+    ):
         materialize_payload = {"plan": plan, "project": project}
         if deployment_stage:
             materialize_payload["deployment_stage"] = deployment_stage
@@ -174,14 +178,18 @@ def execute_plan(
         begun = validate_begun_execution(
             execution, machine=machine, base_url=base_url, public_ref=public_ref
         )
-        if deployment_run_id and deployment_stage and not resume_execution_id:
+        if (
+            execution.get("deployment_run_id")
+            and deployment_stage
+            and not resume_execution_id
+        ):
             from yoke_core.domain.deployment_qa_start_identity import (
                 require_start_identity,
             )
 
             # Before any host reset or human gate the roster below reaches.
             if drift := require_start_identity(
-                execution, run_id=deployment_run_id, stage=deployment_stage
+                execution, run_id=execution["deployment_run_id"], stage=deployment_stage
             ):
                 raise QaPlanExecutionError(drift)
         from yoke_core.domain.qa_standalone_command import preflight_standalone_runners

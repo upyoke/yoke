@@ -26,14 +26,12 @@ def _dispatch_kwargs(args: list[str]) -> dict:
     return dispatched.call_args.kwargs
 
 
-def test_the_stage_and_member_reach_the_handler_payload() -> None:
+def test_the_stage_and_item_reach_the_handler() -> None:
     kwargs = _dispatch_kwargs(
         [
-            "--deployment-run-id",
-            RUN_ID,
             "--stage",
             "item-qa",
-            "--member",
+            "--item",
             "PREFIX-7",
             "--plan",
             "release-boundary-qa",
@@ -43,7 +41,9 @@ def test_the_stage_and_member_reach_the_handler_payload() -> None:
     )
 
     assert kwargs["payload"]["deployment_stage"] == "item-qa"
-    assert kwargs["payload"]["deployment_member"] == "PREFIX-7"
+    assert kwargs["target"].kind == "item"
+    assert kwargs["target"].public_ref == "PREFIX-7"
+    assert kwargs["payload"]["deployment_member"] is None
 
 
 def test_a_member_without_its_stage_is_refused() -> None:

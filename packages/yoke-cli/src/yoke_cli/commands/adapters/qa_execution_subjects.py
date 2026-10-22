@@ -47,7 +47,7 @@ from yoke_contracts.qa_requirement_replacement import (
 def qa_plan_materialize_for_item(args: List[str]) -> int:
     usage = (
         "yoke qa plan materialize "
-        "(--item PREFIX-N --transition T | "
+        "(--item PREFIX-N (--transition T | --stage S) | "
         "--deployment-run-id RUN --plan PLAN --project P "
         f"[--stage STAGE [--member PREFIX-N]]) [--replaces {REPLACES_METAVAR} ...] "
         "[--json]"
@@ -68,7 +68,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "--stage",
         help=(
             "Bind the materialized cases to a pinned deployment QA stage. "
-            "An item-scoped stage also requires --member."
+            "Use --item for item-scoped deployment QA."
         ),
     )
     parser.add_argument(
@@ -81,16 +81,16 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if parsed.item and not parsed.transition:
-        return usage_error("--item requires --transition")
-    if parsed.item and parsed.plan:
+    if parsed.item and parsed.stage and (parsed.transition or parsed.member):
+        return usage_error("item stage excludes transition and member selectors")
+    if parsed.item and not (parsed.transition or parsed.stage):
+        return usage_error("--item requires --transition or --stage")
+    if parsed.item and parsed.plan and not parsed.stage:
         return usage_error("--item uses attached plans and does not accept --plan")
     if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         return usage_error("--deployment-run-id requires --plan")
     if parsed.member and not parsed.stage:
         return usage_error("--member requires --stage")
-    if parsed.stage and not parsed.deployment_run_id:
-        return usage_error("--stage belongs to --deployment-run-id materialization")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
@@ -125,7 +125,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
 def qa_plan_rematerialize(args: List[str]) -> int:
     usage = (
         "yoke qa plan rematerialize "
-        "(--item PREFIX-N --transition T | "
+        "(--item PREFIX-N (--transition T | --stage S) | "
         "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P]) "
         "[--json]"
     )
@@ -154,20 +154,20 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if parsed.item and parsed.plan:
+    if parsed.item and parsed.plan and not parsed.stage:
         return usage_error(
             "item_plan_filter_unsupported: remove --plan; --item refreshes attached plans"
         )
-    if parsed.item and not parsed.transition:
-        return usage_error("--item requires --transition")
+    if parsed.item and parsed.stage and (parsed.transition or parsed.member):
+        return usage_error("item stage excludes transition and member selectors")
+    if parsed.item and not (parsed.transition or parsed.stage):
+        return usage_error("--item requires --transition or --stage")
     if parsed.deployment_run_id and not parsed.stage:
         return usage_error("--deployment-run-id requires --stage")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
     if parsed.member and not parsed.stage:
         return usage_error("--member requires --stage")
-    if parsed.stage and not parsed.deployment_run_id:
-        return usage_error("--stage belongs to --deployment-run-id rematerialization")
     target = (
         item_target("item", parsed.item, parsed.project)
         if parsed.item
@@ -179,7 +179,7 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     )
     payload = (
         {"transition_id": parsed.transition}
-        if parsed.item
+        if parsed.item and not parsed.stage
         else {
             "deployment_stage": parsed.stage,
             "deployment_member": parsed.member,

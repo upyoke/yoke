@@ -38,12 +38,11 @@ def notify_correction(
         project_id = int(item["project_id"])
     project = resolve_project(conn, project_id)
     scope = (
-        f" --member {render_item_ref(conn, int(member))}" if member is not None else ""
+        f"--item {render_item_ref(conn, int(member))}"
+        if member is not None
+        else f"--deployment-run-id {run_id}"
     )
-    command = (
-        f"yoke watch qa-plan -- --deployment-run-id {run_id} --stage {stage}"
-        f"{scope} --project {project.slug}"
-    )
+    command = f"yoke watch qa-plan -- {scope} --stage {stage} --project {project.slug}"
     body = (
         f"Corrected QA requirement(s) {', '.join(map(str, ids))} are ready "
         f"for deployment run {run_id} stage {stage!r}. Run `{command}` on "

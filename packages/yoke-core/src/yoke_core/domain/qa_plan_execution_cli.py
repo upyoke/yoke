@@ -20,8 +20,6 @@ from yoke_core.domain.qa_plan_execution import (
 
 AGENT_REVIEW_REQUIRED_EXIT = 12
 
-#: Result fields restated on stderr for a case that did not pass, as
-#: ``label=value`` pairs after the requirement id.
 _REPORTED_CASE_FIELDS = (
     ("case", "case_key"),
     ("outcome", "case_outcome"),
@@ -243,9 +241,11 @@ def run(args: List[str]) -> int:
         parser.error("standalone run requires --plan PLAN --project P")
     if bool(parsed.expected_branch) != bool(parsed.expected_sha) and not standalone:
         parser.error("--expected-branch and --expected-sha must be paired")
-    if parsed.item and not parsed.transition and not parsed.resume_execution_id:
-        parser.error("--item requires --transition")
-    if parsed.item and parsed.plan:
+    if parsed.item and not (
+        parsed.transition or parsed.stage or parsed.resume_execution_id
+    ):
+        parser.error("--item requires --transition or --stage")
+    if parsed.item and parsed.plan and not parsed.stage:
         parser.error("--item uses attached plans and does not accept --plan")
     if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         parser.error("--deployment-run-id requires --plan")
@@ -261,7 +261,7 @@ def run(args: List[str]) -> int:
         parser.error(
             "standalone run does not accept transition, stage, member or replacements"
         )
-    if parsed.replaces and not parsed.deployment_run_id:
+    if parsed.replaces and not (parsed.deployment_run_id or parsed.stage):
         parser.error(
             "--replaces declares at materialization; for --item run "
             "yoke qa plan materialize --item PREFIX-N --transition T --replaces ..."
