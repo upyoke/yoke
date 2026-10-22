@@ -342,3 +342,6 @@ def test_tool_shaped_resolution():
     adapter, remaining = resolved
     assert adapter is commands.self_host_init
     assert remaining == ["--json"]
+
+
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")

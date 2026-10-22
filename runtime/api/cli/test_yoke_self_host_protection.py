@@ -329,3 +329,6 @@ def test_init_refuses_gitignore_symlink_without_touching_target(
     assert operator_file.read_text(encoding="utf-8") == "operator-owned\n"
     assert not (target / ".env").exists()
     assert _mode(target / "secrets") == 0o700
+
+
+pytestmark = pytest.mark.usefixtures("installed_self_host_prerequisites")
