@@ -55,13 +55,7 @@ def test_repeated_registration_preserves_real_refusals(
             None,
             project_id=project_id,
         )
-        orientation = session_dispatch_orientation._render_codex_orientation(
-            "test-session",
-            "/checkout",
-            error,
-            facts,
-            None,
-        )
+        orientation = session_dispatch_orientation.registration_failure_stdout(error)
         if refusal:
             assert refusal in error and "open a new session" in error
             assert refusal in orientation and "Run:" in orientation

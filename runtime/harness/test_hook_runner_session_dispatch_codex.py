@@ -6,17 +6,8 @@ Duplicate Codex ``UserPromptSubmit`` hooks for the same session do not
 emit duplicate rows.
 An empty Codex session id (``resolve_session_id`` returns falsy) does
 not emit.
-A ``source="startup"`` payload with no ``transcript_path`` matches the
-documented early-return path and must not emit.
 Codex sessions emit exactly one event even when ``_register_codex``
 reports an error — emission is decoupled from registration outcome.
-Install-advisory rendering on the hook-enhanced Codex
-reminder path. When orientation is suppressed for ``source="startup"`` +
-no ``transcript_path``, ``SESSION_MARKER`` stays unarmed and the reminder
-must own the advisory so the first model-visible Codex output still teaches
-the install path. When orientation already rendered the advisory
-(SESSION_MARKER armed) the reminder must NOT duplicate it. When ``yoke``
-resolves on PATH the reminder must omit the advisory (no false positives).
 """
 
 from __future__ import annotations
@@ -74,7 +65,7 @@ class _Invoker:
     """Helper that runs ``_run_codex_prompt_submit`` with subprocess-free mocks
     and captures every ``emit_event`` call. The patches isolate the dispatch
     from real subprocesses (``_touch``, ``_register_codex``,
-    ``_render_codex_reminder``) and from the codex-side ``/tmp`` runtime cache
+    registration) and from the codex-side runtime cache
     so each test exercises only the in-process flow.
     """
 
@@ -121,10 +112,6 @@ class _Invoker:
             mock.patch(
                 "yoke_core.hooks.session_dispatch._register_codex",
                 return_value=register_err,
-            ),
-            mock.patch(
-                "yoke_core.hooks.session_dispatch._render_codex_reminder",
-                return_value="",
             ),
             mock.patch(
                 "yoke_core.domain.events.emit_event",
@@ -179,19 +166,10 @@ class TestCodexFirstPromptEmission(unittest.TestCase):
         )
         self.assertEqual(len(_first_prompt_events(captured)), 0)
 
-    def test_startup_source_with_no_transcript_does_not_emit(self) -> None:
-        # source=startup + no transcript_path is the documented Codex
-        # early-return path. The marker must NOT be armed, so emission
-        # cannot fire on this dispatch.
-        captured = self.invoker.invoke(
-            _payload(self.session_id, source="startup"),
-        )
-        self.assertEqual(len(_first_prompt_events(captured)), 0)
-        # And the marker is still un-armed, so a real follow-up prompt
-        # would emit normally.
-        self.assertFalse(
-            os.path.exists(prompt_marker_path(self.session_id)),
-        )
+    def test_prompt_backfills_even_when_startup_had_no_transcript(self) -> None:
+        captured = self.invoker.invoke(_payload(self.session_id, source="startup"))
+        self.assertEqual(len(_first_prompt_events(captured)), 1)
+        self.assertTrue(os.path.exists(prompt_marker_path(self.session_id)))
 
     def test_registration_error_does_not_suppress_emission(self) -> None:
         captured = self.invoker.invoke(

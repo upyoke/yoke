@@ -1,0 +1,15 @@
+{
+ "id": "orientation-emission",
+ "title": "Startup and missed orientation use one emitted context path",
+ "status": "observed",
+ "audience": "agent",
+ "when": "Session startup, resume or hooks installed during a conversation",
+ "need": "Codex keeps early startup orientation when ready and retries missing or unconfirmed output on a later prompt. Claude keeps prompt timing; Cursor keeps startup and tool-result timing. A successful valid emitted envelope stops repeats independently from registration and resume work.",
+ "disclosure": "current cue",
+ "surface": "Shared client composer, harness envelope and existing attempt/delivered markers",
+ "gap": "Installed Codex proof waits for the coordinated published candidate; marker evidence proves emission rather than agent receipt.",
+ "review": "Combined lifecycle/client source regressions cover startup, resume, suppressed or missing startup, denied/interrupted emission, first-prompt registration backfill, registration errors and projectless operation.",
+ "recipes": ["yoke sessions identity"],
+ "sources": ["docs/public/agents/harness-discovery.md", "runtime/harness/test_hook_runner_codex_reminders.py", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py"],
+ "position": 10
+}

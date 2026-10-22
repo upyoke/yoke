@@ -48,6 +48,9 @@ def isolated_markers(tmp_path_factory, monkeypatch) -> None:
         str(tmp_path_factory.mktemp("markers")),
     )
     monkeypatch.setattr(delivery, "_composed_session", None)
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity.detect_executor", lambda: "claude-code"
+    )
 
 
 def _payload(root: Path, session_id: str = "sess-abc") -> str:
@@ -206,3 +209,18 @@ def test_a_session_registered_midway_is_oriented_exactly_once(
 
     assert first is not None and so.ORIENTATION_HEADING in first
     assert second is None
+
+
+@pytest.mark.parametrize(
+    "executor,cursor,startup,repair",
+    [
+        ("claude-code", False, "UserPromptSubmit", "UserPromptSubmit"),
+        ("codex", False, "SessionStart", "UserPromptSubmit"),
+        ("cursor", True, "SessionStart", "PostToolUse"),
+    ],
+)
+def test_registry_keeps_each_harness_startup_and_repair_timing(
+    executor, cursor, startup, repair
+):
+    assert session_orientation_event(cursor=cursor, executor=executor) == startup
+    assert session_orientation_redelivery_event(cursor=cursor) == repair
