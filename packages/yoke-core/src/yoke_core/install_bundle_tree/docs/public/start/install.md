@@ -171,7 +171,7 @@ server's admin upgrades it; hosted servers update with each hosted release.
 Install, reinstall and upgrade restart the machine's hook evaluator and check
 that it answers; on failure, read the named log, run `yoke hook resident
 restart` and retry. Hook timing stays in the diagnostics log. Setup also
-writes Yoke's machine-wide hooks into each installed harness's user config,
+writes Yoke's machine-wide hooks into each existing harness home's user config,
 so sessions outside a project register; inside one, the project's hooks run.
 
 The installed CLI follows your active connection (`active_env`, set by

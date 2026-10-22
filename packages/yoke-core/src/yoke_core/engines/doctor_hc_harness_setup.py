@@ -11,12 +11,12 @@ from yoke_harness.session_relay_harness_reconcile import (
     remember_reconcile_result,
 )
 from yoke_harness.session_relay_surface_probes import (
-    APP_SURFACE_PROBES,
+    probe_surface,
     resolve_native_cli,
 )
 
 SLUG = "harness-setup"
-TITLE = "Every registered checkout and lane is set up in every installed harness"
+TITLE = "Every registered checkout and lane has its harness configuration set up"
 RECOVERY = "Run `yoke doctor run --only harness-setup --fix`."
 
 
@@ -25,7 +25,7 @@ def codex_home_without_codex() -> str:
     if (
         spec
         and not resolve_native_cli("codex")
-        and not APP_SURFACE_PROBES["codex-desktop"].exists()
+        and probe_surface("codex-desktop").verdict == "missing"
     ):
         return (
             f"codex_home_without_codex: {spec.home_path()}. If you never installed "
@@ -59,7 +59,7 @@ def hc_harness_setup(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     targets = {
         r.target_path
         for r in result.rows
-        if r.facet == "folder_trust" and r.outcome != "skipped_not_installed"
+        if r.facet == "folder_trust" and r.outcome != "skipped_no_home"
     }
     rec.record(
         SLUG,
@@ -67,5 +67,5 @@ def hc_harness_setup(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "PASS" if harnesses else "N/A",
         f"{', '.join(harnesses)}; {len(targets)} targets"
         if harnesses
-        else "No harness home is installed; no files were created.",
+        else "No harness home is configured; no files were created.",
     )

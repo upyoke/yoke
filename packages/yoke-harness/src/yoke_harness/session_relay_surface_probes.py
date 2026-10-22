@@ -4,19 +4,20 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import plistlib
 import re
-import shutil
 import subprocess
 import sys
 import time
 from typing import Callable, Sequence
 
 from yoke_contracts.harness_cli_manifest import (
-    HARNESS_CLI_MANIFESTS,
     harness_cli_probe_commands,
+)
+from yoke_cli.config.path_harness_clis import (
+    ResolvedNativeCli,
+    resolve_native_cli_source,
 )
 from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
 from yoke_harness.linux_desktop_apps import read_linux_desktop_version
@@ -28,11 +29,6 @@ APP_SURFACE_PROBES = {
     "claude-desktop": Path("/Applications/Claude.app/Contents/Info.plist"),
     "codex-desktop": Path("/Applications/ChatGPT.app/Contents/Info.plist"),
     "cursor-desktop": Path("/Applications/Cursor.app/Contents/Info.plist"),
-}
-_CLI_FALLBACKS = {
-    manifest.executable: tuple(Path(raw) for raw in manifest.bundled_candidates)
-    for manifest in HARNESS_CLI_MANIFESTS
-    if manifest.bundled_candidates
 }
 KNOWN_SURFACE_PROBES = tuple((*CLI_SURFACE_PROBES, *APP_SURFACE_PROBES))
 
@@ -59,40 +55,9 @@ class SurfaceProbeResult:
         }
 
 
-@dataclass(frozen=True)
-class ResolvedNativeCli:
-    """Which executable served a probe or launch, and by which route."""
-
-    path: str
-    source: str
-
-
 def _version_token(text: str) -> str | None:
     matched = _VERSION_PATTERN.search(text)
     return matched.group(0).rstrip("-+._") if matched else None
-
-
-def resolve_native_cli_source(command_name: str) -> ResolvedNativeCli | None:
-    """Resolve a native CLI exactly as the surface-version probe finds it.
-
-    The advertised probe and launch transport must resolve the same executable.
-    The source distinguishes a standalone install from a bundled desktop copy
-    so diagnostics can identify which independently released build ran.
-    """
-    if os.sep in command_name:
-        candidate = Path(command_name)
-        return (
-            ResolvedNativeCli(command_name, "explicit")
-            if candidate.is_file() and os.access(candidate, os.X_OK)
-            else None
-        )
-    found = shutil.which(command_name)
-    if found:
-        return ResolvedNativeCli(found, "path")
-    for fallback in _CLI_FALLBACKS.get(command_name, ()):
-        if fallback.is_file() and os.access(fallback, os.X_OK):
-            return ResolvedNativeCli(str(fallback), "bundled")
-    return None
 
 
 def resolve_native_cli(command_name: str) -> str | None:

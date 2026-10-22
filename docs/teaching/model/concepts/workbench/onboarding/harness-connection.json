@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "workbench",
  "position": 1,
- "text": "Before any machine reports a harness, the module names each project's directory to open. With no project yet it shows the add-project cue instead, since there is no directory to name.",
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_machines.js", "packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js"]
+ "text": "Before any machine reports a harness, the module names each project's directory to open. With no project yet it shows the add-project cue instead, since there is no directory to name. Onboarding and machine detail share surface-specific relay installation observations. Family configuration never proves a desktop app or extension is installed; unsupported detection reads not observed. Hook trust and session activity remain configuration and readiness facts. Setup manages existing harness homes independently of installation; CLI readiness uses the shared PATH and bundled-executable resolver without a desktop inventory scan.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_onboarding_machines.js", "packages/yoke-core/src/yoke_core/ui/static/add_project_cue.js", "packages/yoke-core/src/yoke_core/domain/overview_harness_hook_health.py", "packages/yoke-cli/src/yoke_cli/config/path_harness_clis.py", "docs/public/operations/doctor.md"]
 }

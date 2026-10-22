@@ -70,9 +70,7 @@ def test_no_installed_harness_writes_nothing(tmp_path):
         include_posture=False,
         progress=lambda action, target, status: events.append((action, target, status)),
     )
-    assert events == [] and all(
-        "skipped_not_installed" in line for line in result.lines()
-    )
+    assert events == [] and all("skipped_no_home" in line for line in result.lines())
     assert not _home(tmp_path).exists()
 
 

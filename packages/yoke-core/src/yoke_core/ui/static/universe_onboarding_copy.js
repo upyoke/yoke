@@ -53,10 +53,10 @@ export const hookTrustRemediation = (trustSurface) =>
 
 // One line per harness card, saying what we detected on that machine. The
 // STATUS KEYS are engine vocabulary (overview.activation.get target rows);
-// the sentences are the product copy for them. "installed · last seen" is
+// the sentences are the product copy for them. "last seen" is
 // built rather than looked up because it carries the date the engine found.
 export const HARNESS_STATUS_TEXT = {
-  not_installed: "not installed",
+  not_installed: "not observed",
   installed_never_seen: "installed · never seen",
   active: "active · telemetry seen",
   hooks_need_trust: "hooks need trust",
@@ -64,7 +64,7 @@ export const HARNESS_STATUS_TEXT = {
 };
 export const harnessStatusLine = (status, lastSeen) => (
   status === "installed_last_seen"
-    ? `installed · last seen ${lastSeen}`
+    ? `last seen ${lastSeen}`
     : HARNESS_STATUS_TEXT[status] || ""
 );
 

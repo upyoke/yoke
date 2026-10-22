@@ -1,6 +1,6 @@
 """Worded status and hook health for the Overview's harness targets.
 
-Every supported surface answers, so "not installed" is a card rather than an
+Every supported surface answers, so "not observed" is a card rather than an
 absence. The status says what we detected; the colour only tints it: green
 for recent telemetry, orange for an installed surface without recent
 telemetry, and red for a current silent session or explicitly unapproved
@@ -194,3 +194,59 @@ def test_claude_has_no_hook_trust_surface():
     assert targets["claude-code"]["status"] == STATUS_ACTIVE
     assert targets["claude-code"]["trust_surface"] is None
     assert "claude-code" not in HARNESS_HOOK_APPROVAL
+
+
+def test_cli_and_family_configuration_never_install_other_surfaces():
+    for approval in ("approved", "unapproved", "not_applicable"):
+        targets = _by_key(
+            [],
+            reports=[
+                {
+                    "harness_id": family,
+                    "config_present": True,
+                    "glue_present": True,
+                    "approval_state": approval,
+                }
+                for family in ("claude-code", "codex", "cursor")
+            ],
+            installed={"claude-cli": "1.2", "codex-cli": "2.3", "cursor-cli": "3.4"},
+        )
+        for surface in (
+            "claude-vscode",
+            "claude-desktop",
+            "codex-desktop",
+            "cursor-desktop",
+        ):
+            assert targets[surface]["status"] == STATUS_NOT_INSTALLED
+            assert targets[surface]["version"] is None
+            assert targets[surface]["hook_health"] is None
+            assert targets[surface]["trust_surface"] is None
+        assert (
+            targets["claude-cli"]["status"]
+            == {
+                "approved": "hooks_trusted",
+                "unapproved": STATUS_HOOKS_NEED_TRUST,
+                "not_applicable": STATUS_INSTALLED_NEVER_SEEN,
+            }[approval]
+        )
+
+
+def test_configuration_alone_is_not_installation():
+    targets = _by_key(
+        [],
+        reports=[
+            {"harness_id": "cursor", "config_present": True, "glue_present": True}
+        ],
+    )
+    assert targets["cursor"]["status"] == STATUS_NOT_INSTALLED
+    assert targets["cursor"]["hook_health"] == HOOK_HEALTH_ORANGE
+    assert targets["cursor-desktop"]["status"] == STATUS_NOT_INSTALLED
+
+
+def test_each_positive_desktop_probe_is_surface_specific():
+    for surface in ("claude-desktop", "codex-desktop", "cursor-desktop"):
+        targets = _by_key([], installed={surface: "1.2.3"})
+        assert targets[surface]["status"] == STATUS_INSTALLED_NEVER_SEEN
+        assert targets[surface]["version"] == "1.2.3"
+        assert targets[surface]["hook_health"] == HOOK_HEALTH_ORANGE
+        assert targets["claude-vscode"]["status"] == STATUS_NOT_INSTALLED
