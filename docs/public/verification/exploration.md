@@ -147,6 +147,13 @@ returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 - combining walker returns into the primary written report;
 - retaining leases and choosing/submitting each bundled case's final verdict.
 
+On Codex, `spawn_agent` can refuse with `collab spawn failed: agent thread
+limit reached` while an earlier walker still holds its thread, and no tool
+closes that thread. Wait for the running walker to return, then spawn the fresh
+walker. If the spawn still refuses, walk the remaining chunk yourself with
+foreground calls under the walker rules below, and note the refusal in the
+primary report. Do not raise Codex thread limits or edit Codex config.
+
 Walkers run host-command calls foreground with tool yield at or above the
 call timeout (`yield_time_ms` uses milliseconds), never short-yield polling.
 They return one status, never a verdict:
