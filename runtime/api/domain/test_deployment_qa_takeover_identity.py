@@ -133,6 +133,11 @@ def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypa
         actor_id=1,
         session_id=takeover.DRIVER_SESSION,
     )
+    from yoke_core.domain.agent_mission_cleanup import cleanup_execution
+
+    # Deployment failure does not turn an inherited walk into terminal cleanup.
+    assert not cleanup_execution(test_db, execution)
+    validate_deployment_execution_target(test_db, execution)
     third = "shared-qa-recovery"
     test_db.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,target_tier,target_environment_id,"
