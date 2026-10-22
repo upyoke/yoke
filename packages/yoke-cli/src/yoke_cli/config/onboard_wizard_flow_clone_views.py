@@ -82,6 +82,9 @@ class CloneOutcomeFlow:
             self._goto_new_repo_visibility()
             return
         steps.reset_project_publish_fields(self.result)
+        if self.result.existing_project_id:
+            self._after_name_clone()
+            return
         self._goto_project_details()
 
     def _goto_new_repo_visibility(self: _Shell) -> None:
@@ -92,6 +95,9 @@ class CloneOutcomeFlow:
 
     def _on_new_repo_visibility(self: _Shell, choice: str) -> None:
         self.result.project_publish_private = choice == project_screens.NEW_REPO_PRIVATE
+        if self.result.existing_project_id:
+            self._after_name_clone()
+            return
         self._goto_project_details()
 
     def _after_name_clone(self: _Shell) -> None:

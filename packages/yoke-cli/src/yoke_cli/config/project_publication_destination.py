@@ -25,8 +25,9 @@ def recovery(remote: str = "origin") -> str:
     return (
         f"publication_destination_read_only: {remote} permits fetching only. "
         "Re-run setup and choose a writable source, Fork or Duplicate, or "
-        f"configure an owned writable destination with `git remote set-url --push "
-        f"{remote} <writable-repository-url>` before starting item work. "
+        f"restore pushes to this exact source with `git remote set-url --push "
+        f"{remote} <source-repository-url>` only after confirming source write access. "
+        "Select a different repository through setup so its project binding agrees. "
         "GitHub App connection and Git push permission are separate."
     )
 

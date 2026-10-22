@@ -165,3 +165,29 @@ def test_governed_merge_refuses_read_only_before_integration(checkout):
                                  capture_output=True, text=True)
     assert native_push.returncode != 0
     assert git(source, 'rev-parse', 'main') == original
+
+
+def test_saved_read_only_setup_reopens_destination_without_remote_mutation(checkout, tmp_path):
+    from yoke_cli.config.onboard_wizard import WizardResult
+    from yoke_cli.config.onboard_wizard_project_identity_flow import ProjectIdentityFlow
+
+    root, source = checkout
+    destination.prevent_push(root)
+
+    class Shell(ProjectIdentityFlow):
+        result = WizardResult(
+            env_name='prod', api_url='', config_path=str(tmp_path / 'config.json'),
+            project_checkout=str(root), existing_project_id=77,
+        )
+        offered = False
+
+        def _goto_clone_outcome(self):
+            self.offered = True
+
+    shell = Shell()
+    shell._after_existing_project_ready()
+    assert shell.offered
+    assert shell.result.project_remote_url == str(source)
+    assert shell.result.project_clone_existing_layer_decision == 'keep'
+    assert destination.read_only(root)
+    assert git(root, 'remote', 'get-url', 'origin') == str(source)

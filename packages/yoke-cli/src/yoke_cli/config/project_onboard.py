@@ -229,6 +229,19 @@ def import_project(
     project_onboard_installed_layer.apply_decision(
         root, plan.existing_layer_decision, progress=progress,
     )
+    if outcome is not None and outcome.github_repo is not None:
+        github_repo = outcome.github_repo
+        payload["github_repo"] = outcome.github_repo
+        progress_steps.record_mutated_repository(
+            github_adoption,
+            outcome.github_repo,
+            config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
+        )
+    if outcome is not None and outcome.branch is not None:
+        default_branch = outcome.branch
+        payload["default_branch"] = outcome.branch
     if existing_project_id is not None:
         return project_onboard_apply.install_existing_project(
             operation="project.clone-existing",
@@ -244,19 +257,6 @@ def import_project(
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,
         )
-    if outcome is not None and outcome.github_repo is not None:
-        github_repo = outcome.github_repo
-        payload["github_repo"] = outcome.github_repo
-        progress_steps.record_mutated_repository(
-            github_adoption,
-            outcome.github_repo,
-            config_path,
-            service_api_url=service_api_url,
-            local_connection_selected=local_connection_selected,
-        )
-    if outcome is not None and outcome.branch is not None:
-        default_branch = outcome.branch
-        payload["default_branch"] = outcome.branch
     with onboard_apply_progress.step(progress, scaffold_action):
         result = dispatch("projects.create", payload, config_path)
         report = project_onboard_apply.finish_after_dispatch(

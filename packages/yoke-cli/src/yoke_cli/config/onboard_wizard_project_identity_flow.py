@@ -290,6 +290,17 @@ class ProjectIdentityFlow:
         self._goto_existing_project_ready()
 
     def _after_existing_project_ready(self: _Shell) -> None:
+        from yoke_cli.config import project_publication_destination as destination
+        from yoke_cli.config.project_clone_resume import remote_url
+
+        checkout = self.result.project_checkout
+        if checkout and not self.result.project_clone_outcome and destination.read_only(checkout):
+            self.result.project_remote_url = remote_url(checkout, "origin")
+            from yoke_cli.config.project_installed_layer import LAYER_DECISION_KEEP
+
+            self.result.project_clone_existing_layer_decision = LAYER_DECISION_KEEP
+            self._goto_clone_outcome()
+            return
         if (
             self.result.project_github_adoption == GITHUB_ADOPTION_DISABLED
             and self.result.project_github_repo
