@@ -2,8 +2,8 @@
 
 A reviewer looking at a screenshot needs to know which candidate produced
 it, and an assertion that the reviewer typed is not that answer. The
-server publishes the commit itself, from the checkout its own module was
-loaded out of — the same tree the static assets are read from — so the
+server publishes the commit itself, from its loaded module's checkout or
+owning wheel metadata — the same install the static assets are read from — so the
 value describes what is being served rather than whatever the machine's
 ambient install happens to be.
 
@@ -47,8 +47,8 @@ def _git(root: Path, *args: str) -> Optional[str]:
 def served_build(checkout_root: Union[str, Path, None]) -> str:
     """Return the served commit, ``<sha>-dirty``, or ``""``.
 
-    An empty answer means this server cannot say what it is serving — a
-    packaged wheel, a tree that is not a git checkout, or a git that
+    An empty answer means this checkout cannot say what it is serving — a
+    tree that is not a git checkout, or a git that
     refused. Publishing nothing is the honest answer there; it is not the
     same as publishing a commit nobody can check.
     """
@@ -89,7 +89,11 @@ def served_build_identity() -> str:
     itself makes the cheaper answer worthless: the packet a reviewer reads
     on screen and the value a check reads over the wire are one reading.
     """
-    return served_build(served_install().get("checkout_root"))
+    install = served_install()
+    if install.get("checkout_root"):
+        return served_build(install["checkout_root"])
+    # detect_install validates that the wheel metadata owns the loaded module.
+    return str(install.get("source_commit") or "")
 
 
 __all__ = [

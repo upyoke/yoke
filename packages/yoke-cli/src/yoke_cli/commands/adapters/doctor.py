@@ -110,7 +110,11 @@ def doctor_run(args: List[str]) -> int:
     scope.add_argument(
         "--install",
         action="store_true",
-        help="Install readiness: machine, harness, dashboard and installed guidance.",
+        help=(
+            "Install readiness: machine, harness, dashboard and installed guidance. "
+            "Outside an agent session, session hook registration is N/A; "
+            "use --session inside a harness to verify it."
+        ),
     )
     scope.add_argument(
         "--session",

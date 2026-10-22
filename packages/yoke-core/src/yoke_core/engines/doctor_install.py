@@ -203,7 +203,7 @@ def session_hook_recovery(reason: str = "SESSION_HOOK_UNOBSERVED") -> str:
 def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     try:
         session_id = build_actor().session_id
-        if not session_id and not args.only:
+        if not session_id and (not args.only or args.only == ",".join(INSTALL_SLUGS)):
             rec.record(
                 "session-hook-registration",
                 "This session received a registering hook",
