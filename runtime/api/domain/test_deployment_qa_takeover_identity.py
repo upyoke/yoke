@@ -89,7 +89,7 @@ def test_takeover_rejects_another_subject_or_origin(
         validate_deployment_execution_target(test_db, execution)
 
 
-def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypatch):
+def _shared_execution(test_db, monkeypatch):
     from runtime.api.domain import test_deployment_qa_shared_plans as shared
 
     shared._seed(test_db)
@@ -118,6 +118,11 @@ def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypa
     execution = select_plan_execution(test_db, execution["id"], lock=False)
     assert execution["deployment_run_id"] == takeover.NEW
     validate_deployment_execution_target(test_db, execution)
+    return execution
+
+
+def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypatch):
+    execution = _shared_execution(test_db, monkeypatch)
     from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
 
     terminalize_run_on(

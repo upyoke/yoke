@@ -38,6 +38,50 @@ def inherited_target(conn: Any, run_id: str, target: Mapping) -> bool:
     )
 
 
+def inherited_member_target(conn, run_id, stage_name, member):
+    """Recover a member's original destination from the shared groups it owns."""
+    from copy import deepcopy
+    from yoke_core.domain.deployment_qa_shared_plan_reads import attaching_members
+    from yoke_core.domain.qa_execution_environment_target import canonical_target
+
+    def read():
+        rows = query_rows(
+            conn,
+            "SELECT DISTINCT execution_target_json FROM qa_requirements "
+            "WHERE deployment_run_id=%s AND deployment_stage=%s "
+            "AND deployment_member_item_id IS NULL AND execution_target_json IS NOT NULL",
+            (run_id, stage_name),
+        )
+        targets = {}
+        attachments = {}
+        for row in rows:
+            raw = row["execution_target_json"]
+            target = dict(raw) if isinstance(raw, Mapping) else json.loads(str(raw))
+            shared = (target.get("deployment") or {}).get("shared_plan")
+            if not shared or not inherited_target(conn, run_id, target):
+                continue
+            plan = int(shared["plan_id"])
+            if plan not in attachments:
+                attachments[plan] = attaching_members(conn, run_id, plan)
+            for attached in attachments[plan]:
+                private = deepcopy(target)
+                private["deployment"].pop("shared_plan")
+                private["deployment"]["member_item_id"] = attached
+                targets.setdefault(attached, {})[canonical_target(private)] = private
+        return targets
+
+    targets = presentation_read(
+        conn, ("qa_inherited_member_targets", run_id, stage_name), read
+    ).get(int(member), {})
+    if len(targets) > 1:
+        raise ValueError(
+            "qa_inherited_target_ambiguous: this member owns shared QA at multiple "
+            "frozen destinations; inspect the inherited groups and explicitly resolve "
+            "their obligations before materializing another target"
+        )
+    return next(iter(targets.values()), None)
+
+
 def continued_subject(conn: Any, execution: Mapping, target: Mapping) -> dict | None:
     """Resolve moved work without demanding successor deployment acceptance.
 
