@@ -79,11 +79,12 @@ git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
 Route problems to [rework](worker-launch.md#rework), keeping them outside release;
 never select `merge_candidate_review`. Follow [release batches](release-batches.md),
 including [manual-wake QA](release-batches.md#manual-wake-member-qa).
-After failed QA, confirm owner rework or a recorded blocker.
+Failed QA: follow `.yoke/docs/verification/failed-item-qa.md` for correction,
+retained-owner waits and retesting.
 
 ## 5. Live status
 
-After any material change, refresh one section:
+After a change, refresh one section:
 
 ```text
 ## Live status — steering snapshot (refresh or replace on next steering handoff)

@@ -4,7 +4,7 @@
 [Yoke](../index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Define QA cases, run project plans and inspect the evidence that satisfies workflow and deployment gates.
+Define cases and inspect evidence for workflow and deployment gates.
 
 Workbench **QA** tabs:
 
@@ -296,6 +296,7 @@ project operator to repair the named definition or target if it persists.
 - [Consumer proof](consumer-proof.md) — Use the release-time exact-pair gate and diagnose producer failures.
 - [Starting state and activity](case-attachment-rules.md) — Declare Machine starting state and read case activity.
 - [Deployment plan execution](deployment-plan-execution.md) — Run frozen cases across members, machines and shared host turns.
+- [Failed item QA](failed-item-qa.md) — Keep correction ownership, wait for delivery and retest the qualifying candidate.
 - [Browser targets](browser-targets.md) — Select Browser targets, methods, identities and viewport configuration.
 - [Browser scenarios](browser-scenarios.md) — Author actions and assertions, then execute the Browser case.
 - [Browser evidence](browser-evidence.md) — Read captures and distinguish execution from inspected verdicts.
