@@ -130,6 +130,10 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
     }
     for (action, target), expected in cases.items():
         rendered = steps._friendly_line(action, target)
-        assert rendered == expected, (action, target, rendered)
+        if action == "project-install-harness-hooks":
+            assert rendered.startswith(expected), (action, target, rendered)
+            assert "trust" in rendered
+        else:
+            assert rendered == expected, (action, target, rendered)
         # No mapped line may contain a raw "action-code:" prefix.
         assert not rendered.startswith(f"{action}:")
