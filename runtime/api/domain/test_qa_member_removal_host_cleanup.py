@@ -117,7 +117,11 @@ def test_the_runner_keeps_its_subject_after_membership_ends(test_db, removed_inf
         target=TargetRef(kind="global", project_id="yoke"),
         payload={"execution_id": execution_id},
     )
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", MEMBER)
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", MEMBER)
 
 
 def test_the_owner_notice_names_the_pending_host_cleanup():

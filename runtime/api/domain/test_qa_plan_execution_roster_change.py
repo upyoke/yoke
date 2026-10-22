@@ -79,7 +79,7 @@ def test_partially_run_execution_refuses_with_the_abort_command() -> None:
 
         message = str(refused.value)
         assert message.startswith("qa_roster_changed:")
-        assert f"yoke qa plan abort --execution-id {execution['id']} --item " in message
+        assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in message
         assert "--reason TEXT" in message
         assert _stored(conn, str(execution["id"]))["state"] == "active"
 

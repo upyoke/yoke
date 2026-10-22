@@ -13,7 +13,7 @@ def execution_member_id(conn, member):
 
     item_id = resolve_item_ref_or_none(conn, member)
     if item_id is None:
-        raise QaPlanError(f"deployment member {member!r} not found")
+        raise QaPlanError("qa_member_unknown: no work item resolves from the supplied member selector")
     return item_id
 
 

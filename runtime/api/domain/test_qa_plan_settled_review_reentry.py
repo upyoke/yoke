@@ -83,12 +83,10 @@ def test_cli_reprints_settled_review_and_exits(capsys):
     ):
         code = run(
             [
-                "--deployment-run-id",
-                "run-settled",
+                "--item",
+                "YOK-1",
                 "--stage",
                 "run-qa",
-                "--member",
-                "YOK-1",
                 "--project",
                 "yoke",
             ]

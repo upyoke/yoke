@@ -158,7 +158,7 @@ def test_changed_case_still_unjudged_refuses_and_names_the_refresh(test_db) -> N
     message = str(refusal.value)
     assert "plan_case_superseded" in message
     assert f"QA requirement {requirement_id}" in message
-    assert "yoke qa plan rematerialize --deployment-run-id run-refresh-live" in message
+    assert f"yoke qa plan rematerialize --item YOK-{MEMBER} --stage item-qa" in message
     assert len(_rows(test_db, run_id)) == 1
 
 

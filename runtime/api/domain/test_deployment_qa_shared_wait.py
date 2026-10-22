@@ -129,7 +129,7 @@ def test_held_group_waits_on_durable_membership_and_receives_settlement_wake(
     notices = _notices(test_db, first)
     assert {row["session_id"] for row in notices} == {"member-9901", "member-9902"}
     assert all("Shared group evidence comes from" in row["body"] for row in notices)
-    assert all("--member YOK-" in row["body"] for row in notices)
+    assert all("--item YOK-" in row["body"] for row in notices)
     if settlement == "completed":
         # The passed group owes nothing: no replay, and the refusal names the
         # other group's case still waiting for its run.
@@ -227,7 +227,7 @@ def test_settlement_wake_names_each_member_s_real_blocker(test_db):
             in (row["body"])
         )
         assert "latest verdict is missing" in row["body"]
-        assert "yoke qa plan run --deployment-run-id" in row["body"]
+        assert "yoke qa plan run --item" in row["body"]
 
 
 @pytest.mark.parametrize("settlement", ["completed", "aborted", "error"])
