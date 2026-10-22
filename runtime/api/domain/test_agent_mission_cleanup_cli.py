@@ -125,7 +125,11 @@ def test_unsettled_disposal_defers_cleanup_and_names_the_release(
 
     def teardown(*args, restore_host=True, **kwargs):
         restore_modes.append(restore_host)
-        return {"removed": True, "stale_owner_marker_removed": True}
+        return {
+            "removed": True,
+            "stale_owner_marker_removed": True,
+            "scratch_path": "/tmp/mission",
+        }
 
     monkeypatch.setattr(agent_mission_walk_cli, "resolve_mission_contract", resolve)
     monkeypatch.setattr(

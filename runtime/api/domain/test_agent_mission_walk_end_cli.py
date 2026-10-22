@@ -238,3 +238,23 @@ def test_a_project_left_for_an_administrator_is_named_but_never_blocks(
 
     assert exit_code == 0
     assert notice in capsys.readouterr().err
+
+
+def test_unsettled_disposal_reports_secret_staging_removal_failure(monkeypatch, capsys):
+    blocked = "fixture_project_not_disposed: resolve owned fixture"
+    calls = []
+    code = _run_walk_end(
+        monkeypatch,
+        _walk_result(removed=False, stale_owner_marker_removed=False),
+        None,
+        disposal=([blocked], [], True),
+        fixture_projects=WITH_PROJECT,
+        calls=calls,
+    )
+    assert code == 3
+    assert calls == ["uninstall", "dispose", "scratch"]
+    output = capsys.readouterr()
+    assert blocked in output.err
+    assert "mission_scratch_not_removed" in output.err
+    assert "stale_owner_marker_not_removed" in output.err
+    assert "starting_state_restore" not in json.loads(output.out)

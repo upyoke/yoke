@@ -134,11 +134,17 @@ def run_end(args: list[str]) -> int:
         if disposal_failures or not recorded:
             for failure in disposal_failures:
                 print(f"{PROG_END}: {failure}", file=sys.stderr)
-            print(json.dumps({FIXTURE_PROJECTS: fixture_projects}, sort_keys=True))
-            staging = execute_agent_mission_walk_end(
-                contract, timeout_seconds=parsed.timeout_seconds, restore_host=False
-            )
-            print(json.dumps(staging, sort_keys=True))
+            staging = {}
+            try:
+                staging = execute_agent_mission_walk_end(
+                    contract, timeout_seconds=parsed.timeout_seconds, restore_host=False
+                )
+            finally:
+                print(
+                    json.dumps(
+                        {FIXTURE_PROJECTS: fixture_projects, **staging}, sort_keys=True
+                    )
+                )
             print(
                 f"{PROG_END}: "
                 f"{'fixture_project_disposal_unsettled' if recorded else 'fixture_project_disposal_unrecorded'}: the Test "
@@ -147,12 +153,20 @@ def run_end(args: list[str]) -> int:
                 "this same walk-end; do not reset the host",
                 file=sys.stderr,
             )
-            if not staging["removed"] or not staging["stale_owner_marker_removed"]:
-                print(
-                    f"{PROG_END}: mission_scratch_not_removed: restore host write "
-                    "access to the named scratch and rerun this walk-end",
-                    file=sys.stderr,
-                )
+            for key, reason, path in (
+                ("removed", "mission_scratch_not_removed", staging["scratch_path"]),
+                (
+                    "stale_owner_marker_removed",
+                    "stale_owner_marker_not_removed",
+                    f"~/{STALE_OWNER_MARKER}",
+                ),
+            ):
+                if not staging[key]:
+                    print(
+                        f"{PROG_END}: {reason}: restore host write access to "
+                        f"{path} and rerun this walk-end",
+                        file=sys.stderr,
+                    )
             if getattr(parsed, "cleanup_lease", False):
                 print(
                     f"{PROG_END}: mission_cleanup_deferred: cleanup lease stays "
