@@ -153,7 +153,8 @@ def test_setup_pairs_and_source_excerpts_are_real(explorer):
     for node in nodes.values():
         if node.get('document_lines'):
             start, end = node['document_lines']
-            path = TOOLS.parent / 'views/explore' / node['document']
+            # Preview output need not exist in a clean source checkout.
+            path = (TOOLS.parent / 'views/explore' / node['document']).resolve()
             assert 0 <= start < end <= len(path.read_text().splitlines())
     assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
     assert any(n['type_label'] == 'Reply field' for n in nodes.values())
