@@ -221,18 +221,25 @@ function updateTrail() {
 
 function fitPreview(el) {
   const preview = el.querySelector('.preview-children');
-  if (!preview || !preview.getClientRects().length) return;
+  if (!preview) return;
+  if (!preview.getClientRects().length) {
+    el.querySelector('.count').hidden = false;
+    preview.dataset.fit = '';
+    return;
+  }
   const key = `${el.clientWidth}:${el.clientHeight}:${el.className}`;
   if (preview.dataset.fit === key) return;
   preview.dataset.fit = key;
   const entries = [...preview.children];
   entries.forEach(entry => { entry.hidden = false; });
-  const bottom = el.clientHeight - 58;
+  const ends = entries.map(entry => entry.offsetTop + entry.offsetHeight);
+  const bottom = el.clientHeight - (ends.every(end => end <= el.clientHeight - 22) ? 22 : 58);
   // Measure the wrapped rows before hiding any entries, so a partial row never leaks out.
-  const fits = entries.map(entry => entry.offsetTop + entry.offsetHeight <= bottom);
+  const fits = ends.map(end => end <= bottom);
   entries.forEach((entry, i) => { entry.hidden = !fits[i]; });
   const shown = fits.filter(Boolean).length;
   const all = el.querySelector('.count');
+  all.hidden = shown === entries.length;
   all.textContent = `Show all ${entries.length} →`;
   all.title = `${shown} of ${entries.length} shown. Open this node to explore every child.`;
 }
