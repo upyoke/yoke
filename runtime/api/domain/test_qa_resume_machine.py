@@ -21,10 +21,7 @@ def test_resume_recipe_never_pins_a_host(hosts):
         ],
     }
     command = continuation_recipe(Mock(), execution)
-    assert (
-        command
-        == "yoke qa plan run --deployment-run-id run --project example --stage member-qa --continue-mission"
-    )
+    assert command == "yoke qa plan run --resume-execution-id walk --continue-mission"
     assert "--machine" not in command
 
 

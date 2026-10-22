@@ -222,10 +222,10 @@ def run(args: List[str]) -> int:
     add_replaces_argument(parser)
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
-    if parsed.resume_execution_id and (parsed.continue_mission or parsed.replaces):
-        parser.error(
-            "--resume-execution-id cannot continue terminal history or replace cases"
-        )
+    if parsed.resume_execution_id and parsed.replaces:
+        parser.error("--resume-execution-id cannot replace cases")
+    if parsed.continue_mission and not parsed.resume_execution_id:
+        parser.error("--continue-mission requires --resume-execution-id")
     if parsed.recovery_file and not parsed.resume_execution_id:
         parser.error("--recovery-file requires --resume-execution-id")
     if parsed.resume_execution_id and parsed.deployment_run_id:

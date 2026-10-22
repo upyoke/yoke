@@ -170,7 +170,15 @@ def execute_plan(
     execution_id = begun_execution_id(execution)
     if target.kind == "deployment_run":
         target = TargetRef(kind="global", project_id=project)
-    if resume_execution_id and execution_id != resume_execution_id:
+    if (
+        resume_execution_id
+        and (
+            execution.get("continues_execution_id")
+            if continue_mission
+            else execution_id
+        )
+        != resume_execution_id
+    ):
         raise QaPlanExecutionError(
             "qa_resume_identity_mismatch: preserve both receipts and report to the control-plane operator"
         )

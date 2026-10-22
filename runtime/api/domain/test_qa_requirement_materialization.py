@@ -109,7 +109,9 @@ def test_shared_walk_persists_requesting_member_for_resume(test_db):
     stored = select_plan_execution(test_db, execution["id"], lock=False)
     assert stored["deployment_member_item_id"] is None
     assert stored["requesting_member_item_id"] == MEMBERS[0]
-    assert "--member YOK-9901" in continuation_recipe(test_db, stored)
+    assert f"--resume-execution-id {stored['id']}" in continuation_recipe(
+        test_db, stored
+    )
 
 
 @pytest.mark.parametrize("status", ["done", "cancelled"])

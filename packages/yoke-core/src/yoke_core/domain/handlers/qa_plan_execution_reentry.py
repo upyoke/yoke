@@ -102,7 +102,14 @@ def handle_execution_reentry(request):
             )
         else:
             require_resume_inputs(conn, execution, parsed)
-            result = resume_execution(conn, execution)
+            if parsed.continue_mission:
+                from yoke_core.domain.qa_plan_execution_continue import (
+                    continue_execution,
+                )
+
+                result = continue_execution(conn, execution, parsed, request.actor)
+            else:
+                result = resume_execution(conn, execution)
             if execution.get("deployment_stage"):
                 from yoke_core.domain.deployment_qa_start_identity import (
                     START_IDENTITY_FIELD,

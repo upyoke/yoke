@@ -70,6 +70,7 @@ def begin_plan_execution(
     expected_branch: str | None = None,
     machine: str | None = None,
     continue_mission: bool = False,
+    continuation_execution_id: str | None = None,
     actor_id: str | None,
     session_id: str,
     _deployment_subject: dict | None = None,
@@ -195,6 +196,7 @@ def begin_plan_execution(
         resolve_continuation_source(
             conn,
             live_execution_id=existing_id,
+            expected_execution_id=continuation_execution_id,
             item_id=item_id,
             transition_id=transition_id,
             deployment_run_id=deployment_run_id,

@@ -13,6 +13,7 @@ from runtime.api.domain.machine_qa_host_test_support import (
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.test_agent_mission_qa import _materialize_mission
 from runtime.api.domain.test_qa_plan_execution_parked_continuation import (
+    LONG_AGO,
     MISSION_ACTOR,
     MISSION_TRANSITION,
     _swept_mission,
@@ -169,3 +170,39 @@ def test_fresh_mission_resets_for_its_docket_and_again_at_walk_start(
     assert SENTINEL not in control.existing_paths
     assert started["preparation"]["baseline"] == "fresh-host"
     assert started["preparation"]["ok"] is True
+
+
+def test_a_continuation_leaves_the_prior_settled_run_as_history(
+    test_db: Any,
+    tmp_path: Any,
+    monkeypatch: Any,
+) -> None:
+    requirement_id, settled = _swept_mission(
+        test_db, tmp_path, monkeypatch, item_id=4907
+    )
+    test_db.execute(
+        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
+        "verdict_reason,execution_status,case_outcome,started_at,completed_at,"
+        "created_at) VALUES(%s,'agent_mission','plan_case','error',"
+        "'settled by execution termination','captured','needs_review',"
+        "%s,%s,%s)",
+        (requirement_id, LONG_AGO, LONG_AGO, LONG_AGO),
+    )
+    test_db.commit()
+
+    begin_plan_execution(
+        test_db,
+        item_id=4907,
+        transition_id=MISSION_TRANSITION,
+        continue_mission=True,
+        actor_id=MISSION_ACTOR.actor_id,
+        session_id=MISSION_ACTOR.session_id,
+    )
+    prior_runs = test_db.execute(
+        "SELECT verdict,verdict_reason FROM qa_runs WHERE qa_requirement_id=%s",
+        (requirement_id,),
+    ).fetchall()
+    assert [(str(row[0]), str(row[1])) for row in prior_runs] == [
+        ("error", "settled by execution termination")
+    ]
+    assert str(settled["release_reason"]) == "stale-heartbeat"
