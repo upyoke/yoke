@@ -17,6 +17,29 @@ DOCKER_INSTALL_GUIDANCE = (
     "Install Docker Desktop or Docker Engine with the Compose plugin: "
     "https://docs.docker.com/get-started/get-docker/"
 )
+SELF_HOST_GUIDE = "https://github.com/upyoke/yoke/blob/main/docs/self-host.md"
+COLIMA_INSTALL_URL = "https://colima.run/docs/installation/"
+
+
+def preparation_guidance() -> tuple[str, ...]:
+    """Manual prerequisites shared by the setup preview and refusal routes."""
+    lines = (
+        "Requires Docker + Compose v2 and a responding daemon (`docker info`). "
+        "Yoke does not install, start or reconfigure your container runtime.",
+        DOCKER_INSTALL_GUIDANCE,
+    )
+    if _SYSTEM().lower() == "darwin":
+        lines += (
+            "On macOS choose a supported Docker Desktop or Colima + Docker CLI "
+            f"and Compose installation. Check OS/architecture support: {COLIMA_INSTALL_URL}",
+            "For Colima only, a numeric Mac LAN/Tailscale bind needs "
+            "`colima start --network-host-addresses=true --network-address=false` "
+            "after an authorized runtime stop, preserving other profile settings. "
+            "Loopback needs no change; do not widen a failed bind to 0.0.0.0.",
+        )
+    return (*lines, f"Manual preparation and private-address proof: {SELF_HOST_GUIDE}")
+
+
 DOCKER_ENGINE_WAIT_SECONDS = 20.0
 DOCKER_PROBE_TIMEOUT_SECONDS = 5.0
 DOCKER_RETRY_INTERVAL_SECONDS = 1.0
@@ -55,7 +78,7 @@ def check_docker_prerequisites(
         raise DockerPrerequisiteError(
             "docker-missing",
             "Docker is not installed on this machine.",
-            (DOCKER_INSTALL_GUIDANCE, "Install it, then choose Try again or Back."),
+            (*preparation_guidance(), "Install it, then choose Try again or Back."),
         )
     _check_compose_plugin(executable)
     _wait_for_engine(executable, wait_seconds=max(0.0, engine_wait_seconds))
@@ -77,12 +100,16 @@ def _check_compose_plugin(executable: str) -> None:
         raise DockerPrerequisiteError(
             "compose-missing",
             "The Docker Compose plugin could not be checked.",
-            (DOCKER_INSTALL_GUIDANCE, f"Docker reported: {_diagnostic(str(exc))}"),
+            (
+                *preparation_guidance(),
+                f"Docker reported: {_diagnostic(str(exc))}",
+                "Repair Compose, then choose Try again or Back.",
+            ),
         ) from exc
     if result.returncode == 0:
         return
     diagnostic = _diagnostic(result.stderr or result.stdout)
-    details = [DOCKER_INSTALL_GUIDANCE]
+    details = list(preparation_guidance())
     if diagnostic:
         details.append(f"Docker reported: {diagnostic}")
     details.append("Install the Compose plugin, then choose Try again or Back.")
@@ -153,17 +180,14 @@ def _raise_engine_refusal(*, wait_seconds: float, slow: bool, diagnostic: str) -
 def _engine_recovery(*, slow: bool, system_name: str) -> tuple[str, ...]:
     system = system_name.lower()
     if system == "darwin":
-        opening = (
-            "Keep Docker Desktop open while its engine finishes starting."
-            if slow
-            else "Open Docker Desktop and complete its first run."
-        )
         return (
-            opening,
-            "On macOS, accept the Docker Subscription Service Agreement and "
-            "approve the privileged helper with an administrator password.",
-            "Wait until Docker Desktop reports that its engine is running, then "
-            "choose Try again or Back.",
+            "If using Docker Desktop: Open Docker Desktop and complete its first run; "
+            "a person must accept any Docker Subscription Service Agreement and "
+            "approve its privileged helper with an administrator password.",
+            "If using Colima, run `colima start` with your existing COLIMA_HOME, "
+            "LIMA_HOME and Docker context; do not install Desktop as a repair.",
+            "Wait until `docker info` succeeds, then choose Try again or Back.",
+            *preparation_guidance(),
         )
     if system == "windows":
         action = "Keep Docker Desktop open" if slow else "Open Docker Desktop"

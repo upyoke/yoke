@@ -5,5 +5,6 @@
  "form": "Do",
  "verification": "Source checks Docker and docker compose version before either init write path. Regression tests cover present, missing, failed and timed-out checks, plain/JSON output and unchanged bundles; released proof remains pending.",
  "topics": ["modes/self-hosted/compose-bundle"],
- "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "packages/yoke-cli/src/yoke_cli/commands/self_host.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/self-host.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/self_host/prerequisites.py", "packages/yoke-cli/src/yoke_cli/commands/self_host.py", "runtime/api/cli/test_yoke_self_host_prerequisites.py", "docs/self-host.md", "packages/yoke-cli/src/yoke_cli/config/onboard_docker_prerequisites.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_image_repository.py", "runtime/api/cli/test_setup_self_host_prerequisite_guidance.py"],
+ "summary": " Interactive setup and setup --agent consume the same prerequisite preview and diagnosed recovery. Both explain Docker+Compose, a responding daemon, conditional Desktop/Colima choices and Mac private-address preparation before writes; retries reuse the existing flow. Focused tests cover missing prerequisites and already-ready continuation, not installed live delivery."
 }

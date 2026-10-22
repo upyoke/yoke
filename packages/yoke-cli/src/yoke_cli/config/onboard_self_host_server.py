@@ -14,6 +14,7 @@ from yoke_cli.config import server_connect, server_image_repository
 from yoke_cli.config.onboard_docker_prerequisites import (
     DockerPrerequisiteError,
     DockerPrerequisites,
+    preparation_guidance,
     check_docker_prerequisites as _check_docker_prerequisites,
 )
 from yoke_cli.self_host import bundle, first_boot_token, runtime
@@ -116,7 +117,9 @@ def provision(
         )
     except runtime.SelfHostRuntimeError as exc:
         raise SelfHostSetupError(
-            "self-host-handoff", str(exc), recovery_commands(setup)
+            "self-host-handoff",
+            str(exc),
+            (*preparation_guidance(), *recovery_commands(setup)),
         ) from exc
     setup.raw_token = _wait_for_first_boot_token(
         setup,

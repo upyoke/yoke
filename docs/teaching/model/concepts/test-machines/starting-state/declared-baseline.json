@@ -3,5 +3,7 @@
  "title": "Declared baselines keep harness sign-ins live; Linux also keeps harness installations live, while macOS restores them from the golden",
  "status": "observed",
  "page": "test-machine-starting-state",
- "position": 0
+ "position": 0,
+ "summary": " Yoke's authoritative inventory remains its existing golden-baseline guide. Fresh-host retains supported vendor tools and live sign-ins with Yoke absent; shell-preconfigured adds the launcher. System services and external runtime state require independent proof.",
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md"]
 }
