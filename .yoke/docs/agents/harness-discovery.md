@@ -100,7 +100,10 @@ Read `.yoke/harness/<harness-dir>/manifest.json` for the installed release.
 Directories are `claude`, `codex`, and `cursor`; `claude-code` uses `claude`.
 `agent_wake` names wake support and its evidence, `session_control` names
 message/launch routes, and `supports` names hook affordances. `unverified`
-means the capability has no proof; it does not authorize guessing.
+means the capability has no proof; it does not authorize guessing. Implement shared behavior
+once behind its harness-neutral owner. Keep capability-specific branches thin, named and
+co-located; record an explicit designed deferral for a missing primitive, and teach each
+harness only the primitives it supports.
 The existing install bundle publishes renderer-owned release bytes and
 refresh manages their digests, restores missing files and resumes interrupted
 application. Do not edit managed manifests to change capabilities.

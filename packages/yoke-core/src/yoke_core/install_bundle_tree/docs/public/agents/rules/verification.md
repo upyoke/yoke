@@ -57,6 +57,9 @@ the same inputs belongs to this item. Failed trains use the recorded
 
 ## Visual evidence
 
+Run browser checks at their specified sizes. Verify UI fixes with rendered screenshots
+against the supported deployment context.
+
 - Render captures against a universe you name: `YOKE_ENV=<local-env> yoke ui up`. Seed through
   that env. Keep admission tokens out of output; add a `delay` step before a screenshot.
 - Formal Browser QA runs post-deploy on production. A local preview is a self-check only.
