@@ -10,7 +10,7 @@ Delivery owed: keep the claim and lane, send no DONE, and park whenever quiet:
 
 ```text
 yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
-yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
 ```
 
 Exit 12 is a capture awaiting review: dispatch the returned review bundle and submit it. Do not pass `--plan` except to replace failed cases.
