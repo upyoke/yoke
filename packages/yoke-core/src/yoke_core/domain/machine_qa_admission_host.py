@@ -236,11 +236,21 @@ def stop(mode: str) -> None:
         try:
             os.killpg(pid, signal.SIGTERM)
             for _ in range(100):
-                os.killpg(pid, 0)
+                try:
+                    os.killpg(pid, 0)
+                except PermissionError:
+                    # macOS reports EPERM for an exited process group.
+                    break
                 time.sleep(0.1)
-            os.killpg(pid, signal.SIGKILL)
+            else:
+                os.killpg(pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except OSError as exc:
+            raise AdmissionFixtureError(
+                f"machine_admission_cleanup_failed: {type(exc).__name__}: {exc}; "
+                "restore permission to stop the fixture group, then rerun the case."
+            ) from exc
     spec = universe_spec(mode)
     if spec.bin_dir is not None and spec.data_dir.exists():
         postgres_cluster.destroy(spec)

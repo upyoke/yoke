@@ -44,10 +44,12 @@ class MachineQaFixtureAdmissionOperations:
                 "restore SSH to the test machine, then rerun the case."
             ) from exc
         if returncode != 0:
-            output = str(getattr(result, "stderr", "") or "").strip()
+            lines = str(getattr(result, "stderr", "") or "").strip().splitlines()
+            # A named refusal leads its output; a crash ends with its exception.
+            crashed = bool(lines) and lines[0].startswith("Traceback")
             raise RemoteFixtureFailure(
-                output.splitlines()[0]
-                if output
+                ("\n".join(lines[-4:])[-2000:] if crashed else lines[0][:2000])
+                if lines
                 else f"machine_admission_host_failed: exit {returncode}"
             )
 
