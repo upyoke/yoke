@@ -8,6 +8,7 @@ import re
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -17,6 +18,7 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.machine_qa_host_control import host_control_for
 from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
+from yoke_harness.ssh_linux_golden_diagnostics import run_golden_command
 from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
 from yoke_harness.test_machine_types import HostActionResult
 from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
@@ -150,6 +152,44 @@ def test_machine_qa_factory_selects_windows_transport(monkeypatch):
     monkeypatch.setattr(SshWindowsHostControl, "__init__", lambda *a: None)
     control = host_control_for(SimpleNamespace(settings=SETTINGS))
     assert isinstance(control, SshWindowsHostControl)
+
+
+def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs.get("input")))
+        return subprocess.CompletedProcess(argv, 0, "archive-ok", "archive-err")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    control = object.__new__(SshWindowsHostOperations)
+    control._key_path = Path("/private/key")
+    control._host = "windows.invalid"
+    control._user = "Administrator"
+    control._control_path = tmp_path / "absent-socket"
+    control.secret_values = ()
+    command = "printf '%s' \"$HOME\""
+    stdin = '{"probe": true}'
+    result, evidence = run_golden_command(
+        control, command, input_text=stdin, timeout=30
+    )
+    reader, framed_input = windows_wsl_input(command, stdin)
+    assert result.returncode == 0
+    assert result.stdout == "archive-ok" and result.stderr == "archive-err"
+    assert len(calls) == 2
+    debug_argv, debug_input = calls[0]
+    assert debug_argv[1:4] == ["-vvv", "-E", evidence["ssh_client_log"]]
+    assert _linux_command(debug_argv[-1]) == reader
+    assert debug_input == framed_input
+    assert base64.b64decode(framed_input.split("\n", 1)[0]) == command.encode()
+    assert framed_input.endswith(stdin)
+    journal_argv, journal_input = calls[1]
+    assert "-E" not in journal_argv
+    journal_command = base64.b64decode(journal_input.split("\n", 1)[0]).decode()
+    assert journal_command.startswith("sudo -n journalctl ")
+    journal_reader, journal_framed = windows_wsl_input(journal_command, None)
+    assert _linux_command(journal_argv[-1]) == journal_reader
+    assert journal_input == journal_framed
 
 
 def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):

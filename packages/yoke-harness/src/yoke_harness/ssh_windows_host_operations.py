@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from yoke_contracts.machine_qa_failures import SSH_UNAVAILABLE, HostControlLocalError
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.test_machine_types import HostActionResult
@@ -19,9 +21,21 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
     def _ssh_argv(self, command: str) -> list[str]:
         return super()._ssh_argv(windows_wsl_command(command))
 
-    def _run(self, command: str, *, input_text: str | None = None, timeout: int = 60):
+    def _run(
+        self,
+        command: str,
+        *,
+        input_text: str | None = None,
+        timeout: int = 60,
+        debug_log: Path | None = None,
+    ):
         reader, framed_input = windows_wsl_input(command, input_text)
-        return super()._run(reader, input_text=framed_input, timeout=timeout)
+        return super()._run(
+            reader,
+            input_text=framed_input,
+            timeout=timeout,
+            debug_log=debug_log,
+        )
 
     def _host_facts(self):
         try:
