@@ -21,7 +21,7 @@ _DOMAIN_PY_MODULES: Dict[str, str] = {
     "shepherd": "yoke_core.domain.shepherd",
     "ouroboros": "yoke_core.domain.ouroboros",
     "projects": "yoke_core.domain.projects",
-    "project-structure": "yoke_core.domain.project_structure",
+    "project-structure": "yoke_core.domain.project_structure_cli",
     "release": "yoke_core.domain.release_notes",
     "flows": "yoke_core.domain.flow",
     "events": "yoke_core.domain.events_crud",
