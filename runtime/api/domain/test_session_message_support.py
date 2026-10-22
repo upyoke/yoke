@@ -128,6 +128,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             model TEXT, reasoning_effort TEXT, context_window_tokens INTEGER,
             requested_model TEXT, requested_reasoning_effort TEXT,
             requested_context_window_tokens INTEGER,
+            native_process_gone_at TIMESTAMPTZ,
             native_thread_id TEXT, offer_envelope TEXT,
             episode_started_at TIMESTAMPTZ
         );

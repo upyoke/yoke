@@ -329,6 +329,7 @@ def test_process_gone_parked_workers_free_lanes_and_resume_counts_again():
     from yoke_core.domain.session_launch_capacity import live_lane_counts
 
     conn = launch_connection()
+    add_relay(conn)
     for index in range(71):
         _live_session(conn, f"worker-{index}")
     conn.execute(
