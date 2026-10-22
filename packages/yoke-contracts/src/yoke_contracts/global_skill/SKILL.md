@@ -51,8 +51,9 @@ person. The full loop is in
 
 Tell the user the exact project folder, what they asked for, and to open a
 new Claude Code, Codex or Cursor session in that folder. A newly added
-project starts with `/yoke onboard` there; an existing one with the request
-itself. Yoke never opens that session for them.
+project starts with the installed `yoke` skill: `$yoke onboard` in Codex or
+`/yoke onboard` in Claude Code or Cursor; an existing one starts with the
+request itself. Yoke never opens that session for them.
 
 ## Writing to the user
 <!-- BEGIN GENERATED: user-writing -->

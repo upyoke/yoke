@@ -61,10 +61,13 @@ def test_global_has_machine_context_without_project_homes(monkeypatch):
 def test_source_composers_use_same_summary(monkeypatch, harness):
     from types import SimpleNamespace
     from yoke_cli.config import setup_facts_summary
+    from yoke_cli.config import project_onboarding_handoff as handoff
     from yoke_core.hooks import session_dispatch_orientation as source
     from yoke_core.hooks import session_dispatch_cursor as cursor
     from yoke_contracts.session_model_facts import SessionModelFacts
 
+    family = "claude-code" if harness == "claude" else harness
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: family)
     monkeypatch.setattr(
         setup_facts_summary,
         "orientation_lines",
@@ -96,7 +99,8 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
         )
     assert body.count("Setup:") == body.count("Next:") == 1
     assert "blocked setup-checklist-handoff" in body
-    assert "Next: /yoke onboard (setup_required)" in body
+    router = "$yoke" if harness == "codex" else "/yoke"
+    assert f"Next: {router} onboard (setup_required)" in body
     assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
 
 

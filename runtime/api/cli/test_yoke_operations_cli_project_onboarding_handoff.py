@@ -5,17 +5,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from runtime.api.cli.project_onboarding_test_helpers import (
     ProjectOnboardApi,
     run_git,
     write_https_config,
 )
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.config import project_onboarding_handoff as handoff
 
 
 def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: "codex")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     checkout = tmp_path / "local-checkout"
     checkout.mkdir()
@@ -74,7 +78,7 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     assert payload["install"]["snapshot_sync"]["status"] == "ok"
     assert payload["handoff"]["run_id"] == "run-handoff"
     assert payload["handoff"]["install_report"]["project_id"] == 43
-    assert payload["handoff"]["agent_command"] == "/yoke onboard --run-id run-handoff"
+    assert payload["handoff"]["agent_command"] == "$yoke onboard --run-id run-handoff"
 
     handoff_call = api.function_call("onboard.checklist.run")
     handoff_payload = handoff_call["payload"]
@@ -83,6 +87,26 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     assert (
         handoff_payload["metadata"]["install_report"]["snapshot_sync"]["status"] == "ok"
     )
+
+
+@pytest.mark.parametrize(
+    "family, routers",
+    [
+        ("codex", ["$yoke"]),
+        ("claude-code", ["/yoke"]),
+        ("cursor", ["/yoke"]),
+        (None, ["$yoke", "/yoke"]),
+    ],
+)
+def test_handoff_uses_native_router_and_preserves_run(monkeypatch, family, routers):
+    monkeypatch.setattr(handoff, "nearest_harness_family", lambda: family)
+    command = handoff._agent_command("run-handoff")
+    for router in routers:
+        assert f"{router} onboard --run-id run-handoff" in command
+    if family == "codex":
+        assert "/yoke" not in command
+    elif family:
+        assert "$yoke" not in command
 
 
 def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(

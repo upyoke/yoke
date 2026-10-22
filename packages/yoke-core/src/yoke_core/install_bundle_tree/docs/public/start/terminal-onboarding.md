@@ -61,7 +61,9 @@ edit `.yoke/board-art` to change the map or saved art; run `yoke board rebuild`
 to see the result.
 
 Setup wires the project to Yoke and installs its operating guidance. It does
-not install an application scaffold. `/yoke onboard` starts from the project's
+not install an application scaffold. The installed `yoke` skill
+(`$yoke onboard` in Codex; `/yoke onboard` in Claude Code or Cursor)
+starts from the project's
 existing work and configures only what the first work needs, including the
 chosen application Pack when that work needs one. The webapp scaffold contributes an application-docs
 reference to canonical `AGENTS.md` and a marked `.gitignore` block; project

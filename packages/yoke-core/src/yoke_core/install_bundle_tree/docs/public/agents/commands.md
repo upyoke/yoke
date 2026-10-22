@@ -11,6 +11,10 @@ below is generated; edit its owner and use its stated renderer, never the table.
 Target harness manifests own available tools/hooks. Source maintainers use
 `docs/harness-bootstrap.md` and `docs/hook-parity-map.md` for those contracts.
 
+The table uses Claude Code and Cursor's `/yoke` spelling. In Codex, invoke
+the installed `yoke` skill with `$yoke`, for example `$yoke onboard`.
+Select `yoke` in the skill picker; onboarding is a route within that skill.
+
 The universal authored-file limit is 350 lines, enforced where files are
 readable by pre-commit, survey and Doctor. Active work-claim rows authorize
 registered lanes. File Budget and path claims are

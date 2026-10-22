@@ -18,7 +18,7 @@ from public_installer_helpers import (
 
 
 @pytest.mark.parametrize("force_color", ["0", "1"])
-def test_consent_and_execution_use_astral_even_when_brew_exists(
+def test_bootstrap_uses_astral_even_when_brew_exists(
     tmp_path: Path, force_color: str
 ) -> None:
     bin_dir = linux_stub_bin(tmp_path)

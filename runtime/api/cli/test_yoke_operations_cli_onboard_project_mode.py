@@ -77,7 +77,9 @@ def test_onboard_local_checkout_dry_run_previews_project_handoff(
         "mode": "existing-local",
     }
     assert payload["project_onboarding"]["github_adoption"]["choice"] == "disabled"
-    assert "/yoke onboard --run-id" in payload["next_steps"][1]
+    from yoke_cli.config.project_onboarding_handoff import onboard_command
+
+    assert payload["next_steps"][1] == onboard_command("--run-id <run-id>")
     assert "actor-token" not in out
     assert not config.exists()
     assert tree_snapshot(checkout) == before_checkout
