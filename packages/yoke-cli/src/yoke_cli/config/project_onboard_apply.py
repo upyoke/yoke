@@ -64,6 +64,9 @@ def finish_after_dispatch(
             )
         )
     )
+    if clone_outcome is not None and clone_outcome.github_repo:
+        project = {**project, "github_repo": clone_outcome.github_repo,
+                   "default_branch": clone_outcome.branch or project.get("default_branch")}
     if binding_result and binding_result.get("binding"):
         binding = dict(github_adoption.get("binding") or {})
         binding["status"] = str(binding_result["binding"])

@@ -245,7 +245,9 @@ def _project_report(
             reuse_github_auth=reuse_github_auth,
             **kwargs,
         )
-    if mode in PROJECT_REMOTE_MODES:
+    if mode in PROJECT_REMOTE_MODES or (
+        inputs.get("clone") is not None and inputs.get("remote_url")
+    ):
         # A clone always brings its own remote; the post-clone outcome (just
         # clone / make it mine / fork) is carried in the clone plan.
         return project_onboard.import_project(

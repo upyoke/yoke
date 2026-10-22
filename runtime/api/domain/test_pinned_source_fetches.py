@@ -31,7 +31,7 @@ def fetch_source(request, monkeypatch, tmp_path):
 
     monkeypatch.setattr(module, "_run", bare_run)
     monkeypatch.setattr(cg, "configured_web_url", lambda: "https://github.com")
-    monkeypatch.setattr(commands, "remote_url", lambda *_: ORIGIN)
+    monkeypatch.setattr(commands, "remote_url", lambda *_, **_kwargs: ORIGIN)
     monkeypatch.setattr(repo_upstream_git, "network_timeout_seconds", lambda: 17)
 
     def run(sha=""):

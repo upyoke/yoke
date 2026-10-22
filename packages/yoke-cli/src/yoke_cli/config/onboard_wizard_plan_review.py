@@ -84,6 +84,8 @@ _REPO_ACTIONS = {
     "project-onboard-local-checkout",
     "project-rehome-push",
     "project-fork-remotes",
+    "project-read-only-source",
+    "project-writable-source",
     "project-install-scaffold",
     "project-refresh-scaffold",
     "project-install-agent-rules",

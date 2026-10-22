@@ -14,6 +14,8 @@ from yoke_cli.config import project_installed_layer as installed_layer
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
+    CLONE_OUTCOME_JUST_CLONE,
+    CLONE_OUTCOME_SOURCE,
     CLONE_OUTCOME_MAKE_IT_MINE,
 )
 from yoke_contracts.project_contract.board_art.config_paths import (
@@ -41,41 +43,16 @@ def post_checkout_steps(
     *,
     reuse: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """The repo-folder work onboard runs after the checkout exists.
-
-    Mode-scoped so the review screen only lists steps that actually run:
-
-    * ``project-rehome-push`` / ``project-fork-remotes`` — clone mode only, and
-      only for the make-it-mine / fork outcomes (just-clone keeps the source
-      ``origin`` untouched, so no remote step is shown). Mirrors
-      ``project_onboard._apply_clone_outcome``.
-    * ``project-install-scaffold`` — the four scaffold modes run
-      ``install_runner.install``, which lays down the ``.yoke/`` operating
-      layer.
-    * ``project-install-agent-rules`` / ``project-install-tool-permissions`` /
-      ``project-install-harness-hooks`` / ``project-install-git-hooks`` — the
-      same scaffold install (and refresh) writes the Yoke rules blocks into
-      canonical ``AGENTS.md``, unions the
-      managed tool-permission regions into ``.claude/settings.json`` and
-      ``.cursor/cli.json`` / ``.cursor/sandbox.json``, merges harness hooks into
-      ``.claude/settings.json`` / ``.codex/hooks.json`` / ``.cursor/hooks.json``,
-      and installs the git commit-guard hooks, so the review names each file
-      operation instead of hiding it behind the scaffold line.
-    * ``project-remove-installed-layer`` — a checkout the operator inspected
-      and chose to strip, which happens after the clone's remote choreography
-      and before anything is installed into the folder.
-    * ``project-write-board-art`` — checkouts without project-local board art
-      finish by writing the finalized art, rebuilding the initial
-      ``BOARD.md``, and committing the art, so the checkout is handed over
-      clean rather than dirty with the installer's own output.
-    """
+    """List destination configuration and operating-layer writes for Review."""
     steps: list[dict[str, Any]] = []
-    if project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE and not reuse.get(
-        "project_checkout"
-    ):
+    if project_inputs.get("clone") is not None:
         clone = project_inputs.get("clone") if project_inputs else None
         outcome = getattr(clone, "outcome", None)
-        if outcome == CLONE_OUTCOME_MAKE_IT_MINE:
+        if outcome == CLONE_OUTCOME_JUST_CLONE:
+            steps.append({"action": "project-read-only-source", "target": ".git/config push URL"})
+        elif outcome == CLONE_OUTCOME_SOURCE:
+            steps.append({"action": "project-writable-source", "target": ".git/config push URL"})
+        elif outcome == CLONE_OUTCOME_MAKE_IT_MINE:
             steps.append({"action": "project-rehome-push", "target": ""})
         elif outcome == CLONE_OUTCOME_FORK:
             steps.append({"action": "project-fork-remotes", "target": ""})

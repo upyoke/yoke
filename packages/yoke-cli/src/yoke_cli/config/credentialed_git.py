@@ -1,7 +1,4 @@
-"""Prefer isolated Yoke authorization; absent authorization permits bounded,
-non-interactive Git with the user's own credentials. GitHub API authority stays
-independent, and failed stored authorization never falls back.
-"""
+"""Authorize Git with isolated App access or bounded user credentials."""
 
 from __future__ import annotations
 
@@ -119,6 +116,10 @@ def _decided_environment(
         yield non_interactive_git_env(base), attribution.LOCAL_COMMAND
         return
     url = contact_url(args, cwd)
+    from yoke_cli.config import project_publication_destination as destination
+
+    if url == destination.READ_ONLY_PUSH_URL:
+        raise CredentialedGitError(destination.recovery())
     web_url = configured_web_url()
     if not url or not is_configured_github(url, web_url):
         yield (

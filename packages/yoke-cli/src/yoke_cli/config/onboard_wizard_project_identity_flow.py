@@ -58,11 +58,11 @@ class ProjectIdentityFlow:
             self._lookup_recorded_project(local_ref, value)
             return
         if not remote or not self.result.project_github_repo:
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         token = self._yoke_token_for_project_lookup()
         if not token:
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         self._run_checking(
             step=STEP_PROJECT,
@@ -220,6 +220,19 @@ class ProjectIdentityFlow:
             or onboard_project.DEFAULT_NEW_REPO_BRANCH
         )
         self.result.project_public_item_prefix = values["prefix"].upper()
+        if self.result.project_clone_outcome:
+            intended = self.result.project_checkout_github_repo
+            if self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT and intended:
+                try:
+                    onboard_local_checkout_identity.require_matching_origin(
+                        self.result.project_checkout, github_repo=intended,
+                        web_url=onboard_wizard_github_state.clone_web_url(self.result),
+                    )
+                except RuntimeError as exc:
+                    self._goto_publish_origin_mismatch(exc)
+                    return
+            self._after_name_clone()
+            return
         if self.result.project_mode in PUBLISH_MODES:
             self._goto_publish_prompt()
             return
@@ -247,7 +260,7 @@ class ProjectIdentityFlow:
         local_source: str | None = None,
     ) -> None:
         if project is None or apply_facts.own_project(self, project):
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         if (
             self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
@@ -287,6 +300,17 @@ class ProjectIdentityFlow:
         self._goto_existing_project_ready()
 
     def _after_existing_project_ready(self: _Shell) -> None:
+        from yoke_cli.config import project_publication_destination as destination
+        from yoke_cli.config.project_clone_resume import remote_url
+
+        checkout = self.result.project_checkout
+        if checkout and not self.result.project_clone_outcome and destination.read_only(checkout):
+            self.result.project_remote_url = remote_url(checkout, "origin")
+            from yoke_cli.config.project_installed_layer import LAYER_DECISION_KEEP
+
+            self.result.project_clone_existing_layer_decision = LAYER_DECISION_KEEP
+            self._goto_clone_outcome()
+            return
         if (
             self.result.project_github_adoption == GITHUB_ADOPTION_DISABLED
             and self.result.project_github_repo

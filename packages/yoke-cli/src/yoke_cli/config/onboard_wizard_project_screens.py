@@ -19,6 +19,7 @@ from yoke_cli.config.setup_prompt import SelectionRow, SetupPrompt
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_JUST_CLONE,
+    CLONE_OUTCOME_SOURCE,
     CLONE_OUTCOME_MAKE_IT_MINE,
 )
 
@@ -58,36 +59,22 @@ NEW_REPO_VISIBILITY_ROWS = [
     SelectionRow(NEW_REPO_PUBLIC, "Public", "anyone can see it"),
 ]
 
-# Clone-outcome rows (clone path only). The default selection is "Clone it"
-# (first row) — it has no side effects, so it is the safe default in both
-# variants.
-#
-# The hint set adapts to whether connected GitHub authorization can push to the
-# source repo. When it can, "Clone it" pushes straight back and the
-# read-only-specific "Fork it" row is irrelevant; otherwise "Clone it" is
-# read-only and the fork row offers a writable path with PRs back. Both variants
-# only show "Fork it" when the keep_fork condition holds (a remote on the
-# configured GitHub deployment + connected authorization); see
-# ``clone_outcome_rows``.
+# Destination choices apply equally to new clones and adopted folders.
 _CLONE_IT_WRITABLE = SelectionRow(
-    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push straight back to {repo}"
+    CLONE_OUTCOME_SOURCE, "Use source for pushes", "push to {repo}; access confirmed by GitHub"
 )
 _CLONE_IT_READONLY = SelectionRow(
-    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push nowhere — read-only access to {repo}"
+    CLONE_OUTCOME_JUST_CLONE, "Read-only source", "fetch from {repo}; Yoke pushes disabled"
 )
 _DUPLICATE_IT = SelectionRow(
-    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it", "push to a new remote repo we'll create"
+    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it", "owned copy; needs GitHub creation/access"
 )
 _FORK_IT = SelectionRow(
     CLONE_OUTCOME_FORK,
     "Fork it",
     "push to a new fork we'll create — open PRs back to {repo}",
 )
-# Writable: GitHub authorization can push to the source, so "Clone it" pushes
-# back and there is no read-only fork affordance.
-CLONE_OUTCOME_ROWS_WRITABLE = [_CLONE_IT_WRITABLE, _DUPLICATE_IT]
-# Read-only: "Clone it" is read-only, and "Fork it" is offered as the writable
-# path with PRs back (subject to the keep_fork condition).
+CLONE_OUTCOME_ROWS_WRITABLE = [_CLONE_IT_WRITABLE, _CLONE_IT_READONLY, _DUPLICATE_IT]
 CLONE_OUTCOME_ROWS_READONLY = [_CLONE_IT_READONLY, _DUPLICATE_IT, _FORK_IT]
 
 
@@ -114,24 +101,7 @@ def clone_outcome_rows(
     push_access: bool | None = None,
     web_url: str | None = None,
 ) -> list[SelectionRow]:
-    """Clone-outcome rows with the source repo interpolated into the hints.
-
-    ``push_access`` is the result of the non-mutating write probe against the
-    source repo: True means GitHub authorization can push to it, so the writable
-    variant (Clone it pushes back; no read-only fork) is shown. Anything else
-    (False or unknown/None) shows the read-only variant — the safe default,
-    since "Clone it" has no side effects when in doubt.
-
-    The "Fork it" row only appears in the read-only variant, and only when both
-    a remote on the configured GitHub deployment (forking parses the source
-    owner/repo and calls that deployment's forks API) AND connected GitHub
-    authorization are present. Drop it if either is
-    missing so the review never shows an outcome that 403s at apply. Clone-it
-    and duplicate-it work for any remote, so they always appear. Falls back to
-    "the source" when the remote URL is not on the configured GitHub
-    deployment's
-    owner/repo.
-    """
+    """Offer explicit destination policy; absent authorization proves no access."""
     parsed = default_repo(remote_url, web_url=web_url)
     repo = parsed or "the source"
     rows = (
@@ -139,6 +109,11 @@ def clone_outcome_rows(
         if push_access is True
         else CLONE_OUTCOME_ROWS_READONLY
     )
+    if push_access is None:
+        rows = [*rows, SelectionRow(
+            CLONE_OUTCOME_SOURCE, "Use source for pushes",
+            "push to {repo}; write access unverified",
+        )]
     keep_fork = bool(parsed) and has_token
     if not keep_fork:
         rows = [row for row in rows if row.value != CLONE_OUTCOME_FORK]
@@ -158,14 +133,16 @@ def clone_outcome_prompt(
     return SetupPrompt(
         key="project.clone_outcome",
         step=STEP_PROJECT,
-        title=f"How do you want to copy {repo}?",
+        title=f"Where should Yoke publish work from {repo}?",
+        subtitle=("Read-only keeps fetching available and blocks publication-required "
+                 "item work until you choose a writable destination."),
         choices=tuple(clone_outcome_rows(
             remote_url,
             has_token=has_token,
             push_access=push_access,
             web_url=web_url,
         )),
-        guidance="Ask the person; clone it is the choice with no side effects.",
+        guidance="Ask the person to select the publication destination; access may be unverified.",
     )
 
 

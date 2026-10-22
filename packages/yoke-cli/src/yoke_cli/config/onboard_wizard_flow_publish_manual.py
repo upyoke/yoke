@@ -16,9 +16,7 @@ from yoke_cli.config.onboard_wizard_manual_access import (
     MISSING_REPOSITORY,
     ManualRepositoryAccessFlow,
 )
-from yoke_cli.config.onboard_wizard_widgets import (
-    STEP_PROJECT,
-)
+from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.setup_prompt import TONE_ERROR, SelectionRow, SetupPrompt
 
 
@@ -28,8 +26,6 @@ BACK = "manual-back"
 
 
 class ManualPublishFlow(ManualRepositoryAccessFlow):
-    """Refresh, select, and attach one exact manually created repository."""
-
     def _goto_publish_cannot_create(self) -> None:
         from yoke_cli.config.onboard_wizard_state import _View
 
@@ -105,6 +101,9 @@ class ManualPublishFlow(ManualRepositoryAccessFlow):
             steps.reset_project_publish_fields(self.result)
             self.result.project_github_repository_id = None
             self.result.project_github_installation_id = None
+            if self.result.project_clone_outcome:
+                self._goto_clone_outcome()
+                return
             self._after_repo("")
             return
         if choice == BACK:

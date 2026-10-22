@@ -126,17 +126,18 @@ def test_clone_outcome_rows_use_configured_ghes_origin() -> None:
     )
 
 
-def test_writable_variant_is_two_rows_clone_default() -> None:
-    """push_access True -> Clone it + Duplicate it, Clone it first (no fork)."""
+def test_writable_variant_preserves_explicit_read_only_choice() -> None:
+    """Confirmed source access still allows an explicit fetch-only choice."""
     rows = screens.clone_outcome_rows(
         "https://github.com/acme/widgets.git", push_access=True
     )
     values = [row.value for row in rows]
-    assert values == [clone.CLONE_OUTCOME_JUST_CLONE, clone.CLONE_OUTCOME_MAKE_IT_MINE]
-    assert rows[0].label == "Clone it"
-    assert rows[0].hint == "push straight back to acme/widgets"
-    assert rows[1].label == "Duplicate it"
-    assert rows[1].hint == "push to a new remote repo we'll create"
+    assert values == [clone.CLONE_OUTCOME_SOURCE, clone.CLONE_OUTCOME_JUST_CLONE,
+                      clone.CLONE_OUTCOME_MAKE_IT_MINE]
+    assert rows[0].label == "Use source for pushes"
+    assert rows[0].hint == "push to acme/widgets; access confirmed by GitHub"
+    assert rows[2].label == "Duplicate it"
+    assert rows[2].hint == "owned copy; needs GitHub creation/access"
 
 
 def test_readonly_variant_is_three_rows_clone_default() -> None:
@@ -150,8 +151,8 @@ def test_readonly_variant_is_three_rows_clone_default() -> None:
         clone.CLONE_OUTCOME_MAKE_IT_MINE,
         clone.CLONE_OUTCOME_FORK,
     ]
-    assert rows[0].label == "Clone it"
-    assert rows[0].hint == "push nowhere — read-only access to acme/widgets"
+    assert rows[0].label == "Read-only source"
+    assert rows[0].hint == "fetch from acme/widgets; Yoke pushes disabled"
     assert rows[2].label == "Fork it"
     assert rows[2].hint == (
         "push to a new fork we'll create — open PRs back to acme/widgets"
@@ -163,7 +164,9 @@ def test_unknown_push_access_uses_readonly_variant() -> None:
     rows = screens.clone_outcome_rows(
         "https://github.com/acme/widgets.git", push_access=None
     )
-    assert rows[0].hint == "push nowhere — read-only access to acme/widgets"
+    assert rows[0].hint == "fetch from acme/widgets; Yoke pushes disabled"
+    source = next(row for row in rows if row.value == clone.CLONE_OUTCOME_SOURCE)
+    assert "unverified" in source.hint
     assert clone.CLONE_OUTCOME_FORK in [row.value for row in rows]
 
 
@@ -175,11 +178,12 @@ def test_writable_variant_drops_fork_even_when_forkable() -> None:
     assert clone.CLONE_OUTCOME_FORK not in [row.value for row in rows]
 
 
-def test_clone_outcome_prompt_title_only_no_subtitle() -> None:
-    """The clone-outcome screen asks with a title and no subtitle."""
+def test_destination_prompt_explains_publication_work_requirement() -> None:
+    """Both prompt consumers get the early-work publication boundary."""
     prompt = screens.clone_outcome_prompt("https://github.com/acme/widgets.git")
-    assert prompt.title == "How do you want to copy acme/widgets?"
-    assert prompt.subtitle is None
+    assert prompt.title == "Where should Yoke publish work from acme/widgets?"
+    assert "blocks publication-required" in prompt.subtitle
+    assert "writable destination" in prompt.subtitle
 
 
 def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
@@ -203,6 +207,7 @@ def test_clone_outcome_screen_writable_variant_drops_fork(monkeypatch) -> None:
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             values = [row.value for row in selection.rows]
             assert values == [
+                clone.CLONE_OUTCOME_SOURCE,
                 clone.CLONE_OUTCOME_JUST_CLONE,
                 clone.CLONE_OUTCOME_MAKE_IT_MINE,
             ]
@@ -335,6 +340,6 @@ def test_prior_partial_clone_offers_resume_then_continues(monkeypatch) -> None:
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
-            assert "how do you want to copy" in title.lower()
+            assert "where should yoke publish" in title.lower()
 
     asyncio.run(scenario())

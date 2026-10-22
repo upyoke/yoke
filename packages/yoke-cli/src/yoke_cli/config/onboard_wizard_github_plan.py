@@ -40,7 +40,8 @@ def publish_request_from_owner(result: Any) -> Any:
 
 
 def build_publish_request(result: Any) -> Any:
-    if result.project_mode in onboard_project.PROJECT_REMOTE_MODES:
+    if (result.project_mode in onboard_project.PROJECT_REMOTE_MODES
+            or result.project_clone_outcome):
         return None
     if not result.project_publish_to_github:
         return None
@@ -52,7 +53,8 @@ def build_clone_plan(result: Any) -> Any:
 
     from yoke_cli.config.onboard_project import ClonePlan
 
-    if result.project_mode not in onboard_project.PROJECT_REMOTE_MODES:
+    if (result.project_mode not in onboard_project.PROJECT_REMOTE_MODES
+            and not result.project_clone_outcome):
         return None
     decision = str(
         getattr(result, "project_clone_existing_layer_decision", "") or ""
@@ -66,13 +68,14 @@ def build_clone_plan(result: Any) -> Any:
             # What the operator decided about a layer the checkout already
             # carries still has to reach Apply, even when nothing else about
             # the clone needs a plan.
-            return ClonePlan(existing_layer_decision=decision) if decision else None
+            return ClonePlan(outcome="", existing_layer_decision=decision) if decision else None
         if not github_state.connected(result):
             raise RuntimeError(
                 "This saved/private repository needs a verified GitHub App "
                 "connection. Reconnect GitHub before continuing."
             )
         return ClonePlan(
+            outcome="",
             use_machine_github=True,
             fork_api_url=(
                 result.machine_github_api_url

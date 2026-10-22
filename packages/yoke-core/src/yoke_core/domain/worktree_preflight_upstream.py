@@ -60,6 +60,15 @@ def gate_upstream_for_preparation(
     declared = str((item.get("project") or {}).get("default_branch") or "")
     if not repo_root or not declared:
         return UpstreamGate()
+    from yoke_cli.config import project_publication_destination as destination
+    from yoke_cli.config import repo_upstream_git
+
+    remote, _count = repo_upstream_git.resolve_remote(repo_root, declared)
+    if remote and destination.read_only(repo_root, remote):
+        return UpstreamGate(
+            block_kind="publication_destination_read_only",
+            narrative=destination.recovery(remote),
+        )
     freshness = refresh_base_branch(repo_root, declared)
     if not freshness.verified:
         return UpstreamGate(freshness, BLOCK_UPSTREAM_UNVERIFIED, freshness.note)

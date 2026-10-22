@@ -201,7 +201,7 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # repo name -> prefix
             for _ in range(8):
-                if "How do you want to copy" in " ".join(
+                if "Where should Yoke publish work from" in " ".join(
                     str(w.render())
                     for w in app.query("#onboard-body Static").results(Static)
                 ):
@@ -225,10 +225,8 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
     assert applied["project_publish"] is None
 
 
-def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) -> None:
-    # No App connection: the push probe has nothing to probe and the clone-outcome
-    # screen shows the read-only variant; duplicate then degrades to just-clone at
-    # name time because there is no App connection to create the new repo with.
+def test_duplicate_without_app_connection_requires_an_explicit_destination(monkeypatch) -> None:
+    # Missing authorization must not silently change the chosen destination.
     app, spy = make_app()
 
     async def scenario() -> None:
@@ -244,8 +242,22 @@ def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) 
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
             await accept_project_details(pilot, branch_from_source=True)
-            await skip_hosting(pilot)  # hosting: skip -> Finish
-            await pilot.press("enter")  # finish: apply (no project github step)
+            await pilot.pause()
+            assert "Create the repository in GitHub" in " ".join(
+                str(w.render()) for w in app.query("#onboard-body Static").results(Static)
+            )
+            assert spy.applied is None
+            assert app.result.project_clone_outcome == clone.CLONE_OUTCOME_MAKE_IT_MINE
+            await pilot.press("down", "enter")  # decline App; return to destination choice
+            await pilot.pause()
+            assert "Where should Yoke publish work from" in " ".join(
+                str(w.render()) for w in app.query("#onboard-body Static").results(Static)
+            )
+            await pilot.press("enter")  # explicitly choose read-only
+            await accept_project_details(pilot, branch_from_source=True)
+            await pilot.press("enter")  # explicit disabled GitHub automation
+            await skip_hosting(pilot)
+            await pilot.press("enter")
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -254,7 +266,6 @@ def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) 
     assert applied is not None
     plan = applied["project_clone"]
     assert plan is not None
-    # Without a connected App there is nothing to create the new repo with, so
-    # the wizard degrades to a plain clone rather than stranding the user.
+    # Only the later explicit choice allows a fetch-only setup.
     assert plan.outcome == clone.CLONE_OUTCOME_JUST_CLONE
     assert plan.publish is None

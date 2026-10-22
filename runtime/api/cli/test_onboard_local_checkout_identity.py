@@ -9,26 +9,28 @@ import pytest
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config import onboard_local_checkout_identity
 from yoke_cli.config import onboard_wizard_flow
+from yoke_cli.config.onboard_wizard_flow_clone_views import CloneOutcomeFlow
 from yoke_cli.config import onboard_wizard_flow_publish
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config.onboard_wizard import WizardResult
 
 
-class _LocalCheckoutShell(onboard_wizard_flow.WizardFlow):
+class _LocalCheckoutShell(onboard_wizard_flow.WizardFlow, CloneOutcomeFlow):
     def __init__(self, checkout: Path) -> None:
-        self.result = SimpleNamespace(
-            config_path=str(checkout.parent / "config.json"),
-            api_url="https://yoke.example",
-            destination="hosted",
-            project_github_repo=None,
-            project_source_default_branch=None,
-            token=None,
-            token_file=None,
-            token_source_kind="prompt",
+        self.result = WizardResult(
+            env_name="prod", config_path=str(checkout.parent / "config.json"),
+            api_url="https://yoke.example", destination="hosted",
+            project_mode=onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
+            project_checkout=str(checkout),
         )
+        self.destination_visits = 0
         self.slug_visits = 0
         self.error: BaseException | None = None
+
+    def _show_checkout_inspection(self, scan) -> None:
+        assert not scan.present
+        self.destination_visits += 1
 
     def _goto_project_details(self) -> None:
         self.slug_visits += 1
@@ -84,7 +86,8 @@ def test_local_checkout_records_current_branch_before_publish(
     shell._after_local_checkout_source(str(checkout))
 
     assert shell.error is None
-    assert shell.slug_visits == 1
+    assert shell.slug_visits == 0
+    assert shell.destination_visits == 1
     assert shell.result.project_source_default_branch == "trunk"
     assert shell.result.project_github_repo == "example/project"
 
@@ -129,7 +132,8 @@ def test_local_checkout_does_not_bind_foreign_remote(
     shell._after_local_checkout_source(str(checkout))
 
     assert shell.error is None
-    assert shell.slug_visits == 1
+    assert shell.slug_visits == 0
+    assert shell.destination_visits == 1
     assert shell.result.project_github_repo is None
 
 
@@ -154,7 +158,8 @@ def test_local_checkout_does_not_bind_unconfigured_github_deployment(
     shell._after_local_checkout_source(str(checkout))
 
     assert shell.error is None
-    assert shell.slug_visits == 1
+    assert shell.slug_visits == 0
+    assert shell.destination_visits == 1
     assert shell.result.project_github_repo is None
 
 

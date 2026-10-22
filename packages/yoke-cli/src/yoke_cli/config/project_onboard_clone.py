@@ -1,8 +1,4 @@
-"""Resumable clone and post-clone remote choreography for onboarding.
-
-The helpers distinguish fresh work from reusable partial-run state and report
-the resulting repository, live branch, and remote outcome.
-"""
+"""Resumable checkout and publication-destination choreography."""
 
 from __future__ import annotations
 
@@ -16,6 +12,8 @@ from yoke_cli.config import project_clone_fork_resume
 from yoke_cli.config.project_clone_resume import existing_clone_matches
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
+    CLONE_OUTCOME_JUST_CLONE,
+    CLONE_OUTCOME_SOURCE,
     CLONE_OUTCOME_MAKE_IT_MINE,
     ClonePlan,
     clone_with_connected_access,
@@ -44,7 +42,6 @@ def prepare_clone_plan(
     service_api_url: str | None = None,
     local_connection_selected: bool = False,
 ) -> ClonePlan:
-    """Thread the configured App deployment and request-scoped user access."""
     github_config = machine_config.github_config(config_path)
     if github_config:
         plan = replace(
@@ -136,12 +133,7 @@ def resumable_clone(
     token_provider: Callable[[], str | None] | None = None,
     github_web_url: str | None = None,
 ) -> bool:
-    """Clone ``remote_url`` into ``root``, skipping when it is already cloned.
-
-    A matching origin or upstream is reusable, an empty target is cloned, and a
-    non-empty unrelated target is a conflict. The return value is ``True`` only
-    when an existing clone was reused.
-    """
+    """Reuse an exact matching checkout, or clone into a new empty target."""
     clean_remote = clean_remote_url(remote_url, web_url=github_web_url)
     if existing_clone_matches(
         root, clean_remote, web_url=github_web_url,
@@ -196,28 +188,35 @@ def apply_clone_outcome(
     plan: ClonePlan,
     clone_reused: bool = False,
 ) -> CloneApplyResult:
-    """Run the post-clone remote choreography; return a :class:`CloneApplyResult`.
+    """Apply the selected destination to a new or independently cloned checkout."""
+    from yoke_cli.config import project_publication_destination as destination
 
-    ``CloneApplyResult.branch`` is the clone's live default branch, detected from
-    the working copy rather than assumed — a clone of a `master` source records
-    `master`, never a hardcoded `main`. ``make-it-mine`` re-homes onto a freshly
-    created private repo and the branch is the one the re-home actually pushed;
-    ``just-clone`` / ``fork`` leave the source / fork as ``origin`` and the
-    branch is simply the checked-out one. Both repo-creating outcomes also record
-    the created/forked ``owner/repo`` so the project is recorded against the repo
-    the user now owns; ``just-clone`` records ``None`` for the repo (metadata
-    keeps whatever github_repo the caller passed).
-
-    The result also carries the resume flags so the report can read differently
-    after a resumed run: ``clone_reused`` is threaded straight through from the
-    clone step; ``repo_reused`` reflects ``make-it-mine`` adopting an existing
-    empty repo on the 422 path; ``origin_rehomed`` records that ``origin`` was
-    already pointing at the new repo so the remote re-home was skipped.
-    """
+    if plan.outcome in (CLONE_OUTCOME_JUST_CLONE, CLONE_OUTCOME_SOURCE) and not origin_is(
+        root, remote_url, web_url=plan.fork_web_url,
+    ):
+        raise ProjectOnboardError(
+            "publication_destination_changed: the source origin changed after selection. "
+            "Restore the selected source or re-run setup to review its actual destination."
+        )
+    if plan.outcome == CLONE_OUTCOME_JUST_CLONE:
+        destination.prevent_push(root)
+    elif plan.outcome == CLONE_OUTCOME_SOURCE:
+        destination.allow_source_push(root)
+    elif plan.outcome == CLONE_OUTCOME_MAKE_IT_MINE and plan.publish is None:
+        raise ProjectOnboardError(
+            "publication_destination_unresolved: Duplicate needs a selected "
+            "writable repository. Re-run setup and select its destination."
+        )
+    elif plan.outcome == CLONE_OUTCOME_FORK and not plan.fallback_token:
+        raise ProjectOnboardError(
+            "publication_destination_unresolved: Fork needs GitHub authorization. "
+            "Connect GitHub and choose Fork again, or select read-only."
+        )
     if plan.outcome == CLONE_OUTCOME_MAKE_IT_MINE and plan.publish is not None:
         expected_origin = https_remote(
             plan.publish.full_name, web_url=plan.publish.web_url,
         )
+        destination.require_published_source(root, expected_origin, plan.fork_web_url)
         expected_head_sha = local_head_sha(root, default_branch)
         if not plan.publish.create_repository:
             if (
@@ -266,10 +265,6 @@ def apply_clone_outcome(
         new_origin_url = https_remote(
             created["full_name"], web_url=plan.publish.web_url,
         )
-        # Probed BEFORE the re-home so we can tell whether the remote setup was a
-        # no-op resume (origin already pointed at the new repo) or a fresh
-        # re-home — rehome_to_new_origin uses the same predicate internally to
-        # decide whether to skip the rename/add, then always (re-)pushes.
         origin_rehomed = origin_is(
             root, new_origin_url, web_url=plan.publish.web_url,
         )
@@ -327,8 +322,7 @@ def apply_clone_outcome(
             clone_reused=clone_reused,
             repo_reused=bool(fork.get("reused")),
         )
-    # just-clone (or fork without a token): origin stays the source; the recorded
-    # default branch is still the clone's real checked-out branch.
+    # The source remains available for fetches in both source outcomes.
     return CloneApplyResult(
         github_repo=None,
         branch=git_current_branch(root),

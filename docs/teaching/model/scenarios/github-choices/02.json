@@ -3,13 +3,13 @@
  "title": "Publishing a repository is a separate choice",
  "status": "observed",
  "audience": "both",
- "when": "New project creation or later publication",
- "need": "A prepared Git repository can stay local. Skipping GitHub makes the publish prompt default to No — keep it local; a verified connection keeps Yes — publish to GitHub selected. Connecting GitHub does not require publishing every project.",
+ "when": "Project creation, clone, existing-folder adoption or later publication",
+ "need": "A prepared Git repository can stay local. Skipping GitHub makes the publish prompt default to No — keep it local; a verified connection keeps Yes — publish to GitHub selected. Connecting GitHub does not require publishing every project. Clone and adoption share an explicit publication destination choice: read-only preserves fetching and disables pushes through Git pushurl; source writes state confirmed versus unverified access; Fork and Duplicate use supported owned destinations. Publication-required work refuses read-only destinations before lane preparation. Repeated setup reopens the same destination choice for a read-only project and preserves a configured writable project.",
  "disclosure": "current cue",
  "surface": "Project source / publish-or-keep-local step",
  "gap": "JOURNEYS 4–5 currently makes pushing to GitHub sound mandatory. That edge should be reviewed against the supported keep-local path.",
- "review": "Source and keyboard-driven tests cover both defaults for new and existing local projects; deployed delivery remains unproved.",
+ "review": "Source behavior only; installed wizard/agent clone/adoption and genuine remote completion remain owed by the single shared installer mission case.",
  "plan_notes": ["JOURNEYS 4", "JOURNEYS 5"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_publish.py", "runtime/api/cli/test_onboard_publish_defaults.py"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_publish.py", "runtime/api/cli/test_onboard_publish_defaults.py", "packages/yoke-cli/src/yoke_cli/config/project_publication_destination.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_clone_views.py", "packages/yoke-core/src/yoke_core/domain/worktree_preflight_upstream.py"],
  "position": 2
 }

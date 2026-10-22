@@ -17,12 +17,18 @@ from yoke_cli.config.project_github_adoption import (
 from yoke_cli.config.project_onboard_support import dispatch
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
+    CLONE_OUTCOME_JUST_CLONE,
+    CLONE_OUTCOME_SOURCE,
     CLONE_OUTCOME_MAKE_IT_MINE,
     ClonePlan,
 )
 
 
 def clone_outcome_action(plan: ClonePlan) -> str | None:
+    if plan.outcome == CLONE_OUTCOME_JUST_CLONE:
+        return "project-read-only-source"
+    if plan.outcome == CLONE_OUTCOME_SOURCE:
+        return "project-writable-source"
     if plan.outcome == CLONE_OUTCOME_MAKE_IT_MINE and plan.publish is not None:
         return "project-rehome-push"
     if plan.outcome == CLONE_OUTCOME_FORK and plan.fallback_token:

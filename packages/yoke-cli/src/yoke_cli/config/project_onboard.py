@@ -115,6 +115,8 @@ def import_project(
     local_connection_selected: bool = False,
     github_adoption_preserve: bool = False,
 ) -> dict[str, Any]:
+    if existing_project_id is not None and clone is None:
+        clone = ClonePlan(outcome="")
     requested_plan, remote_url = apply_clone.normalize_clone_request(
         remote_url,
         clone,
@@ -180,7 +182,7 @@ def import_project(
                 "the reused checkout is no longer the exact worktree and remote "
                 "selected for this onboarding run"
             )
-        outcome = None
+        clone_reused = True
     else:
         onboard_apply_progress.emit(
             progress, checkout_action, progress_target, "running"
@@ -206,17 +208,9 @@ def import_project(
             progress_target,
             "skipped" if clone_reused else "done",
         )
-        outcome_action = progress_steps.clone_outcome_action(plan)
-        if outcome_action:
-            with onboard_apply_progress.step(progress, outcome_action):
-                outcome = _apply_clone_outcome(
-                    root,
-                    remote_url=remote_url,
-                    default_branch=default_branch,
-                    plan=plan,
-                    clone_reused=clone_reused,
-                )
-        else:
+    outcome_action = progress_steps.clone_outcome_action(plan)
+    if outcome_action:
+        with onboard_apply_progress.step(progress, outcome_action):
             outcome = _apply_clone_outcome(
                 root,
                 remote_url=remote_url,
@@ -224,9 +218,30 @@ def import_project(
                 plan=plan,
                 clone_reused=clone_reused,
             )
+    else:
+        outcome = _apply_clone_outcome(
+            root,
+            remote_url=remote_url,
+            default_branch=default_branch,
+            plan=plan,
+            clone_reused=clone_reused,
+        )
     project_onboard_installed_layer.apply_decision(
         root, plan.existing_layer_decision, progress=progress,
     )
+    if outcome is not None and outcome.github_repo is not None:
+        github_repo = outcome.github_repo
+        payload["github_repo"] = outcome.github_repo
+        progress_steps.record_mutated_repository(
+            github_adoption,
+            outcome.github_repo,
+            config_path,
+            service_api_url=service_api_url,
+            local_connection_selected=local_connection_selected,
+        )
+    if outcome is not None and outcome.branch is not None:
+        default_branch = outcome.branch
+        payload["default_branch"] = outcome.branch
     if existing_project_id is not None:
         return project_onboard_apply.install_existing_project(
             operation="project.clone-existing",
@@ -242,19 +257,6 @@ def import_project(
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,
         )
-    if outcome is not None and outcome.github_repo is not None:
-        github_repo = outcome.github_repo
-        payload["github_repo"] = outcome.github_repo
-        progress_steps.record_mutated_repository(
-            github_adoption,
-            outcome.github_repo,
-            config_path,
-            service_api_url=service_api_url,
-            local_connection_selected=local_connection_selected,
-        )
-    if outcome is not None and outcome.branch is not None:
-        default_branch = outcome.branch
-        payload["default_branch"] = outcome.branch
     with onboard_apply_progress.step(progress, scaffold_action):
         result = dispatch("projects.create", payload, config_path)
         report = project_onboard_apply.finish_after_dispatch(

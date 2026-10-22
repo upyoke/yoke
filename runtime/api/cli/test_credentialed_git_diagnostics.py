@@ -33,7 +33,7 @@ def _store_failure(cause: BaseException) -> RuntimeError:
 
 def _attribution_of(args, monkeypatch, *, origin: str, token: str | None) -> str:
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: origin)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote, **_kwargs: origin)
     if token is not None:
         monkeypatch.setattr(cg, "resolve_token", lambda url: token)
     monkeypatch.setattr(

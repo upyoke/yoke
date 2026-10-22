@@ -11,7 +11,7 @@ from pathlib import Path
 import shlex
 from typing import Any, Mapping
 
-from yoke_cli.config import github_credentials, github_repo_config, machine_config
+from yoke_cli.config import github_credentials, machine_config
 from yoke_cli.config.project_git_transport import (
     https_remote,
     is_configured_github_remote,
@@ -77,8 +77,32 @@ def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:
     root = Path(checkout).expanduser()
     branch = str(inputs.get("default_branch") or "")
     github = machine_config.github_config(config_path)
+    from yoke_cli.config import project_publication_destination as destination
+    from yoke_cli.config.project_clone_support import (
+        CLONE_OUTCOME_JUST_CLONE, CLONE_OUTCOME_FORK, CLONE_OUTCOME_MAKE_IT_MINE,
+    )
+
+    clone = inputs.get("clone")
     remote, url, count = _publish_target(inputs, root, branch)
-    if not count:
+    if (getattr(clone, "outcome", "") == CLONE_OUTCOME_JUST_CLONE
+            or (remote and destination.read_only(root, remote)
+                and not getattr(clone, "outcome", ""))):
+        text = (
+            f"Keep source {url} fetch-only; setup publication pending. "
+            + destination.recovery(remote or "origin")
+        )
+    elif (getattr(clone, "outcome", "") == CLONE_OUTCOME_MAKE_IT_MINE
+          and getattr(clone, "publish", None) is None):
+        text = (
+            "publication_destination_unresolved: Duplicate needs a selected writable "
+            "repository. Return to the destination choice before Apply."
+        )
+    elif getattr(clone, "outcome", "") == CLONE_OUTCOME_FORK:
+        text = (
+            "Commit Yoke setup and push to the fork selected by GitHub during Apply; "
+            "source stays fetch-only upstream. Fork authorization must be confirmed."
+        )
+    elif not count:
         text = "Commit locally (no remote)"
     elif not remote:
         text = (
@@ -92,12 +116,13 @@ def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:
     ):
         command = shlex.join(("git", "push", remote, branch))
         text = (
-            "Commit Yoke setup and try to push with your own git credentials; "
+            f"Commit Yoke setup and try to push to {url} ({remote} {branch}) "
+            "with your own git credentials (write access unverified); "
             "otherwise commit locally, not pushed because GitHub is not connected "
             f"(push later with: {command})"
         )
     else:
-        text = f"Commit Yoke setup and push to {remote} {branch}"
+        text = f"Commit Yoke setup and push to {url} ({remote} {branch})"
     return {"action": PLAN_ACTION, "target": text}
 
 
@@ -114,7 +139,13 @@ def _publish_target(
     if (root / ".git").exists():
         remote, count = publication_reconcile.resolve_publish_remote(root, branch)
         if remote:
-            urls = github_repo_config.values(root, f"remote.{remote}.url")
+            from yoke_cli.config import project_publication_destination as destination
+
+            urls = destination.push_urls(root, remote)
+            if destination.READ_ONLY_PUSH_URL in urls:
+                from yoke_cli.config.credentialed_git_command import remote_url
+
+                return remote, remote_url(str(root), remote), count
             return remote, urls[0] if urls else "", count
         return "", "", count
     url = str(inputs.get("remote_url") or "")
