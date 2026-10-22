@@ -171,14 +171,15 @@ users, golden paths, desktop routes and cloud instance ids belong in those
 project records. Capacity-machine registration grants launch capacity and
 relay identity separately; it does not grant Test Machine readiness.
 
-All host setup, sign-in, permissions, desktop access, baseline saving/restoration
-and recovery live in the Machine QA Pack's complete ordered per-OS procedures:
+Yoke's [manual baseline inventory](testing-verification/test-machine-golden-baseline.md)
+owns its runtime preparation and proof. Follow it with the Machine QA Pack's
+ordered account, sign-in, permissions, desktop and save/restore procedures:
 
-- [macOS](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md) also installs
+The [provisioning index](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md) also installs
 as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
 customized project. [Operation contracts](testing-verification/test-machine-operations.md)
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
