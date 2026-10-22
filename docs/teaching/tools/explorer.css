@@ -72,3 +72,14 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
   .review { display: none; }
   .connection-card { max-width: 100%; }
 }
+
+#view-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 28px; border-bottom: 1px solid #dfe5df; background: white; }
+#view-nav button { border: 0; background: transparent; }
+#view-nav .active { background: #e5eee5; font-weight: 650; }
+.research-status { font-size: 12px; line-height: 1.5; color: #876539; }
+.research-links { margin-top: 32px; border-top: 1px solid #dce4dc; padding-top: 16px; }
+.reference-list { padding-left: 22px; }
+.reference-list li { margin: 14px 0; overflow-wrap: anywhere; }
+.reference-list small { display: block; color: #6c7b70; font-size: 12px; margin-top: 3px; }
+.detail { overflow-wrap: anywhere; }
+.detail h3 { font-size: 16px; margin-bottom: 6px; }

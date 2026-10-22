@@ -17,9 +17,9 @@ and in a claimed lane. It writes only ignored views (and `live/` with `--live`);
 it never rewrites the model.
 Agents read the model JSON directly. If a review tool refuses `file:` URLs,
 serve this directory locally (`python3 -m http.server` from `docs/teaching`).
-The gap index links to one generated page per gap; existing index anchors stay
-valid. The overview links to each record home; aggregate model counts stay out of
-that shared page so independent model edits can land together.
+The responsive guide is the only reading interface. Former catalogue pages and
+record anchors redirect to the corresponding guide node. Model JSON files retain
+their identities and remain the editable source of research truth.
 
 ## Canonical source and access
 
@@ -38,8 +38,7 @@ the overview it displays on entry. Under The docs, the overview and actual
 category/file tree appear once; agent replies and terminal screens sit under setup.
 Dashboard teaching stays with the dashboard prototype. Instructions for
 resuming work sit under Skills; changing work state is not teaching content.
-Abandoned proposals are omitted from this reading view but remain in the
-research catalogue. Research proposals stay in the separate catalogue, outside the source map.
+Replaced proposals are retained in History. Research proposals appear in attached research sections, separate from actual source content.
 
 Source groups in `tools/explorer_sources.py` are editorial navigation, not
 new authorities. New surfaces must be assigned to a group; the build reports
@@ -100,9 +99,7 @@ existing record files without an array source retain their data and receive
 canonical formatting. Rebuild and check afterwards.
 
 Commands, functions and skills are never copied here. Concept records name
-them, and the check resolves every name against the live registries. The
-command crosswalk and documentation graph read live state, so they are written
-only to the untracked `live/` directory; the explorer also reads concrete repository inventories. All generated views are untracked. The stylesheet source lives in `tools/style.css`.
+them, and the check resolves every name against the live registries. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/style.css`.
 
 ## Record status
 
@@ -153,9 +150,9 @@ producer/consumer relationship.
 yoke dev run -- python3 docs/teaching/tools/build.py --live
 ```
 
-writes `live/commands.html` (live totals and every unmapped command, function
-and skill) and `live/docs-graph.html` (every tracked document by area, with
-inbound and outbound link counts).
+refreshes compatibility routes at `live/commands.html` and `live/docs-graph.html`.
+Their inventories now live inside the guide and are rebuilt on every normal build:
+registry entries with topic coverage, and documents with incoming/outgoing links.
 
 ## Check failures
 
@@ -256,3 +253,36 @@ Alternate install-mode cards expose the actual setup subtree in place. Cross-map
 Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; all groups remain available through normal page scrolling.
 
 Cards have no fixed heights or nested preview layers; each title and Explore link opens the next level.
+
+
+## One guide, three ways to browse
+
+Sources keeps the thirteen concrete context categories. Topics follows the original
+concept hierarchy; Journeys follows scenario and lesson order. These are recorded
+situations, not executable workflow sequences. Research collects teaching plans,
+design decisions, gaps, evidence, history, and dashboard research owned elsewhere.
+No research record is deleted or promoted into shipped instructions by this view.
+
+`explorer_research.py` connects explicit topic/surface references, named commands
+and skills, and exact cited source files. Connections show their basis; shared-file
+evidence is related research, never automatically proof of a claim. Source pages
+keep these links in expandable Connected teaching sections. Unattached decisions
+and gaps remain accessible through Research; topic pages show direct teaching
+mapping counts, including zero. Parent mappings do not cover child topics.
+
+The original JSON is fetched for full record content, including every field and
+citation. Research has its own status explanation and no agent-output size badge:
+research prose is not delivered context. History isolates superseded proposals.
+`explorer_inventory.py` folds registry coverage and document-link counts into the
+same UI, with connections from Command help, Public docs and Project documentation.
+Old page paths and anchors are generated as compatibility redirects; `page` fields
+now preserve those routes, while the guide displays each record independently.
+
+
+Source freshness shows the build time, checkout commit, dirty state and a digest
+of inspected files plus registry identities. Each build re-reads documents, runtime
+definitions, command help formatters, model references and inventories. No copied
+research text becomes authoritative current behavior. Editorial group names and
+research judgements remain authored; historical evidence is not reverified by a
+build. Rebuild and refresh after source changes; this local preview is a snapshot,
+not a background monitor of main or a released installation.

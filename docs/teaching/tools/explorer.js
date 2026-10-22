@@ -42,6 +42,7 @@ function makeCard(node) {
   card.append(title);
   if (node.summary) card.append(text('p', node.summary, 'summary'));
   appendSizes(card, node);
+  if (node.status_label && node.record_kind !== 'concept') card.append(text('p', node.status_label, 'research-status'));
   card.append(nodeLink(node, node.children.length
     ? `Explore ${node.children.length} ${node.children.length === 1 ? 'entry' : 'entries'} →`
     : 'Read details →', 'card-link'));
@@ -49,14 +50,19 @@ function makeCard(node) {
 }
 function render() {
   world.replaceChildren();
-  updateTrail(); updateSourceList(); updateConnections();
+  updateTrail(); updateSourceList(); updateConnections(); renderViewNav();
   const heading = text('section', '', 'page-heading');
   if (focus) heading.append(typeBadge(focus));
   heading.append(text('h1', focus ? focus.title : 'What teaches Yoke'));
   heading.append(text('p', focus ? focus.summary : 'Browse the sources, then open a topic to see its contents.', 'summary'));
-  if (focus) appendSizes(heading, focus);
+  if (focus) {
+    appendSizes(heading, focus);
+    if (focus.status_label) heading.append(text('p', focus.status_label, 'research-status'));
+    if (focus.coverage !== undefined) heading.append(text('p',
+      `${focus.coverage} direct teaching mappings. A mapping does not prove delivery.`, 'summary'));
+  }
   world.append(heading);
-  const children = focus ? focus.children : roots;
+  const children = focus ? focus.children : roots.filter(node => !node.view);
   if (children.length) {
     const grid = text('div', '', 'card-grid');
     children.forEach(node => grid.append(makeCard(node)));
@@ -71,6 +77,7 @@ function render() {
     if (children.length) section.ontoggle = () => { if (section.open) fillDetail(focus, section); };
     else fillDetail(focus, section);
   }
+  if (focus) researchLinks(focus, world);
   notice.textContent = `${children.length} ${children.length === 1 ? 'entry' : 'entries'}`;
 }
 async function fillDetail(node, el) {
@@ -79,33 +86,7 @@ async function fillDetail(node, el) {
   const body = el.querySelector('.detail');
   if (node.record) {
     try {
-      if (!records.has(node.record)) records.set(node.record,
-        fetch(node.record).then(r => { if (!r.ok) throw Error(r.status); return r.json(); }));
-      const record = await records.get(node.record);
-      const labels = {current: 'What is there now', desired: 'What is intended',
-        note: 'Explanation', need: 'What the reader needs', when: 'When it is needed',
-        encounter: 'When it appears', location: 'Where it comes from',
-        audience: 'Who reads it', scope: 'Where it applies'};
-      for (const [key, label] of Object.entries(labels)) {
-        if (!record[key]) continue;
-        const row = text('div', '', 'field');
-        row.append(text('b', label), text('p', String(record[key])));
-        body.append(row);
-      }
-      const research = text('details', '', 'research');
-      research.append(text('summary', 'Research notes and source references'));
-      for (const [key, value] of Object.entries(record)) {
-        if (['id', 'title', 'page', 'position', 'status', 'form', 'topics'].includes(key)
-            || key in labels) continue;
-        const row = text('div', '', 'field');
-        row.append(text('b', key.replaceAll('_', ' ')),
-          text('p', Array.isArray(value) ? value.join(' · ') : String(value)));
-        research.append(row);
-      }
-      body.append(research);
-      const link = text('a', 'Original research record ↗');
-      link.href = node.record; link.target = '_blank'; link.rel = 'noopener';
-      body.append(link);
+      await fillResearch(node, body);
     } catch (error) {
       body.append(text('p', 'Record could not load. Rebuild the views and reload this map.'));
       el.dataset.loaded = '';
@@ -171,6 +152,7 @@ async function fillDetail(node, el) {
       else roots.push(node);
     });
     expandRepresentations();
+    await showBuildInfo();
     const selected = byId.get(decodeURIComponent(location.hash.slice(1)));
     choose(selected || null, false);
   } catch (error) {

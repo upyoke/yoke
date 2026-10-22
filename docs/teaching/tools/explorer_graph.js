@@ -9,7 +9,7 @@ function updateSourceList() {
   const overview = text('button', 'Overview', !focus ? 'active overview' : 'overview');
   overview.onclick = home;
   list.append(overview);
-  roots.forEach(node => {
+  roots.filter(node => !node.view).forEach(node => {
     const button = text('button', '', rootOf(focus) === node ? 'active' : '');
     const dot = text('span', '', 'source-dot');
     dot.style.background = '#688b7b';
@@ -78,6 +78,7 @@ function typeBadge(node) {
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   path.setAttribute('d', nodeIcons[node.node_type] || nodeIcons.group);
   icon.append(path); badge.append(icon, text('span', node.type_label));
+  if (node.research) return badge;
   const scope = text('span', '', 'scope-badge');
   const scopeIcon = icon.cloneNode(true);
   scopeIcon.querySelector('path').setAttribute('d', node.guidance_scope === 'repository'
@@ -135,7 +136,7 @@ function updateTrail() {
     back.onclick = () => history.back();
     trail.append(back);
   }
-  const all = text('button', 'All sources');
+  const all = text('button', 'Guide');
   all.onclick = home;
   trail.append(all);
   const chain = [];

@@ -6,9 +6,8 @@ Run from a Yoke source checkout:
     yoke dev run -- python3 docs/teaching/tools/build.py --check  # verify only
     yoke dev run -- python3 docs/teaching/tools/build.py --live   # + live pages
 
-Generated views are untracked and depend only on the model. ``--live`` also
-writes the command crosswalk and documentation graph, which read the live registries and git
-tree, into the untracked ``docs/teaching/live/`` directory.
+Generated views are untracked and combine the model with source inventories.
+``--live`` also refreshes compatibility routes in ``docs/teaching/live/``.
 """
 
 from __future__ import annotations

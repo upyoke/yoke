@@ -54,7 +54,7 @@ def test_single_page_and_complete_bounded_data_chunks(explorer):
     assert [key for key in views if key.endswith('.html')] == [renderer.ROOT]
     manifest = json.loads(views['explore/manifest.json'])
     nodes = [node for name in manifest for node in json.loads(views['explore/' + name])]
-    assert len(nodes) == len(renderer.map_nodes(model))
+    assert len([node for node in nodes if not node.get('research')]) == len(renderer.map_nodes(model))
     assert len({node['id'] for node in nodes}) == len(nodes)
     assert all(len(json.loads(views['explore/' + name])) <= 12 for name in manifest)
     for node in nodes:

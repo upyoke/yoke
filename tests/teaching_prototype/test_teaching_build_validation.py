@@ -173,9 +173,9 @@ def test_surface_part_page_renders_on_its_own_page(monkeypatch, tmp_path):
     pages.owned_pages(views, "surfaces", loaded.surfaces, loaded.teaching, "S")
     assert 'id="help/core"' in views["surfaces/help.html"]
     assert 'id="help/case"' not in views["surfaces/help.html"]
-    assert 'href="help-cases.html#help/case"' in views["surfaces/help.html"]
+    assert '"help/core": "research:teaching:help/core"' in views["surfaces/help.html"]
     assert 'id="help/case"' in views["surfaces/help-cases.html"]
-    assert "Help (continued)" in views["surfaces/help-cases.html"]
+    assert '"help/case": "research:teaching:help/case"' in views["surfaces/help-cases.html"]
 
 
 def test_surface_part_page_cannot_take_another_surface_page(monkeypatch, tmp_path):

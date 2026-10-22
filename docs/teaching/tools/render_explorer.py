@@ -1,4 +1,4 @@
-"""A single spatial map; zoom reveals children and the canonical record in place."""
+"""Build the unified responsive teaching guide from sources and research."""
 
 import json
 import hashlib
@@ -69,7 +69,7 @@ def map_nodes(model):
                                     (ROLE_GROUPS, 'source:roles', role_parents)):
         for title, members in groups.items():
             key = group_id(parent, title)
-            add(key, title, parent, 'Zoom in to see the individual procedures or roles.')
+            add(key, title, parent, 'Open a procedure or role to read its instructions.')
             mapping.update({member: key for member in members.split()})
     for path in sorted((repo / '.agents/skills/yoke').rglob('SKILL.md')):
         name = path.parent.relative_to(repo / '.agents/skills/yoke').as_posix()
@@ -181,7 +181,14 @@ def map_nodes(model):
 
 
 def build_explorer(views, pages):
+    from explorer_research import add_research
+    from explorer_inventory import add_inventories, source_snapshot
+
     nodes = map_nodes(pages.m)
+    if pages.m.problems:
+        return
+    add_research(nodes, pages.m)
+    add_inventories(nodes, pages)
     if pages.m.problems:
         return
     # Small model-derived chunks keep generated files within the teaching limit.
@@ -199,30 +206,34 @@ def build_explorer(views, pages):
         chunks.append(name)
         views['explore/' + name] = json.dumps(batch, separators=(',', ':')) + '\n'
     views['explore/manifest.json'] = json.dumps(chunks) + '\n'
-    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
+    views['explore/build-info.json'] = json.dumps(source_snapshot(nodes, pages)) + '\n'
+    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js', 'explorer_research.js'):
         views['explore/' + asset] = Path(__file__).with_name(asset).read_text()
     views[ROOT] = '''<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yoke · Context map</title>
+<title>Yoke · Teaching guide</title>
 <link rel="stylesheet" href="explorer.css">
 <script src="explorer_graph.js" defer></script>
+<script src="explorer_research.js" defer></script>
 <script src="explorer.js" defer></script>
 </head>
 <body>
-<header class="site-header"><a class="brand" href="index.html">yoke <span>Context guide</span></a><span class="review">Design preview</span></header>
+<header class="site-header"><a class="brand" href="index.html">yoke <span>Teaching guide</span></a><span class="review">Design preview</span></header>
+<nav id="view-nav" aria-label="Browse teaching"></nav>
 <div class="page-layout">
 <aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
 <main id="main"><nav id="trail" aria-label="Breadcrumbs"></nav><div id="world"></div>
 <p id="notice" role="status">Loading sources…</p>
+<details id="build-info" class="research"><summary>Source freshness</summary></details>
 <aside id="connections" aria-label="Related sources" hidden></aside>
-<noscript>This guide needs JavaScript. <a href="../index.html">Open the research catalogue</a>.</noscript>
+<noscript>This guide needs JavaScript. Canonical records remain in docs/teaching/model.</noscript>
 </main></div>
 </body></html>
 '''
-    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js'):
+    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js', 'explorer_research.js'):
         version = hashlib.sha256(views['explore/' + asset].encode()).hexdigest()[:12]
         stem, suffix = asset.rsplit('.', 1)
         versioned = stem + '-' + version + '.' + suffix

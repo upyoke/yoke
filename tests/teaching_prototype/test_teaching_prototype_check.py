@@ -90,15 +90,9 @@ def test_overview_survives_independent_model_additions(tools):
     loaded.concepts["another-topic"] = {"title": "A new topic"}
     index_page(views, "Teaching overview")
     assert views["index.html"] == before
-    for target in (
-        "concepts.html",
-        "surfaces.html",
-        "scenarios.html",
-        "boundaries.html",
-        "gaps.html",
-        "evidence.html",
-    ):
-        assert f'href="{target}"' in before
+    assert 'href="explore/index.html"' in before
+    assert 'location.replace' in before
+
 
 
 @pytest.mark.parametrize(
