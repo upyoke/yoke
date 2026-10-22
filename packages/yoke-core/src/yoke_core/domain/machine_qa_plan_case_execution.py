@@ -144,12 +144,7 @@ def execute_plan_machine_case(
     target = (
         public_item_target(item_id)
         if item_id is not None
-        else TargetRef(kind="global", project_id=str(case["project"]))
-        if case.get("standalone_execution_id")
-        else TargetRef(
-            kind="deployment_run",
-            deployment_run_id=str(deployment_run_id),
-        )
+        else TargetRef(kind="global", project_id=case.get("project"))
     )
     request = {
         "execution_id": execution_id,
@@ -275,9 +270,7 @@ def execute_plan_agent_mission_case(
     target = (
         public_item_target(item_id)
         if item_id is not None
-        else TargetRef(kind="global", project_id=str(case["project"]))
-        if case.get("standalone_execution_id")
-        else TargetRef(kind="deployment_run", deployment_run_id=str(deployment_run_id))
+        else TargetRef(kind="global", project_id=case.get("project"))
     )
     request = {
         "execution_id": execution_id,

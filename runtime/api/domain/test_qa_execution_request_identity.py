@@ -77,3 +77,55 @@ def test_shared_continuation_accepts_only_attaching_item(test_db, monkeypatch):
         resolve_execution_request(
             test_db, _request(execution, TargetRef(kind="item", item_id=-1))
         )
+
+
+@pytest.mark.parametrize("shared", [False, True])
+@pytest.mark.parametrize("mission", [False, True])
+def test_host_runner_admission_resolves_transferred_execution(
+    test_db, monkeypatch, shared, mission
+):
+    from yoke_core.domain import machine_qa_plan_case_execution as runner
+
+    execution = (_shared_execution if shared else _execution)(test_db, monkeypatch)
+    requirement_id = execution["roster"][0]["requirement_id"]
+    calls = []
+
+    def dispatch(function_id, *, target, actor, payload, **kwargs):
+        assert function_id == "test_machine.plan_case.begin"
+        assert target.kind == "global"
+        assert target.deployment_run_id is None
+        assert payload == {
+            "execution_id": execution["id"],
+            "ordinal": 0,
+            "requirement_id": requirement_id,
+        }
+        request = FunctionCallRequest(
+            function=function_id, target=target, actor=actor, payload=payload
+        )
+        resolved = resolve_execution_request(test_db, request)
+        assert resolved.target.deployment_run_id == takeover.NEW
+        assert resolve_project_context(
+            test_db, SimpleNamespace(function_id=function_id), request
+        ) == (1, "yoke")
+        calls.append(function_id)
+        return {"state": "blocked", "result": {"requirement_id": requirement_id}}
+
+    monkeypatch.setattr(runner, "_dispatch", dispatch)
+    execute = (
+        runner.execute_plan_agent_mission_case
+        if mission else runner.execute_plan_machine_case
+    )
+    result = execute(
+        {
+            "requirement_id": requirement_id,
+            "deployment_run_id": takeover.OLD,
+            "project": "yoke",
+        },
+        execution_id=execution["id"],
+        ordinal=0,
+        actor=ActorContext(
+            actor_id=execution["actor_id"], session_id=execution["session_id"]
+        ),
+    )
+    assert result == {"requirement_id": requirement_id}
+    assert calls == ["test_machine.plan_case.begin"]
