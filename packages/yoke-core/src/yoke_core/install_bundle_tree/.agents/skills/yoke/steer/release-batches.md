@@ -1,7 +1,7 @@
 # Steer — batch delivery
 
-Workers merge; the steerer creates runs on the prod control plane. Yoke
-self-deploy: read [source-dev-delivery.md](source-dev-delivery.md) first.
+Workers merge; steering creates runs on prod. For Yoke self-deploy, read
+[source-dev-delivery.md](source-dev-delivery.md).
 
 ```text
 yoke --env CONTROL_PLANE deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key PROD_KEY
@@ -10,29 +10,28 @@ yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --environment 
 yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
 ```
 
-CONTROL_PLANE is https; a database env refuses `use_https_env`. Stage
-uses production's exact `release_lineage`. Retry a lost create with its
-key; re-drive with the same `watch deploy`. Migrations:
-`databases.md`.
+CONTROL_PLANE is HTTPS; DB env refuses `use_https_env`. Stage uses production's
+`release_lineage`. Retry lost creates with the same key; re-drive with
+`watch deploy`. Migrations: `databases.md`.
 
 ## Member QA
 
-The member's owner runs its QA; never take its claim. The driver logs `Still
-waiting for scoped QA` per minute and exits 5 at timeout; longer silence is
-stuck: re-drive on exit. Stop a walk via `yoke qa plan abort`; never kill
-its runner.
+The owner runs member QA and keeps its claim. The driver logs `Still waiting
+for scoped QA` per minute and exits 5 at timeout; re-drive on exit. Longer
+silence is stuck. Stop walks via `yoke qa plan abort`, never kill the runner.
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}
 ```
 
+Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
+
 ### Manual-wake member QA
 
-Do or staff the owner's check; `yoke qa plan reconcile` an ownerless
-walk. Lacking evidence, have the operator waive or remove the case;
-never waive it.
+Staff owners; `yoke qa plan reconcile` ownerless walks. Without evidence,
+ask the operator to waive or remove the case; never waive it.
 
-The driver owns run-scoped QA:
+Driver runs run-scoped QA:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_project}

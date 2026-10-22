@@ -1,0 +1,7 @@
+{
+ "id": "failed-item-qa-live-proof",
+ "title": "Prove failed member recovery delivery and manual resume",
+ "status": "observed",
+ "text": "The authoritative recipe and reachable CLI help are source evidence. Existing focused tests cover routing and dependency/candidate contracts; they do not prove a real parked owner received the notice, resumed on a surface without automatic wake, checked all blockers and ran QA on the corrected deployed candidate. Record the next authorized real occurrence as evidence; do not manufacture a production failure or host reset to verify prose.",
+ "sources": ["docs/public/verification/failed-item-qa.md", "runtime/api/domain/test_deployment_qa_failure_handoff.py", "runtime/api/domain/test_dependency_satisfied_notice.py", "runtime/api/domain/test_deployment_run_dependency_composition.py", "runtime/api/domain/test_failed_member_candidate_release.py"]
+}

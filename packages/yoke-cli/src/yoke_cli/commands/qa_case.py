@@ -94,7 +94,17 @@ def qa_plan_run(args: List[str]) -> int:
         QA_PLAN_RUN_USAGE,
         "Requires the named immutable QA case or execution; item cases require the item work claim. "
         "Host selection respects the case OS. Resume and correction commands omit --machine; "
-        "the scheduler retains each platform's or corrected case's recorded host.",
+        "the scheduler retains each platform's or corrected case's recorded host.\n\n"
+        "Failed member QA: inspect the failed requirement and run, then classify product, setup, "
+        "case or unclear cause. Fix current-item failures in that item. For a justified separate "
+        "correction, name its owner and record a closure dependency before waiting: status:done "
+        "for completion, fact:deployed:ENV for completion with durable delivery attribution. "
+        "Checkpoint the failure, exact milestone and next command; keep the claim and lane. "
+        "Steering staffs and delivers corrections and arranges supported manual resume when needed. "
+        "Reread all blockers and the deployed target on resume; a dependency notice cannot "
+        "retarget a frozen run. Run scoped QA on a candidate containing the fix.\n"
+        "Complete recovery: .yoke/docs/verification/failed-item-qa.md "
+        "(source: docs/public/verification/failed-item-qa.md).",
     ):
         return 0
     return _run_execution_module(

@@ -2,7 +2,8 @@
  "id": "stage-and-member-binding",
  "title": "Stage and member binding",
  "status": "observed",
- "summary": "Sessions walk shared QA groups concurrently; a member whose owed groups are all held waits, and settlement credits members or wakes their stage commands.",
+ "summary": "Sessions walk shared QA groups concurrently; a member whose owed groups are all held retains its claim and parks. Failed QA recovery rereads remaining blockers and run/stage/member/target evidence. A cleared dependency cannot change the old frozen target; a correction outside that lineage requires a qualifying later deployed candidate.",
  "page": "qa-plans",
- "position": 4
+ "position": 4,
+ "sources": ["docs/public/verification/failed-item-qa.md", "docs/public/verification/case-attachment.md"]
 }

@@ -2,18 +2,19 @@
 
 ## Dependencies
 
-Encode every real blocker as an edge before staffing:
+Record blockers as edges before launch:
 
 ```text
 yoke items dependency list PREFIX-N --json
 ```
 
-Prefer `coordination_only` over `integration` over `activation`, and
-`fact:merged` over `status:done`. Shared files alone need `coordination_only`.
+Shared files alone need `coordination_only`; use `fact:merged` when merge suffices.
+Failed delivery QA: `.yoke/docs/verification/failed-item-qa.md` owns closure
+milestones, retained-owner waits and supported manual resume.
 
 ## Quiet is not dead
 
-Parked, landing or release-wait quiet is not failure; the holder keeps its
+Parked or release-wait quiet is not failure; the holder keeps its
 claim through delivery QA. Message a quiet worker first. Terminate only an
 unresponsive worker, a restaff or cleanup. One fresh session per item.
 

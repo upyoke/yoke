@@ -10,7 +10,7 @@ Use the attaching member's pinned stage to run or resume its owed cases:
 yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 ```
 
-Read `yoke qa plan run --help` for correction and continuation options.
+Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
 [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
 owns the scope and target-binding contract.
 
