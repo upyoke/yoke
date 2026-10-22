@@ -30,3 +30,32 @@ def test_project_structure_module_cli():
     )
     assert result.returncode == 0, result.stderr
     assert "deploy_defaults" in result.stdout
+
+
+def test_connection_writer_leaves_transaction_with_caller(test_db):
+    from unittest.mock import Mock
+
+    from yoke_core.domain.project_structure import (
+        ValidationError, create_project_structure_tables,
+    )
+    from yoke_core.domain.project_structure_write import apply_patch_on_connection
+
+    create_project_structure_tables(test_db)
+    conn = Mock(wraps=test_db)
+    op = {"op": "put", "family": "areas", "attachment": "project",
+          "entry_key": "transient", "payload": {"description": "pending"}}
+    apply_patch_on_connection(conn, "yoke", [op])
+    with pytest.raises(ValidationError, match="deployment_flow"):
+        apply_patch_on_connection(conn, "yoke", [{
+            "op": "put", "family": "deploy_defaults", "attachment": "project",
+            "payload": {"wrong_key": "invalid"},
+        }])
+    conn.commit.assert_not_called()
+    conn.rollback.assert_not_called()
+    assert test_db.execute(
+        "SELECT count(*) FROM project_structure WHERE entry_key='transient'"
+    ).fetchone()[0] == 1
+    test_db.rollback()
+    assert test_db.execute(
+        "SELECT count(*) FROM project_structure WHERE entry_key='transient'"
+    ).fetchone()[0] == 0
