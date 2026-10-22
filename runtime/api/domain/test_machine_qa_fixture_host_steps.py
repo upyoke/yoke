@@ -116,11 +116,12 @@ def test_a_failed_journey_reports_its_own_error_before_the_state_proof() -> None
 
 def test_a_crashed_host_step_reports_its_exception_not_the_traceback_header() -> None:
     remote = FakeRemote()
-    remote.stdout = (
-        "Traceback (most recent call last):\n"
-        '  File "machine_qa_admission_host.py", line 1, in stop\n'
-        "PermissionError: [Errno 1] Operation not permitted"
-    )
+    remote.stdout = "\n".join((
+        "host warning before traceback",
+        "Traceback (most recent call last):",
+        '  File "' + "long-path" * 100 + '", line 1, in stop',
+        "PermissionError: [Errno 1] Operation not permitted",
+    ))
     remote.fail_once_contains = "machine_qa_admission_host start"
     runner = fixture_runner(remote)
 
@@ -129,9 +130,11 @@ def test_a_crashed_host_step_reports_its_exception_not_the_traceback_header() ->
     )
     runner.close()
 
-    assert result.evidence["operations"][0]["reason"].endswith(
-        "PermissionError: [Errno 1] Operation not permitted"
-    )
+    reason = result.evidence["operations"][0]["reason"]
+    assert reason.endswith("PermissionError: [Errno 1] Operation not permitted")
+    assert len(reason) <= 512
+    case, _execution, _events = run_lifecycle(setup=result)
+    assert case.evidence["fixture_operations"]["setup"]["operations"][0]["reason"] == reason
 
 
 def test_stop_treats_an_exited_process_group_as_gone(
