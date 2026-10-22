@@ -62,8 +62,11 @@ yoke session-control launch preview --project PROJECT --level SENIOR --json
 a level, or explicit work stores `level_placement.work_required=true` and
 spends that allowance. MAIN launches do not, even when an operator or another
 session requests them. Assigned launches reserve a lane until
-registration or their deadline; a registered worker counts once until it ends
-or is terminated. Scalar placement and the grouped fleet report count the same
+registration or their deadline; a registered worker counts once while its
+native process is alive, until it ends or is terminated. Process-gone parked
+workers keep their claims without using a lane; a resumed process counts again.
+The Sessions page Active filter excludes process-gone sessions; Parked shows
+parked workers with their held claims. Scalar placement and the grouped fleet report count the same
 population across projects.
 
 Without an explicit positive setting, the relay derives the allowance from
