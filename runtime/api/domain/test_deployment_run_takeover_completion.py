@@ -181,3 +181,75 @@ def test_a_refused_succeeded_gate_refuses_the_takeover_and_changes_nothing(
         takeover_case.PASSED,
         takeover_case.WAITING,
     }
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_run_qa_wait_transfers_failed_requirement_and_cursor_without_rewriting(
+    test_db, monkeypatch, apply
+):
+    from yoke_core.domain.qa_plan_execution_store import roster_digest
+
+    cases = takeover_case._seed_old(test_db, run_qa=True)
+    requirement = takeover_case._memberless_copy(
+        test_db, cases[takeover_case.WAITING], stage=takeover_case.RUN_QA_STAGE
+    )
+    takeover_case.record_case_verdict(test_db, requirement, "fail", evidence=True)
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (takeover_case.RUN_QA_STAGE, takeover_case.OLD),
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
+        "actor_id,session_id,roster_digest,roster_json,cursor_ordinal,state,"
+        "created_at,heartbeat_at) VALUES ('retained-cursor',%s,%s,'1',%s,%s,"
+        "'[]',0,'waiting',now()-interval '6 hours',now())",
+        (
+            takeover_case.OLD,
+            takeover_case.RUN_QA_STAGE,
+            DRIVER_SESSION,
+            roster_digest([]),
+        ),
+    )
+    takeover_case._seed_new(test_db)
+    takeover_case._contains(monkeypatch)
+    before = dict(
+        test_db.execute(
+            "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+        ).fetchone()
+    )
+    assert (
+        take_over_waiting_run(
+            test_db, takeover_case.NEW, session_id=DRIVER_SESSION, apply=apply
+        )
+        == takeover_case.OLD
+    )
+    after = dict(
+        test_db.execute(
+            "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+        ).fetchone()
+    )
+    assert after == {**before, "deployment_run_id": takeover_case.NEW}
+    assert test_db.execute(
+        "SELECT deployment_run_id,retracted_at FROM qa_requirements WHERE id=%s",
+        (requirement,),
+    ).fetchone() == (takeover_case.NEW, None)
+    assert (
+        test_db.execute(
+            "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s", (requirement,)
+        ).fetchone()[0]
+        == "fail"
+    )
+    test_db.rollback()
+    assert (
+        dict(
+            test_db.execute(
+                "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+            ).fetchone()
+        )
+        == before
+    )
+    assert takeover_case._members(test_db, takeover_case.OLD) == {
+        takeover_case.PASSED,
+        takeover_case.WAITING,
+    }
+    assert takeover_case._members(test_db, takeover_case.NEW) == set()

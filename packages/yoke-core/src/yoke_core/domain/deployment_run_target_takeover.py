@@ -1,35 +1,9 @@
-"""A new run takes over an older run on its target that only waits on item QA.
+"""Atomically carry existing QA into a containing release on the same target.
 
-A run occupies its target until its QA settles
-(:mod:`yoke_core.domain.deploy_target_occupancy`). Once its deploy stages are
-done, the only thing still holding the target is item QA — which can be slow,
-and which a newer candidate that contains this one can answer just as well.
-
-So creating a run for the same flow and target takes the older run over,
-inside the creation transaction, and settles it there too: the older run is
-never left executing without a driver.
-
-* **No run-level QA or approval in the flow.** Only a member the older run
-  already closed stays: its own passed item QA closed it there. Every
-  unclosed member — waiting, passed but not closed, carried without final
-  intent — moves through the audited removal path into the new run. The
-  older run then reads succeeded when it delivered at least one member
-  (:mod:`~yoke_core.domain.deployment_run_takeover_settlement`), and is
-  cancelled otherwise.
-* **Run-level QA or approval in the flow.** The shared gates hold every
-  member, so every unclosed member moves and the older run is cancelled as
-  superseded. Nothing is recorded as passed, and no approval is skipped; the
-  new run seeds its run-level QA from the flow definition, so the gates keep
-  their order.
-
-Either way no memberless obligation stays open on the older run: shared-plan
-copies and run-level requirements without a pass are retracted, and the new
-run materializes its own when its members still attach those plans. The
-takeover is refused, naming the members to release by hand, unless the new
-candidate contains the older one, and refused unless the creating session may
-take the older run over
-(:mod:`~yoke_core.domain.deployment_run_takeover_authority`). Both runs record
-which superseded which.
+Only closed members retain their original delivery ownership. Unfinished
+members and their private/shared QA move, and run-level QA moves once.
+Requirement and execution identities, state, custody and evidence survive.
+Ordinary membership removal remains a separate cancellation operation.
 """
 
 from __future__ import annotations
@@ -66,8 +40,8 @@ def takeover_available(conn: Any) -> bool:
     )
 
 
-def _is_item_qa(stage: Mapping[str, Any]) -> bool:
-    return stage.get("step_runner") == "qa" and stage.get("scope") == "item"
+def _is_qa(stage: Mapping[str, Any]) -> bool:
+    return stage.get("step_runner") == "qa" and stage.get("scope") in {"item", "run"}
 
 
 def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
@@ -79,14 +53,14 @@ def has_shared_gates(stages: list[dict[str, Any]]) -> bool:
     )
 
 
-def _waits_only_on_item_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
-    """Deploy stages are done: the cursor stands on item QA, gates follow."""
+def _waits_only_on_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
+    """Deploy stages are done: the cursor stands on QA, gates follow."""
     names = [str(stage.get("name") or "") for stage in stages]
     current = str(row["current_stage"] or "")
     if row["settling_at"] or current not in names:
         return False
     remaining = stages[names.index(current) :]
-    return _is_item_qa(remaining[0]) and all(
+    return _is_qa(remaining[0]) and all(
         stage.get("step_runner") in _GATE_RUNNERS
         or (stage == stages[-1] and stage.get("step_runner") == "auto")
         for stage in remaining
@@ -94,7 +68,7 @@ def _waits_only_on_item_qa(row: Mapping[str, Any], stages: list[dict]) -> bool:
 
 
 def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
-    """The executing run on this flow and target still held by item QA."""
+    """The executing run on this flow and target still held by QA."""
     from yoke_core.domain.deploy_target_occupancy import open_qa_lines
     from yoke_core.domain.deployment_qa_run_acceptance import pinned_stages
 
@@ -112,7 +86,7 @@ def _waiting_run(conn: Any, new_run: Mapping[str, Any]) -> Optional[dict]:
     )
     for row in rows:
         stages = pinned_stages(conn, str(row["id"]))
-        if _waits_only_on_item_qa(row, stages) and open_qa_lines(
+        if _waits_only_on_qa(row, stages) and open_qa_lines(
             conn, str(row["id"]), first_wait=True
         ):
             return {**dict(row), "stages": stages}
@@ -150,26 +124,6 @@ def takeover_will_succeed(conn: Any, old_id: str) -> bool:
     )
 
 
-def _retract_memberless(conn: Any, old_id: str, reason: str) -> None:
-    """Retract shared-plan copies and run-level requirements nobody passed."""
-    from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
-    from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
-    from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
-
-    rows = query_rows(
-        conn,
-        "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
-        "AND r.deployment_member_item_id IS NULL "
-        f"AND NOT {settled_obligation_sql(conn, 'r')} "
-        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
-        f"WHERE qr.id=({latest_execution_id_sql('r.id')}) AND qr.verdict='pass')",
-        (old_id,),
-    )
-    retract_requirements(
-        conn, [int(row["id"]) for row in rows], reason=reason, source="deployment_run"
-    )
-
-
 def take_over_waiting_run(
     conn: Any,
     new_run_id: str,
@@ -178,18 +132,30 @@ def take_over_waiting_run(
     actor_id: Optional[int] = None,
     apply: bool = True,
 ) -> Optional[str]:
-    """Take over the run waiting on item QA on *new_run_id*'s target.
+    """Take over the run waiting on QA on *new_run_id*'s target.
 
     Returns the superseded run's id, or ``None`` when no run waits. The caller
     owns the transaction: a refusal rolls back the new run with everything here.
     ``apply=False`` projects membership in the provisional transaction.
     The caller must roll it back; no removal audit or settlement is emitted.
     """
+    from yoke_core.domain.db_savepoint import savepoint
+
+    with savepoint(conn, "take_over_waiting_run", owns=False):
+        return _take_over(
+            conn, new_run_id, session_id=session_id, actor_id=actor_id, apply=apply
+        )
+
+
+def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
     from yoke_core.domain.deployment_run_member_admission import (
         MemberAdmission,
         admit_run_items,
     )
-    from yoke_core.domain.deployment_run_member_removal import remove_members_on
+    from yoke_core.domain.deployment_run_qa_transfer import transfer_qa_on
+    from yoke_core.domain.deployment_run_membership_removals import (
+        record_membership_removals,
+    )
     from yoke_core.domain.deployment_run_takeover_authority import (
         require_takeover_authority,
     )
@@ -225,65 +191,83 @@ def take_over_waiting_run(
         return None
     old_id = str(old["id"])
     shared = has_shared_gates(old["stages"])
-    if not apply:
-        moving = _moving_members(conn, old)
-        require_contained(conn, new_run, old, moving)
-        conn.execute(
-            "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
-            (old_id, [int(member["item_id"]) for member in moving]),
-        )
-        admit_run_items(
-            conn,
-            run_id=new_run_id,
-            members=[
-                MemberAdmission(int(m["item_id"]), m["delivery_intent"]) for m in moving
-            ],
-        )
-        return old_id
     # The comparison and the removal's shared groups are read before the
     # older run's lock; under it, a constant re-check repeats only what moved.
     read = read_takeover(conn, new_run, old)
-    status, _held = lock_run_with_stable_membership(conn, old_id)
-    if status != "executing":
-        return None
+    if apply:
+        status, _held = lock_run_with_stable_membership(conn, old_id)
+        if status != "executing":
+            return None
     moving = _moving_members(conn, old)
-    require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
-    read = current_takeover_read(conn, read, new_run, old)
+    if apply:
+        require_takeover_authority(conn, old_id, int(new_run["project_id"]), session_id)
+        read = current_takeover_read(conn, read, new_run, old)
     require_contained(conn, new_run, old, moving, read.verdict)
 
     reason = (
         f"taken over by run {new_run_id}, whose candidate contains this run's; "
         "the member's QA continues there"
     )
-    remove_members_on(
+    ids = [int(member["item_id"]) for member in moving]
+    # Preserve the original admission snapshots and selection. Admission still
+    # validates the successor, but cannot replace the obligations already owed.
+    memberships = query_rows(
         conn,
-        old_id,
-        [int(member["item_id"]) for member in moving],
-        reason=reason,
-        session_id=session_id,
-        actor_id=actor_id,
-        removed_by=TAKEOVER_REMOVED_BY,
+        "SELECT item_id,requirement_selection,requirement_snapshot "
+        "FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s) ORDER BY item_id",
+        (old_id, ids),
+    )
+    transfer_qa_on(
+        conn,
+        old_id=old_id,
+        new_id=new_run_id,
+        moving=set(ids),
         projection=read.projection,
+    )
+    conn.execute(
+        "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=ANY(%s)",
+        (old_id, ids),
     )
     admit_run_items(
         conn,
         run_id=new_run_id,
         members=[
-            MemberAdmission(int(member["item_id"]), member["delivery_intent"])
-            for member in moving
+            MemberAdmission(int(m["item_id"]), m["delivery_intent"]) for m in moving
         ],
     )
+    if memberships:
+        conn.execute(
+            "UPDATE deployment_run_items m SET requirement_selection=v.selection, "
+            "requirement_snapshot=v.snapshot FROM unnest(%s::bigint[],%s::text[],%s::text[]) "
+            "AS v(item_id,selection,snapshot) WHERE m.run_id=%s AND m.item_id=v.item_id",
+            (
+                ids,
+                [m["requirement_selection"] for m in memberships],
+                [m["requirement_snapshot"] for m in memberships],
+                new_run_id,
+            ),
+        )
+    if apply:
+        record_membership_removals(
+            conn,
+            old_id,
+            ids,
+            reason=reason,
+            session_id=session_id,
+            actor_id=actor_id,
+        )
+    if not apply:
+        return old_id
     if shared or not _delivered_any(conn, old_id):
         terminalize_run_on(
             conn,
             old_id,
             disposition="cancelled",
-            reason=f"superseded by run {new_run_id}; nothing here was passed",
+            reason=f"superseded by run {new_run_id}; QA ownership transferred",
             actor_id=actor_id,
             session_id=str(session_id or ""),
         )
     else:
-        _retract_memberless(conn, old_id, reason)
         succeed_taken_over_run(conn, old_id, new_run_id, old["stages"])
     conn.execute(
         f"UPDATE deployment_runs SET {SUPERSEDED_BY_COLUMN}=%s WHERE id=%s",
