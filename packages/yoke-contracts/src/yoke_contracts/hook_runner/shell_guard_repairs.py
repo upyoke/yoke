@@ -304,13 +304,11 @@ def _repaired_glob_command(
             pass
     # rg anchors slash-containing globs at its cwd, not its search operand.
     relative = os.path.relpath(expanded, cwd)
-    if relative == ".." or relative.startswith("../"):
-        if "/" in name:
-            return None
-        pattern = name
-    else:
-        pattern = "/" + (name if relative == "." else relative + "/" + name)
-    repaired = shlex.join(["rg", *arguments, parent, "--glob", pattern])
+    outside = relative == ".." or relative.startswith("../")
+    pattern = "/" + (name if outside or relative == "." else relative + "/" + name)
+    repaired = shlex.join(["rg", *arguments, "." if outside else parent, "--glob", pattern])
+    if outside:
+        repaired = shlex.join(["cd", str(expanded)]) + " && " + repaired
     return repaired, matches
 
 

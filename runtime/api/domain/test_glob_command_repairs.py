@@ -81,3 +81,19 @@ def test_unsafe_repairs_keep_manual_recipe(tmp_path: Path, command):
 
 def test_missing_root_has_no_repair(tmp_path: Path):
     assert glob_repair("rg needle absent/path*", "absent/path*", str(tmp_path)) is None
+
+
+@pytest.mark.parametrize("root_name", ["home with spaces", "absolute-root"])
+def test_external_search_root_does_not_include_nested_names(tmp_path: Path, root_name):
+    tree = tmp_path / root_name
+    (tree / "nested").mkdir(parents=True)
+    (tree / "Meeting.txt").write_text("needle\n")
+    (tree / "nested" / "Meeting.txt").write_text("needle\n")
+    cwd = tmp_path / "repository"
+    cwd.mkdir()
+    token = str(tree / "Meeting*")
+    repaired = glob_repair(f"rg -l needle '{token}'", token, str(cwd))[0]
+    result = subprocess.run(["sh", "-c", repaired], cwd=cwd, capture_output=True,
+                            text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["./Meeting.txt"]
