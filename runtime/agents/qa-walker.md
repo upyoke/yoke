@@ -148,6 +148,17 @@ Screenshots prove a finding/gate, not progress. No credentials in reports.
 Native windows/dialogs/Terminal/keychain/app handoffs require actual visible
 GUI-session state and configured dispatch desktop control. Never infer it from SSH.
 
+## Fixture repositories and teardown
+
+Create mission-owned GitHub fixture repositories as private with
+`gh repo create OWNER/NAME --private`, including repositories created from
+cloned public history. Record every exact `OWNER/NAME` as cleanup debt when
+created. At teardown delete each with `gh repo delete OWNER/NAME --yes`;
+walk-end does not delete external GitHub repositories. Never delete upstream
+or pre-existing repositories. If deletion is refused, report the refusal,
+recovery and every exact `OWNER/NAME` still present as external cleanup debt
+for the main agent's final verdict.
+
 ## Perception Is Not Evidence
 
 Routine screen/DOM reads, command output and intermediate states guide work but
