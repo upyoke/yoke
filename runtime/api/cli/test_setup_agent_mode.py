@@ -14,6 +14,7 @@ from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_au
 from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.config import onboard_destinations, onboard_machine_setup, onboard_wizard
 from yoke_cli.config import setup_agent_answers
+from yoke_cli.config.onboard_wizard_path import PathFlow
 
 pytest.importorskip("textual")
 
@@ -24,6 +25,10 @@ def _isolated(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.delenv("YOKE_ENV", raising=False)
     monkeypatch.setattr(onboard_machine_setup, "prepare", lambda *_: None)
+    # These gates exercise shell selection and questions, not the runner's PATH.
+    monkeypatch.setattr(
+        PathFlow, "_check_install", lambda _: ({"login_verified": True}, "")
+    )
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
 
 
