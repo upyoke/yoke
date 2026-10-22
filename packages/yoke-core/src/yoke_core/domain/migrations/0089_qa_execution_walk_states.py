@@ -17,6 +17,8 @@ from yoke_core.domain.schema_common import _table_exists
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
 _TABLE = "qa_plan_executions"
 _OLD = "awaiting_agent_review"
+_RETIRED = "'" + _OLD + "'::text"
+_WAITING = "'waiting'::text"
 _LIVE = "'active','waiting','walking','awaiting_walk_review'"
 _STATES = _LIVE + ",'completed','aborted','error'"
 
@@ -80,15 +82,18 @@ def apply(conn: Any) -> None:
     for name, definition in indexes:
         if _OLD not in definition:
             continue
-        # pg_get_indexdef renders partial IN predicates as typed arrays.
-        updated = definition.replace(
-            "'" + _OLD + "'::text", "'walking'::text,'awaiting_walk_review'::text"
-        )
-        if updated == definition:
+        # pg_get_indexdef renders partial IN predicates as typed arrays. Each
+        # state lands where the array's own order puts it: sorted arrays read
+        # active,awaiting_walk_review,waiting,walking; the item-scoped index
+        # keeps its schema order active,waiting,walking,awaiting_walk_review.
+        if definition.count(_WAITING) != 1 or definition.count(_RETIRED) != 1:
             raise RuntimeError(
                 "qa_state_index_shape_unknown: state index cannot be recoded; "
                 "inspect its definition and correct this migration before retrying"
             )
+        updated = definition.replace(
+            _RETIRED, "'awaiting_walk_review'::text"
+        ).replace(_WAITING, "'waiting'::text, 'walking'::text")
         conn.execute('DROP INDEX "' + str(name).replace('"', '""') + '"')
         conn.execute(updated)
 

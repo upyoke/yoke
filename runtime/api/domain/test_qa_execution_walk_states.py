@@ -31,6 +31,11 @@ def _capture(conn, item_id):
 MIGRATION = importlib.import_module(
     "yoke_core.domain.migrations.0089_qa_execution_walk_states"
 )
+EARLIER_MIGRATIONS = tuple(importlib.import_module(
+    f"yoke_core.domain.migrations.{name}"
+) for name in (
+    "0049_standalone_qa_plan_execution", "0088_shared_qa_execution_per_session",
+))
 
 
 def _mission(conn, item_id):
@@ -56,6 +61,13 @@ def _restore(conn, run_id):
     )
 
 
+def _state_indexes(conn):
+    return dict(conn.execute(
+        "SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=current_schema() "
+        "AND tablename='qa_plan_executions' AND indexdef LIKE '%%state%%'"
+    ).fetchall())
+
+
 def _old_contract(conn):
     conn.execute(
         "ALTER TABLE qa_plan_executions DROP CONSTRAINT qa_plan_executions_state_check"
@@ -76,10 +88,17 @@ def _old_contract(conn):
         if "'walking'" not in definition:
             continue
         conn.execute(f'DROP INDEX "{name}"')
-        conn.execute(definition.replace("'walking'::text, ", "").replace(
+        conn.execute(definition.replace(", 'walking'::text", "").replace(
             "'awaiting_walk_review'", "'awaiting_agent_review'"
         ))
     conn.commit()
+    # Live pre-0089 tenants store sorted arrays, except the item-scoped index.
+    for name, definition in _state_indexes(conn).items():
+        assert "'walking'" not in definition
+        assert ("'active'::text, 'waiting'::text, 'awaiting_agent_review'::text"
+                if name == "idx_qa_plan_executions_active" else
+                "'active'::text, 'awaiting_agent_review'::text, 'waiting'::text"
+                ) in definition
 
 
 def test_migration_classifies_old_rows_and_preserves_custody(test_db):
@@ -91,6 +110,7 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
         (ordinary["id"],),
     )
     _restore(test_db, restored_run)
+    current_indexes = _state_indexes(test_db)
     _old_contract(test_db)
     before = dict(test_db.execute(
         "SELECT id,execution_target_digest FROM qa_plan_executions"
@@ -99,6 +119,9 @@ def test_migration_classifies_old_rows_and_preserves_custody(test_db):
     MIGRATION.invariants(test_db)
     MIGRATION.apply(test_db)
     MIGRATION.invariants(test_db)
+    for earlier in EARLIER_MIGRATIONS:
+        earlier.invariants(test_db)
+    assert _state_indexes(test_db) == current_indexes
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
     rows = dict(test_db.execute("SELECT id,state FROM qa_plan_executions").fetchall())
     assert rows[walking["id"]] == "walking"
