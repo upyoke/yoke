@@ -44,11 +44,10 @@ QA or recover a close-out that could not finish automatically; a surface whose
 wake authority is operator (a desktop app) is never resumed by Yoke, so its
 operator or a steering seat re-enters it. If it asks for
 item QA, credit it with the stage-scoped form -- a stage credits only the
-requirements bound to its own name, and an item-scoped stage needs the member
-too, so the run-wide form is refused rather than recording a pass the stage
-ignores:
+requirements bound to its own name. Name the item so the current admitted
+release supplies its membership:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+  yoke qa plan run --item PREFIX-N --stage STAGE --project P
 
 Add `--plan PLAN` only when the wake says the stage names no cases; a stage
 already naming its own accepts only a correction-only plan whose every case
