@@ -14,6 +14,7 @@ from yoke_core.domain.machine_qa_fixture_projects import (
     FixtureProjectDiscoveryError,
     discover_host_projects,
     uninstall_host_projects,
+    uninstall_host_project,
 )
 
 CONFIG = "/Users/tester/.yoke/config.json"
@@ -97,3 +98,42 @@ def test_a_refused_uninstall_is_named_on_the_result() -> None:
     assert result["uninstalled"] is False
     assert result["reason"] == "uninstall_failed"
     assert result["project_id"] == 41
+
+
+@pytest.mark.parametrize("presence_exit", [0, 1, 2, 44])
+def test_a_failed_git_read_settles_only_a_confirmed_absent_checkout(
+    presence_exit: int,
+) -> None:
+    class UnreadableHost(_InstalledHost):
+        def run_command(self, argv: Any, **_kwargs: Any) -> Any:
+            self.commands.append(list(argv))
+            code = presence_exit if argv[0] == "python3" else 128
+            return subprocess.CompletedProcess(argv, code, "", "")
+
+    host = UnreadableHost()
+
+    [result] = uninstall_host_projects(host, timeout_seconds=60)
+
+    assert result["uninstalled"] is (presence_exit == 44)
+    assert result["reason"] == (
+        "checkout_absent" if presence_exit == 44 else "checkout_unreadable"
+    )
+    assert not any(command[1:3] == ["project", "uninstall"] for command in host.commands)
+
+
+def test_an_already_removed_checkout_is_settled_on_the_host(tmp_path) -> None:
+    class LocalHost:
+        def run_command(self, argv: Any, **kwargs: Any) -> Any:
+            return subprocess.run(argv, capture_output=True, text=True, **kwargs)
+
+    checkout = tmp_path / "removed-checkout"
+    checkout.mkdir()
+    checkout.rmdir()
+
+    result = uninstall_host_project(
+        LocalHost(), {"checkout": str(checkout), "project_id": 41}, timeout_seconds=60
+    )
+
+    assert result["uninstalled"] is True
+    assert result["reason"] == "checkout_absent"
+    assert result["removed_worktrees"] == []

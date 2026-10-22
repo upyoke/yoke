@@ -134,6 +134,35 @@ def test_walk_end_hands_the_host_projects_to_disposal(monkeypatch, capsys):
     assert out["fixture_projects"]["host_projects"] == [HOST_PROJECT]
 
 
+def test_walk_end_settles_an_already_removed_fixture(monkeypatch, capsys, tmp_path):
+    import subprocess
+
+    from yoke_core.domain.machine_qa_fixture_projects import uninstall_host_project
+
+    class LocalHost:
+        def run_command(self, argv, **kwargs):
+            return subprocess.run(argv, capture_output=True, text=True, **kwargs)
+
+    project = uninstall_host_project(
+        LocalHost(),
+        {"project_id": 41, "checkout": str(tmp_path / "absent")},
+        timeout_seconds=60,
+    )
+    exit_code = _run_walk_end(
+        monkeypatch,
+        _walk_result(),
+        None,
+        fixture_projects={"host_projects": [project], "error": None},
+    )
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    [settled] = json.loads(captured.out)["fixture_projects"]["host_projects"]
+    assert settled["uninstalled"] is True
+    assert settled["reason"] == "checkout_absent"
+    assert captured.err == ""
+
+
 def test_a_recorded_but_unsettled_disposal_still_restores_and_fails(
     monkeypatch, capsys
 ):

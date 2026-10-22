@@ -103,7 +103,9 @@ A walk creates Yoke projects only by installing them on the Test Machine, and
 `walk-end` disposes of them on a finished or aborted walk, before it removes
 scratch, restores the host or releases a cleanup lease. It reads the host's
 `~/.yoke/config.json`, force-removes each mapped checkout's linked worktrees
-and runs `yoke project uninstall` there. Then
+and runs `yoke project uninstall` there. A checkout already removed from the
+host settles as `checkout_absent`; an existing but unreadable checkout still
+blocks cleanup. Then
 `test_machine.mission.dispose_projects`, which refuses an ended execution,
 records an intent receipt naming every candidate, keeps only projects created
 while the execution was live that the walking actor administers, releases
@@ -121,6 +123,10 @@ resolved. An id this control plane lacks settles as `not_found`. A project the
 walking actor does not administer settles too: walk-end names it in
 `fixture_project_left_for_administrator` with the `yoke projects retire`
 command an administrator runs.
+
+If a mission removes a fixture before `walk-end`, release its claims and
+dispose of its lanes before running `yoke project uninstall`, then retire the
+project.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:
