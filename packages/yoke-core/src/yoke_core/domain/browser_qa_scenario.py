@@ -212,8 +212,10 @@ def execute_scenario(
     # established it. Evidence may only be collected from this one, and only
     # the commit that source reported is recorded.
     verified_origin = ""
-    if expected_branch and expected_sha:
-        _bqa._log(f"Validating the target serving {expected_sha}...")
+    if (expected_branch and expected_sha) or (context.get("run_source") or {}).get(
+        "identity_scope"
+    ) == "environment":
+        _bqa._log("Validating the target and reading its served revision...")
         (
             freshness_error,
             verified_origin,

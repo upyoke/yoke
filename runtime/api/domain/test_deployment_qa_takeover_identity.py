@@ -68,6 +68,44 @@ def test_real_run_execution_continues_before_successor_deploys(
     assert execution["execution_target"]["deployment"]["run_id"] == takeover.OLD
     assert execution["execution_target"]["deployment"]["member_item_id"] is None
     validate_deployment_execution_target(test_db, execution)
+    from yoke_core.domain.browser_qa_deployment_identity import (
+        resolve_run_pinned_source,
+    )
+    from yoke_core.domain.browser_qa_freshness import _establish_deployment_freshness
+    from yoke_core.domain.browser_qa_run_source import run_bound_identity
+    from yoke_core.domain.deployment_qa_start_identity import start_identity_expectation
+    from yoke_core.domain.served_revision_probe import ServedRevisionRead
+
+    source = resolve_run_pinned_source(
+        test_db, takeover.NEW, requirement_id=execution["roster"][0]["requirement_id"]
+    )
+    assert source["identity_scope"] == "environment"
+    context = {
+        "deployment_run_id": takeover.NEW,
+        "run_source": source,
+        "deployment_target": {
+            "environment": "prod",
+            "origin": "https://app.example.test",
+            "identity_path": "/served-build",
+        },
+    }
+    assert (
+        run_bound_identity(
+            takeover.NEW, context, expected_branch=None, expected_sha=None
+        )[0]
+        is None
+    )
+    assert start_identity_expectation(test_db, execution) is None
+    for observed in (takeover.OLD_LINEAGE, "f" * 40):
+        failure, origin, sha = _establish_deployment_freshness(
+            "yoke",
+            "main",
+            source["sha"],
+            context=context,
+            fetch_identity=lambda _: ServedRevisionRead(status=200, body=observed),
+        )
+        assert failure is None
+        assert (origin, sha) == ("https://app.example.test", observed)
 
 
 @pytest.mark.parametrize(

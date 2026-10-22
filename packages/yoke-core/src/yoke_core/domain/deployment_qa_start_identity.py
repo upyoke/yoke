@@ -58,6 +58,10 @@ def start_identity_expectation(
     )
 
     run_id = str(execution["deployment_run_id"])
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    if inherited_target(conn, run_id, execution.get("execution_target") or {}):
+        return None  # Already-admitted QA may observe builds across this takeover.
     try:
         subject = execution_subject(conn, execution, require_active=False)
         target = deployment_qa_execution_target(conn, subject)
