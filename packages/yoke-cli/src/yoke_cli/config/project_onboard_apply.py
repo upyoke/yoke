@@ -71,7 +71,8 @@ def finish_after_dispatch(
             binding["permission_status"] = dict(binding_result["permission_status"])
         github_adoption["binding"] = binding
     mapping_needed = project_mapping_needs_write(root, project_id, config_path)
-    if register_mapping and mapping_needed:
+    wrote_mapping = register_mapping and mapping_needed
+    if wrote_mapping:
         with onboard_apply_progress.step(
             progress,
             "project-checkout-register",
@@ -97,6 +98,8 @@ def finish_after_dispatch(
             force=True,
             # Onboarding owns final publication after install convergence.
             publish_skip_reason=publication_outcome.DEFERRED_REASON,
+            # The mapping onboarding just wrote is this install's to retire.
+            owns_registration=wrote_mapping,
         )
         # Onboarding leaves the operator with a checkout whose layer is on the
         # remote, not one carrying an unpushed commit they never made.

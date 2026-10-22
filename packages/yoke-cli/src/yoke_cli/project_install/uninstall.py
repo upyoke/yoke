@@ -6,7 +6,8 @@ Yoke source repo) refuse entirely: the dev layer there is the repo's
 own tracked content, not an installed copy. Split from
 :mod:`project_install`, which owns install/refresh and the apply core.
 After the removal commit, retire only exclusive installer-owned checkout
-registration and folder trust; preserve unresolved ownership for retry.
+registration and folder trust; preserve unresolved ownership, the manifest
+and the ``.yoke/.gitignore`` that keeps it ignored for a retry.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from typing import Any, Dict, List
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import uninstall_commit
+from yoke_cli.project_install.installed_output_paths import YOKE_GITIGNORE_REL
 from yoke_cli.project_install import owned_cleanup
 from yoke_cli.project_install import skill_discovery
 from yoke_cli.project_install import git_hooks as git_hooks_layer
@@ -105,8 +107,16 @@ def uninstall(
     # Contract files: remove only installer-created files still byte-equal
     # to their seeded content; edited ones are preserved with a warning and
     # pre-existing files were never recorded, so they are never touched.
+    contract_records = dict(manifest.get("contract_files") or {})
+    # The ignore policy stays until cleanup completes: a retry must still see
+    # the manifest and local views this run preserves as ignored, not dirty.
+    ignore_record = {
+        rel: contract_records.pop(rel)
+        for rel in [YOKE_GITIGNORE_REL]
+        if rel in contract_records
+    }
     contract_removed, contract_skipped, contract_absent, contract_warnings = (
-        remove_manifest_files(root, dict(manifest.get("contract_files") or {}))
+        remove_manifest_files(root, contract_records)
     )
     warnings.extend(contract_warnings)
     # Strip the managed permissions region and Markdown blocks first. Removing
@@ -179,9 +189,18 @@ def uninstall(
             warnings.append(f"project_uninstall_{row['reason']}: {row['recovery']}")
     (root / PENDING_REL).unlink(missing_ok=True)
     if local_cleanup["complete"]:
+        ignore_removed, ignore_skipped, ignore_absent, ignore_warnings = (
+            remove_manifest_files(root, ignore_record)
+        )
+        contract_removed += ignore_removed
+        contract_skipped += ignore_skipped
+        contract_absent += ignore_absent
+        warnings.extend(ignore_warnings)
         files_layer.manifest_path(root).unlink()
         files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
-        manifest_commit = uninstall_commit.commit(root, [files_layer.MANIFEST_REL])
+        manifest_commit = uninstall_commit.commit(
+            root, [files_layer.MANIFEST_REL, *ignore_removed]
+        )
         if manifest_commit["status"] == "created":
             commit_report = manifest_commit
     report = {

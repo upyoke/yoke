@@ -135,7 +135,17 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
     elif not exact:
         registration = _result("absent", "no_exact_registration")
     elif not isinstance(record, dict) or record.get("config") != str(cfg.resolve()):
-        registration = _result("preserved", "registration_ownership_unknown")
+        registration = _result(
+            "preserved",
+            "registration_ownership_unknown",
+            recovery=(
+                "This install did not write the checkout mapping (`yoke project "
+                "register` or an install before ownership was recorded did), so "
+                f"it stays. If nothing else uses it, delete the {root} entry under "
+                f"connection_projects.{connection} in {cfg}, then rerun project "
+                "uninstall."
+            ),
+        )
     elif (
         len(exact) != 1
         or record.get("connection") != connection
@@ -222,10 +232,11 @@ def _shared_reason(root: Path, projects: list[dict], project_id) -> str:
     return ""
 
 
-def _result(status: str, reason: str, detail: str = "") -> dict:
+def _result(status: str, reason: str, detail: str = "", recovery: str = "") -> dict:
     return {
         "status": status,
         "reason": reason,
         "detail": detail,
-        "recovery": "Review the exact checkout registration in machine config; resolve ownership or shared checkouts and rerun project uninstall. Preserve credentials and other project entries.",
+        "recovery": recovery
+        or "Review the exact checkout registration in machine config (`yoke projects list`); separate shared checkouts or restore the edited entry, then rerun project uninstall. Preserve credentials and other project entries.",
     }
