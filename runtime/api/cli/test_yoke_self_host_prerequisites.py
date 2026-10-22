@@ -72,8 +72,11 @@ def test_missing_prerequisite_preserves_bundle(
 def test_available_compose_writes_bundle(monkeypatch, tmp_path, capsys):
     target = tmp_path / "bundle"
     monkeypatch.setattr(prerequisites.shutil, "which", lambda name: "/docker")
+    original_run = prerequisites.terminal_detached_process.run
 
     def run(command, **kwargs):
+        if command[0] != "/docker":
+            return original_run(command, **kwargs)
         assert command == ("/docker", "compose", "version")
         assert not target.exists()
         return subprocess.CompletedProcess(command, 0, b"Docker Compose", b"")
