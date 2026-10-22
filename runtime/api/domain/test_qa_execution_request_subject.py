@@ -25,7 +25,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import deployment_qa_shared_plans, qa_deployment_function_subject
+from yoke_core.domain import (
+    deployment_qa_takeover_identity,
+    qa_deployment_function_subject,
+)
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -175,9 +178,9 @@ def test_each_execution_request_resolves_its_subject_once(test_db):
     for function, payload in _requests(execution):
         with (
             mock.patch.object(
-                deployment_qa_shared_plans,
-                "_read_execution_subject",
-                wraps=deployment_qa_shared_plans._read_execution_subject,
+                deployment_qa_takeover_identity,
+                "read_execution_subject",
+                wraps=deployment_qa_takeover_identity.read_execution_subject,
             ) as execution_reads,
             mock.patch.object(
                 qa_deployment_function_subject,
