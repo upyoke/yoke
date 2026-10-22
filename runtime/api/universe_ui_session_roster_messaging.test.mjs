@@ -118,7 +118,7 @@ test("roster defaults to active and exposes only the supported filters", async (
   assert.equal(state.value, "active");
   assert.deepEqual(
     state.children.map((entry) => [entry.value, entry.textContent]),
-    [["active", "Active"], ["ended", "Ended"], ["", "All"]],
+    [["active", "Active"], ["parked", "Parked"], ["ended", "Ended"], ["", "All"]],
   );
   assert.deepEqual(cardIds(root), ["active-codex", "stale-cursor"]);
   const staleCard = byClass(root, "session-card").find(
