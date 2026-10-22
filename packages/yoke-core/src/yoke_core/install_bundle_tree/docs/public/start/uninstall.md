@@ -69,14 +69,17 @@ yoke project uninstall /path/to/checkout
 
 It removes the installed layer and only proven installer-owned, exclusive
 checkout registration and exact folder trust; entries that grant no trust stay
-as they are. Install never trusts a parent folder, so uninstall neither reports
+as they are. A checkout mapping that onboarding or install wrote is
+installer-owned; one made by `yoke project register` stays, and the warning
+names the machine config entry to delete before you rerun. Install never trusts a parent folder, so uninstall neither reports
 nor changes trust on one. Shared roots, Git worktrees, edited entries and unknown ownership
 are preserved with named reasons.
 The removal commit records only files Git already tracked; ignored local views,
 including the install manifest, never enter history. Strategy documents stay on
 disk, untracked.
-A partial cleanup exits nonzero and retains its manifest: resolve the named
-ownership or sharing issue, then rerun the same command. Credentials, other
+A partial cleanup exits nonzero and keeps its manifest and `.yoke/.gitignore`,
+so the checkout stays clean: resolve the named ownership or sharing issue, then
+rerun the same command. Credentials, other
 projects, shared tools and server history stay intact; source checkouts refuse.
 
 Retiring lanes removes their path-owned folder trust before machine uninstall.
