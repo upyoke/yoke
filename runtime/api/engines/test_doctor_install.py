@@ -143,7 +143,45 @@ def test_hook_requires_both_registered_identity_and_observed_delivery(
         checks, "relay", lambda *a: {"session_id": registered, "project_id": 42}
     )
     monkeypatch.setattr(checks, "orientation_delivered", lambda s: delivered)
-    assert run(checks.hc_session_hook_registration, only="session-hook-registration")[0].result == verdict
+    assert (
+        run(checks.hc_session_hook_registration, only="session-hook-registration")[
+            0
+        ].result
+        == verdict
+    )
+
+
+@pytest.mark.parametrize("session", ["", "session"])
+@pytest.mark.parametrize("selection", ["install", "session", "named", "ordinary"])
+def test_install_skips_only_absent_session_and_session_scope_still_requires_proof(
+    monkeypatch, session, selection
+):
+    from yoke_core.engines.doctor_session import SESSION_SLUGS
+
+    only = {
+        "install": ",".join(checks.INSTALL_SLUGS),
+        "session": ",".join(SESSION_SLUGS),
+        "named": "session-hook-registration",
+        "ordinary": None,
+    }[selection]
+    monkeypatch.setattr(
+        checks, "build_actor", lambda: SimpleNamespace(session_id=session)
+    )
+    calls = []
+
+    def identity(*args):
+        calls.append(args)
+        return {"session_id": session, "project_id": 42}
+
+    monkeypatch.setattr(checks, "relay", identity)
+    monkeypatch.setattr(checks, "orientation_delivered", lambda s: False)
+    result = run(checks.hc_session_hook_registration, only=only)[0]
+    skipped = not session and selection in {"install", "ordinary"}
+    assert result.result == ("N/A" if skipped else "FAIL")
+    assert bool(calls) == bool(session)
+    if skipped:
+        assert "session_required" in result.detail
+        assert "yoke doctor run --session" in result.detail
 
 
 @pytest.mark.parametrize(
