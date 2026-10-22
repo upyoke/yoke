@@ -221,6 +221,7 @@ test("the harness module answers per machine, never for the universe", async (t)
     [
       "Claude Code", "Codex", "Cursor",
       "Claude CLI", "Codex CLI", "Cursor CLI",
+      "Claude Desktop", "Codex Desktop",
       "Claude in VS Code", "Cursor IDE",
     ],
   );
@@ -230,9 +231,10 @@ test("the harness module answers per machine, never for the universe", async (t)
       (card) => byClass(card, "activation-card-status")[0].textContent,
     ),
     [
-      "installed · never seen", "not installed", "not installed",
-      "installed · never seen", "not installed", "not installed",
-      "installed · never seen", "not installed",
+      "installed · never seen", "not observed", "not observed",
+      "installed · never seen", "not observed", "not observed",
+      "not observed", "not observed",
+      "installed · never seen", "not observed",
     ],
   );
   // Why the unlit targets are not blockers explains the activation model;

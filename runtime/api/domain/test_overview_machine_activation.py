@@ -297,3 +297,41 @@ def test_hook_report_evidence_is_read_per_machine(test_db):
 
     assert status(MACHINE_A, "codex") == "hooks_need_trust"
     assert status(MACHINE_B, "codex") == "installed_never_seen"
+
+
+def test_onboarding_and_machine_detail_agree_on_installation(test_db, monkeypatch):
+    from types import SimpleNamespace
+    from yoke_core.domain import machine_detail as detail
+
+    _seed_relay(test_db, MACHINE_A, "linux-box", surfaces='{"cursor-cli": "1.2"}')
+    reports = [
+        {
+            "machine_id": MACHINE_A,
+            "project_id": 1,
+            "harness_id": "cursor",
+            "config_present": True,
+            "glue_present": True,
+        }
+    ]
+    [overview] = read_registered_machines(test_db, reports)
+    monkeypatch.setattr(detail, "actor_visible_project_ids", lambda *a: [1])
+    monkeypatch.setattr(
+        detail,
+        "list_visible_relays",
+        lambda *a, **kw: [
+            {"machine_id": MACHINE_A, "surface_versions": {"cursor-cli": "1.2"}}
+        ],
+    )
+    monkeypatch.setattr(detail, "read_harness_machine_reports", lambda *a: reports)
+    for name in ("_sessions", "_launches", "_projects", "_test_machines", "list_marks"):
+        monkeypatch.setattr(detail, name, lambda *a, **kw: [])
+    monkeypatch.setattr(detail, "_tokens", lambda *a: {})
+    monkeypatch.setattr(detail, "actor_name", lambda *a: "member")
+    record = SimpleNamespace(
+        machine_id=MACHINE_A, name="linux-box", owner_actor_id=1, to_dict=lambda: {}
+    )
+    actual = detail.machine_detail(test_db, record=record, actor_id=1)
+    assert actual["harnesses"] == overview["targets"]
+    desktop = next(row for row in actual["harnesses"] if row["key"] == "cursor-desktop")
+    assert desktop["status"] == "not_installed"
+    assert desktop["version"] is None

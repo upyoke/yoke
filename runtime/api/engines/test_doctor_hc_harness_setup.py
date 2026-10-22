@@ -56,7 +56,7 @@ def test_orphan_codex_home_reports_recovery(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(doctor, "resolve_native_cli", lambda name: None)
     monkeypatch.setattr(
-        doctor, "APP_SURFACE_PROBES", {"codex-desktop": tmp_path / "absent"}
+        doctor, "probe_surface", lambda surface: SimpleNamespace(verdict="missing")
     )
     assert "codex_home_without_codex" in doctor.codex_home_without_codex()
     assert "otherwise open Codex once" in doctor.codex_home_without_codex()
@@ -89,3 +89,17 @@ def test_prompting_harness_names_shared_setup_repair(monkeypatch, tmp_path):
     assert "approval_policy" in rec.results[0].detail
     assert "yoke doctor run --only harness-setup --fix" in rec.results[0].detail
     assert config.read_text().startswith('approval_policy = "on-request"')
+
+
+def test_unobserved_codex_app_does_not_prove_an_orphan_home(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        doctor,
+        "installed_machine_hooks",
+        lambda: [SimpleNamespace(harness_id="codex", home_path=lambda: tmp_path)],
+    )
+    monkeypatch.setattr(doctor, "resolve_native_cli", lambda name: None)
+    for verdict in ("ok", "error", "timeout", "unsupported"):
+        monkeypatch.setattr(
+            doctor, "probe_surface", lambda surface: SimpleNamespace(verdict=verdict)
+        )
+        assert doctor.codex_home_without_codex() == ""

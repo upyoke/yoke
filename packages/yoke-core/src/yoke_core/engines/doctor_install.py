@@ -87,7 +87,7 @@ def harness_auth(manifest, executable: str) -> tuple[bool, str]:
 
 
 def installed_harness_clis() -> dict[str, str]:
-    """Harness id -> CLI path for every supported harness CLI on PATH."""
+    """Harness id -> CLI path from the shared PATH and bundled-executable resolver."""
     return {
         entry.harness_id: entry.path
         for entry in resolve_harness_clis(os.environ.get("PATH"))

@@ -103,7 +103,7 @@ def build_plan(
     # way whether their control plane is local, a team server, or hosted.
     if harness_posture:
         steps.append(harness_unattended_posture.posture_plan_step())
-    # Machine-wide hooks for every installed harness, with or without a project.
+    # Machine-wide hooks for every existing harness home, with or without a project.
     steps.extend(harness_machine_hooks.machine_hooks_plan_steps())
     steps.extend(
         onboard_session_relay.plan_steps(

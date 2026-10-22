@@ -60,7 +60,7 @@ def test_harness_installed_after_yoke_converges_existing_lanes(
 ):
     home, root, lanes = machine
     before = setup.reconcile_harness_setup()
-    assert all(row.outcome == "skipped_not_installed" for row in before.rows)
+    assert all(row.outcome == "skipped_no_home" for row in before.rows)
     assert not any(home.iterdir())
     (home / dirname).mkdir()
     state = relay.reconcile_on_change(path=home / "relay.json", now=100)
@@ -75,9 +75,7 @@ def test_harness_installed_after_yoke_converges_existing_lanes(
     }
     files = {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
     again = setup.reconcile_harness_setup()
-    assert all(
-        row.outcome in ("already_set", "skipped_not_installed") for row in again.rows
-    )
+    assert all(row.outcome in ("already_set", "skipped_no_home") for row in again.rows)
     assert files == {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}
 
 
@@ -195,8 +193,8 @@ def test_global_skill_converges_for_each_installed_harness(machine, monkeypatch)
 
     assert outcomes == {
         "claude-code": "written",
-        "codex": "skipped_not_installed",
-        "cursor": "skipped_not_installed",
+        "codex": "skipped_no_home",
+        "cursor": "skipped_no_home",
     }
     assert (home / ".claude/skills/yoke-global/SKILL.md").is_file()
     again = setup.inspect_harness_setup(paths=[])

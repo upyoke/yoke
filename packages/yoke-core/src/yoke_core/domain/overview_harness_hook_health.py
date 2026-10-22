@@ -2,12 +2,12 @@
 
 Every supported harness surface is answered for, because "we detect nothing
 here" is itself an answer the viewer needs: a surface the machine never
-reported reads ``not_installed`` rather than vanishing from the list.
+reported reads ``not_installed`` (not observed), rather than vanishing.
 
 The status is the meaning; colour is a secondary cue on top of it:
 
 * ``green`` — hook-fed telemetry is present inside the health window
-* ``orange`` — the harness is installed but has no telemetry in that window
+* ``orange`` — installation or configuration is observed without recent telemetry
 * ``red`` — a current session stayed silent past grace, or hook approval is
   explicitly untrusted
 * no colour — nothing is detected for this surface, or a brand-new episode
@@ -42,7 +42,7 @@ STATUS_NOT_INSTALLED = "not_installed"
 
 #: Telemetry older than this is history, not evidence that the installed
 #: surface is currently working. Five-week-old sessions therefore render as
-#: installed-but-idle instead of either green or broken.
+#: history instead of either green or broken.
 HOOK_TELEMETRY_WINDOW = timedelta(days=30)
 
 #: A SessionStart-registered row with no tool telemetry is also what a
@@ -60,6 +60,8 @@ HARNESS_TARGETS: Tuple[Tuple[str, str, str, str], ...] = (
     ("claude-cli", "Claude CLI", "claude-code", MATCH_SURFACE_ALIAS),
     ("codex-cli", "Codex CLI", "codex", MATCH_SURFACE_ALIAS),
     ("cursor-cli", "Cursor CLI", "cursor", MATCH_SURFACE_ALIAS),
+    ("claude-desktop", "Claude Desktop", "claude-code", MATCH_SURFACE_ALIAS),
+    ("codex-desktop", "Codex Desktop", "codex", MATCH_SURFACE_ALIAS),
     ("claude-vscode", "Claude in VS Code", "claude-code", MATCH_SURFACE_ALIAS),
     ("cursor-desktop", "Cursor IDE", "cursor", MATCH_SURFACE_ALIAS),
 )
@@ -214,7 +216,7 @@ def _status(
         return STATUS_INSTALLED_LAST_SEEN
     if _approval(report) == "approved":
         return STATUS_HOOKS_TRUSTED
-    if installed or matched or _report_lists(report):
+    if installed:
         return STATUS_INSTALLED_NEVER_SEEN
     return STATUS_NOT_INSTALLED
 
@@ -268,8 +270,13 @@ def harness_targets(
                 target, str(row.get("executor") or ""), str(row.get("display") or "")
             )
         ]
-        report = _report_for(stored, harness_id)
         surface_installed = _is_installed(target, installed)
+        # Family configuration applies to a surface only when that surface is observed.
+        report = (
+            _report_for(stored, harness_id)
+            if _rule == MATCH_FAMILY or surface_installed or matched
+            else None
+        )
         last_seen = _last_seen_at(matched)
         gate = hook_approval(harness_id)
         unapproved = _approval(report) == "unapproved"

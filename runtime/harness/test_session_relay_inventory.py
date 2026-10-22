@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
+from yoke_cli.config import path_harness_clis as cli_resolution
 
 from yoke_contracts.machine_config.machine_capacity import (
     CAP_SOURCE_DERIVED,
@@ -13,6 +15,17 @@ from yoke_contracts.machine_config.retired_keys import RETIRED_MACHINE_CONFIG_KE
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probe_module
+
+
+def _bundled_manifest(monkeypatch, executable):
+    manifest = next(
+        row for row in cli_resolution.HARNESS_CLI_MANIFESTS if row.executable == "codex"
+    )
+    monkeypatch.setattr(
+        cli_resolution,
+        "HARNESS_CLI_MANIFESTS",
+        (replace(manifest, bundled_candidates=(str(executable),)),),
+    )
 
 
 def _version_script(directory: Path, text: str) -> Path:
@@ -30,8 +43,8 @@ def test_cli_probe_uses_app_bundle_when_command_is_not_on_path(
     monkeypatch, tmp_path: Path
 ) -> None:
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
-    monkeypatch.setattr(probe_module.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
+    monkeypatch.setattr(cli_resolution.shutil, "which", lambda _name, **_kw: None)
+    _bundled_manifest(monkeypatch, bundled)
 
     assert inventory_module.probe_cli_version(("codex", "--version")) == (
         "0.149.0-alpha.4.3"
@@ -41,8 +54,10 @@ def test_cli_probe_uses_app_bundle_when_command_is_not_on_path(
 def test_cli_probe_prefers_path_over_app_bundle(monkeypatch, tmp_path: Path) -> None:
     on_path = _version_script(tmp_path / "path", "codex-cli 1.2.3\n")
     bundled = _version_script(tmp_path / "bundle", "codex-cli 9.9.9\n")
-    monkeypatch.setattr(probe_module.shutil, "which", lambda _name: str(on_path))
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
+    monkeypatch.setattr(
+        cli_resolution.shutil, "which", lambda _name, **_kw: str(on_path)
+    )
+    _bundled_manifest(monkeypatch, bundled)
 
     assert inventory_module.probe_cli_version(("codex", "--version")) == "1.2.3"
 
@@ -50,12 +65,8 @@ def test_cli_probe_prefers_path_over_app_bundle(monkeypatch, tmp_path: Path) -> 
 def test_cli_probe_returns_none_when_path_and_bundle_are_absent(
     monkeypatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(probe_module.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(
-        probe_module,
-        "_CLI_FALLBACKS",
-        {"codex": (tmp_path / "missing-codex",)},
-    )
+    monkeypatch.setattr(cli_resolution.shutil, "which", lambda _name, **_kw: None)
+    _bundled_manifest(monkeypatch, tmp_path / "missing-codex")
 
     assert inventory_module.probe_cli_version(("codex", "--version")) is None
 
@@ -71,8 +82,8 @@ def test_launch_transports_resolve_the_binary_the_probe_advertised(
     from yoke_harness.session_relay_codex_cli import CodexCliTransport
 
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
-    monkeypatch.setattr(probe_module.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
+    monkeypatch.setattr(cli_resolution.shutil, "which", lambda _name, **_kw: None)
+    _bundled_manifest(monkeypatch, bundled)
 
     assert inventory_module.probe_cli_version(("codex", "--version"))
     resolved = CodexCliTransport()._resolve_binary()
@@ -89,8 +100,10 @@ def test_a_standalone_install_on_path_wins_over_the_desktop_bundle(
     # which one ran it.
     standalone = _version_script(tmp_path / "path", "codex-cli 0.150.0\n")
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
-    monkeypatch.setattr(probe_module.shutil, "which", lambda _name: str(standalone))
+    _bundled_manifest(monkeypatch, bundled)
+    monkeypatch.setattr(
+        cli_resolution.shutil, "which", lambda _name, **_kw: str(standalone)
+    )
 
     resolved = inventory_module.resolve_native_cli_source("codex")
 

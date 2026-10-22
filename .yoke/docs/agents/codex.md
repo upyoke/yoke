@@ -72,7 +72,7 @@ The relay runs it when a harness home appears, covering registered checkouts
 and their lanes without reinstalling projects. Absent harness homes are never
 created. A failed facet names its reason and recovery while other facets run;
 the relay records failures and retries after 15 minutes, or immediately when
-the installed-harness list changes again.
+the list of existing harness homes changes again.
 
 **Never wrap `yoke` in a shell loop or command substitution.** An operator
 who allows commands starting with `yoke` is allowing a first word, so

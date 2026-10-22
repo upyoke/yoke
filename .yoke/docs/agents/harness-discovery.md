@@ -251,7 +251,7 @@ repository nested inside it does not. A machine connection or a folder named
 
 Outside managed projects, hooks apply machine safety rules: privacy-database
 protection, literal search quoting and unmatched path globs. Setup writes
-these machine-wide hooks into each installed harness's user config (the
+these machine-wide hooks into each existing harness home's user config (the
 manifest's `machine_hooks` names the file and events); inside a managed
 project they step aside so the project's own hooks run once per event. Project rules
 (such as main-commit and destructive-Git checks) apply inside managed projects.

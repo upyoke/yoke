@@ -24,12 +24,14 @@ MACHINE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
 def _modules(payload=None):
-    outcome = handle_overview_activation_get(FunctionCallRequest(
-        function="overview.activation.get",
-        actor=ActorContext(actor_id=None, session_id=""),
-        target=TargetRef(kind="global"),
-        payload=payload or {},
-    ))
+    outcome = handle_overview_activation_get(
+        FunctionCallRequest(
+            function="overview.activation.get",
+            actor=ActorContext(actor_id=None, session_id=""),
+            target=TargetRef(kind="global"),
+            payload=payload or {},
+        )
+    )
     assert outcome.primary_success, outcome.error
     return {m["key"]: m for m in outcome.result_payload["modules"]}
 
@@ -41,14 +43,15 @@ def _seed_relay(conn, machine_id, hostname):
         "INSERT INTO session_relays (relay_id, actor_id, machine_id, hostname, "
         "surface_versions, project_checkouts, first_seen_at, last_seen_at, "
         "connected_until, state) VALUES (%s, %s, %s, %s, "
-        "'{\"claude-cli\": \"2.1\", \"codex-cli\": \"0.1\"}', '[]', %s, %s, %s, 'active')",
+        '\'{"claude-cli": "2.1", "codex-cli": "0.1"}\', \'[]\', %s, %s, %s, \'active\')',
         (f"machine:{machine_id}", actor, machine_id, hostname, now, now, now),
     )
     conn.commit()
 
 
-def _seed_session(conn, session_id, machine_id, *, executor="claude-code",
-                  surface=None, tool_calls=0):
+def _seed_session(
+    conn, session_id, machine_id, *, executor="claude-code", surface=None, tool_calls=0
+):
     now = iso8601_now()
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, executor_surface, "
@@ -68,7 +71,8 @@ def _health(machine):
     """Coloured targets only; an undetected surface carries no colour."""
     return {
         target["key"]: target["hook_health"]
-        for target in machine["targets"] if target["hook_health"]
+        for target in machine["targets"]
+        if target["hook_health"]
     }
 
 
@@ -76,7 +80,11 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
     _seed_relay(test_db, MACHINE_B, "beta-box")
     _seed_session(
-        test_db, "s-a", MACHINE_A, surface="claude-cli", tool_calls=2,
+        test_db,
+        "s-a",
+        MACHINE_A,
+        surface="claude-cli",
+        tool_calls=2,
     )
 
     modules = _modules()
@@ -115,9 +123,14 @@ def test_a_relay_only_machine_stays_next_up_beside_a_connected_one(test_db):
         "codex-cli": "orange",
     }
     # Every other supported surface still answers, in words.
-    assert {
-        t["key"] for t in beta["targets"] if t["status"] == "not_installed"
-    } == {"cursor", "cursor-cli", "cursor-desktop", "claude-vscode"}
+    assert {t["key"] for t in beta["targets"] if t["status"] == "not_installed"} == {
+        "cursor",
+        "cursor-cli",
+        "cursor-desktop",
+        "claude-vscode",
+        "claude-desktop",
+        "codex-desktop",
+    }
     # Later modules stay locked behind the pending machine.
     assert modules["run_onboard"]["state"] == "not_started"
 
@@ -164,7 +177,9 @@ def test_a_universe_latch_row_for_the_harness_module_is_inert(test_db):
     )
     test_db.commit()
 
-    harness = _modules(payload={"host_facts": {"machine_connected": True}})["connect_harness"]
+    harness = _modules(payload={"host_facts": {"machine_connected": True}})[
+        "connect_harness"
+    ]
 
     assert harness["state"] == "in_progress"
     assert harness["machines"] == []
@@ -172,8 +187,14 @@ def test_a_universe_latch_row_for_the_harness_module_is_inert(test_db):
 
 def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
     _seed_relay(test_db, MACHINE_A, "alpha-box")
-    _seed_session(test_db, "s-a", MACHINE_A, executor="codex", surface="codex-desktop",
-                  tool_calls=4)
+    _seed_session(
+        test_db,
+        "s-a",
+        MACHINE_A,
+        executor="codex",
+        surface="codex-desktop",
+        tool_calls=4,
+    )
     first = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert first["state"] == "activated"
     assert _health(first)["codex"] == "green"
@@ -192,16 +213,18 @@ def test_the_machine_row_answers_for_the_viewer_not_the_universe(test_db):
     _seed_relay(test_db, MACHINE_A, "first-box")
     invitee = seed_human_actor(test_db, "invitee")
     test_db.commit()
-    outcome = handle_overview_activation_get(FunctionCallRequest(
-        function="overview.activation.get",
-        actor=ActorContext(actor_id=str(invitee), session_id=""),
-        target=TargetRef(kind="global"),
-        payload={"host_facts": {"machine_connected": False}},
-    ))
+    outcome = handle_overview_activation_get(
+        FunctionCallRequest(
+            function="overview.activation.get",
+            actor=ActorContext(actor_id=str(invitee), session_id=""),
+            target=TargetRef(kind="global"),
+            payload={"host_facts": {"machine_connected": False}},
+        )
+    )
     assert outcome.primary_success, outcome.error
-    wizard = {
-        m["key"]: m for m in outcome.result_payload["modules"]
-    }["finish_installation_wizard"]
+    wizard = {m["key"]: m for m in outcome.result_payload["modules"]}[
+        "finish_installation_wizard"
+    ]
     row = next(s for s in wizard["submodules"] if s["key"] == "machine_universe")
     # Another actor's connected machine is not the invitee's progress.
     assert row["done"] is False
