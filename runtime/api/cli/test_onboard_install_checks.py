@@ -106,6 +106,8 @@ def test_retry_preserves_shell_changes_and_finish_summary(monkeypatch):
     monkeypatch.setattr(
         "yoke_cli.config.onboard_wizard_finish_flow.machine_finish_lines", lambda _: []
     )
+    assert not any("/example/.profile" in line for line in finish._review_status_lines())
+    finish._review_show_all = True
     assert "Shell file updated: /example/.profile" in finish._review_status_lines()
 
 
