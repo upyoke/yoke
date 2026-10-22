@@ -4,11 +4,43 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from contextlib import contextmanager
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.qa_execution_environment_target import canonical_target
+
+
+@contextmanager
+def qa_ownership_write(conn):
+    """Bound ownership locks without rolling back a caller's earlier writes."""
+    from yoke_core.domain.db_backend import connection_is_postgres
+    from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_TIMEOUT_MS
+    import psycopg
+
+    try:
+        with savepoint(conn, "qa_ownership_write", owns=False):
+            postgres = connection_is_postgres(conn)
+            if postgres:
+                previous = conn.execute(
+                    "SELECT current_setting('lock_timeout')"
+                ).fetchone()[0]
+                conn.execute(
+                    "SELECT set_config('lock_timeout', %s, true)",
+                    (f"{RUN_ROW_LOCK_TIMEOUT_MS}ms",),
+                )
+            yield
+            if postgres:
+                conn.execute(
+                    "SELECT set_config('lock_timeout', %s, true)", (str(previous),)
+                )
+    except (psycopg.errors.LockNotAvailable, psycopg.errors.QueryCanceled):
+        raise ValueError(
+            "qa_ownership_busy: another writer held a QA ownership lock past its bound; "
+            "this attempt was rolled back. Retry the same creation or completion request "
+            "after the current writer finishes"
+        ) from None
 
 
 def transfer_qa_on(
@@ -39,9 +71,26 @@ def transfer_qa_on(
             return True
         key = (str(row["deployment_stage"]), canonical_target(target))
         if key not in shared_moves:
-            shared_moves[key] = projection.attached(
-                key[0], int(shared["plan_id"]), without=remaining, target=target
+            from yoke_core.domain.deployment_qa_takeover_identity import (
+                inherited_target,
             )
+            from yoke_core.domain.deployment_qa_shared_plan_reads import (
+                attaching_members,
+            )
+
+            if inherited_target(conn, old_id, target):
+                # This group already survived exact source/target admission in
+                # the earlier takeover. Its current owner may not have deployed
+                # or frozen composition yet; membership still owns the group.
+                shared_moves[key] = bool(
+                    moving.intersection(
+                        attaching_members(conn, old_id, int(shared["plan_id"]))
+                    )
+                )
+            else:
+                shared_moves[key] = projection.attached(
+                    key[0], int(shared["plan_id"]), without=remaining, target=target
+                )
         return shared_moves[key]
 
     with savepoint(conn, "transfer_deployment_qa", owns=False):

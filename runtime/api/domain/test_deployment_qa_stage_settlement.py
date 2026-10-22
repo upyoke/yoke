@@ -20,7 +20,6 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 )
 from yoke_core.domain.deployment_qa_stage_settlement import (
     continuation_message,
-    settle_execution,
     settle_subject,
 )
 from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_message
@@ -134,59 +133,6 @@ def test_item_review_decision_reaches_the_run_driver(test_db, action):
     notify_driver.assert_called_once()
     assert run_id in notify_driver.call_args.kwargs["idempotency_key"]
     assert "item-qa" in notify_driver.call_args.kwargs["idempotency_key"]
-
-
-def test_settlement_rejects_execution_for_a_different_frozen_target(monkeypatch):
-    subject = {"stage": {"name": "visual-qa"}}
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_stage_contract.deployment_qa_stage_subject",
-        lambda *args, **kwargs: subject,
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_qa_execution_target.deployment_qa_execution_target",
-        lambda *args: {"kind": "run_preview", "revision": "new"},
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_execution_environment_target.target_digest",
-        lambda *args: "expected",
-    )
-    conn = mock.Mock()
-    conn.execute.return_value.fetchone.return_value = {
-        "status": "executing",
-        "current_stage": "visual-qa",
-    }
-    with pytest.raises(ValueError, match="different deployment candidate"):
-        settle_execution(
-            conn,
-            {
-                "id": "execution-old",
-                "state": "completed",
-                "deployment_run_id": "run-frozen",
-                "deployment_stage": "visual-qa",
-                "execution_target_digest": "old",
-            },
-        )
-
-
-def test_replayed_completion_after_stage_advance_does_not_reopen_gate():
-    conn = mock.Mock()
-    conn.execute.return_value.fetchone.return_value = {
-        "status": "executing",
-        "current_stage": "complete",
-    }
-    assert (
-        settle_execution(
-            conn,
-            {
-                "id": "completed-qa",
-                "state": "completed",
-                "deployment_run_id": "run-frozen",
-                "deployment_stage": "visual-qa",
-            },
-        )
-        is None
-    )
-    conn.execute.assert_called_once()
 
 
 def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
@@ -314,8 +260,9 @@ def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
     )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_run_auto_completion.continue_after_settlement",
-        lambda *args, **kwargs: attempts.append(kwargs)
-        or SimpleNamespace(completed=False, failure=failure),
+        lambda *args, **kwargs: (
+            attempts.append(kwargs) or SimpleNamespace(completed=False, failure=failure)
+        ),
     )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_qa_stage_settlement.stage_waiting",

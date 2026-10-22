@@ -146,9 +146,9 @@ def take_over_waiting_run(
     ``apply=False`` projects membership in the provisional transaction.
     The caller must roll it back; no removal audit or settlement is emitted.
     """
-    from yoke_core.domain.db_savepoint import savepoint
+    from yoke_core.domain.deployment_run_qa_transfer import qa_ownership_write
 
-    with savepoint(conn, "take_over_waiting_run", owns=False):
+    with qa_ownership_write(conn):
         return _take_over(
             conn, new_run_id, session_id=session_id, actor_id=actor_id, apply=apply
         )

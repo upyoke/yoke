@@ -118,8 +118,66 @@ def test_shared_execution_keeps_its_exact_group_after_takeover(test_db, monkeypa
     execution = select_plan_execution(test_db, execution["id"], lock=False)
     assert execution["deployment_run_id"] == takeover.NEW
     validate_deployment_execution_target(test_db, execution)
+    from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
+
+    terminalize_run_on(
+        test_db,
+        takeover.NEW,
+        disposition="failed",
+        reason="deployment failed",
+        actor_id=1,
+        session_id=takeover.DRIVER_SESSION,
+    )
+    third = "shared-qa-recovery"
+    test_db.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,target_tier,target_environment_id,"
+        "release_lineage,status,created_at) SELECT %s,project_id,flow,target_tier,"
+        "target_environment_id,%s,'created',created_at FROM deployment_runs WHERE id=%s",
+        (third, "d" * 40, takeover.NEW),
+    )
+    assert (
+        takeover.take_over_waiting_run(
+            test_db,
+            third,
+            session_id=takeover.DRIVER_SESSION,
+        )
+        == takeover.NEW
+    )
+    execution = select_plan_execution(test_db, execution["id"], lock=False)
+    assert execution["deployment_run_id"] == third
+    validate_deployment_execution_target(test_db, execution)
     execution["execution_target"]["deployment"]["shared_plan"]["source_revision"] = (
         "changed"
     )
     with pytest.raises(ValueError, match="qa_execution_target_unowned"):
         validate_deployment_execution_target(test_db, execution)
+
+
+def test_completion_callback_resolves_owner_again_after_its_commit(
+    test_db, monkeypatch
+):
+    from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
+
+    execution = _execution(test_db, monkeypatch)
+    test_db.execute(
+        "UPDATE qa_plan_executions SET state='completed' WHERE id=%s",
+        (execution["id"],),
+    )
+    test_db.commit()
+    # The caller retained a pre-takeover copy across its result commit.
+    stale = {**execution, "deployment_run_id": takeover.OLD, "state": "completed"}
+    seen = []
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_settlement.settle_subject",
+        lambda conn, **kwargs: seen.append(kwargs) or {"outcome": "passed"},
+    )
+    assert settle_execution(test_db, stale) is None
+    assert seen == []  # The successor has not deployed or reached its QA gate.
+    test_db.execute(
+        "UPDATE deployment_runs SET status='executing',current_stage=%s WHERE id=%s",
+        (takeover.RUN_QA_STAGE, takeover.NEW),
+    )
+    assert settle_execution(test_db, stale) == {"outcome": "passed"}
+    assert seen == [
+        {"run_id": takeover.NEW, "stage": takeover.RUN_QA_STAGE, "member": None}
+    ]
