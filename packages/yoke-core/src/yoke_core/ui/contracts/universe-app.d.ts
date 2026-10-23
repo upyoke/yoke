@@ -229,7 +229,7 @@ export interface UniverseRoute {
  */
 export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 12;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 11;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(href: string, basePath?: string): UniverseRoute;
 /** Preserve selection on ordinary host navigation and detail links. Explicit

@@ -284,7 +284,7 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 12 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 11 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,
