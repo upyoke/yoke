@@ -66,7 +66,8 @@ without a code.
 The **Invites** panel sits above People and shows each person, invite kind,
 role, state, expiry and inviter. On Cloud, when the viewer can invite, its
 header also shows **· N seats left** and the invite form adds **This invite
-uses 1 of N seats left.** Pending, expired, revoked and joined rows are grouped in that order,
+uses 1 of N seats left.** At zero the form instead says **No seats left.
+Change plan in Billing, or revoke a pending invite.** Pending, expired, revoked and joined rows are grouped in that order,
 with newest creation time first within a group. **Show used** reveals joined
 rows. An explicit empty role grant is shown as **No role grant**. Older servers
 with incomplete fields show unavailable/upgrade information, never inferred

@@ -67,7 +67,8 @@ On a scope-less page `beforeScope` leads the page, above the view's own content,
 and `inView` follows that content; Team's seat section uses `beforeScope`.
 Team also reads `capabilities.data.team.seatsLeft` once at mount: a
 non-negative integer adds a seats-left count to the Invites header and the
-invite form for people who can invite, and anything else draws no seats line.
+invite form for people who can invite (at 0 the form names Billing and
+revoking a pending invite), and anything else draws no seats line.
 The retired `members` path stays in the route contract and opens Team.
 
 The TypeScript source declares the mount contract version. After changing it,

@@ -94,6 +94,14 @@ test("a host seats-left fact reaches the Invites header and the invite form", as
   assert.equal(headerText(byClass(one.main, "actors-invites")[0]), "Invites· 0· 1 seat left");
 });
 
+test("zero seats left shows the full-seat recovery in the header and the invite form", async () => {
+  const { main, head } = await render({ mode: "hosted", team: { seatsLeft: 0 } });
+  assert.equal(headerText(byClass(main, "actors-invites")[0]), "Invites· 0· 0 seats left");
+  button(head, "Invite").dispatchEvent(new Event("click"));
+  assert.match(main.textContent, /No seats left\. Change plan in Billing, or revoke a pending invite\./);
+  assert.doesNotMatch(main.textContent, /This invite uses/);
+});
+
 test("an absent or malformed seats fact draws no seats line", async () => {
   for (const team of [undefined, null, {}, { seatsLeft: null }, { seatsLeft: -1 }, { seatsLeft: 2.5 }, { seatsLeft: "4" }]) {
     const { main, head } = await render({ mode: "hosted", team });
