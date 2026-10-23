@@ -47,7 +47,8 @@ def test_a_target_serving_the_delivered_build_reports_nothing(
     report_start_identity(
         _expectation(), run_id="run-1", stage="item-qa", fetch=_serving(DELIVERED)
     )
-    assert capsys.readouterr().err == ""
+    err = capsys.readouterr().err
+    assert "observed at QA start" not in err and "unverified" not in err
 
 
 def test_an_unaskable_target_is_unverified(

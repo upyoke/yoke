@@ -73,9 +73,15 @@ def test_real_run_execution_continues_before_successor_deploys(
     current_case = get_case_execution_context(
         test_db, requirement_id=execution["roster"][0]["requirement_id"]
     )
+    from yoke_core.domain.deployment_run_project_sources import run_source_sha
+
+    # Command checkouts follow the current owning run's source.
+    assert current_case["deployment_source_revision"] == run_source_sha(
+        test_db, takeover.NEW, int(current_case["project_id"])
+    )
     assert (
         current_case["deployment_source_revision"]
-        == execution["roster"][0]["deployment_source_revision"]
+        != execution["roster"][0]["deployment_source_revision"]
     )
     from yoke_core.domain.browser_qa_deployment_identity import (
         resolve_run_pinned_source,

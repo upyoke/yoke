@@ -78,18 +78,17 @@ def _transferred_requirements(
 def _merge_contained(conn: Any, run_id: str, item_id: int, project_id: int) -> bool:
     """Whether the run's pinned source provably contains the item's merge."""
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
-    from yoke_core.domain.deployment_run_candidate_containment import (
-        CONTAINED,
-        CandidateContainment,
-    )
+    from yoke_core.domain import deployment_run_candidate_containment as containment
     from yoke_core.domain.deployment_run_project_sources import run_source_sha
 
     merge = item_merge_identity(conn, item_id)
     lineage = run_source_sha(conn, run_id, project_id)
     if not merge or not lineage:
         return False
-    containment = CandidateContainment(conn, project_id, candidate_lineage=lineage)
-    return containment.contains(merge).state == CONTAINED
+    verdict = containment.candidate_contains_commit(
+        conn, project_id, candidate_lineage=lineage, commit_sha=merge
+    )
+    return verdict.state == containment.CONTAINED
 
 
 def notify_member_qa_failure(
