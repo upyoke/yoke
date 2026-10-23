@@ -2,9 +2,9 @@
 
 The merge boundary refuses a branch whose blocking verification does not cover
 the exact commit it would merge. One refusal class is recoverable rather than
-terminal — a passing run bound to no commit, or to an older one — so the
-proof is re-established here and re-checked before the landing route is
-selected.
+terminal — a passing run bound to no commit, or any concluded case run on an
+older one — so the proof is re-established here and re-checked before the
+landing route is selected.
 
 Kept apart from the boundary that sequences close-out because it runs only for
 a lane that still has something to land: a branch the base already contains is
@@ -43,7 +43,8 @@ def proof_check(
     """Read-only QA proof answer. Returns ``(blocker, merge_will_note)``.
 
     Proof bound only to an older commit of this lane is not a blocker: the
-    merge re-binds it in :func:`verify_and_land`. Anything else is.
+    merge re-binds it or re-runs its case in :func:`verify_and_land`.
+    Anything else is.
     """
     qa_item = item_for_merge_phase(
         item, leaves_status_unchanged=bool(args.skip_status)
@@ -58,8 +59,8 @@ def proof_check(
     )
     if not eval_error and commit_bound.is_commit_bound_refusal(issues):
         return "", (
-            "re-bind passing QA proof recorded for an older commit of this "
-            "lane to the merging commit"
+            "re-run or re-bind QA recorded for an older commit of this lane "
+            "against the merging commit"
         )
     return qa_error, ""
 

@@ -120,6 +120,8 @@ def _issue_for_requirement(
     completed_at = requirement.get("completed_at")
     if completed_at is not None:
         completed_at = parse_instant(completed_at)
+    run_sha = str(requirement.get("recorded_head_sha") or "").strip()
+    older_run = bool(run_sha) and run_sha not in set(accepted_shas)
     if verdict != "pass" or completed_at is None:
         actual = str(
             requirement.get("case_outcome")
@@ -127,12 +129,14 @@ def _issue_for_requirement(
             or verdict
             or "pending"
         ).strip()
+        rerun_for_head = bool(completed_at and older_run and requirement.get("method_id"))
         reason = str(requirement.get("verdict_reason") or "").strip()
         reason_text = f"; reason: {reason}" if verdict == "undetermined" else ""
         return BlockingRequirementIssue(
             requirement_id,
-            "incomplete",
-            f"latest run #{run_id} concluded {actual!r}{reason_text}, not completed success",
+            "stale-sha" if rerun_for_head else "incomplete",
+            f"latest run #{run_id} concluded {actual!r}{reason_text}"
+            + (f" on older commit {run_sha[:12]}" if rerun_for_head else ", not completed success"),
             recovery,
         )
     if requirement.get("current_passing_proof") is False:
@@ -148,8 +152,7 @@ def _issue_for_requirement(
                 requirement_id, "subject-unproven", issue, recovery
             )
         return None
-    run_sha = str(requirement.get("recorded_head_sha") or "").strip()
-    if run_sha not in set(accepted_shas) or not run_sha:
+    if older_run or not run_sha:
         return BlockingRequirementIssue(
             requirement_id,
             "stale-sha",
@@ -327,15 +330,13 @@ def terminal_transition_result(
     errors = requirement_issue_errors(
         issues, public_ref=public_ref, target_status=target_status
     )
-    return (
-        {
-            "success": False,
-            "error_code": "GATE_QA_TERMINAL_VERDICT",
-            "error": "\n".join(errors),
-        }
-        if errors
-        else None
-    )
+    if not errors:
+        return None
+    return {
+        "success": False,
+        "error_code": "GATE_QA_TERMINAL_VERDICT",
+        "error": "\n".join(errors),
+    }
 
 
 __all__ = [

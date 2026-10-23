@@ -1,8 +1,8 @@
 """Recover a merge preflight that only lacks a commit-bound QA verdict.
 
 Missing or stale ``verification_tree.head_sha`` on an otherwise passing
-blocking run is recoverable only when the proof can be produced for the
-candidate: stamp methodless hand acceptance onto the merging commit, or
+blocking run, or a concluded case run on an older commit, is recoverable only
+when the proof can be produced for the candidate: stamp methodless hand acceptance onto the merging commit, or
 re-execute SHA-bound Command cases against the lane head. Method-backed
 substrate evidence keeps its runner authority and refuses with its supported
 recovery path instead of being rebound by the merge.

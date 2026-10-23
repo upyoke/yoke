@@ -37,7 +37,6 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     requirement_id = str(requirement.get("id") or "<unknown>")
     case_command = f"yoke qa case run --requirement-id {requirement_id}"
     method_id = str(requirement.get("method_id") or "")
-    source = str(requirement.get("requirement_source") or "")
     if not method_id:
         qa_kind = str(requirement.get("qa_kind") or "ac_verification")
         return (
@@ -60,8 +59,6 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
         '"<the commit that run verified>"}} -- prose is stored verbatim, '
         "leaves the head SHA unreadable, and this gate refuses again"
     )
-    if source == "flow_derived" and method_id == "command-ci":
-        return evidence_instruction
     if method_id != "command-ci":
         return f"Run `{case_command}`"
     from yoke_core.domain.qa_method_config_validation import (
