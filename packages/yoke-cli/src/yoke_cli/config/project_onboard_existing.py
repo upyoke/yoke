@@ -240,7 +240,6 @@ def onboard_existing(
             github_auth_target=github_auth_target,
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
-            register_mapping=True,
             persist_sync_mode=persist_sync_mode,
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,

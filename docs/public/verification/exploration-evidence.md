@@ -107,7 +107,12 @@ cannot take over this cleanup path.
 A walk creates Yoke projects only by installing them on the Test Machine, and
 `walk-end` disposes of them on a finished or aborted walk, before it restores the host or releases a cleanup lease. It reads the host's
 `~/.yoke/config.json`, force-removes each mapped checkout's linked worktrees
-and runs `yoke project uninstall` there. A checkout already removed from the
+and runs `yoke project uninstall` there. Onboarding records the checkout
+mapping as soon as the project is created or selected, before binding or
+scaffold installation can fail. A failed install without an installed layer
+is still discovered: uninstall enforces a clean checkout and exclusive mapping
+before removing only that registration. It preserves source files and never
+infers ownership of an existing `.yoke` directory without a manifest. A checkout already removed from the
 host settles as `checkout_absent`; an existing but unreadable checkout still
 blocks cleanup. Then
 `test_machine.mission.dispose_projects`, which refuses an ended execution,

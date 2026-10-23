@@ -88,7 +88,7 @@ def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed
     assert {p: p.read_bytes() for p in other_files} == other_files
     assert all(entry.get("trust_key") != str(root) for entry in ledger.read())
     assert not git(root, "status", "--porcelain")
-    with pytest.raises(files.ProjectInstallError, match="no install manifest"):
+    with pytest.raises(files.ProjectInstallError, match="project_uninstall_registration_missing"):
         uninstall(root, config_path=config)
 
 

@@ -41,13 +41,18 @@ def finish_after_dispatch(
     scaffold_action: str,
     reuse_github_auth: bool,
     clone_outcome: Any | None = None,
-    register_mapping: bool = False,
     persist_sync_mode: bool = False,
     service_api_url: str | None = None,
     local_connection_selected: bool = False,
 ) -> dict[str, Any]:
     project = project_from_result(result)
     project_id = int(project["id"])
+    wrote_mapping = project_mapping_needs_write(root, project_id, config_path)
+    if wrote_mapping:
+        with onboard_apply_progress.step(
+            progress, "project-checkout-register", str(root)
+        ):
+            register_project_mapping_if_needed(root, project_id, config_path)
     binding_result = (
         None
         if reuse_github_auth
@@ -65,89 +70,47 @@ def finish_after_dispatch(
         )
     )
     if clone_outcome is not None and clone_outcome.github_repo:
-        project = {**project, "github_repo": clone_outcome.github_repo,
-                   "default_branch": clone_outcome.branch or project.get("default_branch")}
+        project = {
+            **project,
+            "github_repo": clone_outcome.github_repo,
+            "default_branch": clone_outcome.branch or project.get("default_branch"),
+        }
     if binding_result and binding_result.get("binding"):
         binding = dict(github_adoption.get("binding") or {})
         binding["status"] = str(binding_result["binding"])
         if binding_result.get("permission_status"):
             binding["permission_status"] = dict(binding_result["permission_status"])
         github_adoption["binding"] = binding
-    mapping_needed = project_mapping_needs_write(root, project_id, config_path)
-    wrote_mapping = register_mapping and mapping_needed
-    if wrote_mapping:
-        with onboard_apply_progress.step(
-            progress,
-            "project-checkout-register",
-            str(root),
-        ):
-            register_project_mapping_if_needed(root, project_id, config_path)
-        mapping_needed = False
-    elif mapping_needed:
-        onboard_apply_progress.emit(
-            progress,
-            "project-checkout-register",
-            str(root),
-            "running",
-        )
-    try:
-        install = install_runner.install(
-            root,
-            project_id=project_id,
-            config_path=config_path,
-            operation=install_operation(scaffold_action),
-            # Reviewed apply; the folder may be a just-cloned or
-            # just-inited tree with leftover install dirt.
-            force=True,
-            # Onboarding owns final publication after install convergence.
-            publish_skip_reason=publication_outcome.DEFERRED_REASON,
-            # The mapping onboarding just wrote is this install's to retire.
-            owns_registration=wrote_mapping,
-        )
-        # Onboarding leaves the operator with a checkout whose layer is on the
-        # remote, not one carrying an unpushed commit they never made.
-        onboard_apply_progress.emit(
-            progress, onboard_publication.PLAN_ACTION, "", "running"
-        )
-        install["publication"] = publication.publish_onboarded_layer(
-            root,
-            install,
-            default_branch=str((install.get("checkout") or {}).get("branch") or ""),
-        )
-        onboard_apply_progress.emit(
-            progress,
-            onboard_publication.PLAN_ACTION,
-            "",
-            onboard_publication.step_status(install["publication"]),
-        )
-        publication_outcome.announce(install)
-    except Exception:
-        if mapping_needed:
-            onboard_apply_progress.emit(
-                progress,
-                "project-checkout-register",
-                str(root),
-                "failed",
-            )
-        raise
-    if mapping_needed:
-        try:
-            if not install.get("machine_config_newly_registered"):
-                register_project_mapping_if_needed(root, project_id, config_path)
-        except Exception:
-            onboard_apply_progress.emit(
-                progress,
-                "project-checkout-register",
-                str(root),
-                "failed",
-            )
-            raise
-        onboard_apply_progress.emit(
-            progress,
-            "project-checkout-register",
-            str(root),
-            "done",
-        )
+    install = install_runner.install(
+        root,
+        project_id=project_id,
+        config_path=config_path,
+        operation=install_operation(scaffold_action),
+        # Reviewed apply; the folder may be a just-cloned or
+        # just-inited tree with leftover install dirt.
+        force=True,
+        # Onboarding owns final publication after install convergence.
+        publish_skip_reason=publication_outcome.DEFERRED_REASON,
+        # The mapping onboarding just wrote is this install's to retire.
+        owns_registration=wrote_mapping,
+    )
+    # Onboarding leaves the operator with a checkout whose layer is on the
+    # remote, not one carrying an unpushed commit they never made.
+    onboard_apply_progress.emit(
+        progress, onboard_publication.PLAN_ACTION, "", "running"
+    )
+    install["publication"] = publication.publish_onboarded_layer(
+        root,
+        install,
+        default_branch=str((install.get("checkout") or {}).get("branch") or ""),
+    )
+    onboard_apply_progress.emit(
+        progress,
+        onboard_publication.PLAN_ACTION,
+        "",
+        onboard_publication.step_status(install["publication"]),
+    )
+    publication_outcome.announce(install)
     return applied_report(
         operation,
         root,
@@ -189,7 +152,6 @@ def install_existing_project(
             scaffold_action=scaffold_action,
             reuse_github_auth=reuse_github_auth,
             clone_outcome=clone_outcome,
-            register_mapping=True,
             persist_sync_mode=True,
             service_api_url=service_api_url,
             local_connection_selected=local_connection_selected,

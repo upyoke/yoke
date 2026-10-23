@@ -37,7 +37,6 @@ from yoke_cli.project_install.files import (
     MODE_COPY,
     MODE_KEY,
     MODE_SOURCE_LINK,
-    ProjectInstallError,
 )
 from yoke_cli.project_install.source_dev import (
     is_yoke_source_checkout,
@@ -61,10 +60,11 @@ def uninstall(
     root = files_layer.resolve_repo_root(repo_root)
     manifest = files_layer.load_manifest(root)
     if manifest is None:
-        raise ProjectInstallError(
-            f"no install manifest at {files_layer.manifest_path(root)}; "
-            "nothing to uninstall (run `yoke project install` first)"
+        from yoke_cli.project_install.registration_only_uninstall import (
+            uninstall_registration,
         )
+
+        return uninstall_registration(root, path=config_path)
     manifest_mode = manifest.get(MODE_KEY, MODE_COPY)
     if manifest_mode == MODE_SOURCE_LINK or is_yoke_source_checkout(root):
         raise source_link_uninstall_refusal(root)
