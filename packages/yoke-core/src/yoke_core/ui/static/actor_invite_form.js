@@ -128,8 +128,10 @@ export function openInviteForm(context, slot, options) {
   details.appendChild(el(doc, "p", "actors-muted", email
     ? `They sign in as themselves with ${method}. No code is needed.`
     : "You'll get a one-time code to send them. It expires in 24 hours."));
-  if (seatsLeft) details.appendChild(el(doc, "p", "actors-muted",
-    `This invite uses 1 of ${seatsLeft} ${seatsLeft === 1 ? "seat" : "seats"} left.`));
+  // At zero the host refuses the invite, so the form names that recovery up front.
+  if (seatsLeft !== null) details.appendChild(el(doc, "p", "actors-muted", seatsLeft === 0
+    ? "No seats left. Change plan in Billing, or revoke a pending invite."
+    : `This invite uses 1 of ${seatsLeft} ${seatsLeft === 1 ? "seat" : "seats"} left.`));
   const status = liveStatus(doc, "actors-muted");
   const error = el(doc, "p", "error");
   error.setAttribute("role", "alert");

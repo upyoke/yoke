@@ -9,7 +9,8 @@ export interface UniverseTeamHost {
     /**
      * Seats the organization can still fill, a non-negative integer. When the
      * viewer can invite, the Invites header shows it and the invite form says
-     * the invite uses one of them. Absent or `null` means the host has no seat
+     * the invite uses one of them; at 0 the form says no seats are left and
+     * names Billing and revoking a pending invite as the way out. Absent or `null` means the host has no seat
      * limit to report.
      */
     readonly seatsLeft?: number | null;
