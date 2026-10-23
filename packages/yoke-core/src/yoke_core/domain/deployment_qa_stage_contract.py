@@ -53,7 +53,7 @@ def _object(raw: Any, *, subject: str) -> dict[str, Any]:
 
 
 def _run_stage(
-    conn: Any, run_id: str, stage_name: str, *, require_active: bool = True
+    conn: Any, run_id: str, stage_name: str, *, require_active: bool = False
 ) -> dict[str, Any]:
     from yoke_core.domain.deployment_qa_presentation_facts import run_facts
 
@@ -92,7 +92,7 @@ def _item_qa_not_open(run, run_id, stage_name) -> QaStageNotOpen:
     )
 
 
-def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = True):
+def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = False):
     if run is None:
         raise LookupError(f"deployment run {run_id!r} not found")
     if int(run["definition_schema_version"] or 1) != RELEASE_POLICY_SCHEMA_VERSION:
@@ -122,19 +122,25 @@ def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = True)
         raise ValueError(f"deployment stage {stage_name!r} is not a pinned QA stage")
     # Readiness before the snapshot: an unfrozen successor has a null snapshot,
     # and parsing it first surfaces a raw JSON error instead of the wait.
+    # Inherited QA reads a cancelled predecessor through _run_stage without
+    # require_active, so that path still parses a frozen snapshot.
     pending = run.get("composition_frozen_at") is None
-    inactive = require_active and (
-        str(run["status"]) != "executing"
-        or str(run.get("current_stage") or "") != stage_name
+    not_at_stage = str(run.get("current_stage") or "") != stage_name
+    status = str(run["status"] or "")
+    not_opened = pending or (
+        not_at_stage and status in {"", "created", "executing"}
     )
-    if (pending or inactive) and str(stage.get("scope") or "") == "item":
-        if require_active:
-            raise _item_qa_not_open(run, run_id, stage_name)
+    if (
+        require_active
+        and not_opened
+        and str(stage.get("scope") or "") == "item"
+    ):
+        raise _item_qa_not_open(run, run_id, stage_name)
     if pending:
         raise ValueError(
             "deployment run composition is not frozen; freeze it before scoped QA"
         )
-    if inactive:
+    if require_active and (status != "executing" or not_at_stage):
         raise ValueError(
             f"deployment run {run_id!r} is {run['status']!r} at stage "
             f"{str(run.get('current_stage') or '')!r}; scoped QA writes require "

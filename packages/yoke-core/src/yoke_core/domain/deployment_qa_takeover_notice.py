@@ -48,7 +48,7 @@ def notify_moved_member_qa(
         ).fetchone()
         if item is None:
             raise ValueError(
-                f"moved_member_qa_notice_failed: item {item_id} disappeared "
+                "moved_member_qa_notice_failed: a moved member disappeared "
                 f"during takeover onto {new_id}; retry the creation"
             )
         project_id = int(item["project_id"] if hasattr(item, "keys") else item[0])
