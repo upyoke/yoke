@@ -238,7 +238,7 @@ def test_overlapping_host_sets_never_deadlock(test_db, tmp_path, monkeypatch):
     test_db.commit()
 
 
-def test_stage_settles_after_every_partition_and_wakes_each_time(
+def test_stage_stays_open_until_every_live_partition_settles(
     test_db, tmp_path, monkeypatch
 ):
     _seed(test_db, tmp_path, monkeypatch, TWO_HOSTS)
@@ -251,10 +251,8 @@ def test_stage_settles_after_every_partition_and_wakes_each_time(
         assert not deployment_qa_stage_status(
             test_db, run_id=RUN, stage_name="item-qa", member_item_id=member
         )["accepted"]
-    assert {row["session_id"] for row in _notices(test_db, first)} == {
-        "member-9901",
-        "member-9902",
-    }
+    # The other partition is still live, so neither member can act on this wake.
+    assert _notices(test_db, first) == []
     _complete_case(test_db, lock_plan_execution(test_db, second["id"]))
     for member in MEMBERS:
         assert deployment_qa_stage_status(
