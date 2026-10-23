@@ -6,5 +6,5 @@
  "commands": ["yoke qa plan list", "yoke sessions list", "yoke steering report get"],
  "functions": ["qa.plan.list", "sessions.list", "steering.report.get"],
  "position": 0,
- "summary": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; narrow the read or use --full for complete human detail."
+ "summary": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has, or --full for complete human detail."
 }

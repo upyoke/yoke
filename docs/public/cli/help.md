@@ -48,8 +48,9 @@ placement, model and registered-session columns. Read one launch with
 `yoke session-control launch get LAUNCH-ID --full`.
 
 An unusually large registered human read over 28,000 UTF-8 bytes refuses with
-`read_output_limit_exceeded` before printing any partial answer. Narrow its
-fields or page, or add `--full` to print the complete human reply. This safety
+`read_output_limit_exceeded` before printing any partial answer. Its hint names
+the field, filter, limit and paging flags that command really has; narrow with
+those, or add `--full` to print the complete human reply. This safety
 net does not apply to writes, JSON or deliberate machine formats.
 
 Suggested root/category/command targets of 40/80/120 lines and
