@@ -60,21 +60,33 @@ def case_payload(parsed):
     return result
 
 
-def configure_case_replace(parser: argparse.ArgumentParser) -> None:
+def configure_case_replace(
+    parser: argparse.ArgumentParser, *, source_revision_help: str | None = None
+) -> None:
     parser.epilog = PLAN_CASES_REPLACE_EPILOG
     parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.add_argument(
         "--plan-id",
         type=int,
         required=True,
+        metavar="N",
         help="QA plan whose cases to replace.",
     )
     parser.add_argument(
         "--source-revision",
-        help="Full merged source SHA from the case exporter; binds release QA to this revision.",
+        metavar="FULL_SHA",
+        help=source_revision_help
+        or (
+            "Full SHA of the merged commit the cases were exported from; "
+            "release QA is then tied to that commit."
+        ),
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--cases-file", help="JSON file with the full case list.")
+    source.add_argument(
+        "--cases-file",
+        metavar="PATH",
+        help="JSON file with the full case list, or the exporter's document.",
+    )
     source.add_argument(
         "--stdin",
         action="store_true",

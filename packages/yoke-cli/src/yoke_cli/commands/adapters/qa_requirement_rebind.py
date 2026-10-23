@@ -13,11 +13,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.commands.text_file import (
-    add_stdin_flag,
-    add_text_file_pair,
-    resolve_one_text_source,
-)
+from yoke_cli.commands.text_file import add_stdin_flag, resolve_one_text_source
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 
@@ -27,25 +23,26 @@ QA_REQUIREMENT_REBIND_TARGET_USAGE = (
     "[--session-id S] [--json]"
 )
 
-_EPILOG = (
-    "Point a requirement at the live declaration of the environment it "
-    "already exercised, keeping its recorded runs and verdict. That is the "
-    "same environment identity after a settings write that moved the digest "
-    "without changing resolved host authority, or a snapshot whose "
-    "endpoints already match the resolved environment while its site or "
-    "other identity labels are stale. A scheme-only hosts.* correction is "
-    "in; a host that now resolves to a different netloc is a different "
-    "target and this command refuses. The result reports the endpoint "
-    "delta and stores the previous execution_target_json so a later reader "
-    "can see what moved. It is not a waiver and not re-verification. A "
-    "live item requirement cannot be superseded; this is its path. The "
-    "environment row is the snapshot's environment id, else the "
-    "requirement's own target_env on the snapshot's (or plan target's) "
-    "site, else the plan's default target, else the snapshot's site and "
-    "environment names. The caller holds the item work claim, a live "
-    "steering seat covering the item, or is the live driver of the "
-    "requirement's run."
-)
+_EPILOG = """\
+Point a QA case at the current declaration of the environment it already
+tested, keeping its recorded runs and verdict. Use it when the environment
+is the same but its stored fingerprint (digest) is stale: a settings write
+changed the digest without changing which host it resolves to, or the
+snapshot's endpoints already match while its site or other labels are out
+of date. A change of URL scheme alone (in hosts.*) is the same environment;
+a host that now resolves to a different host and port is a different
+target, and the command refuses. The result shows what changed in the
+endpoints and keeps the previous target (execution_target_json) for later
+readers. This is not a waiver and not a new verification. A live item's QA
+case cannot be superseded, so this is how to update it.
+
+The environment used is the snapshot's environment id; else the case's own
+target_env on the snapshot's (or the plan target's) site; else the plan's
+default target; else the snapshot's site and environment names.
+
+Run it from the session holding the item's work claim, a live steering seat
+covering the item, or the live driver of the case's deployment run.
+"""
 
 
 def _write_rebind_result(
@@ -87,18 +84,23 @@ def qa_requirement_rebind_target(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The qa_requirements.id whose stored target digest is stale.",
+        metavar="N",
+        help="QA requirement id whose stored target digest is stale.",
     )
     rationale_group = parser.add_mutually_exclusive_group(required=True)
-    add_text_file_pair(
-        rationale_group,
+    rationale_group.add_argument(
         "--rationale",
-        "--content-file",
         dest="rationale",
-        help_text="Why the stored evidence still answers this environment.",
-        file_help="Read the rebind rationale from a path.",
+        metavar="TEXT",
+        help="Why the stored evidence still applies to this environment.",
     )
-    add_stdin_flag(rationale_group, help_text="Read the rebind rationale from stdin.")
+    rationale_group.add_argument(
+        "--content-file",
+        dest="rationale_file",
+        metavar="PATH",
+        help="Read the rationale from this file.",
+    )
+    add_stdin_flag(rationale_group, help_text="Read the rationale from stdin.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_REBIND_TARGET_USAGE)

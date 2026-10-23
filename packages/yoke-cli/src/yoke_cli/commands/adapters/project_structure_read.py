@@ -17,7 +17,7 @@ from yoke_cli.transport.human_values import write_human
 
 PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE = (
     "yoke project-structure deploy-defaults get --project NAME "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 _DEPLOY_DEFAULTS_GET_HELP_DEEP = """\
@@ -27,13 +27,6 @@ means the project has no default flow configured.
 Worked example:
 
   yoke project-structure deploy-defaults get --project yoke
-
-Flag matrix:
-
-  flag          required  value shape
-  --project     yes       project slug or id
-  --session-id  no        opaque session id (operator-debug)
-  --json        no        flag (typed envelope on stdout)
 
 Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 """
@@ -46,7 +39,9 @@ def project_structure_deploy_defaults_get(args: List[str]) -> int:
         description=_DEPLOY_DEFAULTS_GET_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project slug or id."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -74,7 +69,8 @@ def project_structure_deploy_defaults_get(args: List[str]) -> int:
 
 
 PROJECT_STRUCTURE_GET_USAGE = (
-    "yoke project-structure get --project NAME [--family F] [--session-id S] [--json]"
+    "yoke project-structure get --project NAME [--family F] [--full] "
+    "[--session-id S] [--json]"
 )
 
 _GET_HELP_DEEP = """\
@@ -83,14 +79,6 @@ Read the Project Structure tree, or one family slice.
 Worked example:
 
   yoke project-structure get --project platform --family test_roots
-
-Flag matrix:
-
-  flag          required  value shape
-  --project     yes       project slug or id
-  --family      no        family id (omit for the whole tree)
-  --session-id  no        opaque session id (operator-debug)
-  --json        no        flag (typed envelope on stdout)
 
 Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 """
@@ -103,8 +91,15 @@ def project_structure_get(args: List[str]) -> int:
         description=_GET_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
-    parser.add_argument("--family", default=None, help="Optional family slice.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project slug or id."
+    )
+    parser.add_argument(
+        "--family",
+        default=None,
+        metavar="F",
+        help="Show only this family, e.g. test_roots (default: the whole tree).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_STRUCTURE_GET_USAGE)
@@ -129,7 +124,7 @@ def project_structure_get(args: List[str]) -> int:
 
 ARCHITECTURE_HEALTH_GET_USAGE = (
     "yoke project-structure architecture-health get --project NAME "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 _ARCHITECTURE_HEALTH_HELP_DEEP = """\
@@ -154,7 +149,9 @@ def architecture_health_get(args: List[str]) -> int:
         description=_ARCHITECTURE_HEALTH_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project slug or id."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ARCHITECTURE_HEALTH_GET_USAGE)
@@ -204,7 +201,7 @@ def architecture_health_get(args: List[str]) -> int:
 
 ARCHITECTURE_DRAFT_GET_USAGE = (
     "yoke project-structure architecture-draft get --project NAME "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 _ARCHITECTURE_DRAFT_HELP_DEEP = """\
@@ -231,7 +228,9 @@ def architecture_draft_get(args: List[str]) -> int:
         description=_ARCHITECTURE_DRAFT_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project slug or id."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ARCHITECTURE_DRAFT_GET_USAGE)

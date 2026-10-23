@@ -21,7 +21,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 PROJECTS_CAPABILITIES_LIST_USAGE = (
-    "yoke projects capabilities list [--project P] [--session-id S] [--json]"
+    "yoke projects capabilities list [--project P] [--full] [--session-id S] [--json]"
 )
 
 
@@ -33,6 +33,7 @@ def projects_capabilities_list(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help="Project whose capabilities to list.",
     )
     add_session_arg(parser)

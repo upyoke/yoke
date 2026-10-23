@@ -27,20 +27,21 @@ from yoke_contracts.item_content_sections import (
 
 ITEMS_OVERVIEW_LIST_USAGE = (
     "yoke items overview list [--project P] [--projects P,Q] [--limit N] "
-    "[--relevance overview] [--search TEXT] [--workflow W] [--status S] "
-    "[--page-size N] [--cursor C] [--sort-column C] [--sort-direction D] [--json]"
+    "[--relevance overview] [--search TEXT] [--workflow W] [--status STATUS] "
+    "[--page-size N] [--cursor C] [--sort-column COLUMN] [--sort-direction asc|desc] "
+    "[--full] [--session-id S] [--json]"
 )
 ITEMS_OVERVIEW_LIST_DESCRIPTION = (
-    "List workflow-aware item rows for the unified roster. Naming any of "
-    "--projects, --search, --workflow, --status, --page-size, --sort-column, --sort-direction, or --cursor "
-    "selects the paged roster read, which requires --page-size and returns "
-    "match_count plus next_cursor; naming none of them keeps the unpaged "
-    "shape. --relevance overview reads the Overview relevance window and "
-    "cannot be combined with the paged inputs."
+    "List item rows with their workflow stage, as the item roster shows them. "
+    "Naming any of --projects, --search, --workflow, --status, --page-size, "
+    "--sort-column, --sort-direction or --cursor makes this a paged read: it "
+    "requires --page-size and returns match_count and next_cursor. Naming none "
+    "of them returns one unpaged list. --relevance overview reads only the "
+    "items the Overview page shows and cannot be combined with the paged flags."
 )
 ITEMS_DETAIL_GET_USAGE = (
-    "yoke items detail get ITEM [--project P] "
-    "[--include narrative,body,progress_log] [--full] [--json]"
+    "yoke items detail get PREFIX-N [--project P] "
+    "[--include SECTIONS] [--full] [--session-id S] [--json]"
 )
 ITEMS_DETAIL_GET_DESCRIPTION = (
     "Read compact item status, workflow and lane facts. Name content sections "
@@ -71,14 +72,17 @@ _OVERVIEW_INT_FIELDS = ("limit", "page_size")
 def items_overview_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items overview list",
+        usage=ITEMS_OVERVIEW_LIST_USAGE,
         description=ITEMS_OVERVIEW_LIST_DESCRIPTION,
     )
     parser.add_argument(
         "--project",
-        help="Single project slug or ref to scope the read to.",
+        metavar="P",
+        help="One project slug or id to read.",
     )
     parser.add_argument(
         "--projects",
+        metavar="P,Q",
         help=(
             "Comma-separated project slugs or refs (paged read). Use "
             "instead of --project to scope one page to several projects."
@@ -87,10 +91,12 @@ def items_overview_list(args: List[str]) -> int:
     parser.add_argument(
         "--limit",
         type=int,
-        help="Cap on rows for the unpaged read.",
+        metavar="N",
+        help="Most rows to return in the unpaged read.",
     )
     parser.add_argument(
         "--relevance",
+        metavar="overview",
         help=(
             "Pass 'overview' to read the Overview relevance window instead "
             "of full history."
@@ -98,10 +104,12 @@ def items_overview_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "--search",
-        help="Free-text roster search (paged read).",
+        metavar="TEXT",
+        help="Free-text search (paged read).",
     )
     parser.add_argument(
         "--workflow",
+        metavar="W",
         help="Filter the page to one workflow id (paged read).",
     )
     parser.add_argument(
@@ -112,20 +120,26 @@ def items_overview_list(args: List[str]) -> int:
         "--page-size",
         dest="page_size",
         type=int,
+        metavar="N",
         help=(
-            "Rows per roster page. Required whenever any other paged input "
+            "Rows per page. Required whenever any other paged input "
             "is named; the read names the accepted range when it refuses."
         ),
     )
     parser.add_argument(
         "--cursor",
+        metavar="C",
         help=(
-            "Opaque next_cursor from the previous page's response, to read "
+            "The next_cursor value from the previous page's response, to read "
             "the following page."
         ),
     )
-    parser.add_argument("--sort-column", help="Roster column to sort (paged read).")
-    parser.add_argument("--sort-direction", help="asc or desc (paged read).")
+    parser.add_argument(
+        "--sort-column", metavar="COLUMN", help="Column to sort by (paged read)."
+    )
+    parser.add_argument(
+        "--sort-direction", metavar="asc|desc", help="asc or desc (paged read)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_OVERVIEW_LIST_USAGE)
@@ -157,15 +171,18 @@ def items_overview_list(args: List[str]) -> int:
 def items_detail_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items detail get",
+        usage=ITEMS_DETAIL_GET_USAGE,
         description=ITEMS_DETAIL_GET_DESCRIPTION,
     )
-    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--project",
+        metavar="P",
         help="Project that owns the item; default: resolved from the item.",
     )
     parser.add_argument(
         "--include",
+        metavar="SECTIONS",
         help=(
             "Comma-separated content sections to serve in full: "
             f"{', '.join(DETAIL_INCLUDE_SECTIONS)}. Replaces the default "
@@ -176,7 +193,10 @@ def items_detail_get(args: List[str]) -> int:
     parser.add_argument(
         "--full",
         action="store_true",
-        help="Serve every content section, whatever --include names.",
+        help=(
+            "Serve every field, every content section and the full workflow "
+            "instructions, whatever --include names."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)

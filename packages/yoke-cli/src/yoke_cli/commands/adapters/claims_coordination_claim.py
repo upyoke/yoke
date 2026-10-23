@@ -18,11 +18,11 @@ from yoke_contracts.coordination_claim_keys import QA_HOST_KEY_PREFIX
 
 CLAIMS_COORDINATION_CLAIM_LIST_USAGE = (
     "yoke coordination-claim list [--project P] "
-    "[--key K] [--session-id S] [--item N] [--active-only] [--json]"
+    "[--key K] [--session-id S] [--item PREFIX-N] [--active-only] [--full] [--json]"
 )
 CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE = (
     "yoke claims coordination-claim acquire --project P --key K "
-    "[--reason TEXT] [--item N] [--json]"
+    "[--reason TEXT] [--item PREFIX-N] [--json]"
 )
 CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE = (
     "yoke claims coordination-claim release (--project P --key K | "
@@ -82,17 +82,21 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
             "rerun this same command, which takes the reserved turn."
         ),
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
-    parser.add_argument("--key", required=True, help="Coordination key.")
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project slug or id."
+    )
+    parser.add_argument("--key", required=True, metavar="K", help="Coordination key.")
     parser.add_argument(
         "--reason",
         default=None,
+        metavar="TEXT",
         help="Why this session is taking the claim.",
     )
     parser.add_argument(
         "--item",
         default=None,
-        help="Owning item id, for the kinds whose scope records one.",
+        metavar="PREFIX-N",
+        help="Item that owns the claim, for key kinds that record one.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -132,15 +136,14 @@ def claims_coordination_claim_release(args: List[str]) -> int:
             "need passes it on."
         ),
     )
-    parser.add_argument("--project", default=None, help="Project slug or id.")
-    parser.add_argument("--key", default=None, help="Coordination key.")
+    parser.add_argument("--project", default=None, metavar="P", help="Project slug or id.")
+    parser.add_argument("--key", default=None, metavar="K", help="Coordination key.")
     parser.add_argument(
-        "--claim-id",
-        type=int,
-        default=None,
-        help="Claim row id.",
+        "--claim-id", type=int, default=None, metavar="N", help="The claim's id."
     )
-    parser.add_argument("--reason", required=True, help="Why it is released.")
+    parser.add_argument(
+        "--reason", required=True, metavar="TEXT", help="Why the claim is released."
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser,
@@ -189,21 +192,28 @@ def claims_coordination_claim_operator_release(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", default=None, help="Project slug or id; omit for QA_HOST keys."
+        "--project",
+        default=None,
+        metavar="P",
+        help="Project slug or id; omit for QA_HOST keys.",
     )
-    parser.add_argument("--key", required=True, help="Coordination key.")
+    parser.add_argument("--key", required=True, metavar="K", help="Coordination key.")
     parser.add_argument(
         "--claim-id",
         required=True,
         type=int,
-        help="Exact active claim row reviewed by the operator.",
+        metavar="N",
+        help="Id of the active claim you reviewed.",
     )
     parser.add_argument(
         "--holder-session-id",
         required=True,
-        help="Exact current holder session reviewed by the operator.",
+        metavar="S",
+        help="Session id of the claim's holder, as you reviewed it.",
     )
-    parser.add_argument("--reason", required=True, help="Audited operator reason.")
+    parser.add_argument(
+        "--reason", required=True, metavar="R", help="Why you are releasing it; recorded."
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, OPERATOR_RELEASE_USAGE)
     if parsed is None:
@@ -231,17 +241,21 @@ def claims_coordination_claim_list(args: List[str]) -> int:
         usage=CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
         epilog="QA_HOST:<machine> keys are machine-scoped; --project does not filter them.",
     )
-    parser.add_argument("--project", default=None, help="Project slug or id.")
-    parser.add_argument("--key", default=None, help="Filter to one coordination key.")
+    parser.add_argument("--project", default=None, metavar="P", help="Project slug or id.")
+    parser.add_argument(
+        "--key", default=None, metavar="K", help="Filter to one coordination key."
+    )
     parser.add_argument(
         "--session-id",
         default=None,
+        metavar="S",
         help="Filter to claims held by this session.",
     )
     parser.add_argument(
         "--item",
         default=None,
-        help="Filter to claims owned by this item id.",
+        metavar="PREFIX-N",
+        help="Filter to claims owned by this item.",
     )
     parser.add_argument(
         "--active-only",

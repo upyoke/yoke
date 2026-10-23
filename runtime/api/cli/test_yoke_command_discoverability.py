@@ -89,7 +89,7 @@ def test_space_separated_hyphenated_family_resolves(capsys) -> None:
             ),
             (
                 "yoke direct-workflow dash survey ITEM (--path PATH",
-                "yoke direct-workflow conflict-survey status ITEM",
+                "yoke direct-workflow conflict-survey status PREFIX-N",
             ),
         ),
     ],

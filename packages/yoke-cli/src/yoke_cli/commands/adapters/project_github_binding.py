@@ -23,34 +23,42 @@ from yoke_cli.commands.adapters.project_github_sync_mode import (
 
 
 PROJECTS_GITHUB_BINDING_BIND_USAGE = (
-    "yoke projects github-binding bind --project NAME --installation-id ID "
-    "--repository-id ID --github-repo OWNER/REPO [--json]"
+    "yoke projects github-binding bind --project P --installation-id ID "
+    "--repository-id ID --github-repo OWNER/REPO [--session-id S] [--json]"
 )
 PROJECTS_GITHUB_BINDING_UNBIND_USAGE = (
-    "yoke projects github-binding unbind --project NAME [--json]"
+    "yoke projects github-binding unbind --project P [--session-id S] [--json]"
 )
 PROJECTS_GITHUB_BINDING_STATUS_USAGE = (
-    "yoke projects github-binding status --project NAME [--field github_repo] [--json]"
+    "yoke projects github-binding status --project P [--field github_repo] [--full] "
+    "[--session-id S] [--json]"
 )
 PROJECTS_GITHUB_BINDING_CHECK_USAGE = (
-    "yoke projects github-binding check --project NAME [--json]"
+    "yoke projects github-binding check --project P [--session-id S] [--json]"
 )
-_PROJECT_HELP = "Project whose GitHub binding to use."
+_PROJECT_HELP = "Project slug or id."
 
 
 def projects_github_binding_bind(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects github-binding bind",
         usage=PROJECTS_GITHUB_BINDING_BIND_USAGE,
+        description=(
+            "Bind the project to one GitHub repository through the GitHub App. "
+            "Uses your GitHub App user authorization; run `yoke github connect` "
+            "first if you have not."
+        ),
     )
-    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument("--project", required=True, metavar="P", help=_PROJECT_HELP)
     parser.add_argument(
-        "--installation-id", required=True, help="GitHub App installation id."
+        "--installation-id", required=True, metavar="ID", help="GitHub App installation id."
     )
     parser.add_argument(
-        "--repository-id", required=True, help="Numeric GitHub repository id."
+        "--repository-id", required=True, metavar="ID", help="Numeric GitHub repository id."
     )
-    parser.add_argument("--github-repo", required=True, help="Repo as OWNER/REPO.")
+    parser.add_argument(
+        "--github-repo", required=True, metavar="OWNER/REPO", help="Repo as OWNER/REPO."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -103,7 +111,7 @@ def projects_github_binding_unbind(args: List[str]) -> int:
         prog="yoke projects github-binding unbind",
         usage=PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
     )
-    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument("--project", required=True, metavar="P", help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -126,11 +134,12 @@ def projects_github_binding_status(args: List[str]) -> int:
         prog="yoke projects github-binding status",
         usage=PROJECTS_GITHUB_BINDING_STATUS_USAGE,
     )
-    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument("--project", required=True, metavar="P", help=_PROJECT_HELP)
     parser.add_argument(
         "--field",
         choices=("github_repo",),
         default=None,
+        metavar="github_repo",
         help="Print only this field's value.",
     )
     add_session_arg(parser)
@@ -160,7 +169,7 @@ def projects_github_binding_check(args: List[str]) -> int:
         ),
         usage=PROJECTS_GITHUB_BINDING_CHECK_USAGE,
     )
-    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument("--project", required=True, metavar="P", help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

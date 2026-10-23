@@ -35,12 +35,14 @@ __all__ = [
 ]
 
 
-ITEMS_FREEZE_USAGE = "yoke items freeze <PREFIX-N> [--session-id S] [--json]"
-ITEMS_THAW_USAGE = "yoke items thaw <PREFIX-N> [--session-id S] [--json]"
+ITEMS_FREEZE_USAGE = "yoke items freeze <PREFIX-N> [--project P] [--session-id S] [--json]"
+ITEMS_THAW_USAGE = "yoke items thaw <PREFIX-N> [--project P] [--session-id S] [--json]"
 ITEMS_BLOCK_USAGE = (
-    "yoke items block <PREFIX-N> --reason TEXT [--session-id S] [--json]"
+    "yoke items block <PREFIX-N> --reason TEXT [--project P] [--session-id S] [--json]"
 )
-ITEMS_UNBLOCK_USAGE = "yoke items unblock <PREFIX-N> [--session-id S] [--json]"
+ITEMS_UNBLOCK_USAGE = (
+    "yoke items unblock <PREFIX-N> [--project P] [--session-id S] [--json]"
+)
 
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "items.freeze.run": ITEMS_FREEZE_USAGE,
@@ -80,7 +82,10 @@ def _build_parser(prog: str, usage: str, description: str) -> argparse.ArgumentP
         description=f"{description}{_CLAIM_NOTE}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item id (PREFIX-N).")
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project that owns the item."
+    )
     return parser
 
 
@@ -209,15 +214,15 @@ than refusing. Refuses a done item. The reason is written before the
 flag, so a failure between the two writes never leaves a half-applied
 block — no reader surfaces a reason without the flag.
 
-Item-level `blocked` is unrelated to `path_claims.state='blocked'`,
-which is a coordination state on a single path-claim row owned by the
-path-claim activation flow.
+Item-level `blocked` is unrelated to a path claim in the blocked state,
+which only says that claim is waiting on paths another claim holds.
 """,
     )
     parser.add_argument(
         "--reason",
         required=True,
-        help="Why the item is blocked. Stored verbatim in items.blocked_reason.",
+        metavar="TEXT",
+        help="Why the item is blocked. Stored exactly as given.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -247,8 +252,8 @@ Clear an item's blocked flag and its recorded reason, returning it to
 active dispatch in its preserved lifecycle status. Unblocking an item
 that is not blocked is a reported no-op.
 
-Path-claim coordination state is independent by design and is not
-released here; use the path-claim CLI surface for that.
+Path claims are separate and are not changed here; use
+`yoke claims path` for those.
 """,
     )
     add_session_arg(parser)

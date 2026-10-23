@@ -23,27 +23,32 @@ def build_setup_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev setup",
         description=(
-            "Plan or apply Yoke source-dev/admin setup. This is the only "
-            "command that owns source-link repair, editable install bootstrap, "
-            "and local-postgres admin connector entries."
+            "Plan, or with --yes apply, setup for developing Yoke from source. "
+            "It is the only command that repairs the source link, bootstraps "
+            "the editable install, and writes local Postgres admin connections."
         ),
     )
     parser.add_argument(
         "checkout_or_dsn",
         nargs="?",
         default=None,
+        metavar="CHECKOUT",
         help="Source checkout path, or a DSN; default checkout: current directory.",
     )
-    parser.add_argument("dsn_value", nargs="?", default=None, help="Admin DSN.")
+    parser.add_argument(
+        "dsn_value", nargs="?", default=None, metavar="DSN", help="Admin DSN."
+    )
     parser.add_argument(
         "--config",
         dest="config_path",
         default=None,
+        metavar="PATH",
         help=_CONFIG_HELP,
     )
     parser.add_argument(
         "--admin-env",
         dest="env_name",
+        metavar="ENV",
         default=dev_setup_config.DEFAULT_ADMIN_ENV,
         help="Name of the admin connection to write.",
     )
@@ -59,11 +64,14 @@ def build_setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use the local test Postgres instead of a DSN you supply.",
     )
-    parser.add_argument("--postgres-host", default=None, help="Postgres host name.")
+    parser.add_argument(
+        "--postgres-host", default=None, metavar="HOST", help="Postgres host name."
+    )
     parser.add_argument(
         "--postgres-port",
         type=int,
         default=None,
+        metavar="PORT",
         help="Postgres port number.",
     )
     _add_tunnel_args(parser)
@@ -86,24 +94,26 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev db-admin setup",
         description=(
-            "Plan or apply a machine-local db-admin Postgres profile from "
-            "DB-backed deploy-environment infrastructure. By default it "
-            "reaches the Yoke control-plane database, whose identity is read "
-            "through a named tenant-routed HTTPS control plane; --database "
-            "MODEL reaches the project's own database declared under that "
-            "model of its migration_model capability instead. Endpoint and "
-            "managed-secret authority come from Pulumi without materializing "
-            "the secret value."
+            "Plan, or with --yes save, a local admin Postgres connection profile "
+            "for one deploy environment. By default the profile reaches the Yoke "
+            "control-plane database, whose identity is checked through a named "
+            "HTTPS control-plane connection. With --database MODEL it reaches "
+            "the project's own database declared for that model in its "
+            "migration_model capability. The endpoint and managed secret come "
+            "from Pulumi; the secret value is never written out."
         ),
     )
-    parser.add_argument("env_name", help="Deploy environment to reach, such as prod.")
     parser.add_argument(
-        "--project", default=None, help="Project that owns the environment."
+        "env_name", metavar="ENV", help="Deploy environment to reach, such as prod."
+    )
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project that owns the environment."
     )
     parser.add_argument(
         "--config",
         dest="config_path",
         default=None,
+        metavar="PATH",
         help=_CONFIG_HELP,
     )
     parser.add_argument(
@@ -118,26 +128,30 @@ def build_db_admin_setup_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--admin-env",
         default=None,
+        metavar="NAME",
         help="Name of the profile to write; default: derived from ENV.",
     )
     parser.add_argument(
         "--local-port",
         type=int,
         default=None,
+        metavar="PORT",
         help="Local port for the SSH forward; default: one per environment.",
     )
     parser.add_argument(
         "--secret-name",
         default=None,
+        metavar="NAME",
         help="Managed secret holding the DSN; default: derived from project and ENV.",
     )
     parser.add_argument(
         "--control-plane-env",
         default=None,
+        metavar="CONNECTION",
         help=(
-            "Named HTTPS connection used for tenant-routed current_database() "
-            "identity or the --database declaration read (defaults to ENV "
-            "only when that connection is HTTPS)."
+            "Named HTTPS connection used to confirm the database identity or "
+            "to read the --database declaration (default: ENV, only when ENV "
+            "is an HTTPS connection)."
         ),
     )
     parser.add_argument("--set-active-env", action="store_true", help=_ACTIVE_HELP)

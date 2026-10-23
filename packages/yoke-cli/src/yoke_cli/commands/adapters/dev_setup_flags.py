@@ -29,9 +29,9 @@ def _looks_like_postgres_dsn(value: str) -> bool:
 
 
 def _add_secret_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--dsn", dest="dsn", default=None, help="Admin DSN.")
+    parser.add_argument("--dsn", metavar="DSN", dest="dsn", default=None, help="Admin DSN.")
     parser.add_argument(
-        "--dsn-file", dest="dsn_file", default=None, help="File that holds the DSN."
+        "--dsn-file", metavar="PATH", dest="dsn_file", default=None, help="File that holds the DSN."
     )
     parser.add_argument(
         "--dsn-stdin",
@@ -43,16 +43,16 @@ def _add_secret_args(parser: argparse.ArgumentParser) -> None:
 
 def _add_tunnel_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--tunnel-bastion", default=None, help="SSH bastion, as USER@HOST."
+        "--tunnel-bastion", metavar="USER@HOST", default=None, help="SSH bastion, as USER@HOST."
     )
     parser.add_argument(
-        "--tunnel-identity-file", default=None, help="SSH key file for the bastion."
+        "--tunnel-identity-file", metavar="PATH", default=None, help="SSH key file for the bastion."
     )
     parser.add_argument(
-        "--tunnel-remote-host", default=None, help="Postgres host behind the bastion."
+        "--tunnel-remote-host", metavar="HOST", default=None, help="Postgres host behind the bastion."
     )
     parser.add_argument(
-        "--tunnel-remote-port",
+        "--tunnel-remote-port", metavar="PORT",
         type=int,
         default=None,
         help="Postgres port behind the bastion.",
@@ -61,21 +61,21 @@ def _add_tunnel_args(parser: argparse.ArgumentParser) -> None:
 
 def _add_authority_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--authority-kind",
+        "--authority-kind", metavar="KIND",
         default=None,
         help="Kind of infrastructure that owns the DSN.",
     )
     parser.add_argument(
-        "--authority-infra-dir", default=None, help="Infrastructure directory to read."
+        "--authority-infra-dir", metavar="DIR", default=None, help="Infrastructure directory to read."
     )
     parser.add_argument(
-        "--authority-stack", default=None, help="Infrastructure stack name."
+        "--authority-stack", metavar="STACK", default=None, help="Infrastructure stack name."
     )
     parser.add_argument(
-        "--authority-region", default=None, help="Cloud region of the stack."
+        "--authority-region", metavar="REGION", default=None, help="Cloud region of the stack."
     )
     parser.add_argument(
-        "--authority-database-name", default=None, help="Database name in the stack."
+        "--authority-database-name", metavar="NAME", default=None, help="Database name in the stack."
     )
 
 

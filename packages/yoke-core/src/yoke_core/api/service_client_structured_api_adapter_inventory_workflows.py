@@ -15,28 +15,28 @@ WORKFLOW_ADAPTERS = [
     read_entry(
         function_id="workflows.definition.get",
         cli_invocation=(
-            "yoke workflows definition get [--project P] [--session-id S] [--json]"
+            "yoke workflows definition get [--project P] [--full] [--session-id S] [--json]"
         ),
         notes="Reads authoritative immutable workflow definitions and current selection.",
     ),
     read_entry(
         function_id="workflows.version.get",
         cli_invocation=(
-            "yoke workflows version get WORKFLOW VERSION [--session-id S] [--json]"
+            "yoke workflows version get WORKFLOW VERSION [--full] [--session-id S] [--json]"
         ),
         notes="Reads one immutable version, including its complete definition.",
     ),
     read_entry(
         function_id="workflows.version.list",
         cli_invocation=(
-            "yoke workflows version list [WORKFLOW] [--session-id S] [--json]"
+            "yoke workflows version list [WORKFLOW] [--full] [--session-id S] [--json]"
         ),
         notes="Lists published immutable versions, optionally for one workflow.",
     ),
     read_entry(
         function_id="workflows.item.get",
         cli_invocation=(
-            "yoke workflows item get ITEM [--project P] [--session-id S] [--json]"
+            "yoke workflows item get PREFIX-N [--project P] [--full] [--session-id S] [--json]"
         ),
         notes="Inspects the immutable workflow version pinned by an item.",
     ),
@@ -62,8 +62,7 @@ WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="workflows.item.migrate",
         cli_invocation=(
-            "yoke workflows item migrate ITEM [--version N] [--preview] "
-            "[--project P] [--session-id S] [--json]"
+            "yoke workflows item migrate PREFIX-N [--version N] [--preview] [--project P] [--session-id S] [--json]"
         ),
         notes="Previews or migrates an existing item to another published version.",
     ),
@@ -145,46 +144,41 @@ WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="workflow.execution_instruction.create",
         cli_invocation=(
-            "yoke workflow execution-instruction create "
-            "(--content C | --stdin) [--json]"
+            "yoke workflow execution-instruction create (--content TEXT | --stdin) [--before-creation | --no-before-creation] [--on-every-read | --no-on-every-read] [--when-entering-stage | --no-when-entering-stage] [--stage-bucket BUCKET ... | --clear-stage-buckets] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="workflow.execution_instruction.update",
         cli_invocation=(
-            "yoke workflow execution-instruction update ID "
-            "(--content C | --stdin) [--json]"
+            "yoke workflow execution-instruction update ID (--content TEXT | --stdin) [--before-creation | --no-before-creation] [--on-every-read | --no-on-every-read] [--when-entering-stage | --no-when-entering-stage] [--stage-bucket BUCKET ... | --clear-stage-buckets] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="workflow.execution_instruction.set_scope",
         cli_invocation=(
-            "yoke workflow execution-instruction set-scope ID "
-            "[--all-workflows] [--workflow W ...] "
-            "[--all-projects] [--project-id N ...] "
-            "[--before-creation | --no-before-creation] "
-            "[--on-every-read | --no-on-every-read] "
-            "[--when-entering-stage | --no-when-entering-stage] "
-            "[--stage-bucket B ... | --clear-stage-buckets] [--json]"
+            "yoke workflow execution-instruction set-scope ID [--all-workflows] [--workflow W ...] [--all-projects] [--project-id N ...] [--before-creation | --no-before-creation] [--on-every-read | --no-on-every-read] [--when-entering-stage | --no-when-entering-stage] [--stage-bucket BUCKET ... | --clear-stage-buckets] [--session-id S] [--json]"
         ),
         notes="Replaces the instruction's workflow and project bindings.",
     ),
     read_entry(
         function_id="workflow.execution_instruction.resolve",
         cli_invocation=(
-            "yoke workflow execution-instruction resolve "
-            "--workflow W --project P [--delivery-point POINT] [--stage-bucket B] [--full] [--json]"
+            "yoke workflow execution-instruction resolve --workflow W --project P [--delivery-point POINT] [--stage-bucket BUCKET] [--full] [--session-id S] [--json]"
         ),
         notes="Only instructions matching the named workflow and project.",
     ),
     read_entry(
         function_id="workflow.execution_instruction.list",
-        cli_invocation="yoke workflow execution-instruction list [--json]",
+        cli_invocation=(
+            "yoke workflow execution-instruction list [--full] [--session-id S] [--json]"
+        ),
         notes="Every instruction with its workflow/project scope.",
     ),
     AdapterEntry(
         function_id="workflow.execution_instruction.delete",
-        cli_invocation="yoke workflow execution-instruction delete ID [--json]",
+        cli_invocation=(
+            "yoke workflow execution-instruction delete ID [--session-id S] [--json]"
+        ),
     ),
 ]
 

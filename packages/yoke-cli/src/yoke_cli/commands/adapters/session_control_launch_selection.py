@@ -113,7 +113,9 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         parse_context_window_tokens,
     )
 
-    parser.add_argument("--project", required=True, help="Project to launch in.")
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project to launch in."
+    )
     parser.add_argument(
         "--level",
         default=None,
@@ -127,6 +129,7 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--surface",
         default=None,
         dest="executor_surface",
+        metavar="SURFACE",
         help="Use this surface. On an item-bound create without --model, "
         "choose an option at the item stage level on this surface; "
         "omit effort/context knobs in that form. With --model, launch the "
@@ -139,9 +142,14 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         metavar="NAME",
         help="Registered name or machine id (`yoke machine list`).",
     )
-    parser.add_argument("--model", default=None, help="Model; needs --surface.")
     parser.add_argument(
-        "--reasoning-effort", default=None, help="Reasoning effort; needs --surface."
+        "--model", default=None, metavar="MODEL", help="Model; needs --surface."
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        default=None,
+        metavar="EFFORT",
+        help="Reasoning effort; needs --surface.",
     )
     parser.add_argument(
         "--context-window",
@@ -155,6 +163,14 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--allow-surface-fallback",
         action="store_true",
         help="Use another surface when no relay serves the named one.",
+    )
+    # maybe_list_models answers --list-models before this parser runs; it is
+    # declared here so the help page lists it.
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="Print the models each surface offers (with --surface, that "
+        "surface only) and exit without launching.",
     )
 
 

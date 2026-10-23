@@ -29,7 +29,8 @@ __all__ = [
 
 
 ITEMS_DEPENDENCY_LIST_USAGE = (
-    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--session-id S] [--json]"
+    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--full] [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -41,13 +42,15 @@ def items_dependency_list(args: List[str]) -> int:
     parser.add_argument(
         "--item",
         default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
         "item_positional",
         nargs="?",
         default=None,
-        help="Item id positional (alternative to --item).",
+        metavar="PREFIX-N",
+        help="Item id (PREFIX-N). Alternative to --item.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -74,7 +77,7 @@ ITEMS_DEPENDENCY_ADD_USAGE = (
     "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "(--rationale TEXT | --rationale-file PATH) "
-    "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
+    "[--evidence JSON | --evidence-file PATH] [--project P] [--session-id S] [--json]"
 )
 
 _EXISTING_EDGE_HELP = """Existing edge:
@@ -204,7 +207,7 @@ ITEMS_DEPENDENCY_UPDATE_USAGE = (
     "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "[--rationale TEXT | --rationale-file PATH] [--source SOURCE] "
-    "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
+    "[--evidence JSON | --evidence-file PATH] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -222,10 +225,16 @@ def items_dependency_update(args: List[str]) -> int:
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
     parser.add_argument(
-        "--match-gate-point", default=None, help="Gate point of the edge to update."
+        "--match-gate-point",
+        default=None,
+        metavar="POINT",
+        help="Gate point of the edge to update.",
     )
     parser.add_argument(
-        "--gate-point", default=None, help="New gate point for the edge."
+        "--gate-point",
+        default=None,
+        metavar="POINT",
+        help="New gate point for the edge.",
     )
     parser.add_argument(
         "--satisfaction",
@@ -294,7 +303,8 @@ def items_dependency_update(args: List[str]) -> int:
 
 
 ITEMS_DEPENDENCY_REMOVE_USAGE = (
-    "yoke items dependency remove <dependent> <blocking> [--session-id S] [--json]"
+    "yoke items dependency remove <dependent> <blocking> [--project P] "
+    "[--session-id S] [--json]"
 )
 
 

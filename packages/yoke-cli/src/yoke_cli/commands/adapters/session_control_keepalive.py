@@ -21,10 +21,11 @@ from yoke_contracts.session_control.keepalive import (
 
 SESSION_KEEPALIVE_HOLD_USAGE = (
     "yoke sessions keepalive hold SESSION-ID --reason R "
-    f"[--seconds N (default {DEFAULT_KEEPALIVE_SECONDS}, "
-    f"max {MAX_KEEPALIVE_SECONDS})] [--json]"
+    "[--seconds N] [--session-id S] [--json]"
 )
-SESSION_KEEPALIVE_RELEASE_USAGE = "yoke sessions keepalive release SESSION-ID [--json]"
+SESSION_KEEPALIVE_RELEASE_USAGE = (
+    "yoke sessions keepalive release SESSION-ID [--session-id S] [--json]"
+)
 
 _HOLD_DESCRIPTION = (
     "Hold one live session against idle reaping until the lease expires. A "
@@ -85,13 +86,16 @@ def session_keepalive_hold(args: List[str]) -> int:
     parser.add_argument(
         "--reason",
         required=True,
+        metavar="R",
         help="Why the session must stay alive.",
     )
     parser.add_argument(
         "--seconds",
         type=int,
         default=DEFAULT_KEEPALIVE_SECONDS,
-        help="How long to hold, in seconds; default: %(default)s.",
+        metavar="N",
+        help="How long to hold, in seconds; default: %(default)s, "
+        f"most: {MAX_KEEPALIVE_SECONDS}.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

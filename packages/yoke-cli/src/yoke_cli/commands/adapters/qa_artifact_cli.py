@@ -35,28 +35,33 @@ def qa_artifact_add(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The run's owning qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id the run belongs to.",
     )
     parser.add_argument(
-        "--run-id", dest="run_id", type=int, required=True, help="Owning qa_runs.id."
+        "--run-id", dest="run_id", type=int, required=True, metavar="N",
+        help="Id of the QA run to attach the file to.",
     )
     parser.add_argument(
         "--artifact-type",
         dest="artifact_type",
         required=True,
-        help="Artifact type (e.g. screenshot).",
+        metavar="TYPE",
+        help="Kind of evidence, e.g. screenshot.",
     )
     parser.add_argument(
         "--content-type",
         dest="content_type",
         default=None,
-        help="MIME content type (e.g. image/png).",
+        metavar="CT",
+        help="MIME content type, e.g. image/png.",
     )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument(
         "--artifact-handle",
         dest="artifact_handle",
         default=None,
+        metavar="JSON",
         help=(
             "Typed handle JSON naming where the evidence lives: "
             '{"backend":"s3","bucket":B,"key":K} for uploaded '
@@ -71,22 +76,25 @@ def qa_artifact_add(args: List[str]) -> int:
         "--content-base64",
         dest="content_base64",
         default=None,
-        help="Inline evidence bytes (base64). Requires --filename.",
+        metavar="B64",
+        help="Evidence bytes, base64-encoded. Requires --filename.",
     )
     source.add_argument(
         "--content-file",
         dest="content_file",
         default=None,
-        help="Read a local file and send it as content_base64.",
+        metavar="PATH",
+        help="Read this local file and upload its bytes.",
     )
     parser.add_argument(
         "--filename",
         default=None,
-        help="Single-segment filename for inline content (required with "
-        "--content-base64; defaults to the file name with --content-file).",
+        metavar="NAME",
+        help="File name with no directory part. Required with --content-base64; "
+        "with --content-file it defaults to that file's name.",
     )
     parser.add_argument(
-        "--metadata", default=None, help="Optional metadata JSON string."
+        "--metadata", default=None, metavar="JSON", help="Extra metadata as a JSON string."
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -137,7 +145,7 @@ def qa_artifact_add(args: List[str]) -> int:
 
 QA_ARTIFACT_PRESIGN_USAGE = (
     "yoke qa artifact presign --requirement-id N --run-id N "
-    "--filename NAME [--content-type CT] [--session-id S] [--json]"
+    "--filename NAME [--content-type CT] [--full] [--session-id S] [--json]"
 )
 
 
@@ -151,23 +159,29 @@ def qa_artifact_presign(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The run's owning qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id the run belongs to.",
     )
     parser.add_argument(
         "--run-id",
         dest="run_id",
         type=int,
         required=True,
-        help="Owning qa_runs.id (keys the S3 object).",
+        metavar="N",
+        help="Id of the QA run the upload belongs to; it names the S3 key.",
     )
     parser.add_argument(
-        "--filename", required=True, help="Artifact filename (single path segment)."
+        "--filename",
+        required=True,
+        metavar="NAME",
+        help="File name for the upload, with no directory part.",
     )
     parser.add_argument(
         "--content-type",
         dest="content_type",
         default=None,
-        help="MIME content type for the upload (e.g. image/png).",
+        metavar="CT",
+        help="MIME content type for the upload, e.g. image/png.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

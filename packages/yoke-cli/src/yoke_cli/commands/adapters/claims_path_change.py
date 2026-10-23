@@ -28,9 +28,9 @@ from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 CLAIM_PATH_WIDEN_USAGE = (
     "yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... "
     "--reason TEXT --item PREFIX-N [--allow-planned] "
-    "[--directory-paths PATH1,PATH2,...] "
+    "[--directory-paths PATH1,PATH2,...] [--integration-target BRANCH] "
     "[(--db-claim-json JSON | --db-claim-file PATH)] "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 CLAIM_PATH_AMEND_USAGE = (
     "yoke claims path amend --claim-id N "
@@ -38,7 +38,7 @@ CLAIM_PATH_AMEND_USAGE = (
     "--reason TEXT --item PREFIX-N [--integration-target BRANCH] "
     "[--allow-planned] [--directory-paths PATH1,PATH2,...] "
     "[(--db-claim-json JSON | --db-claim-file PATH)] "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 
 
@@ -90,43 +90,42 @@ def _claims_path_change(
         usage=usage,
         epilog=AMEND_NARROW_HELP if function_id == "claims.path.amend" else None,
     )
-    parser.add_argument("--claim-id", required=True, help="path_claims.id to change.")
+    parser.add_argument("--claim-id", required=True, metavar="N", help="The claim's id.")
+    paths = "PATH1,PATH2,..."
+    add_help = "Comma-separated repo-relative paths to add."
     if function_id == "claims.path.amend":
         path_group = parser.add_mutually_exclusive_group(required=True)
-        path_group.add_argument(
-            "--add-paths",
-            help="Comma-separated list of repo-relative paths to add.",
-        )
+        path_group.add_argument("--add-paths", metavar=paths, help=add_help)
         path_group.add_argument(
             "--remove-paths",
-            help="Comma-separated declared paths to remove.",
+            metavar=paths,
+            help="Comma-separated claimed paths to remove.",
         )
+        target_help = "The claim's integration branch; required with --remove-paths."
     else:
         parser.add_argument(
-            "--add-paths",
-            required=True,
-            help="Comma-separated list of repo-relative paths to add.",
+            "--add-paths", required=True, metavar=paths, help=add_help
         )
-    parser.add_argument("--reason", required=True, help="Reason for the change.")
+        target_help = "Not used when only adding paths; accepted and ignored."
     parser.add_argument(
-        "--item",
-        required=True,
-        help="Owning item id (PREFIX-N).",
+        "--reason", required=True, metavar="TEXT", help="Reason for the change."
+    )
+    parser.add_argument(
+        "--item", required=True, metavar="PREFIX-N", help="Item that owns the claim."
     )
     parser.add_argument(
         "--allow-planned",
         action="store_true",
-        help="Permit coverage over not-yet-committed paths.",
+        help="Allow added paths that are not committed yet.",
     )
     parser.add_argument(
         "--directory-paths",
         default=None,
-        help="Comma-separated subset of --add-paths that are directory targets.",
+        metavar=paths,
+        help="Which of the --add-paths entries are directories.",
     )
     parser.add_argument(
-        "--integration-target",
-        default=None,
-        help="Claim integration branch; required when removing paths.",
+        "--integration-target", metavar="BRANCH", help=target_help
     )
     db_claim_group = parser.add_mutually_exclusive_group()
     add_text_file_pair(
@@ -134,8 +133,8 @@ def _claims_path_change(
         "--db-claim-json",
         "--db-claim-file",
         dest="db_claim_json",
-        help_text="Full unified DB-claim amendment as a JSON object.",
-        file_help="Read the unified DB-claim amendment from a JSON file.",
+        help_text="Database-claim amendment, as a JSON object.",
+        file_help="Read the database-claim amendment from a JSON file.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

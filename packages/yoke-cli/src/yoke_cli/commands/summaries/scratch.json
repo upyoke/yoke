@@ -1,6 +1,6 @@
 {
-  "scratch": "Find scratch file locations.",
-  "scratch dispatch": "Find dispatch input files.",
-  "scratch dispatch inputs": "Print the path of an item's dispatch inputs file.",
-  "scratch dispatch-inputs": "Print the path of an item's dispatch inputs file."
+  "scratch": "Find scratch folders for agent work.",
+  "scratch dispatch": "Find the folder that holds dispatch inputs.",
+  "scratch dispatch inputs": "Create and print an item's dispatch inputs folder.",
+  "scratch dispatch-inputs": "Create and print an item's dispatch inputs folder."
 }

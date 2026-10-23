@@ -11,25 +11,25 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="files.upload",
-        cli_invocation="yoke files upload LOCAL_FILE [--path DEST] [--project P]",
+        cli_invocation=(
+            "yoke files upload LOCAL_FILE [--path DEST/PATH.ext] [--project P] [--session-id S] [--json]"
+        ),
         notes="stores a shared file and prints its stable read URL",
     ),
     AdapterEntry(
         function_id="projects.retire",
-        cli_invocation="yoke projects retire --project P --reason TEXT",
+        cli_invocation=("yoke projects retire --project P --reason TEXT [--json]"),
         notes="hides an obligation-free project while preserving history",
     ),
     AdapterEntry(
         function_id="projects.unretire",
-        cli_invocation="yoke projects unretire --project P",
+        cli_invocation=("yoke projects unretire --project P [--json]"),
         notes="restores a retired project to active inventories",
     ),
     AdapterEntry(
         function_id="projects.github_binding.bind",
         cli_invocation=(
-            "yoke projects github-binding bind --project NAME "
-            "--installation-id ID --repository-id ID "
-            "--github-repo OWNER/REPO"
+            "yoke projects github-binding bind --project P --installation-id ID --repository-id ID --github-repo OWNER/REPO [--session-id S] [--json]"
         ),
         notes=(
             "verifies and binds a project to a GitHub App installation "
@@ -38,16 +38,22 @@ PROJECT_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="projects.github_binding.unbind",
-        cli_invocation="yoke projects github-binding unbind --project NAME",
+        cli_invocation=(
+            "yoke projects github-binding unbind --project P [--session-id S] [--json]"
+        ),
         notes="removes the repo binding and marks the project disabled",
     ),
     _read_entry(
         function_id="projects.github_binding.status",
-        cli_invocation="yoke projects github-binding status --project NAME",
+        cli_invocation=(
+            "yoke projects github-binding status --project P [--field github_repo] [--full] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="projects.github_binding.check",
-        cli_invocation="yoke projects github-binding check --project NAME",
+        cli_invocation=(
+            "yoke projects github-binding check --project P [--session-id S] [--json]"
+        ),
         notes=(
             "re-verifies the stored binding with GitHub and refreshes its "
             "last-checked time; local and self-hosted universes have no "
@@ -57,7 +63,7 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.github_sync_mode.repair",
         cli_invocation=(
-            "yoke projects github-sync-mode repair [--project NAME] [--apply]"
+            "yoke projects github-sync-mode repair [--project NAME] [--apply] [--json]"
         ),
         notes=(
             "dry-runs by default; --apply normalizes effectively-enabled "
@@ -66,32 +72,37 @@ PROJECT_ADAPTERS = [
     ),
     _read_entry(
         function_id="projects.capabilities.list",
-        cli_invocation="yoke projects capabilities list [--project P]",
+        cli_invocation=(
+            "yoke projects capabilities list [--project P] [--full] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="projects.infrastructure.list",
-        cli_invocation="yoke projects infrastructure list --project NAME",
+        cli_invocation=(
+            "yoke projects infrastructure list --project NAME [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="projects.environment.list",
-        cli_invocation="yoke projects environment list --project NAME",
+        cli_invocation=("yoke projects environment list --project P [--json]"),
     ),
     _read_entry(
         function_id="project_structure.get",
-        cli_invocation="yoke project-structure get --project NAME [--family F]",
+        cli_invocation=(
+            "yoke project-structure get --project NAME [--family F] [--full] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="projects.site.create",
         cli_invocation=(
-            "yoke projects site create --project P --site NAME [--settings-json JSON]"
+            "yoke projects site create --project P --site NAME [--settings-json JSON] [--session-id S] [--json]"
         ),
         notes=("idempotent site registration by the project's readable name"),
     ),
     AdapterEntry(
         function_id="projects.environment.create",
         cli_invocation=(
-            "yoke projects environment create --project P --site NAME "
-            "--environment NAME [--url URL] [--settings-json JSON]"
+            "yoke projects environment create --project P --site NAME --environment NAME [--url URL] [--settings-json JSON] [--session-id S] [--json]"
         ),
         notes=(
             "idempotent environment registration by readable name under a "
@@ -102,8 +113,7 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.environment.update",
         cli_invocation=(
-            "yoke projects environment update --project P "
-            "--environment NAME [--name NEW_NAME] [--url URL]"
+            "yoke projects environment update --project P --environment NAME [--name NAME] [--url URL] [--session-id S] [--json]"
         ),
         notes=(
             "updates an existing environment selected by its current readable "

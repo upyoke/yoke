@@ -19,7 +19,7 @@ from yoke_contracts.session_control.models import LaunchState
 LAUNCH_LIST_USAGE = (
     "yoke session-control launch list --project P [--state STATE] "
     "[--surface SURFACE] [--machine MACHINE] [--item PREFIX-N] [--limit N] "
-    "[--cursor CURSOR] [--full] [--json]"
+    "[--cursor CURSOR] [--full] [--session-id S] [--json]"
 )
 
 
@@ -61,13 +61,14 @@ def session_launch_list(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--project", required=True, help="Project whose launches to list."
+        "--project", required=True, metavar="P", help="Project whose launches to list."
     )
     parser.add_argument(
         "--state",
         choices=get_args(LaunchState),
         default=None,
-        help="Only launches in this state.",
+        metavar="STATE",
+        help="Only launches in this state: " + ", ".join(get_args(LaunchState)) + ".",
     )
     parser.add_argument(
         "--surface", default=None, help="Only launches on this surface."
@@ -78,17 +79,22 @@ def session_launch_list(args: List[str]) -> int:
     parser.add_argument(
         "--item",
         default=None,
+        metavar="PREFIX-N",
         help="Only launches staffing this item (session name starts with PREFIX-N:).",
     )
     parser.add_argument(
-        "--limit", type=int, default=50, help="Most rows to show; default: 50."
+        "--limit", type=int, default=50, metavar="N", help="Most rows to show; default: 50."
     )
     parser.add_argument(
         "--cursor",
         default=None,
-        help="Continuation cursor from a previous page's next_cursor.",
+        help="Start after this point: the next_cursor value from the previous page.",
     )
-    add_full_arg(parser, "all launch table columns; get LAUNCH-ID --full for one launch")
+    add_full_arg(
+        parser,
+        "all launch table columns; for one launch use "
+        "yoke session-control launch get LAUNCH-ID --full",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LAUNCH_LIST_USAGE)

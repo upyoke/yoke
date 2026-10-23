@@ -129,3 +129,24 @@ def test_item_posture_amend_help_names_a_registered_verification_method() -> Non
     assert named
     assert all(method_id in registered for method_id in named)
     assert "implementation_review" not in WORKFLOWS_ITEM_POSTURE_AMEND_HELP
+
+
+def test_every_yoke_inventory_recipe_matches_its_cli_usage() -> None:
+    """A ``yoke ...`` recipe in any inventory equals the CLI's own usage line.
+
+    Legacy ``python3 -m ...`` rows stay: a lint maps those old module
+    invocations to the command that replaced them.
+    """
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
+    from yoke_core.api.service_client_structured_api_adapter_inventory import (
+        all_adapter_entries,
+    )
+
+    stale = {
+        entry.function_id: (entry.cli_invocation, ADAPTER_USAGE[entry.function_id])
+        for entry in all_adapter_entries()
+        if entry.function_id in ADAPTER_USAGE
+        and entry.cli_invocation.startswith("yoke ")
+        and entry.cli_invocation != ADAPTER_USAGE[entry.function_id]
+    }
+    assert not stale, stale

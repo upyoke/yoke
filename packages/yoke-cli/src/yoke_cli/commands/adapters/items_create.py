@@ -26,10 +26,18 @@ from yoke_cli.commands.adapters.dash_verification_plan import (
 )
 from yoke_contracts.api.function_call import TargetRef
 
+_CREATE_OPTIONS_USAGE = (
+    "[--project P] [--priority high|medium|low] [--status STAGE] "
+    "[--deployment-flow FLOW] [--source N] [--owner N] [--strategy-doc SLUG] "
+    "[--entry-surface SURFACE] "
+    "[--verification-plan ID_OR_SLUG | --verification-method METHOD] "
+    "[--path-claims] [--approval-on-done] [--deployment] [--dry-run] "
+    "[--session-id S] [--json]"
+)
 ITEMS_CREATE_USAGE = (
     "yoke items create (--title TEXT | --title-file PATH) --workflow W "
     "(--spec-file PATH | --stdin) --execution-instructions-considered "
-    "[--project P] [--priority P] [--entry-surface SURFACE] [--dry-run] [--json]"
+    + _CREATE_OPTIONS_USAGE
 )
 
 
@@ -42,7 +50,8 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
         )
     usage = (
         f"{command} (--title TEXT | --title-file PATH) "
-        "(--spec-file PATH | --stdin) --execution-instructions-considered"
+        "(--spec-file PATH | --stdin) --execution-instructions-considered "
+        + _CREATE_OPTIONS_USAGE
         if shortcut
         else ITEMS_CREATE_USAGE
     )
@@ -64,25 +73,38 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     parser.add_argument(
         "--priority",
         choices=("high", "medium", "low"),
+        metavar="high|medium|low",
         help="Priority bucket: high, medium, or low.",
     )
     parser.add_argument(
-        "--project", help="Project slug/id, defaulting to the mapped checkout."
+        "--project",
+        metavar="P",
+        help="Project slug or id (default: the checkout's mapped project).",
     )
     parser.add_argument(
         "--deployment-flow",
         metavar="FLOW",
-        help="Use yoke deployment-flows list --project P to choose.",
+        help=(
+            "Deployment flow for the item; list the choices with "
+            "yoke deployment-flows list --project P."
+        ),
     )
     parser.add_argument(
-        "--status", help="Initial stage, defaulting to the workflow first stage."
+        "--status",
+        metavar="STAGE",
+        help="Starting stage (default: the workflow's first stage).",
     )
     parser.add_argument(
-        "--source", help="Numeric source actor, defaulting to the authenticated actor."
+        "--source",
+        metavar="N",
+        help="Actor id that filed the item (default: the signed-in actor).",
     )
-    parser.add_argument("--owner", help="Numeric owner actor, defaulting to source.")
+    parser.add_argument(
+        "--owner", metavar="N", help="Actor id that owns the item (default: --source)."
+    )
     parser.add_argument(
         "--strategy-doc",
+        metavar="SLUG",
         help="Link the item to this project strategy document at creation. To "
         "move an existing item to another document later, run `yoke strategy "
         "execution link ITEM --project P --slug SLUG`.",
@@ -90,16 +112,21 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     parser.add_argument(
         "--entry-surface",
         choices=("cli", "harness_skill", "promotion", "web_form"),
-        help="Filer-owned provenance: skills pass harness_skill; Task/Dash default "
-        "to cli. This flag grants no caller or workflow authority.",
+        metavar="SURFACE",
+        help="Where the filing came from: cli, harness_skill, promotion, or "
+        "web_form. Skills pass harness_skill; task and dash default to cli. "
+        "It grants no extra authority.",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="Preview without a row or GitHub mirror."
+        "--dry-run",
+        action="store_true",
+        help="Show what would be created without saving the item or mirroring "
+        "it to GitHub.",
     )
     parser.add_argument(
         "--execution-instructions-considered",
         action="store_true",
-        help="Attest the applicable workflow execution instructions were read first.",
+        help="Confirm you read the workflow's execution instructions first.",
     )
     verification = parser.add_mutually_exclusive_group()
     verification.add_argument(
@@ -108,7 +135,9 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
         help="Verify the item with this saved verification plan.",
     )
     verification.add_argument(
-        "--verification-method", help="Verify the item with this ad hoc method id."
+        "--verification-method",
+        metavar="METHOD",
+        help="Verify the item with this ad hoc method id.",
     )
     posture_help = {
         "path-claims": "Reserve repository paths before work (Dash only).",

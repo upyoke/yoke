@@ -42,18 +42,23 @@ def agents_render(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke agents render",
         usage=AGENTS_RENDER_USAGE,
+        description=(
+            "Write the agent prompt files for each harness from their source\n"
+            "in this checkout."
+        ),
     )
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
-        help="Optional repo-root override.",
+        metavar="PATH",
+        help="Checkout to use; defaults to this one.",
     )
     parser.add_argument(
         "--dry-run",
         dest="dry_run",
         action="store_true",
-        help="Compute write actions without persisting.",
+        help="List the files it would write, without writing them.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -77,7 +82,7 @@ def agents_render(args: List[str]) -> int:
 
 
 AGENTS_RENDER_CHECK_USAGE = (
-    "yoke agents render check [--target-root PATH] [--session-id S] [--json]"
+    "yoke agents render check [--target-root PATH] [--full] [--session-id S] [--json]"
 )
 
 
@@ -85,12 +90,17 @@ def agents_render_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke agents render check",
         usage=AGENTS_RENDER_CHECK_USAGE,
+        description=(
+            "Check that the rendered agent prompt files match their source, "
+            "without writing anything."
+        ),
     )
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
-        help="Optional repo-root override.",
+        metavar="PATH",
+        help="Checkout to use; defaults to this one.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -110,7 +120,9 @@ def agents_render_check(args: List[str]) -> int:
     )
 
 
-BOARD_DATA_GET_USAGE = "yoke board data get [--scope NAME] [--session-id S] [--json]"
+BOARD_DATA_GET_USAGE = (
+    "yoke board data get [--scope NAME] [--full] [--session-id S] [--json]"
+)
 
 
 def board_data_get(args: List[str]) -> int:
@@ -123,9 +135,17 @@ def board_data_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke board data get",
         usage=BOARD_DATA_GET_USAGE,
+        description=(
+            "Show the board data snapshot built with default settings, for\n"
+            "debugging. yoke board rebuild is the command that builds the\n"
+            "real board."
+        ),
     )
     parser.add_argument(
-        "--scope", default="all", help="Project scope (slug, id, or 'all')."
+        "--scope",
+        default="all",
+        metavar="NAME",
+        help="Project slug or id, or all (the default).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

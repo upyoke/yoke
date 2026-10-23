@@ -44,23 +44,25 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
 def connect(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke connect",
+        usage=CONNECT_USAGE,
         description=(
-            "Verify server health and identity, then save a connection and "
-            "owner-only credential file. Failed verification saves no connection. "
-            "Use browser approval, a teammate invite code, or an explicit token. "
-            "HTTP permits loopback, private IPs and *.ts.net, with an unencrypted "
-            "token warning for network addresses. Public HTTP is refused; use HTTPS. "
-            "A human terminal opens the "
-            "approval link after a notice; agent, non-TTY and --json runs print "
-            "the link only. "
-            "With --json, authorization link/code/instructions arrive as JSON "
-            "lines on stderr before polling; present them to the person."
+            "Check the server's health and identity, then save the connection "
+            "and a credential file only you can read. If the check fails, "
+            "nothing is saved. Sign in by browser approval, a teammate invite "
+            "code, or an explicit token. Plain HTTP works only for loopback, "
+            "private IPs and *.ts.net, and warns that a network address sends "
+            "the token unencrypted; public HTTP is refused, so use HTTPS. In a "
+            "person's terminal the approval link opens after a notice; agent, "
+            "non-terminal and --json runs only print it. With --json, the link, "
+            "code and instructions arrive as JSON lines on stderr before "
+            "waiting; show them to the person."
         ),
     )
     parser.add_argument(
         "url",
         nargs="?",
         default=None,
+        metavar="URL",
         help=(
             "Hosted platform URL for browser sign-in, or a self-hosted server "
             "URL: approve the printed code by company sign-in (when configured) "
@@ -73,8 +75,9 @@ def connect(args: List[str]) -> int:
         "--name",
         dest="env",
         default=None,
+        metavar="ENV",
         help=(
-            "Machine-config env label. Hosted sign-in defaults to the selected "
+            "Name for this connection in the machine config. Hosted sign-in defaults to the selected "
             "organization slug; explicit server sign-in defaults to "
             f"{server_connect.DEFAULT_ENV_NAME!r}."
         ),
@@ -83,25 +86,27 @@ def connect(args: List[str]) -> int:
         "--token-file",
         dest="token_file",
         default=None,
-        help="Read the actor token from this file.",
+        metavar="PATH",
+        help="Read the API token from this file.",
     )
     parser.add_argument(
         "--token-stdin",
         dest="token_stdin",
         action="store_true",
-        help="Read the actor token from stdin (keeps it out of shell history).",
+        help="Read the API token from stdin (keeps it out of shell history).",
     )
     parser.add_argument(
         "--no-activate",
         dest="no_activate",
         action="store_true",
-        help="Write the connection entry without switching active_env to it.",
+        help="Save the connection without making it the active one.",
     )
     parser.add_argument(
         "--config",
         dest="config_path",
         default=None,
-        help="Machine config path override.",
+        metavar="PATH",
+        help="Machine config file to use instead of the default.",
     )
     parser.add_argument(
         "--json", dest="json_mode", action="store_true", help="Print JSON."

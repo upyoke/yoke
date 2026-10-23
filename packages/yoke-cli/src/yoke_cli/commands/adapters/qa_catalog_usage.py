@@ -17,24 +17,25 @@ from yoke_contracts.qa_case_environment import (
 
 #: Read as ``yoke qa item-plan attach --help``.
 ITEM_PLAN_ATTACH_EPILOG = (
-    "Attaching creates a blocking case row at --transition. A plan bound "
-    "to the item's completion-flow environment cannot attach at a "
-    "transition that precedes delivery there: the revision probe resolves "
-    "from that target, so the requirement can never pass and the item "
-    "cannot enter release. A catalog plan bound to a different environment "
-    "still attaches. Attach the delivery-target plan at the item's "
-    "post-deploy transition instead (`--qa-phase post_deploy`). A caller "
-    "who knows the target is already reachable may pass "
-    "`--acknowledge-unreachable-target`. A mis-specified unexecuted "
-    "attachment is withdrawn with `yoke qa item-plan retract` — the row "
-    "stays as retracted history; there is no detach. On a workflow whose "
-    "QA policy is optional item attachment, premerge attach accepts only the plan "
-    "or method already selected in workflow_posture.verification; select "
-    f"it first with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, selection creates no attachment. Then attach at "
-    "`--transition reviewing-implementation --qa-phase verification` "
-    "and `yoke qa plan materialize`. Post-deploy plans attach directly at "
-    "the pinned release stage with `--qa-phase post_deploy`; no verification "
-    "posture selection is required."
+    "Attaching adds a blocking QA requirement at --transition.\n\n"
+    "A plan bound to the environment the item is delivered to cannot attach\n"
+    "at a transition before delivery there: its revision check reads that\n"
+    "environment, so it could never pass and the item could never be\n"
+    "released. A plan bound to another environment still attaches. Attach\n"
+    "the delivery plan at the item's post-deploy transition instead, with\n"
+    "--qa-phase post_deploy. If you know the target is already reachable,\n"
+    "pass --acknowledge-unreachable-target.\n\n"
+    "To withdraw a wrong attachment that has not run, use\n"
+    "yoke qa item-plan retract. The row stays as history; there is no detach.\n\n"
+    "When the workflow's QA policy makes item attachment optional, a\n"
+    "pre-merge attach accepts only the plan or method already chosen in\n"
+    "workflow_posture.verification. Choose it first (choosing attaches\n"
+    "nothing):\n"
+    f"  {WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}\n"
+    "Then attach with --transition reviewing-implementation\n"
+    "--qa-phase verification, and run yoke qa plan materialize.\n\n"
+    "Post-deploy plans attach directly at the pinned release stage with\n"
+    "--qa-phase post_deploy; no choice step is needed."
 )
 
 #: Read as ``yoke qa plan-cases replace --help``. What an author has to know
@@ -226,12 +227,12 @@ current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
 
 PLAN_CASES_SYNC_USAGE = (
-    "yoke qa plan-cases sync --project P --plan-id N (--cases-file SOURCE_EXPORT | "
-    "--stdin) [--json]\n"
-    "       yoke qa plan-cases sync --project P --plan-id N (--cases-file CASES | "
-    "--stdin) --source-revision FULL_SHA [--json]\n"
-    "A manual case array without a source revision is authored with "
-    "yoke qa plan-cases replace."
+    "yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | "
+    "--stdin) [--session-id S] [--json]\n"
+    "       yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | "
+    "--stdin) --source-revision FULL_SHA [--session-id S] [--json]\n"
+    "Without --source-revision, the input must be the exporter's document. "
+    "Write a manual case array with yoke qa plan-cases replace."
 )
 
 USAGE_BY_FUNCTION_ID = {
@@ -248,12 +249,12 @@ USAGE_BY_FUNCTION_ID = {
         "[--include-retired] [--full]"
     ),
     "qa.plan.get": (
-        "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] "
-        "[--full] [--json]"
+        "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P "
+        "[--deployment-run-id RUN] [--full] [--session-id S] [--json]"
     ),
     "qa.activity.list": (
         "yoke qa activity list --project P [--deployment-run-id RUN] "
-        "[--item PREFIX-N ...] [--limit N] [--json]"
+        "[--item PREFIX-N ...] [--limit N] [--full] [--session-id S] [--json]"
     ),
     "qa.plan.create": ("yoke qa plan create SLUG --project P --environment ENV"),
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",
@@ -303,15 +304,26 @@ __all__ = [
 def configure_attachment(parser) -> None:
     """Declare the attachment fields shared with its help contract."""
     parser.add_argument(
-        "--plan-id", required=True, type=int, help="Id of the QA plan to attach."
+        "--plan-id",
+        required=True,
+        type=int,
+        metavar="N",
+        help="Id of the QA plan to attach.",
     )
     parser.add_argument(
-        "--transition", required=True, help="Workflow transition where the plan blocks."
+        "--transition",
+        required=True,
+        metavar="T",
+        help="Workflow transition the plan must pass before.",
     )
     parser.add_argument(
         "--qa-phase",
         default="verification",
-        help="QA phase of the attachment; default: verification.",
+        metavar="PHASE",
+        help=(
+            "verification, post_deploy or manual_acceptance; "
+            "default: verification."
+        ),
     )
     parser.add_argument(
         "--acknowledge-unreachable-target",

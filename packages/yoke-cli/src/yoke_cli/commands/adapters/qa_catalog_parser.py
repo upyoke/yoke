@@ -31,7 +31,7 @@ def build_parser(
         prog=prog, usage=synopsis.replace("%", "%%"), epilog=prose
     )
     parser.add_argument(
-        "--project", required=project_required, help="Project slug or id."
+        "--project", required=project_required, metavar="P", help="Project slug or id."
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -39,14 +39,14 @@ def build_parser(
 
 
 def configure_method_get(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("method_id", help="QA method id or slug to show.")
+    parser.add_argument("method_id", metavar="METHOD", help="QA method id or slug.")
 
 
 def configure_method_register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--slug", required=True, help="Short unique name for the method.")
     parser.add_argument("--name", required=True, help="Display name.")
     parser.add_argument(
-        "--description", required=True, help="What the method checks."
+        "--description", required=True, metavar="TEXT", help="What the method checks."
     )
     parser.add_argument(
         "--runner",
@@ -64,15 +64,22 @@ def configure_method_register(parser: argparse.ArgumentParser) -> None:
         help="Whether the verdict is automatic or given by an agent.",
     )
     parser.add_argument(
-        "--verdict-contract", required=True, help="What a passing verdict means."
+        "--verdict-contract",
+        required=True,
+        metavar="TEXT",
+        help="What a passing verdict means.",
     )
     parser.add_argument(
-        "--evidence-contract", required=True, help="What evidence a run must keep."
+        "--evidence-contract",
+        required=True,
+        metavar="TEXT",
+        help="What evidence a run must keep.",
     )
     parser.add_argument(
         "--required-capability",
         dest="required_capability_kinds",
         action="append",
+        metavar="KIND",
         help="Capability kind the method needs; repeatable.",
     )
     parser.add_argument(
@@ -84,41 +91,60 @@ def configure_method_register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--success-policy-params",
         default="{}",
+        metavar="JSON",
         help="Success policy settings as a JSON object; default: {}.",
     )
 
 
 def configure_plan_get(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("plan", nargs="?", help="Plan id or project-local slug.")
-    parser.add_argument("--plan-id", help="Plan id or project-local slug.")
     parser.add_argument(
-        "--deployment-run-id", help="Include this deployment run's QA results."
+        "plan", nargs="?", metavar="PLAN_ID_OR_SLUG", help="Plan id or the plan's slug."
+    )
+    parser.add_argument(
+        "--plan-id",
+        metavar="PLAN_ID_OR_SLUG",
+        help="Same as the positional argument; give one or the other.",
+    )
+    parser.add_argument(
+        "--deployment-run-id",
+        metavar="RUN",
+        help="Include this deployment run's QA results.",
     )
     add_full_arg(parser, "each probe's source and every proof's evidence")
 
 
 def configure_activity_list(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--deployment-run-id", help="Only activity for this deployment run."
+        "--deployment-run-id",
+        metavar="RUN",
+        help="Only activity for this deployment run.",
     )
     parser.add_argument(
         "--item",
         action="append",
         default=[],
-        help="Only activity for this item (PREFIX-N); repeatable.",
+        metavar="PREFIX-N",
+        help="Only activity for this item; repeatable.",
     )
     parser.add_argument(
-        "--limit", type=int, default=100, help="Most rows to show; default: 100."
+        "--limit",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Most rows to show; default: 100.",
     )
 
 
 def configure_plan_create(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("slug", help="Project-local slug for the new plan.")
+    parser.add_argument("slug", metavar="SLUG", help="Slug for the new plan.")
     parser.add_argument("--name", help="Display name for the plan.")
-    parser.add_argument("--description", default="", help="What the plan covers.")
+    parser.add_argument(
+        "--description", default="", metavar="TEXT", help="What the plan covers."
+    )
     parser.add_argument(
         "--environment",
         required=True,
+        metavar="SITE/NAME|ENV_ID",
         help=(
             "Target environment as SITE/NAME, or an environment id. A bare "
             "name resolves within the project's default site."
@@ -133,8 +159,10 @@ def build_item_plan_attach_parser(usage: str) -> argparse.ArgumentParser:
         epilog=ITEM_PLAN_ATTACH_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", required=True, help="Item id (PREFIX-N).")
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--item", required=True, metavar="PREFIX-N", help="Item id.")
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project slug or id."
+    )
     configure_attachment(parser)
     add_session_arg(parser)
     add_json_arg(parser)

@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 DEPLOYMENT_RUNS_TIMINGS_USAGE = (
-    "yoke deployment-runs timings RUN-ID [--session-id S] [--json]"
+    "yoke deployment-runs timings RUN-ID [--full] [--session-id S] [--json]"
 )
 
 
@@ -24,12 +24,14 @@ def deployment_runs_timings(args: List[str]) -> int:
         prog="yoke deployment-runs timings",
         usage=DEPLOYMENT_RUNS_TIMINGS_USAGE,
         description=(
-            "Show a run's recorded release phase timings: per-step elapsed "
-            "totals, then every start/end record. --json returns the full "
-            "records."
+            "Show how long each release step of a deployment run took: the\n"
+            "elapsed time per step, then every start and end record. --json\n"
+            "prints the records in full."
         ),
     )
-    parser.add_argument("run_id", help="Deployment run to read.")
+    parser.add_argument(
+        "run_id", metavar="RUN-ID", help="Deployment run id, such as run-YYYYMMDD-NNN."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_TIMINGS_USAGE)

@@ -18,15 +18,16 @@ from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 
 
 DB_READ_USAGE = (
-    'yoke db read "SELECT ..." [--format human|json|lines] [--session-id S] [--json]'
+    'yoke db read "SELECT ..." [--format human|json|lines] [--full] '
+    "[--session-id S] [--json]"
 )
 
 _DB_READ_HELP = (
     "Run one read-only diagnostic SQL statement through the registered "
     "function dispatcher. Default output labels the query result. "
-    "``--format json`` emits the result payload; ``--format lines`` emits one pipe-delimited row per line "
-    "for shell consumption. ``--json`` emits the full typed "
-    "FunctionCallResponse envelope. A query that reads item ids (items.id or any "
+    "--format json prints the result payload; --format lines prints one "
+    "pipe-delimited row per line for shell use. --json prints the full "
+    "response envelope. A query that reads item ids (items.id or any "
     "*item_id column) without item_refs warns, on success and on failure: "
     "join item_refs on item_id and select public_ref to show PREFIX-N refs.\n\n"
     + DB_GROUP_TEACHING
@@ -68,7 +69,9 @@ def db_read(args: List[str]) -> int:
         description=_DB_READ_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("sql", help="Read-only SQL diagnostic query.")
+    parser.add_argument(
+        "sql", metavar='"SELECT ..."', help="Read-only SQL diagnostic query."
+    )
     parser.add_argument(
         "--format",
         choices=("human", "json", "lines"),

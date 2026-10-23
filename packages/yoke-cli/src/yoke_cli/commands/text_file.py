@@ -14,9 +14,10 @@ def add_text_file_pair(
     dest: str,
     help_text: str = "Literal text value.",
     file_help: str = "Read the text value from a file.",
+    metavar: str = "TEXT",
 ) -> None:
-    group.add_argument(text_flag, dest=dest, help=help_text)
-    group.add_argument(file_flag, dest=f"{dest}_file", help=file_help)
+    group.add_argument(text_flag, dest=dest, metavar=metavar, help=help_text)
+    group.add_argument(file_flag, dest=f"{dest}_file", metavar="PATH", help=file_help)
 
 
 def add_stdin_flag(

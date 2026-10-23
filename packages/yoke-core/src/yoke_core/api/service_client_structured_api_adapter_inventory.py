@@ -1,10 +1,10 @@
 """Retained Yoke CLI adapters and their backing function ids.
 
 The :class:`AdapterEntry` shape lives in
-:mod:`service_client_structured_api_adapter_inventory_types`; the
-installer, qa, packet, and strategy family entries live in sibling modules
-(350-cap split). This module concatenates the family lists into the one
-``CLI_ADAPTERS`` surface consumers read.
+:mod:`service_client_structured_api_adapter_inventory_types`; each command
+family's entries live in a sibling module, and this module keeps only the
+legacy ``python3 -m`` rows, whose order a lint relies on. It concatenates the
+lists into the one ``CLI_ADAPTERS`` surface consumers read.
 """
 
 from __future__ import annotations
@@ -48,6 +48,12 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine 
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_general import (
+    GENERAL_ADAPTERS,
+)
+from yoke_core.api.service_client_structured_api_adapter_inventory_deployment import (
+    DEPLOYMENT_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_models import (
     MODELS_ADAPTERS,
 )
@@ -81,138 +87,16 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         "python3 -m yoke_core.api.service_client db-claim-amend",
         notes="unified DB-claim amendment",
     ),
-    AdapterEntry(
-        "db_claim.prose_check",
-        "yoke db-claim prose-check (PREFIX-N | --stdin)",
-        notes="prose-vs-claim; --stdin local",
-    ),
+    *GENERAL_ADAPTERS,
     *SESSION_ADAPTERS,
     *ITEMS_ADAPTERS,
-    AdapterEntry(
-        function_id="lifecycle.transition.execute",
-        cli_invocation="yoke lifecycle transition YOK-N --to <next>",
-        notes=(
-            "Lifecycle status transitions ride on items.scalar.update; the "
-            "engine evaluates every listed and structural gate of the pinned "
-            "definition on the write."
-        ),
-    ),
-    AdapterEntry(
-        function_id="lifecycle.repair_status.execute",
-        cli_invocation=("yoke lifecycle repair-status YOK-N --to STATUS --reason TEXT"),
-        notes="steering-seat audited lifecycle reconciliation",
-    ),
-    AdapterEntry(
-        "lifecycle.skip.record_recoverable_substrate",
-        "yoke lifecycle skip record-recoverable-substrate YOK-N --chain-step N --project P --routed-action ACTION --failure-class CLASS --remediation-owner YOK-N",
-    ),
     # qa-family entries live in the _qa sibling module (350-cap split).
     *QA_ADAPTERS,
     *TEST_MACHINE_ADAPTERS,
-    AdapterEntry(
-        "actors.state.set",
-        "yoke actors state set ACTOR-ID (--enable | --disable) [--confirm-system-retirement]",
-        notes="org-admin actor lifecycle; system retirement requires explicit dependency attestation",
-    ),
-    AdapterEntry(
-        "actors.role.set",
-        "yoke actors role set (ACTOR-ID | --member EMAIL) --role ROLE",
-        notes="org-admin; sets a person's one org role",
-    ),
-    AdapterEntry(
-        "machine.register",
-        "yoke machine register [--name NAME]",
-        notes="registers this host and rotates its machine-bound bearer",
-    ),
-    AdapterEntry(
-        "machine.retire",
-        "yoke machine retire [MACHINE-ID] --confirm",
-        notes="preserves history and revokes only the machine-bound bearer",
-    ),
-    AdapterEntry(
-        "machine.access.set",
-        "yoke machine access set [MACHINE-ID] --path use.mode --value universe",
-        notes="owner or administrator edits one leaf of the access document",
-    ),
-    _read_entry(
-        function_id="machine.list",
-        cli_invocation="yoke machine list [--mine]",
-    ),
-    _read_entry(
-        function_id="machine.show",
-        cli_invocation="yoke machine show [MACHINE-ID]",
-    ),
-    _read_entry(
-        function_id="machine.detail",
-        cli_invocation="yoke machine detail [MACHINE-ID]",
-    ),
-    _read_entry(
-        function_id="machine.access.get",
-        cli_invocation="yoke machine access get [MACHINE-ID] [--path use.mode]",
-    ),
     # Cross-family readers (db_router forms stay operator-debug).
-    _read_entry(
-        function_id="events.tail.run", cli_invocation="yoke events tail --limit N"
-    ),
-    _read_entry(
-        function_id="events.count.run",
-        cli_invocation="yoke events count --event-name NAME",
-    ),
-    _read_entry(
-        function_id="events.anomalies.run",
-        cli_invocation="yoke events anomalies --limit N",
-    ),
-    _read_entry(
-        function_id="claims.path.list",
-        cli_invocation="yoke claims path list --item PREFIX-N",
-    ),
-    _read_entry(
-        function_id="claims.path.get", cli_invocation="yoke claims path get CLAIM_ID"
-    ),
-    _read_entry(
-        function_id="ouroboros.entry.list",
-        cli_invocation="yoke ouroboros entry list --limit N",
-    ),
-    _read_entry(
-        function_id="ouroboros.entry.get",
-        cli_invocation="yoke ouroboros entry get ENTRY_ID",
-    ),
-    _read_entry(
-        function_id="ouroboros.field_note.list",
-        cli_invocation="yoke ouroboros field-note list --limit N",
-    ),
-    _read_entry(
-        function_id="ouroboros.field_note.get",
-        cli_invocation="yoke ouroboros field-note get NOTE_ID",
-    ),
-    _read_entry(function_id="projects.list", cli_invocation="yoke projects list"),
     *PROJECT_ADAPTERS,
     *ORGANIZATION_ADAPTERS,
-    AdapterEntry(
-        function_id="identity.link.set",
-        cli_invocation="yoke identity link set --actor ACTOR --issuer I --subject S",
-        notes="issuer+subject links directly; --email alone pre-links a future sign-in",
-    ),
-    _read_entry(
-        function_id="items.list.run", cli_invocation="yoke items list --status STATUS"
-    ),
-    _read_entry(
-        function_id="items.search.run", cli_invocation="yoke items search KEYWORDS"
-    ),
-    _read_entry(function_id="db.read.run", cli_invocation='yoke db read "SELECT ..."'),
     *MODELS_ADAPTERS,
-    _read_entry(
-        function_id="items.dependency.list",
-        cli_invocation="yoke items dependency list PREFIX-N",
-    ),
-    AdapterEntry(
-        function_id="shepherd.verdict.run",
-        cli_invocation="yoke shepherd verdict --item PREFIX-N --transition T --worker W --verdict V",
-    ),
-    AdapterEntry(
-        function_id="shepherd.caveat_disposition.run",
-        cli_invocation="yoke shepherd caveat-disposition --item PREFIX-N --transition T --attempt N --caveat-num N --caveat-text TEXT --disposition RESOLVED",
-    ),
     *CLAIMS_ADAPTERS,
     *PROJECT_STRUCTURE_ADAPTERS,
     *STRATEGY_ADAPTERS,
@@ -220,22 +104,9 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     # readiness, item-dependency, ephemeral-env, strategy-carry/checkpoint,
     # events/ouroboros) + onboard-checklist; parity-synced into the inventory.
     *OPS_ADAPTERS,
+    *DEPLOYMENT_ADAPTERS,
     *ADMISSION_ADAPTERS,
     *GITHUB_ACTIONS_ADAPTERS,
-    AdapterEntry(
-        function_id="github.release.create_commit_tag",
-        cli_invocation="yoke github release create-commit-tag OWNER/REPO SOURCE-SHA --summary TEXT --project P",
-        notes="Immutable commit UTC clock tag with a declared serving floor.",
-    ),
-    AdapterEntry(
-        function_id="github.pr.create",
-        cli_invocation=(
-            "yoke github pr create --title TITLE --head BRANCH "
-            "--project <project> [--base BRANCH] "
-            "[--body TEXT | --body-stdin] [--draft]"
-        ),
-        notes="bearer-token PR create; repo resolves from project capability.",
-    ),
     _read_entry(
         function_id="items.get.run",
         cli_invocation=("python3 -m yoke_core.cli.db_router items get YOK-N <field>"),
@@ -254,47 +125,12 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="doctor.run.run",
         cli_invocation="python3 -m yoke_core.engines.doctor",
     ),
-    _read_entry(
-        function_id="doctor.last_run.get",
-        cli_invocation="yoke doctor last-run get [--project P]",
-        notes=(
-            "Reads the newest completed doctor run from doctor_runs; "
-            "the events journal is telemetry only."
-        ),
-    ),
     *WORKFLOW_ADAPTERS,
     *INSTALLER_ADAPTERS,
-    AdapterEntry(function_id="board.rebuild.run", cli_invocation="yoke board rebuild"),
-    _read_entry(
-        function_id="board.data.get",
-        cli_invocation="yoke board data get [--scope NAME]",
-        notes=(
-            "Server half of the board rebuild composition: returns the "
-            "recorded query plan; rendering and file writes stay client-side."
-        ),
-    ),
-    _read_entry(
-        function_id="lint.config.show",
-        cli_invocation="yoke lint config show [--root PATH]",
-        notes=(
-            "Reports the resolved .yoke/lint-config, how its root was chosen, "
-            "and each guard's effective mode, including a protected-guard warn "
-            "clamped back to deny for a missing allow-warn token."
-        ),
-    ),
-    AdapterEntry(
-        function_id="hook.evaluate.run",
-        cli_invocation="yoke hook evaluate <event> [--dry-run]",
-    ),
     *PACKET_ADAPTERS,
     AdapterEntry(
         "ouroboros.field_note.append",
         "python3 -m yoke_core.api.service_client field-note-log",
-    ),
-    _read_entry(
-        function_id="scratch.dispatch_inputs",
-        cli_invocation="yoke scratch dispatch-inputs <YOK-N|item-id> <session_id> <attempt>",
-        notes="Helper-resolved dispatch-inputs path; wraps yoke_cli.commands.adapters.misc.scratch_dispatch_inputs.",
     ),
 ]
 

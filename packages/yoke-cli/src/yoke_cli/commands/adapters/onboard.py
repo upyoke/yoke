@@ -77,8 +77,8 @@ def _parser() -> argparse.ArgumentParser:
     add("--json", dest="json_mode", action="store_true", help="Print JSON output.")
     add("--non-interactive", action="store_true", help="Never prompt; use flags only.")
     add("--config", dest="config_path", metavar="PATH", help="Machine config file.")
-    add("--env", dest="env_name", default=None, help="Connection name to set up.")
-    add("--api-url", dest="api_url", default=None, help="Yoke API URL to connect to.")
+    add("--env", dest="env_name", metavar="ENV", help="Connection name to set up.")
+    add("--api-url", dest="api_url", metavar="URL", help="Yoke API URL to connect to.")
     hosted_auth.add_token_arguments(parser)
     add("--yes", dest="apply", action="store_true", help="Apply instead of preview.")
     parser.add_argument(
@@ -97,7 +97,7 @@ def _parser() -> argparse.ArgumentParser:
         "--post-install",
         dest="post_install",
         action="store_true",
-        help="launched straight after install; run Install checks automatically",
+        help="Launched straight after install; run the install checks automatically.",
     )
     parser.add_argument(
         "--skip-harness-permissions",
@@ -105,16 +105,25 @@ def _parser() -> argparse.ArgumentParser:
         action="store_false",
         help=harness_unattended_posture.POSTURE_DECLINE_HELP,
     )
-    add("--resume", dest="resume_run_id", help="Resume the setup run with this id.")
+    add(
+        "--resume",
+        dest="resume_run_id",
+        metavar="RUN-ID",
+        help="Resume the setup run with this id.",
+    )
     parser.add_argument(
         "--use-different-folder",
-        "--start-over",
         dest="different_folder_run_id",
         default=None,
+        metavar="RUN-ID",
         help=(
-            "preserve a failed run's checkout and close it before choosing a "
-            "different folder; --start-over is a compatibility alias"
+            "Keep a failed run's checkout and close that run, then choose a "
+            "different folder. --start-over RUN-ID is an older name for this flag."
         ),
+    )
+    # Older name kept working; hidden so the page names one flag.
+    parser.add_argument(
+        "--start-over", dest="different_folder_run_id", help=argparse.SUPPRESS
     )
     onboard_project_args.add_project_args(parser)
     onboard_agent.add_agent_args(parser)

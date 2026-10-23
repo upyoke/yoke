@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSIONS_HOOK_OVERHEAD_USAGE = (
-    "yoke sessions hook-overhead [--hours N] [--session-id S] [--json]"
+    "yoke sessions hook-overhead [--hours N] [--full] [--session-id S] [--json]"
 )
 
 
@@ -56,7 +56,8 @@ def sessions_hook_overhead(args: List[str]) -> int:
         "--hours",
         type=int,
         default=None,
-        help="Hours of telemetry to read; default: 24.",
+        metavar="N",
+        help="How many recent hours to report; default: 24.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

@@ -50,8 +50,27 @@ __all__ = [
 EVENTS_EMIT_USAGE = (
     "yoke events emit --name NAME --kind KIND --type TYPE "
     "--source-type SOURCE [--severity LEVEL] [--outcome OUTCOME] "
-    "[--project P] [--item PREFIX-N] [--context JSON] [--session-id S] [--json]"
+    "[--project P] [--item PREFIX-N] [--task-num N] [--agent A] [--tool-name T] "
+    "[--org-id ID] [--environment ENV] [--request-id ID] [--trace-id ID] "
+    "[--parent-id ID] [--tool-use-id ID] [--turn-id ID] [--hook-event-name NAME] "
+    "[--anomaly-flags FLAGS] [--duration-ms MS] [--exit-code CODE] "
+    "[--context JSON] [--error-context JSON] [--full] [--session-id S] [--json]"
 )
+
+_EMIT_FIELD_METAVARS = {
+    "org-id": "ID",
+    "environment": "ENV",
+    "request-id": "ID",
+    "project": "P",
+    "agent": "A",
+    "tool-name": "T",
+    "trace-id": "ID",
+    "parent-id": "ID",
+    "anomaly-flags": "FLAGS",
+    "tool-use-id": "ID",
+    "turn-id": "ID",
+    "hook-event-name": "NAME",
+}
 
 
 def _add_emit_args(parser: argparse.ArgumentParser) -> None:
@@ -59,57 +78,60 @@ def _add_emit_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--kind", required=True, help="Event kind.")
     parser.add_argument("--type", required=True, help="Event type.")
     parser.add_argument(
-        "--source-type", required=True, help="Kind of source that produced the event."
+        "--source-type",
+        required=True,
+        metavar="SOURCE",
+        help="Kind of source that produced the event.",
     )
     parser.add_argument(
-        "--severity", default="INFO", help="Event severity; default: INFO."
+        "--severity", default="INFO", metavar="LEVEL", help="Event severity; default: INFO."
     )
     parser.add_argument(
         "--outcome", default="completed", help="Event outcome; default: completed."
     )
-    for flag in (
-        "org-id",
-        "environment",
-        "request-id",
-        "project",
-        "agent",
-        "tool-name",
-        "trace-id",
-        "parent-id",
-        "anomaly-flags",
-        "tool-use-id",
-        "turn-id",
-        "hook-event-name",
-    ):
+    for flag, metavar in _EMIT_FIELD_METAVARS.items():
         parser.add_argument(
-            f"--{flag}", default=None, help=f"Value for the event's {flag} field."
+            f"--{flag}",
+            default=None,
+            metavar=metavar,
+            help=f"Value for the event's {flag} field.",
         )
     parser.add_argument(
         "--item",
         dest="public_ref",
         default=None,
-        help="Complete public item ref (PREFIX-N).",
+        metavar="PREFIX-N",
+        help="Item the event belongs to (PREFIX-N).",
     )
     parser.add_argument(
-        "--task-num", type=int, default=None, help="Task number the event belongs to."
+        "--task-num",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Task number the event belongs to.",
     )
     parser.add_argument(
         "--duration-ms",
         type=int,
         default=None,
+        metavar="MS",
         help="How long the work took, in milliseconds.",
     )
     parser.add_argument(
         "--exit-code",
         type=int,
         default=None,
+        metavar="CODE",
         help="Exit code of the work the event reports.",
     )
     parser.add_argument(
-        "--context", default=None, help="Extra detail for the event, as JSON."
+        "--context", default=None, metavar="JSON", help="Extra detail for the event, as JSON."
     )
     parser.add_argument(
-        "--error-context", default=None, help="Error detail for the event, as JSON."
+        "--error-context",
+        default=None,
+        metavar="JSON",
+        help="Error detail for the event, as JSON.",
     )
 
 
@@ -202,12 +224,15 @@ def events_emit(args: List[str]) -> int:
     )
 
 
-EVENTS_QUERY_USAGE = (
-    "yoke events query [--event-name NAME] [--item PREFIX-N] "
+_FILTER_USAGE = (
+    "[--event-name NAME] [--item PREFIX-N] [--project P] "
     "[--session S] [--source-type T] [--event-kind K] [--agent A] "
-    "[--service SVC] [--actor-id N] [--trace-id T] [--project P] "
-    "[--min-severity LEVEL] [--since ISO|'2 hours ago'] [--until ...] "
-    "[--current-episode] [--limit N] [--session-id S] [--json]"
+    "[--service SVC] [--actor-id N] [--trace-id T] [--tool-use-id ID] "
+    "[--turn-id ID] [--hook-event-name NAME] [--min-severity LEVEL] "
+    "[--since WHEN] [--until WHEN] [--current-episode]"
+)
+EVENTS_QUERY_USAGE = (
+    f"yoke events query {_FILTER_USAGE} [--limit N] [--full] [--session-id S] [--json]"
 )
 
 
@@ -223,7 +248,7 @@ def events_query(args: List[str]) -> int:
 
 
 EVENTS_TAIL_USAGE = (
-    "yoke events tail [--limit N] [--project P] [--session-id S] [--json]"
+    "yoke events tail [--limit N] [--project P] [--full] [--session-id S] [--json]"
 )
 
 
@@ -235,12 +260,14 @@ def events_tail(args: List[str]) -> int:
     parser.add_argument(
         "--limit",
         default="20",
+        metavar="N",
         help="Most-recent rows returned, 1..1000 (default 20).",
     )
     parser.add_argument(
         "--project",
         default=None,
-        help="Project slug/id (default: the checkout's mapped project).",
+        metavar="P",
+        help="Project slug or id (default: the checkout's mapped project).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -265,9 +292,7 @@ def events_tail(args: List[str]) -> int:
 
 
 EVENTS_COUNT_USAGE = (
-    "yoke events count [--event-name NAME] [--item PREFIX-N] "
-    "[--session S] [--min-severity LEVEL] [--since ISO|'4 hours ago'] "
-    "[--until ...] [--current-episode] [--session-id S] [--json]"
+    f"yoke events count {_FILTER_USAGE} [--full] [--session-id S] [--json]"
 )
 
 
@@ -282,9 +307,8 @@ def events_count(args: List[str]) -> int:
 
 
 EVENTS_ANOMALIES_USAGE = (
-    "yoke events anomalies [--event-name NAME] [--item PREFIX-N] "
-    "[--session S] [--since ISO|'24 hours ago'] [--until ...] "
-    "[--limit N] [--session-id S] [--json]"
+    f"yoke events anomalies {_FILTER_USAGE} [--limit N] [--full] "
+    "[--session-id S] [--json]"
 )
 
 

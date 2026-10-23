@@ -21,7 +21,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 FRONTIER_LIST_USAGE = (
-    "yoke frontier list [--project P] [--wip-cap N] [--session-id S] [--json]"
+    "yoke frontier list [--project P] [--wip-cap N] [--full] [--session-id S] [--json]"
 )
 
 
@@ -35,14 +35,19 @@ def frontier_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke frontier list",
         usage=FRONTIER_LIST_USAGE,
+        description=(
+            "List the items ready to start, best first, and the items that\n"
+            "wait, each with the gate that holds it. Changes nothing."
+        ),
     )
     parser.add_argument(
-        "--project", default=None, help="Project to list the frontier for."
+        "--project", default=None, metavar="P", help="Project to list the frontier for."
     )
     parser.add_argument(
         "--wip-cap",
         type=int,
         default=None,
+        metavar="N",
         help="Most items in progress at once; default: project policy.",
     )
     add_session_arg(parser)

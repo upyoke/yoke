@@ -9,7 +9,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 ORGANIZATION_ADAPTERS = [
     read_entry(
         function_id="organizations.get",
-        cli_invocation="yoke organizations get",
+        cli_invocation=(
+            "yoke organizations get [--slug SLUG] [--session-id S] [--json]"
+        ),
     ),
     read_entry(
         function_id="organizations.settings.get",
@@ -21,12 +23,16 @@ ORGANIZATION_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="organizations.create",
-        cli_invocation="yoke organizations create NAME --slug SLUG",
+        cli_invocation=(
+            "yoke organizations create NAME [--slug SLUG] [--session-id S] [--json]"
+        ),
         notes="hosted only: Platform founds the org on a machine's hosted connection",
     ),
     AdapterEntry(
         function_id="organizations.domain.set",
-        cli_invocation="yoke organizations domain set DOMAIN",
+        cli_invocation=(
+            "yoke organizations domain set [DOMAIN] [--clear] [--org ORG] [--session-id S] [--json]"
+        ),
     ),
 ]
 

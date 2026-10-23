@@ -12,16 +12,14 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 
 AdapterFn = Callable[[List[str]], int]
 
-RESYNC_USAGE = "yoke resync [--fix]"
+RESYNC_USAGE = "yoke resync [--detect-only | --fix]"
 
 _RESYNC_HELP_DEEP = """\
-Detect drift between the Yoke backlog DB and linked GitHub issues.
-Without flags, the command is read-only and prints the drift report.
-Pass --fix to repair fixable GitHub drift so GitHub matches the backlog.
+Find differences between Yoke items and their linked GitHub issues.
+Without flags, the command only reads and prints the drift report.
+Pass --fix to change GitHub so it matches the items where it can.
 
-This is the sanctioned source-dev/admin command surface for the resync
-skill. It delegates to the resync engine boundary and preserves the
-human-readable drift report."""
+Needs the Yoke source checkout runtime; installed CLIs without it exit 1."""
 
 
 def resync(args: List[str]) -> int:
@@ -35,12 +33,12 @@ def resync(args: List[str]) -> int:
     mode.add_argument(
         "--detect-only",
         action="store_true",
-        help="Read-only drift report (default).",
+        help="Only print the drift report (the default).",
     )
     mode.add_argument(
         "--fix",
         action="store_true",
-        help="Repair fixable GitHub drift.",
+        help="Change GitHub to match the items where it can.",
     )
     parsed = parse_or_usage_error(parser, args, RESYNC_USAGE)
     if parsed is None:

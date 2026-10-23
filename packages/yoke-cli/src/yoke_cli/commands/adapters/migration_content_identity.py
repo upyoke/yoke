@@ -24,13 +24,14 @@ from yoke_contracts.migration_content_identity import (
 
 VERIFY_USAGE = (
     "yoke migration content-identity verify --entries-json JSON "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
 def migration_content_identity_verify(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke migration content-identity verify",
+        usage=VERIFY_USAGE,
         description=(
             "Compare candidate migration name/digest entries with the fixed "
             "control-plane ledger. The response never exposes ledger digests."
@@ -39,6 +40,7 @@ def migration_content_identity_verify(args: List[str]) -> int:
     parser.add_argument(
         "--entries-json",
         required=True,
+        metavar="JSON",
         help="JSON array of {name, content_sha256} candidate entries.",
     )
     add_session_arg(parser)

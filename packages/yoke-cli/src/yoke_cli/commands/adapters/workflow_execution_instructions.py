@@ -68,9 +68,10 @@ def _dispatch(
     human_writer: Callable[[Any, Any, Any], None] | None = None,
     description: str | None = None,
 ) -> int:
-    usage = f"yoke {tokens} [--json]"
+    usage = USAGE_BY_FUNCTION_ID[function_id]
     parser = argparse.ArgumentParser(
         prog=f"yoke {tokens}",
+        usage=usage,
         description=description,
     )
     if configure is not None:
@@ -92,7 +93,7 @@ def _dispatch(
 
 def _content_args(parser: argparse.ArgumentParser) -> None:
     _delivery_args(parser)
-    parser.add_argument("--content", help="Instruction prose.")
+    parser.add_argument("--content", metavar="TEXT", help="Instruction prose.")
     parser.add_argument(
         "--stdin",
         action="store_true",
@@ -115,7 +116,9 @@ def workflow_execution_instruction_create(args: List[str]) -> int:
 
 
 def _update_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("instruction_id", type=int, help="Instruction to update.")
+    parser.add_argument(
+        "instruction_id", type=int, metavar="ID", help="Instruction to update."
+    )
     _content_args(parser)
 
 
@@ -136,7 +139,9 @@ def workflow_execution_instruction_update(args: List[str]) -> int:
 
 def _set_scope_args(parser: argparse.ArgumentParser) -> None:
     _delivery_args(parser)
-    parser.add_argument("instruction_id", type=int, help="Instruction to scope.")
+    parser.add_argument(
+        "instruction_id", type=int, metavar="ID", help="Instruction to scope."
+    )
     parser.add_argument(
         "--all-workflows",
         action="store_true",
@@ -147,6 +152,7 @@ def _set_scope_args(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         dest="workflows",
+        metavar="W",
         help="Workflow id to bind; repeatable.",
     )
     parser.add_argument(
@@ -160,6 +166,7 @@ def _set_scope_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=[],
         dest="project_ids",
+        metavar="N",
         help="Project id to bind; repeatable.",
     )
 
@@ -193,15 +200,22 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
 
 
 def _resolve_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--workflow", required=True, help="Workflow to resolve for.")
-    parser.add_argument("--project", required=True, help="Project to resolve for.")
+    parser.add_argument(
+        "--workflow", required=True, metavar="W", help="Workflow to resolve for."
+    )
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project to resolve for."
+    )
     parser.add_argument(
         "--delivery-point",
         default="before_creation",
+        metavar="POINT",
         help="before_creation (default), on_every_read, or when_entering_stage.",
     )
     parser.add_argument(
-        "--stage-bucket", help="Live or entered bucket for stage delivery."
+        "--stage-bucket",
+        metavar="BUCKET",
+        help="Live or entered bucket for stage delivery.",
     )
     add_full_arg(parser, "the instruction prose a filer must read and obey")
 
@@ -255,36 +269,43 @@ def workflow_execution_instruction_delete(args: List[str]) -> int:
         args,
         tokens="workflow execution-instruction delete",
         configure=lambda parser: parser.add_argument(
-            "instruction_id", type=int, help="Instruction to delete."
+            "instruction_id", type=int, metavar="ID", help="Instruction to delete."
         ),
         function_id="workflow.execution_instruction.delete",
         payload=lambda parsed: {"instruction_id": parsed.instruction_id},
     )
 
 
+_DELIVERY_USAGE = (
+    "[--before-creation | --no-before-creation] "
+    "[--on-every-read | --no-on-every-read] "
+    "[--when-entering-stage | --no-when-entering-stage] "
+    "[--stage-bucket BUCKET ... | --clear-stage-buckets]"
+)
+_TAIL = "[--session-id S] [--json]"
 USAGE_BY_FUNCTION_ID = {
     "workflow.execution_instruction.create": (
-        "yoke workflow execution-instruction create (--content C | --stdin) [--json]"
+        "yoke workflow execution-instruction create (--content TEXT | --stdin) "
+        f"{_DELIVERY_USAGE} {_TAIL}"
     ),
     "workflow.execution_instruction.update": (
-        "yoke workflow execution-instruction update ID (--content C | --stdin) [--json]"
+        "yoke workflow execution-instruction update ID (--content TEXT | --stdin) "
+        f"{_DELIVERY_USAGE} {_TAIL}"
     ),
     "workflow.execution_instruction.set_scope": (
         "yoke workflow execution-instruction set-scope ID "
         "[--all-workflows] [--workflow W ...] "
-        "[--all-projects] [--project-id N ...] [--before-creation | --no-before-creation] "
-        "[--on-every-read | --no-on-every-read] [--when-entering-stage | --no-when-entering-stage] "
-        "[--stage-bucket B ... | --clear-stage-buckets] [--json]"
+        f"[--all-projects] [--project-id N ...] {_DELIVERY_USAGE} {_TAIL}"
     ),
     "workflow.execution_instruction.list": (
-        "yoke workflow execution-instruction list [--json]"
+        f"yoke workflow execution-instruction list [--full] {_TAIL}"
     ),
     "workflow.execution_instruction.resolve": (
-        "yoke workflow execution-instruction resolve "
-        "--workflow W --project P [--delivery-point POINT] [--stage-bucket B] [--full] [--json]"
+        "yoke workflow execution-instruction resolve --workflow W --project P "
+        f"[--delivery-point POINT] [--stage-bucket BUCKET] [--full] {_TAIL}"
     ),
     "workflow.execution_instruction.delete": (
-        "yoke workflow execution-instruction delete ID [--json]"
+        f"yoke workflow execution-instruction delete ID {_TAIL}"
     ),
 }
 

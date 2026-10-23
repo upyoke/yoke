@@ -67,7 +67,7 @@ DOCTOR_RUN_USAGE = (
 )
 
 DOCTOR_LAST_RUN_GET_USAGE = (
-    "yoke doctor last-run get [--project NAME] [--session-id S] [--json]"
+    "yoke doctor last-run get [--project NAME] [--full] [--session-id S] [--json]"
 )
 
 
@@ -79,7 +79,11 @@ def doctor_last_run_get(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Serve only a run recorded for this project (slug or id).",
+        metavar="NAME",
+        help=(
+            "Project slug or id whose last run to show (default: the "
+            "checkout's mapped project)."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -125,13 +129,14 @@ def doctor_run(args: List[str]) -> int:
         ),
     )
     scope.add_argument(
-        "--quick", action="store_true", help="Quick scope: sampled critical HCs."
+        "--quick", action="store_true", help="Run a sample of the critical health checks."
     )
     scope.add_argument(
-        "--full", action="store_true", help="Full scope: every registered HC."
+        "--full", action="store_true", help="Run every registered health check."
     )
     scope.add_argument(
-        "--only", default=None, help="Comma-separated HC slugs (subset)."
+        "--only", default=None, metavar="NAMES",
+        help="Run only these health checks, as comma-separated slugs.",
     )
     parser.add_argument(
         "--fix", action="store_true", help="Apply auto-fixes where supported."
@@ -139,6 +144,7 @@ def doctor_run(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="NAME",
         help=(
             "Project to run against. Defaults to the project bound to the "
             "checkout you are standing in."
@@ -147,10 +153,12 @@ def doctor_run(args: List[str]) -> int:
     parser.add_argument(
         "--file",
         default=None,
+        metavar="PATH",
         help="Also write the rendered health report to PATH (human mode).",
     )
     parser.add_argument(
-        "--db-path", dest="db_path", default=None, help="Optional DB path override."
+        "--db-path", dest="db_path", default=None, metavar="PATH",
+        help="Use this database file instead of the default.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

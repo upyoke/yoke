@@ -9,15 +9,15 @@ QA_REQUIREMENT_ADD_USAGE = (
     "[--requirement-source S] [--success-policy all-pass|JSON] "
     "[--required-capability KIND ...] [--suite-id ID] "
     "[--instructions TEXT | --instructions-file PATH | --stdin] "
-    "[--expected-outcome TEXT | --expected-outcome-file PATH] "
+    "[--expected-outcome TEXT | --expected-outcome-file PATH] [--method-config JSON] "
     "[--host-baseline NAME | --starting-state as_is "
     "--starting-state-reason TEXT] "
     "[--workflow-transition STAGE] [--deployment-stage STAGE] "
-    "[--deployment-member-item PREFIX-N] [--session-id S] [--json]"
+    "[--deployment-member-item PREFIX-N] [--project P] [--session-id S] [--json]"
 )
 
 QA_REQUIREMENT_ADD_HELP_DEEP = """\
-Insert one qa_requirements row against the subject you name.
+Add one QA case to the item or deployment run you name.
 
   --item PREFIX-N         the case is that item's own verification.
                           Claim-gated: the calling session must hold the
@@ -65,7 +65,7 @@ Worked examples:
     --method-config '{"steps":[{"action":"navigate","route":"/"},
       {"action":"screenshot","capture":true,"label":"home"}]}'
 
-Flag matrix:
+Browser method config:
 
 Browser method_config.color_scheme optionally selects light or dark for this
 case's owned page before navigation, fixed across steps/navigation/reload.
@@ -79,30 +79,6 @@ the case runs as (default `default`); an agent mission's
 method_config.browser_identities lists the identities its walker verifies
 signed in before browsing (`yoke browser verify --identity NAME`).
 Full configuration: verification/browser-targets.md#method-configuration.
-
-  flag                        required  default    value shape
-  --item                      one-of    —          PREFIX-N
-  --deployment-run            one-of    —          run-YYYYMMDD-NNN
-  --deployment-stage          no        —          run-attached: pinned stage name
-  --deployment-member-item    no        —          run-attached: member PREFIX-N (needs stage)
-  --qa-kind                   one-of    —          ad hoc legacy/plumbing discriminator
-  --method-id                 one-of    —          registered QA method id
-  --qa-phase                  yes       —          verification | post_deploy | manual_acceptance
-  --target-env                no        —          env name
-  --blocking-mode             no        blocking   blocking | non_blocking
-  --requirement-source        no        explicit   explicit | seeded_default | ac_derived | flow_derived
-  --instructions              method    —          what the case executes
-  --expected-outcome          method    —          observable passing outcome
-  --method-config             method    —          method-specific JSON object
-  --host-baseline             machine   —          registered baseline reset before the case
-  --starting-state            machine   —          as_is (runs on the machine as found)
-  --starting-state-reason     as_is     —          why the machine as found is the start
-  --workflow-transition      item      —          pinned workflow stage id
-  --success-policy            no        —          all-pass or {"id":"all-pass","params":{}}
-  --required-capability       no        —          repeatable capability kind
-  --suite-id                  no        —          suite id string
-  --session-id                no        ambient    opaque session id (operator-debug)
-  --json                      no        false      flag (typed envelope on stdout)
 
 A machine-run case (host_control or agent_mission method) declares the Test
 Machine state it starts from: --host-baseline names a registered baseline the

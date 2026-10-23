@@ -52,7 +52,7 @@ __all__ = [
 
 OUROBOROS_FIELD_NOTE_LIST_USAGE = (
     "yoke ouroboros field-note list [--unreviewed] [--project P] "
-    "[--limit N] [--offset N] [--count] [--session-id S] [--json]"
+    "[--limit N] [--offset N] [--count] [--full] [--session-id S] [--json]"
 )
 
 
@@ -64,32 +64,35 @@ def ouroboros_field_note_list(args: List[str]) -> int:
     parser.add_argument(
         "--unreviewed",
         action="store_true",
-        help="Only field-notes not yet reviewed or archived.",
+        help="Only notes not yet reviewed or archived.",
     )
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help=(
-            "Filter by project slug or id. Defaults to the checkout "
-            "project (same ladder as field-note append)."
+            "Project slug or id to list (default: --project, then "
+            "$YOKE_PROJECT, then this checkout's project)."
         ),
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
-        help="Maximum rows to return (default 50, max 500).",
+        metavar="N",
+        help="Most notes to return (default 50, max 500).",
     )
     parser.add_argument(
         "--offset",
         type=int,
         default=None,
-        help="Rows to skip before the page (default 0).",
+        metavar="N",
+        help="Notes to skip before the first one returned (default 0).",
     )
     parser.add_argument(
         "--count",
         action="store_true",
-        help="Return the matching row count instead of entry bodies.",
+        help="Print how many notes match instead of the notes.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -120,7 +123,7 @@ def ouroboros_field_note_list(args: List[str]) -> int:
 
 
 OUROBOROS_FIELD_NOTE_GET_USAGE = (
-    "yoke ouroboros field-note get ENTRY_ID [--session-id S] [--json]"
+    "yoke ouroboros field-note get ENTRY_ID [--full] [--session-id S] [--json]"
 )
 
 
@@ -129,7 +132,7 @@ def ouroboros_field_note_get(args: List[str]) -> int:
         prog="yoke ouroboros field-note get",
         usage=OUROBOROS_FIELD_NOTE_GET_USAGE,
     )
-    parser.add_argument("entry_id", help="Field-note entry id (integer).")
+    parser.add_argument("entry_id", metavar="ENTRY_ID", help="Field note id (a number).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, OUROBOROS_FIELD_NOTE_GET_USAGE)
@@ -157,7 +160,7 @@ def ouroboros_field_note_get(args: List[str]) -> int:
 
 OUROBOROS_USAGE = (
     "yoke ouroboros field-note append "
-    "--kind {failed|new|unclear|observation} "
+    "--kind failed|new|unclear|observation "
     "(--evidence TEXT | --evidence-file PATH | --stdin) [--corrects ENTRY_ID] "
     "[--target-project P] [--correlation-id ID] [--session-id S] [--json]"
 )
@@ -168,6 +171,7 @@ def ouroboros_field_note_append(args: List[str]) -> int:
     # RawDescriptionHelpFormatter preserves that multi-line layout.
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros field-note append",
+        usage=OUROBOROS_USAGE,
         description=HELP_BODY,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -175,7 +179,7 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         "--kind",
         required=True,
         choices=KIND_VALUES,
-        help="Field-note signal — failed, new, unclear, or observation.",
+        help="What kind of problem this is; the kinds are described above.",
     )
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -183,45 +187,43 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         "--evidence",
         "--evidence-file",
         dest="evidence",
-        help_text=(
-            f"Non-empty evidence text (≤{EVIDENCE_MAX_CHARS} chars). "
-            "Use --evidence-file to read from a path."
-        ),
+        help_text=f"What happened, at most {EVIDENCE_MAX_CHARS} characters.",
+        file_help="Read the evidence from a file.",
     )
     add_stdin_flag(
         evidence_group,
-        help_text="Read evidence from stdin (quoted heredoc: <<'EOF').",
+        help_text="Read the evidence from stdin, e.g. a quoted heredoc: <<'EOF'.",
     )
     parser.add_argument(
         "--corrects",
         dest="corrects",
         type=int,
         default=None,
+        metavar="ENTRY_ID",
         help=(
-            "Entry id this note corrects. The two are linked and the "
-            "corrected note is superseded — it leaves the unreviewed queue "
-            "so curate clusters this note instead of both. Use it when you "
-            "are restating a note you already filed (wrong evidence, wrong "
-            "kind, wrong diagnosis); file a fresh note for unrelated signal."
+            "Id of an earlier note of yours that this one replaces, because "
+            "its evidence, kind or diagnosis was wrong. The earlier note "
+            "leaves the unreviewed list. For a different problem, file a "
+            "new note instead."
         ),
     )
     parser.add_argument(
         "--target-project",
         dest="target_project",
         default=None,
+        metavar="P",
         help=(
-            "Project the fix belongs to, when it is not the checkout you "
-            "are standing in. The observing project is recorded either "
-            "way; this is what curate promotes into, so a defect you "
-            "notice from one repo files against the one that deploys it. "
-            "Leave it off when you cannot tell — promotion falls back to "
-            "the observing project and stays overridable there."
+            "Project the fix belongs in, when it is not this checkout's "
+            "project. This checkout's project is recorded either way. "
+            "Leave it off when you cannot tell; the note's work item then "
+            "goes to this checkout's project, which can be changed later."
         ),
     )
     parser.add_argument(
         "--correlation-id",
         dest="correlation_id",
         default=None,
+        metavar="ID",
         help=CORRELATION_ID_HELP,
     )
     add_session_arg(parser)

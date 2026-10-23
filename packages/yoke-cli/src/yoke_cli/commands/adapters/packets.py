@@ -41,7 +41,7 @@ __all__ = [
 
 PACKETS_RENDER_USAGE = (
     "yoke packets render --role NAME [--topic NAME] [--detail compact|full] "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
@@ -75,22 +75,35 @@ def packets_render(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke packets render",
         usage=PACKETS_RENDER_USAGE,
+        description=(
+            "Print the instruction packet for one agent role, or one topic of it.\n"
+            "Without --full the command prints only the packet's outline; --full\n"
+            "prints the whole text."
+        ),
     )
     parser.add_argument(
         "--role",
         required=True,
-        help="Packet role (e.g. 'main_agent', 'engineer_agent').",
+        metavar="NAME",
+        help="Packet role, for example main_agent or engineer_agent.",
     )
     parser.add_argument(
         "--topic",
         default=None,
+        metavar="NAME",
         help=(
             "Render one topic of that role instead of all of them. "
             "Valid topics: core, claims, auth, qa, project, packs."
         ),
     )
     parser.add_argument(
-        "--detail", default=None, help="compact (default) or full; full adds the notes."
+        "--detail",
+        default=None,
+        metavar="compact|full",
+        help=(
+            "compact (default) is the packet that ships at session start; "
+            "full adds the per-table and per-command notes."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -114,7 +127,7 @@ def packets_render(args: List[str]) -> int:
 
 
 PACKETS_CHECK_USAGE = (
-    "yoke packets check [--target-root PATH] [--session-id S] [--json]"
+    "yoke packets check [--target-root PATH] [--full] [--session-id S] [--json]"
 )
 
 
@@ -138,11 +151,17 @@ def packets_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke packets check",
         usage=PACKETS_CHECK_USAGE,
+        description=(
+            "Check that rendered packets match their source, that every packet\n"
+            "fits its line and byte budget, and that every harness startup\n"
+            "channel fits its limit. Exits non-zero on any problem."
+        ),
     )
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
+        metavar="PATH",
         help="Checkout to measure; defaults to this one.",
     )
     add_session_arg(parser)
@@ -164,7 +183,7 @@ def packets_check(args: List[str]) -> int:
     )
 
 
-PACKETS_BUDGET_GET_USAGE = "yoke packets budget get [--session-id S] [--json]"
+PACKETS_BUDGET_GET_USAGE = "yoke packets budget get [--full] [--session-id S] [--json]"
 
 
 def _packet_budget_writer(response, stdout, _stderr) -> None:
@@ -215,6 +234,11 @@ def packets_budget_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke packets budget get",
         usage=PACKETS_BUDGET_GET_USAGE,
+        description=(
+            "Show each packet role's line and byte budget, its current size and\n"
+            "the room left, then the same for all roles together. It measures\n"
+            "the packets this checkout renders."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -233,7 +257,8 @@ def packets_budget_get(args: List[str]) -> int:
 
 
 PACKETS_STARTUP_DELIVERY_GET_USAGE = (
-    "yoke packets startup-delivery get [--target-root PATH] [--session-id S] [--json]"
+    "yoke packets startup-delivery get [--target-root PATH] [--full] [--session-id S] "
+    "[--json]"
 )
 
 
@@ -269,11 +294,16 @@ def packets_startup_delivery_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke packets startup-delivery get",
         usage=PACKETS_STARTUP_DELIVERY_GET_USAGE,
+        description=(
+            "Show how many bytes each harness startup channel delivers, its\n"
+            "limit and the room left, then every channel over its limit."
+        ),
     )
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
+        metavar="PATH",
         help="Checkout to measure; defaults to this one.",
     )
     add_session_arg(parser)
