@@ -138,9 +138,11 @@ test("unrun or unresolved QA remains deploying, rather than claiming failure", (
   }
 });
 
-test("a discharge remains distinct from a passing QA result", () => {
-  const box = deliveryBox({ item_qa: { state: "discharged" } });
-  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "◐ QA discharged · awaiting item completion");
+test("a waiver and a no-obligation answer each stay distinct from a pass", () => {
+  const waived = deliveryBox({ item_qa: { state: "discharged" } });
+  assert.equal(byClass(waived, "item-deployment-outcome")[0].textContent, "◐ QA waived · awaiting item completion");
+  const none = deliveryBox({ item_qa: { state: "discharged", no_item_qa_required: true } });
+  assert.equal(byClass(none, "item-deployment-outcome")[0].textContent, "◐ no item QA required · awaiting item completion");
 });
 
 test("a sibling's rejected QA is a run wait even after its item finished", () => {
