@@ -52,6 +52,7 @@ def covered_stale_ci_ids(
         for row, issue in graded
         if issue is not None
         and issue.state == "stale-sha"
+        and row.get("verdict") == "pass"
         and row.get("recorded_head_sha")
         for successor in passing.get(_scope(row), [])
         if int(successor["id"]) > int(row["id"])
