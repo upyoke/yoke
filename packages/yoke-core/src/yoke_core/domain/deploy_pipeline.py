@@ -274,7 +274,7 @@ def run_pipeline(
             first_item=first_item,
             first_item_label=str(first_member.get("public_ref") or ""),
             timeout_min=timeout_min,
-            fresh=fresh,
+            fresh=fresh or stage_checks.fresh_resume(run_status, from_stage, s_name),
             image_tag=image_tag,
             environment_name=environment_name,
             gate_branch=gate_branch,

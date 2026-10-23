@@ -15,6 +15,11 @@ from yoke_core.domain import (
     deploy_pipeline_run_updates,
     deploy_pipeline_stage_checks,
 )
+from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
+    fresh_retrigger_scope,
+    workflow_dispatch_request_id,
+)
+from yoke_core.domain.deploy_pipeline_stage_checks import fresh_resume
 
 
 def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
@@ -124,3 +129,105 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
     out = capsys.readouterr().out
     assert "--- Stage: hosted-release" not in out
     assert "--- Stage: warm-up" in out
+
+
+def _fresh_flags(status: str, from_stage: str, run_id: str) -> dict[str, bool]:
+    context = {
+        "run": {
+            "id": run_id,
+            "project": "yoke",
+            "flow": "yoke-hosted-production-release-qa",
+            "target_tier": "persistent",
+            "target_environment": "prod",
+            "release_lineage": "a" * 40,
+            "status": status,
+            "current_stage": from_stage,
+        },
+        "members": [],
+        "stages": [
+            {
+                "name": "hosted-release",
+                "step_runner": "github-actions-workflow",
+            },
+            {"name": "warm-up", "step_runner": "warm-up"},
+            {"name": "complete", "step_runner": "auto"},
+        ],
+    }
+    flags: dict[str, bool] = {}
+
+    def fake_dispatch(stage, **kwargs):
+        flags[stage["name"]] = kwargs["fresh"]
+        return 0, ""
+
+    with (
+        mock.patch.object(
+            deploy_pipeline,
+            "resolve_flow_gate_branch",
+            return_value="main",
+        ),
+        mock.patch.object(
+            deploy_pipeline.control_plane,
+            "execution_context",
+            return_value=context,
+        ),
+        mock.patch.object(deploy_pipeline_run_updates, "update_run_field"),
+        mock.patch.object(deploy_pipeline_run_updates, "start_run"),
+        mock.patch.object(
+            deploy_pipeline.control_plane,
+            "project_field",
+            return_value="",
+        ),
+        mock.patch.object(
+            deploy_pipeline,
+            "resolve_project_checkout_path",
+            return_value="/repo",
+        ),
+        mock.patch.object(
+            deploy_pipeline_stage_checks,
+            "check_resume_qa_gate",
+            return_value=None,
+        ),
+        mock.patch.object(
+            deploy_pipeline.stage_receipt,
+            "dispatch_step_runner_with_receipt",
+            side_effect=fake_dispatch,
+        ),
+        mock.patch.object(deploy_pipeline, "_emit_run_event"),
+        mock.patch.object(deploy_pipeline_run_context, "_emit_run_event"),
+        mock.patch.object(
+            deploy_pipeline.control_plane,
+            "unresolved_qa",
+            return_value=[],
+        ),
+    ):
+        rc = deploy_pipeline.run_pipeline(run_id, from_stage=from_stage, sd="/tmp/sd")
+
+    assert rc == deploy_pipeline.EXIT_SUCCESS
+    return flags
+
+
+def test_failed_from_stage_dispatches_fresh_and_executing_keeps_base_request_id():
+    run_id = "run-20261023-007"
+    stage = "hosted-release"
+    project = "yoke"
+    base = workflow_dispatch_request_id(project, run_id, stage)
+
+    assert fresh_resume("failed", stage, stage) is True
+    assert fresh_resume("failed", stage, "warm-up") is False
+    assert fresh_resume("failed", "", stage) is False
+    assert fresh_resume("executing", stage, stage) is False
+
+    failed = _fresh_flags("failed", stage, run_id)
+    assert failed[stage] is True
+    assert failed["warm-up"] is False
+    scoped = workflow_dispatch_request_id(
+        project,
+        run_id,
+        stage,
+        retrigger_scope=fresh_retrigger_scope(),
+    )
+    assert scoped.startswith(f"{base}:fresh:")
+
+    executing = _fresh_flags("executing", stage, run_id)
+    assert executing[stage] is False
+    assert workflow_dispatch_request_id(project, run_id, stage) == base
