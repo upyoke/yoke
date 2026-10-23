@@ -5,7 +5,7 @@ every session that queued behind it. When it is aborted, the next execution of
 the same run, stage and shared plan joins that host's line at the aborted
 walk's place, so the recovery resumes next instead of joining the back. The
 place is the earliest of the walk's granted waits and host leases, read from
-the existing ``qa_host_waits`` and ``work_claims`` records.
+the existing ``qa_test_machine_waits`` and ``work_claims`` records.
 """
 
 from __future__ import annotations
@@ -25,19 +25,19 @@ def _instant(conn: Any, value: Any) -> Any:
 
 
 def held_host_place(
-    conn: Any, execution: Mapping[str, Any], machine: str
+    conn: Any, execution: Mapping[str, Any], test_machine: str
 ) -> datetime | None:
     """When *execution* first stood for *machine*, or None if it never held it."""
     p = marker(conn)
     where, params = conflict_match_clause(
-        conn, make_qa_admission_target(machine), alias="wc"
+        conn, make_qa_admission_target(test_machine), alias="wc"
     )
     until = _instant(conn, execution.get("completed_at"))
     row = query_one(
         conn,
         "SELECT MIN(place) AS place FROM ("
-        "SELECT w.queued_at AS place FROM qa_host_waits w "
-        f"WHERE w.qa_plan_execution_id={p} AND w.machine_id={p} "
+        "SELECT w.queued_at AS place FROM qa_test_machine_waits w "
+        f"WHERE w.qa_plan_execution_id={p} AND w.test_machine={p} "
         "AND w.state='granted' UNION ALL "
         f"SELECT wc.claimed_at FROM work_claims wc WHERE {where} "
         f"AND wc.session_id={p} AND wc.claimed_at>={p}"
@@ -45,7 +45,7 @@ def held_host_place(
         + ") places",
         (
             str(execution["id"]),
-            machine,
+            test_machine,
             *params,
             str(execution["session_id"]),
             _instant(conn, execution["created_at"]),
@@ -57,7 +57,7 @@ def held_host_place(
 
 
 def inherited_host_place(
-    conn: Any, execution: Mapping[str, Any], machine: str
+    conn: Any, execution: Mapping[str, Any], test_machine: str
 ) -> datetime | None:
     """The aborted shared walk's place on *machine* this execution recovers.
 
@@ -68,7 +68,7 @@ def inherited_host_place(
     run, stage = execution.get("deployment_run_id"), execution.get("deployment_stage")
     if not run or not stage or execution.get("deployment_member_item_id") is not None:
         return None
-    if held_host_place(conn, execution, machine) is not None:
+    if held_host_place(conn, execution, test_machine) is not None:
         return None
     p = marker(conn)
     prior = query_one(
@@ -81,7 +81,7 @@ def inherited_host_place(
     )
     if prior is None or prior["state"] != "aborted":
         return None
-    return held_host_place(conn, dict(prior), machine)
+    return held_host_place(conn, dict(prior), test_machine)
 
 
 __all__ = ["held_host_place", "inherited_host_place"]

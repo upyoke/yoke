@@ -42,7 +42,7 @@ the applicable profile while retaining restricted source access; do not open
 the network broadly as a connectivity workaround.
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
---project P --machine NAME --settings-file FILE --new`; read `--help` for
+--project P --test-machine NAME --settings-file FILE --new`; read `--help` for
 updates with the as-read settings token. Declare `resource_name`, `os=windows`,
 Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
@@ -55,7 +55,7 @@ On every QA execution workstation, store capability-owned credentials:
 ```text
 yoke projects capability secret set --project P --cap-type test-machine --key ssh_private_key --value-file KEY_FILE
 yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
-yoke test-machine get --project P --machine NAME
+yoke test-machine get --project P --test-machine NAME
 ```
 
 Read each command's `--help`. Desktop and SSH usernames may differ; their
@@ -89,7 +89,7 @@ Ubuntu. This stops every running WSL distribution, not just this fixture.
 Prove the default Linux `id -u` is nonzero and PID1 is systemd. Registered host
 operations enter `wsl.exe --cd ~ -e /bin/bash -lc`; home/baseline paths are Linux
 paths and the operation preserves the Linux program's exit status.
-Confirm from the workstation with `yoke test-machine exec --project P --machine
+Confirm from the workstation with `yoke test-machine exec --project P --test-machine
 NAME -- 'id -u; uname -a'`; read `--help`. Ad hoc exec uses its workstation SSH
 agent and refuses another session's lease.
 
@@ -166,7 +166,7 @@ macOS Keychain checks do not apply to WSL.
 ## 6. Windows desktop and browser coverage
 
 Registered terminal QA uses tmux transcripts. GUI commands and
-`yoke test-machine screenshot --project P --machine NAME --json` start or
+`yoke test-machine screenshot --project P --test-machine NAME --json` start or
 reuse the same WSL XFCE display through the existing Linux desktop helper;
 the screenshot captures that display, including its actual headed browser.
 Declare the dedicated WSL user as `desktop_user` and its loopback xrdp port
@@ -177,7 +177,7 @@ user's ambiguous desktop refuses; no native Windows RDP login is needed.
 For a requested, announced personal application sign-in handoff, run:
 
 ```text
-yoke test-machine desktop-access --project P --machine NAME --view
+yoke test-machine desktop-access --project P --test-machine NAME --view
 ```
 
 Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
@@ -282,10 +282,10 @@ Choose a new absolute Linux destination outside the Linux home; never reuse a
 Windows path or overwrite a saved baseline:
 
 ```text
-yoke test-machine golden-capture --project P --machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
-yoke test-machine verify --project P --machine NAME
-yoke test-machine reset --project P --machine NAME --baseline fresh-host
-yoke test-machine get --project P --machine NAME
+yoke test-machine golden-capture --project P --test-machine NAME --destination /var/lib/yoke-golden-DATE-UNIQUE/home
+yoke test-machine verify --project P --test-machine NAME
+yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
+yoke test-machine get --project P --test-machine NAME
 ```
 
 Read each command's `--help`. Capture runs standard probes before registering

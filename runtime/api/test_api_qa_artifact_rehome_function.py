@@ -147,7 +147,7 @@ def test_unservable_local_read_names_where_it_was_recorded(tmp_path) -> None:
         artifact_id = seed_artifact(
             conn,
             handle={"backend": "local", "path": recorded},
-            metadata={"machine": "Capture Mac"},
+            metadata={"test_machine": "Capture Mac"},
         )
         with (
             patch(

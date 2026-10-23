@@ -139,8 +139,10 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--machine",
         default=None,
         dest="machine_id",
-        metavar="NAME",
-        help="Registered name or machine id (`yoke machine list`).",
+        metavar="MACHINE_ID",
+        help="Registered Machine id (`yoke machine list`); a name resolves only "
+        "when one live Machine carries it. A test machine is not a Machine: it "
+        "is reached through its QA lease.",
     )
     parser.add_argument(
         "--model", default=None, metavar="MODEL", help="Model; needs --surface."

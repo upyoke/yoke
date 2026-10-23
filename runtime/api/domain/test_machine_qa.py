@@ -183,7 +183,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
             id,session_id,target_kind,scope,claimed_at,last_heartbeat,
             released_at
         ) VALUES(
-            9,'session-machine','qa_admission','{"machine_id":"mac-mini-lab"}',
+            9,'session-machine','qa_admission','{"test_machine":"mac-mini-lab"}',
             '2026-07-26T15:58:00Z','2026-07-26T15:59:00Z',NULL
         );
         """

@@ -1,4 +1,4 @@
-"""FIFO turns on one physical Test Machine, kept in the ``qa_host_waits`` line.
+"""FIFO turns on one physical Test Machine, kept in ``qa_test_machine_waits``.
 
 A session refused a ``QA_HOST:<machine>`` claim, or a scoped QA plan whose
 host is leased or unhealthy, joins the line; the host's next release reserves
@@ -19,8 +19,10 @@ from yoke_contracts.coordination_claim_recovery import holder_release_command
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
-from yoke_core.domain.qa_host_wait_schema import QA_HOST_WAIT_TABLE
 from yoke_core.domain.qa_plan_execution_store import marker as _p
+from yoke_core.domain.qa_test_machine_wait_schema import (
+    QA_TEST_MACHINE_WAIT_TABLE,
+)
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -52,29 +54,29 @@ def _resume_command(conn: Any, wait: Any) -> str:
 
 def _has_line(conn: Any) -> bool:
     """Partial fixture schemas without the line have no waiter to serve."""
-    return _table_exists(conn, QA_HOST_WAIT_TABLE)
+    return _table_exists(conn, QA_TEST_MACHINE_WAIT_TABLE)
 
 
 def lock_host_turn(conn: Any, target: Any) -> None:
     """Serialize queue admission and lease release on the physical host."""
-    if target.machine_id and db_backend.connection_is_postgres(conn):
+    if target.test_machine and db_backend.connection_is_postgres(conn):
         conn.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-            ("qa-host-turn:" + target.machine_id,),
+            ("qa-host-turn:" + target.test_machine,),
         )
 
 
-def host_line(conn: Any, machine: str) -> list[dict[str, Any]]:
+def host_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
     """Waiters still in line for *machine*, oldest first; ended sessions drop out."""
     if not _has_line(conn):
         return []
     rows = query_rows(
         conn,
-        "SELECT w.* FROM qa_host_waits w JOIN harness_sessions s "
+        "SELECT w.* FROM qa_test_machine_waits w JOIN harness_sessions s "
         "ON s.session_id=w.session_id "
-        f"WHERE w.machine_id={_p(conn)} AND w.state='waiting' AND s.ended_at IS NULL "
+        f"WHERE w.test_machine={_p(conn)} AND w.state='waiting' AND s.ended_at IS NULL "
         "ORDER BY w.queued_at, w.id",
-        (machine,),
+        (test_machine,),
     )
     return [dict(row) for row in rows]
 
@@ -82,13 +84,13 @@ def host_line(conn: Any, machine: str) -> list[dict[str, Any]]:
 def host_wait_view(conn: Any, wait_id: str) -> dict[str, Any]:
     """Return one wait with its current place in its machine's line."""
     row = query_one(
-        conn, f"SELECT * FROM qa_host_waits WHERE id={_p(conn)}", (wait_id,)
+        conn, f"SELECT * FROM qa_test_machine_waits WHERE id={_p(conn)}", (wait_id,)
     )
     assert row is not None
-    line = [str(waiter["id"]) for waiter in host_line(conn, str(row["machine_id"]))]
+    line = [str(waiter["id"]) for waiter in host_line(conn, str(row["test_machine"]))]
     return {
         "id": str(row["id"]),
-        "machine": str(row["machine_id"]),
+        "test_machine": str(row["test_machine"]),
         "state": str(row["state"]),
         "queued_at": format_instant(row["queued_at"]),
         "resume_command": _resume_command(conn, row),
@@ -111,23 +113,23 @@ def join_host_line(
 ) -> dict[str, Any]:
     """Queue *session_id* at *queued_at* or now; a queued session keeps its place."""
     p = _p(conn)
-    machine = str(target.machine_id)
+    test_machine = str(target.test_machine)
     lock_host_turn(conn, target)
     live = query_one(
         conn,
-        f"SELECT id FROM qa_host_waits WHERE machine_id={p} AND session_id={p} "
+        f"SELECT id FROM qa_test_machine_waits WHERE test_machine={p} AND session_id={p} "
         f"AND state IN {_LIVE}",
-        (machine, session_id),
+        (test_machine, session_id),
     )
     if live is None:
         wait_id = str(uuid4())
         conn.execute(
-            "INSERT INTO qa_host_waits(id,machine_id,session_id,actor_id,queued_at,"
+            "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
             "qa_plan_execution_id,state,resume_command,rationale) "
             f"VALUES({p},{p},{p},{p},{p},{p},'waiting',{p},{p})",
             (
                 wait_id,
-                machine,
+                test_machine,
                 session_id,
                 int(actor_id),
                 instant_parameter(conn, queued_at or utc_now()),
@@ -139,7 +141,7 @@ def join_host_line(
     else:
         wait_id = str(live["id"])
         conn.execute(
-            f"UPDATE qa_host_waits SET resume_command={p},rationale={p},"
+            f"UPDATE qa_test_machine_waits SET resume_command={p},rationale={p},"
             f"qa_plan_execution_id=COALESCE({p},qa_plan_execution_id) WHERE id={p}",
             (resume_command, rationale, execution_id, wait_id),
         )
@@ -153,16 +155,16 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
     verify or golden capture that heals it; that operation's release serves
     the line.
     """
-    if not target.machine_id:
+    if not target.test_machine:
         return
     from yoke_core.domain.coordination_claims import active_claim, acquire
     from yoke_core.domain.qa_host_health import host_unhealthy
 
     if active_claim(conn, target) is not None:
         return
-    if host_unhealthy(conn, target.machine_id) is not None:
+    if host_unhealthy(conn, target.test_machine) is not None:
         return
-    line = host_line(conn, target.machine_id)
+    line = host_line(conn, target.test_machine)
     if not line:
         return
     first = line[0]
@@ -174,7 +176,7 @@ def reserve_host_turn(conn: Any, target: Any) -> None:
         commit=False,
     )
     conn.execute(
-        f"UPDATE qa_host_waits SET state='reserved',claim_id={_p(conn)} "
+        f"UPDATE qa_test_machine_waits SET state='reserved',claim_id={_p(conn)} "
         f"WHERE id={_p(conn)}",
         (claim.id, str(first["id"])),
     )
@@ -198,7 +200,7 @@ def _wake_waiter(conn: Any, wait: dict[str, Any], claim: Any) -> None:
         sender_session_id=None,
         selector=RecipientSelector(session_ids=[str(wait["session_id"])]),
         body=(
-            f"QA host turn ready: {wait['machine_id']}; reserved lease {claim.id} "
+            f"QA host turn ready: {wait['test_machine']}; reserved lease {claim.id} "
             f"for this session. Take it with: {_resume_command(conn, wait)}."
             f"{open_requirement} If you no longer need the host, release it "
             f"so the next waiter gets it: `{holder_release_command(claim.id)}`."
@@ -220,7 +222,7 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
         return False
     p = _p(conn)
     cursor = conn.execute(
-        f"UPDATE qa_host_waits SET state='granted',settled_at={p} "
+        f"UPDATE qa_test_machine_waits SET state='granted',settled_at={p} "
         f"WHERE claim_id={p} AND session_id={p} AND state='reserved'",
         (instant_parameter(conn, utc_now()), claim.id, session_id),
     )
@@ -229,11 +231,11 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
 
 def host_claim_released(conn: Any, claim: Any) -> None:
     """A released host drops its unconsumed reservation, then serves the line."""
-    if not claim.target.machine_id or not _has_line(conn):
+    if not claim.target.test_machine or not _has_line(conn):
         return
     p = _p(conn)
     conn.execute(
-        f"UPDATE qa_host_waits SET state='cancelled',settled_at={p} "
+        f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
         f"WHERE claim_id={p} AND state='reserved'",
         (instant_parameter(conn, utc_now()), claim.id),
     )
@@ -266,18 +268,18 @@ def cancel_host_waits(
         return
     rows = query_rows(
         conn,
-        f"SELECT id,machine_id,claim_id,state FROM qa_host_waits "
-        f"WHERE state IN {_LIVE} AND {where} ORDER BY machine_id,id",
+        f"SELECT id,test_machine,claim_id,state FROM qa_test_machine_waits "
+        f"WHERE state IN {_LIVE} AND {where} ORDER BY test_machine,id",
         params,
     )
     if not rows:
         return
-    for machine in sorted({str(row["machine_id"]) for row in rows}):
-        lock_host_turn(conn, make_qa_admission_target(machine))
+    for test_machine in sorted({str(row["test_machine"]) for row in rows}):
+        lock_host_turn(conn, make_qa_admission_target(test_machine))
     now = instant_parameter(conn, utc_now())
     for row in rows:
         conn.execute(
-            f"UPDATE qa_host_waits SET state='cancelled',settled_at={p} WHERE id={p}",
+            f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} WHERE id={p}",
             (now, str(row["id"])),
         )
     for row in rows:
@@ -291,7 +293,7 @@ def record_host_wait(
     conn: Any,
     execution: dict[str, Any],
     *,
-    machine: str,
+    test_machine: str,
     rationale: str,
     commit: bool = True,
 ) -> dict:
@@ -302,14 +304,14 @@ def record_host_wait(
 
     p = _p(conn)
     execution_id = str(execution["id"])
-    target = host_claim_target(machine)
+    target = host_claim_target(test_machine)
     moved = query_rows(
         conn,
-        f"SELECT machine_id FROM qa_host_waits WHERE qa_plan_execution_id={p} "
-        f"AND state IN {_LIVE} AND machine_id<>{p}",
-        (execution_id, machine),
+        f"SELECT test_machine FROM qa_test_machine_waits WHERE qa_plan_execution_id={p} "
+        f"AND state IN {_LIVE} AND test_machine<>{p}",
+        (execution_id, test_machine),
     )
-    machines = {machine} | {str(row["machine_id"]) for row in moved}
+    machines = {test_machine} | {str(row["test_machine"]) for row in moved}
     for name in sorted(machines):
         lock_host_turn(conn, host_claim_target(name))
     if moved:
@@ -324,13 +326,13 @@ def record_host_wait(
         resume_command=_plan_resume_command(conn, execution),
         rationale=rationale,
         execution_id=execution_id,
-        queued_at=inherited_host_place(conn, execution, machine),
+        queued_at=inherited_host_place(conn, execution, test_machine),
     )
     finish_plan_execution(
         conn,
         execution,
         state="waiting",
-        reason=f"waiting for QA host {machine}",
+        reason=f"waiting for QA host {test_machine}",
         commit=False,
     )
     reserve_host_turn(conn, target)

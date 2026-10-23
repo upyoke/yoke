@@ -62,7 +62,7 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
         return verification.record_test_machine_verification(
             test_db,
             1,
-            machine=MACHINE,
+            test_machine=MACHINE,
             status="verified",
             checks=[OPAQUE],
             error_code=None,
@@ -96,14 +96,14 @@ def test_verification_replay_keeps_native_clock_and_prior_history(
             verification.recorded_test_machine_verification(
                 test_db,
                 1,
-                machine=MACHINE,
+                test_machine=MACHINE,
                 lease_id=lease,
                 contract_digest=str(lease) * 64,
             )
             == expected
         )
     assert (
-        machine_detail(test_db, project="yoke", machine=MACHINE)["verification"][
+        machine_detail(test_db, project="yoke", test_machine=MACHINE)["verification"][
             "checked_at"
         ]
         == clock[0]
@@ -122,7 +122,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     first = operations.record_test_machine_operation(
         test_db,
         1,
-        machine=MACHINE,
+        test_machine=MACHINE,
         operation="reset",
         status="verified",
         checks=[OPAQUE],
@@ -141,7 +141,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
         operations.recorded_test_machine_operation(
             test_db,
             1,
-            machine=MACHINE,
+            test_machine=MACHINE,
             operation="reset",
             lease_id=21,
             contract_digest="a" * 64,
@@ -152,7 +152,7 @@ def test_operation_receipt_replay_and_order_use_native_instants(
     operations.record_test_machine_operation(
         test_db,
         1,
-        machine=MACHINE,
+        test_machine=MACHINE,
         operation="bridge_diagnose",
         status="error",
         checks=[],
@@ -173,7 +173,7 @@ def test_sqlite_receipt_adapter_keeps_native_replay_and_canonical_storage(monkey
     receipt = verification.record_test_machine_verification(
         conn,
         1,
-        machine=MACHINE,
+        test_machine=MACHINE,
         status="verified",
         checks=[OPAQUE],
         error_code=None,
@@ -186,7 +186,7 @@ def test_sqlite_receipt_adapter_keeps_native_replay_and_canonical_storage(monkey
     assert tuple(stored) == ("1969-12-30T23:59:59.123456Z",) * 2
     assert (
         verification.recorded_test_machine_verification(
-            conn, 1, machine=MACHINE, lease_id=31, contract_digest="c" * 64
+            conn, 1, test_machine=MACHINE, lease_id=31, contract_digest="c" * 64
         )
         == receipt
     )
@@ -203,7 +203,7 @@ def test_public_operation_clock_refuses_unqualified_values(bad):
 def response(clock):
     return OperationResponse(
         project="yoke",
-        machine=MACHINE,
+        test_machine=MACHINE,
         operation="reset",
         status="verified",
         performed_at=clock,

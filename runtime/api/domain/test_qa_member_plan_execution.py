@@ -100,10 +100,10 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
     machines = ("linux-lab", "test-mac")
     calls = []
     rosters = []
-    for index, machine in enumerate(machines):
+    for index, test_machine in enumerate(machines):
         rosters.append(
             {
-                "execution_id": machine,
+                "execution_id": test_machine,
                 "state": "active",
                 "cursor_ordinal": 0,
                 "remaining_requirement_count": 1 - index,
@@ -119,13 +119,13 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
                     {
                         "requirement_id": 10 + index,
                         "plan_id": 1,
-                        "case_key": machine,
+                        "case_key": test_machine,
                         "case_position": index + 1,
                         "baseline_position": 1,
                         "host_baseline": "fresh-host",
                         "starting_state": "baseline",
                         "runner_id": "host_control",
-                        "required_capability_kinds": [f"test-machine:{machine}"],
+                        "required_capability_kinds": [f"test-machine:{test_machine}"],
                     }
                 ],
             }
@@ -139,7 +139,7 @@ def test_scoped_client_executes_each_host_roster_under_its_own_plan_lease():
         )
 
     def run_case(case, **kwargs):
-        assert kwargs["execution_id"] == kwargs["machine"] == case["case_key"]
+        assert kwargs["execution_id"] == kwargs["test_machine"] == case["case_key"]
         return {"requirement_id": case["requirement_id"], "verdict": "pass"}
 
     with (

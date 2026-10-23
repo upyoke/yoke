@@ -46,7 +46,7 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
         adapter._execute(
             operation="screenshot",
             project="example",
-            machine=None,
+            test_machine=None,
             baseline=None,
             destination=None,
             probes_document=None,
@@ -90,7 +90,7 @@ def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, 
         lambda *args: None,
     )
     assert adapter._execute(
-        operation=operation, project="example", machine=None, baseline=None,
+        operation=operation, project="example", test_machine=None, baseline=None,
         destination=None, probes_document=None, session_id=None, json_mode=True,
     ) == expected
     assert emitted[0].result["status"] == status

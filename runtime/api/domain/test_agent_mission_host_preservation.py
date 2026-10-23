@@ -116,13 +116,13 @@ def test_continuation_does_not_restore_but_keeps_declared_package_journal(missio
 
 @pytest.mark.parametrize("machine", ["linux-lab", "test-mac"])
 def test_machine_pin_is_retained_by_the_execution_validator(machine):
-    config = {"machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]}
+    config = {"test_machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]}
     result = validate_machine_method_config(
         "machine-state-check", config, entry_surface=None, required_completion=None
     )
-    assert result["machine"] == machine
+    assert result["test_machine"] == machine
     assert result["assertions"] == [{"argv": ["/usr/bin/true"], "expected_exit": 0}]
-    assert config["machine"] == machine
+    assert config["test_machine"] == machine
 
 
 @pytest.mark.parametrize("machine", ["../escape", "", "invalid machine"])
@@ -130,7 +130,7 @@ def test_invalid_machine_pin_is_refused(machine):
     with pytest.raises(MachineQaExecutionError, match="valid registered Test Machine"):
         validate_machine_method_config(
             "machine-state-check",
-            {"machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]},
+            {"test_machine": machine, "assertions": [{"argv": ["/usr/bin/true"]}]},
             entry_surface=None,
             required_completion=None,
         )

@@ -106,7 +106,7 @@ def test_qa_host_work_release_resolves_holder_and_keeps_self_only(conn):
     project_id = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, project_id)
     _session(conn, "holder-session", project_id)
-    claim_id = _qa_host_claim(conn, machine="test-host", session_id="holder-session")
+    claim_id = _qa_host_claim(conn, test_machine="test-host", session_id="holder-session")
     request = FunctionCallRequest(
         function="claims.work.release",
         actor=ActorContext(actor_id=str(actor_id), session_id="holder-session"),

@@ -217,7 +217,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
 
     assert bundle is not None
     walk_states.assert_walking_proof(test_db, current)
-    assert current["machine_lease_id"] == lease_id
+    assert current["test_machine_lease_id"] == lease_id
     assert get_claim(test_db, lease_id).is_active is True
     dispatch = bundle["dispatch"]
     assert dispatch["dispatch_kind"] == "main_agent_mission"

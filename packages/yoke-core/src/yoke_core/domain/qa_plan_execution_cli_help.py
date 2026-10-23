@@ -97,7 +97,7 @@ recapturing. Once a verdict batch is recorded, the same command reprints
 those verdicts and does not capture the settled requirements; a new capture
 uses --replaces. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
-accepted only when every required case passes. Omit --machine for this
+accepted only when every required case passes. Omit --test-machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
 Recover an unknown response on the same execution
@@ -179,8 +179,8 @@ while custody remains held. Keep the runner connected: it stops between steps,
 finishes cleanup, restores the declared starting baseline and records proof.
 Retry abort after cleanup; success means restoration is confirmed and the lease
 released. Failed restore retains custody: stop the runner, then the lease holder
-or a covering steering seat runs yoke test-machine reset --project P --machine
-NAME --baseline BASELINE using the interrupted case's declared baseline. Retry
+or a covering steering seat runs yoke test-machine reset --project P --test-machine
+TEST_MACHINE --baseline BASELINE using the interrupted case's declared baseline. Retry
 abort after this successful reset; older or failed receipts cannot settle it.
 A case without a baseline still needs its runner's no-restore cleanup receipt.
 A blocking reset finishes before cancellation is acted on.

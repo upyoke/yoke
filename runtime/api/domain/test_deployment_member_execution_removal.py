@@ -80,7 +80,7 @@ def _execution(
 def _state(conn, execution):
     return dict(
         conn.execute(
-            "SELECT state,machine_lease_id,release_reason FROM qa_plan_executions WHERE id=%s",
+            "SELECT state,test_machine_lease_id,release_reason FROM qa_plan_executions WHERE id=%s",
             (execution,),
         ).fetchone()
     )
@@ -102,7 +102,7 @@ def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
     else:
         lease = acquire(test_db, target, "removed-qa")
         test_db.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=%s WHERE id=%s",
             (lease.id, execution),
         )
         test_db.commit()
@@ -113,7 +113,7 @@ def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
     test_db.commit()
     assert _state(test_db, execution) == {
         "state": "aborted",
-        "machine_lease_id": None,
+        "test_machine_lease_id": None,
         "release_reason": "deployment-member-removed",
     }
     assert _state(test_db, other)["state"] == "waiting"

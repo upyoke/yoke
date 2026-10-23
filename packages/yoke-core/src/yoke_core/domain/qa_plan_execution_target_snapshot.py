@@ -12,7 +12,7 @@ def materialized_execution(value: Mapping[str, Any]) -> dict[str, Any]:
 
     row = dict(value)
     row["cursor_ordinal"] = int(row["cursor_ordinal"])
-    for field in ("item_id", "machine_lease_id", "deployment_member_item_id"):
+    for field in ("item_id", "test_machine_lease_id", "deployment_member_item_id"):
         if row.get(field) is not None:
             row[field] = int(row[field])
     try:

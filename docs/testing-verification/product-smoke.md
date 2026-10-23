@@ -86,7 +86,7 @@ its `QA_HOST:<machine>` coordination claim. A refused acquire joins the host's
 waiting line; the holder's release wakes you to rerun the same acquire.
 
 ```text
-yoke dev run -- python3 runtime/api/tools/native_hook_capture.py --machine TEST_MACHINE --harness claude --output tests/fixtures/harness-sessions/claude.json # Yoke source repo only
+yoke dev run -- python3 runtime/api/tools/native_hook_capture.py --test-machine TEST_MACHINE --harness claude --output tests/fixtures/harness-sessions/claude.json # Yoke source repo only
 ```
 
 Repeat for `codex` and `cursor`, then release the host claim. The helper copies

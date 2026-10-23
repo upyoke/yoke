@@ -227,7 +227,7 @@ def test_invalid_case_submission_preserves_lease_without_runs(
     requirement_ids = [_case_requirement(test_db, 4312)]
     submission = _local_case_submission(requirement_ids[0])
     invalid_payload = deepcopy(submission.payload)
-    invalid_payload["results"][-1]["evidence"]["machine"] = "wrong-machine"
+    invalid_payload["results"][-1]["evidence"]["test_machine"] = "wrong-machine"
 
     rejected = handle_case_submit(
         machine_case_request(

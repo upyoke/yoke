@@ -51,7 +51,7 @@ def removed_inflight(test_db, tmp_path, monkeypatch):
     )  # The runner checked in: host work began.
     remove_member_on(test_db, RUN, MEMBER, reason="taken over by a newer run")
     test_db.commit()
-    return current["id"], int(current["machine_lease_id"])
+    return current["id"], int(current["test_machine_lease_id"])
 
 
 def _locked(conn, execution_id):
@@ -66,7 +66,7 @@ def test_removal_keeps_custody_and_heartbeat_under_a_recorded_abort(
     execution_id, lease_id = removed_inflight
     current = _locked(test_db, execution_id)
     assert current["state"] == "active"
-    assert current["machine_lease_id"] == lease_id
+    assert current["test_machine_lease_id"] == lease_id
     assert get_claim(test_db, lease_id).is_active
     assert member_removal_pending(current)
     # Its retracted case does not refuse the check-in; the abort is reported.

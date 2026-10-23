@@ -13,7 +13,7 @@ def test_mission_accepts_declared_package_state():
         "agent-mission",
         {
             "executor": "informed_subagent",
-            "machine": "linux-lab",
+            "test_machine": "linux-lab",
             "host_starting_state": {"os_packages": {"absent": ["python3.12-venv"]}},
         },
     )
@@ -48,9 +48,9 @@ def test_host_wait_cli_is_separate_from_verdicts():
     from yoke_core.domain.qa_plan_review_cli import _submission
 
     assert (
-        _submission('{"host_wait":{"machine":"linux-lab","rationale":"lease 1"}}')[
+        _submission('{"host_wait":{"test_machine":"linux-lab","rationale":"lease 1"}}')[
             "host_wait"
-        ]["machine"]
+        ]["test_machine"]
         == "linux-lab"
     )
     with pytest.raises(ValueError, match="without verdicts"):

@@ -8,7 +8,7 @@ QA_PLAN_TABLES = {
             ("roster_digest", "TEXT"),
             ("cursor_ordinal", "INTEGER"),
             ("state", "TEXT"),
-            ("machine_lease_id", "INTEGER"),
+            ("test_machine_lease_id", "INTEGER"),
             ("created_at", "TIMESTAMPTZ"),
             ("completed_at", "TIMESTAMPTZ"),
         ],

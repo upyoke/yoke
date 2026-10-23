@@ -125,7 +125,7 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
     if (
         request is None
         and execution["state"] in {"walking", "awaiting_walk_review"}
-        and execution.get("machine_lease_id")
+        and execution.get("test_machine_lease_id")
         and not mission_restores_recorded(conn, execution)
     ):
         request = next(

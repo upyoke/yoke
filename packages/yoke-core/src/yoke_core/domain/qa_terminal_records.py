@@ -46,17 +46,17 @@ def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:
     p = marker(conn)
     owners: dict[int, str] = {}
     if _table_exists(conn, "qa_plan_executions") and _column_exists(
-        conn, "qa_plan_executions", "machine_lease_id"
+        conn, "qa_plan_executions", "test_machine_lease_id"
     ):
         for row in query_rows(
             conn,
-            "SELECT id,machine_lease_id FROM qa_plan_executions "
+            "SELECT id,test_machine_lease_id FROM qa_plan_executions "
             f"WHERE item_id={p} OR deployment_member_item_id={p}",
             (item_id, item_id),
         ):
             execution = dict(row)
-            if execution["machine_lease_id"] is not None:
-                owners[int(execution["machine_lease_id"])] = f"plan {execution['id']}"
+            if execution["test_machine_lease_id"] is not None:
+                owners[int(execution["test_machine_lease_id"])] = f"plan {execution['id']}"
             for claim in execution_host_leases(conn, execution):
                 owners[claim.id] = f"plan {execution['id']}"
     if _table_exists(conn, "qa_runs") and _table_exists(conn, "qa_requirements"):

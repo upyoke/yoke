@@ -69,13 +69,13 @@ def validate_machine_method_config(
     for key in platform:
         config.pop(key)
     try:
-        machine = normalize_config_machine(
+        test_machine = normalize_config_machine(
             str(definition["config_contract_id"]), config
         )
     except MachineConstraintError as exc:
         raise MachineQaExecutionError(str(exc)) from exc
-    config.pop("machine", None)
-    machines = config.pop("machines", None)
+    config.pop("test_machine", None)
+    machines = config.pop("test_machines", None)
     from yoke_contracts.qa_continuity_fingerprint import KEY, normalize_fingerprint
 
     continuity = {KEY: normalize_fingerprint(config.pop(KEY))} if KEY in config else {}
@@ -90,8 +90,8 @@ def validate_machine_method_config(
         **result,
         **platform,
         **continuity,
-        **({"machine": machine} if machine is not None else {}),
-        **({"machines": machines} if machines is not None else {}),
+        **({"test_machine": test_machine} if test_machine is not None else {}),
+        **({"test_machines": machines} if machines is not None else {}),
     }
 
 

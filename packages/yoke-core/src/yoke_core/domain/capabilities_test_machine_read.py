@@ -49,7 +49,7 @@ def read_test_machine_facts(
     host_machines = {
         (registration.project_id, registration.capability_type): host_claim_target(
             registration.resource_name
-        ).machine_id
+        ).test_machine
         for registration in host_registrations(conn)
         if registration.project_id in requested
     }
@@ -59,7 +59,7 @@ def read_test_machine_facts(
         # for every project that names it.
         machines = sorted(set(host_machines.values()))
         machine_markers = ", ".join([marker] * len(machines))
-        machine_expr = scope_text_sql(conn, "scope", "machine_id")
+        machine_expr = scope_text_sql(conn, "scope", "test_machine")
         holders = {
             str(row[0]): str(row[1])
             for row in conn.execute(

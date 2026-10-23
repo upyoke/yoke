@@ -34,7 +34,7 @@ def unreachable_submission(
 
     evidence = {
         "runner_id": "host_control",
-        "machine": contract.settings["resource_name"],
+        "test_machine": contract.settings["resource_name"],
         "baseline": contract.baselines[0] if contract.baselines else None,
         "case_started": False,
         "host_unreachable": {"detail": str(error), "recovery": error.recovery_hint},
@@ -83,24 +83,24 @@ def wait_if_host_unreachable(
     from yoke_core.domain.qa_host_health import unhealthy_rationale
     from yoke_core.domain.qa_host_turns import record_host_wait
 
-    machine = contract.settings["resource_name"]
+    test_machine = contract.settings["resource_name"]
     recorded = record_test_machine_verification(
         commit_deferred_connection(conn),
         contract.project_id,
-        machine=machine,
+        test_machine=test_machine,
         status="error",
         checks=[result.evidence],
         error_code=SSH_UNAVAILABLE,
     )
     health = {
-        "machine": machine,
+        "test_machine": test_machine,
         "error_code": SSH_UNAVAILABLE,
         "checked_at": format_instant(recorded["checked_at"]),
     }
     return record_host_wait(
         conn,
         execution,
-        machine=machine,
+        test_machine=test_machine,
         rationale=unhealthy_rationale(health),
         commit=False,
     )

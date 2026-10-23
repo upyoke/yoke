@@ -2,7 +2,8 @@
 
 ``walk-start`` puts the machine in the mission's declared starting state
 before the walker's first host command. ``walk-end`` uninstalls and retires
-every Yoke project the walk created on the machine, removes the mission's
+every Yoke project the walk created on the machine, retires the Yoke
+Machine the walk's connect registered, removes the mission's
 owner-only secret staging, restores the declared starting state, and records
 that restore on the mission's run. Walk one mission at a time: every mission
 of a plan shares the plan's one Test Machine lease.
@@ -87,7 +88,9 @@ def run_end(args: list[str]) -> int:
         prog=PROG_END,
         description=(
             "Uninstall every Yoke project the walk registered on the Test "
-            "Machine, cancel its open items and retire it, remove the "
+            "Machine, cancel its open items and retire it, retire the Yoke "
+            "Machine the walk's connect registered (never another one; a "
+            "retirement it cannot do names its recovery), remove the "
             "mission's owner-only secret staging, restore the Test Machine "
             "to the mission's declared starting state, and record that "
             "restore and the fixture_project_disposal receipt on the "
@@ -272,6 +275,7 @@ def _dispose_fixture_projects(
             requirement_id=parsed.requirement_id,
             run_id=parsed.run_id,
             host_projects=fixture_projects["host_projects"],
+            connected_machine_id=fixture_projects.get("connected_machine_id"),
         )
     except Exception as exc:
         return (

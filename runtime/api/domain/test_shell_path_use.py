@@ -72,7 +72,7 @@ def test_adding_a_mutation_or_unknown_shape_never_inherits_inspection(tail):
 @pytest.mark.parametrize("redirect", ["> /local/out", ">/local/out", "2> /local/out"])
 def test_remote_argv_never_hides_a_local_redirect(redirect):
     result = analyze_shell_path_use(
-        "yoke test-machine exec --project sample --machine worker -- /bin/ls /Applications "
+        "yoke test-machine exec --project sample --test-machine worker -- /bin/ls /Applications "
         + redirect
     )
     assert "/Applications" not in result.local_targets

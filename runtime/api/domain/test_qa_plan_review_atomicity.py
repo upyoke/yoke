@@ -37,17 +37,17 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
             "review-session",
         )
         conn.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=%s WHERE id=%s",
             (lease.id, execution["id"]),
         )
         conn.commit()
-        execution["machine_lease_id"] = lease.id
+        execution["test_machine_lease_id"] = lease.id
 
         bundle = begin_plan_review(conn, execution)
 
         assert bundle is not None
         assert execution["state"] == "awaiting_walk_review"
-        assert execution["machine_lease_id"] is None
+        assert execution["test_machine_lease_id"] is None
         assert get_claim(conn, lease.id).is_active is False
 
 
@@ -65,11 +65,11 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
             "review-session",
         )
         conn.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=%s WHERE id=%s",
             (lease.id, execution["id"]),
         )
         conn.commit()
-        execution["machine_lease_id"] = lease.id
+        execution["test_machine_lease_id"] = lease.id
         original = qa_review_requests.ensure_qa_review_request
 
         def create_then_fail(*args, **kwargs):
@@ -103,7 +103,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         assert bundle_state == "pending"
         assert execution_state == "awaiting_walk_review"
         assert execution["state"] == "awaiting_walk_review"
-        assert execution["machine_lease_id"] == lease.id
+        assert execution["test_machine_lease_id"] == lease.id
         assert get_claim(conn, lease.id).is_active is True
         assert (
             conn.execute(

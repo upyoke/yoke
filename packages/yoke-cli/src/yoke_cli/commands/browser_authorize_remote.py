@@ -20,6 +20,7 @@ from yoke_contracts.machine_config.test_machine import (
     test_machine_capability_type,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
 def _read(function, payload, actor):
@@ -56,7 +57,7 @@ def _sign_in_accounts(identity) -> str:
     return ", ".join(accounts) if accounts else identity.name
 
 
-def _desktop_command(project, machine, settings) -> str:
+def _desktop_command(project, test_machine, settings) -> str:
     from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
 
     viewable = False
@@ -73,7 +74,7 @@ def _desktop_command(project, machine, settings) -> str:
     flag = " --view" if viewable else ""
     return (
         f"yoke test-machine desktop-access --project {project} "
-        f"--machine {machine}{flag}"
+        f"--test-machine {test_machine}{flag}"
     )
 
 
@@ -85,11 +86,11 @@ def _open_sign_in_viewer(project, detail, identity, json_mode):
     from yoke_harness.desktop_access import DesktopAccessError, begin_desktop_view
 
     settings = detail["settings"]
-    machine = detail["machine"]
+    test_machine = read_test_machine_field(detail, function_id="test_machine.get")
     try:
-        viewer = begin_desktop_view(project=project, machine=machine, settings=settings)
+        viewer = begin_desktop_view(project=project, test_machine=test_machine, settings=settings)
     except (DesktopAccessError, TestMachineCapabilityError) as exc:
-        command = _desktop_command(project, machine, settings)
+        command = _desktop_command(project, test_machine, settings)
         _tell(
             f"{exc}\nRun `{command}`.\n"
             "Sign in on its desktop, then close the browser window; "
@@ -98,8 +99,8 @@ def _open_sign_in_viewer(project, detail, identity, json_mode):
         )
         return None
     _tell(
-        f"Opening the desktop of machine {machine}. A window titled "
-        f'"Yoke desktop: {machine}" will appear.\n'
+        f"Opening the desktop of test machine {test_machine}. A window titled "
+        f'"Yoke desktop: {test_machine}" will appear.\n'
         f"Sign in with {_sign_in_accounts(identity)}.\n"
         "Close the browser window when done; the viewer closes when "
         "verification finishes.",
@@ -108,14 +109,14 @@ def _open_sign_in_viewer(project, detail, identity, json_mode):
     return viewer
 
 
-def _close_sign_in_viewer(viewer, machine) -> None:
+def _close_sign_in_viewer(viewer, test_machine) -> None:
     from yoke_harness.desktop_access import DesktopAccessError
 
     try:
         viewer.close()
     except DesktopAccessError as exc:
         print(
-            f"Close the desktop viewer for machine {machine} yourself: {exc}",
+            f"Close the desktop viewer for test machine {test_machine} yourself: {exc}",
             file=sys.stderr,
             flush=True,
         )
@@ -128,7 +129,7 @@ def authorize_remote(parsed) -> int:
     try:
         if parsed.declarations_json is not None:
             raise BrowserIdentityError(
-                "browser_authorize_machine_declarations_conflict: --machine reads "
+                "browser_authorize_machine_declarations_conflict: --test-machine reads "
                 "settings from the control plane; omit --declarations-json. For a "
                 "host without a route, run locally there with --declarations-json."
             )
@@ -136,13 +137,14 @@ def authorize_remote(parsed) -> int:
         ensure_handlers_loaded()
         actor = build_actor()
         detail = _read(
-            "test_machine.get", {"project": project, "machine": parsed.machine}, actor
+            "test_machine.get", {"project": project, "test_machine": parsed.test_machine}, actor
         )
+        test_machine = read_test_machine_field(detail, function_id="test_machine.get")
         lease = detail.get("active_lease")
         if isinstance(lease, dict) and lease.get("session_id") != actor.session_id:
             raise RuntimeError(
-                "test_machine_leased: machine "
-                + str(detail.get("machine"))
+                "test_machine_leased: test machine "
+                + str(test_machine)
                 + " is leased by session "
                 + str(lease.get("session_id"))
                 + ". Wait for its lease to release, or ask the holder to authorize "
@@ -215,7 +217,7 @@ def authorize_remote(parsed) -> int:
             desktop_password = (
                 read_machine_capability_secret(
                     project,
-                    test_machine_capability_type(detail["machine"]),
+                    test_machine_capability_type(test_machine),
                     "desktop_password",
                 )
                 if detail["settings"].get("os") in {"linux", "windows"}
@@ -231,7 +233,7 @@ def authorize_remote(parsed) -> int:
             )
         finally:
             if viewer is not None:
-                _close_sign_in_viewer(viewer, detail["machine"])
+                _close_sign_in_viewer(viewer, test_machine)
         if parsed.json_mode:
             try:
                 payload = json.loads(result.stdout)
@@ -243,13 +245,13 @@ def authorize_remote(parsed) -> int:
                     raise ValueError("outcome disagrees with remote exit status")
             except ValueError:
                 raise RuntimeError(
-                    "browser_authorize_remote_receipt_invalid: machine "
-                    f"{detail['machine']} returned no consistent authorization receipt "
+                    "browser_authorize_remote_receipt_invalid: test machine "
+                    f"{test_machine} returned no consistent authorization receipt "
                     f"(exit {result.returncode}). "
                     + result.stderr.strip()
                     + ". Check its installed Yoke and GUI session, then retry."
                 ) from None
-            payload["machine"] = detail["machine"]
+            payload["test_machine"] = test_machine
             print(json.dumps(payload))
         else:
             if not getattr(result, "output_streamed", False):
@@ -257,9 +259,9 @@ def authorize_remote(parsed) -> int:
                 print(result.stderr, end="", file=sys.stderr)
             if result.returncode:
                 print(
-                    f"browser_authorize_remote_failed: machine {detail['machine']} "
+                    f"browser_authorize_remote_failed: test machine {test_machine} "
                     f"exited {result.returncode}. Repair the reported site, runtime "
-                    "or GUI-session failure and rerun this --machine command.",
+                    "or GUI-session failure and rerun this --test-machine command.",
                     file=sys.stderr,
                 )
         return int(result.returncode)

@@ -31,7 +31,7 @@ from yoke_core.domain.qa_plan_management import (
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
-def _machine_case(machine: str) -> dict[str, Any]:
+def _machine_case(test_machine: str) -> dict[str, Any]:
     return {
         "case_key": "machine-generation-check",
         "position": 1,
@@ -39,7 +39,7 @@ def _machine_case(machine: str) -> dict[str, Any]:
         "instructions": "Check behavior that depends on this machine generation.",
         "expected_outcome": "The machine-specific behavior passes.",
         "method_config": {
-            "machine": machine,
+            "test_machine": test_machine,
             "assertions": [{"argv": ["/usr/bin/true"]}],
         },
         "host_baselines": ["fresh-host"],
@@ -93,7 +93,7 @@ def test_execution_honors_case_machine_with_or_without_specific_capability_snaps
         "test-machine",
         "test-machine:mac-mini-lab",
     ]
-    assert json.loads(stored["method_config"])["machine"] == "mac-mini-lab"
+    assert json.loads(stored["method_config"])["test_machine"] == "mac-mini-lab"
     if not specific_capability_snapshot:
         # Direct requirements retain the pin in method_config without adding
         # a machine-specific capability token, including admitted copies.
@@ -119,7 +119,7 @@ def test_execution_honors_case_machine_with_or_without_specific_capability_snaps
             test_db,
             item_id=item_id,
             transition_id="reviewing-implementation",
-            machine="mac-studio-lab",
+            test_machine="mac-studio-lab",
             actor_id="2",
             session_id="session-machine-constraint",
         )
@@ -134,7 +134,7 @@ def test_plan_run_refuses_an_unregistered_machine_pin(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = create_plan(test_db, project="yoke", slug="unpinned-machine-check")
     case = _machine_case("mac-mini-lab")
-    case["method_config"].pop("machine")
+    case["method_config"].pop("test_machine")
     replace_plan_cases(test_db, plan_id=int(plan["id"]), cases=[case])
     item_id = 4471
     insert_item(
@@ -161,7 +161,7 @@ def test_plan_run_refuses_an_unregistered_machine_pin(
             test_db,
             item_id=item_id,
             transition_id="reviewing-implementation",
-            machine="mac-pro-missing",
+            test_machine="mac-pro-missing",
             actor_id="2",
             session_id="session-missing-machine",
         )
@@ -202,7 +202,7 @@ def test_configured_hosts_are_scheduled_without_a_global_pin() -> None:
     case = {
         "case_key": "configured-host-check",
         "required_capability_kinds": ["test-machine"],
-        "method_config": {"machine": "linux-lab"},
+        "method_config": {"test_machine": "linux-lab"},
     }
     assert resolve_case_machine(case, None) == "linux-lab"
     with pytest.raises(MachineConstraintError, match=MACHINE_CONSTRAINT_MISMATCH):
@@ -214,7 +214,7 @@ def test_configured_hosts_are_scheduled_without_a_global_pin() -> None:
         )
     assert (
         resolve_plan_machine(
-            [case, {"method_config": {"machine": "windows-lab"}}], None
+            [case, {"method_config": {"test_machine": "windows-lab"}}], None
         )
         is None
     )

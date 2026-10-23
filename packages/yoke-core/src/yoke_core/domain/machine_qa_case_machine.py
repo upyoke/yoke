@@ -35,49 +35,49 @@ class MachineConstraintError(ValueError):
 
 
 def normalize_config_machine(config_contract_id: str, config: dict) -> str | None:
-    """Validate and normalize an optional ``method_config.machine`` value."""
+    """Validate and normalize an optional ``method_config.test_machine`` value."""
     from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
 
     normalize_config_machines(config)
-    if "machine" not in config:
+    if "test_machine" not in config:
         return None
     if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
         raise MachineConstraintError(
-            "method_config.machine requires a Command or Machine QA case; "
+            "method_config.test_machine requires a Command or Machine QA case; "
             "choose a supported local runner before declaring a Test Machine"
         )
     try:
-        machine = validate_test_machine_resource_name(config["machine"])
+        test_machine = validate_test_machine_resource_name(config["test_machine"])
     except (TypeError, ValueError) as exc:
         raise MachineConstraintError(
-            "method_config.machine must name a valid registered Test Machine"
+            "method_config.test_machine must name a valid registered Test Machine"
         ) from exc
-    config["machine"] = machine
-    return machine
+    config["test_machine"] = test_machine
+    return test_machine
 
 
 def require_registered_machine(
     conn: Any,
     *,
     project_id: int,
-    machine: str | None,
+    test_machine: str | None,
     subject: str = "case",
 ) -> None:
     """Refuse a constraint that does not name its plan project's machine."""
-    if machine is None:
+    if test_machine is None:
         return
     rows = test_machine_capability_rows(conn, project_id=int(project_id))
-    if machine in {row.machine for row in rows}:
+    if test_machine in {row.test_machine for row in rows}:
         return
-    available = ", ".join(row.machine for row in rows) or "none"
+    available = ", ".join(row.test_machine for row in rows) or "none"
     if subject == "case":
         recovery = "Register it before saving the plan."
     elif subject == "run pin":
-        recovery = "Pass a registered name or omit --machine."
+        recovery = "Pass a registered name or omit --test-machine."
     else:
         recovery = "Register it or update and rematerialize the plan."
     raise MachineConstraintError(
-        f"{subject} requires unregistered test machine {machine!r}; registered "
+        f"{subject} requires unregistered test machine {test_machine!r}; registered "
         f"machines: {available}. {recovery}"
     )
 
@@ -87,10 +87,10 @@ def materialized_capability_kinds(
 ) -> tuple[str, ...]:
     """Add a case's specific machine to its immutable capability snapshot."""
     values = list(capability_kinds(required, subject="QA plan case"))
-    machine = config.get("machine")
-    if machine is not None:
+    test_machine = config.get("test_machine")
+    if test_machine is not None:
         specific = test_machine_capability_type(
-            validate_test_machine_resource_name(machine)
+            validate_test_machine_resource_name(test_machine)
         )
         if specific not in values:
             values.append(specific)
@@ -121,7 +121,7 @@ def resolve_case_machine(case: Mapping[str, Any], requested: str | None) -> str 
         key = str(case.get("case_key") or case.get("requirement_id") or "unknown")
         raise MachineConstraintError(
             f"{MACHINE_CONSTRAINT_MISMATCH}: case {key!r} requires {required!r}, "
-            f"but --machine named {pinned!r}; rerun with --machine {required} or "
+            f"but --test-machine named {pinned!r}; rerun with --test-machine {required} or "
             "omit the run pin"
         )
     return required or pinned

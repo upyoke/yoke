@@ -129,7 +129,7 @@ sys.exit(json.loads(verdict.read_text())["exit_code"])
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--machine", required=True)
+    parser.add_argument("--test-machine", metavar="TEST_MACHINE", required=True)
     parser.add_argument(
         "--harness", choices=("claude", "codex", "cursor"), required=True
     )
@@ -162,8 +162,8 @@ def main() -> int:
             "exec",
             "--project",
             "yoke",
-            "--machine",
-            args.machine,
+            "--test-machine",
+            args.test_machine,
             "--",
             remote,
         ],

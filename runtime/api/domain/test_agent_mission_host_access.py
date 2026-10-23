@@ -49,7 +49,7 @@ def mission(test_db, tmp_path, monkeypatch, request):
     replace_test_machine_settings(
         test_db,
         project="yoke",
-        machine=COMPANION,
+        test_machine=COMPANION,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": COMPANION},
         base_settings=None,
     )
@@ -66,8 +66,8 @@ def mission(test_db, tmp_path, monkeypatch, request):
                 "expected_outcome": "Both commands use their own leases.",
                 "method_config": {
                     "executor": "informed_subagent",
-                    "machine": DRIVER,
-                    "machines": [DRIVER, COMPANION],
+                    "test_machine": DRIVER,
+                    "test_machines": [DRIVER, COMPANION],
                 },
                 **(
                     {"starting_state": "as_is", "starting_state_reason": "Preserve host"}
@@ -134,23 +134,23 @@ def mission(test_db, tmp_path, monkeypatch, request):
     ), current
 
 
-@pytest.mark.parametrize("machine", [None, DRIVER, COMPANION])
-def test_command_routes_to_selected_retained_lease(test_db, mission, machine):
+@pytest.mark.parametrize("test_machine", [None, DRIVER, COMPANION])
+def test_command_routes_to_selected_retained_lease(test_db, mission, test_machine):
     request, execution = mission
-    if machine is not None:
+    if test_machine is not None:
         request = request.model_copy(
-            update={"payload": {**request.payload, "machine": machine}}
+            update={"payload": {**request.payload, "test_machine": test_machine}}
         )
     outcome = handle_agent_mission_access(request)
     assert outcome.primary_success, outcome.error
     contract = outcome.result_payload["execution"]
-    selected = machine or DRIVER
+    selected = test_machine or DRIVER
     leases = execution_host_leases(test_db, execution)
-    lease = next(claim for claim in leases if claim.target.machine_id == selected)
+    lease = next(claim for claim in leases if claim.target.test_machine == selected)
     assert contract["lease_id"] == lease.id
     assert contract["settings"]["resource_name"] == selected
-    assert execution["machine_lease_id"] == next(
-        claim.id for claim in leases if claim.target.machine_id == DRIVER
+    assert execution["test_machine_lease_id"] == next(
+        claim.id for claim in leases if claim.target.test_machine == DRIVER
     )
     assert contract["operation"] == (
         "host_command" if selected == COMPANION else "plan_case"
@@ -189,14 +189,14 @@ def test_outside_host_is_refused_by_name_before_local_execution(mission):
     outcome = handle_agent_mission_access(
         request.model_copy(
             update={
-                "payload": {**request.payload, "machine": "unleased-lab"},
+                "payload": {**request.payload, "test_machine": "unleased-lab"},
             }
         )
     )
     assert not outcome.primary_success
     assert "mission_machine_not_declared" in outcome.error.message
     assert "unleased-lab" in outcome.error.message
-    assert "omit --machine" in outcome.error.message
+    assert "omit --test-machine" in outcome.error.message
     assert COMPANION in outcome.error.message
 
 
@@ -205,13 +205,13 @@ def test_companion_command_refuses_after_another_host_lease_is_lost(test_db, mis
     driver = next(
         claim
         for claim in execution_host_leases(test_db, execution)
-        if claim.target.machine_id == DRIVER
+        if claim.target.test_machine == DRIVER
     )
     release(test_db, driver.id, "forced-recovery")
     outcome = handle_agent_mission_access(
         request.model_copy(
             update={
-                "payload": {**request.payload, "machine": COMPANION},
+                "payload": {**request.payload, "test_machine": COMPANION},
             }
         )
     )
@@ -236,7 +236,7 @@ def test_companion_debt_survives_driver_walk_end_and_host_release(
     outcome = handle_agent_mission_access(
         request.model_copy(
             update={
-                "payload": {**request.payload, "machine": COMPANION},
+                "payload": {**request.payload, "test_machine": COMPANION},
             }
         )
     )
@@ -295,7 +295,7 @@ def test_as_is_companion_commands_and_cleanup_never_owe_a_reset(test_db, mission
     for _ in range(2):  # The final owned cleanup command uses the same access path.
         outcome = handle_agent_mission_access(
             request.model_copy(
-                update={"payload": {**request.payload, "machine": COMPANION}}
+                update={"payload": {**request.payload, "test_machine": COMPANION}}
             )
         )
         assert outcome.primary_success, outcome.error

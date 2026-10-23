@@ -106,7 +106,7 @@ def key_for_target(target: WorkClaimTarget) -> str:
     if target.kind == TARGET_KIND_MIGRATION_SERIALIZATION:
         return f"{MIGRATION_KEY_PREFIX}{target.model}"
     if target.kind == TARGET_KIND_QA_ADMISSION:
-        return f"{QA_HOST_KEY_PREFIX}{target.machine_id}"
+        return f"{QA_HOST_KEY_PREFIX}{target.test_machine}"
     if target.kind == TARGET_KIND_ROUTE_QUALIFICATION:
         return f"{QUALIFICATION_KEY_PREFIX}{target.grant_key}"
     if target.kind == TARGET_KIND_DEPLOY_SERIALIZATION:

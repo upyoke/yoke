@@ -62,10 +62,10 @@ def _source_cases(
         configured = {case["case_key"]: case for case in plan["cases"]}
         primary_machine = primary_machine or configured.get("path-on-shell", {}).get(
             "method_config", {}
-        ).get("machine")
+        ).get("test_machine")
         joining_machine = joining_machine or configured.get(
             "second-machine-join", {}
-        ).get("method_config", {}).get("machine")
+        ).get("method_config", {}).get("test_machine")
         return installer_campaign_cases_for_target(
             plan["execution_target"],
             primary_machine=primary_machine,

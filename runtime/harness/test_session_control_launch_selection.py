@@ -313,3 +313,16 @@ def test_the_launch_receipt_has_no_item_level_row_when_none_was_recorded() -> No
     )
 
     assert "Item level" not in out.getvalue()
+
+
+@pytest.mark.parametrize(
+    "command", [launches.session_launch_create, launches.session_launch_preview]
+)
+def test_launch_help_names_a_machine_id_not_a_test_machine(command, capsys) -> None:
+    with pytest.raises(SystemExit):
+        command(["--help"])
+    help_text = " ".join(capsys.readouterr().out.split())
+
+    assert "--machine MACHINE_ID" in help_text
+    assert "--machine NAME" not in help_text
+    assert "A test machine is not a Machine" in help_text

@@ -222,7 +222,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     assert "yoke coordination-claim release" in lease_context["wait_message"]
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "waiting"
-    assert stored["machine_lease_id"] is None
+    assert stored["test_machine_lease_id"] is None
 
     release(test_db, held.id, "test-holder-finished")
     resumed = begin_plan_execution(
@@ -284,17 +284,17 @@ def test_machine_lease_acquisition_defers_commit_until_plan_attachment(
                 execution_id=str(execution["id"]),
                 ordinal=0,
                 requirement_id=int(case["requirement_id"]),
-                payload={"machine": "mac-mini-lab"},
+                payload={"test_machine": "mac-mini-lab"},
             )
         )
 
     assert ready.primary_success, ready.error
     deferred = begin.call_args.args[0]
     assert type(deferred).__name__ == "_CommitDeferredConnection"
-    assert begin.call_args.kwargs["machine"] == "mac-mini-lab"
+    assert begin.call_args.kwargs["test_machine"] == "mac-mini-lab"
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "active"
-    assert stored["machine_lease_id"] == ready.result_payload["execution"]["lease_id"]
+    assert stored["test_machine_lease_id"] == ready.result_payload["execution"]["lease_id"]
     finish_plan_execution(
         test_db,
         stored,
@@ -337,7 +337,7 @@ def test_active_plan_lease_refuses_a_different_machine_pin(
             execution_id=str(execution["id"]),
             ordinal=0,
             requirement_id=int(case["requirement_id"]),
-            payload={"machine": "mac-studio-lab"},
+            payload={"test_machine": "mac-studio-lab"},
         )
     )
     assert not mismatch.primary_success

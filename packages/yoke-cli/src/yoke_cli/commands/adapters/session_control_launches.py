@@ -31,7 +31,7 @@ from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 _SELECTION_USAGE = (
     "(--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] "
-    "[--context-window TOKENS] [--allow-surface-fallback]) [--machine NAME]"
+    "[--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID]"
 )
 LAUNCH_PREVIEW_USAGE = (
     f"yoke session-control launch preview --project P {_SELECTION_USAGE} "

@@ -16,7 +16,7 @@ from yoke_contracts.machine_config.test_machine import test_machine_capability_t
 MAX_PASSWORD_BYTES = 4096
 
 
-def administrator_password(*, project: str, machine: str, os_name: str) -> str:
+def administrator_password(*, project: str, test_machine: str, os_name: str) -> str:
     """Read only in product code; never include the value in a refusal."""
     from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
 
@@ -24,9 +24,9 @@ def administrator_password(*, project: str, machine: str, os_name: str) -> str:
         raise RemoteExecRefusal(
             "test_machine_admin_os_unsupported",
             "--admin requires a macOS or Linux test machine",
-            "Select a registered macOS or Linux machine with --machine NAME.",
+            "Select a registered macOS or Linux machine with --test-machine TEST_MACHINE.",
         )
-    cap_type = test_machine_capability_type(machine)
+    cap_type = test_machine_capability_type(test_machine)
     recovery = (
         "Import the machine administrator password from a private file with "
         f"`yoke projects capability secret set --project {project} "

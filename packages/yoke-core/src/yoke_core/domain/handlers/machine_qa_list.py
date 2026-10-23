@@ -22,7 +22,7 @@ class TestMachineListRequest(BaseModel):
 class TestMachineListResponse(BaseModel):
     project_id: int
     project: str
-    machines: list[TestMachineResponse]
+    test_machines: list[TestMachineResponse]
 
 
 def handle_list(request: FunctionCallRequest) -> HandlerOutcome:

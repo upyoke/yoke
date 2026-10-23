@@ -106,14 +106,14 @@ capture of a passed requirement uses --replaces. A failed or undetermined
 verdict stays open: rerunning begins a fresh execution that captures it
 again. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
-accepted only when every required case passes. Omit --machine for this
+accepted only when every required case passes. Omit --test-machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
 For one case that needs several hosts simultaneously, declare its driving host
-as `method_config.machine` and every required host in `method_config.machines`:
-`{"machine":"macos-example","machines":["linux-example","macos-example"]}`. Names must be
-registered, unique, and include the driving host. Run this case through
-`yoke qa plan run`; direct case execution refuses it. The
+as `method_config.test_machine` and every required host in
+`method_config.test_machines`; names must be registered, unique, and include
+the driving host. Run this case through `yoke qa plan run`; direct case
+execution refuses it. The
 runner acquires every host through its FIFO in sorted name order, releases
 partial acquisitions on contention, and retains the full set through case
 execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Independent cases with different driving hosts or declared sets use separate
@@ -123,7 +123,7 @@ that driver before the first capture and retains them through completion,
 review or abort. Contention releases partial acquisitions and queues the
 chain; a retry never reacquires lost custody. Definition-time validation
 refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
-`method_config.machine`, or start a new baseline / `as_is` chain.
+`method_config.test_machine`, or start a new baseline / `as_is` chain.
 
 An exploratory mission walks after captures and may inherit only at a chain's
 tail; no case may inherit after it. Item and deployment scopes isolate the
@@ -138,8 +138,8 @@ An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
 is busy, let the plan runner queue you, then park; you are woken when it is
 your turn. When a host its case needs is leased, or its newest health fact
 is a failed verification, plan acquisition keeps its cursor open and its
-session joins the host's waiting line (`qa_host_waits`), the same FIFO line a
-refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
+session joins the host's waiting line (`qa_test_machine_waits`), the same
+FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
 joins. The runner prints `Queued for QA host <machine>, position N of M` with
 the park command; write no host hold of your own. A session keeps its place
 from its first wait and across retries; a rerun of an aborted shared walk
@@ -180,13 +180,13 @@ If a walker discovers a second required host is occupied, return
 through the current bundle's `yoke qa plan review-submit ... --stdin`:
 
 ```json
-{"host_wait":{"machine":"linux-example","rationale":"lease holder and resume point"}}
+{"host_wait":{"test_machine":"linux-example","rationale":"holder evidence"}}
 ```
 
 Submit this object alone. It records no verdict or human review request,
 retains the old capture and bundle as history, and queues a new capture against
 the identical immutable target. Host-ready and continuation commands omit
-`--machine`, so every platform in a multi-host roster can resume. The scheduler
+`--test-machine`, so every platform in a multi-host roster can resume. The scheduler
 keeps simultaneous cases on their declared driver with the full host set. For
 single-host cases it returns each previously used platform to its recorded host; only a new platform
 selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling retains each corrected
@@ -198,7 +198,7 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```json
 {
   "executor":"informed_subagent",
-  "machine":"linux-example",
+  "test_machine":"linux-example",
   "host_starting_state":{"os_packages":{
     "absent":["python3-venv","python3.12-venv"],"present":[]
   }}
@@ -206,13 +206,13 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 A Command case whose command calls `yoke test-machine` must declare
-`method_config.machine`; without it the case would run outside the host's queue
-and meet `test_machine_leased`, so authoring refuses it naming that field.
+`method_config.test_machine`; without it the case would run outside the host's
+queue and meet `test_machine_leased`, so authoring refuses it naming that field.
 
-`method_config.machine` selects that registered host even when this direct
+`method_config.test_machine` selects that registered host even when this direct
 requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Admitted deployment
-copies retain the pin; omitting `--machine` does not permit another host, and a
-conflicting run pin is refused before a lease is acquired.
+copies retain the pin; omitting `--test-machine` does not permit another
+host, and a conflicting run pin is refused before a lease is acquired.
 
 Before a plan's first golden reset on each Test Machine, Yoke compares the
 harness CLI versions recorded beside that golden with each vendor's latest
@@ -290,7 +290,7 @@ runner; the lease holder or a project steering seat can reset retained machines
 to the interrupted case's baseline:
 
 ```text
-yoke test-machine reset --project P --machine NAME --baseline BASELINE
+yoke test-machine reset --project P --test-machine NAME --baseline BASELINE
 ```
 
 Then retry the same scoped abort command. Only a successful reset receipt for

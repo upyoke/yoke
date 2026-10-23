@@ -44,7 +44,7 @@ def record_test_machine_operation(
     conn: Any,
     project_id: int,
     *,
-    machine: str,
+    test_machine: str,
     operation: str,
     status: str,
     checks: Sequence[Mapping[str, Any]],
@@ -58,7 +58,7 @@ def record_test_machine_operation(
         raise ValueError(f"{operation!r} does not record an operation receipt")
     ensure_test_machine_schema(conn, commit=commit)
     marker = _marker(conn)
-    capability_type = test_machine_capability_type(machine)
+    capability_type = test_machine_capability_type(test_machine)
     now = utc_now()
     receipt = json.dumps(
         {"checks": list(checks)},
@@ -116,7 +116,7 @@ def record_test_machine_baseline_reset(
     return record_test_machine_operation(
         conn,
         contract.project_id,
-        machine=contract.settings["resource_name"],
+        test_machine=contract.settings["resource_name"],
         operation=RESET_OPERATION,
         status="verified" if ok else "error",
         checks=[{**evidence, "name": baseline, "ok": ok}],
@@ -130,7 +130,7 @@ def recorded_test_machine_operation(
     conn: Any,
     project_id: int,
     *,
-    machine: str,
+    test_machine: str,
     operation: str,
     lease_id: int,
     contract_digest: str,
@@ -147,7 +147,7 @@ def recorded_test_machine_operation(
         "lease_id,contract_digest FROM test_machine_operation_receipts "
         f"WHERE project_id={marker} AND capability_type={marker} "
         f"AND operation={marker}",
-        (int(project_id), test_machine_capability_type(machine), operation),
+        (int(project_id), test_machine_capability_type(test_machine), operation),
     ).fetchone()
     if row is None:
         return None

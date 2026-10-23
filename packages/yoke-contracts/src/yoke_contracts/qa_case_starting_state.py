@@ -160,14 +160,15 @@ def chain_baselines(
                 config = row.get("method_config") or {}
                 if isinstance(config, str):
                     config = json.loads(config)
-                return config.get("machine")
+                return config.get("test_machine")
 
             if driver(case) != driver(previous):
                 raise StartingStateError(
                     f"inherited_driver_mismatch: case {key!r} inherits from "
                     f"case {str(previous['case_key'])!r}, but their driving "
-                    "machines differ; use the predecessor's method_config.machine "
-                    "or declare host_baselines / starting_state 'as_is' instead"
+                    "machines differ; use the predecessor's "
+                    "method_config.test_machine or declare host_baselines / "
+                    "starting_state 'as_is' instead"
                 )
             fan_out[key] = list(fan_out[str(previous["case_key"])])
         elif state == BASELINE:

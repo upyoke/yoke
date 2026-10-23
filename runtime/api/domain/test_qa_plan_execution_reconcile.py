@@ -92,7 +92,7 @@ def test_orphan_without_judgeable_capture_aborts_with_no_verdict():
             conn, make_qa_admission_target("reconcile-orphan"), execution["session_id"]
         )
         conn.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=%s WHERE id=%s",
             (lease.id, execution["id"]),
         )
         release(conn, lease.id, "owner session ended")
@@ -110,7 +110,7 @@ def test_orphan_without_judgeable_capture_aborts_with_no_verdict():
         assert receipt["review_bundle_id"] is None
         assert receipt["next_command"] is None
         assert settled["state"] == "aborted"
-        assert settled["machine_lease_id"] is None
+        assert settled["test_machine_lease_id"] is None
         assert settled["session_id"] == STEERING
         assert settled["release_reason"].startswith("qa-plan-operator-reconciled")
         closed = query_one(
@@ -196,7 +196,7 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
     monkeypatch,
 ):
     execution = failed_restore
-    lease_id = int(execution["machine_lease_id"])
+    lease_id = int(execution["test_machine_lease_id"])
     # A walk parked in a host wait has no runner driving it but keeps its host.
     test_db.execute(
         "UPDATE qa_plan_executions SET state='waiting' WHERE id=%s", (execution["id"],)
@@ -207,7 +207,7 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
     message = str(refused.value)
     assert "qa_reconcile_host_recovery_required" in message
     assert (
-        "yoke test-machine reset --project yoke --machine mac-mini-lab "
+        "yoke test-machine reset --project yoke --test-machine mac-mini-lab "
         "--baseline fresh-host"
     ) in message
     assert (

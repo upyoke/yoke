@@ -23,7 +23,7 @@ def record_test_machine_verification(
     conn: Any,
     project_id: int,
     *,
-    machine: str,
+    test_machine: str,
     status: str,
     checks: Sequence[Mapping[str, Any]],
     error_code: str | None,
@@ -37,7 +37,7 @@ def record_test_machine_verification(
         )
     ensure_test_machine_schema(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability_type = test_machine_capability_type(machine)
+    capability_type = test_machine_capability_type(test_machine)
     now = utc_now()
     previous = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
@@ -130,13 +130,13 @@ def recorded_test_machine_verification(
     conn: Any,
     project_id: int,
     *,
-    machine: str,
+    test_machine: str,
     lease_id: int,
     contract_digest: str,
 ) -> dict[str, Any] | None:
     """Return the canonical verification for an issued submission."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability_type = test_machine_capability_type(machine)
+    capability_type = test_machine_capability_type(test_machine)
     row = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
         "FROM test_machine_verifications "

@@ -92,7 +92,7 @@ def test_case_begin_lease_contention_records_a_nonterminal_waiting_run(
             claimed_at="2026-07-26T17:00:00Z",
             last_heartbeat="2026-07-26T17:01:00Z",
         ),
-        machine="mac-mini-lab",
+        test_machine="mac-mini-lab",
     )
     acquisitions = 0
 
@@ -159,7 +159,7 @@ def test_single_case_begin_contention_preserves_rerun_identity(
             session_id="holder-session",
             claimed_at="2026-07-26T17:02:00Z",
         ),
-        machine="mac-mini-lab",
+        test_machine="mac-mini-lab",
     )
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",

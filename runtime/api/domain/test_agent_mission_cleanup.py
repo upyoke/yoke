@@ -234,7 +234,7 @@ def test_removed_member_walk_end_clears_staged_secrets_and_restores_start(
     assert finished.primary_success, finished.error
     assert not get_claim(test_db, contract["lease_id"]).is_active
     current = lock_plan_execution(test_db, request.payload["execution_id"])
-    assert current["state"] == "aborted" and current["machine_lease_id"] is None
+    assert current["state"] == "aborted" and current["test_machine_lease_id"] is None
     assert current["release_reason"] == "deployment-member-removed"
     assert (
         test_db.execute(

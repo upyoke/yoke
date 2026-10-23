@@ -10,28 +10,31 @@ from yoke_contracts.machine_config.test_machine import (
 
 def normalize_config_machines(config: dict[str, Any]) -> tuple[str, ...]:
     """Require an explicit driver and a unique, ordered set of companion hosts."""
-    if "machines" not in config:
+    if "test_machines" not in config:
         return ()
     from yoke_core.domain.machine_qa_case_machine import MachineConstraintError
 
-    raw = config["machines"]
-    if not isinstance(raw, list) or len(raw) < 2 or not config.get("machine"):
+    raw = config["test_machines"]
+    if not isinstance(raw, list) or len(raw) < 2 or not config.get("test_machine"):
         raise MachineConstraintError(
-            "test_machine_set_invalid: method_config.machines requires at least two "
-            "unique machine names and method_config.machine naming the driving host"
+            "test_machine_set_invalid: method_config.test_machines requires at "
+            "least two unique test machine names and method_config.test_machine "
+            "naming the driving host"
         )
     try:
         names = [validate_test_machine_resource_name(value) for value in raw]
     except (TypeError, ValueError) as exc:
         raise MachineConstraintError(
-            "test_machine_set_invalid: use registered Test Machine names in method_config.machines"
+            "test_machine_set_invalid: use registered Test Machine names in "
+            "method_config.test_machines"
         ) from exc
-    if len(set(names)) != len(names) or config["machine"] not in names:
+    if len(set(names)) != len(names) or config["test_machine"] not in names:
         raise MachineConstraintError(
-            "test_machine_set_invalid: list every required host once, including method_config.machine"
+            "test_machine_set_invalid: list every required host once, including "
+            "method_config.test_machine"
         )
-    config["machines"] = sorted(names)
-    return tuple(config["machines"])
+    config["test_machines"] = sorted(names)
+    return tuple(config["test_machines"])
 
 
 def case_machines(

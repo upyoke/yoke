@@ -113,7 +113,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"} and not (
             case.get("runner_id") == "worktree_run"
-            and (case.get("method_config") or {}).get("machine")
+            and (case.get("method_config") or {}).get("test_machine")
         ):
             raise ValueError("the ordered plan case is not machine-backed")
         from yoke_core.domain.qa_plan_case_chain import settle_without_machine
@@ -130,7 +130,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     "result": settled[1],
                 },
             )
-        previous_lease_id = execution.get("machine_lease_id")
+        previous_lease_id = execution.get("test_machine_lease_id")
         from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 
         try:
@@ -139,7 +139,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 execution,
                 case,
                 ordinal=parsed.ordinal,
-                machine=parsed.machine,
+                test_machine=parsed.test_machine,
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )
@@ -149,7 +149,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             waiting = record_host_wait(
                 conn,
                 execution,
-                machine=held.machine,
+                test_machine=held.test_machine,
                 rationale=f"lease {held.lease.id} held by {held.lease.session_id}",
             )
             contention = held.contention and held.contention.in_line(
@@ -161,7 +161,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             from yoke_core.domain.qa_host_turns import record_host_wait
 
             waiting = record_host_wait(
-                conn, execution, machine=unhealthy.machine, rationale=str(unhealthy)
+                conn, execution, test_machine=unhealthy.test_machine, rationale=str(unhealthy)
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         from yoke_core.domain.qa_plan_execution_reentry import record_case_admitted
@@ -233,7 +233,7 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if (
             parsed.ordinal == int(execution["cursor_ordinal"])
-            and execution.get("machine_lease_id") != lease.id
+            and execution.get("test_machine_lease_id") != lease.id
         ):
             raise ValueError("plan case submission names the wrong machine lease")
         if len(parsed.results) != 1:

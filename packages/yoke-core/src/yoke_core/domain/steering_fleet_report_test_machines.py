@@ -7,12 +7,12 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 class ResetDebt(NamedTuple):
-    machine: str
+    test_machine: str
     recovery: str | None
     execution_id: str | None
 
 
-def _holding_execution(conn: Any, machine: str) -> str | None:
+def _holding_execution(conn: Any, test_machine: str) -> str | None:
     from yoke_core.domain.coordination_claims import active_claim
     from yoke_core.domain.machine_qa_capability import host_claim_target
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
@@ -23,13 +23,13 @@ def _holding_execution(conn: Any, machine: str) -> str | None:
         conn, "qa_plan_executions"
     ):
         return None
-    lease = active_claim(conn, host_claim_target(machine))
+    lease = active_claim(conn, host_claim_target(test_machine))
     if lease is None:
         return None
     p = marker(conn)
     row = conn.execute(
         f"SELECT id FROM qa_plan_executions WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) "
-        f"AND (machine_lease_id={p} OR {p}={p} || id) LIMIT 1",
+        f"AND (test_machine_lease_id={p} OR {p}={p} || id) LIMIT 1",
         (lease.id, lease.reason or "", HOST_SET_REASON),
     ).fetchone()
     return str(row[0]) if row else None
@@ -83,8 +83,8 @@ def read_reset_debts(conn, project_id) -> tuple[ResetDebt, ...]:
 
 def reset_debt_lines(rows):
     return [
-        f"Test Machine {row.machine}: reset owed after {row.execution_id}"
+        f"Test Machine {row.test_machine}: reset owed after {row.execution_id}"
         if row.execution_id
-        else f"Test Machine {row.machine}: machine_needs_repair; run `{row.recovery}`"
+        else f"Test Machine {row.test_machine}: machine_needs_repair; run `{row.recovery}`"
         for row in rows
     ]

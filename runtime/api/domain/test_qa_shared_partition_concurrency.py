@@ -53,8 +53,8 @@ def _case(key, driver, *, machines=None, inherit=False):
         "expected_outcome": "The check passes.",
         "method_config": {
             **_terminal_recipe(),
-            "machine": driver,
-            **({"machines": list(machines)} if machines else {}),
+            "test_machine": driver,
+            **({"test_machines": list(machines)} if machines else {}),
         },
         "entry_surface": "printf done",
         "required_completion": "complete",
@@ -70,7 +70,7 @@ def _seed(conn, tmp_path, monkeypatch, cases, *, separate_plans=True):
     replace_test_machine_settings(
         conn,
         project="yoke",
-        machine=STUDIO,
+        test_machine=STUDIO,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": STUDIO},
         base_settings=None,
     )
@@ -233,7 +233,7 @@ def test_overlapping_host_sets_never_deadlock(test_db, tmp_path, monkeypatch):
     held = execution_host_leases(test_db, lock_plan_execution(test_db, second["id"]))
     assert (
         held == []
-        and lock_plan_execution(test_db, second["id"])["machine_lease_id"] is None
+        and lock_plan_execution(test_db, second["id"])["test_machine_lease_id"] is None
     )
     test_db.commit()
 

@@ -7,7 +7,7 @@ export const detail = {
   project_id: 1,
   project: "yoke",
   kind: "test-machine",
-  machine: "mac-mini-lab",
+  test_machine: "mac-mini-lab",
   capability_type: "test-machine:mac-mini-lab",
   display_name: "Test Machine",
   runner_id: "host_control",
@@ -91,7 +91,7 @@ export const detail = {
   ],
 };
 
-export function context(machines = [detail]) {
+export function context(testMachines = [detail]) {
   const requests = [];
   const documentNode = new FakeDocument();
   return {
@@ -106,12 +106,12 @@ export function context(machines = [detail]) {
           if (request.function === "test_machine.list") {
             return {
               status: 200,
-              envelope: { success: true, result: { machines } },
+              envelope: { success: true, result: { test_machines: testMachines } },
             };
           }
           if (request.function === "test_machine.get") {
-            const selected = machines.find(
-              (machine) => machine.machine === request.payload.machine,
+            const selected = testMachines.find(
+              (row) => row.test_machine === request.payload.test_machine,
             );
             return {
               status: 200,

@@ -17,7 +17,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 def route(monkeypatch):
     detail = {
         "project": "example",
-        "machine": "lab",
+        "test_machine": "lab",
         "settings": {"desktop_route": "direct"},
         "active_lease": {
             "id": 17,
@@ -54,7 +54,7 @@ def request(session_id="steering", actor_id="3"):
         request_id="desktop-assistance",
         actor={"session_id": session_id, "actor_id": actor_id},
         target={"kind": "global"},
-        payload={"project": "example", "machine": "lab"},
+        payload={"project": "example", "test_machine": "lab"},
     )
 
 
@@ -128,7 +128,7 @@ def test_live_seat_must_cover_the_machine_project(monkeypatch, seat_project, all
     seat(conn, project=seat_project)
     detail = {
         "project": "alpha",
-        "machine": "lab",
+        "test_machine": "lab",
         "settings": {"desktop_route": "direct"},
         "active_lease": {"id": 17, "session_id": "holder"},
     }
@@ -182,7 +182,7 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
             success=True,
             result={
                 "project": "example",
-                "machine": "lab",
+                "test_machine": "lab",
                 "settings": {},
                 "operator_access": access,
             },
@@ -196,12 +196,12 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
     )
     assert (
         cli.test_machine_desktop_access(
-            ["--project", "example", "--machine", "lab", "--view"]
+            ["--project", "example", "--test-machine", "lab", "--view"]
         )
         == 0
     )
     assert calls == [
-        {"project": "example", "machine": "lab", "settings": {}, "view": True}
+        {"project": "example", "test_machine": "lab", "settings": {}, "view": True}
     ]
     output = capsys.readouterr()
     assert "Operator" in output.err and "lease unchanged" in output.err

@@ -141,7 +141,7 @@ test("resource-backed routes all validate their own result shapes", async () => 
     ["/qa-activity/1?project=1", { requirement: {} }],
     ["/ouroboros/1?project=1", { entry: {} }],
     ["/workflows/dash", { workflows: [{ id: "dash" }] }],
-    ["/capabilities/test-machine?project=1", { machines: [] }],
+    ["/capabilities/test-machine?project=1", { test_machines: [] }],
   ];
   for (const [hash, result] of routes) {
     assert.equal(await locationResolves({ async call() { return ok(result); } }, hash, projects), true, hash);

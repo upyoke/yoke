@@ -28,7 +28,7 @@ def release_host_claim(
     with savepoint(conn, "_yoke_manual_host_release", owns=commit):
         claim = get_claim(conn, claim_id)
         executions = []
-        if claim.target.machine_id and _table_exists(conn, "qa_plan_executions"):
+        if claim.target.test_machine and _table_exists(conn, "qa_plan_executions"):
             companion = (
                 str(claim.reason)[len(HOST_SET_REASON) :]
                 if str(claim.reason or "").startswith(HOST_SET_REASON)
@@ -38,7 +38,7 @@ def release_host_claim(
                 conn,
                 "SELECT id FROM qa_plan_executions "
                 f"WHERE state IN ({LIVE_PLAN_EXECUTION_SQL}) "
-                "AND (machine_lease_id=%s OR CAST(id AS TEXT)=%s) ORDER BY id",
+                "AND (test_machine_lease_id=%s OR CAST(id AS TEXT)=%s) ORDER BY id",
                 (claim_id, companion),
             )
             executions = [lock_plan_execution(conn, str(row["id"])) for row in rows]
@@ -48,19 +48,19 @@ def release_host_claim(
             leases = {
                 lease.id: lease for lease in execution_host_leases(conn, execution)
             }
-            primary = execution.get("machine_lease_id")
+            primary = execution.get("test_machine_lease_id")
             if primary is not None:
                 leases[primary] = get_claim(conn, int(primary))
             record_execution_reset_debt(conn, execution, leases.values())
         released = release(conn, claim_id, reason, commit=False, **kwargs)
         for execution in executions:
             release_execution_hosts(conn, execution, reason=reason)
-            primary = execution.get("machine_lease_id")
+            primary = execution.get("test_machine_lease_id")
             if primary is not None:
                 release(conn, int(primary), reason, commit=False)
             # A deliberate release has already ended custody, so there is no
             # host left for cooperative abort's restoration gate to retain.
-            execution["machine_lease_id"] = None
+            execution["test_machine_lease_id"] = None
             finish_plan_execution(
                 conn, execution, state="aborted", reason=reason, commit=False
             )

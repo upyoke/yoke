@@ -56,7 +56,7 @@ def _project_id(conn: Any) -> int:
 
 def _record(conn: Any, operation: str, status: str, error: str | None = None) -> None:
     common = dict(
-        machine=MACHINE,
+        test_machine=MACHINE,
         status=status,
         checks=[{"name": operation, "ok": status == "verified"}],
         error_code=error,
@@ -107,7 +107,7 @@ def _begin(execution: dict, case: dict) -> Any:
 
 def _wait_state(conn: Any, session_id: str) -> str:
     row = conn.execute(
-        "SELECT state FROM qa_host_waits WHERE session_id=%s ORDER BY queued_at DESC",
+        "SELECT state FROM qa_test_machine_waits WHERE session_id=%s ORDER BY queued_at DESC",
         (session_id,),
     ).fetchone()
     return str(row["state"])
@@ -141,7 +141,7 @@ def test_leased_host_queues_the_plan_and_release_hands_it_the_turn(
     waiting = _begin(execution, case)
     assert waiting["state"] == "waiting"
     assert waiting["host_wait"]["position"] == 1
-    assert waiting["host_wait"]["machine"] == MACHINE
+    assert waiting["host_wait"]["test_machine"] == MACHINE
     assert "Park until then" in waiting["lease_context"]["wait_message"]
 
     release(test_db, held.id, "holder-finished")
@@ -182,7 +182,7 @@ def test_unhealthy_host_queues_until_a_golden_capture_heals_it(
 
     # An ended session drops out: the healed host passes over it.
     test_db.execute(
-        "INSERT INTO qa_host_waits(id,machine_id,session_id,actor_id,queued_at,"
+        "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
         "state,resume_command,rationale) VALUES(%s,%s,'ended-waiter',1,"
         "now() - interval '1 hour','waiting','yoke qa plan run','queued')",
         (str(uuid4()), MACHINE),
@@ -228,7 +228,7 @@ def test_waiting_case_teaches_queue_position_and_park() -> None:
     case = _waiting_case(
         {
             "host_wait": {
-                "machine": "linux-lab",
+                "test_machine": "linux-lab",
                 "position": 2,
                 "line_length": 3,
                 "rationale": "lease 9 held by holder",

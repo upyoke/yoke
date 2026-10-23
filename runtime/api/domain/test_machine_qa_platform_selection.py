@@ -72,7 +72,7 @@ def test_negative_linux_instruction_uses_declared_mac():
     host = SimpleNamespace(settings={"resource_name": "test-mac", "os": "macos"})
     case = {
         "instructions": "Do not use linux-lab; do not run stat -c",
-        "method_config": {"machine": "test-mac"},
+        "method_config": {"test_machine": "test-mac"},
     }
     assert case_platform(case, {"test-mac": "macos"}) == "macos"
     assert matching_platform_hosts([host], [case]) == [host]
@@ -84,7 +84,7 @@ def _fleet():
     replace_test_machine_settings(
         conn,
         project="yoke",
-        machine="z-linux",
+        test_machine="z-linux",
         settings={**_settings("z-linux"), "os": "linux"},
         base_settings=None,
     )
@@ -111,7 +111,7 @@ def test_linux_case_never_leases_first_alphabetical_mac_host():
             conn,
             project="yoke",
             session_id="linux-two",
-            machine=None,
+            test_machine=None,
             select_any=True,
             cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )
@@ -127,7 +127,7 @@ def test_explicit_mac_pin_cannot_override_linux_case():
             project="yoke",
             session_id="linux-one",
             operation="plan_case",
-            machine="mac-mini-lab",
+            test_machine="mac-mini-lab",
             cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )
 
@@ -144,7 +144,7 @@ def test_no_matching_host_names_platform_and_recovery():
             conn,
             project="yoke",
             session_id="linux-one",
-            machine=None,
+            test_machine=None,
             select_any=True,
             cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )

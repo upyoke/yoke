@@ -81,7 +81,7 @@ def _fake_claim(**kwargs: Any):
 
     return CoordinationClaim(
         id=kwargs.get("id", 1),
-        target=make_qa_admission_target(kwargs.get("machine_id", "mac-mini-lab")),
+        target=make_qa_admission_target(kwargs.get("test_machine", "mac-mini-lab")),
         session_id=kwargs.get("session_id", "s-1"),
         claimed_at=kwargs.get("claimed_at", "2026-05-13T07:00:00Z"),
         last_heartbeat=kwargs.get("last_heartbeat", "2026-05-13T07:00:00Z"),

@@ -167,7 +167,7 @@ def test_single_case_contract_keeps_raising_the_named_failure(
 
 
 def test_plan_runner_returns_the_waiting_case_from_submit(monkeypatch: Any) -> None:
-    host_wait = {"machine": "windows-lab", "position": 1, "line_length": 1}
+    host_wait = {"test_machine": "windows-lab", "position": 1, "line_length": 1}
 
     def dispatch(function_id: str, **_kwargs: Any) -> dict[str, Any]:
         if function_id == "test_machine.plan_case.begin":

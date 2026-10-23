@@ -45,7 +45,7 @@ QA_PLAN_EXECUTION_COLUMNS = (
     "roster_json",
     "cursor_ordinal",
     "state",
-    "machine_lease_id",
+    "test_machine_lease_id",
     "created_at",
     "heartbeat_at",
     "completed_at",
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     state TEXT NOT NULL CHECK(state IN (
         'active','waiting','walking','awaiting_walk_review','completed','aborted','error'
     )),
-    machine_lease_id INTEGER,
+    test_machine_lease_id INTEGER,
     created_at TIMESTAMPTZ NOT NULL,
     heartbeat_at TIMESTAMPTZ NOT NULL,
     completed_at TIMESTAMPTZ,

@@ -315,6 +315,6 @@ def test_view_path_does_not_materialize_password_file(tmp_path, monkeypatch):
         viewer, "view_desktop", lambda *a: calls.append(a) or {"viewer": "closed"}
     )
     assert desktop_access.open_desktop_access(
-        project="project", machine="lab", settings=SETTINGS, view=True
+        project="project", test_machine="lab", settings=SETTINGS, view=True
     ) == {"viewer": "closed"}
     assert calls[0][3] == PASSWORD

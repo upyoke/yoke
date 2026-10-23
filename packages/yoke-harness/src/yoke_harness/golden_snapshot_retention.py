@@ -191,7 +191,7 @@ def _recovery(destination: str, parent: str) -> str:
         f"The registered golden {destination} is already recorded. "
         f"Remove every other snapshot under {parent}, but keep {destination}, "
         "every golden another project registered for this machine (yoke "
-        "test-machine get --project P --machine NAME names it as "
+        "test-machine get --project P --test-machine TEST_MACHINE names it as "
         "golden_baseline_path), and their .probes, .manifest "
         "and .harness-clis files. Do not capture again until those leftovers are gone."
     )

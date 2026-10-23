@@ -153,7 +153,7 @@ def _failed_case(
     evidence: dict[str, Any] = {
         **(primary.evidence if primary is not None else {}),
         "runner_id": "host_control",
-        "machine": execution.material.settings["resource_name"],
+        "test_machine": execution.material.settings["resource_name"],
         "method_id": case.method_id,
         "baseline": execution.baseline.name if execution.baseline else None,
         "fixture_operations": dict(lifecycle),

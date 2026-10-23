@@ -44,7 +44,7 @@ def test_mission_review_lease_is_released_and_review_handed_over():
         )
         conn.execute(
             "UPDATE qa_plan_executions SET roster_json=%s,roster_digest=%s,"
-            "machine_lease_id=%s WHERE id=%s",
+            "test_machine_lease_id=%s WHERE id=%s",
             (canonical(roster), roster_digest(roster), lease.id, execution["id"]),
         )
         _stale(conn, execution["id"])
@@ -57,7 +57,7 @@ def test_mission_review_lease_is_released_and_review_handed_over():
         assert receipt["review_bundle_id"] == bundle["bundle_id"]
         assert not get_claim(conn, lease.id).is_active
         assert handed["state"] == "awaiting_walk_review"
-        assert handed["machine_lease_id"] is None
+        assert handed["test_machine_lease_id"] is None
         assert handed["session_id"] == STEERING
 
 

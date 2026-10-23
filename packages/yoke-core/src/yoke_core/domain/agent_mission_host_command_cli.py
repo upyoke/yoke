@@ -87,7 +87,11 @@ def resolve_mission_contract(
         payload={
             "execution_id": parsed.execution_id,
             "requirement_id": parsed.requirement_id,
-            **({"machine": parsed.machine} if getattr(parsed, "machine", None) else {}),
+            **(
+                {"test_machine": parsed.test_machine}
+                if getattr(parsed, "test_machine", None)
+                else {}
+            ),
             **(
                 {"cleanup": "begin", "run_id": parsed.run_id}
                 if prog == "yoke qa mission walk-end"
@@ -132,7 +136,8 @@ def run(args: list[str]) -> int:
     )
     add_mission_subject_arguments(parser)
     parser.add_argument(
-        "--machine",
+        "--test-machine",
+        metavar="TEST_MACHINE",
         help="Declared case host to command; defaults to the retained driver host.",
     )
     parser.add_argument("--gui-session", action="store_true")

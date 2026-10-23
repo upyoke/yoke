@@ -69,7 +69,7 @@ def test_every_source_recipe_passes_the_execution_contract(target_name: str) -> 
         assert case["method_config"]["os"] == "macos"
         recipe = {
             key: value for key, value in config.items()
-            if key not in {"machine", "machines", "os", "platform"}
+            if key not in {"test_machine", "test_machines", "os", "platform"}
         }
         validate_terminal_recipe(
             recipe,

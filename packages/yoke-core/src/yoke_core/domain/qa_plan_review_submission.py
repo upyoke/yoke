@@ -168,7 +168,7 @@ def submit_plan_review(
 
     execution_before = {
         key: execution.get(key)
-        for key in ("state", "machine_lease_id", "completed_at", "release_reason")
+        for key in ("state", "test_machine_lease_id", "completed_at", "release_reason")
     }
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     try:

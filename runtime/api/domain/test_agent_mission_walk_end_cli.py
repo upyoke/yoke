@@ -25,11 +25,12 @@ def _run_walk_end(
     disposal: tuple[list[str], list[str], bool] = ([], [], True),
     fixture_projects: dict = NO_PROJECTS,
     calls: list[str] | None = None,
+    disposals: list[dict] | None = None,
 ) -> int:
     """Run walk-end with fakes; return its exit code and the steps it took."""
     calls = [] if calls is None else calls
     recorded: list[dict] = []
-    disposals: list[dict] = []
+    disposals = [] if disposals is None else disposals
     monkeypatch.setattr(
         agent_mission_walk_cli,
         "resolve_mission_contract",
@@ -100,6 +101,26 @@ def _walk_result(**overrides: Any) -> dict:
 def test_walk_end_records_the_restore_and_exits_clean(monkeypatch, capsys):
     assert _run_walk_end(monkeypatch, _walk_result(), None) == 0
     assert json.loads(capsys.readouterr().out)["starting_state_restore"]["restored"]
+
+
+def test_walk_end_hands_the_hosts_connected_machine_to_disposal(monkeypatch, capsys):
+    machine_id = "11111111-1111-4111-8111-111111111111"
+    notice = f"connected_machine_not_retired: Machine {machine_id} (forbidden)"
+    disposals: list[dict] = []
+    host = {**NO_PROJECTS, "connected_machine_id": machine_id}
+
+    exit_code = _run_walk_end(
+        monkeypatch,
+        _walk_result(),
+        None,
+        disposal=([], [notice], True),
+        fixture_projects=host,
+        disposals=disposals,
+    )
+
+    assert exit_code == 0
+    assert disposals[0]["connected_machine_id"] == machine_id
+    assert f"yoke qa mission walk-end: {notice}" in capsys.readouterr().err
 
 
 def test_walk_end_names_each_thing_it_could_not_finish(monkeypatch, capsys):

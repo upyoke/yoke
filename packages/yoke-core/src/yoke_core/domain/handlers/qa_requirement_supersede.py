@@ -129,7 +129,7 @@ def handle_qa_requirement_supersede(
                         "delivery": "failed",
                         "recovery": f"Correction is durable but wake failed: {exc}. Run "
                         f"`yoke watch qa-plan -- {scope} --stage "
-                        f"{declared['deployment_stage']} --machine NAME`; "
+                        f"{declared['deployment_stage']} --test-machine TEST_MACHINE`; "
                         "replace NAME with the host in the failed attempt's QA run evidence.",
                     }
                 return HandlerOutcome(

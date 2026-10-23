@@ -100,7 +100,7 @@ network ingress to approved execution machines; audit the effective SSH and
 firewall policy, not just successful login.
 
 Register `test-machine:<name>` through `yoke test-machine settings-replace
---project P --machine NAME --settings-file FILE --new`. Read `--help`; updates
+--project P --test-machine NAME --settings-file FILE --new`. Read `--help`; updates
 use the as-read settings token. Settings include `resource_name`, `os=linux`,
 `host`, `user` and the absolute home golden path outside the home. A cloud
 instance id and operating notes belong to this record, not Pack source.
@@ -111,7 +111,7 @@ On each QA workstation, store shared SSH and per-host desktop secrets:
 ```text
 yoke projects capability secret set --project P --cap-type test-machine --key ssh_private_key --value-file KEY_FILE
 yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
-yoke test-machine exec --project P --machine NAME -- /usr/bin/true
+yoke test-machine exec --project P --test-machine NAME -- /usr/bin/true
 ```
 
 Read each command's `--help`. Private bytes never enter settings, argv, logs,
@@ -122,7 +122,7 @@ requires waiting before preparation/access.
 After step4, declare `desktop_protocol=rdp`, `desktop_route=ssh-forward`,
 `desktop_port=3389`, `desktop_user=TESTUSER`; the default forwarded desktop host
 is remote loopback. Operator access uses `yoke test-machine desktop-access
---project P --machine NAME`; read `--help`. Open its returned loopback address
+--project P --test-machine NAME`; read `--help`. Open its returned loopback address
 in an RDP client, no gateway, Xorg session, with the registered test user and
 password from the private `password_file`. Close its tunnel after use with
 `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`; remove only
@@ -245,7 +245,7 @@ delivery through the focused window needs several seconds before being judged
 undelivered. The registered GUI-session route selects DISPLAY, XAUTHORITY and
 D-Bus from the test user's actual XFCE session; a dummy display is not proof.
 Prove the visible result and screenshot with `yoke test-machine screenshot
---project P --machine NAME --json`; read `--help`. Transcripts alone do not
+--project P --test-machine NAME --json`; read `--help`. Transcripts alone do not
 prove the desktop. Reset ends the registered fixture user's desktop, including a session reused
 from a human login. It verifies process identity before termination and proves
 that the desktop ended; other users' sessions are excluded.
@@ -261,7 +261,7 @@ desktop browser sign-ins. It opens tabs only for expired sites and names the
 account to use. Desktop browser sign-ins stay live through reset and are
 excluded from golden snapshots.
 
-The remote `--machine NAME` command includes both checks by default; there
+The remote `--test-machine NAME` command includes both checks by default; there
 is no desktop opt-out. Confirm release-matched help and operation receipts
 before relying on an installed release. Before running it, read the complete
 [desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.

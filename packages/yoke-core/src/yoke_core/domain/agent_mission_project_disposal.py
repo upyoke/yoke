@@ -9,8 +9,10 @@ records an intent receipt naming every candidate before it changes
 anything, disposes of each project the execution created (see
 :mod:`qa_fixture_project_disposal`), then records the per-project
 dispositions. Both receipts are ``fixture_project_disposal`` artifacts on
-the mission's run. It runs on a normal walk-end and on an aborted walk's
-cleanup walk-end alike."""
+the mission's run. The result receipt also names the
+``connected_machine_retirement`` of the Machine the walk's connect
+registered (see :mod:`agent_mission_connected_machine`). It runs on a normal
+walk-end and on an aborted walk's cleanup walk-end alike."""
 
 from __future__ import annotations
 
@@ -26,6 +28,11 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
     TargetRef,
 )
+from yoke_core.domain.agent_mission_connected_machine import (
+    CONNECTED_MACHINE_RETIREMENT,
+    connected_machine_notices,
+    retire_connected_machine,
+)
 
 FUNCTION_ID = "test_machine.mission.dispose_projects"
 
@@ -37,6 +44,7 @@ class MissionProjectDisposalRequest(BaseModel):
     requirement_id: int = Field(ge=1)
     run_id: int = Field(ge=1)
     host_projects: list[dict[str, Any]] = Field(default_factory=list)
+    connected_machine_id: str | None = None
 
 
 class MissionProjectDisposalResponse(BaseModel):
@@ -45,6 +53,7 @@ class MissionProjectDisposalResponse(BaseModel):
     projects: list[dict[str, Any]]
     unsettled: list[dict[str, Any]]
     left_for_administrator: list[dict[str, Any]]
+    connected_machine_retirement: dict[str, Any]
 
 
 def _authorized_execution(conn: Any, request: FunctionCallRequest, parsed) -> dict:
@@ -161,6 +170,7 @@ def _record_receipt(
 
 
 def handle_mission_project_disposal(request: FunctionCallRequest) -> HandlerOutcome:
+    from yoke_contracts.timestamps import utc_now
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.handlers.machine_qa import _failure
     from yoke_core.domain.handlers.machine_qa_plan_case_request import (
@@ -197,10 +207,22 @@ def handle_mission_project_disposal(request: FunctionCallRequest) -> HandlerOutc
             actor_id=int(request.actor.actor_id),
             session_id=str(request.actor.session_id or ""),
         )
+        retirement = retire_connected_machine(
+            conn,
+            run_id=parsed.run_id,
+            host_machine_id=parsed.connected_machine_id,
+            actor_id=int(request.actor.actor_id),
+            now=utc_now(),
+        )
         _record_receipt(
             request,
             parsed,
-            {**intent, "phase": "result", "projects": projects},
+            {
+                **intent,
+                "phase": "result",
+                "projects": projects,
+                CONNECTED_MACHINE_RETIREMENT: retirement,
+            },
             candidates,
         )
     except (KeyError, LookupError, ValueError) as exc:
@@ -217,6 +239,7 @@ def handle_mission_project_disposal(request: FunctionCallRequest) -> HandlerOutc
         projects=projects,
         unsettled=unsettled(projects),
         left_for_administrator=left_for_administrator(projects),
+        connected_machine_retirement=retirement,
     )
     return HandlerOutcome(primary_success=True, result_payload=response.model_dump())
 
@@ -229,6 +252,7 @@ def request_project_disposal(
     requirement_id: int,
     run_id: int,
     host_projects: list[dict[str, Any]],
+    connected_machine_id: str | None = None,
 ) -> tuple[list[str], list[str], bool]:
     """Ask the control plane to dispose of the walk's projects.
 
@@ -247,6 +271,7 @@ def request_project_disposal(
             "requirement_id": requirement_id,
             "run_id": run_id,
             "host_projects": host_projects,
+            "connected_machine_id": connected_machine_id,
         },
     )
     if not response.success:
@@ -286,6 +311,7 @@ def request_project_disposal(
         "--reason 'QA fixture project'"
         for entry in (response.result or {}).get("left_for_administrator", [])
     ]
+    notices.extend(connected_machine_notices(response.result or {}))
     return failures, notices, True
 
 
@@ -302,6 +328,8 @@ def register(registry: Any) -> None:
         side_effects=[
             "cancel_item",
             "project_retirement_write",
+            "machines_update",
+            "machine_credential_revoke",
             "coordination_claim_release",
             "qa_artifacts_insert",
         ],

@@ -40,10 +40,10 @@ Worked examples:
 
   yoke browser authorize                          # default identity, this checkout
   yoke browser authorize --project yoke --identity admin
-  yoke browser authorize --project P --identity admin --machine Test-Mac
+  yoke browser authorize --project P --identity admin --test-machine Test-Mac
   yoke browser verify --project yoke --identity admin   # check without a window
 
-With --machine, run on the operator workstation connected to the control
+With --test-machine, run on the operator workstation connected to the control
 plane. Yoke reads browser-control settings here, checks the named Test Machine
 lease, and runs this same command in its GUI session. A Linux or Windows WSL
 machine with a registered RDP desktop opens in the same FreeRDP viewer as
@@ -54,10 +54,10 @@ window when done. If no viewer route or FreeRDP client is available, the
 command prints the exact desktop-access command and its recovery, then still
 waits for you to sign in on that desktop. macOS Screen Sharing uses the
 printed command without --view. A machine leased by another session refuses
-until released. Without --machine, this host keeps local behavior. Without a
+until released. Without --test-machine, this host keeps local behavior. Without a
 remote route, --declarations-json still supplies settings locally.
 
-On Linux and macOS Test Machines, --machine also checks the installer's
+On Linux and macOS Test Machines, --test-machine also checks the installer's
 desktop browser: snap Chromium or Safari, using the same identity's declared
 sites and account names. It reads that browser's own cookies headless and
 opens native tabs only for expired sites. Close the desktop browser windows
@@ -65,7 +65,7 @@ to finish. Unreadable cookies or unreachable probes refuse before opening
 tabs; allow native cookie-store access and unlock the user's keyring first.
 Desktop sign-ins stay live through resets and are never captured into golden
 snapshots. Automation identity profiles keep their existing behavior.
-Use --desktop-browser without --machine to check only this host's native
+Use --desktop-browser without --test-machine to check only this host's native
 browser, or combine both flags to check only the Test Machine's native browser.
 If default has no sites but other identities do, an omitted --identity refuses
 with browser_identity_required and names the choices before opening any window.

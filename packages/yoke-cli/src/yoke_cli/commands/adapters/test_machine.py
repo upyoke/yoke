@@ -24,27 +24,28 @@ from yoke_cli.config.capability_secrets import (
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
+from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
 LIST_USAGE = "yoke test-machine list --project P [--json]"
-GET_USAGE = "yoke test-machine get --project P [--machine NAME] [--json]"
+GET_USAGE = "yoke test-machine get --project P [--test-machine TEST_MACHINE] [--json]"
 SETTINGS_REPLACE_USAGE = (
     "yoke test-machine settings-replace --project P "
-    "[--machine NAME] --settings-file FILE "
+    "[--test-machine TEST_MACHINE] --settings-file FILE "
     "(--base AS_READ_JSON | --new) [--json]"
 )
-VERIFY_USAGE = "yoke test-machine verify --project P [--machine NAME] [--json]"
+VERIFY_USAGE = "yoke test-machine verify --project P [--test-machine TEST_MACHINE] [--json]"
 RESET_USAGE = (
-    "yoke test-machine reset --project P [--machine NAME] "
+    "yoke test-machine reset --project P [--test-machine TEST_MACHINE] "
     "[--baseline fresh-host|shell-preconfigured] [--json]"
 )
 GOLDEN_CAPTURE_USAGE = (
-    "yoke test-machine golden-capture --project P [--machine NAME] "
+    "yoke test-machine golden-capture --project P [--test-machine TEST_MACHINE] "
     "[--destination /abs/path] [--probes-file FILE] [--json]"
 )
-SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--machine NAME] [--json]"
+SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--test-machine TEST_MACHINE] [--json]"
 BRIDGE_DIAGNOSE_USAGE = (
-    "yoke test-machine bridge-diagnose --project P [--machine NAME] [--json]"
+    "yoke test-machine bridge-diagnose --project P [--test-machine TEST_MACHINE] [--json]"
 )
 
 
@@ -54,7 +55,11 @@ def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
         "--project", required=True, help="Project that owns the test machine."
     )
     if with_machine:
-        parser.add_argument("--machine", help="Name of the test machine to use.")
+        parser.add_argument(
+            "--test-machine",
+            metavar="TEST_MACHINE",
+            help="Name of the test machine to use.",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -74,7 +79,11 @@ def _dispatch(
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         response_recovery=(
-            (lambda response, _actor: _attest_secret_presence(response, parsed.project))
+            (
+                lambda response, _actor: _attest_secret_presence(
+                    response, parsed.project, function_id
+                )
+            )
             if attest_local_secrets
             else None
         ),
@@ -84,6 +93,7 @@ def _dispatch(
 def _attest_secret_presence(
     response: FunctionCallResponse,
     project: str,
+    function_id: str,
 ) -> FunctionCallResponse:
     """Attach credential presence proven on this executing CLI machine."""
     if not response.success or not isinstance(response.result, dict):
@@ -116,9 +126,13 @@ def _attest_secret_presence(
         return updated
 
     result = dict(response.result)
-    if isinstance(result.get("machines"), list):
-        result["machines"] = [attest(detail) for detail in result["machines"]]
+    if function_id == "test_machine.list":
+        test_machines = read_test_machine_field(
+            result, function_id=function_id, field="test_machines"
+        )
+        result["test_machines"] = [attest(detail) for detail in test_machines]
     else:
+        read_test_machine_field(result, function_id=function_id)
         result = attest(result)
     return response.model_copy(update={"result": result})
 
@@ -131,7 +145,7 @@ def test_machine_get(args: List[str]) -> int:
     return _dispatch(
         parsed,
         "test_machine.get",
-        {"machine": parsed.machine},
+        {"test_machine": parsed.test_machine},
         attest_local_secrets=True,
     )
 
@@ -180,7 +194,7 @@ def test_machine_settings_replace(args: List[str]) -> int:
         parsed,
         "test_machine.settings_replace",
         {
-            "machine": parsed.machine,
+            "test_machine": parsed.test_machine,
             "settings": settings,
             "base_settings": None if parsed.new else parsed.base_settings,
         },

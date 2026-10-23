@@ -260,8 +260,8 @@ pin. The command gives each machine its own ordered execution and FIFO lease,
 then credits all results to the same member. After a host wait or independent
 review, repeat that command to continue. Every required host must pass before
 member acceptance. A case needing several hosts at once declares
-`method_config.machines` alongside its driving `machine`; its plan execution
-holds the complete set through the case and review. See
+`method_config.test_machines` beside its driving `test_machine`; its plan
+execution holds the complete set through the case and review. See
 [case attachment](case-attachment.md).
 
 ## Item QA on releases

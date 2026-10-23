@@ -94,7 +94,7 @@ def run_remote_command(
             "test_machine_exec_command_missing",
             "no remote command was given",
             "Pass the command after `--`, e.g. "
-            "`yoke test-machine exec --project P --machine M -- uname -a`.",
+            "`yoke test-machine exec --project P --test-machine TEST_MACHINE -- uname -a`.",
         )
     if not environ.get(SSH_AUTH_SOCK_ENV):
         raise RemoteExecRefusal(

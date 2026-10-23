@@ -32,7 +32,7 @@ class AgentVerdict(BaseModel):
 
 class HostWait(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    machine: str = Field(min_length=1, max_length=128)
+    test_machine: str = Field(min_length=1, max_length=128)
     rationale: str = Field(min_length=1, max_length=8000)
 
 

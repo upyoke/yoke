@@ -29,7 +29,7 @@ def member_machine_partition(
     deployment_run_id: str | None,
     deployment_stage: str | None,
     deployment_member_item_id: int | None,
-    machine: str | None,
+    test_machine: str | None,
     session_id: str,
 ) -> tuple[list[dict[str, Any]], int | None, dict[str, Any] | None]:
     """Use scoped evidence to advance between host executions.
@@ -113,7 +113,7 @@ def member_machine_partition(
             raise StageRosterHeld(holder)
         return open_rows, None, None
     for row in roster:
-        resolve_case_machine(row, machine)
+        resolve_case_machine(row, test_machine)
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 
     digest = str(roster[0]["execution_target_digest"])

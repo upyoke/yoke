@@ -55,7 +55,7 @@ def _machine(conn, *, broken=None, runner="host_control"):
     raw = {
         "evidence": {
             "host_control_submission": receipt,
-            "machine": "proof-host",
+            "test_machine": "proof-host",
             "baseline": "installed",
         },
         "method_config": config,

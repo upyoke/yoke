@@ -25,7 +25,7 @@ registrations; admission refuses without one. The runner supplies
 `browser-control` without a project capability row. Walkers use managed browsers
 for named identities or when the walk installed Yoke; otherwise the host browser.
 The connection comes from the `QA_HOST:` lease recorded on
-`qa_plan_executions.machine_lease_id`, never an undeclared access path.
+`qa_plan_executions.test_machine_lease_id`, never an undeclared access path.
 
 ## Authoring Shape
 
@@ -39,26 +39,26 @@ single-machine missions; declare its host set below.
   "method_id": "exploratory-mission",
   "instructions": "Install as a new user, work through onboarding, and investigate confusing, broken, missing, or unsafe behavior using the terminal, browser, and visible desktop.",
   "expected_outcome": "Return a ranked actionable report, name what could not be verified and why, and return a precise handoff if a person must act.",
-  "method_config": {"executor": "informed_subagent", "machine": "macos-example"},
+  "method_config": {"executor": "informed_subagent", "test_machine": "macos-example"},
   "host_baselines": ["fresh-host"]
 }
 ```
 
-Omit `machine` to select a registered host matching the case OS. Execution
+Omit `test_machine` to select a registered host matching the case OS. Execution
 checks `method_config.os` / `platform`, capability requirements and executable
 steps before leasing a host. A declared machine supplies its registered `os`
 when those fields do not choose one. Instructions never choose an OS. Without
 a declared platform or machine OS, `test_machine_platform_undeclared` asks for
-`method_config.os` or a registered `method_config.machine`. An unavailable
+`method_config.os` or a registered `method_config.test_machine`. An unavailable
 platform refuses as `test_machine_platform_unavailable`: register and verify
-a matching host, then retry with its `--machine NAME`. When present, it
+a matching host, then retry with its `--test-machine NAME`. When present, it
 is validated during plan authoring and becomes the case's durable
 <!-- qa:test-machine-capability -->`test-machine:<name>` capability constraint. Execution also reads the pin from
 `method_config` for direct requirements and their admitted deployment copies;
-omitting `--machine` preserves that pin, and a conflicting run pin is refused.
+omitting `--test-machine` preserves that pin, and a conflicting run pin is refused.
 
 For a mission that needs two hosts at once, also declare
-`"machines":["linux-example","macos-example"]` with `"machine":"macos-example"` naming the
+`"test_machines":["linux-example","macos-example"]` with `"test_machine":"macos-example"` naming the
 driving host. Every name must be registered and listed once. Each host uses its
 registered OS; the declared case platform must match at least one host in the
 set. Platform words in instructions do not constrain the host set. The plan runner
@@ -113,6 +113,48 @@ If deletion is refused, record the refusal and its recovery and list every
 exact `OWNER/NAME` still present as external cleanup debt in the walker report
 and the main agent's final verdict. Do not report that external cleanup is complete.
 
+## Connected Yoke Machines
+
+A mission that connects its Test Machine's Yoke install to this control plane,
+such as a hosted cold start, registers a new Yoke Machine. Right after that
+connect step succeeds, the walker runs the dispatch's exact command:
+
+```text
+yoke qa mission connected-machine --item PREFIX-N --execution-id ID \
+  --requirement-id N --run-id N [--test-machine TEST_MACHINE]
+```
+
+Pass `--test-machine` when the connect ran on a declared companion host; the
+command then reads that host's config through the same mission access path
+host-command uses. Omitted, it reads the driver host.
+
+It reads `machine_id` from the host's `$HOME/.yoke/config.json` through the
+mission's lease, records that Machine on the mission's docket as
+`connected_machine`, and prints its `machine_id` with a launch hint. A session
+launch's `--machine` takes that registered Machine id. A Test Machine is
+reached only through its lease and is never a launch target; a mission that
+connected no install has no launch target. The command refuses by name:
+
+- `connected_machine_absent` — the host's config has no `machine_id`, so the
+  install never connected.
+- `connected_machine_unregistered` — the id is not a live Machine on this
+  control plane: the install connected to another Yoke, and launches from here
+  cannot target it.
+- `connected_machine_predates_mission` — the Machine was registered before the
+  mission's docket, so this mission did not create it; it is never recorded or
+  retired.
+
+Walk-end reads the driver host's `machine_id` before its restore erases it,
+records it when the walker did not, and retires exactly the docket's
+`connected_machine` with the walking actor's authority, including a Machine
+recorded from a companion host. It never retires
+another Machine, including a live one with the same name. When that actor
+neither owns nor administers the Machine, walk-end still finishes, prints
+`connected_machine_not_retired` with the recovery: the Machine's owner runs
+`yoke machine retire MACHINE_ID --confirm`. The
+[evidence receipt](exploration-evidence.md#connected-machine-retirement) names
+every outcome.
+
 ## Execution and Review
 
 Run just one materialized mission without starting its sibling requirements:
@@ -133,7 +175,7 @@ Run the attached plan at its transition:
 
 ```text
 yoke qa plan run --item PREFIX-N --transition <transition> \
-  --machine <registered-name>
+  --test-machine <registered-name>
 ```
 
 The run pin is optional and must agree with every case-authored constraint.
@@ -228,7 +270,7 @@ continuation:
 yoke qa plan run --resume-execution-id EXECUTION_ID --continue-mission
 ```
 
-Host-wait and continuation commands omit `--machine`. Simultaneous cases keep
+Host-wait and continuation commands omit `--test-machine`. Simultaneous cases keep
 their declared driver and full host set. For single-host cases, the scheduler
 recovers each platform's original host from the execution's recorded leases and runs,
 including its continuation source. A platform not used before selects a fresh

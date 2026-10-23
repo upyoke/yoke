@@ -142,7 +142,7 @@ def test_mission_holder_borrows_lease_and_submit_keeps_it(mission, operation):
     assert get_claim(conn, contract["lease_id"]).is_active
     execution = lock_plan_execution(conn, execution_id)
     assert execution["state"] == "walking"
-    assert execution["machine_lease_id"] == contract["lease_id"]
+    assert execution["test_machine_lease_id"] == contract["lease_id"]
     conn.commit()
     if operation == "golden_capture":
         assert control.captured_destinations == [contract["golden_destination"]]
@@ -175,7 +175,7 @@ def test_foreign_session_or_actor_cannot_borrow_mission(mission, operation, acto
     assert "mission_operation_foreign_holder" in refused.error.message
     assert "you do not hold the lease on mac-mini-lab" in refused.error.message
     assert f"session {ACTOR.session_id} holds it" in refused.error.message
-    assert "Declare method_config.machine" in refused.error.message
+    assert "Declare method_config.test_machine" in refused.error.message
     assert get_claim(conn, contract["lease_id"]).is_active
 
 
@@ -242,7 +242,7 @@ def test_unknown_lease_gets_diagnosed_refusal(test_db, tmp_path, monkeypatch, ha
     refused = handler(request(payload))
     assert not refused.primary_success
     assert "no lease was issued with that id" in refused.error.message
-    assert "Declare method_config.machine" in refused.error.message
+    assert "Declare method_config.test_machine" in refused.error.message
 
 
 def test_later_mission_screenshot_can_replace_receipt(mission):

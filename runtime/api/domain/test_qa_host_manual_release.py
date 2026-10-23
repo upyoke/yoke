@@ -32,7 +32,7 @@ def test_walk_end_recorded_before_removal_releases_review_host(
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "aborted"
     assert current["release_reason"] == "deployment-member-removed"
-    assert current["machine_lease_id"] is None
+    assert current["test_machine_lease_id"] is None
     assert not get_claim(test_db, original["lease_id"]).is_active
 
 
@@ -74,7 +74,7 @@ def test_manual_release_settles_dirty_mission_review(
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "aborted"
     assert current["release_reason"] == reason
-    assert current["machine_lease_id"] is None
+    assert current["test_machine_lease_id"] is None
     assert not get_claim(test_db, lease_id).is_active
     assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
 
@@ -90,9 +90,9 @@ def test_releasing_either_simultaneous_host_settles_the_whole_set(
     leases = execution_host_leases(test_db, current)
     release_claim_by_id(test_db, leases[host_index].id, "stop host work")
     current = lock_plan_execution(test_db, execution["id"])
-    assert current["state"] == "aborted" and current["machine_lease_id"] is None
+    assert current["state"] == "aborted" and current["test_machine_lease_id"] is None
     assert all(not get_claim(test_db, lease.id).is_active for lease in leases)
-    assert all(reset_owed(test_db, machine) is None for machine in MACHINES)
+    assert all(reset_owed(test_db, test_machine) is None for test_machine in MACHINES)
 
 
 def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
@@ -111,7 +111,7 @@ def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
     assert reset_owed(test_db, original["settings"]["resource_name"]) is None
     current = lock_plan_execution(test_db, request.payload["execution_id"])
     assert current["state"] == "walking"
-    assert current["machine_lease_id"] == original["lease_id"]
+    assert current["test_machine_lease_id"] == original["lease_id"]
 
 
 @pytest.mark.parametrize("baseline", [None, "shell-preconfigured"])

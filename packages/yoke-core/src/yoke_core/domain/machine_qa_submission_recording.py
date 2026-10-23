@@ -132,7 +132,7 @@ def validate_case_submission(
     evidence = result.evidence
     if evidence.get("runner_id") != "host_control":
         raise ValueError("Machine QA evidence names the wrong runner")
-    if evidence.get("machine") != resource_name:
+    if evidence.get("test_machine") != resource_name:
         raise ValueError("Machine QA evidence names the wrong test machine")
     if result.case_outcome == "blocked_on_precondition":
         if evidence.get("case_started") is not False:
@@ -185,7 +185,7 @@ def record_submitted_case(
         record_unproven_restore(
             conn,
             case=case,
-            machine=resource_name,
+            test_machine=resource_name,
             lease_id=lease_id,
             restore=evidence.get("starting_state_restore"),
         )

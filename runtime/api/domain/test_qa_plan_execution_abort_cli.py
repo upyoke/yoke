@@ -16,7 +16,7 @@ def test_abort_prints_compact_receipt(capsys) -> None:
         "transition_id": None,
         "state": "aborted",
         "cursor_ordinal": 3,
-        "machine_lease_id": None,
+        "test_machine_lease_id": None,
         "requirements": [{"large": "roster"}],
         "results": [{"large": "results"}],
     }
@@ -48,7 +48,7 @@ def test_abort_prints_compact_receipt(capsys) -> None:
         "deployment_run_id": "run-1",
         "execution_id": "execution-1",
         "item_id": None,
-        "machine_lease_id": None,
+        "test_machine_lease_id": None,
         "state": "aborted",
         "transition_id": None,
     }

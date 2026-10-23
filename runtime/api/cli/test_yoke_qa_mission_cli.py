@@ -132,7 +132,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys, machine) -> Non
                 "exec-1",
                 "--requirement-id",
                 "9",
-                *(["--machine", machine] if machine else []),
+                *(["--test-machine", machine] if machine else []),
                 "--",
                 *command,
             ]
@@ -142,7 +142,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys, machine) -> Non
     assert json.loads(capsys.readouterr().out)["command_arity"] == len(command)
     assert execute.call_args.kwargs["argv"] == command
 
-    assert access.call_args.kwargs["payload"].get("machine") == machine
+    assert access.call_args.kwargs["payload"].get("test_machine") == machine
 
 
 def test_host_command_result_does_not_echo_sensitive_argv(capsys) -> None:

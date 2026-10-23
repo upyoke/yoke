@@ -164,7 +164,7 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
         assert replacement["id"] != stale["id"]
         assert prior["state"] == "aborted"
         assert prior["release_reason"] == "stale-heartbeat"
-        assert prior["machine_lease_id"] is None
+        assert prior["test_machine_lease_id"] is None
         assert released.is_active is False
         # One termination path settles the row and its lease under one reason.
         assert released.release_reason_intent == "stale-heartbeat"

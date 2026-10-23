@@ -94,8 +94,8 @@ def inconclusive_verdict_guidance(allowed_verdicts: tuple[str, ...]) -> str:
         "If the supplied evidence cannot settle a case, fail it and name in the "
         "rationale what was missing, which is the answer a re-capture acts on. "
         "A host occupied by another mission is not missing acceptance evidence: "
-        "submit host_wait with its machine and holder evidence instead of a verdict; "
-        "the requirement stays open and resumes on its FIFO host turn."
+        "submit host_wait with its test machine and holder evidence instead of a "
+        "verdict; the requirement stays open and resumes on its FIFO host turn."
     )
 
 

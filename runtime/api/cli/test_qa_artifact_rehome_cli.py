@@ -78,12 +78,12 @@ def test_bytes_missing_here_name_the_capture_machine(
         monkeypatch,
         dispatched,
         {"backend": "local", "recorded_path": str(tmp_path / "gone.png"),
-         "machine": "Capture Mac"},
+         "test_machine": "Capture Mac"},
     )
 
     assert cli.qa_artifact_rehome(["--requirement-id", "7", "--artifact-id", "70"]) == 1
     err = capsys.readouterr().err
-    assert "Run this recovery on Capture Mac" in err
+    assert "Run this recovery on test machine Capture Mac" in err
     assert [c["function_id"] for c in dispatched] == ["qa.artifact.read"]
 
 

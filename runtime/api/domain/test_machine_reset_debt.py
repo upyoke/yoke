@@ -41,7 +41,7 @@ def test_unproven_finish_releases_and_records_owed_baseline(
     assert not get_claim(test_db, original["lease_id"]).is_active
     assert (
         lock_plan_execution(test_db, request.payload["execution_id"])[
-            "machine_lease_id"
+            "test_machine_lease_id"
         ]
         is None
     )
@@ -54,7 +54,7 @@ def _debt(conn, baseline="fresh-host"):
     record_reset_owed(
         conn,
         case={"project_id": 1, "host_baseline": baseline},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     conn.commit()
@@ -68,13 +68,13 @@ def test_manual_success_clears_debt_and_failed_reset_retains_it(
     from runtime.api.domain.machine_qa_test_support import FakeHostControl
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    machine = _debt(test_db)
+    test_machine = _debt(test_db)
     failed, _ = run_operation("reset", control=FakeHostControl(refuse_full_reset=True))
     assert failed.primary_success, failed.error
-    assert reset_owed(test_db, machine) == "fresh-host"
+    assert reset_owed(test_db, test_machine) == "fresh-host"
     passed, _ = run_operation("reset", control=FakeHostControl())
     assert passed.primary_success, passed.error
-    assert reset_owed(test_db, machine) is None
+    assert reset_owed(test_db, test_machine) is None
 
 
 def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkeypatch):
@@ -85,12 +85,12 @@ def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkey
     )
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    machine = _debt(test_db, "shell-preconfigured")
+    test_machine = _debt(test_db, "shell-preconfigured")
     rows = read_reset_debts(test_db, 1)
     assert rows == (
         (
-            machine,
-            f"yoke test-machine reset --project 1 --machine {machine} --baseline shell-preconfigured",
+            test_machine,
+            f"yoke test-machine reset --project 1 --test-machine {test_machine} --baseline shell-preconfigured",
             None,
         ),
     )
@@ -223,12 +223,12 @@ def test_debt_changes_fleet_actionability_fingerprint_and_render(
     seed_steering_scope(test_db)
     configure_test_machine(test_db, tmp_path, monkeypatch)
     before = compose(test_db)
-    machine = _debt(test_db)
+    test_machine = _debt(test_db)
     report = compose(test_db)
     assert report.actionable
     assert report.fingerprint() != before.fingerprint()
-    assert report.reset_debts[0][0] == machine
-    assert report_dict(report)["reset_debts"][0]["machine"] == machine
+    assert report.reset_debts[0][0] == test_machine
+    assert report_dict(report)["reset_debts"][0]["test_machine"] == test_machine
     assert "machine_needs_repair" in report_body(report)
     assert "yoke test-machine reset" in scope_actionable_digest(report)
 
@@ -244,7 +244,7 @@ def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkey
     record_reset_owed(
         test_db,
         case={"project_id": 1, "host_baseline": "fresh-host"},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     test_db.rollback()
@@ -291,8 +291,8 @@ def test_no_baseline_debt_does_not_authorize_reset_or_erase_real_debt(
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     case = {"project_id": 1, "host_baseline": None, "starting_state": starting_state}
-    record_reset_owed(test_db, case=case, machine=MACHINE, lease_id=78)
+    record_reset_owed(test_db, case=case, test_machine=MACHINE, lease_id=78)
     assert reset_owed(test_db, MACHINE) is None
     _debt(test_db, "shell-preconfigured")
-    record_reset_owed(test_db, case=case, machine=MACHINE, lease_id=78)
+    record_reset_owed(test_db, case=case, test_machine=MACHINE, lease_id=78)
     assert reset_owed(test_db, MACHINE) == "shell-preconfigured"

@@ -151,7 +151,7 @@ def test_host_fifo_orders_equivalent_offsets_by_instant_and_keeps_id_ties(test_d
         ("a", "equal", "1969-12-31T19:00:00.000000-05:00"),
     ):
         test_db.execute(
-            "INSERT INTO qa_host_waits(id,machine_id,session_id,actor_id,queued_at,"
+            "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
             "state,resume_command) VALUES(%s,'linux-lab',%s,1,%s,'waiting','resume')",
             (wait_id, session, when),
         )

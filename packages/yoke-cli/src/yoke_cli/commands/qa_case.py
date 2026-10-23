@@ -27,7 +27,7 @@ QA_PLAN_RUN_USAGE = (
     "(--item PREFIX-N (--transition TRANSITION | --stage STAGE) | "
     "--deployment-run-id RUN --stage STAGE | "
     "--plan PLAN --project P | --resume-execution-id ID) [--replaces CASE_KEY=REQUIREMENT_ID] "
-    "[--project P] [--base-url URL] [--machine NAME] "
+    "[--project P] [--base-url URL] [--test-machine TEST_MACHINE] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--checkout-path PATH] "
     "[--allow-tree-mismatch] [--continue-mission] "
@@ -57,8 +57,8 @@ QA_PLAN_REVIEW_BEGIN_USAGE = (
 QA_MISSION_HOST_COMMAND_USAGE = (
     "yoke qa mission host-command "
     "[--item PREFIX-N | --project P] "
-    "--execution-id ID --requirement-id N [--gui-session] "
-    "[--timeout-seconds N] [--session-id S] -- ARGV..."
+    "--execution-id ID --requirement-id N [--test-machine TEST_MACHINE] "
+    "[--gui-session] [--timeout-seconds N] [--session-id S] -- ARGV..."
 )
 QA_MISSION_WALK_START_USAGE = (
     "yoke qa mission walk-start "
@@ -94,7 +94,7 @@ def qa_plan_run(args: List[str]) -> int:
         QA_PLAN_RUN_USAGE,
         "Requires the named immutable QA case or execution; item cases require the item work claim. "
         "For scoped stages, --plan selects existing frozen admissions; a new plan fills only an empty stage. "
-        "Host selection respects the case OS. Resume and correction commands omit --machine; "
+        "Host selection respects the case OS. Resume and correction commands omit --test-machine; "
         "the scheduler retains each platform's or corrected case's recorded host.\n\n"
         "Failed member QA: inspect the failed requirement and run, then classify product, setup, "
         "case or unclear cause. Fix current-item failures in that item. For a justified separate "

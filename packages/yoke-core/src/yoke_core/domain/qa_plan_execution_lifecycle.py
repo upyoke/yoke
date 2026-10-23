@@ -74,8 +74,8 @@ def heartbeat_plan_execution(
     from yoke_core.domain.qa_plan_host_leases import heartbeat_execution_hosts
 
     heartbeat_execution_hosts(conn, execution, now=now)
-    if execution.get("machine_lease_id") is not None:
-        heartbeat(conn, int(execution["machine_lease_id"]), now=now)
+    if execution.get("test_machine_lease_id") is not None:
+        heartbeat(conn, int(execution["test_machine_lease_id"]), now=now)
     else:
         conn.commit()
     execution["heartbeat_at"] = now
@@ -101,9 +101,9 @@ def set_plan_machine_lease(
         placeholder = marker(conn)
         now = utc_now()
         cursor = conn.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id="
+            "UPDATE qa_plan_executions SET test_machine_lease_id="
             f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
-            "AND state='active' AND machine_lease_id IS NULL",
+            "AND state='active' AND test_machine_lease_id IS NULL",
             (int(lease_id), instant_parameter(conn, now), str(execution["id"])),
         )
         if cursor.rowcount != 1:
@@ -111,7 +111,7 @@ def set_plan_machine_lease(
                 "QA plan execution cannot attach the machine lease"
             )
         conn.commit()
-    execution["machine_lease_id"] = int(lease_id)
+    execution["test_machine_lease_id"] = int(lease_id)
     execution["heartbeat_at"] = now
 
 
@@ -188,10 +188,10 @@ def finish_plan_execution(
         from yoke_core.domain.qa_plan_host_leases import release_execution_hosts
 
         release_execution_hosts(conn, execution, reason=reason)
-    if execution.get("machine_lease_id") is not None and not retain_lease:
+    if execution.get("test_machine_lease_id") is not None and not retain_lease:
         release(
             conn,
-            int(execution["machine_lease_id"]),
+            int(execution["test_machine_lease_id"]),
             reason,
             commit=False,
         )
@@ -201,20 +201,20 @@ def finish_plan_execution(
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
-        f"release_reason={placeholder},machine_lease_id={placeholder} "
+        f"release_reason={placeholder},test_machine_lease_id={placeholder} "
         f"WHERE id={placeholder}",
         (
             state,
             instant_parameter(conn, completed_at),
             instant_parameter(conn, now),
             reason,
-            execution.get("machine_lease_id") if retain_lease else None,
+            execution.get("test_machine_lease_id") if retain_lease else None,
             str(execution["id"]),
         ),
     )
     execution["state"] = state
     if not retain_lease:
-        execution["machine_lease_id"] = None
+        execution["test_machine_lease_id"] = None
     execution["completed_at"] = completed_at
     execution["release_reason"] = reason
     if terminal_settlement:

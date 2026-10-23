@@ -148,13 +148,13 @@ SESSION_ADAPTERS = [
     _read_entry(
         function_id="session_control.launch.preview",
         cli_invocation=(
-            "yoke session-control launch preview --project P (--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine NAME] [--list-models] [--full] [--session-id S] [--json]"
+            "yoke session-control launch preview --project P (--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID] [--list-models] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="session_control.launch.create",
         cli_invocation=(
-            "yoke session-control launch create --project P [(--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine NAME]] (--item PREFIX-N [--level-reason TEXT] | --raw-instructions --stdin) --idempotency-key K [--presentation MODE] [--list-models] [--session-id S] [--json]"
+            "yoke session-control launch create --project P [(--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID]] (--item PREFIX-N [--level-reason TEXT] | --raw-instructions --stdin) --idempotency-key K [--presentation MODE] [--list-models] [--session-id S] [--json]"
         ),
     ),
     _read_entry(

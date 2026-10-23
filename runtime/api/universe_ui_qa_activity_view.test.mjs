@@ -27,7 +27,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
           ? {
               artifact_id: 4,
               disposition: "evidence_on_machine",
-              machine: "Test Machine",
+              test_machine: "Test Machine",
               detail: "Open this evidence from its capture machine.",
             }
           : {

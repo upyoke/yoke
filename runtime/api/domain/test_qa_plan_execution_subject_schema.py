@@ -44,7 +44,7 @@ def test_boot_convergence_expands_exact_legacy_postgres_shape(test_db) -> None:
             state TEXT NOT NULL CHECK(state IN (
                 'active','waiting','completed','aborted','error'
             )),
-            machine_lease_id INTEGER,
+            test_machine_lease_id INTEGER,
             created_at TEXT NOT NULL,
             heartbeat_at TEXT NOT NULL,
             completed_at TEXT,
