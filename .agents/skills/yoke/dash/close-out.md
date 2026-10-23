@@ -13,7 +13,7 @@ yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment r
 yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
 ```
 
-Exit 12 is a capture awaiting review: dispatch the returned review bundle and submit it. Do not pass `--plan` except to replace failed cases.
+Exit 12 is a capture awaiting review: dispatch the returned review bundle and submit it. Use `--plan` to select an already admitted frozen plan or to replace failed cases explicitly.
 
 Rework after landing: register the fresh touch set (`yoke claims path register --item ITEM --paths ... --allow-planned`) when claims are selected, prepare the lane, then move back:
 
