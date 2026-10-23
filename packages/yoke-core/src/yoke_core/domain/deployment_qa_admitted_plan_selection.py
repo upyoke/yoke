@@ -46,6 +46,11 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
             f"in the requesting subject's project; inspect `yoke qa plan list --project {project_id}`."
         )
     plan_id = int(plans[0]["id"])
+    if subject.get("member_item_id") is not None:
+        from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
+
+        if plan_id in retracted_item_plan_ids(conn, int(subject["member_item_id"])):
+            _incomplete(plan_id, subject)
     snapshots = [
         value
         for value in subject["flow_snapshot"].get("selections", [])
@@ -83,11 +88,6 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
         return None
     snapshot = snapshots[-1]
     require_complete_snapshot(snapshot)
-    if subject.get("member_item_id") is not None:
-        from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
-
-        if plan_id in retracted_item_plan_ids(conn, int(subject["member_item_id"])):
-            _incomplete(plan_id, subject)
     cases = [c for c in snapshot["cases"] if case_applies_to_target(c, target)]
     snapshot = {**snapshot, "cases": cases}
     group = subject

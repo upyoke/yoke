@@ -183,3 +183,32 @@ def test_shared_selector_refuses_a_peers_previous_source_group(test_db):
             agent_plan=str(selected),
         )
     assert _state(test_db) == before
+
+
+def test_withdrawn_shared_attachment_cannot_be_readmitted_as_an_empty_stage(test_db):
+    from runtime.api.domain.test_deployment_qa_shared_plans import (
+        MEMBERS,
+        RUN as shared_run,
+        _seed,
+        _materialize,
+    )
+    from runtime.api.domain.test_deployment_qa_admitted_plan_selection import _state
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    selected = _seed(test_db)
+    _materialize(test_db, MEMBERS[0])
+    test_db.execute(
+        "UPDATE qa_plan_item_attachments SET retracted_at=NOW() WHERE item_id=%s AND plan_id=%s",
+        (MEMBERS[1], selected),
+    )
+    test_db.commit()
+    before = _state(test_db)
+    with pytest.raises(QaPlanError, match="qa_admitted_plan_incomplete"):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=shared_run,
+            deployment_stage="item-qa",
+            deployment_member_item_id=MEMBERS[1],
+            agent_plan=str(selected),
+        )
+    assert _state(test_db) == before
