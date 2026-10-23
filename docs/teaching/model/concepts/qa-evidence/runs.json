@@ -2,7 +2,7 @@
  "id": "runs",
  "title": "Executions and attempts",
  "status": "observed",
- "summary": "The newest actual aware start, with id breaking ties, selects the current attempt before grading. Run history carries current_run_id explicitly; merge hydration uses item detail's selected run_id. Neither consumer infers current identity from array order.",
+ "summary": "The newest actual aware start, with id breaking ties, selects the current attempt before grading. Activity lists default to summary rows without instructions, target JSON or artifact details; --full returns complete rows, and requirement_id points to qa requirement get for one case. Run history carries current_run_id explicitly; merge hydration uses item detail's selected run_id. Neither consumer infers current identity from array order.",
  "commands": ["yoke qa activity list", "yoke qa case run", "yoke qa plan abort", "yoke qa run add", "yoke qa run get", "yoke qa run list"],
  "functions": ["qa.activity.list", "qa.case.waive", "qa.case_execution.begin", "qa.run.add", "qa.run.get", "qa.run.list"],
  "page": "qa-evidence-runs",

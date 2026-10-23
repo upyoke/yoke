@@ -134,7 +134,7 @@ export async function loadRunQaReviewChecks(context, rows) {
     const runId = reviewRunId(row);
     if (!runId || byRun.has(runId)) continue;
     byRun.set(runId, callFunction(context.client, "qa.activity.list", {
-      project: String(row.project_id), deployment_run_id: runId, limit: 100,
+      project: String(row.project_id), deployment_run_id: runId, limit: 100, detail: "full",
     }).then((read) => {
       const result = read.status === 200 && read.envelope.success
         ? read.envelope.result || {} : {};

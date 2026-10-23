@@ -47,6 +47,7 @@ class PlanGetRequest(ProjectReadRequest):
 
 
 class ActivityListRequest(ProjectReadRequest):
+    detail: ReadDetail = DETAIL_SUMMARY
     #: Caps the rows returned, newest first. Only with both ``item_ids`` and
     #: ``deployment_run_ids`` does it cap each item's rows per named run
     #: instead, so one busy subject cannot crowd another off a card.
@@ -313,6 +314,10 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")
+    if payload.detail != DETAIL_FULL:
+        for row in result["rows"]:
+            for key in ("instructions", "artifacts", "execution_target_json"):
+                row.pop(key, None)
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 

@@ -135,6 +135,12 @@ every case already passed at that head, the run refuses with
 
 ## What the activity read returns
 
+`yoke qa activity list --project P` returns summary rows: case and run
+identity, timestamps, outcomes, proof summaries and evidence counts. It omits
+case instructions, execution target JSON and artifact details. Use `--full`
+for complete rows. To read one case's instructions, use its `requirement_id`:
+`yoke qa requirement get --requirement-id N --full`.
+
 `qa.activity.list` is scoped to **executable** cases: a case is in scope when
 it carries a plan or a registered `method_id`. That covers plan-backed cases
 and equally covers a case attached straight to an item or a deployment run

@@ -246,7 +246,7 @@ export async function renderQaActivity(context, main, scope) {
   main.replaceChildren(loading);
   const [{ callResults, failed }, pending] = await Promise.all([
     loadProjectCalls(
-      context, scope, "qa.activity.list", { limit: ACTIVITY_PAGE_LIMIT },
+      context, scope, "qa.activity.list", { limit: ACTIVITY_PAGE_LIMIT, detail: "full" },
     ),
     loadPendingReviews(
       context, scope === "all" ? context.projects().map((row) => row.id) : scope,
