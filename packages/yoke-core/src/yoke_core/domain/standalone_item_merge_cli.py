@@ -17,13 +17,12 @@ from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain.close_out_evidence_gate import (
     terminal_transition_is_evidence_gated,
 )
-from yoke_core.domain import merge_landing_readiness as landing
+from yoke_core.domain import merge_landing_readiness as readiness_gate
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import item_landings_close_out as landings
 from yoke_core.domain import standalone_item_merge_evidence as evidence
-from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
 from yoke_core.domain.merge_review_readiness import enter_review_stage
@@ -36,6 +35,7 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
+    resolve_checkout as _resolve_checkout,
 )
 from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
@@ -83,11 +83,15 @@ def run(argv: List[str]) -> int:
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 
-    readiness = landing.assess(
-        item, args, public_ref=public_ref, session_id=str(args.session_id)
+    readiness = readiness_gate.assess(
+        item,
+        args,
+        public_ref=public_ref,
+        claim_error=lambda ref: _session_holds_claim(ref, str(args.session_id)),
+        resolve_checkout=_resolve_checkout,
     )
     if args.check:
-        return landing.print_check(readiness, as_json=as_json)
+        return readiness_gate.print_check(readiness, as_json=as_json)
     if not readiness.ready:
         return fail(readiness.refusal())
 

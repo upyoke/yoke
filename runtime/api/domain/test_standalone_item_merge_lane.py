@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
@@ -91,7 +92,7 @@ def _worker_and_integration() -> list[dict]:
 def _wire_cli(monkeypatch, item: dict, tmp_path: Path) -> mock.Mock:
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli,
         "_resolve_checkout",

@@ -8,8 +8,8 @@ together, each with its recovery. ``yoke merge item ITEM --check`` prints the
 same report and changes nothing.
 
 The questions, in report order: review stage, close-out evidence flags, lane
-resolution, work claim, checkout, stale unlanded work, uncommitted lane
-files, blocking QA proof for the merging commit, and the post-deploy QA
+resolution, checkout, stale unlanded work, a missing lane with no landing,
+work claim, uncommitted lane files, blocking QA proof for the merging commit, and the post-deploy QA
 answer. A lane that already landed skips the last two: nothing is left to
 prove before a landing that happened.
 
@@ -24,10 +24,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain import standalone_item_merge_evidence as evidence
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.classify_dirty_files import classify_dirty_files
@@ -37,8 +38,7 @@ from yoke_core.domain.close_out_evidence_gate import (
 from yoke_core.domain.merge_review_readiness import ReviewReadiness, review_readiness
 from yoke_core.domain.qa_item_stage_plan_gate import missing_item_qa_plan_refusal
 from yoke_core.domain.qa_terminal_settlement import requirement_issue_errors
-from yoke_core.domain.standalone_item_merge_checkout import resolve_checkout
-from yoke_core.domain.standalone_item_merge_landed import LandedLane, landed_lane
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_lane import (
     active_lanes,
     lane_branch,
@@ -141,15 +141,25 @@ def _qa_gates(readiness: LandingReadiness, item: dict[str, Any], args: Any) -> N
 
 
 def assess(
-    item: dict[str, Any], args: Any, *, public_ref: str, session_id: str
+    item: dict[str, Any],
+    args: Any,
+    *,
+    public_ref: str,
+    claim_error: Callable[[str], str],
+    resolve_checkout: Callable[[dict[str, Any], str], tuple[Path, str]],
 ) -> LandingReadiness:
-    """Ask every pre-landing question. Reads only; never lands or writes."""
+    """Ask every pre-landing question. Reads only; never lands or writes.
+
+    ``claim_error`` explains why the calling session does not hold the item
+    claim (empty when it does); ``resolve_checkout`` returns the checkout and
+    base branch the lane lands in. The merge command supplies both.
+    """
     item_id = str(item["public_ref"])
     status = str(item.get("status") or "")
     readiness = LandingReadiness(
         public_ref=public_ref, branch=lane_branch(item, public_ref)
     )
-    readiness.claim_error = recovery.claim_error(item_id, session_id)
+    readiness.claim_error = claim_error(item_id)
     if readiness.claim_error and evidence.closed_out_envelope(
         item,
         public_ref=public_ref,
@@ -214,7 +224,7 @@ def assess(
     # false-success recovery: take the candidate path even from release.
     if stale and not (queue.get("pr_number") and queue.get("landed_at")):
         add(LandingBlocker("stale lane", f"{public_ref}: {stale}"))
-    readiness.landed = landed_lane(
+    readiness.landed = landed.landed_lane(
         item_id=item_id,
         branch=readiness.branch,
         target=readiness.target,
@@ -223,6 +233,11 @@ def assess(
         recorded_head=recorded_head,
     )
 
+    pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
+        repo_root, readiness.branch
+    )
+    if pruned_lane and readiness.landed is None and not readiness.claim_error:
+        add(LandingBlocker("lane", recovery.missing_lane_refusal(item_id, item)))
     if readiness.claim_error:
         if recovery.claim_is_missing(readiness.claim_error) and readiness.landed:
             readiness.merge_will.append(

@@ -127,9 +127,10 @@ def enter_review_stage(
     The transition runs that stage's own gates on the control plane; their
     refusal is returned whole so the merge stops with the gate's reason.
     """
+    from yoke_core.api import service_client_structured_api_adapter as api
     from yoke_core.domain.workflow_level_handoff import record_level_handoff
 
-    response = call_dispatcher(
+    response = api.call_dispatcher(
         function_id="lifecycle.transition.execute",
         target=public_item_target(public_ref),
         payload={

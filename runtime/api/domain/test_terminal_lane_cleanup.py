@@ -9,6 +9,7 @@ import pytest
 
 from runtime.api.engines._merge_prune_test_helpers import _git, _repo
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import (
     standalone_item_merge_close_out_transition as close_out_transition,
@@ -45,7 +46,7 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     timeline: list[str] = []
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )

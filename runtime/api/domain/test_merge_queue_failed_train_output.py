@@ -6,6 +6,8 @@ import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import LANE_SHA, ctx
 from yoke_core.domain import standalone_item_merge_cli as cli
+from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.merge_queue_failed_train import unchanged_failed_train_refusal
 from yoke_core.domain.merge_queue_landing_outcome import QueueLandingOutcome
 from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
@@ -45,8 +47,8 @@ def test_cli_and_watcher_keep_failed_run_and_recovery(
     monkeypatch.setattr(cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(cli, "_resolve_checkout", lambda *_a: (tmp_path, "main"))
     monkeypatch.setattr(cli, "_ensure_usable_cwd", lambda *_a: None)
-    monkeypatch.setattr(cli.stale_lane, "stale_unlanded_work", lambda **_k: "")
-    monkeypatch.setattr(cli.landed, "landed_lane", lambda **_k: None)
+    monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(cli.recovery, "branch_needs_receipt", lambda *_a: False)
     monkeypatch.setattr(
         cli.verify,

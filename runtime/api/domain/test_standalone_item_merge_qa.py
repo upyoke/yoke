@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
@@ -89,7 +90,7 @@ def test_merge_refuses_before_invoking_git(
 ):
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (_item(requirement), ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -108,7 +109,7 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
     item = _item(_requirement(verdict="pass", sha=MERGING_SHA))
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -150,7 +151,7 @@ def test_skip_status_defers_only_done_phase_qa(tmp_path: Path, monkeypatch):
     ]
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -185,7 +186,7 @@ def test_closeout_still_blocks_on_done_phase_qa(tmp_path: Path, monkeypatch, cap
     )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -254,7 +255,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     item["qa_requirements"] = [review, done]
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,

@@ -2,8 +2,10 @@
  "id": "post-deploy-proof",
  "title": "Post-deploy proof",
  "status": "draft-copy",
- "commands": ["yoke qa post-deploy declare-none", "yoke qa post-deploy record-no-obligation"],
+ "commands": ["yoke items get", "yoke qa post-deploy declare-none", "yoke qa post-deploy record-no-obligation"],
  "functions": ["qa.post_deploy.declare_none", "qa.post_deploy.record_no_obligation"],
  "page": "qa-evidence",
- "position": 1
+ "position": 1,
+ "sources": ["packages/yoke-core/src/yoke_core/domain/post_deploy_qa_obligation.py", "docs/public/verification/requirement-discharges.md"],
+ "note": "The question is asked while the item is in hand: filing and worktree prepare report an unanswered obligation with both answers, `yoke items get ITEM post_deploy_qa` shows its status, and the merge lists it as a landing blocker."
 }

@@ -58,9 +58,9 @@ def _wire_cli(monkeypatch, item, *, stale=""):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: stale)
+    monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: stale)
     monkeypatch.setattr(
-        merge_cli.landed,
+        landed,
         "landed_lane",
         lambda **_kw: landed.LandedLane(
             branch="ITEM-1",

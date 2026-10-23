@@ -146,6 +146,11 @@ No cases otherwise means unanswered, except recorded no-post-deploy-obligation
 or waiver-backed declaration. `yoke qa post-deploy record-no-obligation` is not
 a waiver. Read `yoke qa plan run --help`.
 
+The question is asked while the item is still in hand. `yoke items get ITEM
+post_deploy_qa` shows the answer status; filing and `yoke direct-workflow
+worktree prepare` report an unanswered one with both ways to answer; and
+`yoke merge item ITEM --check` lists it as a landing blocker.
+
 ## Related
 
 - [QA platform](platform.md)

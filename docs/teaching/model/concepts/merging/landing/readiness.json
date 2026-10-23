@@ -1,0 +1,10 @@
+{
+ "id": "readiness",
+ "title": "Landing readiness check",
+ "status": "observed",
+ "page": "merging",
+ "position": 7,
+ "commands": ["yoke merge item"],
+ "sources": [".agents/skills/yoke/dash/verify.md", ".agents/skills/yoke/dash/merge.md", "packages/yoke-core/src/yoke_core/domain/merge_landing_readiness.py", "packages/yoke-core/src/yoke_core/domain/merge_review_readiness.py"],
+ "description": "Before anything lands or waits, the merge asks every landing question at once: review stage, close-out evidence flags, lane, checkout, stale lane, work claim, uncommitted lane files, blocking QA proof and the post-deploy QA answer. It refuses with every failing gate and its recovery in one message; `--check` prints the same report and changes nothing. An item one declared edge before its review stage is not a blocker: the merge moves it into review, running that stage's gates, with `--verification` as the reason. Source-observed; not yet verified against a running Yoke."
+}

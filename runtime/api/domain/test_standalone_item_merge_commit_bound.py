@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
@@ -37,7 +38,7 @@ def _run_merge(
 ):
     monkeypatch.setattr(merge_cli, "_resolve_item", resolve or (lambda *a: (item, "")))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     monkeypatch.setattr(

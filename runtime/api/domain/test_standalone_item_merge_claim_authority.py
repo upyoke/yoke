@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
@@ -175,7 +176,7 @@ def test_evidence_only_item_without_a_landing_gets_the_direct_diagnosis(
         lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,
         "claim_error",

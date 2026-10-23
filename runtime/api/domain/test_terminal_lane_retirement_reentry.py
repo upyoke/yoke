@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 
 CLAIM_MISSING = (
     "no active claim by session 'session-1' on item ITEM-1; acquire one "
@@ -99,8 +101,8 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "release")
     )
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
-    monkeypatch.setattr(merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_k: None)
+    monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(merge_cli.recovery, "branch_needs_receipt", lambda *_a: False)
     monkeypatch.setattr(
         merge_cli.verify,

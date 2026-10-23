@@ -19,6 +19,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.api import service_client_structured_api_adapter as adapter
 from yoke_core.domain import db_helpers, standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.handlers import item_worktrees, merge_engine_internal_ops as ops
@@ -107,7 +108,7 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *_a: (repo, "main"))
     calls = []
 

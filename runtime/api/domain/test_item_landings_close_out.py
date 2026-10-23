@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain import item_landings_close_out as landings
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as transition
@@ -205,9 +206,9 @@ def _wire_merge_command(monkeypatch, landed_lane=None) -> list:
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: landed_lane)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: landed_lane)
     monkeypatch.setattr(
-        merge_cli.stale_lane,
+        stale_lane,
         "stale_unlanded_work",
         lambda **_kw: "",
     )

@@ -17,6 +17,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain.post_deploy_qa_obligation import (
+    NOT_OWED,
+    PostDeployObligation,
+)
 from yoke_core.domain.handlers.items_create import handle_item_create
 from yoke_core.domain.item_entry_surface import (
     ITEM_ENTRY_SURFACE_ENV,
@@ -56,6 +60,10 @@ def created(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect", lambda *a, **k: _NullConn(),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.post_deploy_qa_obligation.obligation_for_item",
+        lambda conn, item_id: PostDeployObligation(NOT_OWED),
     )
     return captured
 
