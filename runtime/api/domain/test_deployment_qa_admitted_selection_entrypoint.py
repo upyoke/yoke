@@ -134,3 +134,52 @@ def test_private_selector_conflict_preserves_existing_cursor_and_frozen_rows(
         )
     assert existing["id"] in str(refusal.value)
     assert _state(test_db) == before
+
+
+def test_shared_selector_refuses_a_peers_previous_source_group(test_db):
+    import json
+    from runtime.api.domain.test_deployment_qa_shared_plans import (
+        MEMBERS,
+        RUN as shared_run,
+        _seed,
+        _materialize,
+    )
+    from runtime.api.domain.test_deployment_qa_admitted_plan_selection import _state
+    from yoke_core.domain.qa_execution_environment_target import (
+        target_digest,
+        canonical_target,
+    )
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    selected = _seed(test_db)
+    requirement = _materialize(test_db, MEMBERS[0])["created_requirement_ids"][0]
+    raw = test_db.execute(
+        "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+        (shared_run, MEMBERS[0]),
+    ).fetchone()[0]
+    snapshot = json.loads(raw)
+    snapshot["plans"][0]["plan"]["source_revision"] = "b" * 40
+    test_db.execute(
+        "UPDATE deployment_run_items SET requirement_snapshot=%s WHERE run_id=%s AND item_id=%s",
+        (json.dumps(snapshot), shared_run, MEMBERS[0]),
+    )
+    raw = test_db.execute(
+        "SELECT execution_target_json FROM qa_requirements WHERE id=%s", (requirement,)
+    ).fetchone()[0]
+    target = json.loads(raw)
+    target["deployment"]["shared_plan"]["source_revision"] = "b" * 40
+    test_db.execute(
+        "UPDATE qa_requirements SET execution_target_json=%s,execution_target_digest=%s WHERE id=%s",
+        (canonical_target(target), target_digest(target), requirement),
+    )
+    test_db.commit()
+    before = _state(test_db)
+    with pytest.raises((QaPlanError, ValueError)):
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=shared_run,
+            deployment_stage="item-qa",
+            deployment_member_item_id=MEMBERS[1],
+            agent_plan=str(selected),
+        )
+    assert _state(test_db) == before

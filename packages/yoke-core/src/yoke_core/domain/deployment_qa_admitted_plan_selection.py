@@ -57,12 +57,26 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
     if not snapshots and subject.get("member_item_id") is not None:
         # A shared group freezes its contract on the materializing member;
         # another attaching member need not carry a private snapshot copy.
+        groups = [
+            group
+            for group in projection.member_groups(
+                subject["stage"]["name"], int(subject["member_item_id"])
+            )
+            if group.plan_id == plan_id
+        ]
+        if not groups:
+            return None
+        if len(groups) != 1:
+            _incomplete(plan_id, subject)
+        source = groups[0].subject["shared_plan"]["source_revision"]
         for member in projection.members():
             raw = member["requirement_snapshot"]
             frozen = raw if isinstance(raw, dict) else json.loads(str(raw or "{}"))
             for value in frozen.get("plans", []):
-                if int(value["plan"]["id"]) == plan_id and projection.shareable(
-                    subject, target, [value]
+                if (
+                    int(value["plan"]["id"]) == plan_id
+                    and value["plan"].get("source_revision") == source
+                    and int(value["plan"]["project_id"]) == project_id
                 ):
                     snapshots.append(value)
     if not snapshots:
