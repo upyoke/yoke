@@ -286,6 +286,18 @@ def _take_over(conn, new_run_id, *, session_id, actor_id, apply):
         )
     else:
         succeed_taken_over_run(conn, old_id, new_run_id, old["stages"])
+    if ids:
+        from yoke_core.domain.deployment_qa_takeover_notice import (
+            notify_moved_member_qa,
+        )
+
+        notify_moved_member_qa(
+            conn,
+            old_id=old_id,
+            new_id=new_run_id,
+            item_ids=ids,
+            stages=old["stages"],
+        )
     return old_id
 
 

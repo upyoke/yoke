@@ -267,7 +267,10 @@ def test_a_failed_case_is_retried_on_the_successor_and_its_owner_told_once(
     # HOLDER_A produced the FAIL itself and still gets exactly one retry notice.
     [body] = _bodies(test_db, key)
     assert "contains the item's merge; retry the case" in body
-    assert f"--deployment-run-id {takeover.NEW} --stage item-qa" in body
+    from yoke_core.domain.project_identity import render_item_ref
+
+    ref = render_item_ref(test_db, MEMBER)
+    assert f"yoke qa plan run --item {ref} --stage item-qa --project yoke" in body
 
     retry = begin_plan_execution(
         test_db,

@@ -41,6 +41,15 @@ class RematerializeRequest(BaseModel):
     plan: str | None = None
 
 
+def _subject_unavailable(exc: BaseException) -> HandlerOutcome:
+    return _error(
+        "qa_subject_unavailable",
+        "deployment QA subject is unavailable: "
+        f"{exc}; use the active run stage and an attached member, then retry",
+        "$.target",
+    )
+
+
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -70,7 +79,12 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                 resolve_item_deployment_request,
             )
 
-            request = resolve_item_deployment_request(conn, request)
+            try:
+                request = resolve_item_deployment_request(conn, request)
+            except QaPlanError:
+                raise
+            except (LookupError, ValueError) as exc:
+                return _subject_unavailable(exc)
             payload = MaterializeRequest.model_validate(request.payload)
             from yoke_core.domain.qa_requirement_correction_selection import (
                 resolve_correction_selection,
@@ -143,19 +157,26 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                             f"deployment member {payload.deployment_member!r} not found",
                             "$.payload.deployment_member",
                         )
-                    result = materialize_deployment_qa_stage(
-                        conn,
-                        deployment_run_id=str(run_id),
-                        deployment_stage=payload.deployment_stage,
-                        deployment_member_item_id=member_id,
-                        agent_plan=payload.plan,
-                        replacement_keys={entry["case_key"] for entry in replacements},
-                        replaced_requirement_ids=frozenset(
-                            entry.requirement_id for entry in payload.replacements
-                        ),
-                        commit=not payload.replacements,
-                        replacement_scopes=replacement_scopes,
-                    )
+                    try:
+                        result = materialize_deployment_qa_stage(
+                            conn,
+                            deployment_run_id=str(run_id),
+                            deployment_stage=payload.deployment_stage,
+                            deployment_member_item_id=member_id,
+                            agent_plan=payload.plan,
+                            replacement_keys={
+                                entry["case_key"] for entry in replacements
+                            },
+                            replaced_requirement_ids=frozenset(
+                                entry.requirement_id for entry in payload.replacements
+                            ),
+                            commit=not payload.replacements,
+                            replacement_scopes=replacement_scopes,
+                        )
+                    except QaPlanError:
+                        raise
+                    except (LookupError, ValueError) as exc:
+                        return _subject_unavailable(exc)
                 else:
                     result = materialize_for_deployment_run(
                         conn,
@@ -202,11 +223,22 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                 and result.get("existing_requirement_ids")
                 and not result.get("created_requirement_ids")
             ):
+                from yoke_core.domain.deployment_qa_failure_handoff import (
+                    retry_command_for_stage,
+                )
+
+                recipe = retry_command_for_stage(
+                    conn,
+                    run_id=str(run_id),
+                    stage=str(payload.deployment_stage),
+                    member_ref=payload.deployment_member,
+                    member_id=result.get("deployment_member_item_id"),
+                    project=payload.project,
+                )
                 result["retry"] = (
                     "These cases already exist, so nothing was created. A failed "
                     "case is retried on its same requirement against the deployed "
-                    f"release: yoke qa plan run --deployment-run-id {run_id} "
-                    f"--stage {payload.deployment_stage}"
+                    f"release: {recipe}"
                 )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")

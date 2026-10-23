@@ -25,12 +25,46 @@ def failure_handoff_key(
     )
 
 
+def item_stage_retry_command(*, item_ref: str, stage: str, project: str) -> str:
+    """The item-scoped retry. A deployment-run id refuses an item stage."""
+    return (
+        f"yoke qa plan run --item {item_ref} --stage {stage} --project {project}"
+    )
+
+
+def retry_command_for_stage(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: str,
+    member_ref: str | None,
+    member_id: int | None,
+    project: str | None,
+) -> str:
+    """Item stages retry by item; run stages keep the run id."""
+    if not member_ref and member_id is None:
+        return f"yoke qa plan run --deployment-run-id {run_id} --stage {stage}"
+    if not member_ref:
+        member_ref = render_item_ref(conn, int(member_id))
+    if not project and member_id is not None:
+        row = conn.execute(
+            "SELECT p.slug FROM projects p JOIN items i ON i.project_id=p.id "
+            "WHERE i.id=%s",
+            (int(member_id),),
+        ).fetchone()
+        project = "" if row is None else str(row["slug"] if hasattr(row, "keys") else row[0])
+    return item_stage_retry_command(
+        item_ref=str(member_ref), stage=stage, project=str(project or "")
+    )
+
+
 def failure_handoff_message(
     *,
     run_id: str,
     stage: str,
     item_ref: str,
     requirement_ids: tuple[int, ...],
+    project: str = "",
     retry: bool = False,
 ) -> str:
     """Keep the hook notice inline; the command help owns recovery."""
@@ -40,10 +74,12 @@ def failure_handoff_message(
         f"requirement(s) {failed} for {item_ref}"
     )
     if retry:
+        command = item_stage_retry_command(
+            item_ref=item_ref, stage=stage, project=project
+        )
         return (
             f"{head}, recorded before this release took over. The current "
-            "release contains the item's merge; retry the case: `yoke qa plan "
-            f"run --deployment-run-id {run_id} --stage {stage}`."
+            f"release contains the item's merge; retry the case: `{command}`."
         )
     return (
         f"{head}; recovery: `yoke qa plan run --help`."
@@ -185,6 +221,7 @@ def notify_member_qa_failure(
                     stage=stage,
                     item_ref=item_ref,
                     requirement_ids=requirement_ids,
+                    project=project.slug,
                     retry=retry,
                 ),
                 idempotency_key=key,
@@ -207,5 +244,7 @@ __all__ = [
     "FAILURE_HANDOFF_PREFIX",
     "failure_handoff_key",
     "failure_handoff_message",
+    "item_stage_retry_command",
     "notify_member_qa_failure",
+    "retry_command_for_stage",
 ]
