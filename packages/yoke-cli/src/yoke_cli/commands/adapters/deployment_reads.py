@@ -161,7 +161,12 @@ def deployment_runs_list(args: List[str]) -> int:
         type=int,
         default=None,
         metavar="N",
-        help="Most recent runs to return; default: 20.",
+        help=(
+            "Most recent runs to return; default: 20. With --relevance "
+            "overview and no --project it caps each project's runs, so the "
+            "total can reach N times the visible projects; add --project to "
+            "cap the total."
+        ),
     )
     parser.add_argument("--cursor", help="Continue the summary page using next_cursor.")
     add_full_arg(parser, "all returned summary columns")

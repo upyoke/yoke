@@ -83,7 +83,15 @@ def session_launch_list(args: List[str]) -> int:
         help="Only launches staffing this item (session name starts with PREFIX-N:).",
     )
     parser.add_argument(
-        "--limit", type=int, default=50, metavar="N", help="Most rows to show; default: 50."
+        "--limit",
+        type=int,
+        default=50,
+        metavar="N",
+        help=(
+            "Completed-history launches per page; default: 50. Every "
+            "operational launch is always listed on the first page, beyond "
+            "this cap."
+        ),
     )
     parser.add_argument(
         "--cursor",

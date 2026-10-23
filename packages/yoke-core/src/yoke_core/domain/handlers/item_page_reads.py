@@ -183,6 +183,15 @@ def _handle_paged_roster(
             "inputs to read the unpaged shape",
             "$.payload.relevance",
         )
+    if payload.limit is not None:
+        return _error(
+            "limit_with_paged_roster",
+            "limit caps only the unpaged read; the paged roster is sized by "
+            "page_size. Drop limit and pass page_size "
+            f"(1..{MAX_ROSTER_PAGE_SIZE}), or drop the paging inputs to read "
+            "the unpaged shape",
+            "$.payload.limit",
+        )
     if payload.page_size is None:
         return _error(
             "payload_invalid",

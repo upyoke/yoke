@@ -108,7 +108,15 @@ class MessageListRequest(BaseModel):
     state: Optional[MessageListState] = None
     session_id: Optional[str] = None
     projects: Optional[List[int]] = None
-    limit: int = Field(default=50, ge=1, le=500)
+    limit: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description=(
+            "Settled messages per page. Every actionable message is served "
+            "on the first page beyond this cap."
+        ),
+    )
     cursor: Optional[str] = None
     detail: ReadDetail = Field(
         default=DETAIL_SUMMARY,
