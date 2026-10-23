@@ -178,6 +178,8 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
             output = str(tmp_path / "tools")
         elif command == ["uv", "tool", "dir", "--bin"]:
             output = str(tmp_path / "bin")
+        elif command[3:4] == [installer.HELPER_SOURCE_CHECK]:
+            output = '{"checked": 19, "unsafe_permissions": [], "refusal": null}'
         return subprocess.CompletedProcess(command, 0, output, "")
 
     monkeypatch.setattr(installer.subprocess, "run", run)

@@ -9,7 +9,10 @@ The installer uses uv to resolve one exact product release into a private tool
 environment. The build embeds the shared `cli_release_runtime` source so bootstrap
 also works when a selected wheel does not carry that module. Its standalone copy
 verifies the candidate and atomically
-publishes the stable launcher. Commands lease their selected environment before
+publishes the stable launcher. Before activation, `helper_sources` runs uv with
+umask `022`, checks every credential-helper source with the candidate's own
+bundle guard, and on group- or other-writable files cleans only the
+`yoke-cli` and `yoke-contracts` cache entries and reinstalls once. Commands lease their selected environment before
 importing its code; retirement checks leases and process snapshots. The relay
 and manual update both reuse this path. No service or public download is added.
 
