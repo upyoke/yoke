@@ -127,6 +127,39 @@ def _merge_contained(conn: Any, run_id: str, item_id: int, project_id: int) -> b
     return verdict.state == containment.CONTAINED
 
 
+def _failures_recorded_before_run(
+    conn: Any, run_id: str, requirement_ids: tuple[int, ...]
+) -> bool:
+    """True when every requirement's latest red attempt predates this run."""
+    from yoke_contracts.timestamps import InvalidInstant, parse_instant
+
+    from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    row = conn.execute(
+        "SELECT created_at FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    if row is None:
+        return False
+    raw_opened = row["created_at"] if hasattr(row, "keys") else row[0]
+    try:
+        opened = parse_instant(raw_opened)
+    except InvalidInstant:
+        return False
+    latest = latest_executions(conn, requirement_ids)
+    for requirement_id in requirement_ids:
+        attempt = latest.get(int(requirement_id))
+        if attempt is None or str(attempt.get("verdict") or "") not in RED_VERDICTS:
+            return False
+        try:
+            recorded = parse_instant(attempt.get("created_at"))
+        except InvalidInstant:
+            return False
+        if recorded >= opened:
+            return False
+    return True
+
+
 def notify_member_qa_failure(
     conn: Any,
     *,
@@ -171,12 +204,15 @@ def notify_member_qa_failure(
     recipient, _, _ = resolve_lane_recipient(
         conn, item_id=item_id, project_id=project_id
     )
-    # A FAIL carried across a takeover into a release that contains the
-    # item's merge is retried, so its owner is told even when it produced
-    # that verdict itself.
-    retry = set(requirement_ids) <= _transferred_requirements(
-        conn, run_id, requirement_ids
-    ) and _merge_contained(conn, run_id, int(item_id), project_id)
+    # Retry only a fail recorded before this run, carried into a release
+    # that contains the item's merge. The owner is told even when it
+    # produced that verdict. A failure created on this run is rework.
+    retry = (
+        set(requirement_ids)
+        <= _transferred_requirements(conn, run_id, requirement_ids)
+        and _merge_contained(conn, run_id, int(item_id), project_id)
+        and _failures_recorded_before_run(conn, run_id, requirement_ids)
+    )
     placeholders = ",".join("%s" for _ in requirement_ids)
     from yoke_core.domain.qa_latest_execution import latest_executions
 
