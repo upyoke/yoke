@@ -103,4 +103,35 @@ def live_evidence(
     return None
 
 
-__all__ = ["live_evidence"]
+def settled_evidence_state(
+    conn: Any,
+    kind: str,
+    context: dict[str, Any],
+    *,
+    subject_key: str,
+    project_id: Optional[int],
+) -> Optional[str]:
+    """The screenshot state a resolved request should say, when it changed.
+
+    A resolved request keeps the evidence its decision rested on. Its
+    ``missing`` state is a warning that a check expected a screenshot, so it
+    stands only while the subject still has a check whose method captures
+    one; when the subject's checks are command checks or a recorded
+    no-item-QA answer, the warning was never true and the state those facts
+    give is returned instead. The frozen screenshots themselves never change.
+    ``None`` means keep the frozen state.
+    """
+    frozen = context.get("evidence") or {}
+    if frozen.get("state") != "missing" or frozen.get("screenshots"):
+        return None
+    live = live_evidence(
+        conn, kind, context, subject_key=subject_key, project_id=project_id
+    )
+    evidence = (live or {}).get("evidence") or {}
+    state = evidence.get("state")
+    if state in ("not_required", "not_expected") and not evidence.get("screenshots"):
+        return str(state)
+    return None
+
+
+__all__ = ["live_evidence", "settled_evidence_state"]

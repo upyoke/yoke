@@ -20,7 +20,10 @@ from yoke_core.domain.decision_request_contract import (
     RETIRED_DECISION_KINDS,
 )
 from yoke_core.domain.decision_answers import decisions_for_requests
-from yoke_core.domain.decision_request_live_evidence import live_evidence
+from yoke_core.domain.decision_request_live_evidence import (
+    live_evidence,
+    settled_evidence_state,
+)
 
 
 def _p(conn: Any) -> str:
@@ -86,6 +89,19 @@ def request_rows(conn: Any, request_ids: Iterable[int]) -> dict[int, dict[str, A
             )
             if live is not None:
                 result["subject_context"].update(live)
+        elif result["status"] == "resolved":
+            settled = settled_evidence_state(
+                conn,
+                result["kind"],
+                result["subject_context"],
+                subject_key=result["subject_key"],
+                project_id=result.get("project_id"),
+            )
+            if settled is not None:
+                result["subject_context"]["evidence"] = {
+                    **result["subject_context"]["evidence"],
+                    "state": settled,
+                }
         result["actions"] = (
             []
             if result["kind"] in RETIRED_DECISION_KINDS
