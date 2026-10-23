@@ -156,16 +156,11 @@ def test_enrollment_leaves_a_deliberate_member_choice_untouched(
     assert _members(test_db)[0]["delivery_intent"] == "progress"
 
 
-def test_a_retry_reuses_inherited_membership_instead_of_recomputing(
-    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("retry", [True, False], ids=["retry", "takeover"])
+def test_a_takeover_snapshot_is_no_retry_and_still_enrolls_new_work(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, retry: bool
 ) -> None:
-    """A frozen snapshot on a member is the durable mark of an inherited set.
-
-    The retried candidate is identical, so whatever its predecessor froze is
-    the answer. Re-deriving against a baseline that has moved since would
-    attach work this candidate never promised to deliver.
-    """
-    _candidate(test_db, tmp_path, monkeypatch)
+    ref = _candidate(test_db, tmp_path, monkeypatch)
     insert_item(
         test_db,
         id=CARRIED_ITEM_ID + 1,
@@ -180,14 +175,19 @@ def test_a_retry_reuses_inherited_membership_instead_of_recomputing(
         "VALUES ('run-candidate',%s,'2026-09-14T00:30:00Z','final','{}')",
         (CARRIED_ITEM_ID + 1,),
     )
+    provenance = json.dumps({"retry_of": "run-previous"}) if retry else "run-previous"
+    test_db.execute(
+        f"UPDATE deployment_runs SET {('supersedes_run_id', 'create_request')[retry]}"
+        "=%s WHERE id='run-candidate'",
+        (provenance,),
+    )
     test_db.commit()
 
-    assert (
-        carried_enrollment_blocked(test_db, "run-candidate")
-        == "membership_inherited_from_frozen_run"
-    )
-    assert enroll_carried_members(test_db, "run-candidate") == ()
+    blocked = carried_enrollment_blocked(test_db, "run-candidate")
+    assert blocked == ("retry_keeps_frozen_membership" if retry else "")
+    assert enroll_carried_members(test_db, "run-candidate") == ((ref,), ())[retry]
     assert carried_membership_refusal(test_db, "run-candidate") is None
+    assert len(_members(test_db)) == (2, 1)[retry]
 
 
 def test_unknown_attribution_enrolls_nothing_and_keeps_refusing(

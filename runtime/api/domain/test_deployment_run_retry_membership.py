@@ -20,6 +20,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_run_composition_freeze import is_frozen_retry
 from yoke_core.domain.handlers import deployment_runs
 
 LINEAGE = "a" * 40
@@ -128,6 +129,13 @@ def test_a_retry_carries_the_frozen_membership_of_the_run_it_retries(
         (4102, "final", SELECTION, SNAPSHOT),
     ]
     assert outcome.result_payload["release_lineage"] == LINEAGE
+    # Even unkeyed, the retry records ``retry_of``: that provenance, not the
+    # copied snapshots, is what keeps enrollment from widening its roster.
+    conn = connect_test_db(retry_db_path)
+    try:
+        assert is_frozen_retry(conn, retry_id)
+    finally:
+        conn.close()
 
 
 def test_an_environment_level_retry_stays_environment_level(retry_db_path: str):

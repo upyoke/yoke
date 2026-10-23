@@ -28,7 +28,7 @@ from yoke_core.domain.deployment_run_enrollment_error import (
     CarriedEnrollmentError,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
-    inherited_frozen_membership,
+    is_frozen_retry,
     items_requiring_release_membership,
     member_ids,
     requires_release_admission,
@@ -115,7 +115,7 @@ def carried_membership_refusal(
             return f"deployment run {run_id!r} carried-work blockers:\n" + "\n".join(
                 problems
             )
-    if inherited_frozen_membership(conn, run_id):
+    if is_frozen_retry(conn, run_id):
         # A retry delivers exactly what its predecessor froze. Re-scanning
         # against a baseline that has moved since would name items this
         # candidate never promised, so the inherited answer stands.
