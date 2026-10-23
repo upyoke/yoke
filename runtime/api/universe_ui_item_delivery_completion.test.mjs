@@ -1,7 +1,7 @@
-// On the item page, the run still closing the item states the item's QA as
-// it was and where completion stands, read the way the Shipping card reads
-// it: from the server's completion-run QA standing and the item's own done
-// approval standing.
+// On the item page, the run that closes the item states the item's QA as it
+// was and where completion stands: "item completed" once that run delivered
+// it, otherwise read the way the Shipping card reads it, from the server's
+// completion-run QA standing and the item's own done approval standing.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -64,7 +64,11 @@ test("QA not yet clear, or a build without the standing, adds no line", async ()
   assert.equal(await outcome(undefined), null);
 });
 
-test("a delivered run reads Delivered by, not a pending completion", async () => {
+test("a delivered run keeps its QA disposition beside the completion", async () => {
   const delivered = { ...RUN, status: "succeeded" };
-  assert.equal(await outcome({ state: "accepted", settling: false }, [], delivered), null);
+  const line = await outcome({ state: "discharged", no_item_qa_required: true, settling: false },
+    [approval("completed")], delivered);
+  assert.equal(line.textContent, "✓ no item QA required · item completed");
+  const passed = await outcome({ state: "accepted", settling: false }, [], delivered);
+  assert.equal(passed.textContent, "✓ QA passed · item completed");
 });
