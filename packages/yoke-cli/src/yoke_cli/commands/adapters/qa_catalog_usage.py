@@ -35,7 +35,10 @@ ITEM_PLAN_ATTACH_EPILOG = (
     "Then attach with --transition reviewing-implementation\n"
     "--qa-phase verification, and run yoke qa plan materialize.\n\n"
     "Post-deploy plans attach directly at the pinned release stage with\n"
-    "--qa-phase post_deploy; no choice step is needed."
+    "--qa-phase post_deploy; no choice step is needed.\n\n"
+    "A plan this member already holds as a correction on an executing run\n"
+    "is refused as qa_correction_already_held. Leave that correction on the\n"
+    "run. Attach a different plan only for a separate obligation."
 )
 
 #: Read as ``yoke qa plan-cases replace --help``. What an author has to know

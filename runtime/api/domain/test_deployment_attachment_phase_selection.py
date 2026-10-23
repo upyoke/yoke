@@ -127,3 +127,78 @@ def test_double_attachment_freezes_release_selection_and_allows_removal(
         )
     else:
         assert [value["plan"]["id"] for value in select()] == [plan]
+
+
+def test_attached_correction_counts_as_a_frozen_selection(test_db):
+    run_id, member = "run-attached-correction", 9972
+    plan = _plan(test_db)
+    correction = _plan(test_db, "attached-correction")
+    stages = _stages(plan)
+    stages[1].pop("cases")
+    _seed_run(test_db, run_id=run_id, stages=stages, members=(member,))
+    test_db.execute("UPDATE items SET status='release' WHERE id=%s", (member,))
+    test_db.execute(
+        "INSERT INTO qa_plan_item_attachments"
+        "(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy','2026-10-01T00:00:00Z')",
+        (member, plan),
+    )
+    requirement = insert_qa_requirement(
+        test_db,
+        item_id=member,
+        plan_id=plan,
+        qa_phase="post_deploy",
+        workflow_transition_id="release",
+    )
+    snapshot = json.loads(
+        snapshot_member_requirements(
+            test_db,
+            run_id=run_id,
+            item_id=member,
+            selection_json=requirement_selection(requirement_ids=[requirement["id"]]),
+        )
+    )
+    snapshot["plans"].append(
+        {
+            "plan": {"id": correction},
+            "replacement_scopes": {
+                "command-smoke": [{"requirement_id": requirement["id"]}]
+            },
+        }
+    )
+    test_db.execute(
+        "UPDATE deployment_run_items SET requirement_snapshot=%s "
+        "WHERE run_id=%s AND item_id=%s",
+        (json.dumps(snapshot), run_id, member),
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_item_attachments"
+        "(item_id,plan_id,transition_id,qa_phase,attached_at) "
+        "VALUES (%s,%s,'release','post_deploy','2026-10-01T00:00:00Z')",
+        (member, correction),
+    )
+    insert_qa_requirement(
+        test_db,
+        item_id=None,
+        plan_id=correction,
+        qa_phase="post_deploy",
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=member,
+        method_id="command",
+    )
+    test_db.commit()
+    subject = deployment_qa_stage_subject(
+        test_db,
+        run_id=run_id,
+        stage_name="item-qa",
+        member_item_id=member,
+        require_active=False,
+    )
+    selected = frozen_stage_plans(
+        test_db,
+        subject,
+        target=deployment_qa_execution_target(test_db, subject),
+        admitted=snapshot["requirements"],
+    )
+    assert [value["plan"]["id"] for value in selected] == [plan]

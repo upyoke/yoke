@@ -1,13 +1,14 @@
 """Gate scoped QA on its serving connection, then close accepted members.
-
-Local drivers dispatch in-process; HTTPS and self-deploy drivers relay to
-that control plane. Timed-out QA calls recover by HTTPS ledger replay.
+Timed-out QA calls recover by HTTPS ledger replay.
 """
 
 from __future__ import annotations
 
 from yoke_core.domain.deployment_qa_transaction_recovery import rollback_after_error
-from yoke_core.domain.deployment_qa_configuration_refusal import qa_stage_error
+from yoke_core.domain.deployment_qa_configuration_refusal import (
+    configuration_blocker,
+    qa_stage_error,
+)
 from yoke_core.domain.deployment_qa_dispatch_inputs import (
     dispatch_input_operation,
     run_context,
@@ -114,13 +115,7 @@ def _notify_stage_wait(
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
-    """Materialize and gate every subject; ``-4`` means durable QA wait.
-
-    Server-side implementation: the caller already holds a connection to
-    the database that serves this control plane. Schema facts and prior-stage
-    refusals are read once for the whole walk; each member's reads are
-    batched across the run, and a result already reported is not re-sent.
-    """
+    """Materialize and gate every subject; ``-4`` means durable QA wait."""
     from yoke_core.domain.deployment_qa_dispatch_inputs import prepare_release_inputs
 
     project_id, target_tier, revision = run_context(conn, run_id)
@@ -210,8 +205,6 @@ def _gate_members(
                 )
             continue
         except (LookupError, ValueError) as exc:
-            # Removal can commit after the stage loaded its member snapshot.
-            # Only an audited, still-absent member is excused from this run.
             if member is not None and member in removed_item_ids(conn, run_id):
                 attached = conn.execute(
                     "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
@@ -219,8 +212,15 @@ def _gate_members(
                 ).fetchone()
                 if attached is None:
                     continue
-            failure = qa_stage_error(exc, run_id=run_id, stage_name=str(stage["name"]))
+            held = configuration_blocker(
+                exc, run_id=run_id, stage_name=str(stage["name"]),
+                member=member, item_refs=item_refs,
+            )
             rollback_after_error(conn, exc)
+            if held is not None:
+                waiting.append(held)
+                continue
+            failure = qa_stage_error(exc, run_id=run_id, stage_name=str(stage["name"]))
             break
         label = f"member {item_refs(member)}" if member is not None else "run"
         outcome = str(status.get("outcome") or "")

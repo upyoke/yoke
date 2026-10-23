@@ -136,6 +136,21 @@ def _member_plans(
     return selected
 
 
+def _correction_plan_ids(subject: Mapping[str, Any]) -> set[int]:
+    """Plans frozen as corrections, so a live attachment is not a missing selection."""
+    snapshot = subject.get("member_snapshot")
+    if not isinstance(snapshot, Mapping):
+        return set()
+    selected: set[int] = set()
+    for value in snapshot.get("plans") or []:
+        if not isinstance(value, Mapping) or not value.get("replacement_scopes"):
+            continue
+        plan = value.get("plan")
+        if isinstance(plan, Mapping) and plan.get("id") is not None:
+            selected.add(int(plan["id"]))
+    return selected
+
+
 def frozen_stage_plans(
     conn: Any,
     subject: Mapping[str, Any],
@@ -169,6 +184,7 @@ def frozen_stage_plans(
         *_member_plans(conn, subject, target=target, refresh=refresh),
     ]
     selected_ids = {int(snapshot["plan"]["id"]) for snapshot in frozen}
+    selected_ids.update(_correction_plan_ids(subject))
     project_id = int(subject.get("member_project_id") or subject["project_id"])
     wanted = {int(r["plan_id"]) for r in admitted if r.get("plan_id") is not None}
     if subject.get("member_item_id") is not None:
