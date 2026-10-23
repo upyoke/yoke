@@ -204,7 +204,6 @@ def test_client_shell_baseline_installs_from_the_environment_distribution(
     assert argv[1] == [
         "/usr/bin/env",
         f"{DISTRIBUTION_BASE_URL_ENV}={origin}",
-        "YOKE_CHANNEL=latest",
         "YOKE_INSTALL_YES=1",
         "YOKE_NO_SETUP=1",
         "/bin/sh",
