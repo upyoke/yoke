@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from typing import Any
 
 from yoke_cli.config import github_git_credentials, github_repo_config
+from yoke_cli.config.project_publication_destination import READ_ONLY_PUSH_URL
 from yoke_contracts import github_origin
 
 
@@ -65,6 +66,7 @@ def converge(root: Path, *, config_path: str | Path | None) -> dict[str, Any]:
             github_origin.normalize_github_repository(url, web_url=web_url).casefold()
             != repository.casefold()
             for url in push_urls
+            if url != READ_ONLY_PUSH_URL
         ):
             raise GitHubProjectSetupError(
                 "github-push-target-mismatch: origin pushes to another repository; "
@@ -90,7 +92,11 @@ def converge(root: Path, *, config_path: str | Path | None) -> dict[str, Any]:
                 replacement=[https_url],
             )
             changes.append("origin-url")
-        if push_urls and push_urls != [https_url]:
+        if (
+            push_urls
+            and READ_ONLY_PUSH_URL not in push_urls
+            and push_urls != [https_url]
+        ):
             github_repo_config.replace_values(
                 root,
                 "remote.origin.pushurl",
