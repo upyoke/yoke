@@ -174,7 +174,10 @@ def delivery_phrase(entry: LandedItem) -> str:
     if entry.delivery_gate.state == CLOSE_OUT_READY:
         return "close-out ready — no deployment target, the merge is the delivery"
     if entry.delivery_gate.state == UNREADABLE:
-        return f"delivery gate unreadable — {entry.delivery_gate.detail}"
+        return (
+            f"{custody_phrase(entry)}; delivery gate unreadable — "
+            f"{entry.delivery_gate.detail}"
+        )
     return custody_phrase(entry)
 
 

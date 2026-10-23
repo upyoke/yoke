@@ -35,6 +35,10 @@ def _populated_report():
     from yoke_core.domain.steering_fleet_report_detectors import (
         UnregisteredLaunch,
     )
+    from yoke_core.domain.steering_fleet_report_landed_gate import (
+        AWAITING_RELEASE,
+        LandedGate,
+    )
     from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
     from yoke_core.domain.steering_fleet_report_delivery_states import (
         NEVER_ATTEMPTED,
@@ -124,6 +128,7 @@ def _populated_report():
                 landed_at=LONG_AGO,
                 landed_seconds=3 * 3600,
                 holder_session_id="holder-session",
+                delivery_gate=LandedGate(AWAITING_RELEASE, flow="hosted-release"),
             ),
         ),
         dead_waits=(
