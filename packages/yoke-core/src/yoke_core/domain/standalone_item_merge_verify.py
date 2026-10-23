@@ -32,6 +32,38 @@ from yoke_core.domain.standalone_item_merge_qa import (
 )
 
 
+def proof_check(
+    item: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    public_ref: str,
+    repo_root: Path,
+    branch: str,
+) -> tuple[str, str]:
+    """Read-only QA proof answer. Returns ``(blocker, merge_will_note)``.
+
+    Proof bound only to an older commit of this lane is not a blocker: the
+    merge re-binds it in :func:`verify_and_land`. Anything else is.
+    """
+    qa_item = item_for_merge_phase(
+        item, leaves_status_unchanged=bool(args.skip_status)
+    )
+    _sha, qa_error = qa_preflight(
+        qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
+    )
+    if not qa_error:
+        return "", ""
+    _sha, issues, eval_error = commit_bound.evaluate(
+        qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
+    )
+    if not eval_error and commit_bound.is_commit_bound_refusal(issues):
+        return "", (
+            "re-bind passing QA proof recorded for an older commit of this "
+            "lane to the merging commit"
+        )
+    return qa_error, ""
+
+
 def verify_and_land(
     item: dict[str, Any],
     args: argparse.Namespace,
@@ -103,4 +135,4 @@ def verify_and_land(
     ), ""
 
 
-__all__ = ["verify_and_land"]
+__all__ = ["proof_check", "verify_and_land"]

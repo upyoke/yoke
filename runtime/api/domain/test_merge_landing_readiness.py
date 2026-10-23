@@ -45,7 +45,7 @@ def merge(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
-    monkeypatch.setattr(readiness_gate, "evaluate", lambda *_a, **_k: ("abc", [], ""))
+    monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: ("abc", ""))
     monkeypatch.setattr(plan_gate, "flow_stages", lambda _flow: (ITEM_SCOPED_QA, ""))
     monkeypatch.setattr(plan_gate, "attachment_transition", lambda _item: "release")
     monkeypatch.setattr(

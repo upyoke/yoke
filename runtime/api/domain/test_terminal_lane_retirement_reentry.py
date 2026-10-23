@@ -104,6 +104,7 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(merge_cli.recovery, "branch_needs_receipt", lambda *_a: False)
+    monkeypatch.setattr(merge_cli.verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     monkeypatch.setattr(
         merge_cli.verify,
         "verify_and_land",
@@ -126,6 +127,7 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
     monkeypatch.setattr(
         merge_cli.release_flow, "continue_prepared_release", lambda **_k: (None, "")
     )
+    monkeypatch.setattr(merge_cli.verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     monkeypatch.setattr(
         merge_cli.verify,
         "verify_and_land",

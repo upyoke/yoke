@@ -49,6 +49,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
             enqueued_at=parse_instant("2026-08-27T18:00:00Z"),
         ), ""
 
+    monkeypatch.setattr(merge_cli.verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     monkeypatch.setattr(merge_cli.verify, "verify_and_land", enqueue)
     monkeypatch.setattr(
         merge_cli.evidence,
@@ -97,6 +98,7 @@ def test_wait_flag_reaches_the_landing_route(monkeypatch):
         assert args.wait is True
         return None, "stop after parser assertion"
 
+    monkeypatch.setattr(merge_cli.verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     monkeypatch.setattr(merge_cli.verify, "verify_and_land", refuse)
     assert (
         merge_cli.run(

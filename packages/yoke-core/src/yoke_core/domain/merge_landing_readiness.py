@@ -8,10 +8,11 @@ together, each with its recovery. ``yoke merge item ITEM --check`` prints the
 same report and changes nothing.
 
 The questions, in report order: review stage, close-out evidence flags, lane
-resolution, checkout, stale unlanded work, a missing lane with no landing,
-work claim, uncommitted lane files, blocking QA proof for the merging commit, and the post-deploy QA
+resolution, checkout, stale unlanded work, work claim (including a pruned
+lane with nothing landed), uncommitted lane files, blocking QA proof for the merging commit, and the post-deploy QA
 answer. A lane that already landed skips the last two: nothing is left to
-prove before a landing that happened.
+prove before a landing that happened. So does a merge that must recover its
+claim first: the merge proves the recovered lane after recovery.
 
 Two conditions are not blockers because the merge resolves them itself: an
 item one declared edge before review (the merge enters review), and QA
@@ -26,18 +27,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.classify_dirty_files import classify_dirty_files
 from yoke_core.domain.close_out_evidence_gate import (
     terminal_transition_is_evidence_gated,
 )
 from yoke_core.domain.merge_review_readiness import ReviewReadiness, review_readiness
 from yoke_core.domain.qa_item_stage_plan_gate import missing_item_qa_plan_refusal
-from yoke_core.domain.qa_terminal_settlement import requirement_issue_errors
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_lane import (
     active_lanes,
@@ -46,7 +46,6 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
     merge_source_lane,
 )
-from yoke_core.domain.standalone_item_merge_qa import evaluate, item_for_merge_phase
 from yoke_core.domain.standalone_item_merge_release_status import (
     stale_mismatch_is_foreign,
 )
@@ -74,6 +73,8 @@ class LandingReadiness:
     repo_root: Optional[Path] = None
     target: str = ""
     landed: Optional[LandedLane] = None
+    #: The claim recovery's answer when it ran here with no landing.
+    recovery: Optional[tuple[Optional[LandedLane], str]] = None
 
     @property
     def ready(self) -> bool:
@@ -114,27 +115,19 @@ def _dirty_lane_files(item: dict[str, Any]) -> list[str]:
 
 
 def _qa_gates(readiness: LandingReadiness, item: dict[str, Any], args: Any) -> None:
-    qa_item = item_for_merge_phase(
-        item, leaves_status_unchanged=bool(args.skip_status)
-    )
-    _sha, issues, error = evaluate(
-        qa_item,
+    blocker, note = verify.proof_check(
+        item,
+        args,
         public_ref=readiness.public_ref,
         repo_root=readiness.repo_root,
         branch=readiness.branch,
     )
-    if error:
-        readiness.blockers.append(LandingBlocker("QA proof", error))
-    elif commit_bound.is_commit_bound_refusal(issues):
-        readiness.merge_will.append(
-            "re-bind passing QA proof recorded for an older commit of this "
-            "lane to the merging commit"
-        )
-    elif issues:
-        errors = requirement_issue_errors(
-            issues, public_ref=readiness.public_ref, target_status="done"
-        )
-        readiness.blockers.append(LandingBlocker("QA proof", "\n".join(errors)))
+    if blocker:
+        readiness.blockers.append(LandingBlocker("QA proof", blocker))
+    if note:
+        readiness.merge_will.append(note)
+    # The unfiltered item: a post-deploy plan is owed whichever transition
+    # its attachment names, and the merge-phase view drops some of those.
     plan_refusal = missing_item_qa_plan_refusal(item, public_ref=readiness.public_ref)
     if plan_refusal:
         readiness.blockers.append(LandingBlocker("post-deploy QA", plan_refusal))
@@ -145,6 +138,7 @@ def assess(
     args: Any,
     *,
     public_ref: str,
+    session_id: str,
     claim_error: Callable[[str], str],
     resolve_checkout: Callable[[dict[str, Any], str], tuple[Path, str]],
 ) -> LandingReadiness:
@@ -233,18 +227,27 @@ def assess(
         recorded_head=recorded_head,
     )
 
+    missing_claim = recovery.claim_is_missing(readiness.claim_error)
+    if readiness.claim_error and not missing_claim:
+        add(LandingBlocker("work claim", f"{public_ref}: {readiness.claim_error}"))
     pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
         repo_root, readiness.branch
     )
-    if pruned_lane and readiness.landed is None and not readiness.claim_error:
-        add(LandingBlocker("lane", recovery.missing_lane_refusal(item_id, item)))
-    if readiness.claim_error:
-        if recovery.claim_is_missing(readiness.claim_error) and readiness.landed:
+    if (missing_claim or pruned_lane) and (missing_claim or not readiness.claim_error):
+        if readiness.landed is None:
+            # With no landing this reads only: it names why recovery refuses.
+            readiness.recovery = recovery.reacquire_landed_claim(
+                item_id=item_id, session_id=session_id, lane=None, item=item
+            )
+            refusal = readiness.recovery[1] or (
+                "" if readiness.recovery[0] else "claim recovery failed"
+            )
+            if refusal:
+                add(LandingBlocker("work claim", f"{public_ref}: {refusal}"))
+        else:
             readiness.merge_will.append(
                 "re-acquire the work claim for the landed lane's close-out"
             )
-        else:
-            add(LandingBlocker("work claim", f"{public_ref}: {readiness.claim_error}"))
 
     dirty = _dirty_lane_files(item)
     if dirty:
@@ -255,7 +258,9 @@ def assess(
             "branch, or remove them, then re-run.",
         ))
 
-    if readiness.landed is None:
+    # A lane that already landed has nothing left to prove; a claim recovery
+    # changes the item the proof is read from, so the merge proves it after.
+    if readiness.landed is None and not (missing_claim or pruned_lane):
         _qa_gates(readiness, item, args)
     return readiness
 

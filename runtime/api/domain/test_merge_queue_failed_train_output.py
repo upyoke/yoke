@@ -50,6 +50,7 @@ def test_cli_and_watcher_keep_failed_run_and_recovery(
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(cli.recovery, "branch_needs_receipt", lambda *_a: False)
+    monkeypatch.setattr(cli.verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     monkeypatch.setattr(
         cli.verify,
         "verify_and_land",

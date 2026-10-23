@@ -87,6 +87,7 @@ def run(argv: List[str]) -> int:
         item,
         args,
         public_ref=public_ref,
+        session_id=str(args.session_id),
         claim_error=lambda ref: _session_holds_claim(ref, str(args.session_id)),
         resolve_checkout=_resolve_checkout,
     )
@@ -136,7 +137,7 @@ def run(argv: List[str]) -> int:
     )
     recovered_claim = False
     if claim_error or pruned_lane:
-        recovered, recovery_error = recovery.reacquire_landed_claim(
+        recovered, recovery_error = readiness.recovery or recovery.reacquire_landed_claim(
             item_id=item_id,
             session_id=str(args.session_id),
             lane=landed_lane,
