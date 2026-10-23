@@ -2,6 +2,8 @@
  "id": "resolution-and-wake-up",
  "title": "Resolution and wake-up",
  "status": "draft-copy",
+ "summary": "Approving an item's done transition retries that item's own close-out before shared run progression; a sibling's open approval never holds it.",
+ "sources": ["docs/public/sessions/inbox.md"],
  "page": "approvals",
  "position": 4
 }

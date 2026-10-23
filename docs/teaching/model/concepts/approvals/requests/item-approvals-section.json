@@ -1,0 +1,10 @@
+{
+ "id": "item-approvals-section",
+ "title": "An item's own approvals",
+ "status": "observed",
+ "summary": "Item pages list each work approval as the same decision record Shipping and the Inbox draw, with its standing against the item now; a request for a transition the item left reads superseded and offers no answer.",
+ "sources": ["docs/public/sessions/inbox.md"],
+ "functions": ["items.detail.get", "decision_requests.resolve"],
+ "page": "approvals",
+ "position": 6
+}
