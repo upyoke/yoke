@@ -215,9 +215,7 @@ def prune_managed_worktrees(
             continue
         verdict = _prune_verdict(entry.branch, entry.path, state)
         if state["unavailable"]:
-            return _skipped(
-                say, "DB authority unavailable", tuple(removed), tuple(preserved)
-            )
+            return _skipped(say, "DB authority unavailable", tuple(removed), tuple(preserved))
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             if verdict.get("reason") == "active_authority":
@@ -246,20 +244,27 @@ def prune_managed_worktrees(
                 f"worktree is locked ({entry.lock_reason or 'no reason recorded'})",
             )
             continue
-        if not entry.path.is_dir():
+        try:
+            absent = not entry.path.is_dir()
+            if not absent:
+                landed = _landed(git, repo_root, entry.branch, base)
+                if not landed.landed:
+                    keep(entry.path, f"worktree branch {entry.branch} {landed.reason}")
+                    continue
+                residue = clear_lane_residue(git, entry.path, declared_roots)
+                if not residue.removable_once_landed:
+                    keep(entry.path, residue.reason)
+                    continue
+        except FileNotFoundError:
+            absent = not entry.path.is_dir()
+            if not absent:
+                raise
+        if absent:
             say(f"Pruned registration for an absent worktree: {entry.path}")
             git(["worktree", "prune"], cwd=repo_root, capture=True)
             release_lane_row(item_ref, entry.branch, emit=say)
             removed.append(str(entry.path))
             checked_out.discard(entry.branch)
-            continue
-        landed = _landed(git, repo_root, entry.branch, base)
-        if not landed.landed:
-            keep(entry.path, f"worktree branch {entry.branch} {landed.reason}")
-            continue
-        residue = clear_lane_residue(git, entry.path, declared_roots)
-        if not residue.removable_once_landed:
-            keep(entry.path, residue.reason)
             continue
         remote = _delete_remote_before_local(
             run_git=git,
@@ -272,17 +277,14 @@ def prune_managed_worktrees(
             keep(entry.path, f"remote cleanup incomplete: {remote.reason}")
             continue
         if not remote.cleanup_complete:
-            say(
-                f"WARNING: {unmerged_remote_note(entry.branch, remote.reason)}",
-                err=True,
-            )
+            say(f"WARNING: {unmerged_remote_note(entry.branch, remote.reason)}", err=True)
         removal = remove_worktree(repo_root, entry.path)
-        if not removal.removed:
+        if not removal.removed and entry.path.exists():
             keep(entry.path, f"removal refused: {removal.reason}")
             continue
         release_lane_row(item_ref, entry.branch, emit=say)
         say(f"Pruned terminal merged worktree: {entry.path}")
-        if removal.reason:
+        if removal.removed and removal.reason:
             say(f"WARNING: {removal.reason}", err=True)
         if warning := worktree_cleanup_warning(entry.path):
             say(f"WARNING: {warning}", err=True)
@@ -308,9 +310,7 @@ def prune_managed_worktrees(
             continue
         verdict = _prune_verdict(branch, None, state)
         if state["unavailable"]:
-            return _skipped(
-                say, "DB authority unavailable", tuple(removed), tuple(preserved)
-            )
+            return _skipped(say, "DB authority unavailable", tuple(removed), tuple(preserved))
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             continue

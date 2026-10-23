@@ -170,10 +170,16 @@ def _finish(repo_root: Path, leftovers: list[Path]) -> list[WorktreeRemoval]:
         try:
             shutil.rmtree(leftover)
         except OSError as exc:
-            # Git no longer registers it; only the inert tombstone remains.
-            results.append(
-                WorktreeRemoval(True, f"tombstone {leftover} not yet deleted: {exc}")
-            )
+            # Git no longer registers it. A tombstone another sweep already
+            # deleted is removed; anything still on disk is named for retry.
+            if isinstance(exc, FileNotFoundError) and not leftover.exists():
+                results.append(WorktreeRemoval(True))
+            else:
+                results.append(
+                    WorktreeRemoval(
+                        True, f"tombstone {leftover} not yet deleted: {exc}"
+                    )
+                )
         else:
             results.append(WorktreeRemoval(True))
     return results

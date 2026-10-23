@@ -303,3 +303,40 @@ def test_a_local_only_project_skips_pruning_without_a_refresh_warning(
     assert worktree.exists()
     assert sweep.payload()["skipped"] == "no origin remote (local-only project)"
     assert not any("could not refresh" in line for line in lines)
+
+
+def test_a_lane_removed_after_the_registry_read_is_removed(
+    monkeypatch, tmp_path: Path
+):
+    """A lane that vanishes during the sweep is removed, and the sweep continues."""
+    repo, worktree, branch = _repo(tmp_path)
+    second = repo / ".worktrees" / "second"
+    _git(repo, "worktree", "add", "-b", "second-lane", str(second), "main")
+    conn = _Conn(branch)
+    real_execute = conn.execute
+
+    def execute(sql, params=()):
+        if "FROM item_worktrees iw JOIN items i" in sql and params:
+            conn.branch = params[0]
+        return real_execute(sql, params)
+
+    conn.execute = execute
+    git_io, lines = _install(monkeypatch, repo, conn)
+    real_clear = _safe_prune.clear_lane_residue
+
+    def clear_then_gone(run_git, path, declared=frozenset()):
+        if Path(path).resolve() == worktree.resolve():
+            shutil.rmtree(path)
+        return real_clear(run_git, path, declared)
+
+    monkeypatch.setattr(_safe_prune, "clear_lane_residue", clear_then_gone)
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert sweep.skipped == ""
+    assert str(worktree.resolve()) in sweep.removed
+    assert str(second.resolve()) in sweep.removed
+    assert not second.exists()
+    assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
+    assert any("absent worktree" in line for line in lines)
+    assert not any("not yet deleted" in line for line in lines)

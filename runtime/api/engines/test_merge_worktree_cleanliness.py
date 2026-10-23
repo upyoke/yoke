@@ -7,6 +7,7 @@ real filesystem removal without a real git repository.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any, Sequence
 
@@ -208,3 +209,49 @@ def test_unknown_ignored_file_beside_known_caches_still_preserves(tmp_path: Path
 
     assert not assessment.disposable
     assert "notes/scratch.txt" in assessment.reason
+
+
+def test_a_cache_deleted_between_assess_and_delete_is_removed(
+    tmp_path: Path, monkeypatch
+):
+    """Another sweep can delete the cache after assess and before rmtree."""
+    cache = tmp_path / ".hypothesis"
+    cache.mkdir()
+    (cache / "examples").write_text("x", encoding="utf-8")
+    outputs = iter([_porcelain(ignored=[".hypothesis/"]), ""])
+
+    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
+        return _FakeResult(next(outputs))
+
+    real_rmtree = shutil.rmtree
+
+    def vanish(path, *args, **kwargs):
+        real_rmtree(path)
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(
+        "yoke_core.engines.merge_worktree_cleanliness.shutil.rmtree", vanish
+    )
+
+    assessment = clear_lane_residue(run_git, tmp_path)
+
+    assert assessment.disposable
+    assert not cache.exists()
+
+
+def test_a_cache_removal_refusal_still_keeps_the_lane(tmp_path: Path, monkeypatch):
+    cache = tmp_path / ".hypothesis"
+    cache.mkdir()
+    monkeypatch.setattr(
+        "yoke_core.engines.merge_worktree_cleanliness.shutil.rmtree",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("busy")),
+    )
+
+    def run_git(_args: list[str], cwd: Any = None, capture: bool = True):
+        return _FakeResult(_porcelain(ignored=[".hypothesis/"]))
+
+    assessment = clear_lane_residue(run_git, tmp_path)
+
+    assert not assessment.disposable
+    assert "cache removal refused" in assessment.reason
+    assert "busy" in assessment.reason

@@ -96,6 +96,24 @@ def test_a_tombstone_left_by_an_interruption_is_finished_by_the_next_sweep(
     assert not leftover.exists()
 
 
+def test_a_tombstone_already_gone_is_removed_without_a_warning(lane, monkeypatch):
+    """Another sweep can delete the tombstone after this one has listed it."""
+    repo, path = lane
+    real_rmtree = worktree_removal.shutil.rmtree
+
+    def vanish(target):
+        real_rmtree(target)
+        raise FileNotFoundError(target)
+
+    monkeypatch.setattr(worktree_removal.shutil, "rmtree", vanish)
+
+    result = remove_worktree(repo, path)
+
+    assert result.removed and not result.reason
+    assert not path.exists()
+    assert tombstones(repo) == []
+
+
 def test_a_kill_between_rename_and_prune_is_finished_by_the_next_sweep(lane):
     repo, path = lane
     path.rename(path.parent / f"{worktree_removal.TOMBSTONE_PREFIX}YOK-1-dead")
