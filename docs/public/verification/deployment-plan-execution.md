@@ -23,6 +23,12 @@ scope matches the case it replaces.
 [QA continuity](deployment-qa-continuity.md) describes current item authority,
 release takeover, cross-build observations and exact-execution recovery.
 
+Use `--plan ID_OR_SLUG` to run an admitted frozen chain without new obligations.
+Run, stage, member/shared subject and target must match; invalid admissions
+refuse before host access. New plans fill empty stages; corrections need
+replacements. `qa_plan_selector_cursor_conflict` retains the private cursor
+and names its owner-resume recovery.
+
 ## Shared plan credit
 
 Members attaching the same post-deploy plan share its case rows and ordered
@@ -59,8 +65,7 @@ completed group evidence. When other sessions' live executions hold every
 group you still owe, it returns `state=waiting` with
 `shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
 and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
-The deployment's member stage
-line retains the wait. Passing shared evidence credits every attaching member;
+The member stage retains the wait. Passing shared evidence credits every attaching member;
 completion, abort or error wakes members still owing QA to retry their own
 item/stage command. The owner resumes its existing execution as usual.
 Refresh and declared corrections
@@ -77,8 +82,6 @@ group. Other original cases and unrelated groups remain owed independently.
 Replacement scopes stay in the frozen selection, so later materialization
 does not create private copies of shared corrections. A passing independent
 verdict supersedes the failed requirement.
-A member refresh with `--plan` naming the member's own plan refreshes only that
-member's rows, so a live run-wide walk of a shared plan does not block it.
 Removing one member or withdrawing its attachment preserves shared evidence for
 the members still attached. Removing the last attaching member with
 `yoke deployment-runs remove-item` retracts the group's unsettled rows, so an

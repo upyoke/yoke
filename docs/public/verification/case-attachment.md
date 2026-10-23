@@ -158,11 +158,10 @@ yoke qa plan run --item <PREFIX-N> --stage <stage-name> --project <project>
 execution and owner. Keep the claim and park; settlement credits shared
 evidence or wakes members still owing QA to retry their own member command.
 
-`--plan <plan-slug>` joins that line only for a stage that names no cases. One
-already naming its own — pinned, frozen, attached, admitted, directly
-authored, or materialized by an earlier selection — refuses `--plan`, because
-a plan there materializes a second set of obligations beside the ones the
-stage credits.
+`--plan <plan-id-or-slug>` selects one complete already admitted frozen plan
+for the exact run, stage, member or shared subject and target. It adds no
+obligations and never refreshes live plan content. A new plan fills an empty
+stage; a named stage refuses unrelated additions without explicit corrections.
 
 `yoke qa plan materialize` takes the same `--item` / `--stage` pair when
 only requirement rows are wanted. Fresh item QA resolves its current delivery

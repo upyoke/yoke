@@ -15,6 +15,7 @@ from yoke_core.domain.qa_plan_run_target_partition import (
     target_passed_requirements,
 )
 from yoke_core.domain.qa_plan_execution_store import (
+    QaPlanExecutionStateError,
     live_plan_execution_id,
     marker,
     select_plan_execution,
@@ -155,6 +156,14 @@ def member_machine_partition(
                 row for row in roster if int(row["requirement_id"]) in ids
             )
         ]
+        if not selected:
+            raise QaPlanExecutionStateError(
+                f"qa_plan_selector_cursor_conflict: execution {live_id} already owns "
+                "this subject's cursor for another plan. Keep its custody; "
+                "ask its owner to finish or resume it with "
+                f"`yoke qa plan run --resume-execution-id {live_id}`, then retry "
+                "the selected plan."
+            )
         return (
             selected,
             sum(int(row["requirement_id"]) not in ids for row in pending),

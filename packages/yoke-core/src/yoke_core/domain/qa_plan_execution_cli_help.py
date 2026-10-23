@@ -67,10 +67,13 @@ an agent_mission starts a one-requirement execution with its retained lease,
 review bundle and main-agent verdict. An inherit mission needs its ordered
 predecessor and must use the plan command.
 
-When the stage names no concrete cases, --plan records the executor's
-project-owned selection -- and only then. A stage already naming its own cases
-(pinned, frozen, member-attached, admitted, or directly authored) refuses
---plan unless --replaces or --replaces-requirement names every corrected case. This
+Use --plan ID_OR_SLUG to run only an already admitted plan's complete frozen
+ordered cases for this run, stage, requesting member or shared subject and target.
+Selection adds no obligations and never refreshes live plan content. Unknown,
+withdrawn, incomplete or wrong-scope admissions refuse before execution.
+When the stage names no concrete cases, --plan can instead admit a new
+project-owned selection. A stage already naming cases refuses an unrelated
+plan unless --replaces or --replaces-requirement names every corrected case. This
 atomic correction binds each case to the same run, stage, member and target;
 it does not add an unrelated second set of obligations.
 Materialization stamps the member project's deployed target for member QA,

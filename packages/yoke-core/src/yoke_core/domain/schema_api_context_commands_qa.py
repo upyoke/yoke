@@ -216,7 +216,8 @@ QA_COMMANDS: list[dict] = [
             "too: item scope uses --item, run-level orchestration uses its run, and the "
             "run-wide form refuses on an item-scoped stage. Frozen snapshots "
             "supply flow cases and admitted member requirements. --plan selects "
-            "cases only for a stage naming none. Every case "
+            "existing frozen admissions without adding obligations; a new plan fills "
+            "only a stage naming none. Every case "
             "and verdict stays on the existing qa_requirements/qa_runs/"
             "qa_artifacts authority, bound to the deployed target and lineage."
         ),

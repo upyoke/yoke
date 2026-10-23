@@ -1,10 +1,8 @@
-"""A corrected plan case reaches a member whose frozen row was discharged.
+"""Explicit refresh reaches discharged rows; selectors preserve frozen content.
 
-Stage materialization is idempotent per plan, which strands a member once its
-only row is waived and the plan's case is then corrected: the discharged row
-satisfies idempotency, so the fix never arrives. These cover the narrow
-opening — changed content plus a row that no longer answers — and the cases
-that must stay idempotent around it.
+A plan selector never refreshes an existing admission from live content.
+Explicit rematerialization carries a correction beside failed or discharged
+history, and subsequent selection reuses that canonical frozen identity.
 """
 
 from __future__ import annotations
@@ -29,8 +27,10 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
     base_case_key,
     case_content_digest,
 )
-from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_requirement_ops import waive_requirement
+from yoke_core.domain.qa_plan_rematerialize_deployment import (
+    rematerialize_for_deployment_stage,
+)
 
 MEMBER = 9821
 
@@ -100,8 +100,20 @@ def test_corrected_case_reaches_a_member_whose_row_was_waived(test_db) -> None:
     )
     _edit_plan_case(test_db, slug, "probe --corrected")
 
-    result = _materialize(test_db, run_id, plan=slug)
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == [requirement_id]
+    result = rematerialize_for_deployment_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
+        plan=slug,
+    )
     assert len(result["created_requirement_ids"]) == 1, result
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == result["created_requirement_ids"]
 
     rows = _rows(test_db, run_id)
     assert len(rows) == 2
@@ -121,8 +133,20 @@ def test_corrected_case_reaches_a_member_whose_row_failed(test_db) -> None:
     record_case_verdict(test_db, requirement_id, "fail", evidence=False)
     _edit_plan_case(test_db, slug, "probe --corrected")
 
-    result = _materialize(test_db, run_id, plan=slug)
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == [requirement_id]
+    result = rematerialize_for_deployment_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
+        plan=slug,
+    )
     assert len(result["created_requirement_ids"]) == 1, result
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == result["created_requirement_ids"]
     assert len(_rows(test_db, run_id)) == 2
 
 
@@ -145,21 +169,24 @@ def test_unchanged_case_stays_idempotent_after_a_waiver(test_db) -> None:
     assert len(_rows(test_db, run_id)) == 1
 
 
-def test_changed_case_still_unjudged_refuses_and_names_the_refresh(test_db) -> None:
+def test_changed_live_plan_does_not_refresh_unjudged_frozen_selection(test_db) -> None:
     run_id = "run-refresh-live"
     slug, requirement_id = _seed(test_db, run_id)
-    # Neither waived nor failed: the row is still the live obligation, so a
-    # corrected plan must not race a second row alongside it -- and walking
-    # the row as it stands would judge against the replaced content.
+    before = _rows(test_db, run_id)
     _edit_plan_case(test_db, slug, "probe --corrected")
-
-    with pytest.raises(QaPlanError) as refusal:
-        _materialize(test_db, run_id, plan=slug)
-    message = str(refusal.value)
-    assert "plan_case_superseded" in message
-    assert f"QA requirement {requirement_id}" in message
-    assert f"yoke qa plan rematerialize --item YOK-{MEMBER} --stage item-qa" in message
-    assert len(_rows(test_db, run_id)) == 1
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == [requirement_id]
+    assert _rows(test_db, run_id) == before
+    refreshed = rematerialize_for_deployment_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
+        plan=slug,
+    )
+    assert refreshed["refreshed_requirement_ids"] == [requirement_id]
+    assert "probe --corrected" in _rows(test_db, run_id)[0]["method_config"]
 
 
 def test_content_digest_ignores_encoding_but_not_content() -> None:
@@ -222,6 +249,9 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
         deployment_member_item_id=MEMBER,
     )
     assert len(result["created_requirement_ids"]) == 1, result
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == result["created_requirement_ids"]
     row = test_db.execute(
         "SELECT plan_id,plan_case_key FROM qa_requirements WHERE id=%s",
         (result["created_requirement_ids"][0],),

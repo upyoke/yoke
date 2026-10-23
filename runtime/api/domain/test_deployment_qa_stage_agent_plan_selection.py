@@ -1,4 +1,4 @@
-"""--plan selects cases only for a deployment QA stage that names none.
+"""New plan admission fills only a deployment QA stage that names none.
 
 A stage already carrying cases -- pinned, frozen, member-attached, admitted
 from the member's own post-deploy obligations, or authored directly -- gains
@@ -110,8 +110,8 @@ def test_a_stage_that_names_no_cases_still_takes_the_agent_selected_plan(
     assert result["created_requirement_ids"]
 
 
-def test_re_supplying_a_plan_stays_open_for_a_corrected_case(test_db) -> None:
-    """The refusal targets a duplicate set, not the content-refresh repair."""
+def test_re_supplying_an_admitted_plan_adds_no_requirements(test_db) -> None:
+    """Selecting the existing admission leaves the frozen obligation unchanged."""
     item_id = 9724
     _member(
         test_db,
@@ -196,3 +196,52 @@ def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> No
         declaration[0]["replacement_requirement_id"]
         == corrected["created_requirement_ids"][0]
     )
+
+
+def test_an_agent_admission_does_not_leave_the_stage_open_for_unrelated_plans(test_db):
+    import json
+
+    item_id = 9726
+    run_id = "run-agent-selection-closed"
+    _member(test_db, run_id=run_id, item_id=item_id, sequence=726, method_id=None)
+    first = _plan(test_db, "initial-agent-plan")
+    other = _plan(test_db, "unadmitted-extra-plan")
+    subject = dict(
+        deployment_run_id=run_id,
+        deployment_stage=STAGE,
+        deployment_member_item_id=item_id,
+    )
+    admitted = materialize_deployment_qa_stage(
+        test_db, **subject, agent_plan=str(first)
+    )
+    before = [
+        tuple(row)
+        for row in test_db.execute(
+            "SELECT * FROM qa_requirements ORDER BY id"
+        ).fetchall()
+    ]
+    frozen = test_db.execute(
+        "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s",
+        (run_id,),
+    ).fetchone()[0]
+    assert json.loads(frozen)["plans"][0]["selected_by_agent"]
+    with pytest.raises(QaPlanError, match="already names its cases"):
+        materialize_deployment_qa_stage(test_db, **subject, agent_plan=str(other))
+    assert [
+        tuple(row)
+        for row in test_db.execute(
+            "SELECT * FROM qa_requirements ORDER BY id"
+        ).fetchall()
+    ] == before
+    assert (
+        test_db.execute(
+            "SELECT requirement_snapshot FROM deployment_run_items WHERE run_id=%s",
+            (run_id,),
+        ).fetchone()[0]
+        == frozen
+    )
+    selected = materialize_deployment_qa_stage(
+        test_db, **subject, agent_plan=str(first)
+    )
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == admitted["created_requirement_ids"]
