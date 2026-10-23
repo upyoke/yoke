@@ -19,12 +19,6 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     resolve_relay_instance,
 )
-from yoke_contracts.api_urls import (
-    DISTRIBUTION_PROD_URL,
-    DISTRIBUTION_STAGE_URL,
-    HOSTED_PROD_API_URL,
-    HOSTED_STAGE_API_URL,
-)
 from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
 
@@ -152,21 +146,16 @@ def distribution_index_for_instance(instance: RelayInstance) -> str:
             RELAY_RELEASE_FETCH_FAILED,
             f"environment {instance.environment!r} has no valid HTTP(S) API origin",
         )
-    hosted_prod = urlsplit(HOSTED_PROD_API_URL).hostname
-    hosted_stage = urlsplit(HOSTED_STAGE_API_URL).hostname
-    if parsed.hostname == hosted_prod:
-        base = DISTRIBUTION_PROD_URL
-    elif parsed.hostname == hosted_stage:
-        base = DISTRIBUTION_STAGE_URL
-    else:
-        try:
-            base = distribution.recorded(path=instance.config_path)["origin"]
-        except distribution.DistributionError as exc:
-            raise RelayReleaseError(
-                RELAY_RELEASE_FETCH_FAILED,
-                f"environment {instance.environment!r} requires a declared "
-                f"install distribution for its relay: {exc}",
-            ) from exc
+    try:
+        base = distribution.origin_for_connection(
+            connection, path=instance.config_path
+        )
+    except distribution.DistributionError as exc:
+        raise RelayReleaseError(
+            RELAY_RELEASE_FETCH_FAILED,
+            f"environment {instance.environment!r} requires a declared "
+            f"install distribution for its relay: {exc}",
+        ) from exc
     return f"{base}/simple/"
 
 

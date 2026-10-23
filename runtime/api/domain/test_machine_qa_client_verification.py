@@ -7,9 +7,15 @@ import shlex
 import subprocess
 from types import SimpleNamespace
 
+import pytest
+
+from yoke_cli.config import machine_config
 from yoke_contracts.api_urls import (
     DISTRIBUTION_BASE_URL_ENV,
+    DISTRIBUTION_PROD_URL,
     DISTRIBUTION_STAGE_URL,
+    HOSTED_PROD_API_URL,
+    HOSTED_STAGE_API_URL,
 )
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINES,
@@ -137,7 +143,29 @@ def test_transport_failure_ends_the_sequence_before_any_baseline() -> None:
     assert submission.payload["error_code"] == "ssh_unavailable"
 
 
-def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
+def _baseline_control(monkeypatch, api_url: str, run) -> SshMacHostOperations:
+    monkeypatch.setattr(
+        machine_config, "active_connection", lambda *a, **k: {"api_url": api_url}
+    )
+    control = SshMacHostOperations.__new__(SshMacHostOperations)
+    control.path_state = SimpleNamespace(
+        yoke_bin="/Users/tester/.local/bin/yoke",
+    )
+    control.secret_values = ("hunter2",)
+    control._run = run
+    return control
+
+
+@pytest.mark.parametrize(
+    ("api_url", "origin"),
+    [
+        (HOSTED_PROD_API_URL, DISTRIBUTION_PROD_URL),
+        (HOSTED_STAGE_API_URL, DISTRIBUTION_STAGE_URL),
+    ],
+)
+def test_client_shell_baseline_installs_from_the_environment_distribution(
+    monkeypatch, api_url: str, origin: str
+) -> None:
     commands: list[tuple[str, int]] = []
 
     def run(
@@ -153,11 +181,7 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
             stderr="",
         )
 
-    control = SshMacHostOperations.__new__(SshMacHostOperations)
-    control.path_state = SimpleNamespace(
-        yoke_bin="/Users/tester/.local/bin/yoke",
-    )
-    control._run = run
+    control = _baseline_control(monkeypatch, api_url, run)
 
     result = control._install_current_release(HOST_BASELINES[1])
 
@@ -173,13 +197,13 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
     assert argv[0] == [
         "/usr/bin/curl",
         "-fsSL",
-        f"{DISTRIBUTION_STAGE_URL}/install",
+        f"{origin}/install",
         "-o",
         INSTALLER_TEMP_PATH,
     ]
     assert argv[1] == [
         "/usr/bin/env",
-        f"{DISTRIBUTION_BASE_URL_ENV}={DISTRIBUTION_STAGE_URL}",
+        f"{DISTRIBUTION_BASE_URL_ENV}={origin}",
         "YOKE_CHANNEL=latest",
         "YOKE_INSTALL_YES=1",
         "YOKE_NO_SETUP=1",
@@ -195,6 +219,48 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
         "--yes",
     ]
     assert [timeout for _command, timeout in commands] == [300, 1200, 300]
+
+
+def test_client_shell_baseline_failure_keeps_a_bounded_redacted_output_tail(
+    monkeypatch,
+) -> None:
+    def run(
+        command: str,
+        *,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        if "curl" in command:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(
+            command, 1, "early noise " * 200, "token hunter2 rejected: no release"
+        )
+
+    control = _baseline_control(monkeypatch, HOSTED_PROD_API_URL, run)
+
+    result = control._install_current_release(HOST_BASELINES[1])
+
+    assert not result.ok
+    assert result.error_code == "fixture_operation_failed"
+    (failed,) = result.evidence["operations"]
+    assert failed["id"] == "installer.current-release-prepare"
+    assert failed["outcome"] == "failed"
+    assert failed["reason"].endswith("token [REDACTED] rejected: no release")
+    assert "hunter2" not in failed["reason"]
+    assert len(failed["reason"]) <= 512
+
+
+def test_client_shell_baseline_failure_names_a_silent_exit(monkeypatch) -> None:
+    control = _baseline_control(
+        monkeypatch,
+        HOSTED_PROD_API_URL,
+        lambda command, *, timeout: subprocess.CompletedProcess(command, 7, "", ""),
+    )
+
+    result = control._install_current_release(HOST_BASELINES[1])
+
+    assert result.evidence["operations"][0]["reason"] == (
+        "exit status 7 with no output"
+    )
 
 
 def test_case_contract_keeps_its_digest_after_public_dispatch(test_db, monkeypatch):
