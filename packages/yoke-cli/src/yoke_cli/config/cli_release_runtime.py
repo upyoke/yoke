@@ -6,7 +6,7 @@ it can choose and protect a release before importing any release-owned code.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import fcntl
 import json
 import os
@@ -114,6 +114,39 @@ def _generation(root: Path) -> Path:
             "cli_release_target_invalid: current points outside releases"
         )
     return generation
+
+
+def exec_current_python(arguments: list[str]) -> int:
+    """Replace a resident under the publication lock, keeping its start lock."""
+    try:
+        environment = Path(sys.executable).parent.parent.resolve()
+        generation = environment.parent.parent
+        immutable = (
+            environment.name == "yoke-cli"
+            and environment.parent.name == "tools"
+            and generation.parent.name == "releases"
+        )
+        root = generation.parent.parent
+        with (
+            locked(root / "publication.lock", shared=True)
+            if immutable
+            else nullcontext()
+        ):
+            # Resolve the generation, never the virtualenv's Python symlink.
+            python = (
+                _generation(root) / "tools/yoke-cli/bin/python3"
+                if immutable
+                else Path(sys.executable)
+            )
+            os.execv(str(python), [str(python), *arguments])
+    except (OSError, RuntimeError) as exc:
+        print(
+            f"hook_resident_restart_failed: {exc}; {RECOVERY}, then run "
+            "yoke hook resident restart from your own terminal; read this evaluator log",
+            file=sys.stderr,
+        )
+        return 2
+    return 0
 
 
 def _process_commands() -> str:

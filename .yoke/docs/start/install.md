@@ -176,7 +176,12 @@ server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
 that it answers; on failure, read the named log, run `yoke hook resident
-restart` and retry. Hook timing stays in the diagnostics log. Setup also
+restart` and retry. A resident with the immutable-generation restart fix selects
+the current installed generation when a hook requests a new revision, retaining
+its exclusive start lock. An already-running resident from before this fix needs
+one ordinary `yoke hook resident restart` after installing the corrected CLI;
+installing code alone cannot change that old process. Hook timing stays in the
+diagnostics log. Setup also
 writes Yoke's machine-wide hooks into each existing harness home's user config,
 so sessions outside a project register; inside one, the project's hooks run.
 
