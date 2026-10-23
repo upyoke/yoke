@@ -35,7 +35,9 @@ Read decisions and delivery notices, then address messages to their intended rec
   only in its Item QA, never under Run QA, with any screenshot of the item's
   current release its checks have not already shown, or a note saying why
   none is shown: no item QA was required, its checks are command checks, or
-  a screenshot check captured none. Only the last is a warning. A decision never replaces a check's result: while one is owed
+  a screenshot check captured none. Only the last is a warning, and an
+  answered approval keeps it only while one of its checks captures
+  screenshots. A decision never replaces a check's result: while one is owed
   the heading reads **Awaiting approval**, and once answered the record
   below the evidence names who approved or rejected it, and when. The run
   page uses the same order. A run whose stages are complete but whose
@@ -102,7 +104,8 @@ Read decisions and delivery notices, then address messages to their intended rec
   **awaiting approval**, **approved · completion pending** (hover for where
   to read its remaining done gates), **approved · closing** only while the
   run is settling, **approval rejected**, or **awaiting item completion**
-  when no approval applies
+  when no approval applies. The item page's **Delivery** panel adds the same
+  line under the release still closing the item
 - An item page lists its work approvals under **Approvals** once one was
   requested: the current request with the transition it moves, when it was
   asked, who can decide, and **Approve** and **Reject** for a reader who

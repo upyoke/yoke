@@ -9,6 +9,9 @@ import { relativeAgePhrase } from "./universe_time.js";
 import { flowId } from "./universe_item_deployment.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
+import {
+  CLEARED_QA_STATES, clearedMemberOutcome, newestDoneApproval,
+} from "./item_completion_standing.js";
 import { callFunction, el, statePill } from "./universe_view_support.js";
 
 // The definition this item would ship through. An explicit selection on the
@@ -81,7 +84,20 @@ async function resolveFlow(context, item) {
     : { flowId: null, reason: "none_declared" };
 }
 
-function deliveryRow(documentNode, item, run, completion) {
+// On the run still closing the item: its QA as it was, then where completion
+// stands, read the way the Shipping card reads it. A serving build without
+// ``completion_item_qa``, or QA not yet clear, adds no line.
+function completionOutcome(documentNode, item, qa) {
+  if (!CLEARED_QA_STATES.has(qa?.state)) return null;
+  const outcome = clearedMemberOutcome(qa, newestDoneApproval(item.approvals), {
+    ref: item.public_ref, settling: Boolean(qa.settling),
+  });
+  const line = el(documentNode, "span", "item-delivery-outcome", `${outcome.symbol} ${outcome.text}`);
+  if (outcome.reason) line.title = outcome.reason;
+  return line;
+}
+
+function deliveryRow(documentNode, item, run, completion, completionQa) {
   const row = el(documentNode, "div", "item-delivery-run");
   const link = el(documentNode, "a", "mono", String(run.id));
   link.href = deploymentRunHref(item.project.id, run.id);
@@ -111,6 +127,9 @@ function deliveryRow(documentNode, item, run, completion) {
     : `${run.current_stage ? `at ${run.current_stage} · ` : ""}started ${timestamp
       ? relativeAgePhrase(timestamp) : "time unavailable"}`;
   row.appendChild(el(documentNode, "span", "item-delivery-when", when));
+  const outcome = closesItem && !delivered
+    ? completionOutcome(documentNode, item, completionQa) : null;
+  if (outcome) row.appendChild(outcome);
   return row;
 }
 
@@ -180,7 +199,9 @@ export function itemDeliveryPanel(context, item) {
       return;
     }
     runs.replaceChildren(
-      ...rows.map((run) => deliveryRow(documentNode, item, run, completion)),
+      ...rows.map((run) => deliveryRow(
+        documentNode, item, run, completion, result.completion_item_qa,
+      )),
     );
   })();
   return panel;

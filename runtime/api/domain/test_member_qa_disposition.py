@@ -38,3 +38,38 @@ def test_no_obligation_and_waiver_are_distinct_discharges(test_db) -> None:
     waived = standings[(RUN_ID, WAIVED_MEMBER)]
     assert (no_qa["state"], no_qa["no_item_qa_required"]) == ("discharged", True)
     assert (waived["state"], waived["no_item_qa_required"]) == ("discharged", False)
+
+
+
+def test_item_delivery_read_carries_its_completion_run_standing(test_db) -> None:
+    from runtime.api.domain.test_independent_member_delivery_close_out import (
+        MEMBER_A,
+        _seed_final_run,
+    )
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.handlers.deployment_inspection import (
+        handle_deployment_runs_find_by_item,
+    )
+
+    _seed_final_run(test_db, "run-delivery-read", shared_qa=False)
+    _no_obligation(test_db, MEMBER_A, reason="nothing observable once deployed")
+    test_db.commit()
+
+    found = handle_deployment_runs_find_by_item(
+        FunctionCallRequest(
+            function="deployment_runs.find_by_item",
+            actor=ActorContext(session_id="test-session"),
+            target=TargetRef(kind="item", item_id=MEMBER_A),
+            payload={},
+        )
+    )
+
+    assert found.result_payload["completion_run"]["id"] == "run-delivery-read"
+    standing = found.result_payload["completion_item_qa"]
+    assert standing["state"] == "discharged"
+    assert standing["no_item_qa_required"] is True
+    assert standing["settling"] is False
