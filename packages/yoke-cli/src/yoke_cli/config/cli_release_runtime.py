@@ -151,7 +151,7 @@ def exec_current_python(arguments: list[str]) -> int:
 
 def _process_commands() -> str:
     result = subprocess.run(
-        ["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=10
+        ["ps", "-wwaxo", "pid=,command="], capture_output=True, text=True, timeout=10
     )
     if result.returncode or not result.stdout.strip():
         raise RuntimeError(

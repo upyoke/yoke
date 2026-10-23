@@ -71,7 +71,10 @@ def _wait_revision(address, revision, process):
     pytest.fail(f"resident did not serve revision {revision}")
 
 
-def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(tmp_path):
+def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("COLUMNS", "40")
     root, bin_dir = tmp_path / "runtime", tmp_path / "bin"
     old_revision, new_revision = "a" * 40, "b" * 40
     old = _resident_candidate(root, "1.0", old_revision)
@@ -105,6 +108,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(tmp
             )
         try:
             _wait_revision(address, old_revision, process)
+            assert str(old) in runtime._process_commands()
             new = _resident_candidate(root, "2.0", new_revision)
             runtime.activate(root, new, bin_dir, "2.0")
             assert old.exists(), "cleanup must protect the running old interpreter"
@@ -122,6 +126,7 @@ def test_main_self_exec_uses_current_and_retains_lock_and_cleanup_protection(tmp
                 "requested_revision": new_revision,
             }
             _wait_revision(address, new_revision, process)
+            assert str(new) in runtime._process_commands()
             for _ in range(3):
                 response = _round_trip(
                     str(address),
