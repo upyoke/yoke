@@ -26,13 +26,42 @@ from yoke_core.domain.merge_queue_route_selection import (
 from yoke_core.domain.session_relay_launch_identity import (
     calling_session_is_relay_launched,
 )
-from yoke_core.domain.qa_item_stage_plan_gate import (
-    missing_item_qa_plan_refusal,
-)
 from yoke_core.domain.standalone_item_merge_qa import (
     item_for_merge_phase,
     preflight as qa_preflight,
 )
+
+
+def proof_check(
+    item: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    public_ref: str,
+    repo_root: Path,
+    branch: str,
+) -> tuple[str, str]:
+    """Read-only QA proof answer. Returns ``(blocker, merge_will_note)``.
+
+    Proof bound only to an older commit of this lane is not a blocker: the
+    merge re-binds it in :func:`verify_and_land`. Anything else is.
+    """
+    qa_item = item_for_merge_phase(
+        item, leaves_status_unchanged=bool(args.skip_status)
+    )
+    _sha, qa_error = qa_preflight(
+        qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
+    )
+    if not qa_error:
+        return "", ""
+    _sha, issues, eval_error = commit_bound.evaluate(
+        qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
+    )
+    if not eval_error and commit_bound.is_commit_bound_refusal(issues):
+        return "", (
+            "re-bind passing QA proof recorded for an older commit of this "
+            "lane to the merging commit"
+        )
+    return qa_error, ""
 
 
 def verify_and_land(
@@ -46,10 +75,13 @@ def verify_and_land(
     repo_root: Path,
     project: str,
     read_item: Callable[[], tuple[dict[str, Any], str]],
+    enter_review: Callable[[], str],
 ) -> tuple[Optional[Any], str]:
     """Prove the lane before landing it. Returns ``(outcome, refusal)``.
 
     ``read_item`` re-reads the item when recovery re-ran a case.
+    ``enter_review`` moves the item into its review stage once the proof
+    holds and before anything lands; it returns a refusal or empty.
     """
     leaves_status_unchanged = bool(args.skip_status)
 
@@ -84,12 +116,9 @@ def verify_and_land(
         )
     if qa_error:
         return None, qa_error
-    # Read from the unfiltered item: the merge-phase view drops attachments
-    # bound to the terminal transition, and a post-deploy plan is owed
-    # whichever transition its attachment names.
-    plan_refusal = missing_item_qa_plan_refusal(item, public_ref=public_ref)
-    if plan_refusal:
-        return None, plan_refusal
+    review_refusal = enter_review()
+    if review_refusal:
+        return None, review_refusal
     return route_standalone_landing(
         item_id=item_id,
         branch=branch,
@@ -106,4 +135,4 @@ def verify_and_land(
     ), ""
 
 
-__all__ = ["verify_and_land"]
+__all__ = ["proof_check", "verify_and_land"]

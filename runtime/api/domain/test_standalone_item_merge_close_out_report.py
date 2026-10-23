@@ -8,10 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain import standalone_item_merge as sim
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
-from yoke_core.domain import (
-    standalone_item_merge_close_out_report as report,
-)
+from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import (
     standalone_item_merge_close_out_transition as close_out_transition,
 )
@@ -66,7 +65,7 @@ def _run_close_out(
     item = _item()
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )

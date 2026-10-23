@@ -155,7 +155,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "_resolve_checkout",
         lambda item, target: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         verify,
         "qa_preflight",
@@ -281,7 +281,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,
         "reacquire_landed_claim",

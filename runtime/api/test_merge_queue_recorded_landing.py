@@ -21,6 +21,8 @@ from runtime.api.merge_queue_landing_test_helpers import (
 )
 
 from yoke_core.domain import merge_queue_landing_outcome as outcome_mod
+from yoke_core.domain import standalone_item_merge_landed as merge_landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
@@ -201,14 +203,14 @@ def test_uncontained_candidate_from_release_does_not_advance_status(
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli, "review_readiness_refusal", lambda *_a, **_k: "")
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
     monkeypatch.setattr(
-        merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: "stale at release"
+        stale_lane, "stale_unlanded_work", lambda **_k: "stale at release"
     )
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_k: None)
+    monkeypatch.setattr(merge_landed, "landed_lane", lambda **_k: None)
+    monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: ("", ""))
     _cover(monkeypatch, "unlanded")
     advanced: list[str] = []
     monkeypatch.setattr(

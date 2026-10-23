@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
@@ -89,7 +90,7 @@ def test_pending_post_deploy_does_not_block_a_closing_merge(
     item["qa_requirements"][1]["id"] = 78
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     monkeypatch.setattr(

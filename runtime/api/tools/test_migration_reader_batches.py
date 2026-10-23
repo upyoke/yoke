@@ -59,7 +59,9 @@ def test_item_batch_keeps_every_default_field_and_discards_on_exit(
     insert_item(test_db, id=802, title="Second")
     test_db.commit()
     fields = [
-        field for field in DEFAULT_GET_FIELDS if field not in {"id", "deployment_flow"}
+        field
+        for field in DEFAULT_GET_FIELDS
+        if field not in {"id", "deployment_flow", "post_deploy_qa"}
     ]
     with db_backend.bound_pg_dsn(db_backend.resolve_pg_dsn()):
         expected = {
