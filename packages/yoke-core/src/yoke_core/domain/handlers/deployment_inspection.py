@@ -34,6 +34,9 @@ class DeploymentRunsFindByItemRequest(BaseModel):
 class DeploymentRunsFindByItemResponse(BaseModel):
     item_id: int
     completion_run: Optional[Dict[str, Any]] = None
+    #: The item's QA standing on ``completion_run`` (``member_qa_standings``
+    #: plus ``settling``); absent before the run reaches an item QA stage.
+    completion_item_qa: Optional[Dict[str, Any]] = None
     fields: List[str]
     rows: List[Dict[str, Any]]
 
@@ -81,6 +84,34 @@ def handle_deployment_flow_list(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def _completion_item_qa(
+    conn: Any, item_id: int, completion: Optional[dict[str, Any]]
+) -> Optional[dict[str, Any]]:
+    """The item's QA standing on the run that closes it, as Shipping reads it.
+
+    ``settling`` is the run's active settlement, the only authority for
+    "closing". ``None`` when no live run closes the item or the run has not
+    reached an item QA stage.
+    """
+    from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
+
+    if not completion or not completion.get("id"):
+        return None
+    run_id = str(completion["id"])
+    row = conn.execute(
+        "SELECT current_stage, settling_at FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    standing = member_qa_standings(
+        conn, [(run_id, int(item_id), str(row["current_stage"] or ""))]
+    ).get((run_id, int(item_id)))
+    if standing is None:
+        return None
+    return {**standing, "settling": row["settling_at"] is not None}
+
+
 def handle_deployment_runs_find_by_item(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -114,12 +145,16 @@ def handle_deployment_runs_find_by_item(
         completion = latest_completion_run(
             conn, int(request.target.item_id), skip_terminal_failures=True
         )
+        completion_qa = _completion_item_qa(
+            conn, int(request.target.item_id), completion
+        )
     finally:
         conn.close()
     return HandlerOutcome(
         result_payload={
             "item_id": int(request.target.item_id),
             "completion_run": completion,
+            "completion_item_qa": completion_qa,
             "fields": list(fields),
             "rows": _pipe_rows(raw, fields),
         },

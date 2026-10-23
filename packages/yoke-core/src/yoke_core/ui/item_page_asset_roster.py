@@ -11,6 +11,7 @@ from typing import Dict
 ITEM_PAGE_ASSET_CONTENT_TYPES: Dict[str, str] = {
     "item_detail_loader.js": "text/javascript; charset=utf-8",
     "item_view_approvals.js": "text/javascript; charset=utf-8",
+    "item_completion_standing.js": "text/javascript; charset=utf-8",
     "item_view_claimant.js": "text/javascript; charset=utf-8",
     "item_view_delivery.js": "text/javascript; charset=utf-8",
     "item_view_details.js": "text/javascript; charset=utf-8",

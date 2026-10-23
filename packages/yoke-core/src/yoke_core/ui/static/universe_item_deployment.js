@@ -4,9 +4,11 @@ import { deploymentRunHref } from "./universe_navigation.js";
 import { deliveryStateLabel, NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { relativeAge, relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
+import {
+  CLEARED_QA_STATES, clearedMemberOutcome, newestDoneApproval,
+} from "./item_completion_standing.js";
 
 const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
-const ACCEPTED_QA = new Set(["accepted", "discharged"]);
 
 function memberItemId(member) {
   const value = member.public_ref ?? member.ref ?? member.item_ref;
@@ -106,9 +108,10 @@ function itemOutcome(run) {
     return { symbol: "✗", text: `QA failed · ${qa.failed_requirement_ids.map((id) => `#${id}`).join(", ")}` };
   }
   if (qa?.state === "rejected") return { symbol: "✗", text: "QA failed" };
-  if (run.delivery_relation === "member" && ACCEPTED_QA.has(qa?.state)) {
-    const completion = completionStanding(run);
-    return { symbol: completion.symbol, text: `${qaDisposition(qa)} · ${completion.text}`, reason: completion.reason };
+  if (run.delivery_relation === "member" && CLEARED_QA_STATES.has(qa?.state)) {
+    return clearedMemberOutcome(qa, newestDoneApproval(run.gates, run.delivery_item?.id ?? ""), {
+      ref: memberItemId(run.delivery_item || {}), settling: Boolean(run.settling_at),
+    });
   }
   const status = String(run.status || "");
   if (status === "failed" || status === "cancelled") {
@@ -126,46 +129,6 @@ function itemOutcome(run) {
     symbol: "◐",
     text: `deploying${stage ? ` · at ${stage}` : ""} · ${started ? relativeAge(started) : "time unavailable"}`,
   };
-}
-
-// What the item's QA actually was, kept apart from whether the item has
-// completed: a recorded no-obligation answer is not a pass, and a waiver is
-// neither.
-function qaDisposition(qa) {
-  if (qa.state === "accepted") return "QA passed";
-  return qa.no_item_qa_required ? "no item QA required" : "QA waived";
-}
-
-// This member's own done approval on the run, newest first.
-function ownDoneApproval(run) {
-  const itemId = String(run.delivery_item?.id ?? "");
-  return (run.gates || []).filter((gate) => (
-    gate.kind === "lifecycle_transition_approval"
-    && String(gate.subject_context?.item_id ?? "") === itemId
-    && gate.subject_context?.to_stage === "done"
-  )).sort((left, right) => Number(right.request_id) - Number(left.request_id))[0] || null;
-}
-
-// Where completion stands once QA is clear, read from the approval's own
-// standing against the item now. Approval alone never reads as progress:
-// "closing" needs the run's active settlement, and an approved item that is
-// still open says so with where to read its remaining gates.
-function completionStanding(run) {
-  const approval = ownDoneApproval(run);
-  const ref = memberItemId(run.delivery_item || {}) || "the item";
-  const gates = `read \`yoke items get ${ref} status\` for its done gates`;
-  switch (approval?.standing) {
-    case "pending":
-      return { symbol: "◐", text: "awaiting approval" };
-    case "rejected":
-      return { symbol: "✗", text: "approval rejected", reason: `The done approval was rejected; ${gates}.` };
-    case "approved":
-      return run.settling_at
-        ? { symbol: "◐", text: "approved · closing" }
-        : { symbol: "◐", text: "approved · completion pending", reason: `Approved, but its close-out has not completed; ${gates}.` };
-    default:
-      return { symbol: "◐", text: "awaiting item completion" };
-  }
 }
 
 function deliveryRuns(row, deployments) {
@@ -193,7 +156,7 @@ function runWait(run) {
   const ownId = memberItemId(run.delivery_item || {});
   const pending = (run.member_items || []).filter((member) => (
     memberItemId(member) !== ownId
-    && (member.item_qa ? !ACCEPTED_QA.has(member.item_qa.state) : member.status !== "done")
+    && (member.item_qa ? !CLEARED_QA_STATES.has(member.item_qa.state) : member.status !== "done")
   )).map((member) => member.ref).filter(Boolean);
   if (pending.length) return `run still open: waiting on ${pending.join(", ")}`;
   const gate = (run.gates || []).find((entry) => entry.status === "pending");
