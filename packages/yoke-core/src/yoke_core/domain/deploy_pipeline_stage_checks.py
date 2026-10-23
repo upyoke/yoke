@@ -153,10 +153,22 @@ def check_completion_stage_qa(
     return awaiting_qa_exit
 
 
+def fresh_resume(run_status: str, from_stage: str, stage_name: str) -> bool:
+    """True when a failed run's ``--from-stage`` re-entry must dispatch fresh.
+
+    Only the named stage of a run whose status is ``failed`` is treated as
+    ``--fresh``, so that stage gets one new workflow dispatch. A re-drive of
+    a run that is not failed stays false and joins the dispatch already
+    started. Later stages of the same resume stay false too.
+    """
+    return run_status == "failed" and bool(from_stage) and from_stage == stage_name
+
+
 __all__ = [
     "check_completion_stage_qa",
     "check_resume_qa_gate",
     "check_unresolved_qa",
+    "fresh_resume",
     "report_missing_start_stage",
     "stage_completes_run",
 ]

@@ -36,8 +36,9 @@ render and runner-token authority; never reuse its token for deploy relay.
 Owners and org admins retain their permission wildcards.
 
 Workflow dispatch asks GitHub for the exact run id and disables retries on the
-non-idempotent POST. Its idempotency key reuses the stage key for resumes,
-scopes retriggers to the failed/empty predecessor, and gives `--fresh` a new
+non-idempotent POST. Its idempotency key reuses the stage key when a
+non-failed re-drive joins the same dispatch, scopes a stale predecessor to
+that run, and gives `--fresh` and a failed-run `--from-stage` re-entry a new
 scope, so transport replay cannot suppress a deliberately new run.
 
 Bootstrap each project service identity through the [canonical token entrypoint](self-host.md#restore-admin-access).
