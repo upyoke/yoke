@@ -20,11 +20,11 @@ from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
-QA_HOST_WAIT_TABLE = "qa_host_waits"
-LIVE_HOST_WAIT_STATES = ("waiting", "reserved")
+QA_TEST_MACHINE_WAIT_TABLE = "qa_test_machine_waits"
+LIVE_TEST_MACHINE_WAIT_STATES = ("waiting", "reserved")
 
-QA_HOST_WAIT_SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS qa_host_waits (
+QA_TEST_MACHINE_WAIT_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS qa_test_machine_waits (
     id TEXT PRIMARY KEY,
     test_machine TEXT NOT NULL,
     session_id TEXT NOT NULL,
@@ -37,22 +37,22 @@ CREATE TABLE IF NOT EXISTS qa_host_waits (
     rationale TEXT NOT NULL DEFAULT '',
     settled_at TIMESTAMPTZ
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_host_waits_live_session
-    ON qa_host_waits(test_machine, session_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_session
+    ON qa_test_machine_waits(test_machine, session_id)
     WHERE state IN ('waiting','reserved');
-CREATE INDEX IF NOT EXISTS idx_qa_host_waits_line
-    ON qa_host_waits(test_machine, state, queued_at);
+CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_line
+    ON qa_test_machine_waits(test_machine, state, queued_at);
 """
 
 
-def ensure_qa_host_wait_schema(conn: Any) -> None:
-    """Converge the additive host waiting-line table on ``conn``."""
-    execute_schema_script(conn, QA_HOST_WAIT_SCHEMA_SQL)
+def ensure_qa_test_machine_wait_schema(conn: Any) -> None:
+    """Converge the additive Test Machine waiting-line table on ``conn``."""
+    execute_schema_script(conn, QA_TEST_MACHINE_WAIT_SCHEMA_SQL)
 
 
 __all__ = [
-    "LIVE_HOST_WAIT_STATES",
-    "QA_HOST_WAIT_SCHEMA_SQL",
-    "QA_HOST_WAIT_TABLE",
-    "ensure_qa_host_wait_schema",
+    "LIVE_TEST_MACHINE_WAIT_STATES",
+    "QA_TEST_MACHINE_WAIT_SCHEMA_SQL",
+    "QA_TEST_MACHINE_WAIT_TABLE",
+    "ensure_qa_test_machine_wait_schema",
 ]

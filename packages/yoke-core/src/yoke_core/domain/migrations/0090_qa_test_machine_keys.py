@@ -4,8 +4,13 @@
 ``machines`` table). QA's own stored surfaces converge here so no reader has
 to recognize the retired spelling:
 
-- ``qa_host_waits.machine_id`` becomes ``test_machine``, with both line
-  indexes rebuilt on it.
+- The Test Machine waiting line moves from ``qa_host_waits`` (keyed by
+  ``machine_id``) to ``qa_test_machine_waits`` (keyed by ``test_machine``).
+  Every row is copied under its own id and the old table is dropped, so
+  this entry retires the ``0075_qa_host_wait_line`` invariant that the old
+  table exists. A new table, not a column rename, because the applied
+  ``0075`` body still creates and fills the old shape when full history
+  replays against a current schema.
 - ``qa_plan_executions.machine_lease_id`` becomes ``test_machine_lease_id``.
 - A ``qa_admission`` work claim's scope ``{"machine_id": NAME}`` becomes
   ``{"test_machine": NAME}``.
@@ -41,6 +46,7 @@ from yoke_core.domain.migrations._qa_test_machine_documents import (
     parsed,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.schema_migrations import (
     QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME as RUN_EVIDENCE_TRIGGER,
     QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_SQL,
@@ -48,27 +54,41 @@ from yoke_core.domain.schema_migrations import (
 
 #: Older builds read and write the retired keys.
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
-WAIT_TABLE = "qa_host_waits"
-RETIRED_COLUMN = "machine_id"
-CURRENT_COLUMN = "test_machine"
+RETIRES_INVARIANTS = ("0075_qa_host_wait_line",)
+RETIRED_WAIT_TABLE = "qa_host_waits"
+WAIT_TABLE = "qa_test_machine_waits"
 RETIRED_SCOPE_KEY = "machine_id"
 CURRENT_SCOPE_KEY = "test_machine"
 QA_ADMISSION = "qa_admission"
 EXECUTION_TABLE = "qa_plan_executions"
 RETIRED_LEASE_COLUMN = "machine_lease_id"
 CURRENT_LEASE_COLUMN = "test_machine_lease_id"
-WAIT_INDEXES = (
-    (
-        "idx_qa_host_waits_live_session",
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_host_waits_live_session "
-        "ON qa_host_waits(test_machine, session_id) "
-        "WHERE state IN ('waiting','reserved')",
-    ),
-    (
-        "idx_qa_host_waits_line",
-        "CREATE INDEX IF NOT EXISTS idx_qa_host_waits_line "
-        "ON qa_host_waits(test_machine, state, queued_at)",
-    ),
+#: Written here rather than imported from the schema module, because a
+#: history entry has to load from whatever build applies it.
+WAIT_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS qa_test_machine_waits (
+    id TEXT PRIMARY KEY,
+    test_machine TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    actor_id INTEGER NOT NULL,
+    queued_at TIMESTAMPTZ NOT NULL,
+    qa_plan_execution_id TEXT REFERENCES qa_plan_executions(id),
+    state TEXT NOT NULL CHECK(state IN ('waiting','reserved','granted','cancelled')),
+    claim_id INTEGER REFERENCES work_claims(id),
+    resume_command TEXT NOT NULL,
+    rationale TEXT NOT NULL DEFAULT '',
+    settled_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_test_machine_waits_live_session
+    ON qa_test_machine_waits(test_machine, session_id)
+    WHERE state IN ('waiting','reserved');
+CREATE INDEX IF NOT EXISTS idx_qa_test_machine_waits_line
+    ON qa_test_machine_waits(test_machine, state, queued_at);
+"""
+#: Every column after the host key, shared by the retired and current line.
+_WAIT_COLUMNS = (
+    "session_id", "actor_id", "queued_at", "qa_plan_execution_id", "state",
+    "claim_id", "resume_command", "rationale", "settled_at",
 )
 #: Each stored document: table, key column, JSON column, row filter, fold.
 _DOCUMENTS: tuple[tuple[str, str, str, str, Callable[[Any], Any]], ...] = (
@@ -82,9 +102,7 @@ def _marker(conn: Any) -> str:
     return "%s" if connection_is_postgres(conn) else "?"
 
 
-def _rename_column(
-    conn: Any, table: str, retired: str, current: str, indexes: tuple = ()
-) -> None:
+def _rename_column(conn: Any, table: str, retired: str, current: str) -> None:
     """Keep every stored value while converging either pre-boot shape.
 
     A boot that already added ``current`` leaves both columns: values move
@@ -92,8 +110,6 @@ def _rename_column(
     """
     if not _table_exists(conn, table) or not _column_exists(conn, table, retired):
         return
-    for name, _ in indexes:
-        conn.execute(f'DROP INDEX IF EXISTS "{name}"')
     if _column_exists(conn, table, current):
         conn.execute(
             f'UPDATE "{table}" SET "{current}" = "{retired}" '
@@ -104,8 +120,34 @@ def _rename_column(
         conn.execute(
             f'ALTER TABLE "{table}" RENAME COLUMN "{retired}" TO "{current}"'
         )
-    for _, ddl in indexes:
-        conn.execute(ddl)
+
+
+def _move_wait_line(conn: Any) -> None:
+    """Copy each retired-line row into the current line, then drop the old one.
+
+    A row whose id is already present was copied before; a live row is
+    skipped when the current line already holds that session's live wait on
+    the same test machine, which keeps the one-live-wait index satisfied.
+    """
+    if not _table_exists(conn, RETIRED_WAIT_TABLE):
+        return
+    execute_schema_script(conn, WAIT_TABLE_SQL)
+    machine = (
+        "machine_id"
+        if _column_exists(conn, RETIRED_WAIT_TABLE, "machine_id")
+        else "test_machine"
+    )
+    columns = ",".join(_WAIT_COLUMNS)
+    selected = ",".join(f"o.{column}" for column in _WAIT_COLUMNS)
+    conn.execute(
+        f"INSERT INTO {WAIT_TABLE}(id,test_machine,{columns}) "
+        f"SELECT o.id,o.{machine},{selected} FROM {RETIRED_WAIT_TABLE} o "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {WAIT_TABLE} n WHERE n.id=o.id) "
+        "AND NOT (o.state IN ('waiting','reserved') AND EXISTS ("
+        f"SELECT 1 FROM {WAIT_TABLE} n WHERE n.test_machine=o.{machine} "
+        "AND n.session_id=o.session_id AND n.state IN ('waiting','reserved')))"
+    )
+    conn.execute(f"DROP TABLE IF EXISTS {RETIRED_WAIT_TABLE}")
 
 
 def _rename_claim_scopes(conn: Any) -> None:
@@ -239,7 +281,7 @@ def _fold_rosters(conn: Any) -> None:
 
 
 def apply(conn: Any) -> None:
-    _rename_column(conn, WAIT_TABLE, RETIRED_COLUMN, CURRENT_COLUMN, WAIT_INDEXES)
+    _move_wait_line(conn)
     _rename_column(
         conn, EXECUTION_TABLE, RETIRED_LEASE_COLUMN, CURRENT_LEASE_COLUMN
     )
@@ -250,28 +292,33 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
-    """Prove each renamed column names its host only as a test machine."""
-    for table, retired, current in (
-        (WAIT_TABLE, RETIRED_COLUMN, CURRENT_COLUMN),
-        (EXECUTION_TABLE, RETIRED_LEASE_COLUMN, CURRENT_LEASE_COLUMN),
-    ):
-        if not _table_exists(conn, table):
-            continue
-        assert _column_exists(conn, table, current), (
-            f"{table}.{current} is missing after the test machine rename"
+    """Prove the waiting line and lease name their host only as a test machine."""
+    assert not _table_exists(conn, RETIRED_WAIT_TABLE), (
+        f"{RETIRED_WAIT_TABLE} remains after the test machine rename; rerun "
+        "this entry's rehearsal"
+    )
+    if _table_exists(conn, WAIT_TABLE):
+        assert _column_exists(conn, WAIT_TABLE, "test_machine"), (
+            f"{WAIT_TABLE}.test_machine is missing after the test machine rename"
         )
-        assert not _column_exists(conn, table, retired), (
-            f"{table}.{retired} remains after the test machine rename"
+    if _table_exists(conn, EXECUTION_TABLE):
+        assert _column_exists(conn, EXECUTION_TABLE, CURRENT_LEASE_COLUMN), (
+            f"{EXECUTION_TABLE}.{CURRENT_LEASE_COLUMN} is missing after the "
+            "test machine rename"
+        )
+        assert not _column_exists(conn, EXECUTION_TABLE, RETIRED_LEASE_COLUMN), (
+            f"{EXECUTION_TABLE}.{RETIRED_LEASE_COLUMN} remains after the test "
+            "machine rename"
         )
 
 
 __all__ = [
-    "CURRENT_COLUMN",
     "CURRENT_LEASE_COLUMN",
     "EXECUTION_TABLE",
     "MINIMUM_SERVING_VERSION",
-    "RETIRED_COLUMN",
     "RETIRED_LEASE_COLUMN",
+    "RETIRED_WAIT_TABLE",
+    "RETIRES_INVARIANTS",
     "WAIT_TABLE",
     "apply",
     "invariants",

@@ -107,7 +107,7 @@ def _begin(execution: dict, case: dict) -> Any:
 
 def _wait_state(conn: Any, session_id: str) -> str:
     row = conn.execute(
-        "SELECT state FROM qa_host_waits WHERE session_id=%s ORDER BY queued_at DESC",
+        "SELECT state FROM qa_test_machine_waits WHERE session_id=%s ORDER BY queued_at DESC",
         (session_id,),
     ).fetchone()
     return str(row["state"])
@@ -182,7 +182,7 @@ def test_unhealthy_host_queues_until_a_golden_capture_heals_it(
 
     # An ended session drops out: the healed host passes over it.
     test_db.execute(
-        "INSERT INTO qa_host_waits(id,test_machine,session_id,actor_id,queued_at,"
+        "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,queued_at,"
         "state,resume_command,rationale) VALUES(%s,%s,'ended-waiter',1,"
         "now() - interval '1 hour','waiting','yoke qa plan run','queued')",
         (str(uuid4()), MACHINE),

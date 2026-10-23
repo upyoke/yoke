@@ -93,8 +93,9 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # all born with that table.
 # The visitor link table (actor_visitor_links) is net-new; its visitor id,
 # owning actor, link stamp and refusal record are all born with that table.
-# The Test Machine waiting line (qa_host_waits) is net-new; every waiter,
-# turn and settlement column is born with that table.
+# The Test Machine waiting line (qa_test_machine_waits) is net-new; every waiter,
+# turn and settlement column is born with that table. An ordered history entry
+# moves the retired qa_host_waits line into it and drops the old table.
 # An ordered history entry retires event_registry's born-with status,
 # added_in and context_schema columns; the code event catalog owns the rest.
 # The re-land attempt table (merge_queue_landing_attempts) is net-new; its
@@ -112,7 +113,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # An ordered history entry renames qa_plan_executions' born-with
 # machine_lease_id to test_machine_lease_id, so neither spelling is born-with.
 _BORN_WITH_COLUMN_DIGEST = (
-    "288261f0bc87e99b5851aa2b206bd53262974e065992c804a3ddff0e763230ac"
+    "4ecfd712a64046213073922f6f70d083d67ce61bd3d65682eaed93d00cc3eb30"
 )
 
 

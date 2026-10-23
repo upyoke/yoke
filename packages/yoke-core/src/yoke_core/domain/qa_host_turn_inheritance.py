@@ -5,7 +5,7 @@ every session that queued behind it. When it is aborted, the next execution of
 the same run, stage and shared plan joins that host's line at the aborted
 walk's place, so the recovery resumes next instead of joining the back. The
 place is the earliest of the walk's granted waits and host leases, read from
-the existing ``qa_host_waits`` and ``work_claims`` records.
+the existing ``qa_test_machine_waits`` and ``work_claims`` records.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def held_host_place(
     row = query_one(
         conn,
         "SELECT MIN(place) AS place FROM ("
-        "SELECT w.queued_at AS place FROM qa_host_waits w "
+        "SELECT w.queued_at AS place FROM qa_test_machine_waits w "
         f"WHERE w.qa_plan_execution_id={p} AND w.test_machine={p} "
         "AND w.state='granted' UNION ALL "
         f"SELECT wc.claimed_at FROM work_claims wc WHERE {where} "

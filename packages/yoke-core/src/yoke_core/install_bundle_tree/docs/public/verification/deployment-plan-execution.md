@@ -138,8 +138,8 @@ An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
 is busy, let the plan runner queue you, then park; you are woken when it is
 your turn. When a host its case needs is leased, or its newest health fact
 is a failed verification, plan acquisition keeps its cursor open and its
-session joins the host's waiting line (`qa_host_waits`), the same FIFO line a
-refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
+session joins the host's waiting line (`qa_test_machine_waits`), the same
+FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
 joins. The runner prints `Queued for QA host <machine>, position N of M` with
 the park command; write no host hold of your own. A session keeps its place
 from its first wait and across retries; a rerun of an aborted shared walk

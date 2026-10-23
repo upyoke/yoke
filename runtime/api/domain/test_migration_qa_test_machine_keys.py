@@ -17,8 +17,10 @@ MIGRATION = importlib.import_module(
 DOCUMENTS = importlib.import_module(
     "yoke_core.domain.migrations._qa_test_machine_documents"
 )
+WAIT_LINE_ENTRY = importlib.import_module(
+    "yoke_core.domain.migrations.0075_qa_host_wait_line"
+)
 LEGACY_WAITS = """
-DROP TABLE qa_host_waits;
 CREATE TABLE qa_host_waits (
     id TEXT PRIMARY KEY,
     machine_id TEXT NOT NULL,
@@ -176,21 +178,21 @@ def test_entry_restores_current_keys_and_the_verified_roster_digest(
         "SELECT metadata FROM qa_artifacts WHERE qa_run_id=%s", (run_id,)
     ).fetchone()[0]
     assert json.loads(metadata) == {"case_key": "c", "test_machine": support.MACHINES[1]}
-    assert _rows(test_db, "SELECT id, test_machine FROM qa_host_waits") == [
+    assert _rows(test_db, "SELECT id, test_machine FROM qa_test_machine_waits") == [
         ("wait-1", support.MACHINES[0])
     ]
+    assert not MIGRATION._table_exists(test_db, "qa_host_waits")
     indexes = dict(
         _rows(
             test_db,
             "SELECT indexname, indexdef FROM pg_indexes "
-            "WHERE tablename='qa_host_waits' AND indexname LIKE 'idx_qa_host_waits_%%'",
+            "WHERE tablename='qa_test_machine_waits'",
         )
     )
-    assert set(indexes) == {
-        "idx_qa_host_waits_live_session",
-        "idx_qa_host_waits_line",
-    }
-    assert all("test_machine" in definition for definition in indexes.values())
+    assert {
+        "idx_qa_test_machine_waits_live_session",
+        "idx_qa_test_machine_waits_line",
+    } <= set(indexes)
     scopes = _rows(
         test_db,
         "SELECT scope FROM work_claims WHERE target_kind='qa_admission' ORDER BY id",
@@ -230,3 +232,70 @@ def test_a_retired_lease_column_beside_the_current_one_is_dropped(test_db):
     assert not MIGRATION._column_exists(
         test_db, "qa_plan_executions", "machine_lease_id"
     )
+
+
+def _legacy_wait(conn, wait_id, state="waiting", session=None):
+    conn.execute(
+        "INSERT INTO qa_host_waits(id,machine_id,session_id,actor_id,queued_at,"
+        "state,resume_command,rationale) "
+        "VALUES(%s,'linux-lab',%s,1,now(),%s,'resume','lease held')",
+        (wait_id, session or f"session-{wait_id}", state),
+    )
+
+
+def test_every_retired_line_row_moves_once_and_the_old_table_is_dropped(test_db):
+    test_db.execute(LEGACY_WAITS)
+    _legacy_wait(test_db, "moved")
+    _legacy_wait(test_db, "settled", state="granted")
+    test_db.execute(
+        "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,"
+        "queued_at,state,resume_command) "
+        "VALUES('moved','linux-lab','session-moved',1,now(),'waiting','resume')"
+    )
+
+    MIGRATION.apply(test_db)
+    MIGRATION.apply(test_db)
+    MIGRATION.invariants(test_db)
+
+    assert _rows(
+        test_db,
+        "SELECT id, test_machine, state, rationale FROM qa_test_machine_waits "
+        "ORDER BY id",
+    ) == [
+        ("moved", "linux-lab", "waiting", ""),
+        ("settled", "linux-lab", "granted", "lease held"),
+    ]
+    assert not MIGRATION._table_exists(test_db, "qa_host_waits")
+
+
+def test_a_live_wait_already_in_the_current_line_is_not_duplicated(test_db):
+    test_db.execute(LEGACY_WAITS)
+    _legacy_wait(test_db, "old-live", session="waiter")
+    test_db.execute(
+        "INSERT INTO qa_test_machine_waits(id,test_machine,session_id,actor_id,"
+        "queued_at,state,resume_command) "
+        "VALUES('new-live','linux-lab','waiter',1,now(),'waiting','resume')"
+    )
+
+    MIGRATION.apply(test_db)
+
+    assert _rows(test_db, "SELECT id FROM qa_test_machine_waits") == [
+        ("new-live",)
+    ]
+
+
+def test_history_replay_over_the_current_schema_converges(test_db):
+    # A replay runs the applied line entry against a schema that already has
+    # the current line table; that entry recreates its own retired table.
+    WAIT_LINE_ENTRY.apply(test_db)
+    WAIT_LINE_ENTRY.invariants(test_db)
+    _legacy_wait(test_db, "replayed")
+
+    MIGRATION.apply(test_db)
+    MIGRATION.invariants(test_db)
+
+    assert _rows(test_db, "SELECT id FROM qa_test_machine_waits") == [
+        ("replayed",)
+    ]
+    assert not MIGRATION._table_exists(test_db, "qa_host_waits")
+    assert "0075_qa_host_wait_line" in MIGRATION.RETIRES_INVARIANTS

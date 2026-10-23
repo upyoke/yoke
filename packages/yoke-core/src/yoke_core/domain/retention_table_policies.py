@@ -117,7 +117,7 @@ def policies(policy, cutoff):
             (before("settled_waits"),),
         ),
         Cleanup(
-            "qa_host_waits",
+            "qa_test_machine_waits",
             ("id",),
             "t.state IN ('granted','cancelled') AND t.settled_at<%s "
             "AND EXISTS (SELECT 1 FROM qa_plan_executions e WHERE e.id=t.qa_plan_execution_id AND e.state IN ('completed','aborted') AND e.completed_at<%s)",

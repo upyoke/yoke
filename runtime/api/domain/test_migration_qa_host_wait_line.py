@@ -45,8 +45,11 @@ def _waits(conn):
 
 
 def test_entry_moves_waiting_and_reserved_executions_into_the_line(test_db):
-    # The entry predates the line table and creates it in its own shape.
-    test_db.execute("DROP TABLE qa_host_waits")
+    # The entry creates its retired line table in its own shape; the
+    # current schema keeps the line in a later table.
+    assert test_db.execute(
+        "SELECT to_regclass('qa_host_waits')"
+    ).fetchone()[0] is None
     seed_qa_session(test_db, "waiter", "reserved", "settled")
     waiting = _queued(
         test_db, "waiter", state="waiting", queued_at="2026-10-01T10:00:01Z"

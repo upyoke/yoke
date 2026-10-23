@@ -77,7 +77,7 @@ def _execution_wait(conn, session_id, test_machine=MACHINE):
 
 def _wait_state(conn, session_id):
     row = conn.execute(
-        "SELECT state FROM qa_host_waits WHERE session_id=%s ORDER BY queued_at DESC",
+        "SELECT state FROM qa_test_machine_waits WHERE session_id=%s ORDER BY queued_at DESC",
         (session_id,),
     ).fetchone()
     return row["state"]
