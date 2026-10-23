@@ -7,7 +7,7 @@ from typing import Any
 
 from yoke_core.domain.db_savepoint import SavepointLostError, savepoint
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.session_message_types import SessionMessageError
 
 _SEND_SAVEPOINT = "_yoke_moved_member_qa_notice"
 
@@ -32,6 +32,34 @@ def moved_member_body(*, item_ref: str, old_id: str, new_id: str, stage_name: st
     )
 
 
+def _member_rows(conn: Any, item_ids: Sequence[int]) -> list[dict[str, Any]]:
+    """One read for every moved member. The lock window stays the same at any size."""
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids:
+        return []
+    rows = conn.execute(
+        "SELECT i.id, i.project_id, i.project_sequence, p.slug, p.public_item_prefix "
+        "FROM items i JOIN projects p ON p.id=i.project_id "
+        "WHERE i.id=ANY(%s) ORDER BY i.id",
+        (ids,),
+    ).fetchall()
+    if len(rows) != len(ids):
+        raise ValueError(
+            "moved_member_qa_notice_failed: a moved member disappeared "
+            "during takeover; retry the creation"
+        )
+    return [
+        {
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "project_sequence": row["project_sequence"],
+            "slug": row["slug"],
+            "public_item_prefix": row["public_item_prefix"],
+        }
+        for row in rows
+    ]
+
+
 def notify_moved_member_qa(
     conn: Any,
     *,
@@ -40,39 +68,51 @@ def notify_moved_member_qa(
     item_ids: Sequence[int],
     stages: Sequence[Mapping[str, Any]],
 ) -> None:
-    """Reach each moved member once. A send failure refuses the takeover."""
+    """Reach each moved member once, without a query per member.
+
+    A recipient the hook cannot reach does not undo the move. The takeover
+    is already durable in this transaction; the notice is the wake.
+    """
+    from yoke_contracts.public_ref import format_item_ref
+    from yoke_core.domain.merge_queue_landing_notice import addressable_items
+
     stage_name = item_qa_stage_name(stages)
-    for item_id in item_ids:
-        item = conn.execute(
-            "SELECT project_id FROM items WHERE id=%s", (int(item_id),)
-        ).fetchone()
-        if item is None:
-            raise ValueError(
-                "moved_member_qa_notice_failed: a moved member disappeared "
-                f"during takeover onto {new_id}; retry the creation"
-            )
-        project_id = int(item["project_id"] if hasattr(item, "keys") else item[0])
-        item_ref = render_item_ref(conn, int(item_id))
-        body = moved_member_body(
-            item_ref=item_ref, old_id=old_id, new_id=new_id, stage_name=stage_name
+    rows = _member_rows(conn, item_ids)
+    by_project: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_project.setdefault(int(row["project_id"]), []).append(row)
+    for project_id, members in by_project.items():
+        reachable = addressable_items(
+            conn,
+            item_ids=[int(row["id"]) for row in members],
+            project_id=project_id,
         )
-        key = f"deployment-qa-moved:{new_id}:{int(item_id)}"
-        try:
-            with savepoint(conn, _SEND_SAVEPOINT, owns=False):
-                push_member_notice(
-                    conn,
-                    item_id=int(item_id),
-                    project_id=project_id,
-                    body_for_route=lambda route, body=body: body,
-                    idempotency_key=key,
-                )
-        except SavepointLostError:
-            raise
-        except Exception as exc:
-            raise ValueError(
-                f"moved_member_qa_notice_failed: could not tell {item_ref} that "
-                f"QA moved to run {new_id}; retry the creation. Cause: {exc}"
-            ) from exc
+        for row in members:
+            item_id = int(row["id"])
+            if item_id not in reachable:
+                continue
+            item_ref = format_item_ref(
+                row["slug"], row["public_item_prefix"], row["project_sequence"]
+            )
+            body = moved_member_body(
+                item_ref=item_ref,
+                old_id=old_id,
+                new_id=new_id,
+                stage_name=stage_name,
+            )
+            try:
+                with savepoint(conn, _SEND_SAVEPOINT, owns=False):
+                    push_member_notice(
+                        conn,
+                        item_id=item_id,
+                        project_id=project_id,
+                        body_for_route=lambda route, body=body: body,
+                        idempotency_key=f"deployment-qa-moved:{new_id}:{item_id}",
+                    )
+            except SavepointLostError:
+                raise
+            except SessionMessageError:
+                continue
 
 
 __all__ = ["item_qa_stage_name", "moved_member_body", "notify_moved_member_qa"]
