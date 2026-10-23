@@ -63,6 +63,12 @@ are detached when replaced or unmounted. A null factory result hides the section
 until its next render. Factory failures show `host_section_render_failed` with
 recovery on the affected page. `beforeScope` controls visual placement, while the
 factory still receives the current selection so it can choose its own use of it.
+On a scope-less page `beforeScope` leads the page, above the view's own content,
+and `inView` follows that content; Team's seat section uses `beforeScope`.
+Team also reads `capabilities.data.team.seatsLeft` once at mount: a
+non-negative integer adds a seats-left count to the Invites header and the
+invite form for people who can invite, and anything else draws no seats line.
+The retired `members` path stays in the route contract and opens Team.
 
 The TypeScript source declares the mount contract version. After changing it,
 compile `contracts/tsconfig.json` with the UI's pinned TypeScript compiler and

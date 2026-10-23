@@ -1,11 +1,11 @@
 {
  "id": "members",
- "title": "Members",
+ "title": "Members (removed)",
  "status": "observed",
- "summary": "Cloud Members is the Platform-fed seats destination. People, roles, and invites live on Team; Billing holds the plan and payments.",
+ "summary": "There is no Members destination. Team is the one people destination in every mode; a /members link opens Team, and Billing holds the plan and payments.",
  "related": "identity/accounts",
  "page": "workbench-destinations",
  "position": 12,
- "text": "Hosted Members keeps seats and billing. Its role editor and invite controls remain until the materialized Team contract declares the people destination; that same contract predicate retires the old site controls and routes people management to Team. Hosted email invitations behind Team still use Platform identity.invite.create, identity.invite.list and identity.invite.revoke. Conditional consumer source is observed; Team availability and deployed behavior require separate proof.",
- "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md"]
+ "text": "The host-fed Members destination is removed. People, machine accounts, roles and invites live on Team in local, self-hosted and Cloud. On Cloud, Platform supplies seats as Team's beforeScope host section, which leads the page above Invites, and passes capabilities.data.team.seatsLeft so the Invites header and invite form show seats left to people who can invite. Hosted email invitations behind Team still use Platform identity.invite.create, identity.invite.list and identity.invite.revoke. The /members path stays in the route contract and opens Team.",
+ "sources": ["docs/public/projects/actors-members-billing.md", "packages/yoke-core/src/yoke_core/ui/static/universe_destinations.js", "docs/universe-path-routing.md"]
 }

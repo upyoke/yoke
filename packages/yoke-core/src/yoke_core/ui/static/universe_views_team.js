@@ -39,12 +39,24 @@ function showDisabledToggle(documentNode, disabledCount, view, redraw) {
   return label;
 }
 
-function groupPanel(documentNode, title, shown, table) {
+// A host's seats-left fact (`capabilities.data.team.seatsLeft`), or null
+// when the host supplies none or supplies something that is not a count.
+function hostSeatsLeft(capabilities) {
+  const seatsLeft = capabilities?.data?.team?.seatsLeft;
+  return Number.isInteger(seatsLeft) && seatsLeft >= 0 ? seatsLeft : null;
+}
+
+function seatsText(count) {
+  return `${count} ${count === 1 ? "seat" : "seats"} left`;
+}
+
+function groupPanel(documentNode, title, shown, table, headerControl = null) {
   const panel = el(documentNode, "section", "panel actors-panel");
   const header = el(documentNode, "div", "panel-header");
   const heading = el(documentNode, "h2", null, title);
   heading.appendChild(el(documentNode, "span", "panel-count", `· ${shown}`));
   header.appendChild(heading);
+  if (headerControl) header.appendChild(headerControl);
   const body = el(documentNode, "div", "panel-body actors-group-body");
   body.appendChild(shown ? table() : el(documentNode, "p", "empty actors-empty", "None active."));
   panel.appendChild(header);
@@ -58,16 +70,18 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
   const hosted = mode === "hosted";
   const preferences = context.screenPreferences;
   const view = { showDisabled: false, showUsed: false };
+  const seatsLeft = hostSeatsLeft(context.capabilities);
   let roster = {}, rows = [], invites = [], fact = null, inviteRead = null, formOpen = false, generation = 0;
   let sort = normalizeActorSort(preferences?.sortFor(SORT_VIEW));
   const localNotice = el(documentNode, "div", "panel actors-local-notice");
   localNotice.hidden = mode !== "local";
-  const controls = el(documentNode, "div", "actors-controls");
+  const localBody = el(documentNode, "div", "panel-body");
+  localNotice.appendChild(localBody);
   const body = el(documentNode, "div", "actors-body", "Loading team…");
   const feedback = el(documentNode, "p", "actors-muted");
   feedback.setAttribute("role", "status");
   body.setAttribute("role", "status");
-  main.replaceChildren(localNotice, controls, body, feedback);
+  main.replaceChildren(localNotice, body, feedback);
   const panel = groupPanel(documentNode, "Invites", 0, () => null);
   panel.classList.add("actors-invites");
   const header = panel.children[0], inviteBody = panel.children[1];
@@ -75,7 +89,8 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
   const listing = el(documentNode, "div", null, "Loading invites…");
   listing.setAttribute("role", "status");
   inviteBody.replaceChildren(slot, listing);
-  if (mode !== "local") main.replaceChildren(localNotice, controls, body, panel, feedback);
+  // Invites lead the roster: pending invites are the people still to act on.
+  if (mode !== "local") main.replaceChildren(localNotice, panel, body, feedback);
   const active = () => context.isMounted() && main.contains(body);
   const success = (response) => response?.status === 200 && response.envelope?.success;
   const read = (id, payload = {}) => callFunction(context.client, id, payload)
@@ -103,7 +118,7 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
     formOpen = true;
     head();
     openInviteForm(context, slot, {
-      fact, roles: roster.person_org_roles, roleDescriptions: roster.role_descriptions || {}, roster: rows,
+      fact, roles: roster.person_org_roles, roleDescriptions: roster.role_descriptions || {}, roster: rows, seatsLeft,
       onCreated: created,
       onCancel: () => { formOpen = false; head(); invite.focus(); },
     });
@@ -120,23 +135,24 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
   };
   const draw = () => {
     const disabledCount = rows.filter((row) => row.status === "disabled").length;
-    controls.replaceChildren();
-    if (disabledCount) controls.appendChild(showDisabledToggle(documentNode, disabledCount, view, draw));
     const visible = view.showDisabled ? rows : rows.filter((row) => row.status !== "disabled");
     body.replaceChildren();
     for (const group of groups(hosted)) {
       if (!rows.some(group.includes)) continue;
       const actors = sortActors(visible.filter(group.includes), sort);
+      // Show disabled filters People, so it sits in the People header.
+      const toggle = group.title === "People" && disabledCount
+        ? showDisabledToggle(documentNode, disabledCount, view, draw) : null;
       body.appendChild(groupPanel(documentNode, group.title, actors.length, () => renderActorTable(
         documentNode, { actors, columns: group.columns, roster, sort, onSort, feedback, reload },
-      )));
+      ), toggle));
     }
     if (!rows.length) body.appendChild(el(
       documentNode, "p", "empty actors-empty", "No actors are registered in this universe.",
     ));
     if (mode === "local") {
-      localNotice.replaceChildren(localReachabilityNotice(documentNode));
-      if (rows.length === 1 && rows[0].kind === "human") localNotice.appendChild(el(
+      drawLocalNotice();
+      if (rows.length === 1 && rows[0].kind === "human") localBody.appendChild(el(
         documentNode, "p", "actors-muted", "You are the only actor in this universe.",
       ));
     }
@@ -181,6 +197,7 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
       "Invite roles are unavailable. Ask the server operator to upgrade, then reload."));
     const used = invites.filter((row) => row.state === "consumed" || row.status === "accepted").length;
     title.appendChild(el(documentNode, "span", "panel-count", `· ${invites.length - (view.showUsed ? 0 : used)}`));
+    if (seatsLeft !== null && canInvite()) title.appendChild(el(documentNode, "span", "panel-count", `· ${seatsText(seatsLeft)}`));
     if (used) {
       const label = el(documentNode, "label", "actors-show-disabled");
       const input = el(documentNode, "input");
@@ -228,7 +245,14 @@ export function renderTeamView(context, main, _scope, _detail, chrome = {}) {
     head();
     drawInvites();
   };
-  if (mode === "local") localNotice.appendChild(localReachabilityNotice(documentNode));
+  // Local: the notice names the next step, so one person reads as a start.
+  function drawLocalNotice() {
+    localBody.replaceChildren(
+      el(documentNode, "h3", "actors-local-heading", "Set up a team server to add people"),
+      localReachabilityNotice(documentNode),
+    );
+  }
+  if (mode === "local") drawLocalNotice();
   head();
   const notice = preferences ? refreshScreenSort(context.client, preferences, SORT_VIEW).then((message) => {
     if (active()) { sort = normalizeActorSort(preferences.sortFor(SORT_VIEW)); feedback.textContent = message; if (rows.length) draw(); }

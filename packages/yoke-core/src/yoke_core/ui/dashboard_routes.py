@@ -39,8 +39,9 @@ def is_dashboard_path(path: str) -> bool:
 def render_contract(target_root: Path) -> str:
     source = target_root / UI_REL / "static" / "universe_destinations.js"
     code = (
-        "import { NAV } from " + json.dumps(source.as_uri()) + ";"
-        "console.log(JSON.stringify({views:NAV.map(row=>row.id),"
+        "import { NAV, MOVED_VIEWS } from " + json.dumps(source.as_uri()) + ";"
+        "console.log(JSON.stringify({views:[...NAV.map(row=>row.id),"
+        "...Object.keys(MOVED_VIEWS)],"
         "tabs:Object.fromEntries(NAV.filter(row=>row.tabs).map(row=>"
         "[row.id,row.tabs.map(tab=>tab.id)]))}));"
     )

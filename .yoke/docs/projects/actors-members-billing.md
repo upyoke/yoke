@@ -1,4 +1,4 @@
-# Team, Members, Billing, Universe settings
+# Team, Billing, Universe settings
 
 <!-- yoke:breadcrumbs -->
 [Yoke](../index.md) > [Projects](index.md) > Actors, members and billing
@@ -12,8 +12,10 @@ at the platform routes (`/connect`, `/machine`).
 
 The dashboard's **Team** page reads the live actor roster in two groups:
 **People** (human actors) and **Machine accounts** (system actors). Each row
-shows the actor's active or disabled state and every unrevoked API key by
-name, ID, last use, and machine association. A person's row also shows
+shows the actor's active or disabled state and its API keys: a key count
+and the most recent use (UTC time and machine name). Expanding the count
+lists every unrevoked key by name, ID, last use, and machine association;
+an actor with none reads **No active keys**. A person's row also shows
 their org role and **Project access**: every org role reaches every project
 in the org, so access starts with `All projects · from org <role>`, then
 each project grant as `<project> · <role>`, with the role styled as a role
@@ -25,8 +27,8 @@ bootstrap grants (`hosted_service`), and what the role allows. The roster
 read serves these role descriptions and role sets, so the page copies no
 role prose. Hosted
 mode adds a **Member email** column to People: the linked sign-in email when
-one exists. Disabled actors are hidden by default; **Show disabled (N)** names
-how many are hidden and reveals them. Every column but Action sorts from its
+one exists. Disabled actors are hidden by default; **Show disabled (N)** in
+the People header names how many are hidden and reveals them. Every column but Action sorts from its
 header, and the chosen sort is saved to your actor's preferences under the
 actor roster, the same store the Items table uses, so it follows you across
 tabs, browsers, and reloads rather than staying in one browser. An org admin
@@ -40,7 +42,9 @@ Disabling immediately blocks
 the actor's browser sessions and other authority and revokes all its API keys,
 including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.
-A local universe with one human actor says you are the only actor.
+A local universe has no Invites panel. Its notice, headed **Set up a team
+server to add people**, names `yoke self-host init`; with one human actor it
+also says you are the only actor.
 
 Org admins use **Invite** in the Team page head. The server selects the form:
 
@@ -59,8 +63,10 @@ that person through a private channel. **Done** or leaving Team removes the
 code; Yoke keeps only its hash. An email invitation shows a sent confirmation
 without a code.
 
-The **Invites** panel shows each person, invite kind, role, state, expiry and
-inviter. Pending, expired, revoked and joined rows are grouped in that order,
+The **Invites** panel sits above People and shows each person, invite kind,
+role, state, expiry and inviter. On Cloud, when the viewer can invite, its
+header also shows **· N seats left** and the invite form adds **This invite
+uses 1 of N seats left.** Pending, expired, revoked and joined rows are grouped in that order,
 with newest creation time first within a group. **Show used** reveals joined
 rows. An explicit empty role grant is shown as **No role grant**. Older servers
 with incomplete fields show unavailable/upgrade information, never inferred
@@ -116,10 +122,12 @@ and machine-authorization expiry or withdrawal. See the
 [hosted handoff contract](../cli/machine-authorization.md#hosted-code-handoff). No member or admin token can stand in for it, including the
 universe's first `initial-admin` token.
 
-## Members (Cloud)
+## Seats and membership (Cloud)
 
-Platform keeps seats here. People, roles, and invites live on **Team**.
-Members is not a product concern in pure local mode.
+Team is the one people destination in every mode. On Cloud, Platform's seat
+section leads the Team page, above Invites; there is no separate Members
+page, and a `/members` link opens Team. Local and self-hosted Team pages
+have no seat section.
 
 Membership admission adopts the person's account name for cards, boards and
 events. Account renames sync on the next membership update without changing
@@ -144,7 +152,7 @@ Organization / universe level: export/import portability, founding new orgs
 | Concern | Local | Self-hosted | Cloud |
 |---|---|---|---|
 | Workbench | `yoke ui up` | `yoke ui up`: company sign-in or a single-use token link | app.upyoke.com |
-| Members / Billing | N/A | N/A | Platform sections |
+| Seats / Billing | N/A | N/A | Team seat section; Billing page |
 | Team invitations | Unavailable; reachability notice | Name/code or company email, as reported by the server | Email invitation |
 | Machine approval | N/A (you are the machine) | Connect, then approve your own machine from the printed link or Machines | Machines page / connect |
 | Universe export | Yes | Yes | Yes (portability) |

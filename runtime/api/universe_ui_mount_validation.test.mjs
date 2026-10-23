@@ -70,20 +70,20 @@ test("mount rejects section content the way it rejects slot content", () => {
   const client = injectedClient("unused");
 
   assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: fragment },
+    client, sections: { billing: fragment },
   }), /section content must be an Element/);
   assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: node, billing: node },
+    client, sections: { team: node, billing: node },
   }), /cannot occupy two universe app slots or sections/);
   // The duplicate ledger spans slots and sections: one Element cannot stand
   // in a slot and a section at once.
   assert.throws(() => mountUniverseApp(root, {
-    client, slots: { contentAfter: node }, sections: { members: node },
+    client, slots: { contentAfter: node }, sections: { billing: node },
   }), /cannot occupy two universe app slots or sections/);
   // A placement the contract does not define is refused by name rather than
   // silently falling back to the default.
   assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: { content: node, placement: "sideways" } },
+    client, sections: { billing: { content: node, placement: "sideways" } },
   }), /placement must be one of inView, beforeScope/);
   assert.equal(root.children.length, 0);
   assert.equal(node.parentNode, null);
@@ -149,12 +149,14 @@ test("every nav destination declares how it takes project scope", () => {
   ]) {
     assert.equal(universeNavScope(view), "none");
   }
-  // Members and Billing are host-fed views: the workbench routes them like
-  // any destination, and no project narrows a host-owned screen.
-  for (const hostFed of ["members", "billing"]) {
-    assert.equal(universeNavScope(hostFed), "none");
-    assert.deepEqual(parseUniverseRoute(`/${hostFed}`), {
-      view: hostFed, tab: null, detail: null, project: null, selection: null,
-    });
-  }
+  // Billing is host-fed: the workbench routes it like any destination, and
+  // no project narrows a host-owned screen.
+  assert.equal(universeNavScope("billing"), "none");
+  assert.deepEqual(parseUniverseRoute("/billing"), {
+    view: "billing", tab: null, detail: null, project: null, selection: null,
+  });
+  // The retired Members path opens Team, the one people destination.
+  assert.deepEqual(parseUniverseRoute("/members"), {
+    view: "team", tab: null, detail: null, project: null, selection: null,
+  });
 });

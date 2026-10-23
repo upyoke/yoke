@@ -31,7 +31,6 @@ def test_every_nav_destination_is_routable_and_scoped():
         "projects",
         "github",
         "team",
-        "members",
         "billing",
         "items",
         "deployments",
@@ -62,7 +61,10 @@ def test_every_nav_destination_is_routable_and_scoped():
     assert 'id: "instructions"' not in page_module
     # Host-fed screens sit in the same flat nav arc as every other view, and
     # the flag ties each entry's visibility to a host-supplied section.
-    for host_fed in ("members", "billing"):
-        entry_start = page_module.index(f'id: "{host_fed}"')
-        entry_end = page_module.index("}", entry_start)
-        assert "hostFed: true" in page_module[entry_start:entry_end], host_fed
+    entry_start = page_module.index('id: "billing"')
+    entry_end = page_module.index("}", entry_start)
+    assert "hostFed: true" in page_module[entry_start:entry_end]
+    # Team is the one people destination: Members is no destination, and its
+    # retired path opens Team.
+    assert 'id: "members"' not in page_module
+    assert 'MOVED_VIEWS = { members: "team" }' in page_module
