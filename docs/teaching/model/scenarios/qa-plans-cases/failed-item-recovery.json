@@ -4,11 +4,11 @@
  "status": "observed",
  "audience": "both",
  "when": "An owner receives its failed verdict, a driver discovers failed member QA, or a parked owner resumes after a correction notice on a surface without automatic wake.",
- "need": "Classify product, setup, case or unclear cause. Fix current-item failures here by default; justify separately owned corrections and record the directional closure edge with the exact completion or named-environment milestone. Keep the claim, lane and checkpoint while an explicit blocker holds. Steering staffs and delivers corrections and arranges supported manual resume. Reread all blockers and target evidence; same-run admission and a cleared dependency cannot authorize stale frozen-candidate QA. Run the scoped command on the qualifying deployed correction. Preserve failed and skipped history; no notice or replacement waives remaining cases.",
+ "need": "Classify product, setup, case or unclear cause. Fix current-item failures here by default; justify separately owned corrections and record the directional closure edge with the exact completion or named-environment milestone. Keep the claim, lane and checkpoint while an explicit blocker holds. Steering staffs and delivers corrections and arranges supported manual resume. Reread all blockers and target evidence; same-run admission and a cleared dependency cannot authorize stale frozen-candidate QA. An inherited fail retries with the item-scoped plan run, not a deployment-run id. Run that command on the qualifying deployed correction. Preserve failed and skipped history; no notice or replacement waives remaining cases.",
  "disclosure": "current cue",
  "surface": "Failed-member notice to qa plan run help; authoritative failed-item QA recipe; steering rework and wait guidance",
  "gap": "Source and test observations do not prove real notice delivery or manual resumption. See failed-item-qa-live-proof.",
  "review": "Live proof remains pending; no production failure is manufactured for guidance verification.",
- "recipes": ["yoke qa plan run --help", "yoke items dependency add --help", "yoke items dependency list --help"],
+ "recipes": ["yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT", "yoke qa plan run --help", "yoke items dependency add --help", "yoke items dependency list --help"],
  "sources": ["docs/public/verification/failed-item-qa.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_cli_help.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_failure_handoff.py"]
 }

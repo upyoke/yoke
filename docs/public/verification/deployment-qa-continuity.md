@@ -36,10 +36,11 @@ on the same requirement; this opens a fresh attempt and keeps the prior fail and
 its evidence:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE
+yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT
 ```
 
-Do not use `--replaces` for the same case key, and do not rebind the target:
+An item-scoped stage refuses `--deployment-run-id`. Do not use `--replaces`
+for the same case key, and do not rebind the target:
 `replacement_case_corrected_in_place` names this retry instead.
 
 ## Recover communication on the frozen execution

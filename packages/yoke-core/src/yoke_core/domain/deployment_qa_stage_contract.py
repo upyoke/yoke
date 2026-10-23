@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.deployment_flow_policy import (
     QA_STEP_RUNNER,
     RELEASE_POLICY_SCHEMA_VERSION,
@@ -22,6 +23,10 @@ from yoke_core.domain.deployment_qa_presentation_reads import (
     presentation_active,
     presentation_read,
 )
+
+
+class QaStageNotOpen(DomainRefusal, ValueError):
+    """Item QA was requested before the run has reached that stage."""
 
 
 def _p(conn: Any) -> str:
@@ -47,7 +52,9 @@ def _object(raw: Any, *, subject: str) -> dict[str, Any]:
     return dict(value)
 
 
-def _run_stage(conn: Any, run_id: str, stage_name: str) -> dict[str, Any]:
+def _run_stage(
+    conn: Any, run_id: str, stage_name: str, *, require_active: bool = True
+) -> dict[str, Any]:
     from yoke_core.domain.deployment_qa_presentation_facts import run_facts
 
     run = run_facts(conn, run_id)
@@ -55,7 +62,9 @@ def _run_stage(conn: Any, run_id: str, stage_name: str) -> dict[str, Any]:
         run = _read_run(conn, run_id)
     else:
         run = dict(run)
-    return _validate_run_stage(run, run_id, stage_name)
+    return _validate_run_stage(
+        run, run_id, stage_name, require_active=require_active
+    )
 
 
 def _read_run(conn, run_id):
@@ -74,7 +83,16 @@ def _read_run(conn, run_id):
     return _row(cursor, cursor.fetchone())
 
 
-def _validate_run_stage(run, run_id, stage_name):
+def _item_qa_not_open(run, run_id, stage_name) -> QaStageNotOpen:
+    current = str(run.get("current_stage") or "")
+    return QaStageNotOpen(
+        f"qa_item_stage_not_open: deployment run {run_id} is "
+        f"{run['status']!r} at stage {current!r}; item QA opens at "
+        f"{stage_name}; you will be woken"
+    )
+
+
+def _validate_run_stage(run, run_id, stage_name, *, require_active: bool = True):
     if run is None:
         raise LookupError(f"deployment run {run_id!r} not found")
     if int(run["definition_schema_version"] or 1) != RELEASE_POLICY_SCHEMA_VERSION:
@@ -102,13 +120,29 @@ def _validate_run_stage(run, run_id, stage_name):
         or stage.get("step_runner") != QA_STEP_RUNNER
     ):
         raise ValueError(f"deployment stage {stage_name!r} is not a pinned QA stage")
-    snapshot = _object(
-        run.get("requirement_snapshot"), subject="run requirement snapshot"
+    # Readiness before the snapshot: an unfrozen successor has a null snapshot,
+    # and parsing it first surfaces a raw JSON error instead of the wait.
+    pending = run.get("composition_frozen_at") is None
+    inactive = require_active and (
+        str(run["status"]) != "executing"
+        or str(run.get("current_stage") or "") != stage_name
     )
-    if run.get("composition_frozen_at") is None:
+    if (pending or inactive) and str(stage.get("scope") or "") == "item":
+        if require_active:
+            raise _item_qa_not_open(run, run_id, stage_name)
+    if pending:
         raise ValueError(
             "deployment run composition is not frozen; freeze it before scoped QA"
         )
+    if inactive:
+        raise ValueError(
+            f"deployment run {run_id!r} is {run['status']!r} at stage "
+            f"{str(run.get('current_stage') or '')!r}; scoped QA writes require "
+            f"the active stage {stage_name!r}"
+        )
+    snapshot = _object(
+        run.get("requirement_snapshot"), subject="run requirement snapshot"
+    )
     if snapshot.get("schema") != 1 or str(snapshot.get("flow_id") or "") != str(
         run["flow"]
     ):
@@ -135,13 +169,15 @@ def deployment_qa_stage_subject(
     if not stage_name:
         raise ValueError("deployment_stage must be a non-empty pinned stage name")
     run = (
-        _run_stage(conn, str(run_id), stage_name)
+        _run_stage(conn, str(run_id), stage_name, require_active=True)
         if require_active
         else dict(
             presentation_read(
                 conn,
                 ("qa_run_stage", str(run_id), stage_name),
-                lambda: _run_stage(conn, str(run_id), stage_name),
+                lambda: _run_stage(
+                    conn, str(run_id), stage_name, require_active=False
+                ),
             )
         )
     )
@@ -151,15 +187,6 @@ def deployment_qa_stage_subject(
         raise ValueError(
             f"deployment stage {stage_name!r} has scope {stage.get('scope')!r}, "
             f"not {expected_scope!r}"
-        )
-    if require_active and (
-        str(run["status"]) != "executing"
-        or str(run.get("current_stage") or "") != stage_name
-    ):
-        raise ValueError(
-            f"deployment run {run_id!r} is {run['status']!r} at stage "
-            f"{str(run.get('current_stage') or '')!r}; scoped QA writes require "
-            f"the active stage {stage_name!r}"
         )
     if require_active:
         require_prior_stage_acceptance(
@@ -239,5 +266,6 @@ def deployment_qa_stage_subject(
 
 __all__ = [
     "DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND",
+    "QaStageNotOpen",
     "deployment_qa_stage_subject",
 ]
