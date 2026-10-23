@@ -250,12 +250,25 @@ def sessions_begin(args: List[str]) -> int:
 def charge_schedule(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke charge schedule",
-        description=CHARGE_SCHEDULE_USAGE,
+        usage=CHARGE_SCHEDULE_USAGE,
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--wip-cap", type=int, default=None)
-    parser.add_argument("--item", default=None, help="bypass workspace-home filter")
-    parser.add_argument("--workspace", default=None)
+    parser.add_argument("--project", default=None, help="Project to schedule from.")
+    parser.add_argument(
+        "--wip-cap",
+        type=int,
+        default=None,
+        help="Most items in progress at once (1-100); default: project policy.",
+    )
+    parser.add_argument(
+        "--item",
+        default=None,
+        help="Schedule this item even if it belongs to another workspace.",
+    )
+    parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Checkout whose items to schedule; default: current directory.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CHARGE_SCHEDULE_USAGE)
