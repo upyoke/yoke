@@ -179,6 +179,7 @@ def parse_or_usage_error(
     _ensure_project_arg_for_item_parser(parser)
     from yoke_cli.transport.output_limit import (
         full_output_requested,
+        record_read_parser,
         registered_read_requested,
     )
 
@@ -190,6 +191,8 @@ def parse_or_usage_error(
             action="store_true",
             help="Full read detail; bypass the oversized human-read safety net.",
         )
+    if registered_read_requested():
+        record_read_parser(parser)
     try:
         return parser.parse_args(args)
     except SystemExit as exc:

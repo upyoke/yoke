@@ -38,8 +38,13 @@ def test_human_write_is_always_complete(capsys):
 
 
 def test_large_human_read_refuses_without_partial_answer(capsys):
+    import argparse
+    from yoke_cli.commands._helpers import parse_or_usage_error
+
     raw = response(result={"body": "marker" * REPLY_LIMIT_BYTES})
-    assert emit_response(raw, json_mode=False) == 1
+    with read_output_scope([], "qa.plan.list"):
+        parse_or_usage_error(argparse.ArgumentParser(prog="read"), [], "read")
+        assert emit_response(raw, json_mode=False) == 1
     out = capsys.readouterr()
     assert "marker" not in out.out
     assert "read_output_limit_exceeded" in out.err
@@ -85,6 +90,59 @@ def test_registered_read_help_teaches_full_without_requesting_it():
         parsed = parse_or_usage_error(parser, [], "read")
     assert parsed.full is False
     assert "--full" in parser.format_help()
+
+
+def _read_hint(function, configure):
+    import argparse
+    from yoke_cli.commands._helpers import parse_or_usage_error
+    from yoke_cli.transport.output_limit import read_recovery
+
+    parser = argparse.ArgumentParser(prog="read")
+    configure(parser)
+    with read_output_scope([], function):
+        parse_or_usage_error(parser, [], "read")
+        return read_recovery(function)
+
+
+def test_hint_names_only_flags_the_command_has():
+    def configure(parser):
+        parser.add_argument("--deployment-run-id")
+        parser.add_argument("--item", action="append")
+        parser.add_argument("--limit", type=int, default=20)
+        parser.add_argument("--json", action="store_true")
+
+    hint = _read_hint("qa.activity.list", configure)
+    assert hint.startswith(
+        "Narrow yoke qa activity list with its filters --deployment-run-id, "
+        "--item; limit --limit;"
+    )
+    assert "field" not in hint
+    assert "--json" not in hint
+    assert hint.endswith("or add --full to request the entire answer explicitly.")
+
+
+def test_hint_names_field_and_paging_flags_when_present():
+    def configure(parser):
+        parser.add_argument("fields", nargs="*", metavar="FIELD")
+        parser.add_argument("--section")
+        parser.add_argument("--cursor")
+
+    hint = _read_hint("items.get.run", configure)
+    assert "Narrow yoke items get with its fields FIELD, --section; paging --cursor;" in hint
+
+
+def test_hint_without_narrowing_flags_says_so():
+    hint = _read_hint("sessions.identity", lambda parser: None)
+    assert hint.startswith("yoke sessions identity has no narrowing flags;")
+    assert "--full" in hint
+
+
+def test_hint_without_recorded_parser_points_at_help():
+    from yoke_cli.transport.output_limit import read_recovery
+
+    with read_output_scope([], "qa.activity.list"):
+        hint = read_recovery("qa.activity.list")
+    assert hint == "Run yoke qa activity list --help to find how to narrow this read."
 
 
 def test_safety_net_below_character_cap():
