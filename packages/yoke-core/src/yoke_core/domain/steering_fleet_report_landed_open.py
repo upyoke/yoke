@@ -32,11 +32,11 @@ from typing import Any, Sequence
 
 from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
+from yoke_core.domain.gate_satisfier_item_facts import load_item_facts
 from yoke_core.domain import db_backend
 from yoke_core.domain.delivery_landing_custody import (
     ENROLLABLE_CUSTODY_STATES,
     HELD,
-    REMERGED,
     UNHELD,
     landed_at,
     landing_custody,
@@ -51,6 +51,12 @@ from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.session_item_stage_rework import items_returned_after_landing
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
+from yoke_core.domain.steering_fleet_report_landed_gate import (
+    AWAITING_RELEASE,
+    UNREADABLE,
+    LandedGate,
+    landed_gate,
+)
 
 
 @dataclass(frozen=True)
@@ -66,15 +72,14 @@ class LandedItem:
     #: Close-out is a claim-holding step, so this is the difference between
     #: a landing its holder will finish and one that needs staffing.
     holder_session_id: str = ""
-    #: Whether that holder is parked. A parked holder is waiting on the
-    #: delivery its close-out needs, so the row is healthy and wants no
-    #: command: a recovery offered where none is needed reads as work.
+    #: Whether that holder is parked. Context only: whether the row owes a
+    #: command is :attr:`delivery_gate`'s answer, not the holder's posture.
     holder_parked: bool = False
     #: The parked holder's own words for what it waits on, when it left any.
     holder_quiet_reason: str = ""
     #: Seconds since that holder's latest tool call or heartbeat. Quiet past the report's
     #: idle threshold after landing means a holder is not driving close-out;
-    #: a declared release wait expects tool silence.
+    #: a release wait expects tool silence.
     holder_idle_seconds: int = 0
     #: The workflow the item pins, because close-out is composed from it: an
     #: evidence-gated terminal transition refuses the bare command.
@@ -101,6 +106,8 @@ class LandedItem:
     owed_elsewhere: tuple[tuple[int, str], ...] = ()
     #: The item's current status was entered after this landing.
     returned_after_landing: bool = False
+    #: What the item's own done gate still waits on, from its gate facts.
+    delivery_gate: LandedGate = LandedGate(UNREADABLE)
 
     @property
     def relanding_owed(self) -> bool:
@@ -108,19 +115,17 @@ class LandedItem:
         return self.returned_after_landing and self.status != "release"
 
     @property
-    def delivery_wait(self) -> bool:
-        """A live parked release holder waiting for enrollment or delivery.
+    def awaiting_release(self) -> bool:
+        """The done gate waits only on the next release of an active flow.
 
-        Tool silence is expected during this wait; only a recorded death or
-        an unavailable delivery path makes the declared park actionable.
+        Decided by the item's own gate facts, never by its holder: a parked,
+        working, quiet or exited holder changes the row's context text, not
+        whether anybody owes a command. Tool silence is expected here.
         """
         return bool(
             self.status == "release"
-            and self.holder_session_id
-            and self.holder_parked
-            and not self.holder_native_process_gone
+            and self.delivery_gate.state == AWAITING_RELEASE
             and self.completion_flow_available
-            and self.custody_state in {HELD, UNHELD, REMERGED}
         )
 
     @property
@@ -147,8 +152,11 @@ def landed_without_closeout(
     ``holders`` is the report's own :func:`claim_holders` answer, passed in
     rather than asked again. Each row carries whoever still holds the item and
     whether they are parked, because close-out is a claim-holding step: a
-    landing a live session holds is that session's to finish, a parked holder
-    is waiting on its delivery, and only a landing nobody holds needs a seat.
+    landing a live session holds is that session's to finish, and only a
+    landing nobody holds needs a seat. Whether close-out is owed at all is
+    the item's own done-gate facts (:func:`load_item_facts`): a landing whose
+    gate waits only on its flow's next release owes nobody a command,
+    whatever its holder is doing.
     It also carries which release holds the landing, because a holder can only
     finish a close-out the delivery has reached: an item nobody is delivering
     is a different finding from one waiting normally, and until the two were
@@ -220,6 +228,7 @@ def landed_without_closeout(
                 delivered_to=delivered_to,
                 owed_elsewhere=tuple((o.requirement_id, o.target) for o in owed),
                 returned_after_landing=item_id in returned,
+                delivery_gate=landed_gate(load_item_facts(conn, item_id)),
             )
         )
     return tuple(

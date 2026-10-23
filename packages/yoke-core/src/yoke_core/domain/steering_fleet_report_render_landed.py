@@ -1,14 +1,14 @@
-"""Compact expected delivery waits; keep recovery detail on actionable landings."""
+"""Compact release waits; keep recovery detail on landings that owe close-out."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from yoke_core.domain.delivery_landing_custody import HELD
 from yoke_core.domain.steering_fleet_report_landed_phrases import (
-    custody_phrase,
+    delivery_phrase,
     holder_phrase,
     landed_recovery,
+    release_wait_phrase,
 )
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 def landed_lines(rows: ProjectRows, *, idle_after_seconds: int) -> list[str]:
-    """A declared delivery wait costs one short line, regardless of tool silence.
+    """A landing awaiting its release costs one short line, whoever holds it.
 
     Items a listed run is already delivering are that run's members and are
     not repeated here.
@@ -30,19 +30,14 @@ def landed_lines(rows: ProjectRows, *, idle_after_seconds: int) -> list[str]:
     visible = rows.visible_landed()
     lines = []
     for entry in visible[:SECTION_LIMIT]:
-        if entry.delivery_wait and entry.custody_run_id not in troubled_runs:
-            delivery = (
-                custody_phrase(entry)
-                if entry.custody_state == HELD
-                else "awaiting deployment run"
-            )
-            lines.append(f"  {entry.public_ref}  {delivery} (parked)")
+        if entry.awaiting_release and entry.custody_run_id not in troubled_runs:
+            lines.append(f"  {entry.public_ref}  {release_wait_phrase(entry)}")
             continue
         line = (
             f"  {entry.public_ref}  still {entry.status}  "
             f"landed {minutes(entry.landed_seconds)} ago  "
             f"{holder_phrase(entry, idle_after_seconds=idle_after_seconds)}  "
-            f"{custody_phrase(entry)}"
+            f"{delivery_phrase(entry)}"
         )
         recovery = landed_recovery(entry, idle_after_seconds=idle_after_seconds)
         if recovery:

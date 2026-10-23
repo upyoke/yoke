@@ -10,11 +10,16 @@ Inspect delivery waits, deployment runs, shared capacity and report deltas.
 
 Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
-A parked live release holder with active completion flow reports compact
-awaiting-deployment-run or custody; silence is expected. Missing/gone holders,
-aged working holder + landing, unavailable flow, remerged/unreadable custody or
-actionable run keeps full detail. Section owns these rows; never duplicates
-idle/live holders or members already shown in deployment runs.
+Each row is classified from the item's own done-gate facts (`load_item_facts`),
+never from holder posture. A release-status item whose active flow targets a
+tier and has no succeeded or independent delivery reports one compact
+`awaiting next FLOW release` line, naming the run that holds it (or remerged/
+unreadable custody) and the holder only as bracketed context; it offers no
+wake or close-out command, and silence is expected. No deployment target reads
+`close-out ready`; a recorded delivery, unreadable gate fact, unavailable flow,
+non-release status or actionable run keeps full detail and recovery. Section
+owns these rows; never duplicates idle/live holders or members already shown
+in deployment runs.
 
 Custody batches landing receipt reads and reuses one comparison source per
 project and release commit. Definite containment answers for full commit hashes
@@ -25,8 +30,7 @@ Close-out requires holder claim: never propose seat recovery against a live
 holder. Orphan rows alone name pinned workflow recovery including --result/
 --verification when close_out_evidence_gate requires them. Custody agrees with
 enrollment: delivering-in-run, `delivered to ENV; owes #N on ENV` once it
-succeeded, no-release-holds-it (valid parked wait expects enrollment) or
-merged-again-since-run. A non-release status entered after landing reads
+succeeded, no-release-holds-it or merged-again-since-run. A non-release status entered after landing reads
 `re-landing owed` (no delivery wait): wake holder to review and merge, else
 re-enter bound skill. Losing custody changes identity/wakes; moving releases
 does not. Landing age starts at merge; queue waiters go quiet after its idle limit.
