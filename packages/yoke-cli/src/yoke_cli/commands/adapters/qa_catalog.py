@@ -172,7 +172,7 @@ def qa_activity_list(args: List[str]) -> int:
     usage = USAGE_BY_FUNCTION_ID["qa.activity.list"]
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
-        result: dict[str, Any] = {"limit": parsed.limit}
+        result: dict[str, Any] = {"limit": parsed.limit, "detail": detail_of(parsed)}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         if parsed.item:

@@ -86,6 +86,7 @@ export async function loadCarriedItemEvidence(context, items) {
       calls.push({
         functionId: "qa.activity.list",
         payload: {
+          detail: "full",
           project,
           public_refs: subjects.slice(at, at + SUBJECTS_PER_CALL),
           // Each card filters these per-item, per-run groups to its own run.

@@ -114,6 +114,12 @@ def configure_plan_get(parser: argparse.ArgumentParser) -> None:
 
 
 def configure_activity_list(parser: argparse.ArgumentParser) -> None:
+    add_full_arg(parser, "case instructions, target JSON and artifact details")
+    parser.epilog = (
+        "Summary rows keep evidence counts and outcomes. Read one case with "
+        "yoke qa requirement get --requirement-id N --full, using its "
+        "requirement_id from the list."
+    )
     parser.add_argument(
         "--deployment-run-id",
         metavar="RUN",

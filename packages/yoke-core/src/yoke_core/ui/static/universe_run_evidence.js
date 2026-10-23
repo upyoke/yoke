@@ -77,7 +77,7 @@ function flowNamesOf(results) {
 export async function loadRunFacts(context, projectIds) {
   const buckets = [...new Set((projectIds || []).map(String).filter(Boolean))];
   const calls = buckets.flatMap((project) => [
-    { functionId: "qa.activity.list", payload: { project, limit: ACTIVITY_LIMIT } },
+    { functionId: "qa.activity.list", payload: { project, limit: ACTIVITY_LIMIT, detail: "full" } },
     { functionId: "workflows.definition.get", payload: { project } },
   ]);
   const { callResults, failed } = await settledScopedCalls(context, calls);

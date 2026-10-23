@@ -145,7 +145,7 @@ test("a case page names its subject, its stage execution, and its contract", asy
   });
   assert.deepEqual(
     requests.find((r) => r.function === "qa.activity.list").payload,
-    { project: "1", public_refs: ["YOK-2228"] },
+    { project: "1", public_refs: ["YOK-2228"], detail: "full" },
   );
 
   assert.equal(byClass(root, "title")[0].textContent, "Browser check · YOK-2228");
