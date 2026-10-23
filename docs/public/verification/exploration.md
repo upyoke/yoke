@@ -104,7 +104,10 @@ saved case to `informed_subagent` and rematerialize affected requirements.
 Create every mission-owned GitHub fixture repository as private, using
 `gh repo create OWNER/NAME --private`, including a repository created from
 cloned public history. Record each exact `OWNER/NAME` as cleanup debt when
-created; never delete an upstream or pre-existing repository.
+created; never delete an upstream or pre-existing repository. A repository the
+product creates during the mission, such as onboarding or install Apply creating
+`OWNER/yoke-qa-*-source`, is mission-owned too: the walker or controller deletes
+it at teardown and never hands repository deletion to steering.
 
 At teardown, delete every repository the mission created with
 `gh repo delete OWNER/NAME --yes`. The printed walk-end command cleans up

@@ -173,7 +173,10 @@ Create mission-owned GitHub fixture repositories as private with
 cloned public history. Record every exact `OWNER/NAME` as cleanup debt when
 created. At teardown delete each with `gh repo delete OWNER/NAME --yes`;
 walk-end does not delete external GitHub repositories. Never delete upstream
-or pre-existing repositories. If deletion is refused, report the refusal,
+or pre-existing repositories. Repositories the product creates during the
+mission, such as onboarding or install Apply creating `OWNER/yoke-qa-*-source`,
+are mission-owned too: record and delete them yourself at teardown, and never
+hand repository deletion to steering. If deletion is refused, report the refusal,
 recovery and every exact `OWNER/NAME` still present as external cleanup debt
 for the main agent's final verdict.
 
