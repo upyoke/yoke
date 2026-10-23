@@ -67,8 +67,10 @@ def session_terminate(args: List[str]) -> int:
         usage=SESSION_TERMINATE_USAGE,
         description=SESSION_TERMINATE_DESCRIPTION,
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID")
-    parser.add_argument("--reason", required=True)
+    parser.add_argument(
+        "target_session_id", metavar="SESSION-ID", help="Session to terminate."
+    )
+    parser.add_argument("--reason", required=True, help="Why the session ends.")
     parser.add_argument(
         "--allow-resume-in-flight",
         action="store_true",

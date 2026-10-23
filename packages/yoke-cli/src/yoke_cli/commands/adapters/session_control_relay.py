@@ -84,8 +84,10 @@ def _read_diagnostic(reference: str) -> bytes:
 
 
 def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     return parser
 
 
@@ -261,7 +263,9 @@ def relay_probe_surface(args: List[str]) -> int:
     from yoke_harness.session_relay_surface_probes import KNOWN_SURFACE_PROBES
 
     parser = _parser("yoke relay probe-surface", RELAY_PROBE_SURFACE_USAGE)
-    parser.add_argument("--surface", choices=KNOWN_SURFACE_PROBES)
+    parser.add_argument(
+        "--surface", choices=KNOWN_SURFACE_PROBES, help="Probe only this surface."
+    )
     parsed = parse_or_usage_error(parser, args, RELAY_PROBE_SURFACE_USAGE)
     if parsed is None:
         return 2
@@ -295,7 +299,7 @@ def relay_diagnostic(args: List[str]) -> int:
             "Read one machine-user-local native failure capture by opaque reference."
         ),
     )
-    parser.add_argument("reference")
+    parser.add_argument("reference", help="Opaque reference of the capture to read.")
     parsed = parse_or_usage_error(parser, args, RELAY_DIAGNOSTIC_USAGE)
     if parsed is None:
         return 2

@@ -23,8 +23,8 @@ USAGE = (
 
 
 def qa_plan_list(args: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke qa plan list", description=USAGE)
-    parser.add_argument("--project", required=True)
+    parser = argparse.ArgumentParser(prog="yoke qa plan list", usage=USAGE)
+    parser.add_argument("--project", required=True, help="Project whose plans to list.")
     parser.add_argument(
         "--limit", type=int, help="Page size (default: 25; maximum: 500)."
     )

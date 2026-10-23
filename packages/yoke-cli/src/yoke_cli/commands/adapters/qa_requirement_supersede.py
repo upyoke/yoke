@@ -126,7 +126,7 @@ def _write_supersede_result(
 def qa_requirement_supersede(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement supersede",
-        description=QA_REQUIREMENT_SUPERSEDE_USAGE,
+        usage=QA_REQUIREMENT_SUPERSEDE_USAGE,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

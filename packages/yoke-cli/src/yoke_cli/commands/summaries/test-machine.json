@@ -1,0 +1,13 @@
+{
+  "test-machine": "Manage and use registered test machines.",
+  "test-machine bridge-diagnose": "Test each Terminal bridge feature and name what fails.",
+  "test-machine desktop-access": "Open a test machine's remote desktop.",
+  "test-machine exec": "Run one command on a test machine over SSH.",
+  "test-machine get": "Read one test machine's settings.",
+  "test-machine golden-capture": "Save a test machine's clean state as a golden copy.",
+  "test-machine list": "List a project's test machines.",
+  "test-machine reset": "Restore a test machine to its clean baseline.",
+  "test-machine screenshot": "Capture a test machine's desktop as a PNG.",
+  "test-machine settings-replace": "Replace a test machine's settings from a file.",
+  "test-machine verify": "Check that a test machine is reachable and ready."
+}

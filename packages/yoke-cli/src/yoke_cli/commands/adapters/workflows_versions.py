@@ -36,11 +36,16 @@ WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE = (
 def workflows_current_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows current set",
-        description=WORKFLOWS_CURRENT_SET_USAGE,
+        usage=WORKFLOWS_CURRENT_SET_USAGE,
     )
-    parser.add_argument("workflow")
-    parser.add_argument("version", type=int)
-    parser.add_argument("--expected-current-version", type=int, default=None)
+    parser.add_argument("workflow", help="Workflow id.")
+    parser.add_argument("version", type=int, help="Version to make current.")
+    parser.add_argument(
+        "--expected-current-version",
+        type=int,
+        default=None,
+        help="Current version you read; a different one refuses the change.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CURRENT_SET_USAGE)
@@ -84,10 +89,10 @@ def workflows_version_get(args: List[str]) -> int:
         return usage_error(shape)
     parser = argparse.ArgumentParser(
         prog="yoke workflows version get",
-        description=WORKFLOWS_VERSION_GET_USAGE,
+        usage=WORKFLOWS_VERSION_GET_USAGE,
     )
-    parser.add_argument("workflow")
-    parser.add_argument("version", type=int)
+    parser.add_argument("workflow", help="Workflow id.")
+    parser.add_argument("version", type=int, help="Version to read.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_VERSION_GET_USAGE)
@@ -113,9 +118,11 @@ def workflows_version_get(args: List[str]) -> int:
 def workflows_version_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows version list",
-        description=WORKFLOWS_VERSION_LIST_USAGE,
+        usage=WORKFLOWS_VERSION_LIST_USAGE,
     )
-    parser.add_argument("workflow", nargs="?", default=None)
+    parser.add_argument(
+        "workflow", nargs="?", default=None, help="Workflow id; default: all workflows."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_VERSION_LIST_USAGE)
@@ -141,14 +148,25 @@ def workflows_version_list(args: List[str]) -> int:
 def workflows_policy_defaults_publish(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows policy-defaults publish",
-        description=WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
+        usage=WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
     )
-    parser.add_argument("workflow")
+    parser.add_argument("workflow", help="Workflow id.")
     policy = parser.add_mutually_exclusive_group(required=True)
-    policy.add_argument("--file-budget", choices=("on", "off"))
-    policy.add_argument("--path-claims", choices=("on", "off"))
-    policy.add_argument("--path-survey", choices=("on", "off"))
-    parser.add_argument("--expected-current-version", type=int, required=True)
+    policy.add_argument(
+        "--file-budget", choices=("on", "off"), help="Turn the file budget on or off."
+    )
+    policy.add_argument(
+        "--path-claims", choices=("on", "off"), help="Turn path claims on or off."
+    )
+    policy.add_argument(
+        "--path-survey", choices=("on", "off"), help="Turn the path survey on or off."
+    )
+    parser.add_argument(
+        "--expected-current-version",
+        type=int,
+        required=True,
+        help="Current version you read; a different one refuses the change.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE)

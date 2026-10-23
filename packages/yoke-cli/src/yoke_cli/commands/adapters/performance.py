@@ -24,22 +24,48 @@ def _run(args: list[str], detail: bool) -> int:
     usage = PERFORMANCE_DETAIL_USAGE if detail else PERFORMANCE_AGGREGATE_USAGE
     parser = argparse.ArgumentParser(
         prog=f"yoke events performance {verb}",
+        usage=usage,
         description=(
-            usage
-            + ". Timestamps must carry a timezone. Reads retained timing observations; "
+            "Timestamps must carry a timezone. Reads retained timing observations; "
             "shorten the range if the observation budget refuses. No partial aggregate."
         ),
     )
-    parser.add_argument("--since", required=True)
-    parser.add_argument("--until", required=True)
-    parser.add_argument("--project-ids", default=None)
-    parser.add_argument("--points", type=int, default=400)
+    parser.add_argument(
+        "--since",
+        required=True,
+        help="Start of the time range, as an ISO timestamp with a timezone.",
+    )
+    parser.add_argument(
+        "--until",
+        required=True,
+        help="End of the time range, as an ISO timestamp with a timezone.",
+    )
+    parser.add_argument(
+        "--project-ids",
+        default=None,
+        help="Comma-separated project ids to include; default: all projects.",
+    )
+    parser.add_argument(
+        "--points",
+        type=int,
+        default=400,
+        help="Number of points in the time series; default: 400.",
+    )
     if detail:
         parser.add_argument(
-            "--family", choices=["function", "tool", "hook", "relay", "watcher"]
+            "--family",
+            choices=["function", "tool", "hook", "relay", "watcher"],
+            help="Kind of timing to read: function, tool, hook, relay, or watcher.",
         )
-        parser.add_argument("--offset", type=int, default=0)
-        parser.add_argument("--limit", type=int, default=50)
+        parser.add_argument(
+            "--offset",
+            type=int,
+            default=0,
+            help="Rows to skip before the first one returned; default: 0.",
+        )
+        parser.add_argument(
+            "--limit", type=int, default=50, help="Most rows returned; default: 50."
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

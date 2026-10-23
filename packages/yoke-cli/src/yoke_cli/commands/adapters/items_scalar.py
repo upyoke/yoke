@@ -48,7 +48,7 @@ ITEMS_SCALAR_UPDATE_USAGE = (
 def items_scalar_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items scalar update",
-        description=ITEMS_SCALAR_UPDATE_USAGE,
+        usage=ITEMS_SCALAR_UPDATE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(

@@ -31,8 +31,15 @@ def relay_report_quarantine(args: List[str]) -> int:
             "Preserve one pending relay report after its permanent server rejection."
         ),
     )
-    parser.add_argument("report_id")
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "report_id", help="Id of the pending relay report to quarantine."
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the result as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, RELAY_REPORT_QUARANTINE_USAGE)
     if parsed is None:
         return 2

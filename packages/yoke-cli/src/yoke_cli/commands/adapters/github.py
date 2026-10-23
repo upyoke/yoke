@@ -122,7 +122,12 @@ def github_connect(args: List[str]) -> int:
         default=None,
         help="Local/self-host App profile; requires the other four App fields.",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the standard one.",
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_CONNECT_USAGE)
     if parsed is None:
@@ -178,7 +183,12 @@ def github_disconnect(args: List[str]) -> int:
             "not uninstall the App or change repository access on GitHub."
         ),
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the standard one.",
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_DISCONNECT_USAGE)
     if parsed is None:
@@ -215,7 +225,12 @@ def github_status(args: List[str]) -> int:
             "rotates nothing, and so never breaks a push in flight."
         ),
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the standard one.",
+    )
     parser.add_argument(
         "--offline",
         action="store_true",

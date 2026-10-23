@@ -51,8 +51,16 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
     parser.add_argument(
         "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
     )
-    parser.add_argument("--project-id", dest="project_id", type=int, default=None)
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--project-id",
+        dest="project_id",
+        type=int,
+        default=None,
+        help="Project id; default: the checkout's mapped project.",
+    )
+    parser.add_argument(
+        "--config", dest="config_path", default=None, help="Machine config file to use."
+    )
     parser.add_argument(
         "--force",
         action="store_true",
@@ -77,7 +85,9 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
             f"{PUBLICATION_PENDING_EXIT} and names the recovery."
         ),
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     return parser
 
 
@@ -209,8 +219,12 @@ def project_uninstall(args: List[str]) -> int:
     parser.add_argument(
         "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--config", dest="config_path", default=None, help="Machine config file to use."
+    )
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, PROJECT_UNINSTALL_USAGE)
     if parsed is None:
         return 2

@@ -46,7 +46,7 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke claims path register",
-        description=CLAIM_PATH_REGISTER_USAGE,
+        usage=CLAIM_PATH_REGISTER_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -68,6 +68,7 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         "--mode",
         choices=("exclusive", "exception"),
         default="exclusive",
+        help="Claim mode; default: exclusive.",
     )
     parser.add_argument(
         "--exception-reason",

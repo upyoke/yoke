@@ -1,0 +1,13 @@
+{
+  "models": "Read and publish the catalog of AI models.",
+  "models diff": "Compare a proposed model catalog with the current one.",
+  "models get": "Show the model catalog, or one model in it.",
+  "models level": "Propose level changes from the model catalog.",
+  "models level proposal": "Propose level changes from the model catalog.",
+  "models level-proposal": "Propose level changes from the model catalog.",
+  "models lookup": "Show the catalog entry for one launch model name.",
+  "models publish": "Publish a new model catalog revision.",
+  "models restore": "Restore the model catalog from an older revision.",
+  "models revisions": "List the model catalog's revisions.",
+  "models validate": "Check one proposed model record without saving it."
+}

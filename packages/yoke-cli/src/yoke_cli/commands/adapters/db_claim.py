@@ -49,7 +49,7 @@ DB_CLAIM_PROSE_CHECK_USAGE = (
 def db_claim_amend(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke db-claim amend",
-        description=DB_CLAIM_AMEND_USAGE,
+        usage=DB_CLAIM_AMEND_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
@@ -116,7 +116,7 @@ def db_claim_amend(args: List[str]) -> int:
 def db_claim_prose_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke db-claim prose-check",
-        description=DB_CLAIM_PROSE_CHECK_USAGE,
+        usage=DB_CLAIM_PROSE_CHECK_USAGE,
     )
     parser.add_argument(
         "item",

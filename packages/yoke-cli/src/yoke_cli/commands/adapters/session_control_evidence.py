@@ -89,21 +89,41 @@ def session_evidence_get(args: List[str]) -> int:
         description=_DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--session", dest="target_session_id", required=True)
-    parser.add_argument("--kind", choices=EVIDENCE_KINDS, default=None)
-    parser.add_argument("--file", dest="file_name", default=None)
-    parser.add_argument("--evidence-id", dest="evidence_id", default=None)
+    parser.add_argument(
+        "--session",
+        dest="target_session_id",
+        required=True,
+        help="Session whose evidence to read.",
+    )
+    parser.add_argument(
+        "--kind",
+        choices=EVIDENCE_KINDS,
+        default=None,
+        help="Kind of file to read; default: any kind.",
+    )
+    parser.add_argument(
+        "--file",
+        dest="file_name",
+        default=None,
+        help="File name from a previous listing.",
+    )
+    parser.add_argument(
+        "--evidence-id",
+        dest="evidence_id",
+        default=None,
+        help="Exact nd- diagnostic ref to read.",
+    )
     parser.add_argument(
         "--tail",
         type=int,
         default=EVIDENCE_TAIL_DEFAULT_LINES,
-        help=f"lines to return (max {EVIDENCE_TAIL_MAX_LINES})",
+        help=f"Lines to return (max {EVIDENCE_TAIL_MAX_LINES}).",
     )
     parser.add_argument(
         "--wait-seconds",
         type=int,
         default=EVIDENCE_WAIT_DEFAULT_SECONDS,
-        help=f"seconds to wait for the owning relay (max {EVIDENCE_WAIT_MAX_SECONDS})",
+        help=f"Seconds to wait for the owning relay (max {EVIDENCE_WAIT_MAX_SECONDS}).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

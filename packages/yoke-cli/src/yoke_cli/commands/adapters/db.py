@@ -64,7 +64,8 @@ def _write_json(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 def db_read(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke db read",
-        description=f"{DB_READ_USAGE}\n\n{_DB_READ_HELP}",
+        usage=DB_READ_USAGE,
+        description=_DB_READ_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("sql", help="Read-only SQL diagnostic query.")

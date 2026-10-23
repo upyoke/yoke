@@ -1,0 +1,7 @@
+{
+  "settings": "Read and change Yoke settings.",
+  "settings get": "Show the value of one setting.",
+  "settings list": "List settings and their values.",
+  "settings set": "Change the value of one setting.",
+  "settings unset": "Return one setting to its default."
+}

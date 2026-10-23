@@ -50,9 +50,11 @@ BRIDGE_DIAGNOSE_USAGE = (
 
 def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog)
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project that owns the test machine."
+    )
     if with_machine:
-        parser.add_argument("--machine")
+        parser.add_argument("--machine", help="Name of the test machine to use.")
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -149,10 +151,22 @@ def test_machine_list(args: List[str]) -> int:
 
 def test_machine_settings_replace(args: List[str]) -> int:
     parser = _parser("yoke test-machine settings-replace")
-    parser.add_argument("--settings-file", required=True)
+    parser.add_argument(
+        "--settings-file",
+        required=True,
+        help="JSON file holding the new machine settings.",
+    )
     base = parser.add_mutually_exclusive_group(required=True)
-    base.add_argument("--base", dest="base_settings")
-    base.add_argument("--new", action="store_true")
+    base.add_argument(
+        "--base",
+        dest="base_settings",
+        help="Settings JSON exactly as you read it; refuses if it changed since.",
+    )
+    base.add_argument(
+        "--new",
+        action="store_true",
+        help="Create settings for a machine that has none yet.",
+    )
     parsed = parse_or_usage_error(parser, args, SETTINGS_REPLACE_USAGE)
     if parsed is None:
         return 2

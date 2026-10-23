@@ -1,0 +1,7 @@
+{
+  "hook": "Run and measure the harness hooks Yoke installs.",
+  "hook benchmark": "Time a harmless command through the tool hooks.",
+  "hook evaluate": "Run the hook chain for one harness event.",
+  "hook resident": "Restart or stop the background hook process.",
+  "hook status-line": "Print Claude's status line; Claude runs this itself."
+}

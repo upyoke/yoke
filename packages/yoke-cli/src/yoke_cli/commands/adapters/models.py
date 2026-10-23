@@ -69,7 +69,7 @@ def _print_lookup(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 
 def models_lookup(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke models lookup", description=LOOKUP_USAGE
+        prog="yoke models lookup", usage=LOOKUP_USAGE
     )
     parser.add_argument(
         "model_id", help="Launch --model string, including effort suffixes."
@@ -94,7 +94,7 @@ def models_lookup(args: List[str]) -> int:
 
 
 def models_get(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke models get", description=GET_USAGE)
+    parser = argparse.ArgumentParser(prog="yoke models get", usage=GET_USAGE)
     parser.add_argument("--model-id", default=None, help="Optional single-id lookup.")
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--revision-id", help="Read one immutable revision.")
@@ -122,7 +122,7 @@ def models_get(args: List[str]) -> int:
 
 def models_validate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke models validate", description=VALIDATE_USAGE
+        prog="yoke models validate", usage=VALIDATE_USAGE
     )
     parser.add_argument(
         "--stdin",
@@ -166,7 +166,7 @@ def _catalog_from_stdin() -> list[dict[str, Any]] | None:
 
 
 def models_diff(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke models diff", description=DIFF_USAGE)
+    parser = argparse.ArgumentParser(prog="yoke models diff", usage=DIFF_USAGE)
     parser.add_argument("--stdin", action="store_true", help="Read full catalog JSON.")
     add_session_arg(parser)
     add_json_arg(parser)
@@ -189,7 +189,7 @@ def models_diff(args: List[str]) -> int:
 
 def models_publish(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke models publish", description=PUBLISH_USAGE
+        prog="yoke models publish", usage=PUBLISH_USAGE
     )
     parser.add_argument("--stdin", action="store_true", help="Read full catalog JSON.")
     parser.add_argument(
@@ -227,7 +227,7 @@ def models_publish(args: List[str]) -> int:
 
 def models_revisions(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke models revisions", description=REVISIONS_USAGE
+        prog="yoke models revisions", usage=REVISIONS_USAGE
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -245,7 +245,7 @@ def models_revisions(args: List[str]) -> int:
 
 def models_restore(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke models restore", description=RESTORE_USAGE
+        prog="yoke models restore", usage=RESTORE_USAGE
     )
     parser.add_argument("revision_id", help="Revision whose complete catalog to copy.")
     parser.add_argument(

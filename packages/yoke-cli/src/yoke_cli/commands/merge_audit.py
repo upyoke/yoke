@@ -36,7 +36,8 @@ def _parse_optional_epic(raw: Optional[str]) -> Optional[str]:
 def merge_audit(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke merge audit",
-        description=f"{MERGE_AUDIT_USAGE}\n\n{_MERGE_AUDIT_HELP}",
+        usage=MERGE_AUDIT_USAGE,
+        description=_MERGE_AUDIT_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -44,7 +45,7 @@ def merge_audit(args: List[str]) -> int:
         nargs="?",
         help="Optional epic/item ref; accepts PREFIX-N.",
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--project", default=None, help="Project to audit.")
     parsed = parse_or_usage_error(parser, args, MERGE_AUDIT_USAGE)
     if parsed is None:
         return 2

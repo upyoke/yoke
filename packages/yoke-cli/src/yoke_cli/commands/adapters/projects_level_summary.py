@@ -41,7 +41,9 @@ def projects_level_summary_get(args: List[str]) -> int:
             "capability-settings remove` to read the universe levels again."
         ),
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project whose execution levels to read."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed: Any = parse_or_usage_error(parser, args, PROJECTS_LEVEL_SUMMARY_GET_USAGE)

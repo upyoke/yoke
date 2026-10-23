@@ -49,8 +49,8 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog=command,
         allow_abbrev=False,
-        description=usage + "\n\n"
-        "task  Laneless, merge-free work in projects without a code repository.\n"
+        usage=usage,
+        description="task  Laneless, merge-free work in projects without a code repository.\n"
         "dash  Focused repository work with a lane or selected gates;\n"
         "      code project work -> yoke dash (Task refuses there).\n"
         "idea  Use /yoke idea for planned intake and scaffolding.\n"
@@ -102,10 +102,21 @@ def items_create(args: list[str], *, shortcut: str | None = None) -> int:
         help="Attest the applicable workflow execution instructions were read first.",
     )
     verification = parser.add_mutually_exclusive_group()
-    verification.add_argument("--verification-plan", metavar="ID_OR_SLUG")
-    verification.add_argument("--verification-method")
-    for flag in ("path-claims", "approval-on-done", "deployment"):
-        parser.add_argument(f"--{flag}", action="store_true")
+    verification.add_argument(
+        "--verification-plan",
+        metavar="ID_OR_SLUG",
+        help="Verify the item with this saved verification plan.",
+    )
+    verification.add_argument(
+        "--verification-method", help="Verify the item with this ad hoc method id."
+    )
+    posture_help = {
+        "path-claims": "Reserve repository paths before work (Dash only).",
+        "approval-on-done": "Require approval before the item is done (Dash only).",
+        "deployment": "Deploy the item after it merges (Dash only).",
+    }
+    for flag, flag_help in posture_help.items():
+        parser.add_argument(f"--{flag}", action="store_true", help=flag_help)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

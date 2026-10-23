@@ -26,15 +26,19 @@ USAGE = (
 def reflection_capture(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros reflection capture",
-        description=USAGE,
+        usage=USAGE,
         epilog="Retain the response text until capture succeeds. On an older "
         "server, ask the control-plane operator to serve the carrying release; "
         "do not switch to a database connection.",
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--text-file")
-    source.add_argument("--stdin", action="store_true")
-    parser.add_argument("--default-agent", default="unknown")
+    source.add_argument("--text-file", help="File holding the reflection text.")
+    source.add_argument("--stdin", action="store_true", help="Read text from stdin.")
+    parser.add_argument(
+        "--default-agent",
+        default="unknown",
+        help="Agent role for entries that name none; default: unknown.",
+    )
     add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)

@@ -127,13 +127,22 @@ def run(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--project")
-    parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--bundle-id", required=True)
-    parser.add_argument("--bundle-digest", required=True)
-    parser.add_argument("--stdin", action="store_true", required=True)
-    parser.add_argument("--session-id")
+    subject.add_argument("--item", help="Item whose plan was reviewed, as PREFIX-N.")
+    subject.add_argument("--project", help="Project whose plan was reviewed.")
+    parser.add_argument("--execution-id", required=True, help="Plan execution id.")
+    parser.add_argument("--bundle-id", required=True, help="Review bundle id.")
+    parser.add_argument(
+        "--bundle-digest", required=True, help="Digest of the bundle you reviewed."
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        required=True,
+        help="Read the verdict JSON from standard input.",
+    )
+    parser.add_argument(
+        "--session-id", help="Override the detected session id (debugging only)."
+    )
     parsed = parser.parse_args(args)
     try:
         submission = _submission(sys.stdin.read())

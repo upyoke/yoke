@@ -27,7 +27,8 @@ human-readable drift report."""
 def resync(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke resync",
-        description=f"{RESYNC_USAGE}\n\n{_RESYNC_HELP_DEEP}",
+        usage=RESYNC_USAGE,
+        description=_RESYNC_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     mode = parser.add_mutually_exclusive_group()

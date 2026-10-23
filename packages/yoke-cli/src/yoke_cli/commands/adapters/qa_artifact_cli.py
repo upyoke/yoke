@@ -28,7 +28,7 @@ QA_ARTIFACT_ADD_USAGE = (
 def qa_artifact_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa artifact add",
-        description=QA_ARTIFACT_ADD_USAGE,
+        usage=QA_ARTIFACT_ADD_USAGE,
     )
     parser.add_argument(
         "--requirement-id",
@@ -144,7 +144,7 @@ QA_ARTIFACT_PRESIGN_USAGE = (
 def qa_artifact_presign(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa artifact presign",
-        description=QA_ARTIFACT_PRESIGN_USAGE,
+        usage=QA_ARTIFACT_PRESIGN_USAGE,
     )
     parser.add_argument(
         "--requirement-id",

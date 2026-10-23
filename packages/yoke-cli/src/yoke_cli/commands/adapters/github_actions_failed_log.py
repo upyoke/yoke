@@ -80,14 +80,23 @@ def github_actions_failed_log(args: List[str]) -> int:
             "--json adds the per-job structure alongside the report."
         ),
     )
-    parser.add_argument("repo")
-    parser.add_argument("run_id", nargs="?", default=None)
+    parser.add_argument("repo", help="GitHub repository, as owner/name.")
+    parser.add_argument(
+        "run_id",
+        nargs="?",
+        default=None,
+        help="Workflow run id; omit to use --workflow.",
+    )
     parser.add_argument(
         "--workflow",
         default=None,
         help="Workflow file when resolving the run from a commit selector.",
     )
-    parser.add_argument("--branch", default="main")
+    parser.add_argument(
+        "--branch",
+        default="main",
+        help="Branch of the run when resolving by --workflow; default: main.",
+    )
     parser.add_argument(
         "--head-sha",
         default="",
@@ -115,7 +124,7 @@ def github_actions_failed_log(args: List[str]) -> int:
             "straight from GitHub, never through the bounded report."
         ),
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help="Project that owns the repo.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_FAILED_LOG_USAGE)

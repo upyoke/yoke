@@ -1,0 +1,13 @@
+{
+  "direct": "Run the short dash and blitz workflows for items.",
+  "direct workflow": "Run the short dash and blitz workflows for items.",
+  "direct workflow blitz": "Check paths before a blitz changes them.",
+  "direct workflow blitz survey": "Check whether a blitz's paths clash with other work.",
+  "direct workflow conflict": "Read the results of path conflict surveys.",
+  "direct workflow conflict survey": "Read the results of path conflict surveys.",
+  "direct workflow conflict survey status": "Show an item's latest path conflict survey.",
+  "direct workflow dash": "Survey, record and escalate dash work.",
+  "direct workflow dash escalate": "Turn a dash finding into a new item.",
+  "direct workflow dash evidence": "Record the result and checks of a finished dash.",
+  "direct workflow dash survey": "Check whether a dash's paths clash with other work."
+}

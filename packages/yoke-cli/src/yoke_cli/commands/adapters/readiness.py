@@ -77,7 +77,7 @@ Reports one of three verdicts in the result payload:
 def readiness_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke readiness check",
-        description=READINESS_CHECK_USAGE,
+        usage=READINESS_CHECK_USAGE,
         epilog=_READINESS_CHECK_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -107,7 +107,7 @@ def readiness_check(args: List[str]) -> int:
 def readiness_prd_validate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke readiness prd-validate",
-        description=READINESS_PRD_VALIDATE_USAGE,
+        usage=READINESS_PRD_VALIDATE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
@@ -170,7 +170,7 @@ def _repair(
     usage: str,
     function_id: str,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     parser.add_argument("--item", required=True, help="YOK-N or N.")
     add_session_arg(parser)
     add_json_arg(parser)

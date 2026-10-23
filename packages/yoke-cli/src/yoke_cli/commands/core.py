@@ -179,12 +179,24 @@ def _add_image(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_ports(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--api-port", type=int, default=DEFAULT_API_PORT)
-    parser.add_argument("--postgres-port", type=int, default=DEFAULT_POSTGRES_PORT)
+    parser.add_argument(
+        "--api-port",
+        type=int,
+        default=DEFAULT_API_PORT,
+        help=f"Local API port; default: {DEFAULT_API_PORT}.",
+    )
+    parser.add_argument(
+        "--postgres-port",
+        type=int,
+        default=DEFAULT_POSTGRES_PORT,
+        help=f"Local Postgres port; default: {DEFAULT_POSTGRES_PORT}.",
+    )
 
 
 def _add_json(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
 
 
 def _add_machine_home(parser: argparse.ArgumentParser) -> None:

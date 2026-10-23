@@ -1,0 +1,11 @@
+{
+  "machine": "Register and manage the machines in this control plane.",
+  "machine access": "Read and change who may use a machine.",
+  "machine access get": "Show a machine's access settings.",
+  "machine access set": "Change one of a machine's access settings.",
+  "machine detail": "Show a machine's identity, harness, sessions and token.",
+  "machine list": "List the machines registered here.",
+  "machine register": "Register this machine with the control plane.",
+  "machine retire": "Retire a machine and revoke its credential.",
+  "machine show": "Show one registered machine; defaults to this one."
+}

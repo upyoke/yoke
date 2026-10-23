@@ -31,9 +31,9 @@ def _run(args, *, retired):
         "Lists omit retired projects unless "
         "--include-retired is selected; direct project reads retain history.",
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help=f"Project to {verb}.")
     if retired:
-        parser.add_argument("--reason", required=True)
+        parser.add_argument("--reason", required=True, help="Why the project retires.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

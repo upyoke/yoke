@@ -46,19 +46,30 @@ def _cell(row: Dict[str, Any], field: str) -> str:
 def sessions_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions list",
-        description=SESSIONS_LIST_USAGE,
+        usage=SESSIONS_LIST_USAGE,
     )
     parser.add_argument(
         "--project",
         default=None,
         help="Only sessions in this project, excluding outside-project sessions.",
     )
-    parser.add_argument("--liveness", choices=LIVENESS_STATES, default=None)
     parser.add_argument(
-        "--ended-cause", dest="ended_cause", choices=ENDED_CAUSES, default=None
+        "--liveness",
+        choices=LIVENESS_STATES,
+        default=None,
+        help="Only sessions in this liveness state.",
     )
-    parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument(
+        "--ended-cause",
+        dest="ended_cause",
+        choices=ENDED_CAUSES,
+        default=None,
+        help="Only ended sessions with this cause.",
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Most rows to show.")
+    parser.add_argument(
+        "--offset", type=int, default=0, help="Rows to skip first; default: 0."
+    )
     add_full_arg(
         parser,
         "all sessions and their diagnostics, holdings, usage and messageability unless --limit is named",
@@ -108,7 +119,7 @@ def sessions_list(args: List[str]) -> int:
 def sessions_get(args: List[str]) -> int:
     """Read one session through the roster's exact-session projection."""
     parser = argparse.ArgumentParser(prog="yoke sessions get")
-    parser.add_argument("session")
+    parser.add_argument("session", help="Session id to read.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, "yoke sessions get SESSION [--json]")

@@ -28,9 +28,13 @@ PROJECTS_CAPABILITIES_LIST_USAGE = (
 def projects_capabilities_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects capabilities list",
-        description=PROJECTS_CAPABILITIES_LIST_USAGE,
+        usage=PROJECTS_CAPABILITIES_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project whose capabilities to list.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

@@ -1,0 +1,4 @@
+{
+  "runner-fleet": "Manage the project's CI runner fleet.",
+  "runner-fleet exec": "Run a runner fleet admin command with its keys."
+}

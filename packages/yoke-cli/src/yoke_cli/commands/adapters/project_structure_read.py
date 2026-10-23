@@ -42,10 +42,8 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def project_structure_deploy_defaults_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure deploy-defaults get",
-        description=(
-            f"{PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE}\n\n"
-            f"{_DEPLOY_DEFAULTS_GET_HELP_DEEP}"
-        ),
+        usage=PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
+        description=_DEPLOY_DEFAULTS_GET_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
@@ -101,7 +99,8 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def project_structure_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure get",
-        description=f"{PROJECT_STRUCTURE_GET_USAGE}\n\n{_GET_HELP_DEEP}",
+        usage=PROJECT_STRUCTURE_GET_USAGE,
+        description=_GET_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
@@ -151,9 +150,8 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def architecture_health_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure architecture-health get",
-        description=(
-            f"{ARCHITECTURE_HEALTH_GET_USAGE}\n\n{_ARCHITECTURE_HEALTH_HELP_DEEP}"
-        ),
+        usage=ARCHITECTURE_HEALTH_GET_USAGE,
+        description=_ARCHITECTURE_HEALTH_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
@@ -229,9 +227,8 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def architecture_draft_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure architecture-draft get",
-        description=(
-            f"{ARCHITECTURE_DRAFT_GET_USAGE}\n\n{_ARCHITECTURE_DRAFT_HELP_DEEP}"
-        ),
+        usage=ARCHITECTURE_DRAFT_GET_USAGE,
+        description=_ARCHITECTURE_DRAFT_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")

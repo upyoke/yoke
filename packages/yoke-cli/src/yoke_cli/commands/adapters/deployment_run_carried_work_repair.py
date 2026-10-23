@@ -35,7 +35,9 @@ def deployment_runs_carried_work_repair(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=_DESCRIPTION,
     )
-    parser.add_argument("run_id")
+    parser.add_argument(
+        "run_id", help="Id of the deployment run whose carried-work record to replace."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

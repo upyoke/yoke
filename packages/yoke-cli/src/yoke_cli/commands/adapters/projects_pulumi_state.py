@@ -39,10 +39,22 @@ def projects_pulumi_state_migrate(args: List[str]) -> int:
             "the migrated values."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--site", required=True)
-    parser.add_argument("--stack", dest="stack_names", action="append", required=True)
-    parser.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--project", required=True, help="Project that receives the Pulumi state."
+    )
+    parser.add_argument(
+        "--site", required=True, help="Site that holds the Pulumi state now."
+    )
+    parser.add_argument(
+        "--stack",
+        dest="stack_names",
+        action="append",
+        required=True,
+        help="Stack whose state to move; repeat for each stack.",
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="Move the state; without it, only preview."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PULUMI_STATE_MIGRATE_USAGE)
@@ -76,10 +88,22 @@ def projects_pulumi_state_checkpoint_import(args: List[str]) -> int:
             "never emits the imported values."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--stack", dest="stack_name", required=True)
-    parser.add_argument("--checkpoint-file", required=True)
-    parser.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--project", required=True, help="Project that receives the stack metadata."
+    )
+    parser.add_argument(
+        "--stack", dest="stack_name", required=True, help="Name of the Pulumi stack."
+    )
+    parser.add_argument(
+        "--checkpoint-file",
+        required=True,
+        help="Owner-only Pulumi checkpoint file to read.",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Register the metadata; without it, only preview.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PULUMI_STATE_CHECKPOINT_IMPORT_USAGE)

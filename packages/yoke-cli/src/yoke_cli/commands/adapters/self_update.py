@@ -24,7 +24,11 @@ UPDATE_USAGE = (
 
 def update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke update")
-    parser.add_argument("--channel", default=None)
+    parser.add_argument(
+        "--channel",
+        default=None,
+        help="Release channel to update from; default: the configured channel.",
+    )
     parser.add_argument(
         "--version",
         default=None,
@@ -40,7 +44,12 @@ def update(args: List[str]) -> int:
             "engine and the channel's latest release, with behind: cli|server|none"
         ),
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print JSON instead of text.",
+    )
     parsed = parser.parse_args(args)
     if parsed.check:
         if parsed.version:

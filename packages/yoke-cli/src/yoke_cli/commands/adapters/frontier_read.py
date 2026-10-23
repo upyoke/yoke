@@ -34,10 +34,17 @@ def _cells(row: Dict[str, Any], fields: List[str]) -> str:
 def frontier_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke frontier list",
-        description=FRONTIER_LIST_USAGE,
+        usage=FRONTIER_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--wip-cap", type=int, default=None)
+    parser.add_argument(
+        "--project", default=None, help="Project to list the frontier for."
+    )
+    parser.add_argument(
+        "--wip-cap",
+        type=int,
+        default=None,
+        help="Most items in progress at once; default: project policy.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, FRONTIER_LIST_USAGE)

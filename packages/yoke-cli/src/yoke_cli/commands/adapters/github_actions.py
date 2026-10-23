@@ -181,13 +181,13 @@ def github_actions_secret_set(args: List[str]) -> int:
     _add_repo_name_project(
         parser, noun="secret", example="YOKE_CI_API_TOKEN",
     )
-    parser.add_argument("value", nargs="?")
-    parser.add_argument("--value-file", dest="value_file", default=None)
+    parser.add_argument("value", nargs="?", help="Secret value to store.")
     parser.add_argument(
-        "--value-stdin", dest="value_stdin", action="store_true",
-        help=(
-            "Read the secret value from stdin. Trailing newlines are stripped."
-        ),
+        "--value-file", default=None, help="Read the secret value from this file."
+    )
+    parser.add_argument(
+        "--value-stdin", action="store_true",
+        help="Read the secret value from stdin. Trailing newlines are stripped.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

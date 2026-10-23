@@ -31,7 +31,7 @@ def items_structured_field_section_upsert(args: List[str]) -> int:
 
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field section-upsert",
-        description=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
+        usage=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--section", required=True, help="Section heading.")
@@ -39,7 +39,13 @@ def items_structured_field_section_upsert(args: List[str]) -> int:
     parser.add_argument(
         "--field", default=None, help="Target this stored structured field."
     )
-    parser.add_argument("--heading-level", type=int, choices=range(2, 7), default=None)
+    parser.add_argument(
+        "--heading-level",
+        type=int,
+        choices=range(2, 7),
+        default=None,
+        help="Markdown heading level for a new section, 2 to 6.",
+    )
     parser.add_argument(
         "--ordering", type=int, default=None, help="Optional section ordering rank."
     )

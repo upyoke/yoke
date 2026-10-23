@@ -1,0 +1,17 @@
+{
+  "test": "Manage and use registered test machines.",
+  "test machine": "Manage and use registered test machines.",
+  "test machine bridge": "Check the Terminal bridge on a test machine.",
+  "test machine bridge diagnose": "Test each Terminal bridge feature and name what fails.",
+  "test machine desktop": "Reach a test machine's remote desktop.",
+  "test machine desktop access": "Open a test machine's remote desktop.",
+  "test machine get": "Read one test machine's settings.",
+  "test machine golden": "Save a test machine's clean state.",
+  "test machine golden capture": "Save a test machine's clean state as a golden copy.",
+  "test machine list": "List a project's test machines.",
+  "test machine reset": "Restore a test machine to its clean baseline.",
+  "test machine screenshot": "Capture a test machine's desktop as a PNG.",
+  "test machine settings": "Change a test machine's settings.",
+  "test machine settings replace": "Replace a test machine's settings from a file.",
+  "test machine verify": "Check that a test machine is reachable and ready."
+}

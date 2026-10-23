@@ -31,8 +31,10 @@ def github_actions_dispatch_receipt_get(args: List[str]) -> int:
             "the same request id is refused. Missing records return found=false."
         ),
     )
-    parser.add_argument("request_id")
-    parser.add_argument("--project", required=True)
+    parser.add_argument("request_id", help="Id of the dispatch request to read.")
+    parser.add_argument(
+        "--project", required=True, help="Project that made the dispatch request."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_DISPATCH_RECEIPT_USAGE)

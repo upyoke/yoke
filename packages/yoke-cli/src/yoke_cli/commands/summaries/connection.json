@@ -1,0 +1,5 @@
+{
+  "connection": "Add, change or remove machine connections.",
+  "connection remove": "Remove a connection and its stored credential.",
+  "connection set": "Add or change a connection to a Yoke server."
+}

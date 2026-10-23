@@ -38,7 +38,8 @@ from yoke_cli.commands.text_file import resolve_optional_text_source
 def qa_requirement_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement add",
-        description=(f"{QA_REQUIREMENT_ADD_USAGE}\n\n{QA_REQUIREMENT_ADD_HELP_DEEP}"),
+        usage=QA_REQUIREMENT_ADD_USAGE,
+        description=QA_REQUIREMENT_ADD_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
@@ -143,12 +144,24 @@ def qa_requirement_add(args: List[str]) -> int:
         default=None,
         help="Method-specific JSON object.",
     )
-    parser.add_argument("--host-baseline", dest="host_baseline", default=None)
     parser.add_argument(
-        "--starting-state", dest="starting_state", choices=("as_is",), default=None
+        "--host-baseline",
+        dest="host_baseline",
+        default=None,
+        help="Host state to reset to first, such as fresh-host.",
     )
     parser.add_argument(
-        "--starting-state-reason", dest="starting_state_reason", default=None
+        "--starting-state",
+        dest="starting_state",
+        choices=("as_is",),
+        default=None,
+        help="Use as_is to walk the machine as found, with no reset.",
+    )
+    parser.add_argument(
+        "--starting-state-reason",
+        dest="starting_state_reason",
+        default=None,
+        help="Why the case needs the as_is starting state.",
     )
     parser.add_argument(
         "--workflow-transition",

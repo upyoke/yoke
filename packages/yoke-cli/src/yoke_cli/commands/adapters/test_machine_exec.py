@@ -70,8 +70,8 @@ def test_machine_exec(args: List[str]) -> int:
             "under an awaiting mission's retained lease."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine")
+    parser.add_argument("--project", required=True, help="Project that owns it.")
+    parser.add_argument("--machine", help="Registered test machine to run on.")
     parser.add_argument(
         "--admin",
         action="store_true",

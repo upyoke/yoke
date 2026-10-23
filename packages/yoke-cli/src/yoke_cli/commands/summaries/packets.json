@@ -1,0 +1,12 @@
+{
+  "packets": "Render and measure the instruction packets agents read.",
+  "packets budget": "Show line budgets for instruction packets.",
+  "packets budget get": "Show each packet role's line budget and usage.",
+  "packets check": "Check packets for drift and budget overruns.",
+  "packets render": "Print the instruction packet for one agent role.",
+  "packets startup": "Show what each harness loads at session start.",
+  "packets startup delivery": "Show what each harness loads at session start.",
+  "packets startup delivery get": "Show each harness startup payload and its budget.",
+  "packets startup-delivery": "Show what each harness loads at session start.",
+  "packets startup-delivery get": "Show each harness startup payload and its budget."
+}

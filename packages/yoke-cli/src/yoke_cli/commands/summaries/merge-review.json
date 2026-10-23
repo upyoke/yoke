@@ -1,0 +1,5 @@
+{
+  "merge-review": "Check whether a change may merge.",
+  "merge-review candidate": "Check whether a change may merge.",
+  "merge-review candidate evaluate": "Check whether a commit may merge, and request review."
+}

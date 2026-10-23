@@ -122,8 +122,10 @@ def epic_task_history_insert(args: List[str]) -> int:
         description="Record one epic task status-history transition.",
     )
     _epic_task_flags(parser)
-    parser.add_argument("--from-status", required=True)
-    parser.add_argument("--to-status", required=True)
+    parser.add_argument(
+        "--from-status", required=True, help="Status before the change."
+    )
+    parser.add_argument("--to-status", required=True, help="Status after the change.")
     group = parser.add_mutually_exclusive_group()
     add_text_file_pair(group, "--note", "--note-file", dest="note")
     add_session_arg(parser)
@@ -162,12 +164,22 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
         description="Run the full conduct epic-task status pipeline.",
     )
     _epic_task_flags(parser)
-    parser.add_argument("--status", required=True)
+    parser.add_argument("--status", required=True, help="New status for the task.")
     group = parser.add_mutually_exclusive_group()
     add_text_file_pair(group, "--note", "--note-file", dest="note")
-    parser.add_argument("--no-github", action="store_true")
-    parser.add_argument("--no-derive", action="store_true")
-    parser.add_argument("--claim-bypass", default="")
+    parser.add_argument(
+        "--no-github", action="store_true", help="Skip the GitHub issue updates."
+    )
+    parser.add_argument(
+        "--no-derive",
+        action="store_true",
+        help="Skip unblocking other tasks and deriving the epic status.",
+    )
+    parser.add_argument(
+        "--claim-bypass",
+        default="",
+        help="Source name that lets the write skip the work-claim check.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -208,10 +220,20 @@ def conduct_epic_proceed_triage_handoff(args: List[str]) -> int:
         prog="yoke conduct epic proceed-triage-handoff",
         description="Record accepted simulation gaps and hand off the epic.",
     )
-    parser.add_argument("--epic", required=True)
-    parser.add_argument("--recommendation", default="PROCEED")
-    parser.add_argument("--gap-summary", default="")
-    parser.add_argument("--filed-items", default="")
+    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--recommendation",
+        default="PROCEED",
+        help="Simulation recommendation to record; default: PROCEED.",
+    )
+    parser.add_argument(
+        "--gap-summary", default="", help="Short summary of the accepted gaps."
+    )
+    parser.add_argument(
+        "--filed-items",
+        default="",
+        help="Comma-separated items filed for the gaps, as PREFIX-N.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

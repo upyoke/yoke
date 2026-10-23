@@ -119,7 +119,7 @@ def _print_claims(response: Any, stdout, _stderr) -> None:
 def claims_steering_acquire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims steering acquire",
-        description=STEERING_ACQUIRE_USAGE,
+        usage=STEERING_ACQUIRE_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument(
@@ -174,7 +174,7 @@ def claims_steering_acquire(args: List[str]) -> int:
 def claims_steering_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims steering release",
-        description=STEERING_RELEASE_USAGE,
+        usage=STEERING_RELEASE_USAGE,
     )
     parser.add_argument("claim_id", help="Steering work_claims.id.")
     parser.add_argument("--reason", required=True, help="Release rationale.")
@@ -199,7 +199,7 @@ def claims_steering_release(args: List[str]) -> int:
 def claims_steering_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims steering list",
-        description=STEERING_LIST_USAGE,
+        usage=STEERING_LIST_USAGE,
     )
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument("--session-id", default=None, help="Filter by claim holder.")
@@ -233,7 +233,7 @@ def claims_steering_list(args: List[str]) -> int:
 def claims_steering_verify(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims steering verify",
-        description=STEERING_VERIFY_USAGE,
+        usage=STEERING_VERIFY_USAGE,
         epilog=(
             "Answers whether this session holds a live steering seat covering "
             "the project, the authority operator-only commands require. "

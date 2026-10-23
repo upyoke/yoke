@@ -1,0 +1,4 @@
+{
+  "usher": "Repair deploy records from GitHub results.",
+  "usher reconcile-github": "Fix deploy records when GitHub shows success."
+}

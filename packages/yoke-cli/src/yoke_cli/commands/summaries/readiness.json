@@ -1,0 +1,14 @@
+{
+  "readiness": "Check that an item is ready and fix simple gaps.",
+  "readiness check": "Check whether an item is ready to start work.",
+  "readiness prd": "Check an item's spec sections.",
+  "readiness prd validate": "Check that an item's spec has the required sections.",
+  "readiness prd-validate": "Check that an item's spec has the required sections.",
+  "readiness repair": "Fix simple readiness problems on an item.",
+  "readiness repair claim": "Fix an item's path claims.",
+  "readiness repair claim coverage": "Fix an item's path claims to cover its files.",
+  "readiness repair stale": "Update stale numbers in an item's spec.",
+  "readiness repair stale count": "Update stale line counts in an item's spec.",
+  "readiness repair-claim-coverage": "Fix an item's path claims to cover its files.",
+  "readiness repair-stale-count": "Update stale line counts in an item's spec."
+}

@@ -1,0 +1,5 @@
+{
+  "merge-receipt": "Change what an item's merge record credits.",
+  "merge-receipt commits": "Tie outside commits to an item's merge record.",
+  "merge-receipt commits attest": "Credit a commit made outside Yoke to an item."
+}

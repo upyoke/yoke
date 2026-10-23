@@ -50,9 +50,21 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "seat and lease; authorization is audited in the holder's session history."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", required=True)
-    parser.add_argument("--view", action="store_true")
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project that owns the test machine.",
+    )
+    parser.add_argument(
+        "--machine",
+        required=True,
+        help="Test machine to open, by name.",
+    )
+    parser.add_argument(
+        "--view",
+        action="store_true",
+        help="Open the desktop in a visible FreeRDP viewer window.",
+    )
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args, DESKTOP_ACCESS_USAGE)
     if parsed is None:

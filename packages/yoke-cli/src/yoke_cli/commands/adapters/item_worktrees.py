@@ -63,7 +63,7 @@ def item_worktrees_get(args: List[str]) -> int:
     """Read one active item-owned worktree lane."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees get",
-        description=ITEM_WORKTREES_GET_USAGE,
+        usage=ITEM_WORKTREES_GET_USAGE,
     )
     parser.add_argument(
         "item",
@@ -111,7 +111,7 @@ def item_worktrees_list(args: List[str]) -> int:
     """Read every active item-owned worktree lane."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees list",
-        description=ITEM_WORKTREES_LIST_USAGE,
+        usage=ITEM_WORKTREES_LIST_USAGE,
     )
     parser.add_argument(
         "item",
@@ -140,7 +140,7 @@ def item_worktrees_inventory(args: List[str]) -> int:
     """Read every registered lane in a project with its owning item's state."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees inventory",
-        description=ITEM_WORKTREES_INVENTORY_USAGE,
+        usage=ITEM_WORKTREES_INVENTORY_USAGE,
     )
     parser.add_argument(
         "--project",
@@ -170,15 +170,28 @@ def item_worktrees_path_record(args: List[str]) -> int:
     """Record a local path against an unchanged authoritative lane."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees path-record",
-        description=ITEM_WORKTREES_PATH_RECORD_USAGE,
+        usage=ITEM_WORKTREES_PATH_RECORD_USAGE,
     )
     parser.add_argument(
         "item",
         help="Item id (PREFIX-N).",
     )
-    parser.add_argument("--worktree-id", type=int, required=True)
-    parser.add_argument("--branch", required=True)
-    parser.add_argument("--path", required=True)
+    parser.add_argument(
+        "--worktree-id",
+        type=int,
+        required=True,
+        help="Lane id the record must still match.",
+    )
+    parser.add_argument(
+        "--branch",
+        required=True,
+        help="Lane branch the record must still match.",
+    )
+    parser.add_argument(
+        "--path",
+        required=True,
+        help="Absolute local path of the lane checkout to record.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -206,7 +219,7 @@ def item_worktrees_release(args: List[str]) -> int:
     """Release every active lane for one claimed item."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees release",
-        description=ITEM_WORKTREES_RELEASE_USAGE,
+        usage=ITEM_WORKTREES_RELEASE_USAGE,
         epilog=(
             "Review-stage recovery for items not yet merged. A merged item "
             "awaiting delivery refuses with lane_owned_by_release_closeout: "

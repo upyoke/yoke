@@ -84,8 +84,8 @@ def deployment_runs_create(args: List[str]) -> int:
         description=CREATE_DESCRIPTION,
         epilog="Environment release recipe: yoke deployment-runs resolve-target --help",
     )
-    parser.add_argument("project")
-    parser.add_argument("flow")
+    parser.add_argument("project", help="Project to deploy.")
+    parser.add_argument("flow", help="Deployment flow to run.")
     parser.add_argument(
         "--idempotency-key",
         required=True,
@@ -96,8 +96,18 @@ def deployment_runs_create(args: List[str]) -> int:
             "takes a new key."
         ),
     )
-    parser.add_argument("--environment", dest="environment", default=None)
-    parser.add_argument("--created-by", dest="created_by", default="operator")
+    parser.add_argument(
+        "--environment",
+        dest="environment",
+        default=None,
+        help="Registered environment to deploy to; default: the flow's environment.",
+    )
+    parser.add_argument(
+        "--created-by",
+        dest="created_by",
+        default="operator",
+        help="Who created the run; default: operator.",
+    )
     parser.add_argument(
         "--project-repo-path",
         default=None,

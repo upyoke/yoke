@@ -79,13 +79,13 @@ def _require_projection(expected_fields=None, summary=False, requested=()):
 def deployment_runs_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs get",
-        description=DEPLOYMENT_RUNS_GET_USAGE
-        + " Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
+        usage=DEPLOYMENT_RUNS_GET_USAGE,
+        description="Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
         " excluded) and membership_removals (reason, removed_at, later_run_id)."
         " carried_work is recorded at composition freeze; before that get"
         " derives it live and it stays unrecorded.",
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run id.")
     parser.add_argument(
         "fields",
         nargs="*",
@@ -139,11 +139,13 @@ def deployment_runs_get(args: List[str]) -> int:
 def deployment_runs_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs list",
-        description=DEPLOYMENT_RUNS_LIST_USAGE
-        + " Defaults to 20 summary rows; use next_cursor with --cursor to continue. Read full row fields with get RUN-ID FIELD ... .",
+        usage=DEPLOYMENT_RUNS_LIST_USAGE,
+        description="Defaults to 20 summary rows; use next_cursor with --cursor to continue. Read full row fields with get RUN-ID FIELD ... .",
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--status", default=None)
+    parser.add_argument(
+        "--project", default=None, help="Show only this project's runs."
+    )
+    parser.add_argument("--status", default=None, help="Show only runs in this status.")
     parser.add_argument(
         "--relevance",
         choices=["overview"],

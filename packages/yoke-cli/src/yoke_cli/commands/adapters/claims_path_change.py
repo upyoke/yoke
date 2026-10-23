@@ -87,7 +87,7 @@ def _claims_path_change(
 ) -> int:
     parser = argparse.ArgumentParser(
         prog=prog,
-        description=usage,
+        usage=usage,
         epilog=AMEND_NARROW_HELP if function_id == "claims.path.amend" else None,
     )
     parser.add_argument("--claim-id", required=True, help="path_claims.id to change.")

@@ -163,7 +163,8 @@ def _authority_receipt() -> tuple[dict[str, str | None], list[str]]:
 def schema_converge(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke schema converge",
-        description=(f"{SCHEMA_CONVERGE_USAGE}\n\n{_SCHEMA_CONVERGE_HELP}"),
+        usage=SCHEMA_CONVERGE_USAGE,
+        description=_SCHEMA_CONVERGE_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

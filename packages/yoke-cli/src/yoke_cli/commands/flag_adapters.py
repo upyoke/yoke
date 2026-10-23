@@ -239,6 +239,7 @@ from yoke_cli.commands.adapters.ouroboros_writes import (
 )
 from yoke_cli.commands.adapters.config import (
     config_example,
+    config_status,
     status,
 )
 from yoke_cli.commands.adapters.dev import (

@@ -67,7 +67,7 @@ def _write_url(response: Any, stdout: TextIO, _stderr: TextIO) -> None:
 def files_upload(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke files upload",
-        description=FILES_UPLOAD_USAGE,
+        usage=FILES_UPLOAD_USAGE,
         epilog=FILES_UPLOAD_EPILOG,
     )
     parser.add_argument("local_file", help="The local file to upload.")

@@ -41,7 +41,6 @@ WORKFLOWS_ITEM_MIGRATE_USAGE = (
     "[--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
-    f"{WORKFLOWS_ITEM_MIGRATE_USAGE}\n\n"
     "Requires a live steering seat covering the item's project or document. "
     "Acquire it with yoke claims steering acquire --project P --reason TEXT, "
     "or route via yoke say --steering."
@@ -51,9 +50,9 @@ WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
 def workflows_definition_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows definition get",
-        description=WORKFLOWS_DEFINITION_GET_USAGE,
+        usage=WORKFLOWS_DEFINITION_GET_USAGE,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--project", default=None, help="Project to read from.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -83,10 +82,10 @@ def workflows_definition_get(args: List[str]) -> int:
 def workflows_item_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item get",
-        description=WORKFLOWS_ITEM_GET_USAGE,
+        usage=WORKFLOWS_ITEM_GET_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project", default=None)
+    parser.add_argument("item", help="Item to read, as PREFIX-N.")
+    parser.add_argument("--project", default=None, help="Project that owns the item.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -113,16 +112,22 @@ def workflows_item_get(args: List[str]) -> int:
 def workflows_item_migrate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item migrate",
+        usage=WORKFLOWS_ITEM_MIGRATE_USAGE,
         description=WORKFLOWS_ITEM_MIGRATE_DESCRIPTION,
     )
-    parser.add_argument("item")
-    parser.add_argument("--version", type=int, default=None)
+    parser.add_argument("item", help="Item to migrate, as PREFIX-N.")
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=None,
+        help="Version to move to; default: current.",
+    )
     parser.add_argument(
         "--preview",
         action="store_true",
         help="Return migration conflicts without changing the item pin.",
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--project", default=None, help="Project that owns the item.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

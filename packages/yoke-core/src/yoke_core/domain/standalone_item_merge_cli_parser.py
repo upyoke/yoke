@@ -94,10 +94,14 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Item (PREFIX-N) to merge.")
+    parser.add_argument("--project", help="Project the item belongs to.")
     parser.add_argument("--target", default="", help="Override the base branch.")
-    parser.add_argument("--session-id", default=os.environ.get("YOKE_SESSION_ID", ""))
+    parser.add_argument(
+        "--session-id",
+        default=os.environ.get("YOKE_SESSION_ID", ""),
+        help="Calling session id; default: $YOKE_SESSION_ID.",
+    )
     parser.add_argument(
         "--result",
         default="",
@@ -153,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     for flag, help_text in boolean_options:
         parser.add_argument(flag, action="store_true", help=help_text)
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Print JSON output.")
     return parser
 
 

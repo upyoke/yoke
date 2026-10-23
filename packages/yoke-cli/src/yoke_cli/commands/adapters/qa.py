@@ -44,7 +44,7 @@ QA_REQUIREMENT_UPDATE_USAGE = (
 def qa_requirement_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement update",
-        description=QA_REQUIREMENT_UPDATE_USAGE,
+        usage=QA_REQUIREMENT_UPDATE_USAGE,
     )
     parser.add_argument(
         "--requirement-id",
@@ -137,7 +137,7 @@ def _write_waive_result(
 def qa_requirement_waive(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement waive",
-        description=QA_REQUIREMENT_WAIVE_USAGE,
+        usage=QA_REQUIREMENT_WAIVE_USAGE,
         epilog=(
             "Record the operator's decision with --source operator and its rationale. "
             "The recorder must hold the item work claim, a live steering seat covering "
@@ -221,7 +221,7 @@ def qa_run_record_verdict(args: List[str]) -> int:
 
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
-        description=QA_RUN_RECORD_VERDICT_USAGE,
+        usage=QA_RUN_RECORD_VERDICT_USAGE,
         epilog=(
             "A pass on a blocking, unwaived requirement must name the tree it "
             "verified: --raw-result is JSON carrying "

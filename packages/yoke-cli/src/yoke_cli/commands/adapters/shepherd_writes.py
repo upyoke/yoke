@@ -36,7 +36,7 @@ def _write_verdict_id(
 def shepherd_verdict(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke shepherd verdict",
-        description=SHEPHERD_VERDICT_USAGE,
+        usage=SHEPHERD_VERDICT_USAGE,
     )
     parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
     parser.add_argument(
@@ -100,7 +100,7 @@ def _write_caveat_result(
 def shepherd_caveat_disposition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke shepherd caveat-disposition",
-        description=SHEPHERD_CAVEAT_DISPOSITION_USAGE,
+        usage=SHEPHERD_CAVEAT_DISPOSITION_USAGE,
     )
     parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
     parser.add_argument(

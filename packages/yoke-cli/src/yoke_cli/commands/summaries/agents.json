@@ -1,0 +1,5 @@
+{
+  "agents": "Write and check the agent prompt files in a checkout.",
+  "agents render": "Write the agent prompt files into this checkout.",
+  "agents render check": "Check rendered agent prompt files for drift from source."
+}

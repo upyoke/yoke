@@ -52,7 +52,7 @@ def _parse_binary_flag(raw: str, flag: str):
 def items_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items list",
-        description=ITEMS_LIST_USAGE,
+        usage=ITEMS_LIST_USAGE,
     )
     parser.add_argument("--status", default=None, help="Filter by status.")
     parser.add_argument("--priority", default=None, help="Filter by priority.")
@@ -142,7 +142,7 @@ def _write_search(response, stdout, stderr) -> None:
 def items_search(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items search",
-        description=ITEMS_SEARCH_USAGE,
+        usage=ITEMS_SEARCH_USAGE,
     )
     parser.add_argument(
         "keywords",

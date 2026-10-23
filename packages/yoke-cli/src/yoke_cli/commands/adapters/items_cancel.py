@@ -59,8 +59,8 @@ def _build_parser() -> Any:
 
     parser = argparse.ArgumentParser(
         prog="yoke items cancel",
+        usage=ITEMS_CANCEL_USAGE,
         description=(
-            f"{ITEMS_CANCEL_USAGE}\n"
             "Cancel an item that will never resume. This is the sibling of "
             "`yoke items freeze`, which parks work that will come back.\n\n"
             "The command takes the item claim for you, writes cancelled with "

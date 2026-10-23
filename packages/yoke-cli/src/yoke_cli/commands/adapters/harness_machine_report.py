@@ -28,10 +28,19 @@ USAGE_BY_FUNCTION_ID = {
 def harness_machine_report_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke harness machine-report upsert",
-        description=HARNESS_MACHINE_REPORT_UPSERT_USAGE,
+        usage=HARNESS_MACHINE_REPORT_UPSERT_USAGE,
     )
-    parser.add_argument("--project-id", type=int, required=True)
-    parser.add_argument("--repo-root", default=".")
+    parser.add_argument(
+        "--project-id",
+        type=int,
+        required=True,
+        help="Numeric id of the project to report for.",
+    )
+    parser.add_argument(
+        "--repo-root",
+        default=".",
+        help="Checkout to scan for harness and pack tools; default: current dir.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, HARNESS_MACHINE_REPORT_UPSERT_USAGE)

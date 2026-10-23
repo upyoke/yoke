@@ -29,13 +29,15 @@ FIELD_NOTE_PROMOTE_USAGE = (
 def field_note_promote(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros field-note promote",
-        description=FIELD_NOTE_PROMOTE_USAGE,
+        usage=FIELD_NOTE_PROMOTE_USAGE,
     )
-    parser.add_argument("entry", type=int)
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--instruction")
-    parser.add_argument("--project")
-    parser.add_argument("--priority")
+    parser.add_argument("entry", type=int, help="Field note entry id to promote.")
+    parser.add_argument("--title", required=True, help="Title for the new dash item.")
+    parser.add_argument(
+        "--instruction", help="Instruction for the dash; default: the note's body."
+    )
+    parser.add_argument("--project", help="Project for the new dash item.")
+    parser.add_argument("--priority", help="Priority for the new dash item.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, FIELD_NOTE_PROMOTE_USAGE)

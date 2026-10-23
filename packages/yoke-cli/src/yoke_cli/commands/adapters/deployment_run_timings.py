@@ -22,13 +22,14 @@ DEPLOYMENT_RUNS_TIMINGS_USAGE = (
 def deployment_runs_timings(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs timings",
+        usage=DEPLOYMENT_RUNS_TIMINGS_USAGE,
         description=(
             "Show a run's recorded release phase timings: per-step elapsed "
             "totals, then every start/end record. --json returns the full "
-            f"records. {DEPLOYMENT_RUNS_TIMINGS_USAGE}"
+            "records."
         ),
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run to read.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_TIMINGS_USAGE)

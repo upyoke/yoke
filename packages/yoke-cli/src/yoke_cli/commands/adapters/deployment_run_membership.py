@@ -63,6 +63,7 @@ What the run can do for the member, named on every add:
 def deployment_runs_add_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs add-item",
+        usage=ADD_ITEM_USAGE,
         description=(
             "Attach one public item reference whose code the candidate does "
             "not carry but which the run should still deliver. Refused "
@@ -74,12 +75,32 @@ def deployment_runs_add_item(args: List[str]) -> int:
         epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("run_id")
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--intent", choices=("progress", "final"), default=None)
-    parser.add_argument("--requirement-id", type=int, action="append", default=[])
-    parser.add_argument("--plan-id", type=int, action="append", default=[])
+    parser.add_argument("run_id", help="Deployment run id.")
+    parser.add_argument("item", help="Item to attach, as PREFIX-N.")
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
+    parser.add_argument(
+        "--intent",
+        choices=("progress", "final"),
+        default=None,
+        help="final if this run closes the item, progress if it ships part of it.",
+    )
+    parser.add_argument(
+        "--requirement-id",
+        type=int,
+        action="append",
+        default=[],
+        help="Requirement id to attach to this member; repeatable.",
+    )
+    parser.add_argument(
+        "--plan-id",
+        type=int,
+        action="append",
+        default=[],
+        help="Verification plan id to attach to this member; repeatable.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ADD_ITEM_USAGE)
@@ -110,6 +131,7 @@ def deployment_runs_add_item(args: List[str]) -> int:
 def deployment_runs_remove_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs remove-item",
+        usage=REMOVE_ITEM_USAGE,
         description=(
             "Take one member out of a created run, an executing item-QA stage, or a run failed at item-qa-failed, recording "
             "the reason on the run. Composition then never re-enrolls it; its "
@@ -136,10 +158,17 @@ def deployment_runs_remove_item(args: List[str]) -> int:
             "unknown containment still blocks by name."
         ),
     )
-    parser.add_argument("run_id")
-    parser.add_argument("item")
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--project")
+    parser.add_argument("run_id", help="Deployment run id.")
+    parser.add_argument("item", help="Item to remove, as PREFIX-N.")
+    parser.add_argument(
+        "--reason",
+        required=True,
+        help="Why the member is removed; recorded on the run.",
+    )
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, REMOVE_ITEM_USAGE)
@@ -163,6 +192,7 @@ def deployment_runs_remove_item(args: List[str]) -> int:
 def deployment_runs_validate_composition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs validate-composition",
+        usage=VALIDATE_COMPOSITION_USAGE,
         description=(
             "Compose the run now from its candidate and report what "
             "enrolled or why it refused. A flow with an item-scoped QA "
@@ -175,7 +205,7 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
             "Refused while another session is the run's live driver."
         ),
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, VALIDATE_COMPOSITION_USAGE)

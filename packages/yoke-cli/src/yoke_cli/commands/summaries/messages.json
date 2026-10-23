@@ -1,0 +1,10 @@
+{
+  "messages": "Send, read and acknowledge messages between sessions.",
+  "messages ack": "Mark a message you received as acted on.",
+  "messages acknowledge": "Mark a message you received as acted on.",
+  "messages cancel": "Cancel a message that is not yet read.",
+  "messages get": "Show one message and its delivery receipts.",
+  "messages list": "List messages and their delivery receipts.",
+  "messages send": "Preview or send a message to people and sessions.",
+  "messages status": "Show one message and its delivery receipts."
+}

@@ -55,7 +55,11 @@ def projects_infrastructure_list(args: List[str]) -> int:
 def projects_environment_list(args: List[str]) -> int:
     """Project environment inventory without the sibling site rows."""
     parser = argparse.ArgumentParser(prog="yoke projects environment list")
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project whose environments to list.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

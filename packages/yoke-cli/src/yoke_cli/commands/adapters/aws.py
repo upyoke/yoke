@@ -79,7 +79,12 @@ def aws_admin_status(args: List[str]) -> int:
         default=None,
         help="Project slug or id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the report as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, AWS_ADMIN_STATUS_USAGE)
     if parsed is None:
         return 2
@@ -150,7 +155,11 @@ def aws_exec(args: List[str]) -> int:
         default=None,
         help="AWS region (default: aws-admin capability settings.region).",
     )
-    parser.add_argument("aws_args", nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "aws_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments passed to the aws CLI, after --.",
+    )
     parsed = parse_or_usage_error(parser, args, AWS_EXEC_USAGE)
     if parsed is None:
         return 2

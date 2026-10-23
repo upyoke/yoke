@@ -52,16 +52,41 @@ def _parser() -> argparse.ArgumentParser:
             "cell."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--release-sha", required=True)
-    parser.add_argument("--run-id", required=True)
-    parser.add_argument("--bindings-stdin", action="store_true", required=True)
-    parser.add_argument("--qualification-candidate", action="store_true")
-    parser.add_argument("--preview", action="store_true")
-    parser.add_argument(PREPARE_BROKER_FLAG, action="store_true")
-    parser.add_argument("--timeout-seconds", type=float)
-    parser.add_argument("--poll-seconds", type=float)
-    parser.add_argument("--unsupported-observation-seconds", type=float)
+    parser.add_argument("--project", required=True, help="Project to accept.")
+    parser.add_argument(
+        "--release-sha", required=True, help="Full commit SHA of the release checkout."
+    )
+    parser.add_argument("--run-id", required=True, help="Unique id for this run.")
+    parser.add_argument(
+        "--bindings-stdin",
+        action="store_true",
+        required=True,
+        help="Read the session bindings JSON from stdin (required).",
+    )
+    parser.add_argument(
+        "--qualification-candidate",
+        action="store_true",
+        help="Run stage candidate qualification instead of prod acceptance.",
+    )
+    parser.add_argument(
+        "--preview", action="store_true", help="Show the plan without running it."
+    )
+    parser.add_argument(
+        PREPARE_BROKER_FLAG,
+        action="store_true",
+        help="Launch two broker sessions if none are ready, then preview again.",
+    )
+    parser.add_argument(
+        "--timeout-seconds", type=float, help="Longest wait for each step, in seconds."
+    )
+    parser.add_argument(
+        "--poll-seconds", type=float, help="Seconds between status checks."
+    )
+    parser.add_argument(
+        "--unsupported-observation-seconds",
+        type=float,
+        help="Seconds to confirm an unsupported surface gets no wake.",
+    )
     return parser
 
 

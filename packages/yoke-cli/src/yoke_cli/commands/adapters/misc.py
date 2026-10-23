@@ -50,7 +50,7 @@ OUROBOROS_ENTRY_LIST_USAGE = (
 def ouroboros_entry_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry list",
-        description=OUROBOROS_ENTRY_LIST_USAGE,
+        usage=OUROBOROS_ENTRY_LIST_USAGE,
     )
     parser.add_argument(
         "--unreviewed",
@@ -120,7 +120,7 @@ OUROBOROS_ENTRY_GET_USAGE = (
 def ouroboros_entry_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry get",
-        description=OUROBOROS_ENTRY_GET_USAGE,
+        usage=OUROBOROS_ENTRY_GET_USAGE,
     )
     parser.add_argument("entry_id", help="Ouroboros entry id (integer).")
     add_session_arg(parser)
@@ -169,7 +169,7 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
     scratch_dir = importlib.import_module("yoke_core.domain.project_scratch_dir")
     parser = argparse.ArgumentParser(
         prog="yoke scratch dispatch-inputs",
-        description=SCRATCH_DISPATCH_INPUTS_USAGE,
+        usage=SCRATCH_DISPATCH_INPUTS_USAGE,
     )
     parser.add_argument("item", help="Public item ref (PREFIX-N).")
     parser.add_argument("session_id", help="Harness session id.")

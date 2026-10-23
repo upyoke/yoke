@@ -159,8 +159,11 @@ def items_detail_get(args: List[str]) -> int:
         prog="yoke items detail get",
         description=ITEMS_DETAIL_GET_DESCRIPTION,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
     parser.add_argument(
         "--include",
         help=(

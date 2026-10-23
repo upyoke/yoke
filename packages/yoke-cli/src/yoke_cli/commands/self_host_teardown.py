@@ -91,9 +91,24 @@ def self_host_teardown(args: List[str]) -> int:
         metavar="ENV",
         help="Connection to make active when retiring the active authority.",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--yes", dest="assume_yes", action="store_true")
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the usual config file.",
+    )
+    parser.add_argument(
+        "--yes",
+        dest="assume_yes",
+        action="store_true",
+        help="Consent to --destroy-universe without the typed prompt.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the result as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, TEARDOWN_USAGE)
     if parsed is None:
         return 2

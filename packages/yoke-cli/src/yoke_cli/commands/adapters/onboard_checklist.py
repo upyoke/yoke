@@ -34,6 +34,9 @@ ONBOARD_CHECKLIST_USAGE = (
     "[--view-path PATH | --no-view]"
 )
 
+_CONFIG_HELP = "Machine config file to use; default: the standard one."
+_PROJECT_ID_HELP = "Numeric project id."
+
 
 def onboard_checklist_cmd(args: List[str]) -> int:
     if args and args[0] == "init":
@@ -42,12 +45,14 @@ def onboard_checklist_cmd(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke onboard checklist",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parser.add_argument("--run-id", dest="run_id", default=None)
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
+    parser.add_argument("--run-id", default=None, help="Setup run to resume.")
     parser.add_argument(
         "--project", default=None, help="Resume only this project's setup."
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument("--config", dest="config_path", default=None, help=_CONFIG_HELP)
     parser.add_argument(
         "--profile-file",
         default=None,
@@ -57,22 +62,31 @@ def onboard_checklist_cmd(args: List[str]) -> int:
         "--branch",
         choices=BRANCHES,
         default=None,
+        help="Setup path to follow.",
     )
-    parser.add_argument("--project-root", dest="project_root", default=None)
-    parser.add_argument("--project-id", dest="project_id", type=int, default=None)
-    parser.add_argument("--github-repo", dest="github_repo", default=None)
+    parser.add_argument(
+        "--project-root", default=None, help="Project checkout the setup is for."
+    )
+    parser.add_argument("--project-id", type=int, default=None, help=_PROJECT_ID_HELP)
+    parser.add_argument("--github-repo", default=None, help="Repo as OWNER/REPO.")
     parser.add_argument(
         "--row-status",
-        dest="row_status",
         action="append",
         default=[],
+        help="Set a row's status as ROW=STATUS; repeatable.",
     )
-    parser.add_argument("--evidence", action="append", default=[])
-    parser.add_argument("--blocker", action="append", default=[])
-    parser.add_argument("--note", action="append", default=[])
+    for flag in ("evidence", "blocker", "note"):
+        parser.add_argument(
+            f"--{flag}",
+            action="append",
+            default=[],
+            help=f"Record a row's {flag} as ROW=TEXT; repeatable.",
+        )
     view = parser.add_mutually_exclusive_group()
-    view.add_argument("--view-path", dest="view_path", default=None)
-    view.add_argument("--no-view", dest="no_view", action="store_true")
+    view.add_argument(
+        "--view-path", default=None, help="Where to write the checklist view file."
+    )
+    view.add_argument("--no-view", action="store_true", help="Write no view file.")
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_USAGE)
     if parsed is None:
         return 2
@@ -136,16 +150,20 @@ def _init(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke onboard checklist init",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--checkout", dest="checkout_path", default=None)
+    parser.add_argument("--config", dest="config_path", default=None, help=_CONFIG_HELP)
+    parser.add_argument(
+        "--checkout", dest="checkout_path", default=None, help="Project checkout path."
+    )
     parser.add_argument(
         "--project",
         dest="project",
         default=None,
         help="Project slug or numeric id (standalone init).",
     )
-    parser.add_argument("--project-id", dest="project_id", type=int, default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument("--project-id", type=int, default=None, help=_PROJECT_ID_HELP)
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_INIT_USAGE)
     if parsed is None:
         return 2

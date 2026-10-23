@@ -75,7 +75,7 @@ CLAIM_WORK_ACQUIRE_USAGE = (
 def claims_work_acquire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims work acquire",
-        description=CLAIM_WORK_ACQUIRE_USAGE,
+        usage=CLAIM_WORK_ACQUIRE_USAGE,
     )
     parser.add_argument("--item", default=None, help="Item id (PREFIX-N).")
     parser.add_argument(
@@ -143,11 +143,13 @@ def claims_work_acquire(args: List[str]) -> int:
     )
 
 
-CLAIM_WORK_RELEASE_USAGE = (
+_CLAIM_WORK_RELEASE_SYNOPSIS = (
     "yoke claims work release "
     "(--claim-id N | --item PREFIX-N | --epic PREFIX-N --task-num N | "
     "--process KEY | --all-mine) "
-    "[--reason TEXT] [--session-id S] [--json]\n"
+    "[--reason TEXT] [--session-id S] [--json]"
+)
+_CLAIM_WORK_RELEASE_NOTES = (
     "  --epic + --task-num release the calling session's active "
     "epic_task claim on (epic_id, task_num).\n"
     "  --process KEY releases this session's active process claim "
@@ -156,6 +158,9 @@ CLAIM_WORK_RELEASE_USAGE = (
     "holds, without ending the session; sticky resource claims survive.\n"
     "  --claim-id on a QA_HOST:<machine> claim reserves the host for the "
     "oldest live waiter in its line and wakes that session."
+)
+CLAIM_WORK_RELEASE_USAGE = (
+    f"{_CLAIM_WORK_RELEASE_SYNOPSIS}\n{_CLAIM_WORK_RELEASE_NOTES}"
 )
 
 _SELECTOR_ERR = (
@@ -167,7 +172,9 @@ _SELECTOR_ERR = (
 def claims_work_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims work release",
-        description=CLAIM_WORK_RELEASE_USAGE,
+        usage=_CLAIM_WORK_RELEASE_SYNOPSIS,
+        epilog=_CLAIM_WORK_RELEASE_NOTES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--claim-id", default=None, help="work_claims.id to release.")
     parser.add_argument(

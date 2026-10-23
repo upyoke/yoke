@@ -41,7 +41,7 @@ AGENTS_RENDER_USAGE = (
 def agents_render(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke agents render",
-        description=AGENTS_RENDER_USAGE,
+        usage=AGENTS_RENDER_USAGE,
     )
     parser.add_argument(
         "--target-root",
@@ -84,7 +84,7 @@ AGENTS_RENDER_CHECK_USAGE = (
 def agents_render_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke agents render check",
-        description=AGENTS_RENDER_CHECK_USAGE,
+        usage=AGENTS_RENDER_CHECK_USAGE,
     )
     parser.add_argument(
         "--target-root",
@@ -122,7 +122,7 @@ def board_data_get(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke board data get",
-        description=BOARD_DATA_GET_USAGE,
+        usage=BOARD_DATA_GET_USAGE,
     )
     parser.add_argument(
         "--scope", default="all", help="Project scope (slug, id, or 'all')."

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
@@ -17,27 +16,20 @@ from yoke_cli.config.project_selection import (
 from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.commands import qa_browser_machine_runtime
+from yoke_cli.commands.qa_browser_lifecycle_parser import (
+    QA_BROWSER_SETUP_USAGE,
+    QA_BROWSER_STATUS_USAGE,
+    setup_parser,
+    status_parser,
+)
 from yoke_cli.commands.qa_browser_stop import qa_browser_stop
 
 
-QA_BROWSER_STATUS_USAGE = (
-    "yoke qa browser status [--project PROJECT] [--identity NAME] [--json]"
-)
-QA_BROWSER_SETUP_USAGE = (
-    "yoke qa browser setup [--dry-run] [--project PROJECT] [--identity NAME] "
-    "[--port PORT] [--headed] [--idle-timeout SECONDS] [--json]"
-)
 MILLISECONDS_PER_SECOND = 1000
 
 
 def qa_browser_status(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa browser status",
-        description=QA_BROWSER_STATUS_USAGE,
-    )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--identity", default=DEFAULT_IDENTITY)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser = status_parser()
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STATUS_USAGE)
     if parsed is None:
         return 2
@@ -104,21 +96,7 @@ def _facet(facet: dict[str, object]) -> str:
 
 
 def qa_browser_setup(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa browser setup",
-        description=QA_BROWSER_SETUP_USAGE,
-    )
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--project", default=None)
-    parser.add_argument(
-        "--identity",
-        default=None,
-        help="Declared browser identity whose profile the daemon opens (default: `default`).",
-    )
-    parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--headed", action="store_true")
-    parser.add_argument("--idle-timeout", type=int, default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser = setup_parser()
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SETUP_USAGE)
     if parsed is None:
         return 2

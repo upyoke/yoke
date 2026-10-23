@@ -23,12 +23,22 @@ BLITZ_SURVEY_USAGE = (
 def blitz_survey(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke direct-workflow blitz survey",
-        description=BLITZ_SURVEY_USAGE,
+        usage=BLITZ_SURVEY_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--path", dest="paths", action="append", required=True)
-    parser.add_argument("--integration-target", default="main")
+    parser.add_argument("item", help="Item to survey, as PREFIX-N.")
+    parser.add_argument("--project", help="Project that owns the item.")
+    parser.add_argument(
+        "--path",
+        dest="paths",
+        action="append",
+        required=True,
+        help="Path the blitz will change; repeat for each path.",
+    )
+    parser.add_argument(
+        "--integration-target",
+        default="main",
+        help="Branch the work merges into; default: main.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, BLITZ_SURVEY_USAGE)

@@ -118,10 +118,23 @@ def projects_capability_settings_set(args: List[str]) -> int:
         ),
     )
     _add_identity_args(parser)
-    parser.add_argument("--settings-json", required=True)
+    parser.add_argument(
+        "--settings-json",
+        required=True,
+        help="Full settings document as JSON.",
+    )
     choice = parser.add_mutually_exclusive_group(required=True)
-    choice.add_argument("--base", dest="base_settings_json")
-    choice.add_argument("--new", dest="create", action="store_true")
+    choice.add_argument(
+        "--base",
+        dest="base_settings_json",
+        help="Settings JSON you last read; the write fails if it changed.",
+    )
+    choice.add_argument(
+        "--new",
+        dest="create",
+        action="store_true",
+        help="Create the capability; fails if it already exists.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_CAPABILITY_SETTINGS_SET_USAGE)
@@ -153,6 +166,7 @@ def projects_capability_settings_merge(args: List[str]) -> int:
         action="append",
         required=True,
         metavar="KEY.PATH=VALUE",
+        help="Set one key path, as KEY.PATH=VALUE; repeatable.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -185,7 +199,12 @@ def projects_capability_settings_remove(args: List[str]) -> int:
         ),
     )
     _add_identity_args(parser)
-    parser.add_argument("--base", dest="base_settings_json", required=True)
+    parser.add_argument(
+        "--base",
+        dest="base_settings_json",
+        required=True,
+        help="Settings JSON you last read; the remove fails if it changed.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -205,8 +224,17 @@ def projects_capability_settings_remove(args: List[str]) -> int:
 
 
 def _add_identity_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--cap-type", dest="cap_type", required=True)
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project that owns the capability.",
+    )
+    parser.add_argument(
+        "--cap-type",
+        dest="cap_type",
+        required=True,
+        help="Capability type, e.g. pulumi-state.",
+    )
 
 
 def _dispatch(

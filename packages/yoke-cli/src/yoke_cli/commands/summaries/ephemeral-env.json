@@ -1,0 +1,6 @@
+{
+  "ephemeral-env": "Create, read and change preview environments.",
+  "ephemeral-env create": "Record a preview environment for a branch.",
+  "ephemeral-env get": "Show the preview environment for a branch.",
+  "ephemeral-env update": "Change one field of a preview environment."
+}

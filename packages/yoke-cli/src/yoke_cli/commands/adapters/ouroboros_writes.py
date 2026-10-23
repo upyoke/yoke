@@ -57,13 +57,23 @@ __all__ = [
 def ouroboros_entry_insert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry insert",
-        description=OUROBOROS_ENTRY_INSERT_USAGE,
+        usage=OUROBOROS_ENTRY_INSERT_USAGE,
     )
-    parser.add_argument("--agent", required=True)
-    parser.add_argument("--category", required=True)
-    parser.add_argument("--context")
-    parser.add_argument("--timestamp")
-    parser.add_argument("--project")
+    parser.add_argument(
+        "--agent",
+        required=True,
+        help="Agent that made the observation.",
+    )
+    parser.add_argument(
+        "--category",
+        required=True,
+        help="Category the entry is filed under.",
+    )
+    parser.add_argument("--context", help="Extra context for the observation.")
+    parser.add_argument(
+        "--timestamp", help="When it was observed, as an ISO timestamp."
+    )
+    parser.add_argument("--project", help="Project the entry belongs to.")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         group,
@@ -117,9 +127,14 @@ def ouroboros_entry_insert(args: List[str]) -> int:
 def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry mark-reviewed",
-        description=OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
+        usage=OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
     )
-    parser.add_argument("entry_id", nargs="?", type=int)
+    parser.add_argument(
+        "entry_id",
+        nargs="?",
+        type=int,
+        help="Entry id to mark reviewed.",
+    )
     parser.add_argument(
         "--before",
         help=(
@@ -202,10 +217,14 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
 def ouroboros_entry_mark_archived(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry mark-archived",
-        description=OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,
+        usage=OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,
     )
-    parser.add_argument("entry_id", nargs="?", type=int)
-    parser.add_argument("--all-reviewed", action="store_true")
+    parser.add_argument("entry_id", nargs="?", type=int, help="Entry id to archive.")
+    parser.add_argument(
+        "--all-reviewed",
+        action="store_true",
+        help="Archive every reviewed entry.",
+    )
     parser.add_argument(
         "--include-unattributed",
         action="store_true",

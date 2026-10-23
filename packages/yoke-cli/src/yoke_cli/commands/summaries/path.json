@@ -1,0 +1,9 @@
+{
+  "path": "Check and repair how shells find the yoke command.",
+  "path check": "Show where each shell finds yoke and where it should.",
+  "path claims": "Read file path claims held by items.",
+  "path claims conflicts": "Read overlaps between item path claims.",
+  "path claims conflicts list": "List path claims that overlap between items.",
+  "path fix": "Repair Yoke's shell startup entries, then verify.",
+  "path verify": "Fail if any shell cannot find the right yoke."
+}

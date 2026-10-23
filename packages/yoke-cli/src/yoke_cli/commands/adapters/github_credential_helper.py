@@ -41,8 +41,15 @@ GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE = (
 
 def github_credential_helper_refresh(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github credential-helper refresh")
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the standard one.",
+    )
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parser.parse_args(args)
     result = github_repo_helper_reconnect.restore_missing_bundle(parsed.config_path)
     error = result.get("error")

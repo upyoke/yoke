@@ -1,0 +1,6 @@
+{
+  "local-postgres": "Start, stop and check the local Postgres database.",
+  "local-postgres start": "Start the local Postgres database.",
+  "local-postgres status": "Show whether the local Postgres database is running.",
+  "local-postgres stop": "Stop the local Postgres database."
+}

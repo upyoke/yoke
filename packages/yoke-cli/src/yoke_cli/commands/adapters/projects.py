@@ -58,7 +58,7 @@ PROJECTS_GET_USAGE = (
 def projects_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects get",
-        description=PROJECTS_GET_USAGE,
+        usage=PROJECTS_GET_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project name.")
     parser.add_argument(
@@ -103,9 +103,11 @@ PROJECTS_LIST_USAGE = "yoke projects list [--include-retired] [--session-id S] [
 def projects_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects list",
-        description=PROJECTS_LIST_USAGE,
+        usage=PROJECTS_LIST_USAGE,
     )
-    parser.add_argument("--include-retired", action="store_true")
+    parser.add_argument(
+        "--include-retired", action="store_true", help="Also list retired projects."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_LIST_USAGE)
@@ -134,9 +136,14 @@ PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE = (
 def projects_resolve_by_github_repo(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects resolve-by-github-repo",
-        description=PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
+        usage=PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
     )
-    parser.add_argument("--github-repo", dest="github_repo", required=True)
+    parser.add_argument(
+        "--github-repo",
+        dest="github_repo",
+        required=True,
+        help="GitHub repository to look up, as OWNER/REPO.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -244,7 +251,7 @@ PROJECTS_CAPABILITY_HAS_USAGE = (
 def projects_capability_has(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects capability has",
-        description=PROJECTS_CAPABILITY_HAS_USAGE,
+        usage=PROJECTS_CAPABILITY_HAS_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project name.")
     parser.add_argument(
@@ -288,7 +295,7 @@ Example, one test root:
 def project_structure_patch_apply(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure patch apply",
-        description=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
+        usage=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
         epilog=PROJECT_STRUCTURE_PATCH_APPLY_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

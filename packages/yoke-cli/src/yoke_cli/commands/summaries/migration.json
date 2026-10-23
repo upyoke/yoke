@@ -1,0 +1,9 @@
+{
+  "migration": "Check and rehearse database migrations.",
+  "migration content": "Compare migration files with the applied ones.",
+  "migration content identity": "Compare migration files with the applied ones.",
+  "migration content identity verify": "Check migration names and digests against the ledger.",
+  "migration content-identity": "Compare migration files with the applied ones.",
+  "migration content-identity verify": "Check migration names and digests against the ledger.",
+  "migration rehearse": "Rehearse an item's migration on a local database."
+}

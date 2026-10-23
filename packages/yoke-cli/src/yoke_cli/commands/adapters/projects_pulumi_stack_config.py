@@ -37,10 +37,14 @@ def projects_pulumi_stack_config_get(args: List[str]) -> int:
             "owner-only file. The sensitive config body is never emitted."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--stack", required=True)
-    parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--project", required=True, help="Project that owns the stack.")
+    parser.add_argument("--stack", required=True, help="Pulumi stack name.")
+    parser.add_argument(
+        "--output", required=True, type=Path, help="File to write the config to."
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Replace the output file if it exists."
+    )
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args, PULUMI_STACK_CONFIG_GET_USAGE)
     if parsed is None:

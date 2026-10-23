@@ -55,12 +55,18 @@ EVENTS_EMIT_USAGE = (
 
 
 def _add_emit_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--name", required=True)
-    parser.add_argument("--kind", required=True)
-    parser.add_argument("--type", required=True)
-    parser.add_argument("--source-type", required=True)
-    parser.add_argument("--severity", default="INFO")
-    parser.add_argument("--outcome", default="completed")
+    parser.add_argument("--name", required=True, help="Event name.")
+    parser.add_argument("--kind", required=True, help="Event kind.")
+    parser.add_argument("--type", required=True, help="Event type.")
+    parser.add_argument(
+        "--source-type", required=True, help="Kind of source that produced the event."
+    )
+    parser.add_argument(
+        "--severity", default="INFO", help="Event severity; default: INFO."
+    )
+    parser.add_argument(
+        "--outcome", default="completed", help="Event outcome; default: completed."
+    )
     for flag in (
         "org-id",
         "environment",
@@ -75,18 +81,36 @@ def _add_emit_args(parser: argparse.ArgumentParser) -> None:
         "turn-id",
         "hook-event-name",
     ):
-        parser.add_argument(f"--{flag}", default=None)
+        parser.add_argument(
+            f"--{flag}", default=None, help=f"Value for the event's {flag} field."
+        )
     parser.add_argument(
         "--item",
         dest="public_ref",
         default=None,
         help="Complete public item ref (PREFIX-N).",
     )
-    parser.add_argument("--task-num", type=int, default=None)
-    parser.add_argument("--duration-ms", type=int, default=None)
-    parser.add_argument("--exit-code", type=int, default=None)
-    parser.add_argument("--context", default=None)
-    parser.add_argument("--error-context", default=None)
+    parser.add_argument(
+        "--task-num", type=int, default=None, help="Task number the event belongs to."
+    )
+    parser.add_argument(
+        "--duration-ms",
+        type=int,
+        default=None,
+        help="How long the work took, in milliseconds.",
+    )
+    parser.add_argument(
+        "--exit-code",
+        type=int,
+        default=None,
+        help="Exit code of the work the event reports.",
+    )
+    parser.add_argument(
+        "--context", default=None, help="Extra detail for the event, as JSON."
+    )
+    parser.add_argument(
+        "--error-context", default=None, help="Error detail for the event, as JSON."
+    )
 
 
 def _emit_context(raw_context: str | None, raw_error: str | None) -> Dict[str, Any]:
@@ -112,7 +136,7 @@ def _parse_json_context(raw: str | None, *, label: str) -> Any:
 def events_emit(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke events emit",
-        description=EVENTS_EMIT_USAGE,
+        usage=EVENTS_EMIT_USAGE,
     )
     _add_emit_args(parser)
     add_session_arg(parser)
@@ -206,7 +230,7 @@ EVENTS_TAIL_USAGE = (
 def events_tail(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke events tail",
-        description=EVENTS_TAIL_USAGE,
+        usage=EVENTS_TAIL_USAGE,
     )
     parser.add_argument(
         "--limit",

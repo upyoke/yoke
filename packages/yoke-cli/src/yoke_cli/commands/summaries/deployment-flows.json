@@ -1,0 +1,14 @@
+{
+  "deployment-flows": "Define and manage a project's deployment flows.",
+  "deployment-flows create": "Define a new deployment flow for a project.",
+  "deployment-flows describe": "Rewrite a deployment flow's description.",
+  "deployment-flows get": "Read a deployment flow or one of its fields.",
+  "deployment-flows list": "List a project's deployment flows.",
+  "deployment-flows reorder": "Change the order of a deployment flow's stages.",
+  "deployment-flows set-status": "Turn a deployment flow on or off.",
+  "deployment-flows stages": "List the stages of a deployment flow.",
+  "deployment-flows update": "Change a deployment flow's definition.",
+  "deployment-flows update-stages": "Replace the stages of a deployment flow.",
+  "deployment-flows validate": "Check a deployment flow definition without saving it.",
+  "deployment-flows version": "Publish a new deployment flow that replaces an old one."
+}

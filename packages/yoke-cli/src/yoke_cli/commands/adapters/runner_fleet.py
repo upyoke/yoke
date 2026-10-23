@@ -47,7 +47,11 @@ def runner_fleet_exec(args: List[str]) -> int:
             "App key instead of using the hosted runner broker."
         ),
     )
-    parser.add_argument("command", nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Admin command to run, after --.",
+    )
     parsed = parse_or_usage_error(parser, args, RUNNER_FLEET_EXEC_USAGE)
     if parsed is None:
         return 2

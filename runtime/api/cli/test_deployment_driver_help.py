@@ -56,7 +56,9 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
         "--help",
     )
     assert rc == 0
-    assert out.startswith("usage: yoke --env CONTROL-PLANE-ENV")
+    summary, blank, usage = out.splitlines()[:3]
+    assert summary and blank == ""
+    assert usage.startswith("usage: yoke --env CONTROL-PLANE-ENV")
     assert "CONTROL-PLANE-ENV-db-admin" not in out
     assert "--environment" in out
     assert err == ""

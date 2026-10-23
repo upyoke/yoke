@@ -53,25 +53,40 @@ def _item_filter_floor(response: Any, _actor: Any) -> Any:
 def session_launch_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch list",
-        description=LAUNCH_LIST_USAGE
-        + " The ITEM column is the item an assignment launch staffs, read from "
-        "its session name (PREFIX-N: title). Defaults to compact rows; --full "
-        "shows placement, model and registered-session columns.",
+        usage=LAUNCH_LIST_USAGE,
+        description=(
+            "The ITEM column is the item an assignment launch staffs, read from "
+            "its session name (PREFIX-N: title). Defaults to compact rows; --full "
+            "shows placement, model and registered-session columns."
+        ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--state", choices=get_args(LaunchState), default=None)
-    parser.add_argument("--surface", default=None)
-    parser.add_argument("--machine", default=None)
+    parser.add_argument(
+        "--project", required=True, help="Project whose launches to list."
+    )
+    parser.add_argument(
+        "--state",
+        choices=get_args(LaunchState),
+        default=None,
+        help="Only launches in this state.",
+    )
+    parser.add_argument(
+        "--surface", default=None, help="Only launches on this surface."
+    )
+    parser.add_argument(
+        "--machine", default=None, help="Only launches on this machine."
+    )
     parser.add_argument(
         "--item",
         default=None,
-        help="only launches staffing this item (session name starts with PREFIX-N:)",
+        help="Only launches staffing this item (session name starts with PREFIX-N:).",
     )
-    parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument(
+        "--limit", type=int, default=50, help="Most rows to show; default: 50."
+    )
     parser.add_argument(
         "--cursor",
         default=None,
-        help="continuation cursor from a previous page's next_cursor",
+        help="Continuation cursor from a previous page's next_cursor.",
     )
     add_full_arg(parser, "all launch table columns; get LAUNCH-ID --full for one launch")
     add_session_arg(parser)

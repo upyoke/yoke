@@ -20,11 +20,24 @@ def main(argv: list[str] | None = None) -> int:
         "After restaffing, acquire the item work claim and use yoke qa plan adopt first.",
     )
     subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--project")
-    parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--session-id")
-    parser.add_argument("--json", action="store_true")
+    subject.add_argument(
+        "--item",
+        help="Item whose QA execution to review, as PREFIX-N.",
+    )
+    subject.add_argument(
+        "--project",
+        help="Project that owns the execution, when no item is given.",
+    )
+    parser.add_argument("--execution-id", required=True, help="QA execution to review.")
+    parser.add_argument(
+        "--session-id",
+        help="Override the detected session id (debugging only).",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print JSON instead of text.",
+    )
     parsed = parser.parse_args(argv)
     if parsed.item:
         prefix, sequence = parse_public_item_ref(parsed.item)

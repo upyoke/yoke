@@ -36,7 +36,7 @@ ITEMS_DEPENDENCY_LIST_USAGE = (
 def items_dependency_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency list",
-        description=ITEMS_DEPENDENCY_LIST_USAGE,
+        usage=ITEMS_DEPENDENCY_LIST_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -115,7 +115,7 @@ Examples:
 def items_dependency_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency add",
-        description=ITEMS_DEPENDENCY_ADD_USAGE,
+        usage=ITEMS_DEPENDENCY_ADD_USAGE,
         epilog=_EXISTING_EDGE_HELP + _SATISFACTION_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -134,7 +134,10 @@ def items_dependency_add(args: List[str]) -> int:
         "source", choices=sorted(VALID_SOURCES), help="Dependency source."
     )
     parser.add_argument(
-        "--gate-point", choices=sorted(VALID_GATE_POINTS), default="activation"
+        "--gate-point",
+        choices=sorted(VALID_GATE_POINTS),
+        default="activation",
+        help="Point the edge blocks; default: activation.",
     )
     parser.add_argument(
         "--satisfaction",
@@ -208,7 +211,7 @@ ITEMS_DEPENDENCY_UPDATE_USAGE = (
 def items_dependency_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency update",
-        description=ITEMS_DEPENDENCY_UPDATE_USAGE,
+        usage=ITEMS_DEPENDENCY_UPDATE_USAGE,
         epilog=_SATISFACTION_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -218,8 +221,12 @@ def items_dependency_update(args: List[str]) -> int:
         help="Dependent item id (PREFIX-N).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
-    parser.add_argument("--match-gate-point", default=None)
-    parser.add_argument("--gate-point", default=None)
+    parser.add_argument(
+        "--match-gate-point", default=None, help="Gate point of the edge to update."
+    )
+    parser.add_argument(
+        "--gate-point", default=None, help="New gate point for the edge."
+    )
     parser.add_argument(
         "--satisfaction",
         default=None,
@@ -235,7 +242,12 @@ def items_dependency_update(args: List[str]) -> int:
     )
     from yoke_contracts.dependency_values import VALID_SOURCES
 
-    parser.add_argument("--source", choices=sorted(VALID_SOURCES), default=None)
+    parser.add_argument(
+        "--source",
+        choices=sorted(VALID_SOURCES),
+        default=None,
+        help="New dependency source.",
+    )
     evidence = parser.add_mutually_exclusive_group()
     add_text_file_pair(
         evidence,
@@ -289,7 +301,7 @@ ITEMS_DEPENDENCY_REMOVE_USAGE = (
 def items_dependency_remove(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency remove",
-        description=ITEMS_DEPENDENCY_REMOVE_USAGE,
+        usage=ITEMS_DEPENDENCY_REMOVE_USAGE,
     )
     parser.add_argument(
         "item",

@@ -47,9 +47,12 @@ DASH_ESCALATE_USAGE = (
 
 # Parse-time filing choices; stored priority semantics stay in the domain.
 def _item_parser(prog: str, usage: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
     return parser
 
 
@@ -59,9 +62,22 @@ def dash_survey(args: List[str]) -> int:
         DASH_SURVEY_USAGE,
     )
     scope = parser.add_mutually_exclusive_group(required=True)
-    scope.add_argument("--path", dest="paths", action="append")
-    scope.add_argument("--no-changes", action="store_true")
-    parser.add_argument("--integration-target", default="main")
+    scope.add_argument(
+        "--path",
+        dest="paths",
+        action="append",
+        help="Path the change will touch; repeat for each path.",
+    )
+    scope.add_argument(
+        "--no-changes",
+        action="store_true",
+        help="Declare that the change touches no files.",
+    )
+    parser.add_argument(
+        "--integration-target",
+        default="main",
+        help="Branch the change merges into; default: main.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_SURVEY_USAGE)
@@ -135,14 +151,45 @@ def dash_evidence(args: List[str]) -> int:
         "yoke direct-workflow dash evidence",
         DASH_EVIDENCE_USAGE,
     )
-    parser.add_argument("--result", required=True)
-    parser.add_argument("--verification", required=True)
+    parser.add_argument(
+        "--result",
+        required=True,
+        help="One-line summary of what the change did.",
+    )
+    parser.add_argument(
+        "--verification",
+        required=True,
+        help="How the change was verified.",
+    )
     parser.add_argument("--verification-status", **status_argument_kwargs())
-    parser.add_argument("--commit-sha", default="")
-    parser.add_argument("--merge-sha", default="")
-    parser.add_argument("--path", dest="paths", action="append", default=[])
-    parser.add_argument("--posture-check", action="append", default=[])
-    parser.add_argument("--no-changes", action="store_true")
+    parser.add_argument(
+        "--commit-sha",
+        default="",
+        help="Commit that holds the change.",
+    )
+    parser.add_argument(
+        "--merge-sha",
+        default="",
+        help="Merge commit that landed the change.",
+    )
+    parser.add_argument(
+        "--path",
+        dest="paths",
+        action="append",
+        default=[],
+        help="File the change touched; repeat for each file.",
+    )
+    parser.add_argument(
+        "--posture-check",
+        action="append",
+        default=[],
+        help="Posture check result as KEY=STATUS; repeatable.",
+    )
+    parser.add_argument(
+        "--no-changes",
+        action="store_true",
+        help="Declare that the change touched no files.",
+    )
     parser.add_argument(
         "--tree-root",
         default="",
@@ -215,9 +262,17 @@ def dash_escalate(args: List[str]) -> int:
         "yoke direct-workflow dash escalate",
         DASH_ESCALATE_USAGE,
     )
-    parser.add_argument("--issue-title", required=True)
-    parser.add_argument("--findings", required=True)
-    parser.add_argument("--priority")
+    parser.add_argument(
+        "--issue-title",
+        required=True,
+        help="Title for the issue filed for follow-up work.",
+    )
+    parser.add_argument(
+        "--findings",
+        required=True,
+        help="What was found that needs follow-up.",
+    )
+    parser.add_argument("--priority", help="Priority for the filed issue.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_ESCALATE_USAGE)

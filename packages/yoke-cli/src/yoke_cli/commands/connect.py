@@ -103,7 +103,9 @@ def connect(args: List[str]) -> int:
         default=None,
         help="Machine config path override.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON."
+    )
     parser.add_argument(
         "--invite-code-stdin",
         action="store_true",

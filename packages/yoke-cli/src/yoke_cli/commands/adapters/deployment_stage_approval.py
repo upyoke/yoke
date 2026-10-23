@@ -56,8 +56,10 @@ def deployment_runs_stage_approval_evaluate(args: List[str]) -> int:
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("run_id")
-    parser.add_argument("--stage", required=True)
+    parser.add_argument("run_id", help="Deployment run id.")
+    parser.add_argument(
+        "--stage", required=True, help="Stage name the run stands at now."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE)
