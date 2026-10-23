@@ -66,8 +66,10 @@ group you still owe, it returns `state=waiting` with
 `shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
 and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
 The member stage retains the wait. Passing shared evidence credits every attaching member;
-completion, abort or error wakes members still owing QA to retry their own
-item/stage command. The owner resumes its existing execution as usual.
+completion, abort or error wakes members who can retry that execution. A member
+still waiting on a different live shared execution stays parked, and a member
+whose only open case is manual is not sent run-now. The owner resumes its
+existing execution as usual.
 Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
 For a correction, name its plan and failed requirement:

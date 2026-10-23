@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "agent",
  "when": "An item QA command finds shared cases held by another session, with no free case eligible in plan position order. A free group from a separate plan can start concurrently.",
- "need": "Read the waiting result's execution id and owner, retain the work claim and park. Passing shared evidence credits attaching members. Completion, abort or error wakes members still owing QA through the existing member stage line; retry the same item/stage command on that wake. The owner resumes by execution ID, including after takeover; current ownership is resolved without changing the shared group, evidence or custody.",
+ "need": "Read the waiting result's execution id and owner, retain the work claim and park. Passing shared evidence credits attaching members. Completion, abort or error wakes members who can retry that execution through the existing member stage line; a member still waiting on a different live shared execution stays parked, and a member whose only open case is manual is not sent run-now. Retry the same item/stage command on a wake that names this execution. The owner resumes by execution ID, including after takeover; current ownership is resolved without changing the shared group, evidence or custody.",
  "disclosure": "current cue",
  "surface": "Plan run result and help; deployment item QA stage notice",
  "review": "Source and regression coverage; live delivery remains unverified until release.",
