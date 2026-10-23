@@ -30,7 +30,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import FunctionError, TargetRef
 
 
 __all__ = [
@@ -252,6 +252,26 @@ EVENTS_TAIL_USAGE = (
 )
 
 
+def _tail_project_floor(response: Any, _actor: Any) -> Any:
+    """Refuse a tail an older server served without its ``--project`` filter."""
+    if not response.success or "project" in (response.result or {}):
+        return response
+    return response.model_copy(
+        update={
+            "success": False,
+            "result": None,
+            "error": FunctionError(
+                code="events_tail_project_filter_unavailable",
+                message=(
+                    "Serving floor: `events tail --project`. Ask the "
+                    "control-plane operator to install a release carrying it; "
+                    "until then run `yoke events query --project P --limit N`."
+                ),
+            ),
+        }
+    )
+
+
 def events_tail(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke events tail",
@@ -267,7 +287,10 @@ def events_tail(args: List[str]) -> int:
         "--project",
         default=None,
         metavar="P",
-        help="Project slug or id (default: the checkout's mapped project).",
+        help=(
+            "Keep only this project's events, by slug or id "
+            "(default: the checkout's mapped project)."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -288,6 +311,7 @@ def events_tail(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        response_recovery=_tail_project_floor if parsed.project else None,
     )
 
 

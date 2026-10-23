@@ -92,7 +92,10 @@ def items_overview_list(args: List[str]) -> int:
         "--limit",
         type=int,
         metavar="N",
-        help="Most rows to return in the unpaged read.",
+        help=(
+            "Most rows to return in the unpaged read. The paged read refuses "
+            "it; size a page with --page-size."
+        ),
     )
     parser.add_argument(
         "--relevance",
