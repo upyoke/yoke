@@ -1,6 +1,23 @@
 """QA plan provenance and retirement for the canonical schema packet."""
 
 QA_PLAN_TABLES = {
+    "qa_plan_executions": {
+        "columns": [
+            ("id", "TEXT"),
+            ("roster_json", "TEXT"),
+            ("roster_digest", "TEXT"),
+            ("cursor_ordinal", "INTEGER"),
+            ("state", "TEXT"),
+            ("machine_lease_id", "INTEGER"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("completed_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "The durable case roster is JSON text in roster_json, not a roster "
+            "column. Domain execution dictionaries expose it as roster; SQL "
+            "must use roster_json."
+        ),
+    },
     "qa_plan_execution_adoptions": {
         "columns": [
             ("id", "TEXT"),
