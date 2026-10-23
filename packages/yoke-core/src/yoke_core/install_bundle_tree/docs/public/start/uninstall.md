@@ -67,7 +67,7 @@ the existing project uninstall.
 yoke project uninstall /path/to/checkout
 ```
 
-It removes the installed layer and only proven installer-owned, exclusive
+For an installed layer, it removes only proven installer-owned, exclusive
 checkout registration and exact folder trust; entries that grant no trust stay
 as they are. A checkout mapping that onboarding or install wrote is
 installer-owned; one made by `yoke project register` stays, and the warning
@@ -81,6 +81,13 @@ A partial cleanup exits nonzero and keeps its manifest and `.yoke/.gitignore`,
 so the checkout stays clean: resolve the named ownership or sharing issue, then
 rerun the same command. Credentials, other
 projects, shared tools and server history stay intact; source checkouts refuse.
+
+If installation failed before writing a `.yoke` layer, onboarding still keeps
+the checkout registered. The same command removes that exact registration
+only after checking for uncommitted work and shared checkout scope; it changes
+no source files or folder trust. A `.yoke` directory without its manifest
+refuses with `project_uninstall_manifest_missing`: recover the manifest before
+retrying instead of guessing which files Yoke owns.
 
 Retiring lanes removes their path-owned folder trust before machine uninstall.
 To remove older residue while keeping Yoke installed, run
