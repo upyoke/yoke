@@ -59,9 +59,9 @@ def test_current_mission_restore_records_debt_only_from_its_holder(
         ("fresh-host", False, None, True, "fresh-host"),
         ("fresh-host", True, None, True, None),
         (None, False, None, True, None),
-        (None, False, "restore_failed", True, "fresh-host"),
+        (None, False, "restore_failed", True, None),
         ("fresh-host", None, None, True, "fresh-host"),
-        (None, None, None, True, "fresh-host"),
+        (None, None, None, True, None),
         ("fresh-host", None, None, False, None),
     ],
 )
@@ -108,6 +108,9 @@ def test_case_capture_persists_unproven_restore_debt(
     )
     assert recorded == {"run_id": 17}
     assert reset_owed(test_db, MACHINE) == owed
+    assert result.evidence.get("starting_state_restore") == (
+        restore if restored is not None else None
+    )
 
 
 def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(

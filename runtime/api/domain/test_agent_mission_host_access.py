@@ -44,7 +44,7 @@ ITEM = 7851
 
 
 @pytest.fixture
-def mission(test_db, tmp_path, monkeypatch):
+def mission(test_db, tmp_path, monkeypatch, request):
     configure_test_machine(test_db, tmp_path, monkeypatch)
     replace_test_machine_settings(
         test_db,
@@ -69,7 +69,11 @@ def mission(test_db, tmp_path, monkeypatch):
                     "machine": DRIVER,
                     "machines": [DRIVER, COMPANION],
                 },
-                "host_baselines": ["fresh-host"],
+                **(
+                    {"starting_state": "as_is", "starting_state_reason": "Preserve host"}
+                    if getattr(request, "param", None) == "as_is"
+                    else {"host_baselines": ["fresh-host"]}
+                ),
             }
         ],
     )
@@ -279,4 +283,31 @@ def test_driver_access_does_not_mark_an_untouched_companion_dirty(test_db, missi
     request, _ = mission
     outcome = handle_agent_mission_access(request)
     assert outcome.primary_success, outcome.error
+    assert reset_owed(test_db, COMPANION) is None
+
+
+@pytest.mark.parametrize("mission", ["as_is"], indirect=True)
+def test_as_is_companion_commands_and_cleanup_never_owe_a_reset(test_db, mission):
+    from yoke_core.domain.machine_reset_debt import reset_owed
+    from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end
+
+    request, _ = mission
+    for _ in range(2):  # The final owned cleanup command uses the same access path.
+        outcome = handle_agent_mission_access(
+            request.model_copy(
+                update={"payload": {**request.payload, "machine": COMPANION}}
+            )
+        )
+        assert outcome.primary_success, outcome.error
+        test_db.rollback()
+        assert reset_owed(test_db, COMPANION) is None
+    driver = handle_agent_mission_access(request)
+    assert driver.primary_success, driver.error
+    register_host_control_factory(lambda material: FakeHostControl())
+    try:
+        ended = execute_agent_mission_walk_end(driver.result_payload["execution"])
+    finally:
+        clear_host_control_factory()
+    assert ended["removed"]
+    assert ended["starting_state_restore"]["baseline"] is None
     assert reset_owed(test_db, COMPANION) is None
