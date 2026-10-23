@@ -197,6 +197,17 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                             f"{payload.deployment_stage} with --machine NAME from the failed "
                             "attempt's QA run evidence, and inspect the run.",
                         }
+            elif (
+                payload.deployment_stage is not None
+                and result.get("existing_requirement_ids")
+                and not result.get("created_requirement_ids")
+            ):
+                result["retry"] = (
+                    "These cases already exist, so nothing was created. A failed "
+                    "case is retried on its same requirement against the deployed "
+                    f"release: yoke qa plan run --deployment-run-id {run_id} "
+                    f"--stage {payload.deployment_stage}"
+                )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     except QaReplacementError as exc:

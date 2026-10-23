@@ -31,14 +31,65 @@ def failure_handoff_message(
     stage: str,
     item_ref: str,
     requirement_ids: tuple[int, ...],
+    retry: bool = False,
 ) -> str:
     """Keep the hook notice inline; the command help owns recovery."""
     failed = ", ".join(f"#{value}" for value in requirement_ids)
-    return (
+    head = (
         f"Deployment run {run_id} stage {stage!r} has failed item QA "
-        f"requirement(s) {failed} for {item_ref}; recovery: `yoke qa plan run --help`."
+        f"requirement(s) {failed} for {item_ref}"
+    )
+    if retry:
+        return (
+            f"{head}, recorded before this release took over. The current "
+            "release contains the item's merge; retry the case: `yoke qa plan "
+            f"run --deployment-run-id {run_id} --stage {stage}`."
+        )
+    return (
+        f"{head}; recovery: `yoke qa plan run --help`."
         " Classify the failure and start rework or record its blocker."
     )
+
+
+def _transferred_requirements(
+    conn: Any, run_id: str, requirement_ids: tuple[int, ...]
+) -> set[int]:
+    """Failed requirements frozen by an ancestor run this release took over."""
+    from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+    placeholders = ",".join("%s" for _ in requirement_ids)
+    rows = conn.execute(
+        "SELECT id,execution_target_json FROM qa_requirements "
+        f"WHERE id IN ({placeholders})",
+        requirement_ids,
+    ).fetchall()
+    return {
+        int(row[0])
+        for row in rows
+        if row[1]
+        and inherited_target(
+            conn,
+            run_id,
+            dict(row[1]) if isinstance(row[1], Mapping) else loads_text(str(row[1])),
+        )
+    }
+
+
+def _merge_contained(conn: Any, run_id: str, item_id: int, project_id: int) -> bool:
+    """Whether the run's pinned source provably contains the item's merge."""
+    from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+    from yoke_core.domain.deployment_run_candidate_containment import (
+        CONTAINED,
+        CandidateContainment,
+    )
+    from yoke_core.domain.deployment_run_project_sources import run_source_sha
+
+    merge = item_merge_identity(conn, item_id)
+    lineage = run_source_sha(conn, run_id, project_id)
+    if not merge or not lineage:
+        return False
+    containment = CandidateContainment(conn, project_id, candidate_lineage=lineage)
+    return containment.contains(merge).state == CONTAINED
 
 
 def notify_member_qa_failure(
@@ -85,6 +136,12 @@ def notify_member_qa_failure(
     recipient, _, _ = resolve_lane_recipient(
         conn, item_id=item_id, project_id=project_id
     )
+    # A FAIL carried across a takeover into a release that contains the
+    # item's merge is retried, so its owner is told even when it produced
+    # that verdict itself.
+    retry = set(requirement_ids) <= _transferred_requirements(
+        conn, run_id, requirement_ids
+    ) and _merge_contained(conn, run_id, int(item_id), project_id)
     placeholders = ",".join("%s" for _ in requirement_ids)
     from yoke_core.domain.qa_latest_execution import latest_executions
 
@@ -92,7 +149,7 @@ def notify_member_qa_failure(
         rid: int(attempt["id"])
         for rid, attempt in latest_executions(conn, requirement_ids).items()
     }
-    if recipient:
+    if recipient and not retry:
         # The execution records own the verdict producer; performed_by names
         # a runner, not the session that already received its result.
         results = conn.execute(
@@ -129,6 +186,7 @@ def notify_member_qa_failure(
                     stage=stage,
                     item_ref=item_ref,
                     requirement_ids=requirement_ids,
+                    retry=retry,
                 ),
                 idempotency_key=key,
                 now=utc_now(),

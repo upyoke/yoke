@@ -192,14 +192,13 @@ def execute_plan(
             and not resume_execution_id
         ):
             from yoke_core.domain.deployment_qa_start_identity import (
-                require_start_identity,
+                report_start_identity,
             )
 
             # Before any host reset or human gate the roster below reaches.
-            if drift := require_start_identity(
+            report_start_identity(
                 execution, run_id=execution["deployment_run_id"], stage=deployment_stage
-            ):
-                raise QaPlanExecutionError(drift)
+            )
         from yoke_core.domain.qa_standalone_command import preflight_standalone_runners
 
         preflight_standalone_runners(

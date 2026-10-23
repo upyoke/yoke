@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
+from yoke_core.domain.deployment_qa_release_version import current_release_target
 from yoke_core.domain.qa_plan_review_dispatch import dispatch_contract
 from yoke_core.domain.qa_review_evidence import (
     capture_artifacts,
@@ -268,7 +269,9 @@ def begin_plan_review(
     payload = {
         "execution_id": str(execution["id"]),
         "roster_digest": str(execution["roster_digest"]),
-        "execution_target": execution.get("execution_target"),
+        "execution_target": current_release_target(
+            conn, execution.get("deployment_run_id"), execution.get("execution_target")
+        ),
         "execution_target_digest": str(execution.get("execution_target_digest") or ""),
         "subject": {
             key: execution.get(key)

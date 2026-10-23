@@ -1,7 +1,7 @@
 """A deployment QA stage asks its frozen target what it serves before starting.
 
-Drift refuses before any host reset; a target that cannot be asked is
-reported as unverified and the stage starts as it did before.
+A different served build is reported as an observation and QA proceeds; a
+target that cannot be asked is reported as unverified.
 """
 
 from __future__ import annotations
@@ -14,12 +14,10 @@ from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_plan_execution
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.deployment_qa_start_identity import (
-    DRIFT_CODE,
     START_IDENTITY_FIELD,
-    require_start_identity,
+    report_start_identity,
     start_identity_expectation,
 )
-from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 
 DELIVERED = "c" * 40
 SERVED = "d" * 40
@@ -43,41 +41,25 @@ def _serving(sha: str):
     return lambda _url: probe.ServedRevisionRead(status=200, body=sha, error="")
 
 
-def test_a_target_serving_the_delivered_build_starts() -> None:
-    assert (
-        require_start_identity(
-            _expectation(), run_id="run-1", stage="item-qa", fetch=_serving(DELIVERED)
-        )
-        is None
-    )
-
-
-def test_a_drifted_target_refuses_naming_both_builds() -> None:
-    refusal = require_start_identity(
-        _expectation(), run_id="run-1", stage="item-qa", fetch=_serving(SERVED)
-    )
-    assert refusal is not None and refusal.startswith(DRIFT_CODE)
-    assert DELIVERED in refusal and SERVED in refusal
-    assert "No host was reset" in refusal
-
-
-def test_an_unaskable_target_is_unverified_not_refused(
+def test_a_target_serving_the_delivered_build_reports_nothing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert (
-        require_start_identity(
-            _expectation(identity_path=""), run_id="run-1", stage="item-qa"
-        )
-        is None
+    report_start_identity(
+        _expectation(), run_id="run-1", stage="item-qa", fetch=_serving(DELIVERED)
     )
+    assert capsys.readouterr().err == ""
+
+
+def test_an_unaskable_target_is_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report_start_identity(_expectation(identity_path=""), run_id="run-1", stage="item-qa")
     assert "identity at QA start unverified" in capsys.readouterr().err
 
 
-def test_a_server_without_the_field_starts_as_before() -> None:
-    assert require_start_identity({}, run_id="run-1", stage="item-qa") is None
-
-
-def test_drift_refuses_before_the_roster_reaches_a_host_reset() -> None:
+def test_a_different_served_build_proceeds_and_is_reported(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     roster = {
         "execution_id": "exec-1",
         "state": "active",
@@ -117,16 +99,16 @@ def test_drift_refuses_before_the_roster_reaches_a_host_reset() -> None:
             "yoke_core.domain.qa_plan_execution_run.execute_begun_plan"
         ) as execute,
     ):
-        with pytest.raises(QaPlanExecutionError) as refused:
-            qa_plan_execution.execute_plan(
-                deployment_run_id="run-1",
-                deployment_stage="item-qa",
-                project="webapp",
-                actor=ActorContext(actor_id="2", session_id="walker"),
-            )
-    assert DRIFT_CODE in str(refused.value)
-    assert execute.call_count == 0
-    assert "qa.plan_execution.abort" in calls
+        qa_plan_execution.execute_plan(
+            deployment_run_id="run-1",
+            deployment_stage="item-qa",
+            project="webapp",
+            actor=ActorContext(actor_id="2", session_id="walker"),
+        )
+    err = capsys.readouterr().err
+    assert "observed at QA start" in err and SERVED in err and DELIVERED in err
+    assert execute.call_count == 1
+    assert "qa.plan_execution.abort" not in calls
 
 
 def test_a_shared_item_qa_resume_resolves_its_target() -> None:

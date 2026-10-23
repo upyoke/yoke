@@ -10,6 +10,10 @@ release names the file holding that pin in its ``release_pin`` capability
 exact commit the run delivered for that project. It carries the pin as
 ``endpoints.release_version`` so install steps pass it to the installer
 (``--version`` / ``YOKE_VERSION``) through the bound installer origin.
+
+QA tests whatever is deployed, so after a release takeover the moved target
+keeps its frozen snapshot and digest, but every view handed to a walker
+names the release the *current* owning run pins (``current_release_target``).
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
@@ -191,8 +196,75 @@ def pinned_release_endpoints(
     return {**endpoints, RELEASE_VERSION_KEY: version}
 
 
+def current_release_target(conn: Any, run_id: Any, target: Any) -> Any:
+    """*target* with the release its current owning run pins, read at use time.
+
+    A target frozen by the same run is already current and is returned as
+    is; a target moved by takeover is returned as a copy whose
+    ``endpoints.release_version`` is read at the current run's delivered
+    commit once that run has a ready deploy receipt. The stored snapshot and
+    its digest are never rewritten.
+    """
+    if not isinstance(target, dict) or not run_id:
+        return target
+    endpoints = target.get("endpoints")
+    frozen_run = str((target.get("deployment") or {}).get("run_id") or "")
+    if (
+        not isinstance(endpoints, dict)
+        or RELEASE_VERSION_KEY not in endpoints
+        or frozen_run in ("", str(run_id))
+    ):
+        return target
+    from yoke_core.domain.deployment_qa_target_reads import _latest_ready_receipt_id
+
+    source_stage = str((target.get("observation") or {}).get("source_stage") or "")
+    if _latest_ready_receipt_id(conn, run_id=str(run_id), source_stage=source_stage) is None:
+        # The current run has not deployed yet: the frozen release is still
+        # what the destination serves.
+        return target
+    project_id = int((target.get("project") or {}).get("id") or 0)
+    return {
+        **target,
+        "endpoints": pinned_release_endpoints(
+            conn, str(run_id), project_id, dict(endpoints)
+        ),
+    }
+
+
+def _current_case(conn: Any, run_id: str, case: Mapping) -> Mapping:
+    from yoke_core.domain.deployment_run_project_sources import run_source_sha
+
+    current = dict(case)
+    if case.get("execution_target") is not None:
+        current["execution_target"] = current_release_target(
+            conn, run_id, case["execution_target"]
+        )
+    if case.get("deployment_source_revision") and case.get("project_id") is not None:
+        current["deployment_source_revision"] = run_source_sha(
+            conn, run_id, int(case["project_id"])
+        )
+    return current
+
+
+def current_release_execution(conn: Any, execution: Mapping) -> Mapping:
+    """A copy of *execution* naming its current owning run's release and source.
+
+    The frozen roster keeps its admitted values; a walker reads this view, so
+    after a takeover install steps get the successor's pinned release and
+    command checkouts the successor's source.
+    """
+    run_id = execution.get("deployment_run_id")
+    if not run_id:
+        return execution
+    roster = [_current_case(conn, str(run_id), case) for case in execution["roster"]]
+    target = current_release_target(conn, run_id, execution.get("execution_target"))
+    return {**execution, "execution_target": target, "roster": roster}
+
+
 __all__ = [
     "RELEASE_VERSION_KEY",
+    "current_release_execution",
+    "current_release_target",
     "pinned_release_endpoints",
     "release_records_url",
     "require_published",

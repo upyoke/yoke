@@ -8,7 +8,7 @@ from typing import Any
 from yoke_contracts.qa_case_starting_state import is_machine_runner
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.deployment_qa_takeover_identity import case_source_revision
+from yoke_core.domain.deployment_run_project_sources import run_source_sha
 from yoke_core.domain.qa_case_source_lane import resolve_source_lane, SourceLaneError
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
@@ -331,7 +331,11 @@ def get_case_execution_context(
         context["execution_target"] = execution_target
         context["execution_target_digest"] = target_digest(execution_target)
     if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
-        context["deployment_source_revision"] = case_source_revision(conn, context)
+        # The current owning run's source: after a takeover that is the
+        # successor's, so a retried command case tests the corrected code.
+        context["deployment_source_revision"] = run_source_sha(
+            conn, str(context["deployment_run_id"]), int(context["project_id"])
+        )
     if context.get("standalone_execution_id"):
         from yoke_core.domain.qa_standalone_context import restore_standalone_source
 

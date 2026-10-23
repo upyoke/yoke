@@ -216,13 +216,3 @@ def read_execution_subject(
         require_active=require_active,
     )
 
-
-def case_source_revision(conn, context):
-    """Keep an inherited command's checkout bound to its admitted source."""
-    from yoke_core.domain.deployment_run_project_sources import run_source_sha
-
-    run_id = str(context["deployment_run_id"])
-    target = context.get("execution_target") or {}
-    if inherited_target(conn, run_id, target):
-        run_id = str(target["deployment"]["run_id"])
-    return run_source_sha(conn, run_id, int(context["project_id"]))

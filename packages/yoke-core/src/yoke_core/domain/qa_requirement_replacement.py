@@ -68,9 +68,9 @@ def _replacement_for(
     if not matches and any(int(row["id"]) == int(failed["id"]) and row["plan_case_key"] == case_key for row in rows):
         raise QaReplacementError(
             f"replacement_case_corrected_in_place: requirement {failed['id']} "
-            f"already owns corrected case key {case_key!r}. Re-run without "
-            "--replaces or --replaces-requirement so content refresh links the "
-            "correction, or use a new plan or case key."
+            f"already owns corrected case key {case_key!r}. To test corrected "
+            "code, retry that requirement with `yoke qa plan run` (its stage "
+            "scope, no --replaces): a fresh attempt runs against the deployed release."
         )
     if len(matches) != 1:
         found = ", ".join(str(row["id"]) for row in matches) or "none"

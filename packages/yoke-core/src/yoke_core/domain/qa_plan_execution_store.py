@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from yoke_core.domain import db_backend
 from yoke_contracts.timestamps import temporal_wire, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.deployment_qa_release_version import current_release_execution
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
 # The unique live owner wins; history follows execution allocation, not snapshots.
@@ -307,6 +308,7 @@ def plan_execution_view(
     execution: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Return the secret-free resume contract exposed to a client."""
+    execution = current_release_execution(conn, execution)
     return {
         "execution_id": str(execution["id"]),
         "item_id": (

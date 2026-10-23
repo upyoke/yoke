@@ -121,20 +121,13 @@ def _require_receipt_source(subject: Mapping[str, Any], source_stage: str) -> No
         raise ValueError("deployment QA receipt source must be a non-QA stage")
 
 
-def deployment_qa_execution_target(
-    conn: Any,
-    subject: Mapping[str, Any],
-    *,
-    receipt_id: int | None = None,
-) -> dict:
+def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dict:
     """Resolve configured destination plus the newest observed stage receipt.
 
     After this subject has materialized at least one case, later reads
     reuse that snapshot while the producer receipt is unchanged, so a live
     environment edit cannot move the digest mid-stage; a newer ready
-    receipt is a new identity resolved live. A pinned ``receipt_id`` must
-    still be the newest exact ready attempt, and its snapshot is reused only
-    while tenant, project, observation, and deployment equal the live subject.
+    receipt is a new identity resolved live.
     """
     if subject.get("shared_plan"):
         from yoke_core.domain.deployment_qa_shared_plans import frozen_shared_target
@@ -155,31 +148,26 @@ def deployment_qa_execution_target(
         and inherited_target(conn, str(subject["id"]), frozen)
     ):
         return frozen
-    if receipt_id is None:
-        pinned = subject["stage"].get("target")
-        source_stage = (
-            str(pinned.get("source_stage") or "").strip()
-            if isinstance(pinned, Mapping)
-            else ""
-        )
-        latest_receipt = (
-            _latest_ready_receipt_id(
-                conn, run_id=str(subject["id"]), source_stage=source_stage
-            )
-            if source_stage
-            else None
-        )
-        frozen_receipt = (
-            _frozen_producer_receipt_id(frozen) if frozen is not None else None
-        )
-        if (
-            frozen is not None
-            and latest_receipt is not None
-            and frozen_receipt is not None
-            and latest_receipt == frozen_receipt
-            and (frozen.get("project") or {}).get("id") == project["id"]
-        ):
-            return frozen
+    pinned = subject["stage"].get("target")
+    source_stage = (
+        str(pinned.get("source_stage") or "").strip()
+        if isinstance(pinned, Mapping)
+        else ""
+    )
+    latest_receipt = (
+        _latest_ready_receipt_id(conn, run_id=str(subject["id"]), source_stage=source_stage)
+        if source_stage
+        else None
+    )
+    frozen_receipt = _frozen_producer_receipt_id(frozen) if frozen is not None else None
+    if (
+        frozen is not None
+        and latest_receipt is not None
+        and frozen_receipt is not None
+        and latest_receipt == frozen_receipt
+        and (frozen.get("project") or {}).get("id") == project["id"]
+    ):
+        return frozen
     target = subject["stage"].get("target")
     if not isinstance(target, Mapping):
         raise ValueError("deployment QA stage has no pinned target")
@@ -206,7 +194,6 @@ def deployment_qa_execution_target(
             expected_name,
             str(subject["release_lineage"]),
             str(subject.get("artifact_identity")),
-            receipt_id,
         ),
         lambda: deployment_stage_receipt_for_qa(
             conn,
@@ -216,7 +203,6 @@ def deployment_qa_execution_target(
             expected_target_name=expected_name,
             expected_release_lineage=str(subject["release_lineage"]),
             expected_artifact_identity=subject.get("artifact_identity"),
-            receipt_id=receipt_id,
         ),
     )
     identity = {
@@ -242,15 +228,6 @@ def deployment_qa_execution_target(
             "artifact_identity": subject.get("artifact_identity"),
         },
     }
-    if receipt_id is not None:
-        frozen = first_materialized_execution_target(
-            conn,
-            run_id=str(subject["id"]),
-            stage_name=str(subject["stage"]["name"]),
-            member_item_id=subject.get("member_item_id"),
-        )
-        if frozen is not None and all(frozen.get(k) == v for k, v in identity.items()):
-            return frozen
     if kind == "persistent_environment":
         resolved = _persistent_target(
             conn, project["id"], expected_name or "", str(subject["id"])
@@ -287,28 +264,49 @@ def is_deployment_execution_target(target: Mapping[str, Any]) -> bool:
     )
 
 
+#: Which release, source and receipt a target was frozen from. QA tests
+#: whatever is deployed, so a successor or newer receipt never gates a write.
+_SOURCE_KEYS = frozenset({"run_id", "release_lineage", "artifact_identity"})
+
+
+def _destination(target: Mapping[str, Any]) -> str:
+    """Tenant, project, subject and endpoints, without release provenance."""
+    from yoke_core.domain.deployment_qa_release_version import RELEASE_VERSION_KEY
+
+    deployment = target.get("deployment") or {}
+    endpoints = target.get("endpoints") or {}
+    return canonical_target(
+        {
+            **{k: v for k, v in target.items() if k != "observation"},
+            "deployment": {k: v for k, v in deployment.items() if k not in _SOURCE_KEYS},
+            "endpoints": {k: v for k, v in endpoints.items() if k != RELEASE_VERSION_KEY},
+        }
+    )
+
+
 def validate_deployment_execution_target(
     conn: Any, execution: Mapping[str, Any], *, require_active: bool = True
 ) -> None:
-    """Reject stale, superseded, cancelled, or cross-subject result writes."""
+    """Reject cancelled, detached or cross-subject result writes.
+
+    The subject read owns run, stage, member, ownership and cancellation
+    authority. The target must still name the subject's tenant, project and
+    endpoints; which release, source or receipt it was frozen from is
+    provenance and never refuses a write.
+    """
     from yoke_core.domain.deployment_qa_shared_plans import execution_subject
 
     subject = execution_subject(conn, execution, require_active=require_active)
     actual = execution.get("execution_target")
-    observation = actual.get("observation") if isinstance(actual, Mapping) else None
-    receipt_id = (
-        int(observation.get("receipt_id"))
-        if isinstance(observation, Mapping)
-        and observation.get("receipt_id") is not None
-        else None
-    )
-    expected = deployment_qa_execution_target(conn, subject, receipt_id=receipt_id)
-    if not isinstance(actual, Mapping) or canonical_target(actual) != canonical_target(
+    expected = deployment_qa_execution_target(conn, subject)
+    if not isinstance(actual, Mapping) or _destination(actual) != _destination(
         expected
     ):
         raise ValueError(
-            "deployment QA execution target or candidate has been replaced; "
-            "preserve this evidence and begin a new execution for the active target"
+            "qa_execution_destination_mismatch: this execution's target names "
+            "another tenant, project, subject or endpoint than its current "
+            "owner; preserve this evidence and inspect the execution's recorded "
+            "target"
         )
 
 
