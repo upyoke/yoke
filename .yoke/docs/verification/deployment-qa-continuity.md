@@ -30,10 +30,12 @@ pass never bypasses successor deployment prerequisites or human release approval
 
 ## Retry a failed case after the fix ships
 
-When the successor's QA stage finds an inherited fail and the current release
-contains the item's merge, the owner gets one handoff that says to retry. Retry
-on the same requirement; this opens a fresh attempt and keeps the prior fail and
-its evidence:
+When the successor's QA stage finds an inherited fail whose latest failing
+attempt was created before this run, and the current release contains the
+item's merge, the owner gets one handoff that says to retry. A failure
+created after this run gets the ordinary handoff: classify it and start
+rework or record its blocker. Retry on the same requirement; this opens a
+fresh attempt and keeps the prior fail and its evidence:
 
 ```text
 yoke qa plan run --item PREFIX-N --stage item-qa --project PROJECT

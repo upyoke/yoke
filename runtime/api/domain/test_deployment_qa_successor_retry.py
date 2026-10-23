@@ -1,10 +1,4 @@
-"""Takeover moves shared item QA; the successor's deployment is what QA tests.
-
-A FAIL recorded on the older release is retried on the same requirement once
-the successor deploys, against the successor's pinned release and source, and
-its owner is told once to retry. An execution still walking at takeover keeps
-its identity, cursor, completed results and host custody.
-"""
+"""Successor QA keeps carried evidence and retries only fails recorded before the run."""
 
 from __future__ import annotations
 
@@ -86,13 +80,13 @@ def _plan(conn) -> int:
     return plan_id
 
 
-def _record(conn, execution, ordinal, verdict):
+def _record(conn, execution, ordinal, verdict, *, created="2026-09-01T00:00:00Z"):
     from yoke_core.domain.qa_requirement_pass_currency import (
         stamp_executed_method_config,
     )
 
     requirement_id = int(execution["roster"][ordinal]["requirement_id"])
-    stamp = "2026-10-14T00:02:00Z"
+    stamp = created
     config = conn.execute(
         "SELECT method_config FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()[0]
@@ -215,6 +209,19 @@ def _release(view) -> str:
     return view["execution_target"]["endpoints"]["release_version"]
 
 
+def _rework_body(conn, fail_run) -> str:
+    status = deployment_qa_stage_status(
+        conn, run_id=takeover.NEW, stage_name="item-qa", member_item_id=MEMBER
+    )
+    notify_member_qa_failure(
+        conn, run_id=takeover.NEW, stage="item-qa", item_id=MEMBER, status=status
+    )
+    key = failure_handoff_key(
+        takeover.NEW, "item-qa", MEMBER, str(status["target_digest"]), fail_run
+    )
+    return _bodies(conn, key)[0]
+
+
 def test_an_uncontained_merge_keeps_the_rework_handoff(test_db, monkeypatch):
     execution = _seed_shared_execution(
         test_db,
@@ -225,16 +232,24 @@ def test_an_uncontained_merge_keeps_the_rework_handoff(test_db, monkeypatch):
     _failed, fail_run = _record(test_db, execution, 1, "fail")
     finish_plan_execution(test_db, execution, state="completed", reason="case failed")
     _take_over_and_deploy(test_db, monkeypatch, containment.UNDETERMINED)
-    status = deployment_qa_stage_status(
-        test_db, run_id=takeover.NEW, stage_name="item-qa", member_item_id=MEMBER
+    body = _rework_body(test_db, fail_run)
+    assert "Classify the failure and start rework" in body
+    assert "retry the case" not in body
+
+
+def test_a_failure_created_after_the_run_keeps_the_rework_handoff(
+    test_db, monkeypatch
+):
+    execution = _seed_shared_execution(
+        test_db, monkeypatch, producer="separate-qa-session"
     )
-    notify_member_qa_failure(
-        test_db, run_id=takeover.NEW, stage="item-qa", item_id=MEMBER, status=status
+    _record(test_db, execution, 0, "pass")
+    _failed, fail_run = _record(
+        test_db, execution, 1, "fail", created="2026-10-14T00:02:00Z"
     )
-    key = failure_handoff_key(
-        takeover.NEW, "item-qa", MEMBER, str(status["target_digest"]), fail_run
-    )
-    [body] = _bodies(test_db, key)
+    finish_plan_execution(test_db, execution, state="completed", reason="case failed")
+    _take_over_and_deploy(test_db)
+    body = _rework_body(test_db, fail_run)
     assert "Classify the failure and start rework" in body
     assert "retry the case" not in body
 
