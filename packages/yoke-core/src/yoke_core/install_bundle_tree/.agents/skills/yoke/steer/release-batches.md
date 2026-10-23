@@ -1,6 +1,6 @@
 # Steer — batch delivery
 
-Workers merge; steering creates runs on prod. For Yoke self-deploy, read
+Workers merge; steering creates runs on prod. Yoke self-deploy:
 [source-dev-delivery.md](source-dev-delivery.md).
 
 ```text
@@ -10,15 +10,17 @@ yoke --env CONTROL_PLANE deployment-runs create {_project} {FLOW} --environment 
 yoke --env CONTROL_PLANE watch deploy -- {RUN_ID}
 ```
 
-CONTROL_PLANE is HTTPS; DB env refuses `use_https_env`. Stage uses production's
+Cut while member QA runs; keep the execution ID (`.yoke/docs/deployments/model/run-members.md`).
+
+CONTROL_PLANE is HTTPS; DB env refuses `use_https_env`. Stage uses prod
 `release_lineage`. Retry lost creates with the same key; re-drive with
 `watch deploy`. Migrations: `databases.md`.
 
 ## Member QA
 
 The owner runs member QA and keeps its claim. The driver logs `Still waiting
-for scoped QA` per minute and exits 5 at timeout; re-drive on exit. Longer
-silence is stuck. Stop walks via `yoke qa plan abort`, never kill the runner.
+for scoped QA` per minute, exits 5 at timeout, then re-drives; longer silence
+is stuck. Stop with `yoke qa plan abort`, never kill the runner.
 
 ```text
 yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project {_project}
@@ -28,8 +30,8 @@ Failed QA: `.yoke/docs/verification/failed-item-qa.md`.
 
 ### Manual-wake member QA
 
-Staff owners; `yoke qa plan reconcile` ownerless walks. Without evidence,
-ask the operator to waive or remove the case; never waive it.
+Staff owners; `yoke qa plan reconcile` ownerless walks. No evidence: ask
+to waive or remove the case; never waive it.
 
 Driver runs run-scoped QA:
 
@@ -39,7 +41,7 @@ yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_pro
 
 ## Orphans
 
-Finish only an orphan handed to this seat; never `--skip-deploy`:
+Finish only an orphan handed here; never `--skip-deploy`:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason "orphaned release-wait member"
