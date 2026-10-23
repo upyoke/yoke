@@ -89,6 +89,7 @@ class _StageRead:
     private_snapshots: list = field(default_factory=list)
     # Whether a member owing no case withdrew every group it still owed.
     withdrawn_discharge: bool | None = None
+    selected_admission: dict | None = None
 
 
 def _plans_with_member_copies(conn, run_id, stage, plan_ids) -> set[int]:
@@ -147,6 +148,18 @@ def _read_stage(
         member_item_id=deployment_member_item_id,
     )
     target = deployment_qa_execution_target(conn, subject)
+    if agent_plan is not None and not replacement_keys and not replaced_requirement_ids:
+        from yoke_core.domain.deployment_qa_admitted_plan_selection import (
+            admitted_plan_selection,
+        )
+
+        selected = admitted_plan_selection(
+            conn, subject, target, projection, agent_plan
+        )
+        if selected is not None:
+            return _StageRead(
+                projection, subject, target, [], [], selected_admission=selected
+            )
     admitted = member_requirements(conn, subject, target=target)
     snapshots = (
         [subject["shared_snapshot"]]

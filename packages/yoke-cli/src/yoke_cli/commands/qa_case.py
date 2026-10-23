@@ -93,6 +93,7 @@ def qa_plan_run(args: List[str]) -> int:
         args,
         QA_PLAN_RUN_USAGE,
         "Requires the named immutable QA case or execution; item cases require the item work claim. "
+        "For scoped stages, --plan selects existing frozen admissions; a new plan fills only an empty stage. "
         "Host selection respects the case OS. Resume and correction commands omit --machine; "
         "the scheduler retains each platform's or corrected case's recorded host.\n\n"
         "Failed member QA: inspect the failed requirement and run, then classify product, setup, "

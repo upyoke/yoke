@@ -1,4 +1,4 @@
-"""--plan selects cases only for a deployment QA stage that names none.
+"""New plan admission fills only a deployment QA stage that names none.
 
 A stage already carrying cases -- pinned, frozen, member-attached, admitted
 from the member's own post-deploy obligations, or authored directly -- gains

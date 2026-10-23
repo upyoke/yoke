@@ -1,8 +1,8 @@
 """Does a deployment QA stage subject already name concrete cases of its own?
 
-``--plan`` on ``yoke qa plan run`` exists for the one story where nobody has
-chosen anything yet: a stage that names no cases, whose responsible agent
-picks a project QA plan to fill it. Every other subject already carries the
+``--plan`` can select an already admitted frozen plan without adding cases.
+For a stage that names no cases, its responsible agent can instead pick a
+project QA plan to fill it. Every other subject already carries the
 cases it will be credited for -- pinned in the flow's stage config, frozen
 into the run's admission snapshot, attached to the member, admitted from the
 member's own post-deploy obligations, or authored directly onto the stage.
@@ -30,8 +30,9 @@ AGENT_PLAN_ALREADY_NAMED_REFUSAL = (
     "this deployment QA stage already names its cases, so an "
     "agent-selected plan would materialize a second, duplicate set of "
     "obligations beside the ones the stage credits. Re-run the same "
-    "command without --plan; --plan selects cases only for a stage that "
-    "names none, which is the wait that asks you for one by name. To correct "
+    "command without --plan to run the owed roster, or select an already "
+    "admitted plan ID or slug to run only its frozen cases. A new plan fills "
+    "only a stage that names none. To correct "
     "a failed admitted case, use --plan CORRECTED_PLAN with "
     "--replaces CORRECTED_CASE_KEY=FAILED_REQUIREMENT_ID, or "
     "--replaces-requirement FAILED_ID for its exact host baseline, for every case in "
