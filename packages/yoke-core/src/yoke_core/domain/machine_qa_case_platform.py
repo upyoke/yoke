@@ -77,12 +77,16 @@ def case_platform(
     """Resolve declared execution inputs and registered machines to an OS."""
     config = case.get("method_config") or {}
     platform_config(config)
+    from yoke_core.domain.qa_method_capabilities import capability_kinds
+
+    required = tuple(
+        kind
+        for field in ("required_capability_kinds", "capability_requirements")
+        for kind in capability_kinds(case.get(field), subject="QA case")
+    )
     text = " ".join(
         [
-            _execution_text(
-                case.get("required_capability_kinds")
-                or case.get("capability_requirements")
-            ),
+            _execution_text(required),
             _execution_text(
                 {key: value for key, value in config.items() if key in _STEP_KEYS}
             ),
@@ -93,8 +97,7 @@ def case_platform(
     }
     identifiers = _execution_text(
         [
-            case.get("required_capability_kinds"),
-            case.get("capability_requirements"),
+            required,
             config.get("os"),
             config.get("platform"),
         ]
@@ -115,7 +118,11 @@ def case_platform(
         return next(iter(platforms))
     from yoke_core.domain.machine_qa_case_hosts import case_machines
 
-    declared = {hosts[name] for name in case_machines(case) if hosts and name in hosts}
+    declared = {
+        hosts[name]
+        for name in case_machines({**case, "required_capability_kinds": required})
+        if hosts and name in hosts
+    }
     if declared:
         return next(iter(declared)) if len(declared) == 1 else None
     raise TestMachineCapabilityError(

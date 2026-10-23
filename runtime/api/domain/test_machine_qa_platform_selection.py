@@ -171,10 +171,16 @@ def test_invalid_platform_declaration_names_recovery(field, value):
         case_platform({"method_config": {field: value}})
 
 
-def test_machine_capability_name_uses_its_registered_os():
+@pytest.mark.parametrize(
+    "field", ["required_capability_kinds", "capability_requirements"]
+)
+@pytest.mark.parametrize(
+    "value", [["test-machine:linux-lab"], '["test-machine:linux-lab"]']
+)
+def test_machine_capability_name_uses_its_registered_os(field, value):
     assert (
         case_platform(
-            {"required_capability_kinds": ["test-machine:linux-lab"]},
+            {field: value},
             {"linux-lab": "macos"},
         )
         == "macos"
