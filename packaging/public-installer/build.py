@@ -12,6 +12,7 @@ PARTS = (
     "options",
     "diagnostics",
     "distribution",
+    "helper_sources",
     "verification",
     "resolution",
     "installation",
