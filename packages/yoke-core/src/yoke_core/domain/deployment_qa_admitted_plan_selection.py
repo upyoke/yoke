@@ -3,6 +3,10 @@
 import json
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_deployment_case_content_refresh import (
+    plan_case_content_digest,
+    refreshed_case_key,
+)
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
@@ -17,11 +21,11 @@ from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_requirement_snapshot import require_existing_target
 
 
-def _incomplete(plan_id):
+def _incomplete(plan_id, subject):
     raise QaPlanError(
         f"qa_admitted_plan_incomplete: plan {plan_id} has no complete canonical "
         "admission for this run, stage, member and target. Preserve the run and "
-        "inspect `yoke qa requirement list --deployment-run-id RUN`; ask the "
+        f"inspect `yoke qa requirement list --deployment-run-id {subject['id']}`; ask the "
         "control-plane operator to restore its original admission evidence."
     )
 
@@ -37,8 +41,9 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
     )
     if len(plans) != 1:
         raise QaPlanError(
-            "qa_plan_selection_unavailable: select one active plan ID or slug "
-            "in the requesting subject's project; inspect `yoke qa plan list`."
+            "qa_plan_selection_unavailable: plan is not active in this project; "
+            "select one active plan ID or slug "
+            f"in the requesting subject's project; inspect `yoke qa plan list --project {project_id}`."
         )
     plan_id = int(plans[0]["id"])
     snapshots = [
@@ -68,7 +73,7 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
         from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
 
         if plan_id in retracted_item_plan_ids(conn, int(subject["member_item_id"])):
-            _incomplete(plan_id)
+            _incomplete(plan_id, subject)
     cases = [c for c in snapshot["cases"] if case_applies_to_target(c, target)]
     snapshot = {**snapshot, "cases": cases}
     group = subject
@@ -92,16 +97,27 @@ def admitted_plan_selection(conn, subject, target, projection, selector):
         ),
     )
     if not rows:
-        _incomplete(plan_id)
+        _incomplete(plan_id, subject)
     fan_out = snapshot_fan_out(snapshot["plan"], cases)
-    expected = {
-        (key, baseline) for key, baselines in fan_out.items() for baseline in baselines
-    }
-    actual = [
-        (r["plan_case_key"], r["host_baseline"]) for r in rows if r.get("method_id")
-    ]
-    if not expected or len(actual) != len(expected) or set(actual) != expected:
-        _incomplete(plan_id)
+    selected_rows = []
+    for case in cases:
+        key = str(case["case_key"])
+        scopes = snapshot.get("replacement_scopes", {}).get(key)
+        refreshed_key = refreshed_case_key(key, plan_case_content_digest(conn, case))
+        for baseline in fan_out[key]:
+            if scopes and not any(
+                scope["host_baseline"] == baseline for scope in scopes
+            ):
+                continue
+            matches = [r for r in rows if r["host_baseline"] == baseline]
+            corrected = [r for r in matches if r["plan_case_key"] == refreshed_key]
+            canonical = corrected or [r for r in matches if r["plan_case_key"] == key]
+            if len(canonical) != 1 or not canonical[0].get("method_id"):
+                _incomplete(plan_id, subject)
+            selected_rows.extend(canonical)
+    if not selected_rows:
+        _incomplete(plan_id, subject)
+    rows = selected_rows
     ids = require_existing_target(
         rows,
         execution_target=selected_target,

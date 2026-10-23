@@ -23,10 +23,11 @@ scope matches the case it replaces.
 [QA continuity](deployment-qa-continuity.md) describes current item authority,
 release takeover, cross-build observations and exact-execution recovery.
 
-Use `--plan ID_OR_SLUG` to run one admitted plan's frozen ordered chain without
-changing obligations. The run, stage, member or shared subject and target must
-match; incomplete or withdrawn admissions refuse before host access. New plans
-fill empty stages; corrections need explicit replacement scopes.
+Use `--plan ID_OR_SLUG` to run an admitted frozen chain without new obligations.
+Run, stage, member/shared subject and target must match; invalid admissions
+refuse before host access. New plans fill empty stages; corrections need
+replacements. `qa_plan_selector_cursor_conflict` retains the private cursor
+and names its owner-resume recovery.
 
 ## Shared plan credit
 
@@ -81,7 +82,6 @@ group. Other original cases and unrelated groups remain owed independently.
 Replacement scopes stay in the frozen selection, so later materialization
 does not create private copies of shared corrections. A passing independent
 verdict supersedes the failed requirement.
-Explicit rematerialization of a member plan leaves unrelated shared rows intact.
 Removing one member or withdrawing its attachment preserves shared evidence for
 the members still attached. Removing the last attaching member with
 `yoke deployment-runs remove-item` retracts the group's unsettled rows, so an

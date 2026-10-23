@@ -34,13 +34,14 @@ def _state(conn):
     }
 
 
-def _seed(conn):
+def _seed(conn, *, cases=None):
     held = _plan(conn, "held-failed-plan")
     selected = _plan(conn, "selected-frozen-plan")
     replace_plan_cases(
         conn,
         plan_id=selected,
-        cases=[
+        cases=cases
+        or [
             {
                 "case_key": key,
                 "position": position,

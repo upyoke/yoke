@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from runtime.api.domain.test_deployment_qa_admitted_plan_selection import (
     MEMBER,
     RUN,
@@ -70,3 +72,65 @@ def test_plan_run_materializes_then_begins_only_the_selected_frozen_plan(test_db
         )
     assert result["state"] == "waiting"
     assert calls == ["qa.plan.materialize", "qa.plan_execution.begin"]
+
+
+def test_private_selector_conflict_preserves_existing_cursor_and_frozen_rows(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.test_deployment_qa_admitted_plan_selection import _state
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+    from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    from runtime.api.domain.machine_qa_host_test_support import _terminal_recipe
+
+    held, selected, _ = _seed(
+        test_db,
+        cases=[
+            {
+                "case_key": "prepare",
+                "position": 1,
+                "method_id": "terminal-check",
+                "instructions": "Inspect retained state",
+                "expected_outcome": "Report evidence",
+                "starting_state": "as_is",
+                "starting_state_reason": "Preserve current machine",
+                "method_config": _terminal_recipe(),
+                "entry_surface": "printf done",
+                "required_completion": "complete",
+            },
+            {
+                "case_key": "receive",
+                "position": 2,
+                "method_id": "exploratory-mission",
+                "instructions": "Inspect retained state",
+                "expected_outcome": "Report evidence",
+                "starting_state": "inherit",
+                "method_config": {"executor": "informed_subagent"},
+            },
+        ],
+    )
+    existing = begin_plan_execution(
+        test_db,
+        deployment_run_id=RUN,
+        deployment_stage="item-qa",
+        deployment_member_item_id=MEMBER,
+        plan=str(held),
+        actor_id="2",
+        session_id="held-owner",
+    )
+    before = _state(test_db)
+    with pytest.raises(
+        QaPlanExecutionStateError, match="qa_plan_selector_cursor_conflict"
+    ) as refusal:
+        begin_plan_execution(
+            test_db,
+            deployment_run_id=RUN,
+            deployment_stage="item-qa",
+            deployment_member_item_id=MEMBER,
+            plan=str(selected),
+            actor_id="2",
+            session_id="session-agent-mission",
+        )
+    assert existing["id"] in str(refusal.value)
+    assert _state(test_db) == before
