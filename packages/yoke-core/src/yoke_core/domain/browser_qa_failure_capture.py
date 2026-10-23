@@ -17,7 +17,9 @@ from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
 from yoke_core.domain.browser_qa_case_config import record_color_scheme_observation
 from yoke_core.domain.browser_qa_sign_in_evidence import (
     AUTHENTICATION_WALL_LABEL,
+    BROWSER_SIGN_IN_SETUP,
     authorize_recovery,
+    setup_recovery,
 )
 from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
@@ -200,6 +202,7 @@ class FailedStep:
     artifact_ids: List[int]
     capture_missed: bool
     unauthorized: bool = False
+    setup: bool = False
 
 
 def failed_step_from_response(
@@ -243,7 +246,14 @@ def failed_step_from_response(
     unauthorized = wall and (
         EXECUTION_TARGET_UNAUTHORIZED in str(error) or "timeout" in str(error).lower()
     )
-    if unauthorized:
+    setup = BROWSER_SIGN_IN_SETUP in str(error)
+    if setup:
+        detail = str(error)
+        prefix = f"{BROWSER_SIGN_IN_SETUP}:"
+        if detail.startswith(prefix):
+            detail = detail[len(prefix):].strip()
+        error = setup_recovery(sign_in or {}, detail)
+    elif unauthorized:
         error = authorize_recovery(sign_in or {}, base_url)
     _bqa._log(f"  Step {step_idx}: FAILED (error={error})")
     errors, paths, ids, capture_missed = apply_failed_step(
@@ -268,4 +278,5 @@ def failed_step_from_response(
         artifact_ids=ids,
         capture_missed=capture_missed,
         unauthorized=unauthorized,
+        setup=setup,
     )

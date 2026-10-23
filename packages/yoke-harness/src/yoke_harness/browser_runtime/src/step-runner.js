@@ -25,6 +25,10 @@ const {
   isSelectorWaitTimeout,
   pageShowsAuthenticationWall,
 } = require('./auth-wall');
+const {
+  pageOnGoogleSignIn,
+  settleGoogleSignIn,
+} = require('./google-account-chooser');
 
 // resolveUrl is owned by the navigation sibling and re-exported here so the
 // public module surface (executeStep, resolveUrl) stays stable.
@@ -133,6 +137,18 @@ async function executeStep(page, step, options) {
       }
     }
 
+    const opened = await settleGoogleSignIn(page, options.account);
+    if (opened.error) {
+      return {
+        success: false,
+        duration_ms: Date.now() - startTime,
+        ...observedState(page),
+        error: opened.error,
+        signInPage: true,
+        signInSetup: true,
+      };
+    }
+
     let result;
     switch (step.action) {
       case 'navigate':
@@ -178,6 +194,18 @@ async function executeStep(page, step, options) {
         throw new Error(`Unknown action: ${step.action}`);
     }
 
+    const settled = await settleGoogleSignIn(page, options.account);
+    if (settled.error) {
+      return {
+        success: false,
+        duration_ms: Date.now() - startTime,
+        ...observedState(page),
+        error: settled.error,
+        signInPage: true,
+        signInSetup: true,
+      };
+    }
+
     const duration_ms = Date.now() - startTime;
     const wall = shouldProbeAuthenticationWall(step)
       ? await pageShowsAuthenticationWall(page)
@@ -195,10 +223,12 @@ async function executeStep(page, step, options) {
         ? { vacuous_absence: result.vacuous_absence }
         : {}),
       ...(wall ? { authenticationWall: true } : {}),
+      signInPage: Boolean(settled.signInPage) || wall,
     };
   } catch (err) {
     const duration_ms = Date.now() - startTime;
     const wall = await pageShowsAuthenticationWall(page);
+    const signInPage = wall || await pageOnGoogleSignIn(page);
     let error = err.message || String(err);
     if (wall && isSelectorWaitTimeout(step, err)) {
       error = authenticationWallError();
@@ -209,6 +239,7 @@ async function executeStep(page, step, options) {
       ...observedState(page),
       error,
       ...(wall ? { authenticationWall: true } : {}),
+      signInPage,
     };
   }
 }

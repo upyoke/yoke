@@ -276,6 +276,7 @@ def execute_step(
     output_dir: Optional[str] = None,
     *,
     page_id: str,
+    account: str = "",
 ) -> Dict[str, Any]:
     """Execute a single scenario step on the run's own page.
 
@@ -294,6 +295,8 @@ def execute_step(
     }
     if output_dir:
         body["outputDir"] = output_dir
+    if account:
+        body["account"] = account
     return daemon_request(
         EXEC_STEP_PATH, body, timeout=step_request_timeout_seconds(step_json)
     )
