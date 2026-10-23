@@ -151,6 +151,8 @@ export function evidenceOf(row) {
     requirementId: null,
     state: evidence.state || "",
     note: notes[evidence.state] || "",
+    // Saying why no screenshot is shown is information, not a warning.
+    informational: ["not_required", "not_expected"].includes(evidence.state),
   };
 }
 

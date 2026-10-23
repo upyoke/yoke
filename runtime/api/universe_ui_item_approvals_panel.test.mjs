@@ -102,8 +102,11 @@ test("command checks and a no-obligation answer never warn of a missing screensh
   ]) {
     const gate = approval(8, "pending");
     gate.subject_context.evidence = { state, screenshots: [] };
-    const text = visibleText(itemApprovalsPanel(context([]), { ...ITEM, approvals: [gate] }), " ");
+    const panel = itemApprovalsPanel(context([]), { ...ITEM, approvals: [gate] });
+    const text = visibleText(panel, " ");
     assert.match(text, note);
+    const [shown] = byClass(panel, "review-evidence-note");
+    assert.equal(shown.classList.contains("is-info"), state !== "missing");
     if (state !== "missing") assert.doesNotMatch(text, /QA ran|has no screenshot/);
   }
 });

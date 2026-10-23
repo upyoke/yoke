@@ -30,5 +30,6 @@ ITEM_PAGE_ASSET_CONTENT_TYPES: Dict[str, str] = {
     "item_foundations.css": "text/css; charset=utf-8",
     "item_roster.css": "text/css; charset=utf-8",
     "item_details.css": "text/css; charset=utf-8",
+    "item_approvals.css": "text/css; charset=utf-8",
     "item_intake.css": "text/css; charset=utf-8",
 }
