@@ -16,8 +16,6 @@ from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
 from yoke_harness.test_machine_types import HostActionResult
 
 
-_CURRENT_RELEASE_CHANNEL = "latest"
-_INSTALLER_CHANNEL_ENV = "YOKE_CHANNEL"
 _INSTALLER_CONFIRM_ENV = "YOKE_INSTALL_YES"
 _INSTALLER_NO_ONBOARD_ENV = "YOKE_NO_SETUP"
 
@@ -142,7 +140,6 @@ class SshHostBaselines:
                             [
                                 "/usr/bin/env",
                                 f"{DISTRIBUTION_BASE_URL_ENV}={origin}",
-                                f"{_INSTALLER_CHANNEL_ENV}={_CURRENT_RELEASE_CHANNEL}",
                                 f"{_INSTALLER_CONFIRM_ENV}=1",
                                 f"{_INSTALLER_NO_ONBOARD_ENV}=1",
                                 "/bin/sh",
