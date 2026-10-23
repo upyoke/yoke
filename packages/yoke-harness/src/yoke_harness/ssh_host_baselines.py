@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import shlex
 
-from yoke_contracts.api_urls import (
-    DISTRIBUTION_BASE_URL_ENV,
-    DISTRIBUTION_STAGE_URL,
-)
+from yoke_cli.config import distribution, machine_config
+from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV
 from yoke_contracts.machine_qa_execution import (
     HOST_TEST_COMMAND,
     HOST_BASELINES,
 )
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.ssh_mac_baseline_probes import reach_user_equivalent_baseline
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
 from yoke_harness.test_machine_types import HostActionResult
@@ -107,6 +106,21 @@ class SshHostBaselines:
 
     def _install_current_release(self, evidence_name: str) -> HostActionResult:
         operations: list[dict[str, str]] = []
+        try:
+            origin = distribution.origin_for_connection(
+                machine_config.active_connection()
+            )
+        except Exception as exc:
+            operations.append(
+                {
+                    "id": "installer.current-release-prepare",
+                    "outcome": "failed",
+                    "reason": bounded_machine_qa_diagnostic(exc, self.secret_values),
+                }
+            )
+            return HostActionResult(
+                False, {"operations": operations}, "fixture_operation_failed"
+            )
         operation_commands = (
             (
                 "installer.current-release-prepare",
@@ -116,7 +130,7 @@ class SshHostBaselines:
                             [
                                 "/usr/bin/curl",
                                 "-fsSL",
-                                f"{DISTRIBUTION_STAGE_URL}/install",
+                                f"{origin}/install",
                                 "-o",
                                 INSTALLER_TEMP_PATH,
                             ]
@@ -127,7 +141,7 @@ class SshHostBaselines:
                         shlex.join(
                             [
                                 "/usr/bin/env",
-                                f"{DISTRIBUTION_BASE_URL_ENV}={DISTRIBUTION_STAGE_URL}",
+                                f"{DISTRIBUTION_BASE_URL_ENV}={origin}",
                                 f"{_INSTALLER_CHANNEL_ENV}={_CURRENT_RELEASE_CHANNEL}",
                                 f"{_INSTALLER_CONFIRM_ENV}=1",
                                 f"{_INSTALLER_NO_ONBOARD_ENV}=1",
@@ -163,7 +177,18 @@ class SshHostBaselines:
                 result = self._run(command, timeout=timeout)
                 if not result.returncode:
                     continue
-                operations.append({"id": operation_id, "outcome": "failed"})
+                operations.append(
+                    {
+                        "id": operation_id,
+                        "outcome": "failed",
+                        "reason": bounded_machine_qa_diagnostic(
+                            f"{result.stdout}\n{result.stderr}",
+                            self.secret_values,
+                            tail=True,
+                        )
+                        or f"exit status {result.returncode} with no output",
+                    }
+                )
                 return HostActionResult(
                     False,
                     {"operations": operations},

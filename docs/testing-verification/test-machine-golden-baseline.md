@@ -33,8 +33,10 @@ record. A fixture home must differ from ordinary worker and operator homes.
 | Browser application sign-in and separate browser identity store | Existing browser procedure and actual signed-in app page |
 
 `fresh-host` keeps supported vendor tools/sign-ins and removes Yoke launchers
-and state. `shell-preconfigured` adds the current Yoke shell launcher. Neither
-means an empty OS. System packages, services, WSL registration and external VM
+and state. `shell-preconfigured` adds the current Yoke shell launcher, installed
+from the distribution of the environment the reset runs against (`--env prod`
+installs the production release). A failed install records the tail of its
+output as that operation's `reason` in the receipt. Neither means an empty OS. System packages, services, WSL registration and external VM
 disks survive home restoration; declare and verify them separately. A running
 container writing the restored home is a writer, not inert captured state.
 

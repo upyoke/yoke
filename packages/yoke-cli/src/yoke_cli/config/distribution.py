@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
 
 from yoke_cli.config import machine_config, machine_config_mutation as mutation
 from yoke_cli.self_host import release_target
+from yoke_contracts.api_urls import (
+    DISTRIBUTION_PROD_URL,
+    DISTRIBUTION_STAGE_URL,
+    HOSTED_PROD_API_URL,
+    HOSTED_STAGE_API_URL,
+)
 
 DISTRIBUTION_KEY = "distribution"
 SELECT_COMMAND = "yoke settings set distribution '<JSON with origin and channel>'"
@@ -49,6 +58,22 @@ def recorded(*, path: str | Path | None = None) -> dict[str, str]:
     value = settings.get(DISTRIBUTION_KEY) if isinstance(settings, dict) else None
     value = value if isinstance(value, dict) else {}
     return validate(origin=value.get("origin"), channel=value.get("channel"))
+
+
+def origin_for_connection(
+    connection: Mapping[str, Any], *, path: str | Path | None = None
+) -> str:
+    """Pick the distribution that publishes the control plane a connection names.
+
+    Hosted production and stage each publish from their own origin; any other
+    connection uses the install's recorded origin.
+    """
+    hostname = urlsplit(str(connection.get("api_url") or "")).hostname
+    if hostname == urlsplit(HOSTED_PROD_API_URL).hostname:
+        return DISTRIBUTION_PROD_URL
+    if hostname == urlsplit(HOSTED_STAGE_API_URL).hostname:
+        return DISTRIBUTION_STAGE_URL
+    return recorded(path=path)["origin"]
 
 
 @mutation.serialized_mutation
