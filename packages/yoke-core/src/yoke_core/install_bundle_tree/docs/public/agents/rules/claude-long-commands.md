@@ -21,7 +21,7 @@ Apply your tier; unsure means subagent.
   incomplete work. Never end the turn holding an in-turn wait or poll a capture.
 - Only interrupt a local check past about one minute: stop cleanly, retain its incomplete
   capture, commit and continue on CI. Never interrupt a CI watcher.
-- Holding a claim, run `yoke sessions touch --mode parked` before Stop after arming Monitor.
+- Hold a claim: run `yoke sessions touch --mode parked --reason claim` before Stop after arming Monitor.
 - `ci wait recorded for run N`: end the turn if the watcher stops first; the verdict wakes you.
 
 ## Wrappers

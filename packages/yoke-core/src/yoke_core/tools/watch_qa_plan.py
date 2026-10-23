@@ -124,7 +124,7 @@ examples:
   yoke watch qa-plan -- --item YOK-1 --transition implemented
       Canonical form. Everything after `--` is forwarded to the plan runner.
 
-  yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member YOK-1 --project P
+  yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --project P
       A deployment member's own QA stage. Each case runs in a disposable
       checkout pinned to the run's candidate revision and removed after its
       verdict, so no --checkout-path is needed when main has moved on.
