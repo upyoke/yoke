@@ -1,12 +1,15 @@
 """What a seat reads and does about one landed-but-open row.
 
-Four facts decide what the seat does about one row:
+Five facts decide what the seat does about one row:
 
-* **Who holds the item, and whether they are waiting.** Close-out is a
+* **What the item's own done gate still waits on.** A landing whose gate
+  waits only on its active flow's next release owes nobody a command, so its
+  row is one short line whatever its holder is doing; holder posture is
+  context there, never the classification. An item with no deployment target
+  is close-out ready, because its merge is the delivery.
+* **Who holds the item, and whether they are driving it.** Close-out is a
   claim-holding step, so a seat can only run it on a landing no live session
-  holds — against a live holder the command is refused by name. A holder that
-  is parked is waiting on the delivery its own close-out needs, and that row
-  is healthy.
+  holds — against a live holder the command is refused by name.
 * **Which release holds the landing.** A row waiting on a delivery that is
   actually coming needs nothing from anybody. A row no release is carrying
   needs a release, and nothing will produce one on its own. Until these read
@@ -30,12 +33,16 @@ from yoke_core.domain.delivery_landing_custody import (
     REMERGED,
     UNDETERMINED as CUSTODY_UNDETERMINED,
 )
+from yoke_core.domain.steering_fleet_report_landed_gate import (
+    CLOSE_OUT_READY,
+    UNREADABLE,
+)
 from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 
 
 def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
     """True when both holder silence and landing age reach the idle threshold."""
-    if entry.delivery_wait or not entry.holder_session_id or idle_after_seconds is None:
+    if entry.awaiting_release or not entry.holder_session_id or idle_after_seconds is None:
         return False
     threshold = int(idle_after_seconds)
     return entry.holder_idle_seconds >= threshold and entry.landed_seconds >= threshold
@@ -44,8 +51,7 @@ def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
 def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
     """Who holds the item, and whether they are waiting, working, or quiet.
 
-    A parked release holder waits by design, so tool silence during that
-    wait is expected. Working holders must be quiet and landed for the full
+    A landing awaiting its release expects tool silence, whatever the holder. Working holders must be quiet and landed for the full
     idle threshold. A row owing a new landing says so whoever holds it.
     """
     phrase = _holder_state(entry, idle_after_seconds)
@@ -72,14 +78,14 @@ def _holder_state(entry: LandedItem, idle_after_seconds: int | None) -> str:
 def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
     """What a seat does about this row, or ``""`` when it needs nothing.
 
-    Close-out is a claim-holding step, so a seat can only run it on a landing
-    no live session holds; against a live holder the command is refused by
-    name, and against a parked one there is nothing to recover from — it is
-    waiting on the delivery its close-out needs. Both get silence, because a
-    correct command offered for a situation that needs no command is still
-    noise, and it costs every reader the time it takes to try.
+    A landing whose done gate waits only on its next release needs nothing
+    from anybody, whoever holds it. Otherwise close-out is a claim-holding
+    step, so a seat can only run it on a landing no live session holds;
+    against a live holder the command is refused by name. Both get silence,
+    because a correct command offered for a situation that needs no command
+    is still noise, and it costs every reader the time it takes to try.
 
-    Outside a declared release wait, a holder quiet for the idle threshold
+    Outside a release wait, a holder quiet for the idle threshold
     after landing is not that live owner. The claim still blocks close-out
     until the sweep releases it, so the row names a
     wake (the holder may yet return) and the close-out that runs once the
@@ -90,6 +96,8 @@ def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None)
     names the flags rather than leaving them to be discovered through the
     denial.
     """
+    if entry.awaiting_release:
+        return ""
     if entry.relanding_owed:
         return _relanding_recovery(entry, idle_after_seconds)
     command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
@@ -137,6 +145,39 @@ def _relanding_recovery(entry: LandedItem, idle_after_seconds: int | None) -> st
     )
 
 
+def release_wait_phrase(entry: LandedItem) -> str:
+    """One line for a landing awaiting its release: the flow, custody, holder.
+
+    Which release holds it is said when one does; the holder's posture is
+    context in brackets and never adds a command.
+    """
+    wait = f"awaiting next {entry.delivery_gate.flow} release"
+    if entry.custody_state == HELD:
+        wait = f"awaiting {entry.delivery_gate.flow} release — {custody_phrase(entry)}"
+    elif entry.custody_state in {REMERGED, CUSTODY_UNDETERMINED}:
+        wait = f"{wait} — {custody_phrase(entry)}"
+    return f"{wait} ({_holder_context(entry)})"
+
+
+def _holder_context(entry: LandedItem) -> str:
+    if not entry.holder_session_id:
+        return "no live holder"
+    if entry.holder_process_phrase:
+        return f"holder {entry.holder_process_phrase}"
+    if entry.holder_parked:
+        return "parked"
+    return f"holder idle {entry.holder_idle_seconds // 60}m"
+
+
+def delivery_phrase(entry: LandedItem) -> str:
+    """What the gate or release says about a landing that owes close-out."""
+    if entry.delivery_gate.state == CLOSE_OUT_READY:
+        return "close-out ready — no deployment target, the merge is the delivery"
+    if entry.delivery_gate.state == UNREADABLE:
+        return f"delivery gate unreadable — {entry.delivery_gate.detail}"
+    return custody_phrase(entry)
+
+
 def custody_phrase(entry: LandedItem) -> str:
     """Say who is delivering this landing, in the words the seat needs.
 
@@ -161,4 +202,10 @@ def custody_phrase(entry: LandedItem) -> str:
     return "no release holds it"
 
 
-__all__ = ["custody_phrase", "holder_phrase", "landed_recovery"]
+__all__ = [
+    "custody_phrase",
+    "delivery_phrase",
+    "holder_phrase",
+    "landed_recovery",
+    "release_wait_phrase",
+]
