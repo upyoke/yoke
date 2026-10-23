@@ -231,6 +231,10 @@ def _delete_disposable_caches(run_git, root: Path, assessment: LaneResidueAssess
             elif candidate.is_dir():
                 shutil.rmtree(candidate)
         except OSError as exc:
+            # Another sweep can remove the cache between the assess and this
+            # delete. The path is already gone, so it is not a refusal.
+            if isinstance(exc, FileNotFoundError) and not candidate.exists():
+                continue
             return _kept(f"cache removal refused for {relative.as_posix()}: {exc}")
 
     final = _status(run_git, root)

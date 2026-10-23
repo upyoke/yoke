@@ -97,7 +97,9 @@ preserves the local worktree and branch for a later safe retry.
 
 Each successfully removed lane also retires its `item_worktrees` row through
 `item_worktrees.release_merged_lane`, including a registered lane whose folder
-is already absent. A finished worker can retire while its parent item stays
+is already absent. A lane folder, named cache, or removal tombstone that
+disappears after the sweep has read it counts as removed, and the sweep
+continues with the lanes behind it. A finished worker can retire while its parent item stays
 open; released rows cannot compete with the surviving lane as a merge source.
 The authority verdict supplies the owner's public `item_ref`. If an older
 server omits it, `prune_owner_identity_unavailable` preserves the lane: update
