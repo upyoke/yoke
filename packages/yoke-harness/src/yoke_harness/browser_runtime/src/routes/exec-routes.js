@@ -62,7 +62,7 @@ function registerExecRoutes(app, browserManager) {
   //   error?, artifacts?, vacuous_absence? } }
   app.post('/api/exec/step', async (req, res) => {
     try {
-      const { step, baseUrl, outputDir, pageId } = req.body || {};
+      const { step, baseUrl, outputDir, pageId, account } = req.body || {};
 
       if (!step) {
         return res.status(400).json({
@@ -91,6 +91,7 @@ function registerExecRoutes(app, browserManager) {
 
       const options = { baseUrl };
       if (outputDir) options.outputDir = outputDir;
+      if (account) options.account = account;
 
       await observeColorScheme(page);
       const result = await executeStep(page, step, options);

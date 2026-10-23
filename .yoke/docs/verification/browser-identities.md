@@ -21,7 +21,8 @@ settings. Each site names its origin, optionally the account a human should
 use, and a signed-in check: a URL plus either `signed_in_selector` (the page
 shows that element and no sign-in wall) or `signed_in_status` (the URL,
 requested with the profile's cookies and without following redirects, answers
-that HTTP status).
+that HTTP status). When a case lands on Google's account chooser, the runner
+clicks the account recorded on that identity's `accounts.google.com` site.
 
 ```json
 {"identities": {"buyer": {"sites": [

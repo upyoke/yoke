@@ -1,7 +1,9 @@
 {
  "id": "authenticated-state",
  "title": "Authenticated state",
- "status": "draft-copy",
+ "status": "observed",
  "page": "browser-qa",
- "position": 1
+ "position": 1,
+ "text": "The runner clicks the account recorded on the case identity when Google's account chooser is showing. If that account is not offered, or a Google sign-in page remains, the run ends as browser_sign_in_setup and names yoke browser authorize. sign_in.authenticated is true only after a step observes the app's signed-in page. The runner never enters credentials.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/browser_qa_sign_in_evidence.py", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/google-account-chooser.js", "docs/public/verification/browser-targets.md"]
 }

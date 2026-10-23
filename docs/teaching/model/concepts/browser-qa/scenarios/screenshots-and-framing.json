@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "browser-qa",
  "position": 4,
- "text": "Action budgets are shared by harness and core transports; response timeout leaves outcome uncertain. Arm timing and captures before one-shot mutation; missing intermediate evidence stays unknown.",
- "sources": ["docs/public/verification/browser-action-evidence.md"]
+ "text": "Browser cases wait for a settled page (no loading text, no covering overlay) before capturing. Action budgets are shared by harness and core transports; response timeout leaves outcome uncertain. Arm timing and captures before one-shot mutation; missing intermediate evidence stays unknown.",
+ "sources": ["docs/public/verification/browser-action-evidence.md", "docs/public/verification/browser-targets.md"]
 }

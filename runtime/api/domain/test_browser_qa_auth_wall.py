@@ -156,8 +156,10 @@ def test_authorized_profile_without_wall_records_authenticated(
         with patch(
             "yoke_core.domain.browser_qa_scenario.describe_sign_in",
             return_value={
+                "project": "testproj",
+                "identity": "default",
                 "profile": PROFILE_AUTHORIZED,
-                "authenticated": True,
+                "authenticated": False,
             },
         ):
             result = _run_scenario(
@@ -165,13 +167,15 @@ def test_authorized_profile_without_wall_records_authenticated(
                 812,
                 requirement_id=req_id,
                 execute_step_responses=[
-                    {"success": True},
-                    {"success": True, "artifacts": [str(shot)]},
+                    {"success": True, "signInPage": False},
+                    {"success": True, "artifacts": [str(shot)], "signInPage": False},
                 ],
             )
         assert result.verdict == "pass"
         payload = _raw_result(db_path, req_id)
         assert payload["sign_in"] == {
+            "project": "testproj",
+            "identity": "default",
             "profile": PROFILE_AUTHORIZED,
             "authenticated": True,
         }
@@ -230,7 +234,7 @@ def test_describe_sign_in_authorized_when_profile_directory_exists(
             "project": "demo",
             "identity": "admin",
             "profile": PROFILE_AUTHORIZED,
-            "authenticated": True,
+            "authenticated": False,
         }
 
 

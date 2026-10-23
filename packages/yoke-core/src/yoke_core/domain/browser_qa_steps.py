@@ -48,6 +48,7 @@ def _execute_step(
     Returns the parsed JSON response from the daemon, or an error dict.
     """
     from yoke_core.domain.browser_client import execute_step, daemon_running
+    from yoke_core.domain.browser_qa_sign_in_evidence import current_google_account
 
     if not daemon_running():
         return {"success": False, "error": "env_setup_failure", "exit_code": 2}
@@ -58,6 +59,7 @@ def _execute_step(
             base_url,
             output_dir=artifact_dir,
             page_id=page_id,
+            account=current_google_account(),
         )
     except RuntimeError as e:
         return {"success": False, "error": str(e)}

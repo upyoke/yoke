@@ -32,6 +32,7 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
 )
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_sign_in_evidence import (
+    BROWSER_SIGN_IN_SETUP,
     describe_sign_in,
     resolve_case_identities,
 )
@@ -275,10 +276,8 @@ def execute_scenario(
     # Step 5: Ensure a browser daemon runs for every identity the cases name;
     # each identity is its own profile, so each has its own daemon.
     try:
-        identities = resolve_case_identities(
-            _bqa.load_project_browser_identities(project),
-            req_rows,
-        )
+        declared = _bqa.load_project_browser_identities(project)
+        identities = resolve_case_identities(declared, req_rows)
     except BrowserIdentityError as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
@@ -307,7 +306,7 @@ def execute_scenario(
                 base_url=base_url,
                 code_identity=code_identity,
                 freshness_validated=freshness_validated,
-                sign_in=describe_sign_in(project, identity),
+                sign_in=describe_sign_in(project, identity, declared.get(identity)),
                 actor=actor,
             )
             result.runs.append(outcome.run_result)
@@ -323,8 +322,9 @@ def execute_scenario(
                 if result.verdict == "pass":
                     result.verdict = "error"
                 errors = outcome.run_result.errors or ""
-                if EXECUTION_TARGET_UNAUTHORIZED in errors:
-                    result.note = EXECUTION_TARGET_UNAUTHORIZED
+                for code in (EXECUTION_TARGET_UNAUTHORIZED, BROWSER_SIGN_IN_SETUP):
+                    if code in errors:
+                        result.note = code
             elif outcome.capture_failed or outcome.run_result.verdict == "fail":
                 result.verdict = "fail"
             elif outcome.run_result.verdict == "pending" and result.verdict == "pass":

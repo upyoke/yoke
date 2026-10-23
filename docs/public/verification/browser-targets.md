@@ -154,6 +154,10 @@ The step vocabulary matches
 the browser step runner implementation.
 There is no translation layer.
 
+Before capturing, wait for a settled page: no loading text and no covering overlay.
+
+When the page is Google's account chooser, the runner selects the account recorded for the case identity. If that account is not offered, or a Google sign-in page is still showing, the run ends as `browser_sign_in_setup` and names `yoke browser authorize` for that identity. That is a setup error, not a product failure. `sign_in.authenticated` is true only after a step observes the app's signed-in page. The runner never enters credentials.
+
 Required steps run in order until the first failure. The runner then records
 that failure, takes one diagnostic screenshot from the owned page when it is
 available, and skips subsequent required steps. It runs `cleanup_steps` after

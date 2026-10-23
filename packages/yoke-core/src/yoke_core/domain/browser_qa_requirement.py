@@ -207,7 +207,7 @@ def _process_requirement(
             step_errors += failed.errors
             run_artifacts.extend(failed.paths)
             run_artifact_ids.extend(failed.artifact_ids)
-            run_verdict = "error" if failed.unauthorized else "fail"
+            run_verdict = "error" if failed.unauthorized or failed.setup else "fail"
             if failed.capture_missed:
                 run_execution_status = "capture_failed"
             step_failure = True
