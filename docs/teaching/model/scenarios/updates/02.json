@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "An upgrade succeeded but hooks, dashboard or installed project instructions remain old",
- "need": "Distinguish installed CLI, server, resident hook process, relay and tracked project layer. Follow the component-specific status/refresh result; a webpage reload does not replace its serving process. Every yoke setup, public install, reinstall and upgrade restarts and dry-evaluates the installed hook evaluator before readiness. The operator, never each agent, recovers through yoke hook resident restart from their own terminal and the named evaluator log; while the evaluator is down hooks fail open with a warning that guard rules are not enforced. Phase timing is never printed in chat.",
+ "need": "Distinguish installed CLI, server, resident hook process, relay and tracked project layer. Follow the component-specific status/refresh result; a webpage reload does not replace its serving process. Every yoke setup, public install, reinstall and upgrade restarts and dry-evaluates the installed hook evaluator before readiness. The operator, never each agent, recovers through yoke hook resident restart from their own terminal and the named evaluator log; while the evaluator is down hooks fail open with a warning that guard rules are not enforced. A fixed resident re-execs into the current immutable generation on revision mismatch; pre-fix running code needs one ordinary operator restart after the corrected CLI is installed. Phase timing is never printed in chat.",
  "disclosure": "planned cue",
  "surface": "Installer readiness and named recovery; project orientation and component status own other stale layers.",
  "review": "Pending exact recipe proof.",

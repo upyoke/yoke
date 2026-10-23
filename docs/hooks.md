@@ -31,9 +31,7 @@ rather than pinning the session forever.
 
 Project hook configs call `yoke hook evaluate <event>`. Each non-dry invocation
 sends event/payload, pid/ppid, cwd, environment and installed revision over a Unix
-socket to one evaluator per machine user. The resident imports the engine once,
-reuses an HTTPS pool and isolates each concurrent caller's context. Dry runs stay
-local. The active machine connection selects in-process or HTTPS evaluation.
+socket to one evaluator per machine user. The resident imports the engine once, reuses an HTTPS pool and isolates callers. Dry runs stay local; the active connection selects in-process or HTTPS evaluation.
 
 On HTTPS, the client reads the payload and detects executor/agent identity once.
 It evaluates the chain's client-home policies through
@@ -87,9 +85,11 @@ and prove it with a dry evaluation, so a first session meets a warm evaluator;
 otherwise the client starts it on demand. It binds its socket before importing
 the evaluator, so callers during a cold start queue and are answered once it
 loads. It retires after ten idle minutes; a request for a different installed
-revision closes acceptance and re-execs, naming both revisions. Shutdown lets
-in-flight evaluations finish for up to five seconds, drains observations once for
-two seconds, warns on timeout, and continues.
+revision closes acceptance and re-execs into the current immutable CLI generation
+under its publication lock, retaining the resident start lock. Source development
+keeps its interpreter. Shutdown drains evaluations for five seconds and observations
+for two seconds, warns on timeout, and continues. Pre-fix residents need one
+`yoke hook resident restart` from the operator after installing the corrected CLI.
 
 Socket/protocol/startup/crash failures use the canonical in-process evaluator, limited to
 the budget left. An over-long socket path moves under the shorter of `TMPDIR` and `/tmp`,
