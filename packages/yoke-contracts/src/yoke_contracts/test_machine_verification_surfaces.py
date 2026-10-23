@@ -28,8 +28,8 @@ _SURFACE_CHECKS = (
 )
 
 
-def _failed_recovery(surface: str, *, project: str, machine: str) -> str:
-    selector = f"--project {project} --test-machine {machine}"
+def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
+    selector = f"--project {project} --test-machine {test_machine}"
     if surface == SSH_SURFACE:
         return (
             "Nothing reaches this host until SSH works. Check that the host "
@@ -50,7 +50,7 @@ def verification_surfaces(
     checks: Sequence[Mapping[str, Any]],
     *,
     project: str,
-    machine: str,
+    test_machine: str,
 ) -> dict[str, dict[str, Any]]:
     """Return each verified surface's own status, keyed by surface name.
 
@@ -75,7 +75,7 @@ def verification_surfaces(
                 "recovery": _failed_recovery(
                     surface,
                     project=project,
-                    machine=machine,
+                    test_machine=test_machine,
                 ),
             }
     return surfaces

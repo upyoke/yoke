@@ -25,7 +25,7 @@ registrations; admission refuses without one. The runner supplies
 `browser-control` without a project capability row. Walkers use managed browsers
 for named identities or when the walk installed Yoke; otherwise the host browser.
 The connection comes from the `QA_HOST:` lease recorded on
-`qa_plan_executions.machine_lease_id`, never an undeclared access path.
+`qa_plan_executions.test_machine_lease_id`, never an undeclared access path.
 
 ## Authoring Shape
 
@@ -44,7 +44,7 @@ single-machine missions; declare its host set below.
 }
 ```
 
-Omit `machine` to select a registered host matching the case OS. Execution
+Omit `test_machine` to select a registered host matching the case OS. Execution
 checks `method_config.os` / `platform`, capability requirements and executable
 steps before leasing a host. A declared machine supplies its registered `os`
 when those fields do not choose one. Instructions never choose an OS. Without

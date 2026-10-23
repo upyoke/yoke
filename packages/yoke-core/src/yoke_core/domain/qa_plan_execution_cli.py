@@ -277,7 +277,7 @@ def run(args: List[str]) -> int:
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,
-            machine=parsed.test_machine,
+            test_machine=parsed.test_machine,
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,

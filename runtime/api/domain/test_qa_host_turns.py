@@ -55,7 +55,7 @@ def _manual_acquire(conn, monkeypatch, session_id):
     )
 
 
-def _execution_wait(conn, session_id, machine=MACHINE):
+def _execution_wait(conn, session_id, test_machine=MACHINE):
     execution_id = str(uuid4())
     conn.execute(
         "INSERT INTO qa_plan_executions(id,deployment_run_id,session_id,actor_id,"
@@ -65,7 +65,7 @@ def _execution_wait(conn, session_id, machine=MACHINE):
     )
     join_host_line(
         conn,
-        make_qa_admission_target(machine),
+        make_qa_admission_target(test_machine),
         session_id=session_id,
         actor_id=1,
         resume_command="yoke qa plan run --project example --plan smoke",
@@ -177,7 +177,7 @@ def test_ended_waiter_and_other_host_do_not_block(test_db, monkeypatch):
     seed_qa_session(test_db, "ended", "other", "new")
     _notices(monkeypatch)
     _execution_wait(test_db, "ended")
-    _execution_wait(test_db, "other", machine="other-lab")
+    _execution_wait(test_db, "other", test_machine="other-lab")
     test_db.execute(
         "UPDATE harness_sessions SET ended_at=now() WHERE session_id=%s", ("ended",)
     )

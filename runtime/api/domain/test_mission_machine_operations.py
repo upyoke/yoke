@@ -142,7 +142,7 @@ def test_mission_holder_borrows_lease_and_submit_keeps_it(mission, operation):
     assert get_claim(conn, contract["lease_id"]).is_active
     execution = lock_plan_execution(conn, execution_id)
     assert execution["state"] == "walking"
-    assert execution["machine_lease_id"] == contract["lease_id"]
+    assert execution["test_machine_lease_id"] == contract["lease_id"]
     conn.commit()
     if operation == "golden_capture":
         assert control.captured_destinations == [contract["golden_destination"]]

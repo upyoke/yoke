@@ -120,7 +120,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     replace_test_machine_settings(
         test_db,
         project="yoke",
-        machine=third,
+        test_machine=third,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": third},
         base_settings=None,
     )
@@ -177,7 +177,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     )
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
-    old_lease = current["machine_lease_id"]
+    old_lease = current["test_machine_lease_id"]
     assert len(execution_host_leases(test_db, current)) == 3
     opener = current["roster"][0]
     advance_plan_execution(
@@ -193,7 +193,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     assert {
         lease.target.test_machine for lease in execution_host_leases(test_db, current)
     } == {*MACHINES, third}
-    assert current["machine_lease_id"] == old_lease
+    assert current["test_machine_lease_id"] == old_lease
     assert not test_db.execute(
         "SELECT released_at FROM work_claims WHERE id=%s", (old_lease,)
     ).fetchone()[0]

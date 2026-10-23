@@ -8,13 +8,13 @@ from yoke_core.domain.machine_detail import _host_label, _test_machines
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 
 
-def _register(conn, machine: str, host: str) -> None:
+def _register(conn, test_machine: str, host: str) -> None:
     replace_test_machine_settings(
         conn,
         project="yoke",
-        machine=machine,
+        test_machine=test_machine,
         settings={
-            "resource_name": machine,
+            "resource_name": test_machine,
             "host": host,
             "user": "tester",
             "os": "macos",
@@ -39,7 +39,7 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
     assert linked == [
         {
             "project": "yoke",
-            "machine": "test-mac",
+            "test_machine": "test-mac",
             "capability_type": "test-machine:test-mac",
             "host": "testers-mac-mini.tail0000.ts.net",
             "user": "tester",
@@ -63,7 +63,7 @@ def test_the_detail_response_carries_the_cross_link() -> None:
         machine={},
         harnesses=[],
         projects=[],
-        test_machines=[{"machine": "test-mac"}],
+        test_machines=[{"test_machine": "test-mac"}],
         running_sessions=[],
         recent_sessions=[],
         recent_launches=[],
@@ -73,4 +73,4 @@ def test_the_detail_response_carries_the_cross_link() -> None:
         offers_enforcement_note="",
     )
 
-    assert response.model_dump()["test_machines"] == [{"machine": "test-mac"}]
+    assert response.model_dump()["test_machines"] == [{"test_machine": "test-mac"}]

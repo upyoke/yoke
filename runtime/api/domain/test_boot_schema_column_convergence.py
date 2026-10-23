@@ -42,6 +42,7 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
         *_MACHINE_CREDENTIAL_COLUMNS,
         ("test_machine_verifications", "capability_type"),
         ("harness_sessions", "execution_level"),
+        ("qa_plan_executions", "test_machine_lease_id"),
     }
 )
 # Digest of columns that shipped with their table and therefore have no
@@ -108,8 +109,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # QA execution adoption receipts add one table; its full audit row is born with it.
 # QA execution reconciliation receipts add one table; its audit row is born with it.
 # Owed QA settlement follow-ups add one table; its queue row is born with it.
+# An ordered history entry renames qa_plan_executions' born-with
+# machine_lease_id to test_machine_lease_id, so neither spelling is born-with.
 _BORN_WITH_COLUMN_DIGEST = (
-    "31ae4ba7374e92c24a3649948f1e27ea684faffb4175f23c3f99a788d34b345f"
+    "288261f0bc87e99b5851aa2b206bd53262974e065992c804a3ddff0e763230ac"
 )
 
 

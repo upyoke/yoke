@@ -103,7 +103,7 @@ def execute_agent_mission_walk_end(
         teardown[STARTING_STATE_RESTORE] = restore_chain_start(
             contract.cases[0],
             execution.reach_baseline,
-            machine=contract.settings["resource_name"],
+            test_machine=contract.settings["resource_name"],
         )
     redacted = redact_machine_qa_value(
         teardown,

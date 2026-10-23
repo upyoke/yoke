@@ -300,7 +300,7 @@ def test_an_active_execution_continues_through_the_successor_deployment(
     execution = _seed_shared_execution(test_db, monkeypatch)
     passed, pass_run = _record(test_db, execution, 0, "pass")
     test_db.execute(
-        "UPDATE qa_plan_executions SET machine_lease_id=4242 WHERE id=%s",
+        "UPDATE qa_plan_executions SET test_machine_lease_id=4242 WHERE id=%s",
         (execution["id"],),
     )
     test_db.commit()
@@ -310,7 +310,7 @@ def test_an_active_execution_continues_through_the_successor_deployment(
     assert moved["id"] == execution["id"]
     assert moved["state"] == "active"
     assert moved["deployment_run_id"] == takeover.NEW
-    assert moved["machine_lease_id"] == 4242
+    assert moved["test_machine_lease_id"] == 4242
     assert moved["roster_digest"] == execution["roster_digest"]
     view = plan_execution_view(test_db, moved)
     assert [row["requirement_id"] for row in view["results"]] == [passed]

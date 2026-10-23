@@ -68,7 +68,7 @@ def begin_plan_execution(
     deployment_member_item_id: int | None = None,
     checkout_path: str | None = None,
     expected_branch: str | None = None,
-    machine: str | None = None,
+    test_machine: str | None = None,
     continue_mission: bool = False,
     continuation_execution_id: str | None = None,
     actor_id: str | None,
@@ -164,7 +164,7 @@ def begin_plan_execution(
             checkout_path=checkout_path,
             expected_branch=expected_branch,
             session_id=session_id,
-            machine=machine,
+            test_machine=test_machine,
         )
 
     # Every roster read runs before the run lock; it covers the re-check and write.

@@ -34,7 +34,7 @@ class QaArtifactReadResponse(BaseModel):
     content_type: Optional[str] = None
     download_url: Optional[str] = None
     content_base64: Optional[str] = None
-    machine: Optional[str] = None
+    test_machine: Optional[str] = None
     detail: Optional[str] = None
     expires_in_s: Optional[int] = None
     path: Optional[str] = None
@@ -82,7 +82,7 @@ def _local_result(row, handle: dict) -> dict:
     ):
         return {
             "disposition": "evidence_on_machine",
-            "machine": machine,
+            "test_machine": machine,
             "detail": "the local handle is outside this server's evidence roots",
             "recorded_path": str(path),
         }
@@ -91,7 +91,7 @@ def _local_result(row, handle: dict) -> dict:
             "disposition": (
                 "evidence_on_machine" if machine else "evidence_not_portable"
             ),
-            "machine": machine,
+            "test_machine": machine,
             "detail": "the evidence bytes are not present on this machine",
             "recorded_path": str(path),
         }

@@ -33,7 +33,7 @@ def owed_host_abort(conn, execution, *, reason):
     from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
-    if not execution.get("machine_lease_id") and not execution_host_leases(
+    if not execution.get("test_machine_lease_id") and not execution_host_leases(
         conn, execution
     ):
         return None
@@ -63,7 +63,7 @@ def owed_host_abort(conn, execution, *, reason):
 
         return (
             request
-            if execution.get("machine_lease_id")
+            if execution.get("test_machine_lease_id")
             and not mission_restores_recorded(conn, execution)
             else None
         )

@@ -6,6 +6,7 @@ to recognize the retired spelling:
 
 - ``qa_host_waits.machine_id`` becomes ``test_machine``, with both line
   indexes rebuilt on it.
+- ``qa_plan_executions.machine_lease_id`` becomes ``test_machine_lease_id``.
 - A ``qa_admission`` work claim's scope ``{"machine_id": NAME}`` becomes
   ``{"test_machine": NAME}``.
 - ``method_config`` keys ``machine`` / ``machines`` become ``test_machine`` /
@@ -53,6 +54,9 @@ CURRENT_COLUMN = "test_machine"
 RETIRED_SCOPE_KEY = "machine_id"
 CURRENT_SCOPE_KEY = "test_machine"
 QA_ADMISSION = "qa_admission"
+EXECUTION_TABLE = "qa_plan_executions"
+RETIRED_LEASE_COLUMN = "machine_lease_id"
+CURRENT_LEASE_COLUMN = "test_machine_lease_id"
 WAIT_INDEXES = (
     (
         "idx_qa_host_waits_live_session",
@@ -78,26 +82,29 @@ def _marker(conn: Any) -> str:
     return "%s" if connection_is_postgres(conn) else "?"
 
 
-def _rename_wait_column(conn: Any) -> None:
-    """Keep every queued host while converging either pre-boot shape."""
-    if not _table_exists(conn, WAIT_TABLE) or not _column_exists(
-        conn, WAIT_TABLE, RETIRED_COLUMN
-    ):
+def _rename_column(
+    conn: Any, table: str, retired: str, current: str, indexes: tuple = ()
+) -> None:
+    """Keep every stored value while converging either pre-boot shape.
+
+    A boot that already added ``current`` leaves both columns: values move
+    into ``current`` where it is still empty, then ``retired`` is dropped.
+    """
+    if not _table_exists(conn, table) or not _column_exists(conn, table, retired):
         return
-    for name, _ in WAIT_INDEXES:
+    for name, _ in indexes:
         conn.execute(f'DROP INDEX IF EXISTS "{name}"')
-    if _column_exists(conn, WAIT_TABLE, CURRENT_COLUMN):
+    if _column_exists(conn, table, current):
         conn.execute(
-            f'UPDATE "{WAIT_TABLE}" SET "{CURRENT_COLUMN}" = "{RETIRED_COLUMN}" '
-            f'WHERE "{CURRENT_COLUMN}" IS NULL'
+            f'UPDATE "{table}" SET "{current}" = "{retired}" '
+            f'WHERE "{current}" IS NULL'
         )
-        conn.execute(f'ALTER TABLE "{WAIT_TABLE}" DROP COLUMN "{RETIRED_COLUMN}"')
+        conn.execute(f'ALTER TABLE "{table}" DROP COLUMN "{retired}"')
     else:
         conn.execute(
-            f'ALTER TABLE "{WAIT_TABLE}" RENAME COLUMN "{RETIRED_COLUMN}" '
-            f'TO "{CURRENT_COLUMN}"'
+            f'ALTER TABLE "{table}" RENAME COLUMN "{retired}" TO "{current}"'
         )
-    for _, ddl in WAIT_INDEXES:
+    for _, ddl in indexes:
         conn.execute(ddl)
 
 
@@ -232,7 +239,10 @@ def _fold_rosters(conn: Any) -> None:
 
 
 def apply(conn: Any) -> None:
-    _rename_wait_column(conn)
+    _rename_column(conn, WAIT_TABLE, RETIRED_COLUMN, CURRENT_COLUMN, WAIT_INDEXES)
+    _rename_column(
+        conn, EXECUTION_TABLE, RETIRED_LEASE_COLUMN, CURRENT_LEASE_COLUMN
+    )
     _rename_claim_scopes(conn)
     _fold_documents(conn)
     _fold_run_results(conn)
@@ -240,21 +250,28 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
-    """Prove the host waiting line names its host only as a test machine."""
-    if not _table_exists(conn, WAIT_TABLE):
-        return
-    assert _column_exists(conn, WAIT_TABLE, CURRENT_COLUMN), (
-        f"{WAIT_TABLE}.{CURRENT_COLUMN} is missing after the test machine rename"
-    )
-    assert not _column_exists(conn, WAIT_TABLE, RETIRED_COLUMN), (
-        f"{WAIT_TABLE}.{RETIRED_COLUMN} remains after the test machine rename"
-    )
+    """Prove each renamed column names its host only as a test machine."""
+    for table, retired, current in (
+        (WAIT_TABLE, RETIRED_COLUMN, CURRENT_COLUMN),
+        (EXECUTION_TABLE, RETIRED_LEASE_COLUMN, CURRENT_LEASE_COLUMN),
+    ):
+        if not _table_exists(conn, table):
+            continue
+        assert _column_exists(conn, table, current), (
+            f"{table}.{current} is missing after the test machine rename"
+        )
+        assert not _column_exists(conn, table, retired), (
+            f"{table}.{retired} remains after the test machine rename"
+        )
 
 
 __all__ = [
     "CURRENT_COLUMN",
+    "CURRENT_LEASE_COLUMN",
+    "EXECUTION_TABLE",
     "MINIMUM_SERVING_VERSION",
     "RETIRED_COLUMN",
+    "RETIRED_LEASE_COLUMN",
     "WAIT_TABLE",
     "apply",
     "invariants",

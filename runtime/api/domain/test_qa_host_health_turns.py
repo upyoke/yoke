@@ -56,7 +56,7 @@ def _project_id(conn: Any) -> int:
 
 def _record(conn: Any, operation: str, status: str, error: str | None = None) -> None:
     common = dict(
-        machine=MACHINE,
+        test_machine=MACHINE,
         status=status,
         checks=[{"name": operation, "ok": status == "verified"}],
         error_code=error,

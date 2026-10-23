@@ -140,7 +140,7 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
     record_reset_owed(
         test_db,
         case={"project_id": 1, "host_baseline": "shell-preconfigured"},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     test_db.commit()
@@ -220,7 +220,7 @@ def test_failed_owed_reset_keeps_original_debt_without_starting_case(
     record_reset_owed(
         test_db,
         case={**case, "host_baseline": "shell-preconfigured"},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     result = recording.MachineCaseSubmissionResult(

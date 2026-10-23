@@ -179,7 +179,7 @@ def test_failed_contract_issue_rolls_back_partial_acquisitions(
     assert not response.primary_success
     assert "contract failed" in response.error.message
     assert not execution_host_leases(test_db, execution)
-    assert lock_plan_execution(test_db, execution["id"])["machine_lease_id"] is None
+    assert lock_plan_execution(test_db, execution["id"])["test_machine_lease_id"] is None
 
 
 @pytest.mark.parametrize("parked,ended", [(False, True), (True, False)])
@@ -345,6 +345,6 @@ def test_acquisition_order_does_not_depend_on_driving_host(
     ) as acquire_spy:
         response = _case_begin(_begin(test_db))
     assert response.primary_success, response.error
-    assert [call.kwargs["machine"] for call in acquire_spy.call_args_list] == list(
+    assert [call.kwargs["test_machine"] for call in acquire_spy.call_args_list] == list(
         MACHINES
     )

@@ -274,7 +274,7 @@ def test_linux_desktop_access_runs_shared_startup_before_opening_route(
     monkeypatch.setattr(desktop, "_check_desktop", lambda *a: calls.append("route"))
     result = desktop.open_desktop_access(
         project="project",
-        machine="lab",
+        test_machine="lab",
         settings={
             "os": "linux",
             "host": "lab.invalid",

@@ -49,7 +49,7 @@ class PlanExecutionStateResponse(BaseModel):
     state: str
     roster_digest: str
     cursor_ordinal: int
-    machine_lease_id: int | None = None
+    test_machine_lease_id: int | None = None
     continues_execution_id: str | None = None
     # Absent on a row written before executions carried a target: reading and
     # abandoning such a row are supported, running one is refused by name.
@@ -88,6 +88,6 @@ class PlanExecutionCheckinResponse(BaseModel):
     cursor_ordinal: int
     roster_digest: str
     execution_target_digest: str | None = None
-    machine_lease_id: int | None = None
+    test_machine_lease_id: int | None = None
     heartbeat_at: Any
     timings_ms: dict[str, float] = Field(default_factory=dict)

@@ -19,10 +19,10 @@ from yoke_contracts.machine_qa_failures import (
 from yoke_core.domain.host_control_runner import materialize_test_machine_contract
 
 
-def _detail(machine: str = "lab") -> dict[str, Any]:
+def _detail(test_machine: str = "lab") -> dict[str, Any]:
     return {
         "project": "yoke",
-        "capability_type": f"test-machine:{machine}",
+        "capability_type": f"test-machine:{test_machine}",
         "secrets": [
             {
                 "key": "ssh_private_key",
@@ -31,7 +31,7 @@ def _detail(machine: str = "lab") -> dict[str, Any]:
             },
             {
                 "key": "desktop_password",
-                "cap_type": f"test-machine:{machine}",
+                "cap_type": f"test-machine:{test_machine}",
                 "stored": None,
                 "scope": "executing_machine",
             },
@@ -55,20 +55,22 @@ def test_cli_attests_only_its_own_machine_secret_presence(
         success=True,
         function="test_machine.list",
         version="v1",
-        result={"machines": [_detail(), _detail("other")]},
+        result={"test_machines": [_detail(), _detail("other")]},
     )
 
-    attested = test_machine_cli._attest_secret_presence(response, "yoke")
+    attested = test_machine_cli._attest_secret_presence(
+        response, "yoke", "test_machine.list"
+    )
 
-    secret = attested.result["machines"][0]["secrets"][0]
+    secret = attested.result["test_machines"][0]["secrets"][0]
     assert secret == {
         "key": "ssh_private_key",
         "stored": True,
         "scope": "executing_machine",
     }
-    assert response.result["machines"][0]["secrets"][0]["stored"] is None
-    assert attested.result["machines"][0]["secrets"][1]["stored"] is True
-    assert attested.result["machines"][1]["secrets"][1]["stored"] is False
+    assert response.result["test_machines"][0]["secrets"][0]["stored"] is None
+    assert attested.result["test_machines"][0]["secrets"][1]["stored"] is True
+    assert attested.result["test_machines"][1]["secrets"][1]["stored"] is False
 
 
 def test_missing_local_credential_has_specific_recovery(

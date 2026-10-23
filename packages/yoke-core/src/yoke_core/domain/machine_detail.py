@@ -152,14 +152,14 @@ def _test_machines(
     return [
         {
             "project": row.project,
-            "machine": row.machine,
+            "test_machine": row.test_machine,
             "capability_type": row.capability_type,
             "host": row.settings["host"],
             "user": row.settings["user"],
             "os": row.settings["os"],
             "exec_command": (
                 f"yoke test-machine exec --project {row.project} "
-                f"--test-machine {row.machine} -- <command>"
+                f"--test-machine {row.test_machine} -- <command>"
             ),
         }
         for row in rows

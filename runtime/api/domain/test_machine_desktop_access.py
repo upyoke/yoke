@@ -110,7 +110,7 @@ def test_forward_printable_result_has_no_secret_and_leaves_a_private_copy(
     probes = []
     monkeypatch.setattr(desktop, "_check_desktop", lambda *args: probes.append(args))
     result = desktop.open_desktop_access(
-        project="project", machine="lab", settings=SETTINGS
+        project="project", test_machine="lab", settings=SETTINGS
     )
     path = Path(result["password_file"])
     try:
@@ -141,7 +141,7 @@ def test_direct_route_uses_desktop_host_without_starting_ssh(credentials, monkey
     monkeypatch.setattr(desktop, "_check_desktop", lambda *args: probes.append(args))
     result = desktop.open_desktop_access(
         project="project",
-        machine="lab",
+        test_machine="lab",
         settings={
             **SETTINGS,
             "desktop_route": "direct",
@@ -174,7 +174,7 @@ def test_failed_probe_closes_forward_and_removes_password_copy(
     with pytest.raises(
         desktop.DesktopAccessError, match="desktop_unreachable"
     ) as caught:
-        desktop.open_desktop_access(project="project", machine="lab", settings=SETTINGS)
+        desktop.open_desktop_access(project="project", test_machine="lab", settings=SETTINGS)
     assert PASSWORD not in str(caught.value)
     control_path = calls[0][calls[0].index("-S") + 1]
     assert not Path(control_path.removesuffix(".ssh")).exists()
@@ -189,7 +189,7 @@ def test_missing_password_refuses_before_any_tunnel(credentials, monkeypatch):
     )
     with pytest.raises(desktop.DesktopAccessError, match="desktop_password_missing"):
         desktop.open_desktop_access(
-            project="project", machine="missing", settings=SETTINGS
+            project="project", test_machine="missing", settings=SETTINGS
         )
 
 
@@ -208,7 +208,7 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
 ):
     detail = {
         "project": "project",
-        "machine": "lab",
+        "test_machine": "lab",
         "settings": SETTINGS,
         "active_lease": {"session_id": "holder"},
     }
@@ -232,7 +232,7 @@ def test_route_authorization_refuses_foreign_lease_and_returns_only_settings(
     assert refused.error.code == "steering_seat_required"
     detail["active_lease"] = {"session_id": "caller"}
     result = handler.handle_desktop_access(_request()).result_payload
-    assert set(result) == {"project", "machine", "settings"}
+    assert set(result) == {"project", "test_machine", "settings"}
 
 
 def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys):
@@ -250,7 +250,7 @@ def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys
             calls.append(kw)
             or SimpleNamespace(
                 success=True,
-                result={"project": "project", "machine": "lab", "settings": SETTINGS},
+                result={"project": "project", "test_machine": "lab", "settings": SETTINGS},
             )
         ),
     )

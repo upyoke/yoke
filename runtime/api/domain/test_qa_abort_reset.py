@@ -155,7 +155,7 @@ def test_reset_then_abort_settles_normal_terminal_path(
     begun = handle_operation_begin(operation(actor))
     assert begun.primary_success, begun.error
     issued = begun.result_payload["execution"]
-    assert issued["lease_id"] == execution["machine_lease_id"]
+    assert issued["lease_id"] == execution["test_machine_lease_id"]
     submitted = handle_operation_submit(
         operation(
             actor,
@@ -197,9 +197,9 @@ def test_unrelated_or_failed_reset_cannot_settle_abort(test_db, failed_restore, 
     from yoke_core.domain.host_control_runner import load_test_machine_contract
 
     execution = failed_restore
-    lease = get_claim(test_db, execution["machine_lease_id"])
-    machine = lease.target.test_machine
-    candidate = load_test_machine_contract(test_db, project="yoke", machine=machine)
+    lease = get_claim(test_db, execution["test_machine_lease_id"])
+    test_machine = lease.target.test_machine
+    candidate = load_test_machine_contract(test_db, project="yoke", test_machine=test_machine)
     contract = _issue(
         test_db,
         candidate,
@@ -215,14 +215,14 @@ def test_unrelated_or_failed_reset_cannot_settle_abort(test_db, failed_restore, 
         replace_test_machine_settings(
             test_db,
             project="yoke",
-            machine="other-host",
+            test_machine="other-host",
             base_settings=None,
             settings={**candidate.settings, "resource_name": "other-host"},
         )
     record_test_machine_operation(
         test_db,
         candidate.project_id,
-        machine="other-host" if change == "wrong_machine" else machine,
+        test_machine="other-host" if change == "wrong_machine" else test_machine,
         operation="reset",
         status="error" if change == "failed" else "verified",
         checks=[

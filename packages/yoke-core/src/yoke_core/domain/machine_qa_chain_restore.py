@@ -57,7 +57,7 @@ def restore_due(case: Any, case_outcome: str | None, **capture: Any) -> bool:
     )
 
 
-def restore_chain_start(case: Any, reach: Any, *, machine: str) -> dict[str, Any]:
+def restore_chain_start(case: Any, reach: Any, *, test_machine: str) -> dict[str, Any]:
     """Restore the chain's starting state and return the evidence to record."""
     if case.starting_state == AS_IS or (
         case.starting_state == INHERIT and not case.host_baseline
@@ -72,9 +72,9 @@ def restore_chain_start(case: Any, reach: Any, *, machine: str) -> dict[str, Any
     receipt = baseline_receipt(str(case.host_baseline), reach)
     if not receipt["ok"]:
         receipt["recovery"] = (
-            f"Test Machine {machine!r} was not returned to "
+            f"Test Machine {test_machine!r} was not returned to "
             f"{case.host_baseline!r}; run `yoke test-machine reset --project "
-            f"{case.project} --test-machine {machine} --baseline "
+            f"{case.project} --test-machine {test_machine} --baseline "
             f"{case.host_baseline}` before the next machine QA run uses it"
         )
     return {"restored": bool(receipt["ok"]), **receipt}

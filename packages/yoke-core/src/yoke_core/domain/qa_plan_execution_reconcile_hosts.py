@@ -39,7 +39,7 @@ def held_leases(conn: Any, execution: dict[str, Any]) -> tuple[list, list]:
 
     hosts = {lease.id: lease for lease in execution_host_leases(conn, execution)}
     review = []
-    primary = execution.get("machine_lease_id")
+    primary = execution.get("test_machine_lease_id")
     if primary is not None:
         claim = get_claim(conn, int(primary))
         mission_review = execution["state"] in {"walking", "awaiting_walk_review"} and (

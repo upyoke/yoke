@@ -66,7 +66,17 @@ def _seed_retired_shapes(conn, tmp_path, monkeypatch):
             "SELECT roster_json, roster_digest FROM qa_plan_executions WHERE id=%s",
             (execution["id"],),
         )[0],
+        "lease": _rows(
+            conn,
+            "SELECT test_machine_lease_id FROM qa_plan_executions WHERE id=%s",
+            (execution["id"],),
+        )[0],
     }
+    assert current["lease"][0] is not None
+    conn.execute(
+        "ALTER TABLE qa_plan_executions RENAME COLUMN test_machine_lease_id "
+        "TO machine_lease_id"
+    )
     for table in ("qa_plan_cases", "qa_requirements"):
         for row_id, raw in _rows(conn, f"SELECT id, method_config FROM {table}"):
             conn.execute(
@@ -139,6 +149,11 @@ def test_entry_restores_current_keys_and_the_verified_roster_digest(
         "SELECT roster_json, roster_digest FROM qa_plan_executions WHERE id=%s",
         (execution["id"],),
     )[0] == current["roster"]
+    assert _rows(
+        test_db,
+        "SELECT test_machine_lease_id FROM qa_plan_executions WHERE id=%s",
+        (execution["id"],),
+    )[0] == current["lease"]
     locked = lock_plan_execution(test_db, execution["id"])
     assert {lease.target.test_machine for lease in execution_host_leases(
         test_db, locked
@@ -203,3 +218,15 @@ def test_evidence_from_other_runners_and_unnamed_metadata_are_left_alone():
 
 def test_entry_declares_the_next_release_serving_floor():
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
+
+
+def test_a_retired_lease_column_beside_the_current_one_is_dropped(test_db):
+    test_db.execute("ALTER TABLE qa_plan_executions ADD COLUMN machine_lease_id INTEGER")
+    assert MIGRATION._column_exists(test_db, "qa_plan_executions", "machine_lease_id")
+
+    MIGRATION.apply(test_db)
+    MIGRATION.invariants(test_db)
+
+    assert not MIGRATION._column_exists(
+        test_db, "qa_plan_executions", "machine_lease_id"
+    )

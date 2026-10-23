@@ -52,7 +52,7 @@ def _waiting_case(
 ) -> dict[str, Any]:
     """A queued case: its place in the host's line and the park instruction."""
     wait = begun.get("host_wait") or {}
-    machine = wait.get("test_machine") or "its Test Machine"
+    test_machine = wait.get("test_machine") or "its Test Machine"
     place = (
         f", position {wait['position']} of {wait['line_length']}"
         if wait.get("position")
@@ -67,9 +67,9 @@ def _waiting_case(
         "lease_context": begun.get("lease_context"),
         "host_wait": begun.get("host_wait"),
         "recovery": (
-            f"Queued for QA host {machine}{place}{because}. Park now: "
+            f"Queued for QA host {test_machine}{place}{because}. Park now: "
             f'`yoke sessions touch --mode parked --reason "queued for QA host '
-            f'{machine}"`. When it is your turn, a host-turn message wakes this '
+            f'{test_machine}"`. When it is your turn, a host-turn message wakes this '
             "session with the command that takes it. Write no hold of your own; "
             "re-running this plan keeps your place."
         ),
@@ -128,7 +128,7 @@ def execute_plan_machine_case(
     execution_id: str,
     ordinal: int,
     actor: ActorContext,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     """Run one server-issued host case without releasing the plan lease."""
     requirement_id = int(case.get("requirement_id") or 0)
@@ -150,7 +150,7 @@ def execute_plan_machine_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
-        **({"test_machine": machine} if machine else {}),
+        **({"test_machine": test_machine} if test_machine else {}),
     }
     begun = _begin(target, actor, request)
     if begun.get("state") in {"blocked", "retained"}:
@@ -254,7 +254,7 @@ def execute_plan_agent_mission_case(
     execution_id: str,
     ordinal: int,
     actor: ActorContext,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     """Prepare one leased target and record its zero-artifact mission docket."""
     requirement_id = int(case.get("requirement_id") or 0)
@@ -276,7 +276,7 @@ def execute_plan_agent_mission_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
-        **({"test_machine": machine} if machine else {}),
+        **({"test_machine": test_machine} if test_machine else {}),
     }
     begun = _begin(target, actor, request)
     if begun.get("state") in {"blocked", "retained"}:

@@ -69,7 +69,7 @@ def validate_machine_method_config(
     for key in platform:
         config.pop(key)
     try:
-        machine = normalize_config_machine(
+        test_machine = normalize_config_machine(
             str(definition["config_contract_id"]), config
         )
     except MachineConstraintError as exc:
@@ -90,7 +90,7 @@ def validate_machine_method_config(
         **result,
         **platform,
         **continuity,
-        **({"test_machine": machine} if machine is not None else {}),
+        **({"test_machine": test_machine} if test_machine is not None else {}),
         **({"test_machines": machines} if machines is not None else {}),
     }
 

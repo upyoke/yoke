@@ -71,8 +71,8 @@ def migration_target(item_id: int, project_id: int = PROJECT_YOKE, model: str = 
     return make_migration_serialization_target(project_id, model, item_id)
 
 
-def qa_target(machine: str = MACHINE):
-    return make_qa_admission_target(machine)
+def qa_target(test_machine: str = MACHINE):
+    return make_qa_admission_target(test_machine)
 
 
 def qualification_target(project_id: int = PROJECT_YOKE, grant_key: str = GRANT_KEY):

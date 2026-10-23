@@ -99,14 +99,14 @@ def _execute_issued_contract(
     abort_function: str,
     requirement_id: int,
     actor: ActorContext | None,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     resolved_actor = _actor(actor)
     begun = _dispatch_machine_function(
         begin_function,
         requirement_id,
         actor=resolved_actor,
-        payload={"test_machine": machine} if machine else None,
+        payload={"test_machine": test_machine} if test_machine else None,
     )
     if begun.get("state") == "waiting":
         result = begun.get("result")

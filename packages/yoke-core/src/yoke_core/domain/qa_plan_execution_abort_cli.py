@@ -91,7 +91,7 @@ def run(args: List[str]) -> int:
             "transition_id",
             "state",
             "cursor_ordinal",
-            "machine_lease_id",
+            "test_machine_lease_id",
         )
     }
     if result.get("standalone_plan_id") is not None:

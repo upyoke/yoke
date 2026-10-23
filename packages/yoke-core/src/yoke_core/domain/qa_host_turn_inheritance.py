@@ -25,12 +25,12 @@ def _instant(conn: Any, value: Any) -> Any:
 
 
 def held_host_place(
-    conn: Any, execution: Mapping[str, Any], machine: str
+    conn: Any, execution: Mapping[str, Any], test_machine: str
 ) -> datetime | None:
     """When *execution* first stood for *machine*, or None if it never held it."""
     p = marker(conn)
     where, params = conflict_match_clause(
-        conn, make_qa_admission_target(machine), alias="wc"
+        conn, make_qa_admission_target(test_machine), alias="wc"
     )
     until = _instant(conn, execution.get("completed_at"))
     row = query_one(
@@ -45,7 +45,7 @@ def held_host_place(
         + ") places",
         (
             str(execution["id"]),
-            machine,
+            test_machine,
             *params,
             str(execution["session_id"]),
             _instant(conn, execution["created_at"]),
@@ -57,7 +57,7 @@ def held_host_place(
 
 
 def inherited_host_place(
-    conn: Any, execution: Mapping[str, Any], machine: str
+    conn: Any, execution: Mapping[str, Any], test_machine: str
 ) -> datetime | None:
     """The aborted shared walk's place on *machine* this execution recovers.
 
@@ -68,7 +68,7 @@ def inherited_host_place(
     run, stage = execution.get("deployment_run_id"), execution.get("deployment_stage")
     if not run or not stage or execution.get("deployment_member_item_id") is not None:
         return None
-    if held_host_place(conn, execution, machine) is not None:
+    if held_host_place(conn, execution, test_machine) is not None:
         return None
     p = marker(conn)
     prior = query_one(
@@ -81,7 +81,7 @@ def inherited_host_place(
     )
     if prior is None or prior["state"] != "aborted":
         return None
-    return held_host_place(conn, dict(prior), machine)
+    return held_host_place(conn, dict(prior), test_machine)
 
 
 __all__ = ["held_host_place", "inherited_host_place"]

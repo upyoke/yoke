@@ -210,7 +210,7 @@ def test_registered_pause_reentry_preserves_cursor_and_rejects_unknown_action():
                 ] == ids
         durable = lock_plan_execution(conn, execution_id)
         assert durable["state"] == "waiting"
-        assert durable["machine_lease_id"] is None
+        assert durable["test_machine_lease_id"] is None
         assert (
             conn.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 1
         )

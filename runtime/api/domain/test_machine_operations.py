@@ -97,7 +97,7 @@ def test_reset_reaches_one_baseline_and_leaves_verification_alone(
     [receipt] = operation_receipts(conn)
     assert receipt["operation"] == "reset"
     assert [check["name"] for check in receipt["checks"]] == ["fresh-host"]
-    detail = machine_detail(conn, project="yoke", machine=MACHINE)
+    detail = machine_detail(conn, project="yoke", test_machine=MACHINE)
     assert detail["verification"]["status"] == "configured_unverified"
 
 

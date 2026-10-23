@@ -94,7 +94,7 @@ class TestMachineOperationSubmitRequest(TestMachineOperationShape):
 
 class TestMachineOperationResponse(BaseModel):
     project: str
-    machine: str
+    test_machine: str
     operation: str
     status: str
     performed_at: datetime | None
@@ -157,7 +157,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
         if parsed.operation == GOLDEN_CAPTURE_OPERATION:
             destination = resolve_golden_capture_destination(
                 selected_test_machine_row(
-                    conn, project=parsed.project, machine=parsed.test_machine
+                    conn, project=parsed.project, test_machine=parsed.test_machine
                 ),
                 requested=parsed.destination,
             )
@@ -165,7 +165,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project=parsed.project,
             actor=request.actor,
-            machine=parsed.test_machine,
+            test_machine=parsed.test_machine,
             plan_execution_id=parsed.plan_execution_id,
             operation=_operation(parsed.operation),
             **operation_contract_shape(
@@ -234,13 +234,13 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             **shape,
         )
         validate_operation_result(parsed, contract)
-        machine = contract.settings["resource_name"]
+        test_machine = contract.settings["resource_name"]
         recorded = recorded_operation_receipt(
             conn,
             parsed=parsed,
             contract=contract,
             lease_id=lease.id,
-            machine=machine,
+            test_machine=test_machine,
         )
         recorded = repeated_mission_receipt(parsed, recorded, mission)
         if recorded is not None:
@@ -282,11 +282,11 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed=parsed,
                 contract=contract,
                 lease_id=lease.id,
-                machine=machine,
+                test_machine=test_machine,
             )
         golden_baseline_path = (
             record_capture_destination(
-                conn, contract=contract, parsed=parsed, machine=machine
+                conn, contract=contract, parsed=parsed, test_machine=test_machine
             )
             if lease.is_active
             else (
@@ -307,10 +307,10 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             conn.commit()
         result = {
             "project": contract.project,
-            "machine": machine,
+            "test_machine": test_machine,
             "golden_baseline_path": golden_baseline_path,
             **kept_golden_fields(
-                conn, machine=machine, destination=golden_baseline_path
+                conn, test_machine=test_machine, destination=golden_baseline_path
             ),
             **performed_at_row(recorded),
         }
@@ -318,7 +318,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             result["surfaces"] = verification_surfaces(
                 recorded["checks"],
                 project=contract.project,
-                machine=machine,
+                test_machine=test_machine,
             )
     except (
         MachineQaProtocolError,

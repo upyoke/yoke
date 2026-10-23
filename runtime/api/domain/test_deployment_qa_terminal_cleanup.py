@@ -175,7 +175,7 @@ def test_terminal_run_walk_end_restores_scratch_and_releases_lease(
     assert finished.primary_success, finished.error
     assert not get_claim(test_db, contract["lease_id"]).is_active
     execution = lock_plan_execution(test_db, request.payload["execution_id"])
-    assert execution["state"] == "aborted" and execution["machine_lease_id"] is None
+    assert execution["state"] == "aborted" and execution["test_machine_lease_id"] is None
     assert "deployment run status=" in execution["release_reason"]
 
 

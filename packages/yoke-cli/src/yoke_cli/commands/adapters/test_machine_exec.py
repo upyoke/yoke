@@ -20,6 +20,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.config import machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
 EXEC_USAGE = "yoke test-machine exec --project P [--test-machine TEST_MACHINE] [--admin] [--session-id S] -- ARGV..."
@@ -42,7 +43,8 @@ def _lease_refusal(detail: dict[str, Any], session_id: str) -> int | None:
     )
     return _refuse(
         "test_machine_leased",
-        f"{detail.get('machine')} is serially leased by {holder}, and an ad "
+        f"{read_test_machine_field(detail, function_id='test_machine.get')} "
+        f"is serially leased by {holder}, and an ad "
         "hoc command could disturb the run it holds the host for",
         "Wait for that lease to release, or ask its holder to run the "
         "command; a QA mission walker uses `yoke qa mission host-command`. "
@@ -129,7 +131,9 @@ def test_machine_exec(args: List[str]) -> int:
 
             admin_options["administrator_password"] = administrator_password(
                 project=parsed.project,
-                machine=detail["machine"],
+                test_machine=read_test_machine_field(
+                    detail, function_id="test_machine.get"
+                ),
                 os_name=settings["os"],
             )
         if settings["os"] == "windows":

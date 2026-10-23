@@ -57,7 +57,7 @@ def _seed(
     replace_test_machine_settings(
         conn,
         project="yoke",
-        machine=MACHINES[1],
+        test_machine=MACHINES[1],
         settings={**TEST_MACHINE_SETTINGS, "resource_name": MACHINES[1]},
         base_settings=None,
     )
@@ -83,7 +83,7 @@ def _seed(
             plan_id=int(plan["id"]),
             cases=[
                 {
-                    "case_key": machine,
+                    "case_key": test_machine,
                     "position": position,
                     "method_id": "exploratory-mission"
                     if mission and position == 2
@@ -92,7 +92,7 @@ def _seed(
                     "expected_outcome": "The check passes.",
                     "method_config": {
                         **({} if mission and position == 2 else _terminal_recipe()),
-                        "test_machine": MACHINES[0] if inherit else machine,
+                        "test_machine": MACHINES[0] if inherit else test_machine,
                         **(
                             {"executor": "informed_subagent"}
                             if mission and position == 2
@@ -115,7 +115,7 @@ def _seed(
                         else "The check reads host identity only and needs no reset."
                     ),
                 }
-                for position, machine in enumerate(machines, 1)
+                for position, test_machine in enumerate(machines, 1)
             ],
         )
         plans.append(int(plan["id"]))
@@ -231,7 +231,7 @@ def test_each_host_has_its_own_execution_and_member_waits_for_both(
 def test_a_host_pin_cannot_drop_another_required_host(test_db, tmp_path, monkeypatch):
     _seed(test_db, tmp_path, monkeypatch)
     with pytest.raises(ValueError, match="test_machine_constraint_mismatch"):
-        _begin(test_db, machine=MACHINES[0])
+        _begin(test_db, test_machine=MACHINES[0])
     assert test_db.execute("SELECT COUNT(*) FROM qa_plan_executions").fetchone()[0] == 0
 
 

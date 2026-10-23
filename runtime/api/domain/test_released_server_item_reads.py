@@ -165,7 +165,7 @@ def test_released_qa_roster_uses_known_subject_without_mutating_attestation(
         validation, "resolve_execution_base_url", lambda *args: "https://example.test"
     )
     begun = validation.validate_begun_execution(
-        execution, machine=None, base_url="", public_ref="PLAT-193"
+        execution, test_machine=None, base_url="", public_ref="PLAT-193"
     )
     assert begun.requirements[0]["public_ref"] == "PLAT-193"
     assert "public_ref" not in requirement
@@ -174,7 +174,7 @@ def test_released_qa_roster_uses_known_subject_without_mutating_attestation(
     requirement["item_id"] = 3990
     with pytest.raises(validation.QaPlanExecutionError, match="different item"):
         validation.validate_begun_execution(
-            execution, machine=None, base_url="", public_ref="PLAT-193"
+            execution, test_machine=None, base_url="", public_ref="PLAT-193"
         )
 
 

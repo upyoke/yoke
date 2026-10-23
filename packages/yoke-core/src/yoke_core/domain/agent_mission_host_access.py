@@ -23,7 +23,7 @@ def mission_host_contract(
     *,
     ordinal: int,
     actor: Any,
-    machine: str | None,
+    test_machine: str | None,
 ) -> Any:
     """Validate the whole host set before issuing authority for one host."""
     require_case_host_leases(conn, execution, case)
@@ -32,11 +32,11 @@ def mission_host_contract(
         project=str(case["project"]),
         session_id=actor.session_id,
         actor_id=actor.actor_id,
-        lease_id=int(execution["machine_lease_id"]),
+        lease_id=int(execution["test_machine_lease_id"]),
         allow_released=False,
     )
     driver = str(driver_lease.target.test_machine)
-    selected = machine if machine is not None else driver
+    selected = test_machine if test_machine is not None else driver
     if selected == driver:
         arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
         return continue_plan_host_control_execution(
@@ -90,7 +90,7 @@ def mission_host_contract(
     record_reset_owed(
         conn,
         case=case,
-        machine=selected,
+        test_machine=selected,
         lease_id=lease.id,
         contract_digest=contract.contract_digest,
     )

@@ -43,7 +43,7 @@ def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
     assert execute.call_args.kwargs["public_ref"] is None
     assert execute.call_args.kwargs["deployment_run_id"] == deployment_run_id
     assert execute.call_args.kwargs["plan"] == "installer-campaign"
-    assert execute.call_args.kwargs["machine"] == "mac-studio-lab"
+    assert execute.call_args.kwargs["test_machine"] == "mac-studio-lab"
     assert execute.call_args.kwargs["checkout_path"] is None
 
 

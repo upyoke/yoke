@@ -56,12 +56,12 @@ def submit_host_wait(
             "host_wait_requires_mission: deterministic captures cannot declare this hold"
         )
     load_test_machine_contract(
-        conn, project=str(roster[0]["project"]), machine=test_machine
+        conn, project=str(roster[0]["project"]), test_machine=test_machine
     )
     target = host_claim_target(test_machine)
     targets = [target]
-    if execution.get("machine_lease_id") is not None:
-        targets.append(get_claim(conn, int(execution["machine_lease_id"])).target)
+    if execution.get("test_machine_lease_id") is not None:
+        targets.append(get_claim(conn, int(execution["test_machine_lease_id"])).target)
     for candidate in sorted(targets, key=lambda value: str(value.test_machine)):
         lock_host_turn(conn, candidate)
     held = active_claim(conn, target)
@@ -78,7 +78,7 @@ def submit_host_wait(
     )
     conn.execute(
         f"UPDATE qa_plan_executions SET state='completed',completed_at={p},"
-        f"release_reason={p},machine_lease_id=NULL WHERE id={p}",
+        f"release_reason={p},test_machine_lease_id=NULL WHERE id={p}",
         (
             stored_now,
             "blocked-on-host:" + test_machine + ": " + rationale,
@@ -110,12 +110,12 @@ def submit_host_wait(
     )
     fresh = select_plan_execution(conn, str(values["id"]), lock=False)
     result = record_host_wait(
-        conn, fresh, machine=test_machine, rationale=rationale, commit=False
+        conn, fresh, test_machine=test_machine, rationale=rationale, commit=False
     )
-    if execution.get("machine_lease_id") is not None:
+    if execution.get("test_machine_lease_id") is not None:
         release(
             conn,
-            int(execution["machine_lease_id"]),
+            int(execution["test_machine_lease_id"]),
             "mission-blocked-on-host",
             commit=False,
         )

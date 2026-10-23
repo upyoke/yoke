@@ -12,7 +12,7 @@ import { callFunction } from "./universe_view_support.js";
 const READ_TIMEOUT_MS = 15_000;
 
 const UNAVAILABLE_STATES = {
-  evidence_on_machine: (result) => `On ${result.machine || "its capture machine"}`,
+  evidence_on_machine: (result) => `On ${result.test_machine || "its capture machine"}`,
   evidence_not_portable: () => "Not portable",
   evidence_missing: () => "Evidence missing",
   too_large: () => "Too large to show",

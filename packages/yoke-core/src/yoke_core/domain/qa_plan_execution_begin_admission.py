@@ -113,7 +113,7 @@ def prepare_roster(
     checkout_path: str | None,
     expected_branch: str | None,
     session_id: str,
-    machine: str | None,
+    test_machine: str | None,
     requirement_id: int | None = None,
 ) -> PreparedRoster | dict[str, Any]:
     """Read the roster to freeze, or the answer that replaces starting one.
@@ -167,12 +167,12 @@ def prepare_roster(
     if reprint:
         return reprint
     roster, remaining, completed = member_machine_partition(
-        conn, roster, **scope, machine=machine, session_id=session_id
+        conn, roster, **scope, test_machine=test_machine, session_id=session_id
     )
     if completed is not None:
         return {**completed, "remaining_requirement_count": remaining}
     remaining = item_remaining if remaining is None else remaining
-    validate_roster_machine(conn, roster, machine)
+    validate_roster_machine(conn, roster, test_machine)
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
     if expected_target is not None and canonical(execution_target) != canonical(

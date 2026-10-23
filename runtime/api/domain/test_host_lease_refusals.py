@@ -80,9 +80,9 @@ def test_released_receipt_can_still_be_validated_for_idempotent_submission(monke
         actor_id="1",
     )
     monkeypatch.setattr(protocol, "_lock_submission_claim", lambda *_: lease)
-    machine = SimpleNamespace(settings={"resource_name": "linux-lab"})
+    test_machine = SimpleNamespace(settings={"resource_name": "linux-lab"})
     monkeypatch.setattr(
-        protocol, "load_test_machine_contract", lambda *_, **__: machine
+        protocol, "load_test_machine_contract", lambda *_, **__: test_machine
     )
     assert protocol._validate_lease_owner(
         None,
@@ -91,12 +91,12 @@ def test_released_receipt_can_still_be_validated_for_idempotent_submission(monke
         actor_id="1",
         lease_id=7,
         allow_released=True,
-    ) == (lease, machine)
+    ) == (lease, test_machine)
 
 
 def test_busy_host_names_actual_holder_and_wait_step():
     lease = SimpleNamespace(id=7, session_id="owner", actor_id="1")
-    text = str(protocol.MachineQaProtocolLeaseHeld(lease=lease, machine="linux-lab"))
+    text = str(protocol.MachineQaProtocolLeaseHeld(lease=lease, test_machine="linux-lab"))
     assert "linux-lab" in text
     assert "session owner and actor 1" in text
     assert "Wait for that execution to finish" in text
@@ -149,7 +149,7 @@ def test_local_case_busy_refusal_names_actual_holder():
     text = str(
         MachineQaLeaseHeld(
             lease=SimpleNamespace(id=7, session_id="owner", actor_id="1"),
-            machine="linux-lab",
+            test_machine="linux-lab",
         )
     )
     assert "linux-lab" in text

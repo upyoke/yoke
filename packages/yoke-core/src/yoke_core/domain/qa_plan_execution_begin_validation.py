@@ -60,7 +60,7 @@ def begun_execution_id(execution: Mapping[str, Any]) -> str:
 def validate_begun_execution(
     execution: Mapping[str, Any],
     *,
-    machine: Optional[str],
+    test_machine: Optional[str],
     base_url: str,
     public_ref: Optional[str] = None,
 ) -> BegunPlanExecution:
@@ -85,7 +85,7 @@ def validate_begun_execution(
                     raise QaPlanExecutionError("QA roster named a different item")
                 row["public_ref"] = public_ref
     try:
-        selected_machine = resolve_plan_machine(requirements, machine)
+        selected_machine = resolve_plan_machine(requirements, test_machine)
     except ValueError as exc:
         raise QaPlanExecutionError(str(exc)) from exc
     cursor = int(execution.get("cursor_ordinal") or 0)

@@ -259,7 +259,7 @@ def test_golden_refresh_refuses_when_the_plan_holds_no_lease(monkeypatch):
             None,
             actor=OWNER,
             project="yoke",
-            machine="linux-lab",
+            test_machine="linux-lab",
             plan_execution_id="plan-execution",
             operation="golden_capture",
         )

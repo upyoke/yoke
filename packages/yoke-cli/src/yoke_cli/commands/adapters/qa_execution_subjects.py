@@ -18,11 +18,8 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.transport.dispatcher import (
-    build_actor,
-    call_dispatcher,
-    emit_response,
-)
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.transport.test_machine_response_field import recorded_test_machine
 from yoke_cli.commands.adapters.qa_catalog_usage import (
     PLAN_MATERIALIZE_EPILOG,
     PLAN_REMATERIALIZE_EPILOG,
@@ -324,9 +321,8 @@ def _artifact_read_to_path(
 def _no_bytes_message(parsed, result: dict) -> str:
     """Name why no bytes landed, with the handler's detail and the recovery."""
     disposition = result.get("disposition") or "unknown"
-    parts = [
-        str(part) for part in (result.get("detail"), result.get("machine")) if part
-    ]
+    named = (result.get("detail"), recorded_test_machine(result))
+    parts = [str(part) for part in named if part]
     detail = f"; {'; '.join(parts)}" if parts else ""
     if disposition == "evidence_missing":
         recovery = "Re-run the QA case to capture the evidence again."

@@ -41,7 +41,7 @@ def test_settled_execution_recovers_host_from_its_recorded_runs(monkeypatch):
     ]
     assert (
         execution_machine(
-            conn, {"id": "settled", "machine_lease_id": None}, _case("linux")
+            conn, {"id": "settled", "test_machine_lease_id": None}, _case("linux")
         )
         == "linux-lab"
     )
@@ -127,7 +127,7 @@ def _hosts(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.machine_qa_capability_rows.test_machine_capability_rows",
         lambda *a, **k: [
-            SimpleNamespace(machine=name, settings={"os": platform})
+            SimpleNamespace(test_machine=name, settings={"os": platform})
             for name, platform in [("linux-lab", "linux"), ("test-mac", "macos")]
         ],
     )
@@ -167,7 +167,7 @@ def test_single_host_resume_recovers_custody_without_querying_runs(monkeypatch):
     conn = Mock()
     assert (
         execution_machine(
-            conn, {"id": "single", "machine_lease_id": 42}, _case("linux")
+            conn, {"id": "single", "test_machine_lease_id": 42}, _case("linux")
         )
         == "linux-lab"
     )
@@ -182,7 +182,7 @@ def test_stale_continuation_recovers_its_source_platform_host(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_execution_store.select_plan_execution",
-        lambda *a, **k: {"id": "source", "machine_lease_id": 42},
+        lambda *a, **k: {"id": "source", "test_machine_lease_id": 42},
     )
     conn = Mock()
     conn.execute.return_value.fetchall.return_value = []
@@ -231,7 +231,7 @@ def test_recorded_host_removal_refuses_instead_of_substituting_another_host(
     )
     with pytest.raises(ValueError, match="qa_resume_host_unregistered.*restore"):
         execution_machine(
-            Mock(), {"id": "single", "machine_lease_id": 42}, _case("linux")
+            Mock(), {"id": "single", "test_machine_lease_id": 42}, _case("linux")
         )
 
 

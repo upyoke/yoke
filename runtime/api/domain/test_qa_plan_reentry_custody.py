@@ -65,7 +65,7 @@ def test_exact_reentry_preserves_released_lease_and_waiting_cursor(
     assert not retained.is_active
     assert retained.last_heartbeat == ended.last_heartbeat
     assert test_db.execute(
-        "SELECT state,cursor_ordinal,machine_lease_id FROM qa_plan_executions WHERE id=%s",
+        "SELECT state,cursor_ordinal,test_machine_lease_id FROM qa_plan_executions WHERE id=%s",
         (execution["id"],),
     ).fetchone() == ("waiting", 0, lease.id)
 

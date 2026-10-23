@@ -116,16 +116,16 @@ def validate_method_config(
     )
 
     try:
-        machine = normalize_config_machine(config_contract_id, config)
+        test_machine = normalize_config_machine(config_contract_id, config)
         if conn is not None and project_id is not None:
             require_registered_machine(
                 conn,
                 project_id=project_id,
-                machine=machine,
+                test_machine=test_machine,
             )
             for companion in config.get("test_machines") or []:
                 require_registered_machine(
-                    conn, project_id=project_id, machine=companion
+                    conn, project_id=project_id, test_machine=companion
                 )
 
     except MachineConstraintError as exc:
@@ -141,7 +141,7 @@ def validate_method_config(
             raise QaMethodConfigError(COMMAND_SHELL_CONTRACT)
         if (
             config_contract_id == "command"
-            and machine is None
+            and test_machine is None
             and "yoke test-machine" in config["command"]
         ):
             raise QaMethodConfigError(HOST_COMMAND_NEEDS_MACHINE)

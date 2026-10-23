@@ -31,7 +31,7 @@ from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_
 class BusyTestMachine:
     """One candidate whose global host claim is already held."""
 
-    machine: str
+    test_machine: str
     lease: CoordinationClaim
     contention: ClaimContention | None
 
@@ -55,7 +55,7 @@ class TestMachineFleetBusy(TestMachineCapabilityError):
     """Every eligible machine is already admitted to another execution."""
 
     def __init__(self, busy: list[BusyTestMachine]) -> None:
-        names = ", ".join(candidate.machine for candidate in busy)
+        names = ", ".join(candidate.test_machine for candidate in busy)
         super().__init__(f"all registered test machines are in use: {names}")
         self.busy = tuple(busy)
 
@@ -67,7 +67,7 @@ class TestMachineHostUnhealthy(TestMachineCapabilityError):
         from yoke_core.domain.qa_host_health import unhealthy_rationale
 
         super().__init__(unhealthy_rationale(health))
-        self.machine = str(health["machine"])
+        self.test_machine = str(health["test_machine"])
         self.health = health
 
 
@@ -78,7 +78,7 @@ def _verification_by_machine(
     if not candidates:
         return {}
     capability_rows = {
-        row.machine: row
+        row.test_machine: row
         for row in test_machine_capability_rows(
             conn,
             project_id=candidates[0].project_id,
@@ -134,7 +134,7 @@ def acquire_test_machine_admission(
     *,
     project: str,
     session_id: str,
-    machine: str | None,
+    test_machine: str | None,
     select_any: bool,
     healthy_only: bool = False,
     cases: tuple[dict[str, Any], ...] = (),
@@ -147,10 +147,10 @@ def acquire_test_machine_admission(
     """
     from yoke_core.domain.qa_host_health import host_unhealthy
 
-    automatic = machine is None and select_any
-    if machine is not None or not select_any:
+    automatic = test_machine is None and select_any
+    if test_machine is not None or not select_any:
         candidates = [
-            load_test_machine_contract(conn, project=project, machine=machine)
+            load_test_machine_contract(conn, project=project, test_machine=test_machine)
         ]
     else:
         candidates = list_test_machine_contracts(conn, project=project)
@@ -212,7 +212,7 @@ def acquire_test_machine(
     *,
     project: str,
     session_id: str,
-    machine: str | None,
+    test_machine: str | None,
     select_any: bool,
 ) -> tuple[TestMachineContract, CoordinationClaim]:
     """Acquire and return the direct-execution machine contract and lease."""
@@ -220,7 +220,7 @@ def acquire_test_machine(
         conn,
         project=project,
         session_id=session_id,
-        machine=machine,
+        test_machine=test_machine,
         select_any=select_any,
     )
     return admission.contract, admission.lease

@@ -17,7 +17,7 @@ from yoke_core.domain.session_action_attribution import EVENT_SESSION_ACTION_PER
 
 class DesktopAccessResponse(BaseModel):
     project: str
-    machine: str
+    test_machine: str
     settings: dict[str, str]
     operator_access: dict | None = None
 
@@ -96,7 +96,7 @@ def handle_desktop_access(request):
                 )
         finally:
             conn.close()
-    result = {key: detail[key] for key in ("project", "machine", "settings")}
+    result = {key: detail[key] for key in ("project", "test_machine", "settings")}
     if operator_access is not None:
         result["operator_access"] = operator_access
     return HandlerOutcome(

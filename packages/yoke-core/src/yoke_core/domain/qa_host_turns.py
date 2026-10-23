@@ -64,7 +64,7 @@ def lock_host_turn(conn: Any, target: Any) -> None:
         )
 
 
-def host_line(conn: Any, machine: str) -> list[dict[str, Any]]:
+def host_line(conn: Any, test_machine: str) -> list[dict[str, Any]]:
     """Waiters still in line for *machine*, oldest first; ended sessions drop out."""
     if not _has_line(conn):
         return []
@@ -74,7 +74,7 @@ def host_line(conn: Any, machine: str) -> list[dict[str, Any]]:
         "ON s.session_id=w.session_id "
         f"WHERE w.test_machine={_p(conn)} AND w.state='waiting' AND s.ended_at IS NULL "
         "ORDER BY w.queued_at, w.id",
-        (machine,),
+        (test_machine,),
     )
     return [dict(row) for row in rows]
 
@@ -111,13 +111,13 @@ def join_host_line(
 ) -> dict[str, Any]:
     """Queue *session_id* at *queued_at* or now; a queued session keeps its place."""
     p = _p(conn)
-    machine = str(target.test_machine)
+    test_machine = str(target.test_machine)
     lock_host_turn(conn, target)
     live = query_one(
         conn,
         f"SELECT id FROM qa_host_waits WHERE test_machine={p} AND session_id={p} "
         f"AND state IN {_LIVE}",
-        (machine, session_id),
+        (test_machine, session_id),
     )
     if live is None:
         wait_id = str(uuid4())
@@ -127,7 +127,7 @@ def join_host_line(
             f"VALUES({p},{p},{p},{p},{p},{p},'waiting',{p},{p})",
             (
                 wait_id,
-                machine,
+                test_machine,
                 session_id,
                 int(actor_id),
                 instant_parameter(conn, queued_at or utc_now()),
@@ -272,8 +272,8 @@ def cancel_host_waits(
     )
     if not rows:
         return
-    for machine in sorted({str(row["test_machine"]) for row in rows}):
-        lock_host_turn(conn, make_qa_admission_target(machine))
+    for test_machine in sorted({str(row["test_machine"]) for row in rows}):
+        lock_host_turn(conn, make_qa_admission_target(test_machine))
     now = instant_parameter(conn, utc_now())
     for row in rows:
         conn.execute(
@@ -291,7 +291,7 @@ def record_host_wait(
     conn: Any,
     execution: dict[str, Any],
     *,
-    machine: str,
+    test_machine: str,
     rationale: str,
     commit: bool = True,
 ) -> dict:
@@ -302,14 +302,14 @@ def record_host_wait(
 
     p = _p(conn)
     execution_id = str(execution["id"])
-    target = host_claim_target(machine)
+    target = host_claim_target(test_machine)
     moved = query_rows(
         conn,
         f"SELECT test_machine FROM qa_host_waits WHERE qa_plan_execution_id={p} "
         f"AND state IN {_LIVE} AND test_machine<>{p}",
-        (execution_id, machine),
+        (execution_id, test_machine),
     )
-    machines = {machine} | {str(row["test_machine"]) for row in moved}
+    machines = {test_machine} | {str(row["test_machine"]) for row in moved}
     for name in sorted(machines):
         lock_host_turn(conn, host_claim_target(name))
     if moved:
@@ -324,13 +324,13 @@ def record_host_wait(
         resume_command=_plan_resume_command(conn, execution),
         rationale=rationale,
         execution_id=execution_id,
-        queued_at=inherited_host_place(conn, execution, machine),
+        queued_at=inherited_host_place(conn, execution, test_machine),
     )
     finish_plan_execution(
         conn,
         execution,
         state="waiting",
-        reason=f"waiting for QA host {machine}",
+        reason=f"waiting for QA host {test_machine}",
         commit=False,
     )
     reserve_host_turn(conn, target)

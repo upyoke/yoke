@@ -65,7 +65,7 @@ def route(monkeypatch, tmp_path):
         state["calls"].append(kwargs)
         result = (
             {
-                "machine": "test-mac",
+                "test_machine": "test-mac",
                 "settings": SETTINGS,
                 "active_lease": state["lease"],
             }
@@ -141,7 +141,7 @@ def test_remote_reads_settings_and_forwards_options_without_local_browser(
     assert json.loads(argv[argv.index("--declarations-json") + 1]) == DECLARATIONS
     assert "--test-machine" not in argv and "--reset" in argv and "--json" in argv
     assert argv[argv.index("--url") + 1] == "https://shop.example.com/?q='x'"
-    assert json.loads(capsys.readouterr().out)["machine"] == "test-mac"
+    assert json.loads(capsys.readouterr().out)["test_machine"] == "test-mac"
 
 
 @pytest.mark.parametrize("lease", [None, {"session_id": "own"}])

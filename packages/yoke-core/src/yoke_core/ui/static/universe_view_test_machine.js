@@ -80,7 +80,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
       result = await callFunction(
         context.client,
         "test_machine.verify",
-        { project: detail.project, test_machine: detail.machine },
+        { project: detail.project, test_machine: detail.test_machine },
       );
     } catch (error) {
       result = {
@@ -197,7 +197,7 @@ async function loadMachineDetail(
   showFleet,
 ) {
   const documentNode = context.document;
-  main.replaceChildren(el(documentNode, "p", "empty", "loading machine…"));
+  main.replaceChildren(el(documentNode, "p", "empty", "loading test machine…"));
   let result;
   try {
     result = await callFunction(
@@ -226,7 +226,7 @@ async function loadMachineDetail(
     main,
     detail,
     () => loadMachineDetail(
-      context, main, project, detail.machine, navigation, showFleet,
+      context, main, project, detail.test_machine, navigation, showFleet,
     ),
     showFleet,
   );
@@ -246,7 +246,7 @@ function renderMachineChooser(
     documentNode,
     "p",
     "muted",
-    "Choose a machine to inspect, edit, or verify. Each machine has its own settings, receipt, and serial lease.",
+    "Choose a test machine to inspect, edit, or verify. Each test machine has its own settings, receipt, and serial lease.",
   ));
   const showFleet = () => renderTestMachineDetail(
     context, main, project, navigation,
@@ -279,7 +279,7 @@ function renderMachineChooser(
       context,
       main,
       project,
-      detail.machine,
+      detail.test_machine,
       navigation,
       showFleet,
     ));
@@ -318,7 +318,7 @@ export async function renderTestMachineDetail(
     renderError(main, result);
     return;
   }
-  const machines = result.envelope.result?.machines || [];
+  const machines = result.envelope.result?.test_machines || [];
   if (!machines.length) {
     renderMissing(documentNode, main, project);
     return;

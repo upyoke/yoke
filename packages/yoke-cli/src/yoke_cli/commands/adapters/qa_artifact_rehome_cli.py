@@ -23,6 +23,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.transport.test_machine_response_field import recorded_test_machine
 from yoke_contracts.api.function_call import TargetRef
 
 QA_ARTIFACT_REHOME_USAGE = (
@@ -65,8 +66,12 @@ def _rehome_one(parsed: Any, artifact_id: int) -> tuple[int, Any]:
     try:
         source_bytes = Path(str(source)).read_bytes()
     except OSError as exc:
-        machine = result.get("machine")
-        where = f" on {machine}" if machine else " on the machine that captured it"
+        test_machine = recorded_test_machine(result)
+        where = (
+            f" on test machine {test_machine}"
+            if test_machine
+            else " on the machine that captured it"
+        )
         print(
             f"{_PROG}: artifact {artifact_id} was recorded at {source}, which "
             f"cannot be read here ({exc}). Run this recovery{where}; if the "

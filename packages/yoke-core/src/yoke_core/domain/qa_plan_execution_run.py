@@ -110,7 +110,7 @@ def execute_begun_plan(
             _check_in()
             phase = "case"
             case_machine = resolve_case_machine(requirement, begun.selected_machine)
-            machine_options = {"machine": case_machine} if case_machine else {}
+            machine_options = {"test_machine": case_machine} if case_machine else {}
             if requirement.get("runner_id") == "host_control":
                 from yoke_core.domain.machine_qa_plan_case_execution import (
                     execute_plan_machine_case,

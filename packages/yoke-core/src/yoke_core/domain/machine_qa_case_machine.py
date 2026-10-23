@@ -47,29 +47,29 @@ def normalize_config_machine(config_contract_id: str, config: dict) -> str | Non
             "choose a supported local runner before declaring a Test Machine"
         )
     try:
-        machine = validate_test_machine_resource_name(config["test_machine"])
+        test_machine = validate_test_machine_resource_name(config["test_machine"])
     except (TypeError, ValueError) as exc:
         raise MachineConstraintError(
             "method_config.test_machine must name a valid registered Test Machine"
         ) from exc
-    config["test_machine"] = machine
-    return machine
+    config["test_machine"] = test_machine
+    return test_machine
 
 
 def require_registered_machine(
     conn: Any,
     *,
     project_id: int,
-    machine: str | None,
+    test_machine: str | None,
     subject: str = "case",
 ) -> None:
     """Refuse a constraint that does not name its plan project's machine."""
-    if machine is None:
+    if test_machine is None:
         return
     rows = test_machine_capability_rows(conn, project_id=int(project_id))
-    if machine in {row.machine for row in rows}:
+    if test_machine in {row.test_machine for row in rows}:
         return
-    available = ", ".join(row.machine for row in rows) or "none"
+    available = ", ".join(row.test_machine for row in rows) or "none"
     if subject == "case":
         recovery = "Register it before saving the plan."
     elif subject == "run pin":
@@ -77,7 +77,7 @@ def require_registered_machine(
     else:
         recovery = "Register it or update and rematerialize the plan."
     raise MachineConstraintError(
-        f"{subject} requires unregistered test machine {machine!r}; registered "
+        f"{subject} requires unregistered test machine {test_machine!r}; registered "
         f"machines: {available}. {recovery}"
     )
 
@@ -87,10 +87,10 @@ def materialized_capability_kinds(
 ) -> tuple[str, ...]:
     """Add a case's specific machine to its immutable capability snapshot."""
     values = list(capability_kinds(required, subject="QA plan case"))
-    machine = config.get("test_machine")
-    if machine is not None:
+    test_machine = config.get("test_machine")
+    if test_machine is not None:
         specific = test_machine_capability_type(
-            validate_test_machine_resource_name(machine)
+            validate_test_machine_resource_name(test_machine)
         )
         if specific not in values:
             values.append(specific)

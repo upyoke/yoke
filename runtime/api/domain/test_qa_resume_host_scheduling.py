@@ -23,7 +23,7 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
         "method_config": {"os": "linux"},
     }
     other = {**case, "method_config": {"os": "macos"}}
-    execution = {"id": "walk", "roster": [case, other], "machine_lease_id": 7}
+    execution = {"id": "walk", "roster": [case, other], "test_machine_lease_id": 7}
     conn = Mock()
     monkeypatch.setattr(
         "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: retained
@@ -47,19 +47,19 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     monkeypatch.setattr(lifecycle, "set_plan_machine_lease", Mock())
 
     contract = begin_case_host_contract(
-        conn, execution, case, ordinal=0, machine=None, actor_id="1", session_id="owner"
+        conn, execution, case, ordinal=0, test_machine=None, actor_id="1", session_id="owner"
     )
     assert contract.lease_id == 9
-    assert begin.call_args.kwargs["machine"] == retained
+    assert begin.call_args.kwargs["test_machine"] == retained
     assert begin.call_args.kwargs["host_cases"] == [case]
-    assert execution["machine_lease_id"] is None
+    assert execution["test_machine_lease_id"] is None
     released.assert_called_once_with(conn, 7, "qa-case-host-change", commit=False)
 
 
 def test_resumed_single_platform_keeps_live_lease(monkeypatch):
     from yoke_core.domain import machine_qa_plan_protocol as protocol
 
-    execution = {"id": "single", "roster": [], "machine_lease_id": 7}
+    execution = {"id": "single", "roster": [], "test_machine_lease_id": 7}
     case = {"project": "example", "method_config": {"os": "linux"}}
     monkeypatch.setattr(
         "yoke_core.domain.qa_resume_machine.execution_machine", lambda *a: "linux-lab"
@@ -76,12 +76,12 @@ def test_resumed_single_platform_keeps_live_lease(monkeypatch):
         execution,
         case,
         ordinal=0,
-        machine=None,
+        test_machine=None,
         actor_id="1",
         session_id="owner",
     )
     assert continuation.call_args.kwargs["lease_id"] == 7
-    assert continuation.call_args.kwargs["machine"] == "linux-lab"
+    assert continuation.call_args.kwargs["test_machine"] == "linux-lab"
 
 
 def test_begin_accepts_multi_host_roster_without_a_global_pin(monkeypatch):
@@ -97,7 +97,7 @@ def test_begin_accepts_multi_host_roster_without_a_global_pin(monkeypatch):
             ],
             "execution_target": {},
         },
-        machine=None,
+        test_machine=None,
         base_url="",
     )
     assert result.selected_machine is None
@@ -128,7 +128,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
     replace_test_machine_settings(
         test_db,
         project="yoke",
-        machine="linux-lab",
+        test_machine="linux-lab",
         settings={**TEST_MACHINE_SETTINGS, "resource_name": "linux-lab", "os": "linux"},
         base_settings=None,
     )
@@ -179,7 +179,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
             execution,
             case,
             ordinal=ordinal,
-            machine=None,
+            test_machine=None,
             actor_id="1",
             session_id="session-machine-plan",
         )
@@ -204,7 +204,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         )
         if ordinal == 0:
             wait = record_host_wait(
-                test_db, execution, machine="mac-mini-lab", rationale="next platform"
+                test_db, execution, test_machine="mac-mini-lab", rationale="next platform"
             )
             assert "--test-machine" not in wait["host_wait"]["resume_command"]
             resumed = begin()

@@ -37,7 +37,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
             function="test_machine.get",
             version="v1",
             result={
-                "machine": "fixture",
+                "test_machine": "fixture",
                 "settings": {
                     "host": "fixture.example",
                     "user": "tester",
@@ -74,7 +74,7 @@ def test_admin_cli_reads_only_named_machine_secret_and_passes_it_to_product(
 def test_missing_credential_refuses_before_connecting(monkeypatch, os_name):
     monkeypatch.setattr(admin, "read_machine_capability_secret", lambda *_: None)
     with pytest.raises(RemoteExecRefusal) as raised:
-        admin.administrator_password(project="demo", machine="fixture", os_name=os_name)
+        admin.administrator_password(project="demo", test_machine="fixture", os_name=os_name)
     assert raised.value.code == "test_machine_admin_credential_missing"
     assert "test-machine:fixture.desktop_password" in str(raised.value)
     assert "--value-file FILE" in raised.value.recovery
@@ -86,7 +86,7 @@ def test_missing_credential_refuses_before_connecting(monkeypatch, os_name):
 def test_invalid_credential_is_refused_without_value(monkeypatch, password):
     monkeypatch.setattr(admin, "read_machine_capability_secret", lambda *_: password)
     with pytest.raises(RemoteExecRefusal) as raised:
-        admin.administrator_password(project="demo", machine="fixture", os_name="linux")
+        admin.administrator_password(project="demo", test_machine="fixture", os_name="linux")
     assert raised.value.code == "test_machine_admin_credential_invalid"
     assert password not in str(raised.value)
 
@@ -97,7 +97,7 @@ def test_unsupported_os_refuses_before_loading_secret(monkeypatch):
     )
     with pytest.raises(RemoteExecRefusal, match="macOS or Linux"):
         admin.administrator_password(
-            project="demo", machine="fixture", os_name="windows"
+            project="demo", test_machine="fixture", os_name="windows"
         )
 
 

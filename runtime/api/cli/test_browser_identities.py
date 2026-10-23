@@ -314,7 +314,7 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
             error=None,
             result=(
                 {
-                    "machine": "fixture",
+                    "test_machine": "fixture",
                     "settings": {"os": "macos"},
                     "active_lease": None,
                 }
@@ -339,7 +339,7 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     monkeypatch.setattr(gui, "run_gui_command", execute)
     assert _authorize("--test-machine", "fixture", "--json") == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["machine"] == "fixture" and payload["ok"]
+    assert payload["test_machine"] == "fixture" and payload["ok"]
     assert buyer["windows"] == [[SITES["yoke"]["origin"]]]
     assert buyer["gate"][0]["identity"] == "buyer"
     assert all(s["state"] == "signed_in" for s in payload["sites"])

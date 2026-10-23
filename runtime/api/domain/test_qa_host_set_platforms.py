@@ -108,6 +108,6 @@ def test_multi_host_resume_never_recovers_a_companion_override():
         "method_config": {"test_machine": "test-mac", "test_machines": ["linux-lab", "test-mac"]},
     }
     assert (
-        execution_machine(conn, {"id": "resumed", "machine_lease_id": 42}, case) is None
+        execution_machine(conn, {"id": "resumed", "test_machine_lease_id": 42}, case) is None
     )
     conn.execute.assert_not_called()

@@ -41,7 +41,7 @@ def require_abort_reset(
     from yoke_core.domain.session_steering_authority import covering_session_seat
 
     candidate = load_test_machine_contract(
-        conn, project=project, machine=lease.target.test_machine
+        conn, project=project, test_machine=lease.target.test_machine
     )
     if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
         if (
@@ -85,8 +85,8 @@ def reset_cleanup_proven(conn, execution, baseline):
     if not request or not request.get("requested_at"):
         return False
     leases = {lease.id: lease for lease in execution_host_leases(conn, execution)}
-    if execution.get("machine_lease_id") is not None:
-        lease = get_claim(conn, int(execution["machine_lease_id"]))
+    if execution.get("test_machine_lease_id") is not None:
+        lease = get_claim(conn, int(execution["test_machine_lease_id"]))
         leases[lease.id] = lease
     if not leases:
         return False
@@ -95,7 +95,7 @@ def reset_cleanup_proven(conn, execution, baseline):
         candidate = load_test_machine_contract(
             conn,
             project=case["project"],
-            machine=lease.target.test_machine,
+            test_machine=lease.target.test_machine,
         )
         contract = _issue(
             conn,
@@ -109,7 +109,7 @@ def reset_cleanup_proven(conn, execution, baseline):
         receipt = recorded_test_machine_operation(
             conn,
             candidate.project_id,
-            machine=lease.target.test_machine,
+            test_machine=lease.target.test_machine,
             operation="reset",
             lease_id=lease.id,
             contract_digest=contract.contract_digest,

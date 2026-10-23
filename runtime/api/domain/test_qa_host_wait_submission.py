@@ -39,7 +39,7 @@ def test_host_wait_preserves_target_and_open_requirement(
     replace_test_machine_settings(
         test_db,
         project="yoke",
-        machine="linux-lab",
+        test_machine="linux-lab",
         settings={
             "resource_name": "linux-lab",
             "host": "lab.local",

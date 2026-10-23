@@ -49,7 +49,7 @@ def mission(test_db, tmp_path, monkeypatch, request):
     replace_test_machine_settings(
         test_db,
         project="yoke",
-        machine=COMPANION,
+        test_machine=COMPANION,
         settings={**TEST_MACHINE_SETTINGS, "resource_name": COMPANION},
         base_settings=None,
     )
@@ -134,22 +134,22 @@ def mission(test_db, tmp_path, monkeypatch, request):
     ), current
 
 
-@pytest.mark.parametrize("machine", [None, DRIVER, COMPANION])
-def test_command_routes_to_selected_retained_lease(test_db, mission, machine):
+@pytest.mark.parametrize("test_machine", [None, DRIVER, COMPANION])
+def test_command_routes_to_selected_retained_lease(test_db, mission, test_machine):
     request, execution = mission
-    if machine is not None:
+    if test_machine is not None:
         request = request.model_copy(
-            update={"payload": {**request.payload, "test_machine": machine}}
+            update={"payload": {**request.payload, "test_machine": test_machine}}
         )
     outcome = handle_agent_mission_access(request)
     assert outcome.primary_success, outcome.error
     contract = outcome.result_payload["execution"]
-    selected = machine or DRIVER
+    selected = test_machine or DRIVER
     leases = execution_host_leases(test_db, execution)
     lease = next(claim for claim in leases if claim.target.test_machine == selected)
     assert contract["lease_id"] == lease.id
     assert contract["settings"]["resource_name"] == selected
-    assert execution["machine_lease_id"] == next(
+    assert execution["test_machine_lease_id"] == next(
         claim.id for claim in leases if claim.target.test_machine == DRIVER
     )
     assert contract["operation"] == (

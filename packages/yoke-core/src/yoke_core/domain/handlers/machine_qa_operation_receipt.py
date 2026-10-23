@@ -44,13 +44,13 @@ def recorded_operation_receipt(
     parsed: TestMachineOperationSubmitRequest,
     contract: HostControlExecutionContract,
     lease_id: int,
-    machine: str,
+    test_machine: str,
 ) -> dict[str, Any] | None:
     if parsed.operation == VERIFY_OPERATION:
         recorded = recorded_test_machine_verification(
             conn,
             contract.project_id,
-            machine=machine,
+            test_machine=test_machine,
             lease_id=lease_id,
             contract_digest=parsed.contract_digest,
         )
@@ -58,7 +58,7 @@ def recorded_operation_receipt(
     return recorded_test_machine_operation(
         conn,
         contract.project_id,
-        machine=machine,
+        test_machine=test_machine,
         operation=parsed.operation,
         lease_id=lease_id,
         contract_digest=parsed.contract_digest,
@@ -71,7 +71,7 @@ def record_operation_receipt(
     parsed: TestMachineOperationSubmitRequest,
     contract: HostControlExecutionContract,
     lease_id: int,
-    machine: str,
+    test_machine: str,
 ) -> dict[str, Any]:
     if parsed.operation == VERIFY_OPERATION:
         return {
@@ -79,7 +79,7 @@ def record_operation_receipt(
             **record_test_machine_verification(
                 conn,
                 contract.project_id,
-                machine=machine,
+                test_machine=test_machine,
                 status=parsed.status,
                 checks=parsed.checks,
                 error_code=parsed.error_code,
@@ -90,7 +90,7 @@ def record_operation_receipt(
     return record_test_machine_operation(
         conn,
         contract.project_id,
-        machine=machine,
+        test_machine=test_machine,
         operation=parsed.operation,
         status=parsed.status,
         checks=parsed.checks,
@@ -113,7 +113,7 @@ def record_capture_destination(
     *,
     contract: HostControlExecutionContract,
     parsed: TestMachineOperationSubmitRequest,
-    machine: str,
+    test_machine: str,
 ) -> str | None:
     """Point the machine at a baseline the capture just proved, if it did."""
     if parsed.operation != GOLDEN_CAPTURE_OPERATION or parsed.status != "verified":
@@ -125,7 +125,7 @@ def record_capture_destination(
         )
     record_captured_golden_baseline(
         conn,
-        selected_test_machine_row(conn, project=contract.project, machine=machine),
+        selected_test_machine_row(conn, project=contract.project, test_machine=test_machine),
         destination=destination,
     )
     return destination

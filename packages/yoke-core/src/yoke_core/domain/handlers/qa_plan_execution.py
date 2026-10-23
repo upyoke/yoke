@@ -107,7 +107,7 @@ def handle_plan_execution_begin(
                 deployment_member_item_id=member_item_id,
                 checkout_path=parsed.checkout_path,
                 expected_branch=parsed.expected_branch,
-                machine=parsed.test_machine,
+                test_machine=parsed.test_machine,
                 continue_mission=parsed.continue_mission,
                 plan=parsed.plan,
                 actor_id=request.actor.actor_id,

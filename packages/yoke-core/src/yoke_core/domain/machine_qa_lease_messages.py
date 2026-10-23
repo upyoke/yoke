@@ -15,18 +15,18 @@ def invalid_lease(lease_id: int, reason: str) -> str:
     return f"You hold no usable Test Machine lease {lease_id}: {reason}. {ACQUIRE_HOST}"
 
 
-def conflicting_lease(lease: Any, machine: str, reason: str) -> str:
+def conflicting_lease(lease: Any, test_machine: str, reason: str) -> str:
     state = "active" if lease.is_active else "released or expired"
     return (
-        f"You do not hold a usable lease on {machine}: {reason}. "
+        f"You do not hold a usable lease on {test_machine}: {reason}. "
         f"Lease {lease.id} is {state}, assigned to session {lease.session_id} "
         f"and actor {lease.actor_id}. {ACQUIRE_HOST}"
     )
 
 
-def held_host(lease: Any, machine: str) -> str:
+def held_host(lease: Any, test_machine: str) -> str:
     return (
-        f"Test Machine {machine} is in use by another execution: lease {lease.id} "
+        f"Test Machine {test_machine} is in use by another execution: lease {lease.id} "
         f"is held by session {lease.session_id} and actor {lease.actor_id}. "
         "Wait for that execution to finish before retrying this operation"
     )

@@ -31,7 +31,7 @@ from yoke_core.domain.qa_plan_management import (
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
-def _machine_case(machine: str) -> dict[str, Any]:
+def _machine_case(test_machine: str) -> dict[str, Any]:
     return {
         "case_key": "machine-generation-check",
         "position": 1,
@@ -39,7 +39,7 @@ def _machine_case(machine: str) -> dict[str, Any]:
         "instructions": "Check behavior that depends on this machine generation.",
         "expected_outcome": "The machine-specific behavior passes.",
         "method_config": {
-            "test_machine": machine,
+            "test_machine": test_machine,
             "assertions": [{"argv": ["/usr/bin/true"]}],
         },
         "host_baselines": ["fresh-host"],
@@ -119,7 +119,7 @@ def test_execution_honors_case_machine_with_or_without_specific_capability_snaps
             test_db,
             item_id=item_id,
             transition_id="reviewing-implementation",
-            machine="mac-studio-lab",
+            test_machine="mac-studio-lab",
             actor_id="2",
             session_id="session-machine-constraint",
         )
@@ -161,7 +161,7 @@ def test_plan_run_refuses_an_unregistered_machine_pin(
             test_db,
             item_id=item_id,
             transition_id="reviewing-implementation",
-            machine="mac-pro-missing",
+            test_machine="mac-pro-missing",
             actor_id="2",
             session_id="session-missing-machine",
         )

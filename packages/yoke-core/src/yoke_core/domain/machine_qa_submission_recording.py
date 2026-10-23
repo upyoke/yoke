@@ -185,7 +185,7 @@ def record_submitted_case(
         record_unproven_restore(
             conn,
             case=case,
-            machine=resource_name,
+            test_machine=resource_name,
             lease_id=lease_id,
             restore=evidence.get("starting_state_restore"),
         )

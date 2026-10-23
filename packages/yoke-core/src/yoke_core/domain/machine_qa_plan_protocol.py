@@ -61,7 +61,7 @@ def continue_plan_host_control_execution(
     ordinal: int,
     case_position: int,
     baseline_position: int,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> HostControlExecutionContract:
     """Issue the next plan-case contract under its active host lease."""
     lease, selected = _validate_lease_owner(
@@ -92,14 +92,14 @@ def continue_plan_host_control_execution(
             )
             for name in names:
                 hosts[name] = load_test_machine_contract(
-                    conn, project=project, machine=name
+                    conn, project=project, test_machine=name
                 )
     matching_platform_hosts(list(hosts.values()), cases)
     selected_name = selected.settings["resource_name"]
-    if machine and machine != selected_name:
+    if test_machine and test_machine != selected_name:
         raise MachineQaProtocolError(
             "test_machine_constraint_mismatch: active plan lease uses "
-            f"{selected_name!r}, but --test-machine named {machine!r}; rerun with "
+            f"{selected_name!r}, but --test-machine named {test_machine!r}; rerun with "
             f"--test-machine {selected_name} or abort and restart the plan"
         )
     return _issue(

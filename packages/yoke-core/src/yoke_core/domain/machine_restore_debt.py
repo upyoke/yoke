@@ -6,14 +6,14 @@ from yoke_core.domain.machine_reset_debt import record_reset_owed
 from yoke_core.domain.qa_plan_execution_abort_state import restore_cleanup_proven
 
 
-def record_unproven_restore(conn, *, case, machine, lease_id, restore):
+def record_unproven_restore(conn, *, case, test_machine, lease_id, restore):
     restore = restore if isinstance(restore, dict) else {}
     baseline = case.get("host_baseline")
     if baseline and restore_cleanup_proven(restore, baseline):
         return
     if not baseline and restore and not restore.get("error_code"):
         return  # An as-is chain proves cleanup with its no-restore receipt.
-    record_reset_owed(conn, case=case, machine=machine, lease_id=lease_id)
+    record_reset_owed(conn, case=case, test_machine=test_machine, lease_id=lease_id)
 
 
 def record_restore_artifact(conn, requirement_id, run_id, content, actor):
@@ -58,7 +58,7 @@ def record_restore_artifact(conn, requirement_id, run_id, content, actor):
     record_unproven_restore(
         conn,
         case=case,
-        machine=lease.target.test_machine,
+        test_machine=lease.target.test_machine,
         lease_id=lease.id,
         restore=restore,
     )

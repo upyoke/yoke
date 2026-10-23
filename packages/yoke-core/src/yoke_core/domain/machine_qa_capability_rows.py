@@ -27,7 +27,7 @@ class TestMachineCapabilityRow:
     project_id: int
     project: str
     capability_type: str
-    machine: str
+    test_machine: str
     settings: dict[str, str]
     settings_token: str
     verified_at: datetime | None
@@ -59,7 +59,7 @@ def test_machine_capability_rows(
     for raw in rows:
         capability_type = str(raw[2])
         try:
-            machine = test_machine_resource_name(capability_type)
+            test_machine = test_machine_resource_name(capability_type)
             settings_token = str(raw[3])
             settings = validate_test_machine_settings(json.loads(settings_token))
         except (TypeError, ValueError, TestMachineCapabilityError) as exc:
@@ -67,7 +67,7 @@ def test_machine_capability_rows(
                 f"stored capability {capability_type!r} is invalid; replace its "
                 f"settings through yoke test-machine settings-replace; {exc}"
             ) from exc
-        if settings["resource_name"] != machine:
+        if settings["resource_name"] != test_machine:
             raise TestMachineCapabilityError(
                 f"stored capability {capability_type!r} names resource "
                 f"{settings['resource_name']!r}; make the type suffix and "
@@ -78,7 +78,7 @@ def test_machine_capability_rows(
                 project_id=int(raw[0]),
                 project=str(raw[1]),
                 capability_type=capability_type,
-                machine=machine,
+                test_machine=test_machine,
                 settings=settings,
                 settings_token=settings_token,
                 verified_at=(parse_instant(raw[4]) if raw[4] is not None else None),
@@ -92,16 +92,16 @@ def select_test_machine_row(
     rows: list[TestMachineCapabilityRow],
     *,
     project: str,
-    machine: str | None,
+    test_machine: str | None,
 ) -> TestMachineCapabilityRow:
     """Select one row or teach the caller to make an ambiguous choice."""
-    if machine is not None:
-        selected = validate_test_machine_resource_name(machine)
+    if test_machine is not None:
+        selected = validate_test_machine_resource_name(test_machine)
         capability_type = test_machine_capability_type(selected)
         for row in rows:
             if row.capability_type == capability_type:
                 return row
-        available = ", ".join(row.machine for row in rows) or "none"
+        available = ", ".join(row.test_machine for row in rows) or "none"
         raise TestMachineCapabilityError(
             f"project {project!r} has no test machine {selected!r}; "
             f"registered machines: {available}"
@@ -111,7 +111,7 @@ def select_test_machine_row(
             f"project {project!r} has no test-machine capability"
         )
     if len(rows) > 1:
-        available = ", ".join(row.machine for row in rows)
+        available = ", ".join(row.test_machine for row in rows)
         raise TestMachineCapabilityError(
             f"project {project!r} has multiple test machines: {available}; "
             "pass --test-machine TEST_MACHINE"

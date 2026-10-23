@@ -10,7 +10,7 @@ from yoke_core.domain.machine_operation_recording import (
 )
 
 
-def reset_command(project, machine, baseline):
+def reset_command(project, test_machine, baseline):
     import shlex
 
     return shlex.join(
@@ -21,14 +21,14 @@ def reset_command(project, machine, baseline):
             "--project",
             str(project),
             "--test-machine",
-            machine,
+            test_machine,
             "--baseline",
             baseline,
         ]
     )
 
 
-def reset_owed(conn, machine):
+def reset_owed(conn, test_machine):
     """Physical hosts share debt across projects, just as they share custody."""
     p = _marker(conn)
     rows = conn.execute(
@@ -36,7 +36,7 @@ def reset_owed(conn, machine):
         "FROM test_machine_operation_receipts "
         f"WHERE capability_type={p} AND operation IN ({p},{p}) "
         "ORDER BY performed_at DESC",
-        (test_machine_capability_type(machine), RESET_OWED_OPERATION, "reset"),
+        (test_machine_capability_type(test_machine), RESET_OWED_OPERATION, "reset"),
     ).fetchall()
     receipts = [_row_result(row) for row in rows]
     owed = next((r for r in receipts if r["operation"] == RESET_OWED_OPERATION), None)
@@ -54,14 +54,14 @@ def reset_owed(conn, machine):
     return owed["checks"][0]["name"] if not cleared else None
 
 
-def record_reset_owed(conn, *, case, machine, lease_id, contract_digest=""):
+def record_reset_owed(conn, *, case, test_machine, lease_id, contract_digest=""):
     baseline = case.get("host_baseline")
     if not baseline:
         return  # Preserving an as-is host grants no baseline reset authority.
     return record_test_machine_operation(
         conn,
         int(case["project_id"]),
-        machine=machine,
+        test_machine=test_machine,
         operation=RESET_OWED_OPERATION,
         status="error",
         checks=[{"name": baseline, "ok": False}],
@@ -98,7 +98,7 @@ def record_owed_reset(conn, contract, evidence):
     record_test_machine_operation(
         conn,
         contract.project_id,
-        machine=contract.settings["resource_name"],
+        test_machine=contract.settings["resource_name"],
         operation="reset",
         status="verified" if ok else "error",
         checks=[{**receipt, "name": baseline, "ok": ok}],
@@ -181,6 +181,6 @@ def record_execution_reset_debt(conn, execution, leases):
         record_reset_owed(
             conn,
             case=case,
-            machine=lease.target.test_machine,
+            test_machine=lease.target.test_machine,
             lease_id=lease.id,
         )

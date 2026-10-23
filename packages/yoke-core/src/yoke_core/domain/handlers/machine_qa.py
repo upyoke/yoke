@@ -54,7 +54,7 @@ class TestMachineSettingsReplaceRequest(BaseModel):
 class TestMachineResponse(BaseModel):
     project_id: int
     project: str
-    machine: str
+    test_machine: str
     capability_type: str
     kind: str
     display_name: str
@@ -77,7 +77,7 @@ class TestMachineResponse(BaseModel):
 class TestMachineSettingsReplaceResponse(BaseModel):
     project_id: int
     project: str
-    machine: str
+    test_machine: str
     capability_type: str
     settings: dict[str, str]
     settings_token: str
@@ -86,7 +86,7 @@ class TestMachineSettingsReplaceResponse(BaseModel):
 
 class TestMachineVerifyResponse(BaseModel):
     project: str
-    machine: str
+    test_machine: str
     status: str
     checked_at: str
     checks: list[dict[str, Any]]
@@ -103,7 +103,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         result = test_machine_detail(
             conn,
             project=parsed.project,
-            machine=parsed.test_machine,
+            test_machine=parsed.test_machine,
         )
     except TestMachineCapabilityError as exc:
         return _failure("test_machine_unavailable", str(exc))
@@ -122,7 +122,7 @@ def handle_settings_replace(request: FunctionCallRequest) -> HandlerOutcome:
         result = replace_test_machine_settings(
             conn,
             project=parsed.project,
-            machine=parsed.test_machine,
+            test_machine=parsed.test_machine,
             settings=parsed.settings,
             base_settings=parsed.base_settings,
         )

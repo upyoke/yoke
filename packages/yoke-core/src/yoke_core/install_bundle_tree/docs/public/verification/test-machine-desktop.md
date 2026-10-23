@@ -38,6 +38,12 @@ Keep the sealed baseline unchanged during this recovery. Run
 `yoke test-machine reset --project P --test-machine NAME` for an authorized reset;
 read each command's `--help`.
 
+Test Machine reads, operation receipts and desktop routes name the host in
+`test_machine`; `yoke test-machine list` returns `test_machines`. A CLI reading
+an answer from a server that predates those fields refuses
+`test_machine_response_field_missing`: run the Yoke CLI release that server
+serves, or update the server.
+
 Mission preparation requires at least 1 GiB free on the home and temporary
 filesystems before package setup or scratch creation. A
 `test_machine_disk_space_low` refusal records the observed space and minimum;

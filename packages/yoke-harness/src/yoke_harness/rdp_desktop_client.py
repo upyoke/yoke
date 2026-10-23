@@ -100,7 +100,7 @@ class DesktopView:
         self._forward_closed = False
 
     @classmethod
-    def open(cls, project, machine, settings, password, receipt, run):
+    def open(cls, project, test_machine, settings, password, receipt, run):
         executable = shutil.which("sdl-freerdp") or shutil.which("sdl-freerdp3")
         if not executable:
             raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
@@ -143,7 +143,7 @@ class DesktopView:
                 host,
                 port,
                 user,
-                machine,
+                test_machine,
                 settings,
                 password,
                 receipt,
@@ -165,7 +165,7 @@ class DesktopView:
         host,
         port,
         user,
-        machine,
+        test_machine,
         settings,
         password,
         receipt,
@@ -192,7 +192,7 @@ class DesktopView:
             f"/size:{window_width}x{window_height}",
             f"/smart-sizing:{width}x{height}",
             f"/bpp:{depth}",
-            f"/t:Yoke desktop: {machine}",
+            f"/t:Yoke desktop: {test_machine}",
         ]
         local_environment = dict(os.environ)
         local_environment.pop("SDL_VIDEODRIVER", None)
@@ -307,8 +307,8 @@ class DesktopView:
         }
 
 
-def view_desktop(project, machine, settings, password, receipt, run):
-    opened = DesktopView.open(project, machine, settings, password, receipt, run)
+def view_desktop(project, test_machine, settings, password, receipt, run):
+    opened = DesktopView.open(project, test_machine, settings, password, receipt, run)
     code = None
     try:
         try:

@@ -72,7 +72,7 @@ def route(monkeypatch):
 
     def dispatch(**kwargs):
         result = (
-            {"machine": "lab", "settings": state["settings"], "active_lease": None}
+            {"test_machine": "lab", "settings": state["settings"], "active_lease": None}
             if kwargs["function_id"] == "test_machine.get"
             else {"settings_json": json.dumps(DECLARATIONS)}
         )
@@ -175,7 +175,7 @@ def test_viewer_cleanup_failure_tells_the_operator_and_keeps_success(
     )
     assert authorize() == 0
     err = capsys.readouterr().err
-    assert "Close the desktop viewer for machine lab yourself" in err
+    assert "Close the desktop viewer for test machine lab yourself" in err
     assert "desktop_view_unresponsive" in err
     assert route["events"] == ["open", "gui", "close"]
 
@@ -189,6 +189,6 @@ def test_json_mode_keeps_the_receipt_and_still_closes_the_viewer(
     )
     assert authorize("--json") == 0
     captured = capsys.readouterr()
-    assert json.loads(captured.out)["machine"] == "lab"
+    assert json.loads(captured.out)["test_machine"] == "lab"
     assert "Yoke desktop: lab" in captured.err
     assert route["events"] == ["open", "gui", "close"]

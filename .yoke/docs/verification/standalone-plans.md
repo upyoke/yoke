@@ -70,7 +70,7 @@ both name the two revisions and write nothing. Export from current main and sync
 
 Standalone project QA uses `qa.plan_execution.begin` with a project-scoped
 `global` target and payload `plan`, optional `source_revision`, `source_ref`,
-`checkout_path`, `machine`, and `continue_mission`. Adapter:
+`checkout_path`, `test_machine`, and `continue_mission`. Adapter:
 `yoke qa plan run --plan PLAN --project P`; read its `--help` for source bindings.
 State, heartbeat, advance, complete, abort, review, and machine/mission calls
 retain that target and verify the execution's project and actor/session.

@@ -19,9 +19,9 @@ def run_machine(conn: Any, raw: str) -> str | None:
         return None
     if not isinstance(document, dict):
         return None
-    machine = (document.get("evidence") or {}).get("test_machine")
-    if machine:
-        return validate_test_machine_resource_name(machine)
+    test_machine = (document.get("evidence") or {}).get("test_machine")
+    if test_machine:
+        return validate_test_machine_resource_name(test_machine)
     lease = (document.get("host_control_submission") or {}).get("lease_id")
     return get_claim(conn, int(lease)).target.test_machine if lease else None
 
@@ -40,7 +40,7 @@ def execution_machine(
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
     hosts = {
-        row.machine: row.settings["os"]
+        row.test_machine: row.settings["os"]
         for row in test_machine_capability_rows(
             conn, project_id=int(case["project_id"])
         )
@@ -48,14 +48,14 @@ def execution_machine(
 
     platform = case_platform(case, hosts)
 
-    def matches(machine: str | None) -> bool:
-        if machine and platform is not None and machine not in hosts:
+    def matches(test_machine: str | None) -> bool:
+        if test_machine and platform is not None and test_machine not in hosts:
             raise ValueError(
-                f"qa_resume_host_unregistered: recorded host {machine!r} is no longer "
+                f"qa_resume_host_unregistered: recorded host {test_machine!r} is no longer "
                 "registered for this project; restore its Test Machine registration "
                 "before resuming so its preserved state is not lost"
             )
-        return bool(machine) and (platform is None or hosts.get(machine) == platform)
+        return bool(test_machine) and (platform is None or hosts.get(test_machine) == platform)
 
     if case.get("requirement_id"):
         corrected = corrected_case_machine(conn, int(case["requirement_id"]))
@@ -65,12 +65,12 @@ def execution_machine(
     seen = set()
     while str(execution["id"]) not in seen:
         seen.add(str(execution["id"]))
-        if execution.get("machine_lease_id"):
-            machine = get_claim(
-                conn, int(execution["machine_lease_id"])
+        if execution.get("test_machine_lease_id"):
+            test_machine = get_claim(
+                conn, int(execution["test_machine_lease_id"])
             ).target.test_machine
-            if matches(machine):
-                return machine
+            if matches(test_machine):
+                return test_machine
         results = conn.execute(
             f"SELECT result_json FROM qa_plan_execution_results WHERE execution_id={p} "
             "ORDER BY ordinal DESC",
@@ -89,9 +89,9 @@ def execution_machine(
             by_id = {int(run["id"]): run["raw_result"] for run in runs}
             for run_id in run_ids:
                 if run_id in by_id:
-                    machine = run_machine(conn, by_id[run_id])
-                    if matches(machine):
-                        return machine
+                    test_machine = run_machine(conn, by_id[run_id])
+                    if matches(test_machine):
+                        return test_machine
         source = execution.get("continues_execution_id")
         if not source:
             return None
@@ -128,8 +128,8 @@ def corrected_case_machine(conn: Any, requirement_id: int) -> str | None:
                 "ORDER BY created_at DESC,id DESC LIMIT 1",
                 (prior,),
             ).fetchone()
-            if row and (machine := run_machine(conn, row["raw_result"])):
-                machines.add(machine)
+            if row and (test_machine := run_machine(conn, row["raw_result"])):
+                machines.add(test_machine)
             else:
                 pending.append(prior)
         if len(machines) > 1:

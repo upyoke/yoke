@@ -182,7 +182,7 @@ def test_machine_desktop_flag_selects_requested_browser(
             success=True,
             error=None,
             result={
-                "machine": "fixture",
+                "test_machine": "fixture",
                 "settings": {"os": "macos"},
                 "active_lease": None,
             }

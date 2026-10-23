@@ -124,7 +124,7 @@ def _detail(
         function="test_machine.get",
         version="v1",
         result={
-            "machine": "test-mac",
+            "test_machine": "test-mac",
             "settings": {"host": HOST, "user": USER, "os": os_name},
             "active_lease": lease,
         },

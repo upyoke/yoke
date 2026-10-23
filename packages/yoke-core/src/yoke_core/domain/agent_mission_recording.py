@@ -92,7 +92,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if (
             parsed.ordinal == int(execution["cursor_ordinal"])
-            and execution.get("machine_lease_id") != lease.id
+            and execution.get("test_machine_lease_id") != lease.id
         ):
             raise ValueError("mission preparation names the wrong machine lease")
         recorded = _recorded_result(
@@ -242,7 +242,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             if int(case["requirement_id"]) == parsed.requirement_id
             and case.get("runner_id") == "agent_mission"
         ]
-        if len(matches) != 1 or execution.get("machine_lease_id") is None:
+        if len(matches) != 1 or execution.get("test_machine_lease_id") is None:
             raise ValueError("mission case has no active plan machine lease")
         ordinal, case = matches[0]
         _assert_current_snapshot(conn, case)
@@ -252,7 +252,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             case,
             ordinal=ordinal,
             actor=request.actor,
-            machine=parsed.test_machine,
+            test_machine=parsed.test_machine,
         )
         heartbeat_plan_execution(conn, execution)
         run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)

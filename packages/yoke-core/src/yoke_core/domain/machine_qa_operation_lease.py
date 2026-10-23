@@ -54,7 +54,7 @@ def operation_mission(
     p = marker(conn)
     companion = (lease.reason or "").removeprefix(HOST_SET_REASON)
     row = conn.execute(
-        f"SELECT id FROM qa_plan_executions WHERE machine_lease_id={p} OR id={p}",
+        f"SELECT id FROM qa_plan_executions WHERE test_machine_lease_id={p} OR id={p}",
         (lease.id, companion),
     ).fetchone()
     if row is None:
@@ -72,10 +72,10 @@ def operation_mission(
         baselines=baselines,
     ):
         return execution
-    machine = str(lease.target.test_machine)
+    test_machine = str(lease.target.test_machine)
     if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
         raise MachineQaProtocolError(
-            f"mission_operation_foreign_holder: you do not hold the lease on {machine}; "
+            f"mission_operation_foreign_holder: you do not hold the lease on {test_machine}; "
             f"session {execution['session_id']} holds it for plan {execution['id']}. "
             "Declare method_config.test_machine on your QA case and run its scoped plan "
             "to acquire the host lease after that holder finishes"
@@ -99,7 +99,7 @@ def operation_mission(
     ]
     if execution["state"] not in {"walking", "awaiting_walk_review"} or not missions:
         raise MachineQaProtocolError(
-            f"mission_operation_unavailable: the lease on {machine} belongs to "
+            f"mission_operation_unavailable: the lease on {test_machine} belongs to "
             f"your plan {execution['id']}, which is {execution['state']}; this "
             "operation requires its active declared-host Command case, an "
             "awaiting mission walk, or a golden capture naming the plan as "
@@ -114,11 +114,11 @@ def begin_operation_execution(
     *,
     actor: Any,
     project: str,
-    machine: str | None,
+    test_machine: str | None,
     plan_execution_id: str | None = None,
     **shape: Any,
 ) -> Any:
-    candidate = load_test_machine_contract(conn, project=project, machine=machine)
+    candidate = load_test_machine_contract(conn, project=project, test_machine=test_machine)
     lease = active_claim(conn, host_claim_target(candidate.settings["resource_name"]))
     mission = (
         None
@@ -145,7 +145,7 @@ def begin_operation_execution(
             conn,
             project=project,
             session_id=actor.session_id,
-            machine=machine,
+            test_machine=test_machine,
             select_any=False,
             **shape,
         )

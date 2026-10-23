@@ -74,7 +74,7 @@ class MachineQaLease:
             record_test_machine_verification(
                 self.conn,
                 self.material.project_id,
-                machine=self.material.settings["resource_name"],
+                test_machine=self.material.settings["resource_name"],
                 status="error",
                 checks=[self.baseline.evidence],
                 error_code=self.baseline.error_code,
@@ -224,7 +224,7 @@ def acquire_machine_qa_lease(
     *,
     project: str,
     session_id: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
     select_any: bool = True,
 ) -> MachineQaLease:
     """Materialize the approved adapter, then acquire its resource claim.
@@ -238,7 +238,7 @@ def acquire_machine_qa_lease(
             conn,
             project=project,
             session_id=session_id,
-            machine=machine,
+            test_machine=test_machine,
             select_any=select_any,
         )
     except CoordinationClaimStaleHolderError as exc:
@@ -247,7 +247,7 @@ def acquire_machine_qa_lease(
         held = exc.busy[0]
         raise MachineQaLeaseHeld(
             lease=held.lease,
-            machine=held.machine,
+            test_machine=held.test_machine,
             contention=held.contention,
         ) from None
     try:

@@ -24,6 +24,7 @@ from yoke_cli.config.capability_secrets import (
 )
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
+from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
 LIST_USAGE = "yoke test-machine list --project P [--json]"
@@ -78,7 +79,11 @@ def _dispatch(
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         response_recovery=(
-            (lambda response, _actor: _attest_secret_presence(response, parsed.project))
+            (
+                lambda response, _actor: _attest_secret_presence(
+                    response, parsed.project, function_id
+                )
+            )
             if attest_local_secrets
             else None
         ),
@@ -88,6 +93,7 @@ def _dispatch(
 def _attest_secret_presence(
     response: FunctionCallResponse,
     project: str,
+    function_id: str,
 ) -> FunctionCallResponse:
     """Attach credential presence proven on this executing CLI machine."""
     if not response.success or not isinstance(response.result, dict):
@@ -120,9 +126,13 @@ def _attest_secret_presence(
         return updated
 
     result = dict(response.result)
-    if isinstance(result.get("machines"), list):
-        result["machines"] = [attest(detail) for detail in result["machines"]]
+    if function_id == "test_machine.list":
+        test_machines = read_test_machine_field(
+            result, function_id=function_id, field="test_machines"
+        )
+        result["test_machines"] = [attest(detail) for detail in test_machines]
     else:
+        read_test_machine_field(result, function_id=function_id)
         result = attest(result)
     return response.model_copy(update={"result": result})
 

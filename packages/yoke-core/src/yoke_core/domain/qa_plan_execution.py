@@ -47,7 +47,7 @@ def execute_plan(
     plan: Optional[str] = None,
     project: Optional[str] = None,
     base_url: str = "",
-    machine: Optional[str] = None,
+    test_machine: Optional[str] = None,
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
@@ -112,7 +112,7 @@ def execute_plan(
             actor=resolved_actor,
         )
     for key, value in (
-        ("test_machine", machine),
+        ("test_machine", test_machine),
         ("continue_mission", continue_mission),
     ):
         if value:
@@ -187,7 +187,7 @@ def execute_plan(
         )
     try:
         begun = validate_begun_execution(
-            execution, machine=machine, base_url=base_url, public_ref=public_ref
+            execution, test_machine=test_machine, base_url=base_url, public_ref=public_ref
         )
         if (
             execution.get("deployment_run_id")

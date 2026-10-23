@@ -89,7 +89,7 @@ def run_host_operation(
     return _execute(
         operation=operation,
         project=parsed.project,
-        machine=parsed.test_machine,
+        test_machine=parsed.test_machine,
         baseline=getattr(parsed, "baseline", None),
         destination=getattr(parsed, "destination", None),
         probes_document=probes_document,
@@ -102,7 +102,7 @@ def _execute(
     *,
     operation: str,
     project: str,
-    machine: str | None,
+    test_machine: str | None,
     baseline: str | None,
     destination: str | None,
     probes_document: str | None,
@@ -116,7 +116,7 @@ def _execute(
         target=TargetRef(kind="global"),
         payload={
             "project": project,
-            "test_machine": machine,
+            "test_machine": test_machine,
             "operation": operation,
             "baseline": baseline,
             "destination": destination,

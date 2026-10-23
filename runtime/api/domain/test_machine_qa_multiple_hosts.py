@@ -40,10 +40,10 @@ from yoke_core.domain.projects_capability_settings_validation import (
 MACHINES = ("mac-mini-lab", "mac-studio-lab")
 
 
-def _settings(machine: str, *, notes: str = "") -> dict[str, str]:
+def _settings(test_machine: str, *, notes: str = "") -> dict[str, str]:
     return {
-        "resource_name": machine,
-        "host": f"{machine}.local",
+        "resource_name": test_machine,
+        "host": f"{test_machine}.local",
         "user": "yoke-test",
         "os": "macos",
         "operating_notes": notes,
@@ -60,7 +60,7 @@ def _register_fleet(conn):
     second = replace_test_machine_settings(
         conn,
         project="yoke",
-        machine=MACHINES[1],
+        test_machine=MACHINES[1],
         settings=_settings(MACHINES[1]),
         base_settings=None,
     )
@@ -72,29 +72,29 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     first, _second = _register_fleet(conn)
 
     listing = list_test_machines(conn, project="yoke")
-    assert [row["machine"] for row in listing["machines"]] == list(MACHINES)
-    assert [row["capability_type"] for row in listing["machines"]] == [
-        _machine_type(machine) for machine in MACHINES
+    assert [row["test_machine"] for row in listing["test_machines"]] == list(MACHINES)
+    assert [row["capability_type"] for row in listing["test_machines"]] == [
+        _machine_type(test_machine) for test_machine in MACHINES
     ]
     with pytest.raises(MachineCapabilityError, match="pass --test-machine TEST_MACHINE"):
         read_test_machine_detail(conn, project="yoke")
     selected = read_test_machine_detail(
         conn,
         project="yoke",
-        machine=MACHINES[1],
+        test_machine=MACHINES[1],
     )
-    assert selected["machine"] == MACHINES[1]
+    assert selected["test_machine"] == MACHINES[1]
     assert selected["concurrency"] == {
         "limit": 1,
         "mode": "serial",
         "scope": "machine",
     }
 
-    for machine in MACHINES:
+    for test_machine in MACHINES:
         record_test_machine_verification(
             conn,
             1,
-            machine=machine,
+            test_machine=test_machine,
             status="verified",
             checks=[{"name": "connection", "ok": True}],
             error_code=None,
@@ -109,12 +109,12 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     updated = replace_test_machine_settings(
         conn,
         project="yoke",
-        machine=MACHINES[0],
+        test_machine=MACHINES[0],
         settings=_settings(MACHINES[0], notes="rack two"),
         base_settings=first["settings_token"],
     )
 
-    assert updated["machine"] == MACHINES[0]
+    assert updated["test_machine"] == MACHINES[0]
     statuses = {
         str(row["capability_type"]): str(row["status"])
         for row in conn.execute(
@@ -131,11 +131,11 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
     conn = make_conn()
     _register_fleet(conn)
     seed_qa_session(conn, "mission-one", "mission-two", "mission-three")
-    for machine in MACHINES:
+    for test_machine in MACHINES:
         record_test_machine_verification(
             conn,
             1,
-            machine=machine,
+            test_machine=test_machine,
             status="verified",
             checks=[{"name": "connection", "ok": True}],
             error_code=None,
@@ -199,7 +199,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
     record_test_machine_verification(
         conn,
         1,
-        machine=MACHINES[0],
+        test_machine=MACHINES[0],
         status="error",
         checks=[{"name": "terminal_bridge", "ok": False}],
         error_code="terminal_bridge_failed",
@@ -207,7 +207,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
     record_test_machine_verification(
         conn,
         1,
-        machine=MACHINES[1],
+        test_machine=MACHINES[1],
         status="verified",
         checks=[{"name": "connection", "ok": True}],
         error_code=None,
@@ -231,7 +231,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
         operation="verify",
         checks=VERIFICATION_CHECKS,
         baselines=HOST_BASELINES,
-        machine=MACHINES[0],
+        test_machine=MACHINES[0],
     )
     assert pinned.settings["resource_name"] == MACHINES[0]
     assert "last verification error terminal_bridge_failed" in str(
@@ -245,7 +245,7 @@ def test_admission_prefers_verified_then_honors_an_explicit_pin() -> None:
             operation="verify",
             checks=VERIFICATION_CHECKS,
             baselines=HOST_BASELINES,
-            machine="mac-pro-missing",
+            test_machine="mac-pro-missing",
         )
     release(conn, automatic.lease_id, "test-complete")
     release(conn, pinned.lease_id, "test-complete")
@@ -259,7 +259,7 @@ def test_a_selector_cannot_name_different_settings() -> None:
         replace_test_machine_settings(
             conn,
             project="yoke",
-            machine="mac-pro-lab",
+            test_machine="mac-pro-lab",
             settings=_settings(MACHINES[0]),
             base_settings=None,
         )
