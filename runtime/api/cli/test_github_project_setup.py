@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.cli.test_github_git_credential_install import _configured_repo, _git
 from yoke_cli.config import github_git_credentials, github_project_setup
+from yoke_cli.config.project_publication_destination import READ_ONLY_PUSH_URL
 from yoke_cli.project_install import runner
 
 
@@ -50,6 +51,52 @@ def test_different_push_target_refuses_before_any_rewrite(tmp_path, monkeypatch)
     assert (repo / ".git/config").read_bytes() == before
 
 
+@pytest.mark.parametrize("extra_push_url", [None, "git@github.com:octo/repo.git"])
+def test_read_only_checkout_converges_helper_without_enabling_push(
+    tmp_path, monkeypatch, extra_push_url
+):
+    repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
+    _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
+    _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
+    expected_push_urls = [READ_ONLY_PUSH_URL]
+    if extra_push_url:
+        _git(repo, "config", "--add", "remote.origin.pushurl", extra_push_url)
+        expected_push_urls.append(extra_push_url)
+    monkeypatch.setattr(
+        github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
+    )
+
+    report = github_project_setup.converge(repo, config_path=config)
+
+    assert report["configured"] is True
+    assert report["changes"] == ["credential-helper", "origin-url"]
+    assert _git(repo, "remote", "get-url", "origin").stdout.strip() == (
+        "https://github.com/octo/repo.git"
+    )
+    assert _git(
+        repo, "remote", "get-url", "--push", "--all", "origin"
+    ).stdout.splitlines() == expected_push_urls
+    assert github_project_setup.converge(repo, config_path=config)["changed"] is False
+
+
+@pytest.mark.parametrize(
+    "push_url", ["git@github.com:octo/other.git", "disabled://unowned-policy"]
+)
+def test_read_only_sentinel_does_not_bypass_other_push_url_validation(
+    tmp_path, monkeypatch, push_url
+):
+    repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
+    _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
+    _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
+    _git(repo, "config", "--add", "remote.origin.pushurl", push_url)
+    before = (repo / ".git/config").read_bytes()
+
+    with pytest.raises(github_project_setup.GitHubProjectSetupError):
+        github_project_setup.converge(repo, config_path=config)
+
+    assert (repo / ".git/config").read_bytes() == before
+
+
 def test_missing_authorization_teaches_connect_and_preserves_origin(
     tmp_path, monkeypatch
 ):
@@ -65,13 +112,17 @@ def test_missing_authorization_teaches_connect_and_preserves_origin(
 
 
 @pytest.mark.parametrize("operation", ["install", "refresh"])
+@pytest.mark.parametrize("read_only", [False, True])
 def test_install_and_refresh_converge_before_upstream_and_publication(
     tmp_path,
     monkeypatch,
     operation,
+    read_only,
 ):
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
+    if read_only:
+        _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
     monkeypatch.setattr(
         github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
     )
@@ -99,6 +150,10 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     )
 
     def check_https(*args, **kwargs):
+        if read_only:
+            assert _git(
+                repo, "remote", "get-url", "--push", "origin"
+            ).stdout.strip() == READ_ONLY_PUSH_URL
         assert (
             _git(repo, "remote", "get-url", "origin")
             .stdout.strip()
