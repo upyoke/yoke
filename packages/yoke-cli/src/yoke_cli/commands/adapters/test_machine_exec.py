@@ -22,7 +22,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
 
-EXEC_USAGE = "yoke test-machine exec --project P [--machine NAME] [--admin] [--session-id S] -- ARGV..."
+EXEC_USAGE = "yoke test-machine exec --project P [--test-machine TEST_MACHINE] [--admin] [--session-id S] -- ARGV..."
 _REFUSED_EXIT = 1
 
 
@@ -47,7 +47,7 @@ def _lease_refusal(detail: dict[str, Any], session_id: str) -> int | None:
         "Wait for that lease to release, or ask its holder to run the "
         "command; a QA mission walker uses `yoke qa mission host-command`. "
         "A Command QA case that runs this command declares the host as "
-        "`method_config.machine` (`yoke qa requirement update`) so it waits "
+        "`method_config.test_machine` (`yoke qa requirement update`) so it waits "
         "for its turn in the host's queue.",
     )
 
@@ -75,8 +75,8 @@ def test_machine_exec(args: List[str]) -> int:
         "--project", required=True, metavar="P", help="Project that owns the machine."
     )
     parser.add_argument(
-        "--machine",
-        metavar="NAME",
+        "--test-machine",
+        metavar="TEST_MACHINE",
         help="Registered test machine to run on; list them with "
         "yoke test-machine list --project P.",
     )
@@ -100,7 +100,7 @@ def test_machine_exec(args: List[str]) -> int:
     response = call_dispatcher(
         function_id="test_machine.get",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "machine": parsed.machine},
+        payload={"project": parsed.project, "test_machine": parsed.test_machine},
         actor=actor,
     )
     if not response.success or not isinstance(response.result, dict):
@@ -110,7 +110,7 @@ def test_machine_exec(args: List[str]) -> int:
             error.message if error else "test_machine.get returned no machine",
             (error.recovery_hint if error else None)
             or "`yoke test-machine list --project P` names the registered "
-            "machines; pass one with --machine NAME.",
+            "machines; pass one with --test-machine TEST_MACHINE.",
         )
     detail = response.result
     refused = _lease_refusal(detail, actor.session_id)

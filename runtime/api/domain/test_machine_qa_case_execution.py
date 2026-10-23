@@ -193,7 +193,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
         verdict="pending",
         capture_degraded_reason=None,
         evidence={
-            "machine": "mac-mini-lab",
+            "test_machine": "mac-mini-lab",
             "steps": [
                 {
                     "key": "welcome",
@@ -219,7 +219,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
         (recorded["run_id"],),
     ).fetchone()
     assert (run["verdict"], run["case_outcome"]) == (None, "needs_review")
-    assert json.loads(run["raw_result"])["evidence"]["machine"] == "mac-mini-lab"
+    assert json.loads(run["raw_result"])["evidence"]["test_machine"] == "mac-mini-lab"
     artifacts = test_db.execute(
         "SELECT artifact_type,artifact_handle FROM qa_artifacts "
         "WHERE qa_run_id=%s ORDER BY artifact_type",
@@ -251,7 +251,7 @@ def test_machine_result_uses_shared_configured_s3_storage(
         case_outcome="needs_review",
         verdict="pending",
         capture_degraded_reason=None,
-        evidence={"machine": "mac-mini-lab", "steps": []},
+        evidence={"test_machine": "mac-mini-lab", "steps": []},
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_artifact_storage.store_artifact_bytes",
@@ -292,7 +292,7 @@ def test_machine_result_refuses_a_capture_whose_bytes_never_arrived(
         verdict="pending",
         capture_degraded_reason=None,
         evidence={
-            "machine": "mac-mini-lab",
+            "test_machine": "mac-mini-lab",
             "steps": [
                 {
                     "key": "welcome",

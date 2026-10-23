@@ -159,7 +159,7 @@ def _test_machines(
             "os": row.settings["os"],
             "exec_command": (
                 f"yoke test-machine exec --project {row.project} "
-                f"--machine {row.machine} -- <command>"
+                f"--test-machine {row.machine} -- <command>"
             ),
         }
         for row in rows

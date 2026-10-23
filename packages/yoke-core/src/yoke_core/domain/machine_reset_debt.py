@@ -20,7 +20,7 @@ def reset_command(project, machine, baseline):
             "reset",
             "--project",
             str(project),
-            "--machine",
+            "--test-machine",
             machine,
             "--baseline",
             baseline,
@@ -174,13 +174,13 @@ def record_execution_reset_debt(conn, execution, leases):
     for candidate in reversed(roster[: ordinal + 1]):
         if candidate.get("runner_id") in {"host_control", "agent_mission"} or (
             candidate.get("method_config") or {}
-        ).get("machine"):
+        ).get("test_machine"):
             case = candidate
             break
     for lease in leases:
         record_reset_owed(
             conn,
             case=case,
-            machine=lease.target.machine_id,
+            machine=lease.target.test_machine,
             lease_id=lease.id,
         )

@@ -5,5 +5,5 @@
  "page": "test-machine-setup",
  "position": 2,
  "summary": "Yoke runs Linux harnesses and Docker Engine with Compose v2 in the registered Windows account's default WSL2 Ubuntu user with systemd. Real containers and both home restores passed; blank XFCE/xrdp screenshot validation still blocks full desktop readiness and final fresh-host proof. Native Windows containers or runtime presence do not establish that proof.",
- "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md"]
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/windows-host-provisioning.md"]
 }

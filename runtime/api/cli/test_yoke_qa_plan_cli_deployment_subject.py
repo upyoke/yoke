@@ -31,7 +31,7 @@ def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
                 "installer-campaign",
                 "--project",
                 "yoke",
-                "--machine",
+                "--test-machine",
                 "mac-studio-lab",
                 "--session-id",
                 "deployment-plan-session",

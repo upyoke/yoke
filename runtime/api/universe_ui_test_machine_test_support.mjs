@@ -111,7 +111,7 @@ export function context(machines = [detail]) {
           }
           if (request.function === "test_machine.get") {
             const selected = machines.find(
-              (machine) => machine.machine === request.payload.machine,
+              (machine) => machine.machine === request.payload.test_machine,
             );
             return {
               status: 200,

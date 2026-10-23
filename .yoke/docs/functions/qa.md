@@ -78,6 +78,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | `test_machine.mission.access` | `qa_subject` |
 | `test_machine.mission.dispose_projects` | `qa_subject` |
 | `test_machine.mission.ready` | `qa_subject` |
+| `test_machine.mission.record_connected_machine` | `qa_subject` |
 | `test_machine.operation.abort` | `none` |
 | `test_machine.operation.begin` | `none` |
 | `test_machine.operation.submit` | `none` |

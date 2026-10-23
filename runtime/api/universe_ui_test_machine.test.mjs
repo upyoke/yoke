@@ -266,7 +266,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   assert.equal(
     prepared.requests.some(
       (request) => request.function === "test_machine.settings_replace" &&
-        request.payload.machine === "mac-mini-lab",
+        request.payload.test_machine === "mac-mini-lab",
     ),
     true,
   );
@@ -291,7 +291,7 @@ test("Test Machine fleet chooser opens the selected machine", async () => {
   assert.equal(
     prepared.requests.some((request) =>
       request.function === "test_machine.get" &&
-      request.payload.machine === second.machine),
+      request.payload.test_machine === second.machine),
     true,
   );
 });

@@ -106,7 +106,7 @@ def _execute_issued_contract(
         begin_function,
         requirement_id,
         actor=resolved_actor,
-        payload={"machine": machine} if machine else None,
+        payload={"test_machine": machine} if machine else None,
     )
     if begun.get("state") == "waiting":
         result = begun.get("result")

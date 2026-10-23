@@ -45,7 +45,7 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
             "user": "tester",
             "os": "macos",
             "exec_command": (
-                "yoke test-machine exec --project yoke --machine test-mac -- <command>"
+                "yoke test-machine exec --project yoke --test-machine test-mac -- <command>"
             ),
         }
     ]

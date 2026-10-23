@@ -24,7 +24,7 @@ def administrator_password(*, project: str, machine: str, os_name: str) -> str:
         raise RemoteExecRefusal(
             "test_machine_admin_os_unsupported",
             "--admin requires a macOS or Linux test machine",
-            "Select a registered macOS or Linux machine with --machine NAME.",
+            "Select a registered macOS or Linux machine with --test-machine TEST_MACHINE.",
         )
     cap_type = test_machine_capability_type(machine)
     recovery = (

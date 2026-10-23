@@ -207,7 +207,7 @@ def test_held_lease_refuses_with_reset_until_reset_receipt(
     message = str(refused.value)
     assert "qa_reconcile_host_recovery_required" in message
     assert (
-        "yoke test-machine reset --project yoke --machine mac-mini-lab "
+        "yoke test-machine reset --project yoke --test-machine mac-mini-lab "
         "--baseline fresh-host"
     ) in message
     assert (

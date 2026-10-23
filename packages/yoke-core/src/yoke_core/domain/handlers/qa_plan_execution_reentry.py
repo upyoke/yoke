@@ -69,7 +69,7 @@ def require_resume_inputs(conn, execution, parsed):
             raise ValueError(
                 "qa_resume_subject_mismatch: use the execution's original plan"
             )
-    validate_roster_machine(conn, execution["roster"], parsed.machine)
+    validate_roster_machine(conn, execution["roster"], parsed.test_machine)
     require_same_source(
         execution["roster"],
         source_revision=parsed.source_revision,

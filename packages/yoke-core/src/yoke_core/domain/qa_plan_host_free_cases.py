@@ -27,7 +27,7 @@ def is_host_free_case(case: Mapping[str, Any]) -> bool:
     """Whether a roster case may run and record ahead of the plan cursor."""
     return str(case.get("runner_id") or "") in HOST_FREE_RUNNERS and not (
         case.get("method_config") or {}
-    ).get("machine")
+    ).get("test_machine")
 
 
 def run_host_free_cases_while_waiting(

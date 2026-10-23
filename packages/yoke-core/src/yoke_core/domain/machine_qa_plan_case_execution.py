@@ -52,7 +52,7 @@ def _waiting_case(
 ) -> dict[str, Any]:
     """A queued case: its place in the host's line and the park instruction."""
     wait = begun.get("host_wait") or {}
-    machine = wait.get("machine") or "its Test Machine"
+    machine = wait.get("test_machine") or "its Test Machine"
     place = (
         f", position {wait['position']} of {wait['line_length']}"
         if wait.get("position")
@@ -150,7 +150,7 @@ def execute_plan_machine_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
-        **({"machine": machine} if machine else {}),
+        **({"test_machine": machine} if machine else {}),
     }
     begun = _begin(target, actor, request)
     if begun.get("state") in {"blocked", "retained"}:
@@ -276,7 +276,7 @@ def execute_plan_agent_mission_case(
         "execution_id": execution_id,
         "ordinal": int(ordinal),
         "requirement_id": requirement_id,
-        **({"machine": machine} if machine else {}),
+        **({"test_machine": machine} if machine else {}),
     }
     begun = _begin(target, actor, request)
     if begun.get("state") in {"blocked", "retained"}:

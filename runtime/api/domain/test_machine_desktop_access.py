@@ -199,7 +199,7 @@ def _request():
         request_id="desktop-test",
         actor={"session_id": "caller"},
         target={"kind": "global"},
-        payload={"project": "project", "machine": "lab"},
+        payload={"project": "project", "test_machine": "lab"},
     )
 
 
@@ -261,13 +261,13 @@ def test_cli_dispatch_never_contains_a_password(credentials, monkeypatch, capsys
         lambda argv, **kw: subprocess.CompletedProcess(argv, 0),
     )
     assert (
-        cli.test_machine_desktop_access(["--project", "project", "--machine", "lab"])
+        cli.test_machine_desktop_access(["--project", "project", "--test-machine", "lab"])
         == 0
     )
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     try:
-        assert calls[0]["payload"] == {"project": "project", "machine": "lab"}
+        assert calls[0]["payload"] == {"project": "project", "test_machine": "lab"}
         assert PASSWORD not in captured.out + captured.err + repr(calls)
     finally:
         Path(result["password_file"]).unlink()

@@ -92,14 +92,14 @@ def _seed(
                     "expected_outcome": "The check passes.",
                     "method_config": {
                         **({} if mission and position == 2 else _terminal_recipe()),
-                        "machine": MACHINES[0] if inherit else machine,
+                        "test_machine": MACHINES[0] if inherit else machine,
                         **(
                             {"executor": "informed_subagent"}
                             if mission and position == 2
                             else {}
                         ),
                         **(
-                            {"machines": list(MACHINES)}
+                            {"test_machines": list(MACHINES)}
                             if simultaneous or (inherit and position == 2)
                             else {}
                         ),
@@ -314,7 +314,7 @@ def test_inherit_chain_holds_its_host_union_before_the_opener(
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, first["id"])
     leases = execution_host_leases(test_db, current)
-    assert [claim.target.machine_id for claim in leases] == list(MACHINES)
+    assert [claim.target.test_machine for claim in leases] == list(MACHINES)
     opener = current["roster"][0]
     advance_plan_execution(
         test_db,

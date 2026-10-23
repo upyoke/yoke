@@ -76,7 +76,7 @@ class TestMachineOperationShape(BaseModel):
 
 
 class TestMachineOperationBeginRequest(TestMachineOperationShape):
-    machine: str | None = None
+    test_machine: str | None = None
 
 
 class TestMachineOperationBeginResponse(BaseModel):
@@ -157,7 +157,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
         if parsed.operation == GOLDEN_CAPTURE_OPERATION:
             destination = resolve_golden_capture_destination(
                 selected_test_machine_row(
-                    conn, project=parsed.project, machine=parsed.machine
+                    conn, project=parsed.project, machine=parsed.test_machine
                 ),
                 requested=parsed.destination,
             )
@@ -165,7 +165,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project=parsed.project,
             actor=request.actor,
-            machine=parsed.machine,
+            machine=parsed.test_machine,
             plan_execution_id=parsed.plan_execution_id,
             operation=_operation(parsed.operation),
             **operation_contract_shape(

@@ -65,7 +65,7 @@ def test_host_wait_preserves_target_and_open_requirement(
             execution_id=execution["id"],
             requirement_id=requirement_id,
             ordinal=0,
-            payload={"machine": "mac-mini-lab"},
+            payload={"test_machine": "mac-mini-lab"},
         )
     )
     assert begun.primary_success, begun.error
@@ -94,7 +94,7 @@ def test_host_wait_preserves_target_and_open_requirement(
         current,
         bundle_id=bundle["bundle_id"],
         bundle_digest=bundle["bundle_digest"],
-        machine="linux-lab",
+        test_machine="linux-lab",
         rationale=f"host leased by another mission: {busy.id}",
     )
     assert result["state"] == "waiting" and result["verdicts"] == []

@@ -99,8 +99,8 @@ def continue_plan_host_control_execution(
     if machine and machine != selected_name:
         raise MachineQaProtocolError(
             "test_machine_constraint_mismatch: active plan lease uses "
-            f"{selected_name!r}, but --machine named {machine!r}; rerun with "
-            f"--machine {selected_name} or abort and restart the plan"
+            f"{selected_name!r}, but --test-machine named {machine!r}; rerun with "
+            f"--test-machine {selected_name} or abort and restart the plan"
         )
     return _issue(
         conn,

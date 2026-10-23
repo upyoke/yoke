@@ -13,7 +13,7 @@ def continue_execution(conn, execution, parsed, actor):
     common = dict(
         actor_id=actor.actor_id,
         session_id=actor.session_id,
-        machine=parsed.machine,
+        machine=parsed.test_machine,
         continue_mission=True,
         continuation_execution_id=str(execution["id"]),
     )

@@ -162,11 +162,11 @@ A project may register several `test-machine:<resource_name>` rows, one per
 physical host. Resource names are global; `QA_HOST:<resource_name>` admits
 one execution at a time. Machine-backed plans prefer a free verified machine,
 then stable name, and report why. A run's machine pin is subordinate to durable
-case `method_config.machine` constraints.
+case `method_config.test_machine` constraints.
 
 Settings and operation receipts are live capability facts. Read them with
 `yoke test-machine list --project P` or `yoke test-machine get --project P
---machine NAME`; read each command's `--help` for its projection. Hostnames,
+--test-machine NAME`; read each command's `--help` for its projection. Hostnames,
 users, golden paths, desktop routes and cloud instance ids belong in those
 project records. Capacity-machine registration grants launch capacity and
 relay identity separately; it does not grant Test Machine readiness.

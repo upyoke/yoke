@@ -28,7 +28,7 @@ def require_abort_reset(
         raise MachineQaProtocolError(
             "qa_abort_reset_required: cancellation retains host custody; stop the "
             "runner, reset this machine to the interrupted case's declared baseline "
-            "with yoke test-machine reset --project P --machine NAME --baseline BASELINE, "
+            "with yoke test-machine reset --project P --test-machine TEST_MACHINE --baseline BASELINE, "
             "then retry yoke qa plan abort. Other operations cannot borrow this lease"
         )
     if not request.get("requested_at"):
@@ -41,7 +41,7 @@ def require_abort_reset(
     from yoke_core.domain.session_steering_authority import covering_session_seat
 
     candidate = load_test_machine_contract(
-        conn, project=project, machine=lease.target.machine_id
+        conn, project=project, machine=lease.target.test_machine
     )
     if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
         if (
@@ -95,7 +95,7 @@ def reset_cleanup_proven(conn, execution, baseline):
         candidate = load_test_machine_contract(
             conn,
             project=case["project"],
-            machine=lease.target.machine_id,
+            machine=lease.target.test_machine,
         )
         contract = _issue(
             conn,
@@ -109,7 +109,7 @@ def reset_cleanup_proven(conn, execution, baseline):
         receipt = recorded_test_machine_operation(
             conn,
             candidate.project_id,
-            machine=lease.target.machine_id,
+            machine=lease.target.test_machine,
             operation="reset",
             lease_id=lease.id,
             contract_digest=contract.contract_digest,

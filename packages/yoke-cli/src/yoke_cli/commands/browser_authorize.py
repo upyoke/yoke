@@ -36,7 +36,7 @@ from yoke_cli.config.browser_profile_cookies import (
 
 BROWSER_AUTHORIZE_USAGE = (
     "yoke browser authorize [--project PROJECT] [--identity NAME] [--url URL] "
-    "[--machine NAME] [--desktop-browser] [--declarations-json JSON] [--reset] [--json]"
+    "[--test-machine TEST_MACHINE] [--desktop-browser] [--declarations-json JSON] [--reset] [--json]"
 )
 
 
@@ -54,12 +54,14 @@ def browser_authorize(args: List[str]) -> int:
     )
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
     parser.add_argument(
-        "--machine", help="Registered Test Machine whose GUI opens the sign-in window."
+        "--test-machine",
+        metavar="TEST_MACHINE",
+        help="Registered Test Machine whose GUI opens the sign-in window.",
     )
     parser.add_argument(
         "--desktop-browser",
         action="store_true",
-        help="Check this host's native Chromium or Safari instead of an automation profile. --machine includes both automatically.",
+        help="Check this host's native Chromium or Safari instead of an automation profile. --test-machine includes both automatically.",
     )
     parser.add_argument(
         "--include-desktop-browser", action="store_true", help=argparse.SUPPRESS
@@ -87,7 +89,7 @@ def browser_authorize(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    if parsed.machine is not None:
+    if parsed.test_machine is not None:
         from yoke_cli.commands.browser_authorize_remote import authorize_remote
 
         return authorize_remote(parsed)

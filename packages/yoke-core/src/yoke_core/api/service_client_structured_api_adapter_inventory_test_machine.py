@@ -10,7 +10,7 @@ TEST_MACHINE_ADAPTERS = [
     AdapterEntry(
         function_id="test_machine.desktop_access",
         cli_invocation=(
-            "yoke test-machine desktop-access --project P --machine NAME [--view]"
+            "yoke test-machine desktop-access --project P --test-machine TEST_MACHINE [--view]"
         ),
     ),
     read_entry(
@@ -19,42 +19,42 @@ TEST_MACHINE_ADAPTERS = [
     ),
     read_entry(
         function_id="test_machine.get",
-        cli_invocation=("yoke test-machine get --project P [--machine NAME] [--json]"),
+        cli_invocation=("yoke test-machine get --project P [--test-machine TEST_MACHINE] [--json]"),
     ),
     AdapterEntry(
         function_id="test_machine.settings_replace",
         cli_invocation=(
-            "yoke test-machine settings-replace --project P [--machine NAME] --settings-file FILE (--base AS_READ_JSON | --new) [--json]"
+            "yoke test-machine settings-replace --project P [--test-machine TEST_MACHINE] --settings-file FILE (--base AS_READ_JSON | --new) [--json]"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.verify",
         cli_invocation=(
-            "yoke test-machine verify --project P [--machine NAME] [--json]"
+            "yoke test-machine verify --project P [--test-machine TEST_MACHINE] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.reset",
         cli_invocation=(
-            "yoke test-machine reset --project P [--machine NAME] [--baseline fresh-host|shell-preconfigured] [--json]"
+            "yoke test-machine reset --project P [--test-machine TEST_MACHINE] [--baseline fresh-host|shell-preconfigured] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.golden_capture",
         cli_invocation=(
-            "yoke test-machine golden-capture --project P [--machine NAME] [--destination /abs/path] [--probes-file FILE] [--json]"
+            "yoke test-machine golden-capture --project P [--test-machine TEST_MACHINE] [--destination /abs/path] [--probes-file FILE] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.bridge_diagnose",
         cli_invocation=(
-            "yoke test-machine bridge-diagnose --project P [--machine NAME] [--json]"
+            "yoke test-machine bridge-diagnose --project P [--test-machine TEST_MACHINE] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.screenshot",
         cli_invocation=(
-            "yoke test-machine screenshot --project P [--machine NAME] [--json]"
+            "yoke test-machine screenshot --project P [--test-machine TEST_MACHINE] [--json]"
         ),
     ),
 ]

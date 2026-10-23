@@ -56,7 +56,7 @@ authorized environment; command checkouts retain the admitted source.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Bring live rows to their plan's current text, retaining QA run history; corrects cases a live walk has not reached and refuses by name rather than move a case a walk reached or an answered admitted copy |
-| `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--resume-execution-id ID --continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [--test-machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--resume-execution-id ID --continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
 | `yoke qa plan review-submit` | `[--item PREFIX-N] --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic PREFIX-N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
@@ -92,10 +92,10 @@ lease. Correct the case or plan and rerun the same command; no manual abort is
 needed. A successful capture that needs visual judgment still waits for the
 independent agent review described below.
 
-Machine QA cases may declare `"machine":"test-mac-pro"` in `method_config`.
+Machine QA cases may declare `"test_machine":"test-mac-pro"` in `method_config`.
 Authoring validates the project's registered machine and materialization adds
 `test-machine:test-mac-pro` to the requirement capability set. A run-level
-`--machine` must match every case constraint; an uninterrupted plan lease
+`--test-machine` must match every case constraint; an uninterrupted plan lease
 cannot serve cases that require different machines.
 
 A Command case is executed live rather than collected. `--base-url`

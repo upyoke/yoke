@@ -1,7 +1,11 @@
 {
  "id": "session-placement",
  "title": "Session placement",
- "status": "draft-copy",
+ "status": "observed",
  "page": "test-machine-execution",
- "position": 2
+ "position": 2,
+ "summary": "A test machine is a QA host reached only through its lease; it is never a launch target. When a mission installs Yoke on a test machine and connects it, the walker runs `yoke qa mission connected-machine` (add --test-machine for a declared companion) right after the connect step succeeds. It reads that host's $HOME/.yoke/config.json machine_id, verifies a live Machine registered on this control plane at or after the mission run began, records it on the mission docket as connected_machine and prints the machine_id with its launch hint; session launches pass that id to --machine. It refuses connected_machine_absent (the install never connected: no launch target), connected_machine_unregistered (connected to another Yoke) or connected_machine_predates_mission (not created by this mission), each with its recovery. walk-end records an unrecorded driver Machine before restore and retires only the docket's connected_machine, recording connected_machine_retirement in the fixture_project_disposal receipt; a Machine it may not retire stays live with the owner's `yoke machine retire <id> --confirm` recovery printed as connected_machine_not_retired.",
+ "commands": ["yoke qa mission connected-machine", "yoke qa mission walk-end", "yoke session-control launch create"],
+ "functions": ["test_machine.mission.record_connected_machine", "test_machine.mission.dispose_projects"],
+ "sources": ["docs/public/verification/exploration.md", "docs/public/verification/exploration-evidence.md", "packages/yoke-core/src/yoke_core/domain/agent_mission_connected_machine.py", "runtime/api/domain/test_agent_mission_connected_machine.py"]
 }

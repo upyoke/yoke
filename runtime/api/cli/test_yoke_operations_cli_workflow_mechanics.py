@@ -181,13 +181,13 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
         "get",
         "--project",
         "yoke",
-        "--machine",
+        "--test-machine",
         "mac-mini-lab",
     )
     assert result == 0
     assert request.payload == {
         "project": "yoke",
-        "machine": "mac-mini-lab",
+        "test_machine": "mac-mini-lab",
     }
 
     settings_file = tmp_path / "test-machine.json"
@@ -204,7 +204,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
         "settings-replace",
         "--project",
         "yoke",
-        "--machine",
+        "--test-machine",
         "mac-mini-lab",
         "--settings-file",
         str(settings_file),
@@ -213,7 +213,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
     assert result == 0
     assert request.payload == {
         "project": "yoke",
-        "machine": "mac-mini-lab",
+        "test_machine": "mac-mini-lab",
         "settings": settings,
         "base_settings": None,
     }

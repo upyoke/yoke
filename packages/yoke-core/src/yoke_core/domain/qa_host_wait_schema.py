@@ -26,7 +26,7 @@ LIVE_HOST_WAIT_STATES = ("waiting", "reserved")
 QA_HOST_WAIT_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS qa_host_waits (
     id TEXT PRIMARY KEY,
-    machine_id TEXT NOT NULL,
+    test_machine TEXT NOT NULL,
     session_id TEXT NOT NULL,
     actor_id INTEGER NOT NULL,
     queued_at TIMESTAMPTZ NOT NULL,
@@ -38,10 +38,10 @@ CREATE TABLE IF NOT EXISTS qa_host_waits (
     settled_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_host_waits_live_session
-    ON qa_host_waits(machine_id, session_id)
+    ON qa_host_waits(test_machine, session_id)
     WHERE state IN ('waiting','reserved');
 CREATE INDEX IF NOT EXISTS idx_qa_host_waits_line
-    ON qa_host_waits(machine_id, state, queued_at);
+    ON qa_host_waits(test_machine, state, queued_at);
 """
 
 

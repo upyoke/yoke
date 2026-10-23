@@ -66,7 +66,7 @@ def _help_epilogue() -> str:
         "An aborted or errored walk's bundle contains its completed captures;\n"
         "review them with verdicts while the execution stays terminal.\n"
         "Host contention is a hold, never a verdict (including agent_only).\n"
-        'Submit {"host_wait":{"machine":"NAME","rationale":"holder evidence"}}\n'
+        'Submit {"host_wait":{"test_machine":"NAME","rationale":"holder evidence"}}\n'
         "alone to keep requirements open and queue a fresh mission in FIFO order."
     )
 

@@ -55,9 +55,9 @@ def test_macos_driver_begins_and_resumes_with_linux_companion(
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
     leases = execution_host_leases(test_db, current)
-    assert {claim.target.machine_id for claim in leases} == set(support.MACHINES)
+    assert {claim.target.test_machine for claim in leases} == set(support.MACHINES)
     driver = next(
-        claim for claim in leases if claim.target.machine_id == support.MACHINES[1]
+        claim for claim in leases if claim.target.test_machine == support.MACHINES[1]
     )
     assert response.result_payload["execution"]["lease_id"] == driver.id
     resumed = support._case_begin(current)
@@ -105,7 +105,7 @@ def test_multi_host_resume_never_recovers_a_companion_override():
     conn = Mock()
     case = {
         "instructions": "Inspect linux-lab.",
-        "method_config": {"machine": "test-mac", "machines": ["linux-lab", "test-mac"]},
+        "method_config": {"test_machine": "test-mac", "test_machines": ["linux-lab", "test-mac"]},
     }
     assert (
         execution_machine(conn, {"id": "resumed", "machine_lease_id": 42}, case) is None

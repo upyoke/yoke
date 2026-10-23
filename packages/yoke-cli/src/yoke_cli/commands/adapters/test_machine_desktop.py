@@ -15,7 +15,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 
 DESKTOP_ACCESS_USAGE = (
-    "yoke test-machine desktop-access --project P --machine NAME [--view]"
+    "yoke test-machine desktop-access --project P --test-machine TEST_MACHINE [--view]"
 )
 
 
@@ -56,7 +56,8 @@ def test_machine_desktop_access(args: list[str]) -> int:
         help="Project that owns the test machine.",
     )
     parser.add_argument(
-        "--machine",
+        "--test-machine",
+        metavar="TEST_MACHINE",
         required=True,
         help="Test machine to open, by name.",
     )
@@ -73,7 +74,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
     response = call_dispatcher(
         function_id="test_machine.desktop_access",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "machine": parsed.machine},
+        payload={"project": parsed.project, "test_machine": parsed.test_machine},
         actor=build_actor(session_id=parsed.session_id),
     )
     if not response.success:

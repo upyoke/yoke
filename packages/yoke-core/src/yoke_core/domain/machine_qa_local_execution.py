@@ -202,7 +202,7 @@ def execute_machine_case_contract(
             error_code="qa_host_abort_requested",
             evidence={
                 "runner_id": "host_control",
-                "machine": machine,
+                "test_machine": machine,
                 "method_id": case.method_id,
                 "baseline": contract.baselines[0] if contract.baselines else None,
                 "abort": {"reason": str(exc), "host_work_stopped": True},

@@ -29,7 +29,7 @@ version with a level-less stage, with its exact
 `yoke workflows item migrate PREFIX-N --version N --preview` recipe:
 
 ```text
-yoke session-control launch preview --project P --level SENIOR [--machine M] --json
+yoke session-control launch preview --project P --level SENIOR [--machine MACHINE_ID] --json
 yoke session-control launch create --project P --item PREFIX-N --idempotency-key K
 yoke session-control launch list --project P --item PREFIX-N   # launches that staffed the item
 ```
@@ -64,7 +64,10 @@ takes. Each pool shows quota left, headroom, the live workers drawing on it
 (`workers`) with the per-worker split (`share_percent`), and its reset in
 UTC; an option's `headroom_percent` is its binding pool's split. The
 stored launch keeps the level as its ask, and `launch retry` places the
-level again. `--machine` narrows placement to one machine.
+level again. `--machine` narrows placement to one registered Machine; pass
+its id. A retired Machine never matches, and a name shared by several live
+Machines refuses `machine_unresolved` listing each candidate id. A test
+machine is not a Machine: it is reached through its QA lease.
 
 On an item-bound create, `--surface S` without `--model` uses the live
 effective stage level and restricts placement to S. It never records an item

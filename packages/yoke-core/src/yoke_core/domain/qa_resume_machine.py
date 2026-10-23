@@ -19,11 +19,11 @@ def run_machine(conn: Any, raw: str) -> str | None:
         return None
     if not isinstance(document, dict):
         return None
-    machine = (document.get("evidence") or {}).get("machine")
+    machine = (document.get("evidence") or {}).get("test_machine")
     if machine:
         return validate_test_machine_resource_name(machine)
     lease = (document.get("host_control_submission") or {}).get("lease_id")
-    return get_claim(conn, int(lease)).target.machine_id if lease else None
+    return get_claim(conn, int(lease)).target.test_machine if lease else None
 
 
 def execution_machine(
@@ -68,7 +68,7 @@ def execution_machine(
         if execution.get("machine_lease_id"):
             machine = get_claim(
                 conn, int(execution["machine_lease_id"])
-            ).target.machine_id
+            ).target.test_machine
             if matches(machine):
                 return machine
         results = conn.execute(

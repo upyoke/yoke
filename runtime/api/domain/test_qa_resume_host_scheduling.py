@@ -30,7 +30,7 @@ def test_resumed_platform_retains_host_and_new_platform_selects_normally(
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
-        lambda *a: SimpleNamespace(target=SimpleNamespace(machine_id="test-mac")),
+        lambda *a: SimpleNamespace(target=SimpleNamespace(test_machine="test-mac")),
     )
     released = Mock()
     monkeypatch.setattr("yoke_core.domain.qa_plan_host_leases.release", released)
@@ -66,7 +66,7 @@ def test_resumed_single_platform_keeps_live_lease(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.qa_plan_host_leases.get_claim",
-        lambda *a: SimpleNamespace(target=SimpleNamespace(machine_id="linux-lab")),
+        lambda *a: SimpleNamespace(target=SimpleNamespace(test_machine="linux-lab")),
     )
     monkeypatch.setattr(protocol, "plan_case_contract_arguments", lambda *a, **k: {})
     continuation = Mock()
@@ -92,7 +92,7 @@ def test_begin_accepts_multi_host_roster_without_a_global_pin(monkeypatch):
     result = validate_begun_execution(
         {
             "requirements": [
-                {"method_config": {"machine": host}}
+                {"method_config": {"test_machine": host}}
                 for host in ["linux-lab", "test-mac"]
             ],
             "execution_target": {},
@@ -189,7 +189,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
         run_id = test_db.execute(
             "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,raw_result,started_at,completed_at,created_at) "
             "VALUES (%s,'host_control','plan_case','pass',%s,now(),now(),now()) RETURNING id",
-            (requirement_id, json.dumps({"evidence": {"machine": host}})),
+            (requirement_id, json.dumps({"evidence": {"test_machine": host}})),
         ).fetchone()[0]
         advance_plan_execution(
             test_db,
@@ -206,7 +206,7 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
             wait = record_host_wait(
                 test_db, execution, machine="mac-mini-lab", rationale="next platform"
             )
-            assert "--machine" not in wait["host_wait"]["resume_command"]
+            assert "--test-machine" not in wait["host_wait"]["resume_command"]
             resumed = begin()
             assert resumed["id"] == execution["id"]
             execution = resumed

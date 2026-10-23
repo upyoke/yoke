@@ -209,7 +209,7 @@ def test_campaign_environments_differ_only_in_bound_template_values() -> None:
     baseline = deepcopy(list(INSTALLER_CAMPAIGN_CASES))
     admission = deepcopy(list(MACHINE_ADMISSION_CASES))
     for case in baseline + admission:
-        case["method_config"]["machine"] = "primary-test"
+        case["method_config"]["test_machine"] = "primary-test"
     recovery = recovery_cases(
         primary_machine="primary-test", joining_machine="joining-test"
     )

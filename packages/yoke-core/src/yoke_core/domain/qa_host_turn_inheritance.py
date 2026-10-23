@@ -37,7 +37,7 @@ def held_host_place(
         conn,
         "SELECT MIN(place) AS place FROM ("
         "SELECT w.queued_at AS place FROM qa_host_waits w "
-        f"WHERE w.qa_plan_execution_id={p} AND w.machine_id={p} "
+        f"WHERE w.qa_plan_execution_id={p} AND w.test_machine={p} "
         "AND w.state='granted' UNION ALL "
         f"SELECT wc.claimed_at FROM work_claims wc WHERE {where} "
         f"AND wc.session_id={p} AND wc.claimed_at>={p}"

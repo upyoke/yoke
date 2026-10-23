@@ -44,7 +44,7 @@ REQUIRED_SCOPE_KEYS = {
     TARGET_KIND_PROCESS: frozenset({"process_key", "conflict_group"}),
     TARGET_KIND_STEERING: frozenset({"project_id"}),
     TARGET_KIND_MIGRATION_SERIALIZATION: frozenset({"project_id", "model", "item_id"}),
-    TARGET_KIND_QA_ADMISSION: frozenset({"machine_id"}),
+    TARGET_KIND_QA_ADMISSION: frozenset({"test_machine"}),
     TARGET_KIND_ROUTE_QUALIFICATION: frozenset({"project_id", "grant_key"}),
     TARGET_KIND_DEPLOY_SERIALIZATION: frozenset({"project_id", "project_slug"}),
 }
@@ -121,7 +121,7 @@ def normalize_scope(kind: str, scope: Mapping[str, Any]) -> Dict[str, Any]:
             "item_id": positive_integer(raw["item_id"], "item_id"),
         }
     if kind == TARGET_KIND_QA_ADMISSION:
-        return {"machine_id": nonempty_text(raw["machine_id"], "machine_id")}
+        return {"test_machine": nonempty_text(raw["test_machine"], "test_machine")}
     if kind == TARGET_KIND_ROUTE_QUALIFICATION:
         return {
             "project_id": positive_integer(raw["project_id"], "project_id"),

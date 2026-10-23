@@ -48,7 +48,7 @@ def _machine_label(raw: object) -> Optional[str]:
         metadata = raw if isinstance(raw, dict) else json.loads(str(raw or "{}"))
     except (TypeError, ValueError):
         return None
-    for key in ("machine", "machine_name", "host", "host_baseline"):
+    for key in ("test_machine", "machine_name", "host", "host_baseline"):
         value = metadata.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()

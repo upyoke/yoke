@@ -111,7 +111,10 @@ def execute_plan(
             payload=materialize_payload,
             actor=resolved_actor,
         )
-    for key, value in (("machine", machine), ("continue_mission", continue_mission)):
+    for key, value in (
+        ("test_machine", machine),
+        ("continue_mission", continue_mission),
+    ):
         if value:
             begin_payload[key] = value
     if recovery_file:

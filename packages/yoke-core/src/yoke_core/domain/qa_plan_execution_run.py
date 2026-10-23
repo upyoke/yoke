@@ -141,7 +141,7 @@ def execute_begun_plan(
                 result = None
                 if requirement.get("runner_id") == "worktree_run" and (
                     requirement.get("method_config") or {}
-                ).get("machine"):
+                ).get("test_machine"):
                     result = begin_command_host(
                         requirement,
                         execution_id=execution_id,

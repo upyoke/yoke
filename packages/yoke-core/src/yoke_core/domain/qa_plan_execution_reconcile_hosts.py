@@ -98,8 +98,8 @@ def host_recovery_refusal(
     if baseline and case.get("starting_state") != "as_is":
         lead = "reset each held host to the interrupted case's declared baseline"
         steps = [
-            f"yoke test-machine reset --project {project} --machine "
-            f"{lease.target.machine_id} --baseline {baseline}"
+            f"yoke test-machine reset --project {project} --test-machine "
+            f"{lease.target.test_machine} --baseline {baseline}"
             for lease in leases
         ]
     else:

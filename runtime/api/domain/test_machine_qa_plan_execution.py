@@ -284,7 +284,7 @@ def test_machine_lease_acquisition_defers_commit_until_plan_attachment(
                 execution_id=str(execution["id"]),
                 ordinal=0,
                 requirement_id=int(case["requirement_id"]),
-                payload={"machine": "mac-mini-lab"},
+                payload={"test_machine": "mac-mini-lab"},
             )
         )
 
@@ -337,7 +337,7 @@ def test_active_plan_lease_refuses_a_different_machine_pin(
             execution_id=str(execution["id"]),
             ordinal=0,
             requirement_id=int(case["requirement_id"]),
-            payload={"machine": "mac-studio-lab"},
+            payload={"test_machine": "mac-studio-lab"},
         )
     )
     assert not mismatch.primary_success

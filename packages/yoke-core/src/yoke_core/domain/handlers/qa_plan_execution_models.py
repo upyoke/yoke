@@ -17,7 +17,7 @@ class PlanExecutionBeginRequest(BaseModel):
     expected_branch: str | None = None
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
-    machine: str | None = Field(default=None, min_length=1)
+    test_machine: str | None = Field(default=None, min_length=1)
     #: Resume a stale-settled mission on its existing roster and host.
     continue_mission: bool = False
 

@@ -76,7 +76,7 @@ def test_each_machine_has_an_independent_read_and_verification_receipt() -> None
     assert [row["capability_type"] for row in listing["machines"]] == [
         _machine_type(machine) for machine in MACHINES
     ]
-    with pytest.raises(MachineCapabilityError, match="pass --machine NAME"):
+    with pytest.raises(MachineCapabilityError, match="pass --test-machine TEST_MACHINE"):
         read_test_machine_detail(conn, project="yoke")
     selected = read_test_machine_detail(
         conn,

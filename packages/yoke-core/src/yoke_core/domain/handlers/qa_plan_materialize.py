@@ -194,7 +194,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                             "delivery": "failed",
                             "recovery": f"Correction is durable but holder wake failed: {exc}. "
                             f"Run the corrected case for {run_id} stage "
-                            f"{payload.deployment_stage} with --machine NAME from the failed "
+                            f"{payload.deployment_stage} with --test-machine TEST_MACHINE from the failed "
                             "attempt's QA run evidence, and inspect the run.",
                         }
             elif (

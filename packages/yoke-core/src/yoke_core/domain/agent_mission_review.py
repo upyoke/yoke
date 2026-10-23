@@ -15,6 +15,7 @@ from yoke_core.domain.agent_mission_browser_identities import (
     mission_browser_settings,
     walker_identity_dispatch,
 )
+from yoke_core.domain.agent_mission_connected_machine import walker_connected_machine
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_mission_stop_settlement import stopped_mission_guidance
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
@@ -104,9 +105,9 @@ def _walker_dispatch(
         f"--requirement-id {int(case['requirement_id'])}"
     )
     walk_start_command = f"yoke qa mission walk-start {walk_flags}"
-    walk_end_command = (
-        f"yoke qa mission walk-end {walk_flags} --run-id {int(case['capture_run_id'])}"
-    )
+    run_id = int(case["capture_run_id"])
+    walk_end_command = f"yoke qa mission walk-end {walk_flags} --run-id {run_id}"
+    connected_command, connected_clause = walker_connected_machine(walk_flags, run_id)
     browser_intro = (
         "For named browser identities, use the managed browser. Set it up with "
         if identities
@@ -122,11 +123,11 @@ def _walker_dispatch(
         "project the host registers, cancels its open items and retires it, "
         "and records a fixture_project_disposal receipt on the run. List "
         "them in `created_projects`, and run walk-end even when the walk "
-        "stops early. Choose the sequence and use every "
+        f"stops early. {connected_clause}Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
         "return a ranked findings report as the primary deliverable to the "
         "main mission owner. If another item holds a required host, do nothing "
-        "on that host and return WALK_STATUS: HOST_WAIT with its registered "
+        "on that host and return WALK_STATUS: HOST_WAIT with its test "
         "machine name and lease evidence; the main owner submits host_wait, "
         "never fail or undetermined for contention. Record OS package changes "
         "through the declared starting-state fixture; do not use SSH around "
@@ -181,6 +182,7 @@ def _walker_dispatch(
         "scratch_path": scratch_path,
         "walk_start_command": walk_start_command,
         "walk_end_command": walk_end_command,
+        "connected_machine_command": connected_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
         "browser_identities": identities,
@@ -191,7 +193,7 @@ def _walker_dispatch(
         "result_schema": {
             "walk_status": "COMPLETE|HUMAN_GATE|HOST_WAIT|UNDETERMINED",
             "report": "ranked findings and unverified areas",
-            "host_wait": "machine name and holder evidence for HOST_WAIT",
+            "host_wait": "test machine name and holder evidence for HOST_WAIT",
             "created_projects": "slug of every Yoke project the walk created",
             "needed_action": "required for HUMAN_GATE",
             "resume_state": "required for HUMAN_GATE",
@@ -337,7 +339,7 @@ def agent_mission_dispatch_contract(
         },
         "prompt": prompt,
         "host_wait_schema": {
-            "host_wait": {"machine": "registered name", "rationale": "lease evidence"}
+            "host_wait": {"test_machine": "test machine name", "rationale": "lease evidence"}
         },
         "submit_command": submit_command,
     }

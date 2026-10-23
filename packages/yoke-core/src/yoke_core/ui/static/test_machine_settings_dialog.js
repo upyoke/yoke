@@ -165,7 +165,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
         "test_machine.settings_replace",
         {
           project: detail.project,
-          machine: detail.machine,
+          test_machine: detail.machine,
           settings: Object.fromEntries(
             Object.entries(inputs)
               .filter(([key, input]) => (

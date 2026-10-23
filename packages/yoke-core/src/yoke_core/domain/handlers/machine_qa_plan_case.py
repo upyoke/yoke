@@ -113,7 +113,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"} and not (
             case.get("runner_id") == "worktree_run"
-            and (case.get("method_config") or {}).get("machine")
+            and (case.get("method_config") or {}).get("test_machine")
         ):
             raise ValueError("the ordered plan case is not machine-backed")
         from yoke_core.domain.qa_plan_case_chain import settle_without_machine
@@ -139,7 +139,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 execution,
                 case,
                 ordinal=parsed.ordinal,
-                machine=parsed.machine,
+                machine=parsed.test_machine,
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )

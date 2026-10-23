@@ -54,7 +54,7 @@ def _run(monkeypatch, contract, *, outcome="passed", reset_ok=True, raises=None)
         return MachineCaseResult(
             case_outcome=outcome,
             verdict=verdict,
-            evidence={"runner_id": "host_control", "machine": "mac-mini-lab"},
+            evidence={"runner_id": "host_control", "test_machine": "mac-mini-lab"},
             error_code="check_failed" if outcome == "failed" else None,
         )
 

@@ -48,8 +48,8 @@ At `--timeout-seconds` (default 60, at most 900) a `--gui-session` command's
 whole process tree is stopped; a Yoke `setup`, `connect` or `onboard` that may
 wait on approval needs 600+.
 
-Use `--machine NAME` before `--` to command a companion declared in the
-case's `method_config.machines`; omitting it targets the retained driver.
+Use `--test-machine NAME` before `--` to command a companion declared in the
+case's `method_config.test_machines`; omitting it targets the retained driver.
 Every declared host must still have its execution-owned lease. An outside
 host is refused with `mission_machine_not_declared`, naming the allowed set.
 Companion commands use that host's lease without resetting it or staging
@@ -145,6 +145,35 @@ command an administrator runs.
 If a mission removes a fixture before `walk-end`, release its claims and
 dispose of its lanes before running `yoke project uninstall`, then retire the
 project.
+
+### Connected Machine retirement
+
+A walk that connects the Test Machine's Yoke install here registers a Yoke
+Machine. Right after the connect step, the walker's
+`yoke qa mission connected-machine` reads the host's `machine_id` and
+`test_machine.mission.record_connected_machine` stores it on the mission's
+docket as `connected_machine` (`machine_id`, `name`, `registered_at`,
+`recorded_at`). It records only a live Machine on this control plane that was
+registered at or after the docket, which proves this mission's connect created
+it. The command prints that `machine_id`: a session launch's `--machine`
+takes it, while the Test Machine itself is reached only through its lease.
+
+`walk-end` reads the host's `machine_id` before its restore erases it and
+passes it to `test_machine.mission.dispose_projects`. That function records
+the Machine when the walker did not, then retires exactly the docket's
+`connected_machine` with the walking actor's authority and revokes its
+credentials. The result `fixture_project_disposal` receipt names
+`connected_machine_retirement: {machine_id, outcome, recovery}`:
+
+- `retired` or `already_retired` — the mission's Machine is retired;
+- `none_recorded` — the walk connected no install;
+- `skipped_predates_mission` or `unregistered` — the Machine is older than the
+  mission or belongs to another control plane, so it is left untouched;
+- `forbidden` — the walking actor neither owns nor administers the Machine.
+  Cleanup continues; walk-end prints `connected_machine_not_retired` and the
+  Machine's owner runs `yoke machine retire MACHINE_ID --confirm`.
+
+No other Machine is touched, including a live Machine with the same name.
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

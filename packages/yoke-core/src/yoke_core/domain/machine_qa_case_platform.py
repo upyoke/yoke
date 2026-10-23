@@ -129,7 +129,7 @@ def case_platform(
         "test_machine_platform_undeclared: case "
         f"{case.get('case_key') or case.get('requirement_id') or 'unknown'} "
         "has no declared platform; set method_config.os to linux, macos or windows, "
-        "or set method_config.machine to a registered Test Machine with an os"
+        "or set method_config.test_machine to a registered Test Machine with an os"
     )
 
 
@@ -170,6 +170,6 @@ def matching_platform_hosts(
             f"test_machine_platform_unavailable: QA requires {platform}; "
             f"selected registered hosts: {available}. Register and verify a "
             f"{platform} Test Machine for this project, then rerun with its "
-            "--machine NAME; correct any incompatible case or run pin first"
+            "--test-machine TEST_MACHINE; correct any incompatible case or run pin first"
         )
     return matching

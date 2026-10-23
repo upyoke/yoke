@@ -162,7 +162,7 @@ def begin_host_control_execution(
         raise MachineQaProtocolError(
             "host-control execution requires an owning session"
         )
-    if any((case.get("method_config") or {}).get("machines") for case in cases):
+    if any((case.get("method_config") or {}).get("test_machines") for case in cases):
         raise MachineQaProtocolError(
             "test_machine_set_requires_plan: run this simultaneous-host case "
             "through yoke qa plan run so every declared host is leased together"
@@ -220,7 +220,7 @@ def _validate_lease_owner(
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "no lease was issued with that id")
         ) from exc
-    machine_id = lease.target.machine_id
+    machine_id = lease.target.test_machine
     if machine_id is None:
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "it does not name a machine")

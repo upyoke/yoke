@@ -53,8 +53,8 @@ def _case(key, driver, *, machines=None, inherit=False):
         "expected_outcome": "The check passes.",
         "method_config": {
             **_terminal_recipe(),
-            "machine": driver,
-            **({"machines": list(machines)} if machines else {}),
+            "test_machine": driver,
+            **({"test_machines": list(machines)} if machines else {}),
         },
         "entry_surface": "printf done",
         "required_completion": "complete",

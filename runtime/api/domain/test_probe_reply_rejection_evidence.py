@@ -120,7 +120,7 @@ def _blocked_result(probe_evidence: dict) -> MachineCaseResult:
         case_outcome="blocked_on_precondition",
         verdict="blocked",
         evidence={
-            "machine": "test-mac",
+            "test_machine": "test-mac",
             "case_started": False,
             "starting_state_reset": {
                 "baseline": "fresh-host",

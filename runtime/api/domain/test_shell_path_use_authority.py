@@ -159,7 +159,7 @@ def test_client_home_never_resolves_against_server_home(
 
 
 def test_remote_metadata_keeps_local_output_authority(isolated_authority):
-    command = "yoke test-machine exec --project sample --machine worker -- df -k /remote/.private"
+    command = "yoke test-machine exec --project sample --test-machine worker -- df -k /remote/.private"
     assert not analyze_shell_path_use(command).inspection_only
     assert evaluate(command + f" > {HOME}/.yoke/out").outcome is Outcome.DENY
 

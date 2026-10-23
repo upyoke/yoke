@@ -31,7 +31,7 @@ HOST_WAIT_TEACHING = (
 
 def host_heal_commands(machine: str) -> str:
     """Repair readiness without replacing the machine's sealed baseline."""
-    return f"`yoke test-machine verify --machine {machine} --project PROJECT`"
+    return f"`yoke test-machine verify --test-machine {machine} --project PROJECT`"
 
 
 def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:

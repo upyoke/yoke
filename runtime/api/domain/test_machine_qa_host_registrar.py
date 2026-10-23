@@ -97,7 +97,7 @@ def test_registering_a_host_a_second_project_already_operates_is_refused() -> No
         settings=_settings("mac-studio-lab"),
         base_settings=None,
     )
-    assert host_claim_target("mac-studio-lab").machine_id == "mac-studio-lab"
+    assert host_claim_target("mac-studio-lab").test_machine == "mac-studio-lab"
 
 
 def test_re_saving_settings_for_an_own_host_is_not_a_duplicate_registration() -> None:

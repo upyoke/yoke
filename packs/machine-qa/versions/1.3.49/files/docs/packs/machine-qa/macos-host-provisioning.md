@@ -29,7 +29,7 @@ Restrict remote access to the execution machines; do not expose SSH or VNC by
 router forwarding. Enable Screen Sharing for the dedicated account when needed.
 
 Register `test-machine:<name>` using `yoke test-machine settings-replace
---project P --machine NAME --settings-file FILE --new`; read `--help` before
+--project P --test-machine NAME --settings-file FILE --new`; read `--help` before
 an update, which uses the as-read settings token. Declare `resource_name`,
 `os=macos`, `host`, `user`, and an eventual absolute `golden_baseline_path`
 outside that user's home. Desktop settings are `desktop_route`,
@@ -42,8 +42,8 @@ On every QA execution workstation, store the project's shared SSH private key:
 ```text
 yoke projects capability secret set --project P --cap-type test-machine --key ssh_private_key --value-file KEY_FILE
 yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE
-yoke test-machine get --project P --machine NAME
-yoke test-machine exec --project P --machine NAME -- /usr/bin/true
+yoke test-machine get --project P --test-machine NAME
+yoke test-machine exec --project P --test-machine NAME -- /usr/bin/true
 ```
 
 Read each command's `--help`. The shared public key authorizes all project test
@@ -53,7 +53,7 @@ the capability-owned private key is missing. A serial host lease held by
 another session must be released before preparation or ad hoc access.
 
 For operator desktop access, use `yoke test-machine desktop-access --project P
---machine NAME`. Read `--help`, open its returned address in Screen Sharing,
+--test-machine NAME`. Read `--help`, open its returned address in Screen Sharing,
 and use the password from its private mode-0600 `password_file`, never output
 the file. If the route uses SSH forwarding, close the returned control socket
 after use: `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`.
@@ -183,8 +183,8 @@ Disable Terminal → Secure Keyboard Entry. Prove control through the registered
 operation that needs it, not a permission-row inventory:
 
 ```text
-yoke test-machine bridge-diagnose --project P --machine NAME
-yoke test-machine screenshot --project P --machine NAME --json
+yoke test-machine bridge-diagnose --project P --test-machine NAME
+yoke test-machine screenshot --project P --test-machine NAME --json
 ```
 
 Read `--help`; these take the host lease. Diagnosis creates/drives a temporary
@@ -248,7 +248,7 @@ Choose a new absolute destination outside the test home, in a separate new paren
 delete unregistered siblings. Preserve old/failed captures and sidecars:
 
 ```text
-yoke test-machine golden-capture --project P --machine NAME --destination /Users/Shared/yoke-golden-DATE-UNIQUE/home
+yoke test-machine golden-capture --project P --test-machine NAME --destination /Users/Shared/yoke-golden-DATE-UNIQUE/home
 ```
 
 Read `--help` for default destination and custom probes. Probes run in the GUI
@@ -299,9 +299,9 @@ registered reset's responsibility; partial clear/copy is a failed operation.
 These commands are **destructive**, deliberately authorized provisioning work:
 
 ```text
-yoke test-machine verify --project P --machine NAME
-yoke test-machine reset --project P --machine NAME --baseline fresh-host
-yoke test-machine get --project P --machine NAME
+yoke test-machine verify --project P --test-machine NAME
+yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
+yoke test-machine get --project P --test-machine NAME
 ```
 
 Read their `--help`. Verify reaches both baselines and ends `shell-preconfigured`
@@ -337,7 +337,7 @@ desktop browser sign-ins. It opens tabs only for expired sites and names the
 account to use. Desktop browser sign-ins stay live through reset and are
 excluded from golden snapshots.
 
-The remote `--machine NAME` command includes both checks by default; there
+The remote `--test-machine NAME` command includes both checks by default; there
 is no desktop opt-out. Confirm release-matched help and operation receipts
 before relying on an installed release. Before running it, read the complete
 [desktop browser checks](browser-identities.md#desktop-browser-checks) procedure.

@@ -40,13 +40,13 @@ OPERATION_COMMANDS = {
 class TestMachineGetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project: str
-    machine: str | None = None
+    test_machine: str | None = None
 
 
 class TestMachineSettingsReplaceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project: str
-    machine: str | None = None
+    test_machine: str | None = None
     settings: dict[str, Any]
     base_settings: str | None = None
 
@@ -103,7 +103,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         result = test_machine_detail(
             conn,
             project=parsed.project,
-            machine=parsed.machine,
+            machine=parsed.test_machine,
         )
     except TestMachineCapabilityError as exc:
         return _failure("test_machine_unavailable", str(exc))
@@ -122,7 +122,7 @@ def handle_settings_replace(request: FunctionCallRequest) -> HandlerOutcome:
         result = replace_test_machine_settings(
             conn,
             project=parsed.project,
-            machine=parsed.machine,
+            machine=parsed.test_machine,
             settings=parsed.settings,
             base_settings=parsed.base_settings,
         )
@@ -157,7 +157,9 @@ def handle_operation_on_control_plane(
             "test_machine_operation_unknown",
             f"{request.function!r} is not an operator-run test-machine operation",
         )
-    selector = f" --machine {parsed.machine}" if parsed.machine else ""
+    selector = (
+        f" --test-machine {parsed.test_machine}" if parsed.test_machine else ""
+    )
     return _failure(
         "host_control_client_required",
         f"test-machine {operation.replace('_', ' ')} cannot execute on "

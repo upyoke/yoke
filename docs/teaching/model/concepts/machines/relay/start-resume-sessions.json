@@ -1,7 +1,10 @@
 {
  "id": "start-resume-sessions",
  "title": "Start / resume sessions",
- "status": "draft-copy",
+ "status": "observed",
  "page": "machines",
- "position": 1
+ "position": 1,
+ "summary": "Launch --machine takes a registered Machine id (`yoke machine list`); a registered name or relay hostname resolves only when exactly one live Machine carries it. Retired Machines never match. Zero or several matches refuse machine_unresolved: several list each live candidate id with its name and last_seen_at, and a value naming a test machine adds that test machines are reached through their QA lease and points to the Machine id `yoke qa mission connected-machine` recorded.",
+ "commands": ["yoke session-control launch create", "yoke session-control launch preview", "yoke machine list"],
+ "sources": ["docs/machine-registry.md", "docs/public/agents/level-launches.md", "packages/yoke-core/src/yoke_core/domain/session_launch_machine_pin.py", "runtime/api/domain/test_session_launch_machine_pin.py"]
 }

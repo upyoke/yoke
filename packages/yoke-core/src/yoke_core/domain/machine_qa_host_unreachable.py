@@ -34,7 +34,7 @@ def unreachable_submission(
 
     evidence = {
         "runner_id": "host_control",
-        "machine": contract.settings["resource_name"],
+        "test_machine": contract.settings["resource_name"],
         "baseline": contract.baselines[0] if contract.baselines else None,
         "case_started": False,
         "host_unreachable": {"detail": str(error), "recovery": error.recovery_hint},

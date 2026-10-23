@@ -48,7 +48,7 @@ def _insert_claim(conn, **kwargs) -> None:
         (
             kwargs["session_id"],
             kwargs.get("target_kind", "qa_admission"),
-            kwargs.get("scope", '{"machine_id":"mac-mini-lab"}'),
+            kwargs.get("scope", '{"test_machine":"mac-mini-lab"}'),
             kwargs["claimed_at"],
             kwargs.get("last_heartbeat"),
             kwargs.get("released_at"),

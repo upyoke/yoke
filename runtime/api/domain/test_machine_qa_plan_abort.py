@@ -190,7 +190,7 @@ def test_server_retains_lease_until_submitted_restore_proof(
     issued = ready.result_payload["execution"]
     evidence = {
         "runner_id": "host_control",
-        "machine": "mac-mini-lab",
+        "test_machine": "mac-mini-lab",
         "method_id": case["method_id"],
         "baseline": issued["baselines"][0] if issued["baselines"] else None,
         "abort": {"host_work_stopped": True},

@@ -153,6 +153,14 @@ relay. A machine with no registry row falls back to whatever that row can
 offer: the plan-limit rows still have the host name its relay reported,
 while the balance and pair rows have only the id.
 
+A Test Machine is a QA host, not a registered Machine: it is reached only
+through its QA lease and is never a launch target. When an exploratory QA
+mission connects a Test Machine's Yoke install, that connect registers a new
+Machine; `yoke qa mission connected-machine` prints its `machine_id`, which is
+the value launch `--machine` takes, and the mission's walk-end retires that
+Machine. See
+[exploratory QA missions](public/verification/exploration.md#connected-yoke-machines).
+
 ## Related surfaces
 
 On macOS, the relay's launchd plist uses the Standard default process type.

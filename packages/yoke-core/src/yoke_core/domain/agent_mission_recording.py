@@ -252,7 +252,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             case,
             ordinal=ordinal,
             actor=request.actor,
-            machine=parsed.machine,
+            machine=parsed.test_machine,
         )
         heartbeat_plan_execution(conn, execution)
         run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)

@@ -16,7 +16,7 @@ def submit_host_wait(
     *,
     bundle_id: str,
     bundle_digest: str,
-    machine: str,
+    test_machine: str,
     rationale: str,
 ) -> dict:
     """Retain the attempt as history, then queue a fresh capture on the same target."""
@@ -55,12 +55,14 @@ def submit_host_wait(
         raise QaPlanReviewError(
             "host_wait_requires_mission: deterministic captures cannot declare this hold"
         )
-    load_test_machine_contract(conn, project=str(roster[0]["project"]), machine=machine)
-    target = host_claim_target(machine)
+    load_test_machine_contract(
+        conn, project=str(roster[0]["project"]), machine=test_machine
+    )
+    target = host_claim_target(test_machine)
     targets = [target]
     if execution.get("machine_lease_id") is not None:
         targets.append(get_claim(conn, int(execution["machine_lease_id"])).target)
-    for candidate in sorted(targets, key=lambda value: str(value.machine_id)):
+    for candidate in sorted(targets, key=lambda value: str(value.test_machine)):
         lock_host_turn(conn, candidate)
     held = active_claim(conn, target)
     if held is None or held.session_id == execution["session_id"]:
@@ -79,7 +81,7 @@ def submit_host_wait(
         f"release_reason={p},machine_lease_id=NULL WHERE id={p}",
         (
             stored_now,
-            "blocked-on-host:" + machine + ": " + rationale,
+            "blocked-on-host:" + test_machine + ": " + rationale,
             str(execution["id"]),
         ),
     )
@@ -108,7 +110,7 @@ def submit_host_wait(
     )
     fresh = select_plan_execution(conn, str(values["id"]), lock=False)
     result = record_host_wait(
-        conn, fresh, machine=machine, rationale=rationale, commit=False
+        conn, fresh, machine=test_machine, rationale=rationale, commit=False
     )
     if execution.get("machine_lease_id") is not None:
         release(

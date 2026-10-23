@@ -28,7 +28,7 @@ def release_host_claim(
     with savepoint(conn, "_yoke_manual_host_release", owns=commit):
         claim = get_claim(conn, claim_id)
         executions = []
-        if claim.target.machine_id and _table_exists(conn, "qa_plan_executions"):
+        if claim.target.test_machine and _table_exists(conn, "qa_plan_executions"):
             companion = (
                 str(claim.reason)[len(HOST_SET_REASON) :]
                 if str(claim.reason or "").startswith(HOST_SET_REASON)

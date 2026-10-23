@@ -114,7 +114,7 @@ def select_test_machine_row(
         available = ", ".join(row.machine for row in rows)
         raise TestMachineCapabilityError(
             f"project {project!r} has multiple test machines: {available}; "
-            "pass --machine NAME"
+            "pass --test-machine TEST_MACHINE"
         )
     return rows[0]
 

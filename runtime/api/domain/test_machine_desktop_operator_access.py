@@ -54,7 +54,7 @@ def request(session_id="steering", actor_id="3"):
         request_id="desktop-assistance",
         actor={"session_id": session_id, "actor_id": actor_id},
         target={"kind": "global"},
-        payload={"project": "example", "machine": "lab"},
+        payload={"project": "example", "test_machine": "lab"},
     )
 
 
@@ -196,7 +196,7 @@ def test_cli_passes_only_route_to_viewer_and_reports_assistance(monkeypatch, cap
     )
     assert (
         cli.test_machine_desktop_access(
-            ["--project", "example", "--machine", "lab", "--view"]
+            ["--project", "example", "--test-machine", "lab", "--view"]
         )
         == 0
     )

@@ -35,7 +35,7 @@ def mission_host_contract(
         lease_id=int(execution["machine_lease_id"]),
         allow_released=False,
     )
-    driver = str(driver_lease.target.machine_id)
+    driver = str(driver_lease.target.test_machine)
     selected = machine if machine is not None else driver
     if selected == driver:
         arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
@@ -50,14 +50,14 @@ def mission_host_contract(
     if selected not in case_machines(case):
         raise ValueError(
             f"mission_machine_not_declared: {selected!r} is outside this case's "
-            f"host set; omit --machine for driver {driver!r} or name one of "
+            f"host set; omit --test-machine for driver {driver!r} or name one of "
             f"{', '.join(case_machines(case))}"
         )
     lease = next(
         (
             claim
             for claim in execution_host_leases(conn, execution)
-            if str(claim.target.machine_id) == selected
+            if str(claim.target.test_machine) == selected
         ),
         None,
     )

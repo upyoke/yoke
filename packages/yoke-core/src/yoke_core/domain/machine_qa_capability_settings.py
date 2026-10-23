@@ -36,7 +36,7 @@ def _target_type(
         selected = validate_test_machine_resource_name(machine)
         if selected != settings_machine:
             raise TestMachineCapabilityError(
-                f"--machine {selected!r} does not match settings resource_name "
+                f"--test-machine {selected!r} does not match settings resource_name "
                 f"{settings_machine!r}"
             )
         return test_machine_capability_type(selected)
@@ -44,12 +44,12 @@ def _target_type(
         available = ", ".join(row.machine for row in rows)
         raise TestMachineCapabilityError(
             f"project {project!r} has multiple test machines: {available}; "
-            "pass --machine NAME"
+            "pass --test-machine TEST_MACHINE"
         )
     if rows and rows[0].machine != settings_machine:
         raise TestMachineCapabilityError(
             f"settings name test machine {settings_machine!r}, but the project has "
-            f"one machine {rows[0].machine!r}; pass --machine "
+            f"one machine {rows[0].machine!r}; pass --test-machine "
             f"{settings_machine} --new to register another machine"
         )
     return test_machine_capability_type(settings_machine)

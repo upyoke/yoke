@@ -323,7 +323,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
         actor=actor,
         machine="mac-studio-lab",
     )
-    assert function_calls[0][1]["machine"] == "mac-studio-lab"
+    assert function_calls[0][1]["test_machine"] == "mac-studio-lab"
     assert [function for function, _payload, _actor in function_calls] == [
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",

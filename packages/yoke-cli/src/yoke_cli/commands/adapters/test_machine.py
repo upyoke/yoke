@@ -27,24 +27,24 @@ from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 
 
 LIST_USAGE = "yoke test-machine list --project P [--json]"
-GET_USAGE = "yoke test-machine get --project P [--machine NAME] [--json]"
+GET_USAGE = "yoke test-machine get --project P [--test-machine TEST_MACHINE] [--json]"
 SETTINGS_REPLACE_USAGE = (
     "yoke test-machine settings-replace --project P "
-    "[--machine NAME] --settings-file FILE "
+    "[--test-machine TEST_MACHINE] --settings-file FILE "
     "(--base AS_READ_JSON | --new) [--json]"
 )
-VERIFY_USAGE = "yoke test-machine verify --project P [--machine NAME] [--json]"
+VERIFY_USAGE = "yoke test-machine verify --project P [--test-machine TEST_MACHINE] [--json]"
 RESET_USAGE = (
-    "yoke test-machine reset --project P [--machine NAME] "
+    "yoke test-machine reset --project P [--test-machine TEST_MACHINE] "
     "[--baseline fresh-host|shell-preconfigured] [--json]"
 )
 GOLDEN_CAPTURE_USAGE = (
-    "yoke test-machine golden-capture --project P [--machine NAME] "
+    "yoke test-machine golden-capture --project P [--test-machine TEST_MACHINE] "
     "[--destination /abs/path] [--probes-file FILE] [--json]"
 )
-SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--machine NAME] [--json]"
+SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--test-machine TEST_MACHINE] [--json]"
 BRIDGE_DIAGNOSE_USAGE = (
-    "yoke test-machine bridge-diagnose --project P [--machine NAME] [--json]"
+    "yoke test-machine bridge-diagnose --project P [--test-machine TEST_MACHINE] [--json]"
 )
 
 
@@ -54,7 +54,11 @@ def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
         "--project", required=True, help="Project that owns the test machine."
     )
     if with_machine:
-        parser.add_argument("--machine", help="Name of the test machine to use.")
+        parser.add_argument(
+            "--test-machine",
+            metavar="TEST_MACHINE",
+            help="Name of the test machine to use.",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -131,7 +135,7 @@ def test_machine_get(args: List[str]) -> int:
     return _dispatch(
         parsed,
         "test_machine.get",
-        {"machine": parsed.machine},
+        {"test_machine": parsed.test_machine},
         attest_local_secrets=True,
     )
 
@@ -180,7 +184,7 @@ def test_machine_settings_replace(args: List[str]) -> int:
         parsed,
         "test_machine.settings_replace",
         {
-            "machine": parsed.machine,
+            "test_machine": parsed.test_machine,
             "settings": settings,
             "base_settings": None if parsed.new else parsed.base_settings,
         },

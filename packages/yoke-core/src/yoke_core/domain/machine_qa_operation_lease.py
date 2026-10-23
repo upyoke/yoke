@@ -72,12 +72,12 @@ def operation_mission(
         baselines=baselines,
     ):
         return execution
-    machine = str(lease.target.machine_id)
+    machine = str(lease.target.test_machine)
     if not same_owner(execution, actor_id=actor.actor_id, session_id=actor.session_id):
         raise MachineQaProtocolError(
             f"mission_operation_foreign_holder: you do not hold the lease on {machine}; "
             f"session {execution['session_id']} holds it for plan {execution['id']}. "
-            "Declare method_config.machine on your QA case and run its scoped plan "
+            "Declare method_config.test_machine on your QA case and run its scoped plan "
             "to acquire the host lease after that holder finishes"
         )
     if execution["state"] == "active":

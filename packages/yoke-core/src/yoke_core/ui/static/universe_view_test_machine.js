@@ -80,7 +80,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
       result = await callFunction(
         context.client,
         "test_machine.verify",
-        { project: detail.project, machine: detail.machine },
+        { project: detail.project, test_machine: detail.machine },
       );
     } catch (error) {
       result = {
@@ -203,7 +203,7 @@ async function loadMachineDetail(
     result = await callFunction(
       context.client,
       "test_machine.get",
-      { project, machine },
+      { project, test_machine: machine },
     );
   } catch (error) {
     result = {

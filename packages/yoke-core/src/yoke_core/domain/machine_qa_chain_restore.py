@@ -74,7 +74,7 @@ def restore_chain_start(case: Any, reach: Any, *, machine: str) -> dict[str, Any
         receipt["recovery"] = (
             f"Test Machine {machine!r} was not returned to "
             f"{case.host_baseline!r}; run `yoke test-machine reset --project "
-            f"{case.project} --machine {machine} --baseline "
+            f"{case.project} --test-machine {machine} --baseline "
             f"{case.host_baseline}` before the next machine QA run uses it"
         )
     return {"restored": bool(receipt["ok"]), **receipt}

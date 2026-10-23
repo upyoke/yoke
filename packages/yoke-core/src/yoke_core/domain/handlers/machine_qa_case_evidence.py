@@ -133,7 +133,7 @@ def record_machine_case_result(
         metadata = {
             "case_key": str(case["case_key"]),
             "host_baseline": case.get("host_baseline"),
-            "machine": result.evidence.get("machine"),
+            "test_machine": result.evidence.get("test_machine"),
         }
         add_artifact(
             "machine_evidence",

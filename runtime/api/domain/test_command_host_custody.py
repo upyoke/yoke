@@ -10,7 +10,7 @@ from yoke_core.domain.machine_qa_case_machine import normalize_config_machine
 
 
 def test_command_accepts_a_declared_host():
-    config = {"command": "yoke test-machine reset", "machine": "linux-lab"}
+    config = {"command": "yoke test-machine reset", "test_machine": "linux-lab"}
     assert normalize_config_machine("command", config) == "linux-lab"
 
 
@@ -21,7 +21,7 @@ def test_declared_host_command_cannot_run_as_host_free_work():
     assert not is_host_free_case(
         {
             "runner_id": "worktree_run",
-            "method_config": {"machine": "linux-lab"},
+            "method_config": {"test_machine": "linux-lab"},
         }
     )
 
@@ -37,7 +37,7 @@ def owned_plan(monkeypatch):
         "roster": [{"runner_id": "worktree_run", "project": "yoke"}],
     }
     lease = SimpleNamespace(
-        id=8, is_active=True, reason="", target=SimpleNamespace(machine_id="linux-lab")
+        id=8, is_active=True, reason="", target=SimpleNamespace(test_machine="linux-lab")
     )
     monkeypatch.setattr(operations, "get_claim", lambda *_: lease)
     monkeypatch.setattr(operations, "_table_exists", lambda *_: True)
@@ -75,7 +75,7 @@ def test_foreign_command_plan_names_actual_leaseholder(owned_plan, session, acto
     text = str(error.value)
     assert "you do not hold the lease on linux-lab" in text
     assert "session owner holds it for plan plan-execution" in text
-    assert "method_config.machine" in text
+    assert "method_config.test_machine" in text
 
 
 def test_non_command_active_plan_cannot_borrow_host(owned_plan):
@@ -102,14 +102,14 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
 
     monkeypatch.setattr(commands, "_dispatch", dispatch)
     result = commands.begin_command_host(
-        {"requirement_id": 1, "method_config": {"machine": "linux-lab"}},
+        {"requirement_id": 1, "method_config": {"test_machine": "linux-lab"}},
         execution_id="plan-execution",
         ordinal=0,
         target="subject",
         actor="owner",
     )
     assert calls[0][0] == "test_machine.plan_case.begin"
-    assert calls[0][1]["payload"]["machine"] == "linux-lab"
+    assert calls[0][1]["payload"]["test_machine"] == "linux-lab"
     if state == "waiting":
         assert result["case_outcome"] == "waiting"
     else:
@@ -158,7 +158,7 @@ def test_declared_command_acquires_lease_and_can_begin_nested_operation(
                 "method_id": "command",
                 "instructions": "Run a leased host operation.",
                 "expected_outcome": "Pass.",
-                "method_config": {"machine": "mac-mini-lab", "command": "true"},
+                "method_config": {"test_machine": "mac-mini-lab", "command": "true"},
             }
         ],
     )

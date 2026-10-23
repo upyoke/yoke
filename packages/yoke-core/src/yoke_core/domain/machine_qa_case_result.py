@@ -44,7 +44,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
             verdict="waiting",
             evidence={
                 "runner_id": "host_control",
-                "machine": self.machine,
+                "test_machine": self.machine,
                 "case_started": False,
                 "lease": waiting_claim_evidence(self.lease, self.contention),
             },

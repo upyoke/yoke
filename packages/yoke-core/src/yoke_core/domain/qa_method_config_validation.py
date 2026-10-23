@@ -24,9 +24,9 @@ COMMAND_SHELL_CONTRACT = (
 #: A Command that reaches a Test Machine must take that host's queue turn.
 HOST_COMMAND_NEEDS_MACHINE = (
     "method_config.command calls `yoke test-machine`, but the case declares "
-    "no method_config.machine, so it runs without the host's queue turn and "
-    "is refused while another run leases the host. Set method_config.machine "
-    "to the Test Machine the command reaches; the case then waits for its "
+    "no method_config.test_machine, so it runs without the host's queue turn "
+    "and is refused while another run leases the host. Set "
+    "method_config.test_machine to the Test Machine the command reaches; the case then waits for its "
     "turn and runs under the plan's lease."
 )
 
@@ -123,7 +123,7 @@ def validate_method_config(
                 project_id=project_id,
                 machine=machine,
             )
-            for companion in config.get("machines") or []:
+            for companion in config.get("test_machines") or []:
                 require_registered_machine(
                     conn, project_id=project_id, machine=companion
                 )
@@ -242,8 +242,8 @@ def validate_method_config(
                 "executor",
                 "os",
                 "platform",
-                "machine",
-                "machines",
+                "test_machine",
+                "test_machines",
                 "host_starting_state",
                 "continuity_fingerprint",
                 "browser_identities",
@@ -252,8 +252,9 @@ def validate_method_config(
         ):
             raise QaMethodConfigError(
                 "agent_mission_executor_invalid: set method_config.executor to "
-                "informed_subagent. Agent missions may also name machine, machines, "
-                "os, platform, host_starting_state, browser_identities and continuity_fingerprint; remove other keys. "
+                "informed_subagent. Agent missions may also name test_machine, "
+                "test_machines, os, platform, host_starting_state, browser_identities "
+                "and continuity_fingerprint; remove other keys. "
                 "Update the saved plan case and rematerialize affected requirements "
                 "before retrying."
             )

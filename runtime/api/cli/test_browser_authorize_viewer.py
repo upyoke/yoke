@@ -89,7 +89,7 @@ def route(monkeypatch):
 
 def authorize(*extra):
     return browser_authorize.browser_authorize(
-        ["--project", "acme", "--identity", "buyer", "--machine", "lab", *extra]
+        ["--project", "acme", "--identity", "buyer", "--test-machine", "lab", *extra]
     )
 
 
@@ -127,7 +127,7 @@ def test_missing_client_prints_view_command_and_still_authorizes(
     out = capsys.readouterr().out
     assert "desktop_rdp_client_missing" in out
     assert "sdl-freerdp" in out
-    assert "yoke test-machine desktop-access --project acme --machine lab --view" in out
+    assert "yoke test-machine desktop-access --project acme --test-machine lab --view" in out
     assert route["events"] == ["gui"]
 
 
@@ -141,7 +141,7 @@ def test_no_desktop_route_prints_command_without_view(route, capsys):
     assert authorize() == 0
     out = capsys.readouterr().out
     assert "desktop_route_missing" in out
-    assert "Run `yoke test-machine desktop-access --project acme --machine lab`." in out
+    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
     assert "--view" not in out
     assert "Sign in on its desktop" in out
     assert route["events"] == ["gui"]
@@ -157,7 +157,7 @@ def test_vnc_route_prints_desktop_access_without_view(route, capsys):
     assert authorize() == 0
     out = capsys.readouterr().out
     assert "desktop_view_requires_xfce_rdp" in out
-    assert "Run `yoke test-machine desktop-access --project acme --machine lab`." in out
+    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
     assert "--view" not in out
     assert route["events"] == ["gui"]
 

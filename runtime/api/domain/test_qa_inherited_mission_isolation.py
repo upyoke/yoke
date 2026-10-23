@@ -14,18 +14,18 @@ from yoke_core.domain.qa_standalone_execution import begin_standalone_execution
 def _roster():
     common = {"plan_id": 1, "baseline_position": 1, "execution_target_digest": "target"}
     return [
-        {**common, "requirement_id": 1, "method_config": {"machine": "mac-lab"}},
+        {**common, "requirement_id": 1, "method_config": {"test_machine": "mac-lab"}},
         {
             **common,
             "requirement_id": 2,
             "starting_state": "inherit",
             "runner_id": "agent_mission",
             "method_config": {
-                "machine": "mac-lab",
-                "machines": ["linux-lab", "mac-lab"],
+                "test_machine": "mac-lab",
+                "test_machines": ["linux-lab", "mac-lab"],
             },
         },
-        {**common, "requirement_id": 3, "method_config": {"machine": "mac-lab"}},
+        {**common, "requirement_id": 3, "method_config": {"test_machine": "mac-lab"}},
     ]
 
 
@@ -144,10 +144,10 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
                 "expected_outcome": "Check passes.",
                 "method_config": {
                     **_terminal_recipe(),
-                    "machine": MACHINES[0],
+                    "test_machine": MACHINES[0],
                     **(
                         {
-                            "machines": [
+                            "test_machines": [
                                 MACHINES[0],
                                 MACHINES[1] if position == 2 else third,
                             ]
@@ -191,7 +191,7 @@ def test_later_chain_hosts_are_reserved_before_the_first_capture(
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
     assert {
-        lease.target.machine_id for lease in execution_host_leases(test_db, current)
+        lease.target.test_machine for lease in execution_host_leases(test_db, current)
     } == {*MACHINES, third}
     assert current["machine_lease_id"] == old_lease
     assert not test_db.execute(

@@ -38,7 +38,7 @@ def unstarted_reset_failure(
         verdict="blocked",
         evidence={
             "runner_id": "host_control",
-            "machine": machine,
+            "test_machine": machine,
             "baseline": case.host_baseline
             if case.starting_state == "baseline"
             else None,

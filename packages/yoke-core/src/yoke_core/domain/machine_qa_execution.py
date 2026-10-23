@@ -107,7 +107,7 @@ class MachineQaLease:
                 error_code=self.baseline.error_code,
                 evidence={
                     "runner_id": "host_control",
-                    "machine": self.material.settings["resource_name"],
+                    "test_machine": self.material.settings["resource_name"],
                     "baseline": self.baseline.name,
                     "baseline_evidence": baseline_evidence,
                     "case_started": False,
@@ -128,7 +128,7 @@ class MachineQaLease:
                 error_code=str(blocker["code"]),
                 evidence={
                     "runner_id": "host_control",
-                    "machine": self.material.settings["resource_name"],
+                    "test_machine": self.material.settings["resource_name"],
                     "baseline": self.baseline.name if self.baseline else None,
                     "case_started": False,
                     "precondition": {
@@ -167,7 +167,7 @@ class MachineQaLease:
         )
         evidence = {
             "runner_id": "host_control",
-            "machine": self.material.settings["resource_name"],
+            "test_machine": self.material.settings["resource_name"],
             "method_id": method_id,
             "baseline": self.baseline.name if self.baseline else None,
             "baseline_evidence": (

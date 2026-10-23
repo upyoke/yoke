@@ -90,7 +90,7 @@ def test_steering_names_owed_machine_and_reset_command(test_db, tmp_path, monkey
     assert rows == (
         (
             machine,
-            f"yoke test-machine reset --project 1 --machine {machine} --baseline shell-preconfigured",
+            f"yoke test-machine reset --project 1 --test-machine {machine} --baseline shell-preconfigured",
             None,
         ),
     )

@@ -208,7 +208,7 @@ def _capture_golden(
     try:
         execution = call(
             "test_machine.operation.begin",
-            {**shape, "machine": machine, "destination": destination},
+            {**shape, "test_machine": machine, "destination": destination},
         )["execution"]
         echo = {**shape, "destination": execution.get("golden_destination")}
         try:
@@ -235,7 +235,7 @@ def _capture_golden(
             f"golden capture on {machine} did not complete: {error}",
             "Read the named refusal; a project admin can capture by hand with "
             f"`yoke test-machine golden-capture --project {contract.project} "
-            f"--machine {machine}`.",
+            f"--test-machine {machine}`.",
         ) from error
     if submitted.get("status") != "verified":
         raise _refused(

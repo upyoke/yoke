@@ -48,7 +48,7 @@ def record_restore_artifact(conn, requirement_id, run_id, content, actor):
         actor.actor_id
     ):
         return
-    if not lease.is_active or not lease.target.machine_id:
+    if not lease.is_active or not lease.target.test_machine:
         return  # Historical evidence cannot change a later holder's host state.
     try:
         restore = json.loads(content) if content is not None else None
@@ -58,7 +58,7 @@ def record_restore_artifact(conn, requirement_id, run_id, content, actor):
     record_unproven_restore(
         conn,
         case=case,
-        machine=lease.target.machine_id,
+        machine=lease.target.test_machine,
         lease_id=lease.id,
         restore=restore,
     )

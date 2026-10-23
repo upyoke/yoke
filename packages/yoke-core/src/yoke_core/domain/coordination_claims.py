@@ -152,7 +152,7 @@ def acquire(
     p = _p(conn)
     existing = active_claim(conn, target)
     if existing is not None:
-        if target.machine_id and reservation_for(conn, existing, session_id):
+        if target.test_machine and reservation_for(conn, existing, session_id):
             from yoke_core.domain.claim_chain_state import record_claim_reason
 
             record_claim_reason(

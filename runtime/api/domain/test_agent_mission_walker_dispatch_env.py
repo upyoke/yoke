@@ -54,9 +54,16 @@ def test_walk_commands_carry_the_connection_env_in_field_and_prompt() -> None:
     assert walker["walk_end_command"] == (
         f"yoke --env prod qa mission walk-end {FLAGS} --run-id 991"
     )
+    assert walker["connected_machine_command"] == (
+        f"yoke --env prod qa mission connected-machine {FLAGS} --run-id 991"
+    )
     assert walker["walk_start_command"] in walker["prompt"]
     assert walker["walk_end_command"] in walker["prompt"]
+    assert walker["connected_machine_command"] in walker["prompt"]
     assert "yoke qa mission walk-" not in walker["prompt"]
+    assert "yoke qa mission connected-machine" not in walker["prompt"]
+    assert "registered Machine id" in walker["prompt"]
+    assert "never a launch target" in walker["prompt"]
     assert "walker_dispatches[].prompt to its walker unchanged" in dispatch["prompt"]
 
 

@@ -68,7 +68,7 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
                 "backend": "local",
                 "path": str(tmp_path / "missing.png"),
             },
-            metadata={"machine": "Test Machine"},
+            metadata={"test_machine": "Test Machine"},
         )
         with (
             patch(

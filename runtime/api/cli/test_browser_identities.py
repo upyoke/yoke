@@ -332,12 +332,12 @@ def test_remote_route_runs_local_human_gate_and_verifies_after_window(
     buyer["after_window"] = {"yoke": "signed_in"}
 
     def execute(**kwargs):
-        assert "--machine" not in kwargs["argv"]
+        assert "--test-machine" not in kwargs["argv"]
         code = browser_authorize.browser_authorize(kwargs["argv"][3:])
         return subprocess.CompletedProcess([], code, capsys.readouterr().out, "")
 
     monkeypatch.setattr(gui, "run_gui_command", execute)
-    assert _authorize("--machine", "fixture", "--json") == 0
+    assert _authorize("--test-machine", "fixture", "--json") == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["machine"] == "fixture" and payload["ok"]
     assert buyer["windows"] == [[SITES["yoke"]["origin"]]]

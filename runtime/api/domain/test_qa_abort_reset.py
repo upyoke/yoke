@@ -114,7 +114,7 @@ def failed_restore(test_db, tmp_path, monkeypatch):
                         "error_code": "test_mac_reset_script_cleanup_failed",
                         "evidence": {
                             "runner_id": "host_control",
-                            "machine": "mac-mini-lab",
+                            "test_machine": "mac-mini-lab",
                             "method_id": case["method_id"],
                             "baseline": case["host_baseline"],
                             "starting_state_restore": {
@@ -198,7 +198,7 @@ def test_unrelated_or_failed_reset_cannot_settle_abort(test_db, failed_restore, 
 
     execution = failed_restore
     lease = get_claim(test_db, execution["machine_lease_id"])
-    machine = lease.target.machine_id
+    machine = lease.target.test_machine
     candidate = load_test_machine_contract(test_db, project="yoke", machine=machine)
     contract = _issue(
         test_db,

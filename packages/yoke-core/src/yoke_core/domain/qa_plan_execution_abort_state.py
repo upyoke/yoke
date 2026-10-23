@@ -157,7 +157,7 @@ def require_host_restored(conn, execution, *, reason, commit):
         "runner connected and retry only after that proof is recorded. If the "
         "runner is gone or cleanup fails, stop that runner, then have the lease "
         "holder or a covering steering seat run `yoke test-machine reset --project P "
-        "--machine NAME --baseline BASELINE` with the interrupted case's declared "
+        "--test-machine TEST_MACHINE --baseline BASELINE` with the interrupted case's declared "
         "baseline, and retry this abort. The reset must succeed after cancellation "
         "was recorded; it retains the lease until abort settles. Without a declared "
         "baseline, recover the runner's no-restore cleanup receipt instead."

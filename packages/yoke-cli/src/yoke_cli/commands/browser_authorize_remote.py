@@ -73,7 +73,7 @@ def _desktop_command(project, machine, settings) -> str:
     flag = " --view" if viewable else ""
     return (
         f"yoke test-machine desktop-access --project {project} "
-        f"--machine {machine}{flag}"
+        f"--test-machine {machine}{flag}"
     )
 
 
@@ -128,7 +128,7 @@ def authorize_remote(parsed) -> int:
     try:
         if parsed.declarations_json is not None:
             raise BrowserIdentityError(
-                "browser_authorize_machine_declarations_conflict: --machine reads "
+                "browser_authorize_machine_declarations_conflict: --test-machine reads "
                 "settings from the control plane; omit --declarations-json. For a "
                 "host without a route, run locally there with --declarations-json."
             )
@@ -136,7 +136,7 @@ def authorize_remote(parsed) -> int:
         ensure_handlers_loaded()
         actor = build_actor()
         detail = _read(
-            "test_machine.get", {"project": project, "machine": parsed.machine}, actor
+            "test_machine.get", {"project": project, "test_machine": parsed.test_machine}, actor
         )
         lease = detail.get("active_lease")
         if isinstance(lease, dict) and lease.get("session_id") != actor.session_id:
@@ -259,7 +259,7 @@ def authorize_remote(parsed) -> int:
                 print(
                     f"browser_authorize_remote_failed: machine {detail['machine']} "
                     f"exited {result.returncode}. Repair the reported site, runtime "
-                    "or GUI-session failure and rerun this --machine command.",
+                    "or GUI-session failure and rerun this --test-machine command.",
                     file=sys.stderr,
                 )
         return int(result.returncode)

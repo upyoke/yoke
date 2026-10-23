@@ -154,7 +154,11 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
             _qualify_walker_command(walker, key, command, prefix)
         # Walk commands ride every current bundle; an older server's bundle
         # without them keeps its prompt as composed.
-        for key in ("walk_start_command", "walk_end_command"):
+        for key in (
+            "walk_start_command",
+            "walk_end_command",
+            "connected_machine_command",
+        ):
             command = walker.get(key)
             if isinstance(command, str) and command.startswith("yoke "):
                 _qualify_walker_command(walker, key, command, prefix)
@@ -187,7 +191,8 @@ def run(args: List[str]) -> int:
     parser.add_argument("--project", help="Project that owns the plan.")
     parser.add_argument("--base-url", default="", help="Base URL the cases test.")
     parser.add_argument(
-        "--machine",
+        "--test-machine",
+        metavar="TEST_MACHINE",
         help="Pin Machine QA cases to one registered host matching every case. Resume commands omit this pin; the scheduler retains each platform’s recorded host. Corrected cases retain their failed attempt host through scheduling.",
     )
     parser.add_argument("--expected-branch", help="Branch the checkout must be on.")
@@ -272,7 +277,7 @@ def run(args: List[str]) -> int:
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,
-            machine=parsed.machine,
+            machine=parsed.test_machine,
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,

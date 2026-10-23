@@ -3,7 +3,7 @@
 Run one setup command on a registered macOS or Linux machine:
 
 ```text
-yoke test-machine exec --project P --machine NAME --admin -- COMMAND ARGS...
+yoke test-machine exec --project P --test-machine NAME --admin -- COMMAND ARGS...
 ```
 
 Read `yoke test-machine exec --help` before use. The executing workstation
@@ -25,10 +25,10 @@ the ordinary remote `exec` contract. A foreign QA lease refuses access.
 For Xcode and iOS Simulator setup on a Mac with Xcode installed:
 
 ```text
-yoke test-machine exec --project P --machine NAME --admin -- xcodebuild -license accept
-yoke test-machine exec --project P --machine NAME --admin -- xcodebuild -runFirstLaunch
-yoke test-machine exec --project P --machine NAME --admin -- xcodebuild -downloadPlatform iOS
-yoke test-machine exec --project P --machine NAME -- xcrun simctl list runtimes
+yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -license accept
+yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -runFirstLaunch
+yoke test-machine exec --project P --test-machine NAME --admin -- xcodebuild -downloadPlatform iOS
+yoke test-machine exec --project P --test-machine NAME -- xcrun simctl list runtimes
 ```
 
 For Linux package setup, pass the host's package manager and its unattended

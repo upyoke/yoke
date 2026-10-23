@@ -177,7 +177,7 @@ def _join_host_line(conn: Any, request, body, identity, target, exc) -> str:
     from yoke_core.domain.qa_host_turns import join_host_line
 
     held = active_claim(conn, target)
-    if not target.machine_id or exc.contention is None or held is None:
+    if not target.test_machine or exc.contention is None or held is None:
         return str(exc)
     if held.session_id == request.actor.session_id:
         return str(exc)  # this session already holds the host

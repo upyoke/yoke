@@ -90,7 +90,7 @@ def authorize(*extra):
             "acme",
             "--identity",
             "buyer",
-            "--machine",
+            "--test-machine",
             "test-mac",
             *extra,
         ]
@@ -105,7 +105,7 @@ def test_desktop_only_and_omitted_identity_are_resolved_before_viewer(route, cap
     route["argv"].clear()
     assert (
         browser_authorize.browser_authorize(
-            ["--project", "acme", "--machine", "test-mac", "--json"]
+            ["--project", "acme", "--test-machine", "test-mac", "--json"]
         )
         == 2
     )
@@ -139,7 +139,7 @@ def test_remote_reads_settings_and_forwards_options_without_local_browser(
         "buyer",
     ]
     assert json.loads(argv[argv.index("--declarations-json") + 1]) == DECLARATIONS
-    assert "--machine" not in argv and "--reset" in argv and "--json" in argv
+    assert "--test-machine" not in argv and "--reset" in argv and "--json" in argv
     assert argv[argv.index("--url") + 1] == "https://shop.example.com/?q='x'"
     assert json.loads(capsys.readouterr().out)["machine"] == "test-mac"
 

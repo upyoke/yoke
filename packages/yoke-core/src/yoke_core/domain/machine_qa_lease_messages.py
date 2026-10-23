@@ -6,7 +6,7 @@ from typing import Any
 
 
 ACQUIRE_HOST = (
-    "Declare method_config.machine on your QA case and run its scoped plan "
+    "Declare method_config.test_machine on your QA case and run its scoped plan "
     "to acquire the host lease before retrying the operation"
 )
 
@@ -34,7 +34,7 @@ def held_host(lease: Any, machine: str) -> str:
 
 def released_without_receipt(lease: Any) -> str:
     return (
-        f"The lease on {lease.target.machine_id} (lease {lease.id}, session "
+        f"The lease on {lease.target.test_machine} (lease {lease.id}, session "
         f"{lease.session_id}) is released or expired, and this operation has no "
         "recorded receipt. Inspect the owning execution's capture and recover "
         "its receipt before retrying submission; do not repeat the host action"

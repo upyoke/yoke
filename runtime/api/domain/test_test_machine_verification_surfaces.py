@@ -36,7 +36,7 @@ def test_a_failed_bridge_leaves_the_ssh_surface_passed() -> None:
     assert bridge["status"] == SURFACE_FAILED
     assert "SSH still works" in bridge["recovery"]
     assert (
-        f"yoke test-machine bridge-diagnose --project yoke --machine {MACHINE}"
+        f"yoke test-machine bridge-diagnose --project yoke --test-machine {MACHINE}"
         in bridge["recovery"]
     )
 
@@ -50,7 +50,7 @@ def test_a_failed_transport_reports_the_bridge_as_not_run() -> None:
 
     assert surfaces["ssh"]["status"] == SURFACE_FAILED
     assert (
-        f"yoke test-machine exec --project yoke --machine {MACHINE} -- /usr/bin/true"
+        f"yoke test-machine exec --project yoke --test-machine {MACHINE} -- /usr/bin/true"
         in surfaces["ssh"]["recovery"]
     )
     assert surfaces["terminal_bridge"] == {

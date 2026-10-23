@@ -23,14 +23,14 @@ def test_lease_refusal_explains_actual_state_and_admission(
 ):
     lease = SimpleNamespace(
         id=7,
-        target=SimpleNamespace(machine_id="linux-lab"),
+        target=SimpleNamespace(test_machine="linux-lab"),
         is_active=True,
         key=protocol.host_claim_key("linux-lab"),
         session_id="owner",
         actor_id="1",
     )
     if scenario == "unbound":
-        lease.target.machine_id = None
+        lease.target.test_machine = None
     elif scenario == "target":
         lease.key = "different"
     elif scenario == "session":
@@ -62,7 +62,7 @@ def test_lease_refusal_explains_actual_state_and_admission(
         )
     text = str(error.value)
     assert expected in text
-    assert "Declare method_config.machine" in text
+    assert "Declare method_config.test_machine" in text
     assert "scoped plan" in text
     if scenario not in {"missing", "unbound"}:
         assert "linux-lab" in text
@@ -73,7 +73,7 @@ def test_lease_refusal_explains_actual_state_and_admission(
 def test_released_receipt_can_still_be_validated_for_idempotent_submission(monkeypatch):
     lease = SimpleNamespace(
         id=7,
-        target=SimpleNamespace(machine_id="linux-lab"),
+        target=SimpleNamespace(test_machine="linux-lab"),
         is_active=False,
         key="released",
         session_id="owner",
@@ -106,7 +106,7 @@ def test_released_receipt_refusal_does_not_advise_repeating_host_action():
     from yoke_core.domain.machine_qa_lease_messages import released_without_receipt
 
     lease = SimpleNamespace(
-        id=7, session_id="owner", target=SimpleNamespace(machine_id="linux-lab")
+        id=7, session_id="owner", target=SimpleNamespace(test_machine="linux-lab")
     )
     text = released_without_receipt(lease)
     assert "linux-lab" in text

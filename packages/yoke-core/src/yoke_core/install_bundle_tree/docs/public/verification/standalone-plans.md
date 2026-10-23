@@ -39,7 +39,7 @@ a baseline settles on its no-restore cleanup receipt. Follow
 [safe host cancellation](deployment-plan-execution.md#stop-host-work-safely)
 when it returns `qa_abort_restore_pending`.
 `--continue-mission` resumes a stale-settled mission with its unchanged plan snapshot
-and preserved host state. Continuation commands omit `--machine`; the scheduler
+and preserved host state. Continuation commands omit `--test-machine`; the scheduler
 keeps simultaneous cases on their declared driver and full host set. For
 single-host cases it recovers each platform’s original host from durable leases and runs, and selects
 a fresh eligible host only for a platform not used before. Read `yoke qa plan run --help` for

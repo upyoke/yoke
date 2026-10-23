@@ -110,6 +110,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.mission.ready": "next-release",
     "test_machine.mission.access": "next-release",
     "test_machine.mission.dispose_projects": "next-release",
+    "test_machine.mission.record_connected_machine": "next-release",
     "strategy.doc.section_replace": "next-release",
     "strategy.ingest.run": "next-release",
     "strategy.revision.restore": "next-release",
@@ -154,6 +155,30 @@ class ArgumentFloor:
     older_form: str
 
 
+#: The ``test_machine`` argument replaced ``machine`` on these served functions;
+#: ``test_machine.operation.begin`` carries the same floor beside its own.
+TEST_MACHINE_ARGUMENT_FUNCTIONS = (
+    "test_machine.get",
+    "test_machine.settings_replace",
+    "test_machine.desktop_access",
+    "test_machine.verify",
+    "test_machine.reset",
+    "test_machine.golden_capture",
+    "test_machine.bridge_diagnose",
+    "test_machine.screenshot",
+    "test_machine.plan_case.begin",
+    "test_machine.plan_case.submit",
+    "test_machine.mission.ready",
+    "test_machine.mission.access",
+    "qa.plan_execution.begin",
+    "qa.plan_execution.resume",
+)
+_TEST_MACHINE_FLOOR = ArgumentFloor(
+    "next-release",
+    "the `machine` argument, as the `--machine NAME` flag of the Yoke CLI "
+    "release that server runs",
+)
+
 #: function_id -> {argument: floor}, for arguments added to an already-served
 #: function. Older request models may reject unknown arguments or silently
 #: ignore them. Payload refusals name this floor; adapters whose writes can be
@@ -196,8 +221,13 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
             "plan_execution_id": ArgumentFloor(
                 "next-release",
                 "a golden refreshed outside the plan: install the latest harness "
-                "CLIs as the test user, then `yoke test-machine golden-capture "
-                "--project P --machine M`",
+                "CLIs as the test user, then run `yoke test-machine golden-capture "
+                "--project P` from the Yoke CLI release that server runs",
+            ),
+            **(
+                {"test_machine": _TEST_MACHINE_FLOOR}
+                if function_id == "test_machine.operation.begin"
+                else {}
             ),
         }
         for function_id in (
@@ -205,6 +235,10 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
             "test_machine.operation.submit",
             "test_machine.operation.abort",
         )
+    },
+    **{
+        function_id: {"test_machine": _TEST_MACHINE_FLOOR}
+        for function_id in TEST_MACHINE_ARGUMENT_FUNCTIONS
     },
     "session_control.launch.preview": {
         "level": ArgumentFloor(
@@ -236,6 +270,7 @@ __all__ = [
     "ArgumentFloor",
     "FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS",
     "FUNCTION_MINIMUM_SERVING_VERSIONS",
+    "TEST_MACHINE_ARGUMENT_FUNCTIONS",
     "declared_argument_floors",
     "declared_minimum_serving_version",
 ]

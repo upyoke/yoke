@@ -55,7 +55,9 @@ def run_host_operation(
     parser.add_argument(
         "--project", required=True, help="Project that owns the test machine."
     )
-    parser.add_argument("--machine", help="Name of the test machine to use.")
+    parser.add_argument(
+        "--test-machine", metavar="TEST_MACHINE", help="Name of the test machine to use."
+    )
     if with_baseline:
         parser.add_argument("--baseline", help="Name of the baseline to restore.")
     if with_destination:
@@ -87,7 +89,7 @@ def run_host_operation(
     return _execute(
         operation=operation,
         project=parsed.project,
-        machine=parsed.machine,
+        machine=parsed.test_machine,
         baseline=getattr(parsed, "baseline", None),
         destination=getattr(parsed, "destination", None),
         probes_document=probes_document,
@@ -114,7 +116,7 @@ def _execute(
         target=TargetRef(kind="global"),
         payload={
             "project": project,
-            "machine": machine,
+            "test_machine": machine,
             "operation": operation,
             "baseline": baseline,
             "destination": destination,

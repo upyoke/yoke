@@ -66,13 +66,13 @@ def test_bridge_diagnosis_accepts_only_its_os_capability_sequence(os):
 def test_hosted_screenshot_names_the_credential_owning_client_command():
     from yoke_core.domain.handlers.machine_qa import handle_operation_on_control_plane
 
-    request = operation_request({"project": "yoke", "machine": "desktop-test"})
+    request = operation_request({"project": "yoke", "test_machine": "desktop-test"})
     request = request.model_copy(update={"function": "test_machine.screenshot"})
     outcome = handle_operation_on_control_plane(request)
     assert not outcome.primary_success
     assert outcome.error.code == "host_control_client_required"
     assert (
-        "yoke test-machine screenshot --project yoke --machine desktop-test"
+        "yoke test-machine screenshot --project yoke --test-machine desktop-test"
         in outcome.error.message
     )
 

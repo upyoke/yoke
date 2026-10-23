@@ -47,7 +47,7 @@ def begin_requested_standalone_execution(conn, request, parsed):
         project=str(request.target.project_id),
         actor_id=request.actor.actor_id,
         session_id=request.actor.session_id,
-        machine=parsed.machine,
+        machine=parsed.test_machine,
         continue_mission=parsed.continue_mission,
         source_revision=parsed.source_revision,
         source_ref=parsed.source_ref,

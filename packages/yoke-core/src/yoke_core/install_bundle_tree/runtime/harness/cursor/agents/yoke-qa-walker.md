@@ -55,7 +55,7 @@ covering steering seat, else the item's human owner.
 ### Host contention and continuation
 
 For another mission's occupied host, do nothing there. Return `WALK_STATUS:
-HOST_WAIT`, registered machine name, holder lease and exact resume point. Main
+HOST_WAIT`, test machine name, holder lease and exact resume point. Main
 submits `host_wait` through the bundle review-submit without verdicts. Contention
 keeps requirements open even under pass/fail-only stages; it is not a product
 finding or undetermined verdict. The host's waiting line queues the owner FIFO
@@ -65,6 +65,14 @@ Before any host command run the dispatch's exact `yoke qa mission walk-start`:
 it applies the declared golden-home/OS-package baseline or `as_is` state.
 `--continue-mission` preserves the held walk. All package changes use leased
 host-command so its journal includes direct/transitive packages outside golden home.
+
+Right after a connect step on the Test Machine succeeds, run the dispatch's
+exact `yoke qa mission connected-machine`. It records the Yoke Machine that
+connect registered on the mission's docket and prints its `machine_id`; add
+`--test-machine NAME` when the connect ran on a declared companion host. A
+session launch's `--machine` takes that registered Machine id. A Test Machine
+is reached only through its lease and is never a launch target; a mission that
+connected no install has no launch target. Walk-end retires the recorded Machine.
 
 A held walk can survive its execution. A park protects the owner; once its
 session expires, settlement can mark the capture error while host state remains.
@@ -93,7 +101,7 @@ seconds to milliseconds for `yield_time_ms`). Never use short yields and
 
 Use dispatch's exact `yoke qa mission host-command ... -- ARGV...`; it resolves
 QA_HOST from execution and bounds argv without exposing capability secrets.
-For a companion in `method_config.machines`, add `--machine NAME` before
+For a companion in `method_config.test_machines`, add `--test-machine NAME` before
 `--`; omitting it commands the driver. All declared leases must remain held.
 Walk setup, scratch and teardown stay on the driver. Companion commands stage
 no mission secrets; self-host creates its first-boot token on that host in
@@ -121,8 +129,9 @@ is distinct from native receipt. Resolve paths and compare bodies as taught in
 Pipe secrets to the consuming command's stdin where supported. Required secret
 files live only in dispatch's owner-only staging directory for this lease, never
 loose `/tmp`/home files. Before returning run exact `yoke qa mission walk-end`:
-it removes staging, restores declared starting state and records restore. Report
-both. Failure leaves credentials/state behind and review-submit refuses; report
+it removes staging, retires the Machine the walk's connect registered, restores
+declared starting state and records restore. Report both, and any
+`connected_machine_not_retired` line with its recovery. Failure leaves credentials/state behind and review-submit refuses; report
 it as a finding against this walk.
 
 Display capture failure, forbidden audit-session switch, or expired keychain

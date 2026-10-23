@@ -200,7 +200,7 @@ def test_machine_desktop_flag_selects_requested_browser(
     monkeypatch.setattr(gui, "run_gui_command", execute)
     assert (
         browser_authorize.browser_authorize(
-            ["--project", "acme", "--machine", "fixture", "--json"]
+            ["--project", "acme", "--test-machine", "fixture", "--json"]
             + (["--desktop-browser"] if native_only else [])
         )
         == 0

@@ -70,14 +70,14 @@ def _machine_proof_error(
     if (
         not receipt.get("contract_digest")
         or lease.target.kind != TARGET_KIND_QA_ADMISSION
-        or not lease.target.machine_id
+        or not lease.target.test_machine
     ):
         return "qa_machine_contract_unproven: the capture lacks its issued machine contract"
     if run.get("performed_by") != requirement.get("runner_id"):
         return "qa_machine_capture_unproven: the selected attempt was not captured by its frozen runner"
     p = marker(conn)
     if requirement.get("runner_id") == "host_control":
-        if evidence.get("machine") != lease.target.machine_id:
+        if evidence.get("test_machine") != lease.target.test_machine:
             return "qa_machine_resource_mismatch: the actual capture names a different leased resource"
         artifacts = query_rows(
             conn,

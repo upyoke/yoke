@@ -75,7 +75,7 @@ def test_eight_journeys_follow_the_original_cases_unchanged() -> None:
     ]
     assert [case["case_key"] for case in cases] == [*original, *KEYS]
     assert [case["position"] for case in cases[-8:]] == list(range(30, 38))
-    assert all(case["method_config"]["machine"] == "primary" for case in cases[-8:])
+    assert all(case["method_config"]["test_machine"] == "primary" for case in cases[-8:])
 
 
 def test_each_journey_validates_and_proves_the_servers_real_rows() -> None:

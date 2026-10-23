@@ -114,7 +114,7 @@ def _original_host(conn: Any, run_id: int) -> str:
             "mission_cleanup_host_unknown: the docket has no original lease; "
             "ask the control-plane operator to recover the host identity"
         )
-    machine = get_claim(conn, int(lease_id)).target.machine_id
+    machine = get_claim(conn, int(lease_id)).target.test_machine
     if not machine:
         raise ValueError("mission_cleanup_host_unknown: inspect the docket's lease")
     return str(machine)
@@ -183,7 +183,7 @@ def _finish(
         outcome is not None and not outcome.primary_success
     ):
         record_reset_owed(
-            conn, case=case, machine=lease.target.machine_id, lease_id=lease.id
+            conn, case=case, machine=lease.target.test_machine, lease_id=lease.id
         )
     release(conn, lease.id, "mission-teardown-finished", commit=False)
     conn.execute(

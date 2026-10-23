@@ -27,12 +27,12 @@ personal sign-in handoff, never a test acceptance check.
 
 ## Desktop browser checks
 
-With `--machine`, authorization checks the selected automation identity first,
+With `--test-machine`, authorization checks the selected automation identity first,
 then the Test Machine's snap Chromium on Linux or Safari on macOS in the same
 remote GUI process. Both checks are included by default:
 
 ```text
-yoke browser authorize --project PROJECT --identity IDENTITY --machine NAME
+yoke browser authorize --project PROJECT --identity IDENTITY --test-machine NAME
 ```
 
 Declare that identity's sites, signed-in probes and account names in
@@ -44,7 +44,7 @@ Allow the executing terminal to read the native cookie store and unlock the
 user's keyring. Unreadable cookies or unreachable probes refuse before tabs
 open: repair the named access or network condition, then retry.
 
-Without `--machine`, existing local automation identity behavior is unchanged.
+Without `--test-machine`, existing local automation identity behavior is unchanged.
 Standalone `--desktop-browser` checks only this host's native browser; it
 requires declared sites and refuses `--reset`. Remote `--reset` resets only
 the automation identity, never desktop sign-ins. Desktop sign-ins stay live

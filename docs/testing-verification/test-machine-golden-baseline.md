@@ -276,10 +276,10 @@ Read served command help, then use the registered capture with the complete
 `--probes-file`, followed by verify and a final fresh-host reset under custody:
 
 ```text
-yoke test-machine golden-capture --project P --machine NAME --destination NEW_PARENT/home --probes-file PRIVATE_PROBES_FILE
-yoke test-machine verify --project P --machine NAME
-yoke test-machine reset --project P --machine NAME --baseline fresh-host
-yoke test-machine get --project P --machine NAME
+yoke test-machine golden-capture --project P --test-machine NAME --destination NEW_PARENT/home --probes-file PRIVATE_PROBES_FILE
+yoke test-machine verify --project P --test-machine NAME
+yoke test-machine reset --project P --test-machine NAME --baseline fresh-host
+yoke test-machine get --project P --test-machine NAME
 ```
 
 These are destructive operations, requiring separate provisioning authority.
