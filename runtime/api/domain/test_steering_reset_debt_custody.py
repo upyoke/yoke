@@ -75,7 +75,7 @@ def test_terminal_execution_does_not_hide_reset_recovery(test_db, removed_missio
     machine = contract["settings"]["resource_name"]
     record_reset_owed(
         test_db,
-        case={"project_id": 1},
+        case={"project_id": 1, "host_baseline": "fresh-host"},
         machine=machine,
         lease_id=contract["lease_id"],
     )

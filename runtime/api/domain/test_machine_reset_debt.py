@@ -48,7 +48,7 @@ def test_unproven_finish_releases_and_records_owed_baseline(
     assert reset_owed(test_db, original["settings"]["resource_name"]) == "fresh-host"
 
 
-def _debt(conn, baseline=None):
+def _debt(conn, baseline="fresh-host"):
     from runtime.api.domain.machine_operation_test_support import MACHINE
 
     record_reset_owed(
@@ -243,7 +243,7 @@ def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkey
     test_db.execute("INSERT INTO reset_debt_probe VALUES (1)")
     record_reset_owed(
         test_db,
-        case={"project_id": 1, "host_baseline": None},
+        case={"project_id": 1, "host_baseline": "fresh-host"},
         machine=MACHINE,
         lease_id=77,
     )
@@ -280,3 +280,19 @@ def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
             )
         )
     assert get_claim(test_db, original["lease_id"]).is_active
+
+
+@pytest.mark.parametrize("starting_state", ["as_is", "inherit"])
+def test_no_baseline_debt_does_not_authorize_reset_or_erase_real_debt(
+    test_db, tmp_path, monkeypatch, starting_state
+):
+    from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
+    from runtime.api.domain.machine_operation_test_support import MACHINE
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    case = {"project_id": 1, "host_baseline": None, "starting_state": starting_state}
+    record_reset_owed(test_db, case=case, machine=MACHINE, lease_id=78)
+    assert reset_owed(test_db, MACHINE) is None
+    _debt(test_db, "shell-preconfigured")
+    record_reset_owed(test_db, case=case, machine=MACHINE, lease_id=78)
+    assert reset_owed(test_db, MACHINE) == "shell-preconfigured"

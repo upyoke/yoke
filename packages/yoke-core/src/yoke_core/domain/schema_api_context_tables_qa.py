@@ -299,13 +299,13 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
-            "Evidence rows joined to qa_runs via qa_run_id. The file "
-            "reference is `artifact_handle` — typed JSON "
+            "Join qa_runs via qa_run_id for qa_requirement_id; qa_artifacts "
+            "has no qa_requirement_id or filename column. Filename is input, "
+            "stored in metadata. File reference: artifact_handle, typed JSON "
             '({"backend":"s3","bucket":B,"key":K} for uploaded evidence, '
             '{"backend":"local","path":P} for explicit machine-local '
-            "evidence). There is NO `storage_path` column (hard-cut; "
-            "historical path rows were purged) and bare-path payloads "
-            "are refused by qa.artifact.add. Inline client bytes: pass "
+            "evidence). No storage_path column; bare paths refuse. "
+            "Inline client bytes: pass "
             "`content_base64` plus `filename` (and optional `content_type`) "
             "instead of `artifact_handle` — the two inputs are mutually "
             "exclusive. Every byte submission stores under the requirement's "

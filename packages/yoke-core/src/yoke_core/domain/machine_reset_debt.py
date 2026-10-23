@@ -55,13 +55,16 @@ def reset_owed(conn, machine):
 
 
 def record_reset_owed(conn, *, case, machine, lease_id, contract_digest=""):
+    baseline = case.get("host_baseline")
+    if not baseline:
+        return  # Preserving an as-is host grants no baseline reset authority.
     return record_test_machine_operation(
         conn,
         int(case["project_id"]),
         machine=machine,
         operation=RESET_OWED_OPERATION,
         status="error",
-        checks=[{"name": case.get("host_baseline") or "fresh-host", "ok": False}],
+        checks=[{"name": baseline, "ok": False}],
         error_code="machine_reset_owed",
         lease_id=lease_id,
         contract_digest=contract_digest,

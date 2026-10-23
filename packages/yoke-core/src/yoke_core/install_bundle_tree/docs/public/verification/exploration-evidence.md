@@ -56,10 +56,14 @@ Companion commands use that host's lease without resetting it or staging
 mission secrets. Self-host setup creates its first-boot token on that host;
 keep it in the bundle's owner-only secrets directory and remove the bundle
 when the walk finishes. Mission scratch and `walk-start`/`walk-end` stay on
-the driver. Companion command access records durable reset debt before
-returning command authority, even if the command later fails. Before another
-case uses that companion, a verified `yoke test-machine reset` clears the
-owed baseline; driver teardown leaves the companion's debt in place.
+the driver. When the case declares a baseline, companion command access
+records durable reset debt before returning command authority, even if the
+command later fails. Before another case uses that companion, a verified
+`yoke test-machine reset` clears the owed baseline; driver teardown leaves
+the companion's debt in place. An as-is case without a baseline grants no
+reset authority and records no baseline reset debt. It must still clean up
+its owned resources and record cleanup failures; genuine earlier baseline
+debt still requires its declared recovery.
 
 Missions are walked one at a time, in bundle order, because they share the
 plan's retained hosts. The walker dispatch carries the scratch path and two
