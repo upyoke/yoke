@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_fixture_project_disposal import FIXTURE_PROJECT_DISPOSAL
 from yoke_core.domain.qa_plan_execution_store import marker, result_rows
 from yoke_core.domain.qa_run_verdict_record import update_qa_run
 
@@ -68,8 +69,9 @@ def settle_stopped_mission_dockets(
         proof = query_one(
             conn,
             f"SELECT id FROM qa_artifacts WHERE qa_run_id={p} "
-            "AND artifact_type NOT IN ('diagnostic','starting_state_restore') LIMIT 1",
-            (int(run_id),),
+            "AND artifact_type NOT IN ('diagnostic','starting_state_restore',"
+            f"{p}) LIMIT 1",
+            (int(run_id), FIXTURE_PROJECT_DISPOSAL),
         )
         if proof is not None:
             continue
