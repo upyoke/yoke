@@ -153,11 +153,19 @@ def _notify_carried_item_decision(
     context = request.get("subject_context") or {}
     if context.get("to_stage") != "done":
         return None
+    from yoke_core.domain.deployment_member_close_out_retry import (
+        after_record_settled,
+    )
     from yoke_core.domain.deployment_run_member_approvals import (
         resume_after_member_decision,
     )
 
-    resume_after_member_decision(conn, int(context["item_id"]))
+    item_id = int(context["item_id"])
+    # The item's own close-out goes first: a sibling's open approval holds
+    # the shared run, never this member's independent completion.
+    if action == "approve":
+        after_record_settled(conn, item_id=item_id)
+    resume_after_member_decision(conn, item_id)
     return None
 
 

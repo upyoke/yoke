@@ -174,12 +174,19 @@ class _SpentConnection:
 
 
 def _instructions(monkeypatch, conn, rows):
-    """Serve the fixture connection once, then a fresh handle, as live does."""
+    """Serve the fixture connection once, then a fresh handle, as live does.
+
+    The second handle serves the instruction and approval reads, both stubbed.
+    """
     handles = iter([conn])
 
+    import yoke_core.domain.item_lifecycle_approvals as approval_reads
     import yoke_core.domain.workflow_execution_instructions as instruction_reads
 
     monkeypatch.setattr(instruction_reads, "resolve_for_item", lambda *_args: rows)
+    monkeypatch.setattr(
+        approval_reads, "item_approval_gates", lambda *_args, **_kwargs: []
+    )
     monkeypatch.setattr(
         item_detail_read.db_helpers,
         "connect",
@@ -200,6 +207,7 @@ def test_detail_serves_instructions_independently_of_content_selection(
     result = outcome.result_payload
     assert result["execution_instructions"] == rows
     assert result["include"] == []
+    assert result["item"]["approvals"] == []
     index = result["item"]["content_index"]["execution_instructions"]
     assert index["count"] == 1
     assert index["bytes"] == len("Cover the full scope.")

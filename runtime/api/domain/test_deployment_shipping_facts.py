@@ -125,6 +125,7 @@ def test_private_unrun_member_answers_match_scalar_authority(test_db):
             "stage": expected.stage,
             "reason": expected.reason,
             "failed_requirement_ids": list(expected.failed_requirement_ids),
+            "no_item_qa_required": False,
         }
     print(
         f"Shipping private/unrun: members=20 queries={sum(conn.queries.values())} "

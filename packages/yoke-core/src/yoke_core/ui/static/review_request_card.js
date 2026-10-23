@@ -99,7 +99,8 @@ function appendEvidence(context, card, row, compact) {
   });
   if (strip) card.appendChild(strip);
   if (evidence.note) {
-    card.appendChild(el(documentNode, "div", "review-evidence-note", evidence.note));
+    card.appendChild(el(documentNode, "div",
+      `review-evidence-note${evidence.informational ? " is-info" : ""}`, evidence.note));
   }
 }
 

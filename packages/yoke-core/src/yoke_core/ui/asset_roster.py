@@ -2,12 +2,15 @@
 
 Split out of :mod:`yoke_core.ui.server` so the roster can grow one line
 per new static module without crowding the server's routing and security
-logic; the server re-exports both names for its callers.
+logic; the server re-exports both names for its callers. The item pages'
+modules and stylesheets are listed in :mod:`yoke_core.ui.item_page_asset_roster`.
 """
 
 from __future__ import annotations
 
 from typing import Dict
+
+from yoke_core.ui.item_page_asset_roster import ITEM_PAGE_ASSET_CONTENT_TYPES
 
 #: ``Cache-Control`` for the app shell and static assets: ``no-cache``
 #: makes browsers revalidate on every load, so an upgraded server never
@@ -18,6 +21,7 @@ ASSET_CACHE_CONTROL = "no-cache"
 #: A closed name→type map (no filesystem paths from the request) keeps
 #: traversal structurally impossible.
 ASSET_CONTENT_TYPES: Dict[str, str] = {
+    **ITEM_PAGE_ASSET_CONTENT_TYPES,
     "index.html": "text/html; charset=utf-8",
     # Developer page, not a product route: mounts the same app with sample
     # platform chrome shaped like the hosted shell's slots, so frame defects
@@ -104,7 +108,6 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_views_github_access.js": "text/javascript; charset=utf-8",
     "universe_views_items.js": "text/javascript; charset=utf-8",
     "universe_items_roster_loader.js": "text/javascript; charset=utf-8",
-    "item_detail_loader.js": "text/javascript; charset=utf-8",
     "universe_views_inbox.js": "text/javascript; charset=utf-8",
     "inbox_presentation.js": "text/javascript; charset=utf-8",
     "inbox_rows.js": "text/javascript; charset=utf-8",
@@ -259,22 +262,6 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "qa_state.js": "text/javascript; charset=utf-8",
     "qa_case_name.js": "text/javascript; charset=utf-8",
     "qa_case_evidence_panel.js": "text/javascript; charset=utf-8",
-    "item_view_claimant.js": "text/javascript; charset=utf-8",
-    "item_view_delivery.js": "text/javascript; charset=utf-8",
-    "item_view_details.js": "text/javascript; charset=utf-8",
-    "item_intake_controls.js": "text/javascript; charset=utf-8",
-    "item_view_facts.js": "text/javascript; charset=utf-8",
-    "item_view_landings.js": "text/javascript; charset=utf-8",
-    "item_new_form.js": "text/javascript; charset=utf-8",
-    "item_roster_table.js": "text/javascript; charset=utf-8",
-    "item_roster_sort.js": "text/javascript; charset=utf-8",
-    "item_draft_storage.js": "text/javascript; charset=utf-8",
-    "item_view_new.js": "text/javascript; charset=utf-8",
-    "item_view_primitives.js": "text/javascript; charset=utf-8",
-    "item_view_shell.js": "text/javascript; charset=utf-8",
-    "item_view_verification.js": "text/javascript; charset=utf-8",
-    "item_view_verdicts.js": "text/javascript; charset=utf-8",
-    "item_view_requirement_card.js": "text/javascript; charset=utf-8",
     "strategy_view_primitives.js": "text/javascript; charset=utf-8",
     "strategy_view_summary.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
@@ -335,10 +322,6 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_run_page.css": "text/css; charset=utf-8",
     "universe_run_rosters.css": "text/css; charset=utf-8",
     "items.css": "text/css; charset=utf-8",
-    "item_foundations.css": "text/css; charset=utf-8",
-    "item_roster.css": "text/css; charset=utf-8",
-    "item_details.css": "text/css; charset=utf-8",
-    "item_intake.css": "text/css; charset=utf-8",
     "strategy.css": "text/css; charset=utf-8",
     "workflow_instructions.css": "text/css; charset=utf-8",
     "universe_responsive.css": "text/css; charset=utf-8",

@@ -19,6 +19,7 @@ import {
   readablePolicyValue,
   workflowPanel,
 } from "./workflow_view_primitives.js";
+import { itemApprovalsPanel } from "./item_view_approvals.js";
 import { itemClaimantPanel } from "./item_view_claimant.js";
 import { itemDeliveryPanel } from "./item_view_delivery.js";
 import { itemLandingsPanel } from "./item_view_landings.js";
@@ -275,6 +276,7 @@ function renderBlitzBody(context, main, item) {
   // The session holding the item is who to ask about it; a Blitz ships in
   // slices, so its delivery history is the readable record of how far it got.
   const claimant = itemClaimantPanel(context, item);
+  const approvals = itemApprovalsPanel(context, item);
   const { panel: executionPanel, host: executionHost } =
     executionDocumentPanel(documentNode);
   const host = el(documentNode, "div", "item-detail blitz-detail");
@@ -290,7 +292,7 @@ function renderBlitzBody(context, main, item) {
     ],
     [
       blitzFactsPanel(documentNode, item),
-      ...(claimant ? [claimant] : []),
+      ...[claimant, approvals].filter(Boolean),
       itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       blitzPosturePanel(documentNode, item),

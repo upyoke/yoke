@@ -269,6 +269,7 @@
   color: var(--yoke-crit);
   font-size: 11.5px;
 }
+.universe-app-root .review-evidence-note.is-info { color: var(--yoke-muted); }
 
 /* Foot: who settles it, the named links, and the answer. */
 .universe-app-root .review-foot {

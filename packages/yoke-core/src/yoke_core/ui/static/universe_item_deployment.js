@@ -107,7 +107,8 @@ function itemOutcome(run) {
   }
   if (qa?.state === "rejected") return { symbol: "✗", text: "QA failed" };
   if (run.delivery_relation === "member" && ACCEPTED_QA.has(qa?.state)) {
-    return { symbol: "◐", text: `QA ${qa.state === "accepted" ? "passed" : "discharged"} · awaiting item completion` };
+    const completion = completionStanding(run);
+    return { symbol: completion.symbol, text: `${qaDisposition(qa)} · ${completion.text}`, reason: completion.reason };
   }
   const status = String(run.status || "");
   if (status === "failed" || status === "cancelled") {
@@ -125,6 +126,46 @@ function itemOutcome(run) {
     symbol: "◐",
     text: `deploying${stage ? ` · at ${stage}` : ""} · ${started ? relativeAge(started) : "time unavailable"}`,
   };
+}
+
+// What the item's QA actually was, kept apart from whether the item has
+// completed: a recorded no-obligation answer is not a pass, and a waiver is
+// neither.
+function qaDisposition(qa) {
+  if (qa.state === "accepted") return "QA passed";
+  return qa.no_item_qa_required ? "no item QA required" : "QA waived";
+}
+
+// This member's own done approval on the run, newest first.
+function ownDoneApproval(run) {
+  const itemId = String(run.delivery_item?.id ?? "");
+  return (run.gates || []).filter((gate) => (
+    gate.kind === "lifecycle_transition_approval"
+    && String(gate.subject_context?.item_id ?? "") === itemId
+    && gate.subject_context?.to_stage === "done"
+  )).sort((left, right) => Number(right.request_id) - Number(left.request_id))[0] || null;
+}
+
+// Where completion stands once QA is clear, read from the approval's own
+// standing against the item now. Approval alone never reads as progress:
+// "closing" needs the run's active settlement, and an approved item that is
+// still open says so with where to read its remaining gates.
+function completionStanding(run) {
+  const approval = ownDoneApproval(run);
+  const ref = memberItemId(run.delivery_item || {}) || "the item";
+  const gates = `read \`yoke items get ${ref} status\` for its done gates`;
+  switch (approval?.standing) {
+    case "pending":
+      return { symbol: "◐", text: "awaiting approval" };
+    case "rejected":
+      return { symbol: "✗", text: "approval rejected", reason: `The done approval was rejected; ${gates}.` };
+    case "approved":
+      return run.settling_at
+        ? { symbol: "◐", text: "approved · closing" }
+        : { symbol: "◐", text: "approved · completion pending", reason: `Approved, but its close-out has not completed; ${gates}.` };
+    default:
+      return { symbol: "◐", text: "awaiting item completion" };
+  }
 }
 
 function deliveryRuns(row, deployments) {

@@ -69,7 +69,7 @@ test("actual QA failure and accepted member evidence keep their presentation", (
   for (const [qa, expected] of [
     [{ state: "rejected" }, "✗ QA failed"],
     [{ state: "accepted" }, "◐ QA passed · awaiting item completion"],
-    [{ state: "discharged" }, "◐ QA discharged · awaiting item completion"],
+    [{ state: "discharged" }, "◐ QA waived · awaiting item completion"],
     [{ failed_requirement_ids: [9] }, "✗ QA failed · #9"],
   ]) {
     const box = card([run("run-qa", { member_items: [{ ...item, item_qa: qa }] })]);

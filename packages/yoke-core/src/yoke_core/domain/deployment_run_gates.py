@@ -22,19 +22,14 @@ from typing import Any, Optional
 
 from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import actor_name
-from yoke_core.domain.decision_request_authority import (
-    authority_reason,
-    request_deciders,
-)
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
     QA_NEEDS_REVIEW,
 )
+from yoke_core.domain.decision_gate_record import gate_record
 from yoke_core.domain.decision_requests import _request_row
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.decision_answers import actor_decision
 
 
 def _p(conn: Any) -> str:
@@ -119,48 +114,8 @@ def run_gates(
     ]
     result: dict[str, list[dict[str, Any]]] = {}
     for run_id, request_id in pairs:
-        request = _request_row(conn, request_id)
-        item_status = None
-        if request["kind"] == LIFECYCLE_TRANSITION_APPROVAL:
-            item_id = int(request["subject_context"]["item_id"])
-            item_row = conn.execute(
-                "SELECT status FROM items WHERE id=%s", (item_id,)
-            ).fetchone()
-            item_status = str(item_row["status"]) if item_row is not None else "missing"
-        pending = request["status"] == "pending"
-        reason = (
-            authority_reason(conn, request_id, actor_id)
-            if pending and actor_id is not None
-            else None
-        )
-        decision = (
-            actor_decision(conn, request_id, actor_id) if actor_id is not None else None
-        )
-        result.setdefault(run_id, []).append(
-            {
-                "request_id": request_id,
-                "kind": request["kind"],
-                "status": request["status"],
-                "subject_context": request["subject_context"],
-                "item_status": item_status,
-                "actions": request["actions"] if pending else [],
-                "approval_progress": request["approval_progress"],
-                "requested_at": request.get("created_at"),
-                "can_act": pending and reason is not None and decision is None,
-                "authority_reason": reason,
-                "deciders": request_deciders(conn, request_id, actor_id),
-                "your_decision": decision,
-                "decided_by_you": decision is not None,
-                "resolution_action": request.get("resolution_action"),
-                "resolution_actor_id": request.get("resolution_actor_id"),
-                "resolved_at": request.get("resolved_at"),
-                "resolved_by": (
-                    actor_name(conn, int(request["resolution_actor_id"]))
-                    if request.get("resolution_actor_id") is not None
-                    else None
-                ),
-            }
-        )
+        record = gate_record(conn, _request_row(conn, request_id), actor_id=actor_id)
+        result.setdefault(run_id, []).append(record)
     for gates in result.values():
         gates.sort(key=lambda gate: gate["request_id"])
     return temporal_wire(result)
