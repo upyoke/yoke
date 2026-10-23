@@ -66,7 +66,11 @@ def test_every_source_keyed_step_declares_ready_text(target_name: str) -> None:
 @pytest.mark.parametrize("target_name", sorted(_TARGETS))
 def test_every_source_recipe_passes_the_execution_contract(target_name: str) -> None:
     for case, config in _recipes(target_name):
-        recipe = {key: value for key, value in config.items() if key != "machine"}
+        assert case["method_config"]["os"] == "macos"
+        recipe = {
+            key: value for key, value in config.items()
+            if key not in {"machine", "machines", "os", "platform"}
+        }
         validate_terminal_recipe(
             recipe,
             required_completion=case["required_completion"]

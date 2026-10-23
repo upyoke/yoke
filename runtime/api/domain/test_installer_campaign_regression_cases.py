@@ -335,7 +335,7 @@ def test_second_machine_is_a_mission_with_both_physical_hosts():
     case = next(row for row in cases if row["case_key"] == "second-machine-join")
     assert case["method_id"] == "exploratory-mission"
     assert case["method_config"] == {
-        "executor": "informed_subagent", "machine": "joining-test",
+        "executor": "informed_subagent", "machine": "joining-test", "os": "macos",
         "machines": ["primary-test", "joining-test"],
     }
     assert "distinct" in case["instructions"]
