@@ -137,6 +137,10 @@ class ItemCreateResponse(BaseModel):
     # round-trip it back into item content. None on dry-run: no row exists
     # to resolve against.
     execution_instructions: Optional[List[Dict[str, Any]]] = None
+    # Present when the item's delivery flow asks a post-deploy QA question
+    # the item has not answered: the status, the flow and both answers, so
+    # the filer can answer while the work is cheapest to change.
+    post_deploy_qa: Optional[Dict[str, Any]] = None
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -226,8 +230,10 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         return _error(code, message)
 
     execution_instructions: Optional[List[Dict[str, Any]]] = None
+    post_deploy_qa: Optional[Dict[str, Any]] = None
     if not result.get("dry_run"):
         from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.post_deploy_qa_obligation import obligation_for_item
         from yoke_core.domain.workflow_execution_instructions import (
             item_instruction_descriptors,
         )
@@ -236,6 +242,9 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
             execution_instructions = item_instruction_descriptors(
                 conn, int(result["item_id"])
             )
+            obligation = obligation_for_item(conn, int(result["item_id"]))
+        if obligation.unanswered:
+            post_deploy_qa = obligation.as_payload()
 
     response = ItemCreateResponse(
         item_id=int(result["item_id"]),
@@ -245,6 +254,7 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         spec_accepted=payload.spec is not None,
         execution_instructions_considered=(payload.execution_instructions_considered),
         execution_instructions=execution_instructions,
+        post_deploy_qa=post_deploy_qa,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),

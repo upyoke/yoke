@@ -17,6 +17,7 @@ from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain.close_out_evidence_gate import (
     terminal_transition_is_evidence_gated,
 )
+from yoke_core.domain import merge_landing_readiness as landing
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
@@ -25,13 +26,9 @@ from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
-from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
-from yoke_core.domain.merge_review_readiness import review_readiness_refusal
+from yoke_core.domain.merge_review_readiness import enter_review_stage
 from yoke_core.domain.standalone_item_merge_close_out_transition import (
     run_terminal_transition,
-)
-from yoke_core.domain.standalone_item_merge_release_status import (
-    stale_mismatch_is_foreign,
 )
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
@@ -39,15 +36,8 @@ from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
-    resolve_checkout as _resolve_checkout,
 )
-from yoke_core.domain.standalone_item_merge_lane import (
-    active_lanes,
-    lane_branch,
-    lane_path,
-    lane_resolution_error,
-    merge_source_lane,
-)
+from yoke_core.domain.standalone_item_merge_lane import active_lanes, lane_path
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
 
 
@@ -91,30 +81,19 @@ def run(argv: List[str]) -> int:
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
-    close_out_gated = evidence_workflow and not args.skip_status
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 
-    unready = review_readiness_refusal(item, public_ref=public_ref)
-    if unready:
-        return fail(unready)
+    readiness = landing.assess(
+        item, args, public_ref=public_ref, session_id=str(args.session_id)
+    )
+    if args.check:
+        return landing.print_check(readiness, as_json=as_json)
+    if not readiness.ready:
+        return fail(readiness.refusal())
 
-    if close_out_gated and not (args.result and args.verification):
-        return fail(
-            f"{public_ref} uses the {workflow_id} workflow, whose terminal "
-            "transition is evidence-gated: pass --result and --verification "
-            "on this command (including when the merge queue already landed "
-            "the branch). `yoke lifecycle transition --to done` cannot "
-            "restore the work claim close-out needs. Use --skip-status to "
-            "merge without closing out.",
-        )
-
-    lane_error = lane_resolution_error(item)
-    if active_lanes(item) and lane_error:
-        return fail(f"{public_ref}: {lane_error}")
-
-    branch = lane_branch(item, public_ref)
-    claim_error = _session_holds_claim(item_id, str(args.session_id))
-    if claim_error:
+    branch = readiness.branch
+    claim_error = readiness.claim_error
+    if readiness.closed_out:
         # A claim released by a close-out that already completed is not a
         # refusal to report; the item's own record says the work landed.
         closed_out = evidence.closed_out_envelope(
@@ -123,47 +102,30 @@ def run(argv: List[str]) -> int:
             branch=branch,
             claim_note=claim_error,
         )
-        if closed_out is not None:
-            record_terminal_lane_close_out(
-                item,
-                closed_out,
-                target_status=status,
-                session_id=str(args.session_id),
-            )
-            print(json.dumps(closed_out, indent=2, sort_keys=True))
-            announce(closed_out, kind=report.ALREADY_CLOSED, evidence_from_record=True)
-            return 0
-        if not recovery.claim_is_missing(claim_error):
-            return fail(f"{public_ref}: {claim_error}")
+        record_terminal_lane_close_out(
+            item,
+            closed_out,
+            target_status=status,
+            session_id=str(args.session_id),
+        )
+        print(json.dumps(closed_out, indent=2, sort_keys=True))
+        announce(closed_out, kind=report.ALREADY_CLOSED, evidence_from_record=True)
+        return 0
 
-    try:
-        repo_root, target = _resolve_checkout(item, str(args.target))
-    except RuntimeError as exc:
-        return fail(f"{public_ref}: {exc}")
+    repo_root, target = readiness.repo_root, readiness.target
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "")
-    recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
-    stale = stale_lane.stale_unlanded_work(
-        item_id=item_id,
-        branch=branch,
-        target=target,
-        repo_root=str(repo_root),
-        recorded_head=recorded_head,
-        stale_mismatch_is_foreign=stale_mismatch_is_foreign(item, status),
-    )
     queue = item.get("merge_queue") or {}
-    # A recorded queue landing that does not cover this candidate is the
-    # false-success recovery: take the candidate path even from release.
-    if stale and not (queue.get("pr_number") and queue.get("landed_at")):
-        return fail(f"{public_ref}: {stale}")
-    landed_lane = landed.landed_lane(
-        item_id=item_id,
-        branch=branch,
-        target=target,
-        repo_root=str(repo_root),
-        project=project,
-        recorded_head=recorded_head,
-    )
+    landed_lane = readiness.landed
+
+    def enter_review() -> str:
+        if not readiness.review.enters_review:
+            return ""
+        report.announce_phase("entering review")
+        return enter_review_stage(
+            public_ref, readiness.review, reason=str(args.verification)
+        )
+
     pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
         str(repo_root),
         branch,
@@ -182,6 +144,8 @@ def run(argv: List[str]) -> int:
         recovered_claim = True
 
     if landed_lane is not None:
+        if review_refusal := enter_review():
+            return fail(f"{public_ref}: {review_refusal}")
         # Nothing below is safe against a landing that already happened: the
         # commit-bound QA recovery publishes the lane, and the landing route
         # asks the queue to take a pull request it has already merged.
@@ -204,9 +168,13 @@ def run(argv: List[str]) -> int:
             repo_root=repo_root,
             project=project,
             read_item=lambda: _resolve_item(public_ref, args.project),
+            enter_review=enter_review,
         )
         if refusal:
             return fail(f"{public_ref}: {refusal}")
+    if readiness.review.enters_review:
+        status = readiness.review.review_stage
+        item = {**item, "status": status}
     if not outcome.ok:
         return fail(
             f"{public_ref}: {outcome.error}",
