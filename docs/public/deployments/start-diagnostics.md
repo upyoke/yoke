@@ -224,12 +224,15 @@ the SQLSTATE and the current `deployment_runs` lock holder. Members settled
 before the interruption keep their result, the run stays `executing` at its QA
 stage, and the driver re-dispatches that stage inside its bounded QA wait.
 
-A QA plan configuration refusal is not a stage failure either. When the gate
-refuses a saved plan, for example `qa_plan_source_snapshot_missing`, the
-dispatch answers `qa_configuration_refused` with that refusal and its recovery.
-The driver exits non-zero without recording the run failed: the run stays
-`executing` at its QA stage and every recorded QA result is kept. Fix the named
-configuration, then re-drive the same run with `yoke watch deploy -- RUN-ID`.
+A member's QA plan configuration refusal is not a stage failure either. When
+the gate refuses one member's saved plan, for example
+`qa_plan_source_snapshot_missing`, the stage records a
+`qa_configuration_refused` blocker for that member and keeps waiting on the
+others. The driver does not exit for it. The run stays `executing` at its QA
+stage and every recorded QA result is kept. Fix the named configuration, then
+re-drive the same run with `yoke watch deploy -- RUN-ID`. A correction already
+frozen on that member counts as selected, so attaching the same plan does not
+raise `qa_frozen_plan_snapshot_incomplete`.
 
 The scoped-QA wait polls a run fingerprint every 15 seconds and re-dispatches
 only when QA facts change, plus once at the deadline. It announces its poll

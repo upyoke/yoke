@@ -268,3 +268,68 @@ def test_existing_attachment_still_materializes(test_db) -> None:
     )
     assert materialized["created_requirement_ids"]
     assert isinstance(UnreachablePlanTargetError("x"), QaPlanError)
+
+
+def test_attach_refuses_correction_held_on_executing_run(test_db) -> None:
+    import json
+
+    from runtime.api.domain.test_deployment_qa_stage_execution import (
+        _plan,
+        _seed_run,
+        _stages,
+    )
+
+    _seed_item(test_db)
+    plan_id = int(create_smoke_plan(test_db, project="yoke", slug="held-correction"))
+    run_id = "run-held-correction"
+    _seed_run(
+        test_db,
+        run_id=run_id,
+        stages=_stages(_plan(test_db, "held-correction-flow")),
+        members=(),
+        existing_members=(ITEM_ID,),
+    )
+    test_db.execute(
+        "UPDATE deployment_run_items SET requirement_snapshot=%s "
+        "WHERE run_id=%s AND item_id=%s",
+        (
+            json.dumps(
+                {
+                    "plans": [
+                        {
+                            "plan": {"id": plan_id},
+                            "replacement_scopes": {
+                                "command-smoke": [{"requirement_id": 1}]
+                            },
+                        }
+                    ]
+                }
+            ),
+            run_id,
+            ITEM_ID,
+        ),
+    )
+    test_db.commit()
+    with pytest.raises(QaPlanError, match="qa_correction_already_held") as caught:
+        attach_plan_to_item(
+            test_db,
+            plan_id=plan_id,
+            item_id=ITEM_ID,
+            transition_id="reviewing-implementation",
+        )
+    message = str(caught.value)
+    assert run_id in message
+    assert "Recovery:" in message
+    assert "do not attach it" in message
+    test_db.rollback()
+    test_db.execute(
+        "UPDATE deployment_runs SET status='succeeded' WHERE id=%s", (run_id,)
+    )
+    test_db.commit()
+    attached = attach_plan_to_item(
+        test_db,
+        plan_id=plan_id,
+        item_id=ITEM_ID,
+        transition_id="reviewing-implementation",
+    )
+    assert attached["plan_id"] == plan_id

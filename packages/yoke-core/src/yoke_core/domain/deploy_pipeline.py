@@ -305,7 +305,7 @@ def run_pipeline(
                 print(line, file=sys.stderr)
             print(exec_diag, file=sys.stderr)
             return EXIT_AWAITING_QA
-        if exec_rc in (-5, -6):  # driver source drift, QA configuration refused
+        if exec_rc == -5:  # driver source drift
             print(exec_diag, file=sys.stderr)
             return EXIT_STAGE_FAILED
 
