@@ -8,6 +8,6 @@
  "planned": "Previously accepted installed help/manifest/context access repair.",
  "proposed_content": ["Use command --help for invocation and refusal recovery, topic packets for current release schemas/recipes, and registered reads for live state.", "Project pointers resolve to .yoke/docs and installed manifest copies supplied by the accepted repair; global pointers use real machine-reachable help or public docs.", "Capability declarations identify supported behavior; observed readiness and QA receipts remain separate evidence."],
  "plan_notes": ["accepted installed help/manifest/Conduct access repair", "JOURNEYS locked principle 4"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/main_agent_packet.py:74", "packages/yoke-core/src/yoke_core/domain/schema_api_context.py:1", "packages/yoke-cli/src/yoke_cli/commands/adapters/packets.py:1", "runtime/harness/codex/manifest.json:1"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/main_agent_packet.py:75", "packages/yoke-core/src/yoke_core/domain/schema_api_context.py:1", "packages/yoke-cli/src/yoke_cli/commands/adapters/packets.py:1", "runtime/harness/codex/manifest.json:1"],
  "position": 1
 }

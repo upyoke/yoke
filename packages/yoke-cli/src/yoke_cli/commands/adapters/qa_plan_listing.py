@@ -90,4 +90,7 @@ def write_plan_rows(response, stdout, stderr) -> None:
     ), result.get("rows") or [], stdout, empty="No QA plans found.")
     if result.get("next_offset") is not None:
         print(f"Next page: --offset {result['next_offset']}", file=stdout)
-    print("Details: yoke qa plan get PLAN-ID; --full adds all page fields.", file=stdout)
+    print(
+        "Details: yoke qa plan get PLAN-ID --project P; --full adds all page fields.",
+        file=stdout,
+    )

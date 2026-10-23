@@ -38,6 +38,14 @@ def non_path_argument_indexes(command: str, tokens: list[str]) -> set[int]:
                 explicit = True
             elif token.startswith(("-e", "-f")):
                 explicit = True
+            elif (
+                command == "sed"
+                and token == "-i"
+                and index + 1 < len(tokens)
+                and tokens[index + 1] == ""
+            ):
+                ignored.add(index + 1)
+                index += 1
             # Other options stay in the normal operand walk.
         else:
             positionals.append(index)

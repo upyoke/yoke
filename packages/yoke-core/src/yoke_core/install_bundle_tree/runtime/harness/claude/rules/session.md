@@ -22,7 +22,7 @@ Shared rules: `AGENTS.md`. Hooks, session end and recovery:
   foreground Bash. Missing launch setting: ask the launcher to relaunch before a long wait.
   Exporting inside Bash is too late. A time-limit notice means incomplete work.
 - Preserve handed-back calls and captures without duplicates; use the long-command rules.
-- Holding a work claim, never Stop after arming Monitor. Run `yoke sessions touch --mode parked`
+- Holding a claim, never Stop after arming Monitor. Run `yoke sessions touch --mode parked --reason claim`
   first; your next tool call clears it.
 - Subagents run long commands foreground in one Bash call, never background Bash plus Monitor.
 

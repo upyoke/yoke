@@ -48,6 +48,7 @@ from yoke_contracts.session_control.teaching import (
     FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
 )
+from yoke_core.domain import schema_api_context_seed as seed
 
 
 MAIN_AGENT_ROLE = "main_agent"
@@ -73,7 +74,9 @@ _MAIN_AGENT_HEADING = "Main-session startup block (main_agent)"
 # and a truncated answer is worse than a pointer to a complete one.
 MAIN_AGENT_STARTUP_READS = (
     "Before naming schema or commands: `yoke packets render --role main_agent "
-    "--topic T` (`--detail full` for depth). Operation flags: `--help`. "
+    f"--topic {seed.ROLE_TOPICS['main_agent'][0]}` "
+    f"(topics: {', '.join(seed.ROLE_TOPICS['main_agent'])}; "
+    "`--detail full` for depth). Operation flags: `--help`. "
     "Harness capability: `.yoke/harness/<harness-dir>/manifest.json` "
     "(claude-code → claude), never a document's claim. "
     "Missing manifest: `yoke project refresh`."
