@@ -121,6 +121,23 @@ def test_identity_names_are_safe_path_components(name):
         validate_identity_name(name)
 
 
+def test_omitted_identity_refuses_when_default_has_no_sites():
+    identities = parse_identity_declarations({"identities": {"admin": BUYER}})
+    with pytest.raises(BrowserIdentityError, match="browser_identity_required") as raised:
+        select_identity(identities, None)
+    message = str(raised.value)
+    assert "admin" in message
+    assert "method_config.browser_identity" in message
+    assert select_identity(identities, "default").name == DEFAULT_IDENTITY
+    assert select_identity(identities, "admin").name == "admin"
+    only_default = parse_identity_declarations({})
+    assert select_identity(only_default, None).name == DEFAULT_IDENTITY
+    default_has_sites = parse_identity_declarations(
+        {"identities": {"default": BUYER, "admin": {"sites": []}}}
+    )
+    assert select_identity(default_has_sites, None).name == DEFAULT_IDENTITY
+
+
 def test_an_undeclared_identity_refuses_naming_the_declared_ones():
     identities = parse_identity_declarations({"identities": {"buyer": BUYER}})
     with pytest.raises(

@@ -245,7 +245,24 @@ def mission_browser_identities(config: Mapping[str, object] | None) -> list[str]
 def select_identity(
     identities: Mapping[str, BrowserIdentity], name: str | None
 ) -> BrowserIdentity:
-    """Return the named identity (``default`` when omitted) or refuse by name."""
+    """Return the named identity, or ``default`` when the name is omitted.
+
+    Omission is not an explicit ``default``. When ``default`` declares no
+    sites and another identity does, omission refuses
+    ``browser_identity_required`` and names the choices. Explicit ``default``
+    stays that anonymous profile.
+    """
+    default = identities.get(DEFAULT_IDENTITY)
+    default_sites = () if default is None else default.sites
+    choices = sorted(key for key, identity in identities.items() if identity.sites)
+    if name is None and not default_sites and choices:
+        raise BrowserIdentityError(
+            "browser_identity_required: default declares no sites. Choose "
+            + " or ".join(choices)
+            + ". Pass --identity NAME to `yoke browser authorize` or "
+            "`yoke browser verify`, or set method_config.browser_identity "
+            "on the Browser case, then retry."
+        )
     selected = validate_identity_name(name or DEFAULT_IDENTITY)
     if selected in identities:
         return identities[selected]

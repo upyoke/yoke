@@ -25,7 +25,7 @@ from yoke_cli.commands.browser_sign_in import (
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
-    resolve_authorization_target as resolve_identity_target,
+    resolve_identity_target,
 )
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,

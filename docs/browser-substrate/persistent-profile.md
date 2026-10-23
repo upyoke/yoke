@@ -205,8 +205,11 @@ runs; an identity never signed in there gets a clean context, named in the
 log with the command that signs it in. `verify` and `authorize` need the
 identity's sites: on such a host pass the project's browser-control settings
 document with `--declarations-json`, read where the project is reachable.
-A Browser case names its identity with `method_config.browser_identity`;
-a run whose cases name several starts one daemon per identity. Check what a run
+A Browser case names its identity with `method_config.browser_identity`.
+Omitting it uses `default` unless `default` declares no sites while another
+identity does: that case refuses `browser_identity_required` before a daemon
+starts. Explicit `default` stays anonymous.
+A run whose cases name several starts one daemon per identity. Check what a run
 here would open:
 
 ```sh

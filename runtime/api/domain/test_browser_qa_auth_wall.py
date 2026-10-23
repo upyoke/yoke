@@ -263,8 +263,14 @@ def test_a_case_runs_on_its_declared_identity_daemon(tmp_path: Path) -> None:
                 "steps": _browser_check_steps(),
             },
         )
+        from yoke_contracts.browser_identity import parse_identity_declarations
+
         patches = _patch_external_deps(
-            db_path, execute_step_responses=[{"success": True}]
+            db_path,
+            execute_step_responses=[{"success": True}],
+            identities=parse_identity_declarations(
+                {"identities": {"admin": {"sites": []}}}
+            ),
         )
         for active in patches:
             active.start()

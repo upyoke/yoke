@@ -25,14 +25,16 @@ import json
 from typing import Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
-from yoke_contracts.browser_identity import BrowserIdentityError, case_browser_identity
+from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_core.domain.browser_qa_context_fetch import _fetch_browser_context  # noqa: F401
 from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
 )
 from yoke_core.domain.browser_qa_requirement import _process_requirement
-from yoke_core.domain.browser_qa_case_config import parse_case_config
-from yoke_core.domain.browser_qa_sign_in_evidence import describe_sign_in
+from yoke_core.domain.browser_qa_sign_in_evidence import (
+    describe_sign_in,
+    resolve_case_identities,
+)
 from yoke_core.domain.browser_qa_run_source import run_bound_identity
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
@@ -273,14 +275,14 @@ def execute_scenario(
     # Step 5: Ensure a browser daemon runs for every identity the cases name;
     # each identity is its own profile, so each has its own daemon.
     try:
-        identities = [
-            case_browser_identity(parse_case_config(row["method_config"]))
-            for row in req_rows
-        ]
+        identities = resolve_case_identities(
+            _bqa.load_project_browser_identities(project),
+            req_rows,
+        )
     except BrowserIdentityError as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
-        result.note = "malformed_method_config"
+        result.note = str(exc).split(":", 1)[0]
         print(result.to_json())
         return result
     _bqa._log("Checking browser daemon status...")
