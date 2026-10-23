@@ -114,6 +114,7 @@ def test_missing_uv_installs_automatically_via_astral(tmp_path: Path) -> None:
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
+        "      --python) shift 2 ;;\n"
         "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"
@@ -214,7 +215,7 @@ def test_present_uv_exports_authoritative_tool_bin_and_isolates_helper(
     assert result.returncode == 0
     assert f"UV_TOOL_BIN_DIR={tool_bin}" in result.stdout
     assert f"PATH_HEAD={tool_bin}" in result.stdout
-    assert 'python_runner="uv run --isolated --no-project python"' in (
+    assert 'python_runner="uv run --isolated --no-project --python 3.11 python"' in (
         INSTALL_SHIM_PATH.read_text(encoding="utf-8")
     )
 
@@ -252,6 +253,7 @@ def test_uv_install_ignores_prompt_endpoints_and_leaves_stdin_untouched(
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
+        "      --python) shift 2 ;;\n"
         "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"

@@ -12,9 +12,11 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from public_installer_helpers import (
+    INSTALL_SHIM_PATH,
     RecordingRunner,
     branded_installer_glyphs as branded_installer_glyphs,
     load_installer,
@@ -247,3 +249,49 @@ def test_stage_installer_channel_failure_uses_stage_default(
         "curl -fsSL https://stage.upyoke.com/install | sh -s -- --channel latest"
         in rendered
     )
+
+
+def test_default_origin_resolution_failure_prints_the_original_reason() -> None:
+    fragment = (
+        INSTALL_SHIM_PATH.parent / "source" / "distribution.py.inc"
+    ).read_text(encoding="utf-8")
+    assert "removeprefix" not in fragment
+    installer_mod = load_installer()
+    output = io.StringIO()
+    runner = RecordingRunner()
+
+    def failing_fetcher(url: str) -> bytes:
+        raise installer_mod.InstallError(
+            f"could not fetch {url}: channel record unavailable"
+        )
+
+    installer = installer_mod.Installer(
+        _options(installer_mod),
+        fetcher=failing_fetcher,
+        runner=runner,
+        which=lambda name: f"/usr/bin/{name}",
+        stdout=output,
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        assert "channel record unavailable" in str(exc)
+    else:
+        raise AssertionError("expected channel fetch failure")
+
+    rendered = output.getvalue()
+    assert "channel record unavailable" in rendered
+    assert "curl -fsSL https://upyoke.com/install | sh" in rendered
+    assert "Traceback" not in rendered
+    assert "AttributeError" not in rendered
+
+
+def test_generated_install_py_matches_source() -> None:
+    result = subprocess.run(
+        [sys.executable, str(INSTALL_SHIM_PATH.parent / "build.py"), "--check"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

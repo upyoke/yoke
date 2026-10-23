@@ -177,8 +177,8 @@ def write_uv_stub(
     """Write a fake ``uv`` for the installer's isolated helper runner.
 
     The shim runs the helper as
-    ``uv run --isolated --no-project python <args>``; this stub strips that
-    prefix and execs a real python3 so the tempdir probe, the install.py
+    ``uv run --isolated --no-project --python 3.11 python <args>``; this stub
+    strips that prefix and execs a real python3 so the tempdir probe, the install.py
     download, and the handoff all work without a real uv. When
     ``install_py_body`` is given, the stub serves it as the downloaded
     install.py instead of reaching the network.
@@ -211,6 +211,7 @@ def write_uv_stub(
         "  shift\n"
         '  while [ "$#" -gt 0 ]; do\n'
         '    case "$1" in\n'
+        "      --python) shift 2 ;;\n"
         "      --isolated|--no-project|--project|python) shift ;;\n"
         "      *) break ;;\n"
         "    esac\n"

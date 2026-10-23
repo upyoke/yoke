@@ -621,16 +621,18 @@ case "$resolved_uv_bin_dir" in
 esac
 
 # uv provides Python, so the helper runs under uv even on a host with no system
-# python3. `--isolated --no-project` prevents an active or cwd-local virtual
-# environment from supplying stale Yoke packages to the helper. The runner is a
-# string of external-command tokens (intentionally word-split when expanded),
-# never a shell function. A --dry-run on a host without uv falls back to any
-# system python3 just to confirm the published release and print the plan.
+# python3. `--python 3.11` is the product floor: uv supplies a managed
+# interpreter instead of an older system Python. `--isolated --no-project`
+# prevents an active or cwd-local virtual environment from supplying stale Yoke
+# packages to the helper. The runner is a string of external-command tokens
+# (intentionally word-split when expanded), never a shell function. A --dry-run
+# on a host without uv falls back to any system python3 just to confirm the
+# published release and print the plan.
 if [ -n "$dry_run" ] && ! need_command uv; then
   need_command python3 || fail "uv (or, for --dry-run only, python3) is required to confirm the published release and print the install plan"
   python_runner="python3"
 else
-  python_runner="uv run --isolated --no-project python"
+  python_runner="uv run --isolated --no-project --python 3.11 python"
 fi
 
 tmp_dir=$($python_runner -c 'import tempfile; print(tempfile.mkdtemp(prefix="yoke-install-"))') || fail "could not create temp directory"

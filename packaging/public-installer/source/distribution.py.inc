@@ -8,7 +8,10 @@ def _rerun_command(base_url: str, *, channel: str | None = None) -> str:
     origin = _safe_url(base_url).rstrip("/")
     if origin == DEFAULT_BASE_URL:
         scheme, host = origin.split("://", 1)
-        origin = f"{scheme}://{host.removeprefix('api.')}"
+        api_prefix = "api."
+        if host.startswith(api_prefix):
+            host = host[len(api_prefix) :]
+        origin = f"{scheme}://{host}"
     command = f"curl -fsSL {origin}/install | sh"
     if channel is not None:
         command += f" -s -- --channel {shlex.quote(channel)}"
