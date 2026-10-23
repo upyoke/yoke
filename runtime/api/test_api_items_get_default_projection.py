@@ -5,6 +5,10 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+from yoke_core.domain.post_deploy_qa_obligation import (
+    NOT_OWED,
+    PostDeployObligation,
+)
 from yoke_core.domain.handlers import reads
 from yoke_core.domain.items_constants import STRUCTURED_FIELDS
 from yoke_contracts.items_projection import (
@@ -69,6 +73,10 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
                     42: {"value": "default-flow", "source": "project_default"}
                 },
             ),
+            patch(
+                "yoke_core.domain.post_deploy_qa_obligation.obligation_for_item",
+                return_value=PostDeployObligation(NOT_OWED),
+            ),
         ):
             outcome = reads.handle_items_get(_request({}))
         self.assertTrue(outcome.primary_success)
@@ -83,9 +91,10 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             [
                 field
                 for field in DEFAULT_GET_FIELDS
-                if field not in {"id", "deployment_flow"}
+                if field not in {"id", "deployment_flow", "post_deploy_qa"}
             ],
         )
+        self.assertEqual(fields["post_deploy_qa"], "not owed")
         self.assertEqual(
             fields["deployment_flow"],
             {"value": "default-flow", "source": "project_default"},
