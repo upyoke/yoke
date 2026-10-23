@@ -9,9 +9,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.browser_identity import (
     BrowserIdentityError,
     parse_identity_declarations,
+    select_identity,
 )
 from yoke_cli.commands._helpers import ensure_handlers_loaded
-from yoke_cli.commands.browser_sign_in import select_authorization_identity
 from yoke_cli.config import browser_profile, machine_config
 from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 from yoke_cli.config.capability_secrets import read_machine_capability_secret
@@ -169,7 +169,7 @@ def authorize_remote(parsed) -> int:
                 + ". Repair `yoke projects capability-settings set --project P "
                 "--cap-type browser-control`, then retry."
             ) from None
-        identity = select_authorization_identity(
+        identity = select_identity(
             parse_identity_declarations(declarations), parsed.identity
         )
         argv = [

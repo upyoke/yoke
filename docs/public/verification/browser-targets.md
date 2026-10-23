@@ -101,11 +101,17 @@ step. For example, a dedicated actor round trip can include
 Choose steps that restore a safe state from the page left by a failure.
 
 Optional `browser_identity` names the project identity whose signed-in profile
-the case runs as (default `default`), declared in the project's
-`browser-control` capability settings; an identity never signed in on the
-running host gets a clean context and a signed-out capture names the
-`yoke browser authorize --identity NAME` command. A run whose cases name several identities starts
-one daemon per identity, and the run's `sign_in` evidence names the identity.
+the case runs as, declared in the project's `browser-control` capability
+settings. Omit it and the case uses `default` when `default` declares sites,
+or when no identity declares sites. When `default` declares no sites and
+another identity does, omission refuses `browser_identity_required` before any
+daemon or capture, names the choices, and tells you to set
+`method_config.browser_identity`. Explicit `default` stays anonymous browsing.
+A named identity must already be declared; each identity keeps its own profile.
+An identity never signed in on the running host gets a clean context and a
+signed-out capture names the `yoke browser authorize --identity NAME` command.
+A run whose cases name several identities starts one daemon per identity, and
+the run's `sign_in` evidence names the identity.
 See [browser sign-in identities](browser-identities.md).
 
 Optional `color_scheme` is exactly `"light"` or `"dark"`; omit it for the

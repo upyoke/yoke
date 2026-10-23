@@ -179,3 +179,88 @@ class TestBrowserQaArtifactAudit:
             "browser_qa_requirement.py writes artifacts under "
             "projects/<project>/qa-artifacts/ instead of scratch storage."
         )
+
+
+def _admin_declarations():
+    from yoke_contracts.browser_identity import parse_identity_declarations
+
+    site = {
+        "site": "app",
+        "origin": "https://app.example",
+        "probe": {"url": "https://app.example/me", "signed_in_status": 200},
+    }
+    return parse_identity_declarations({"identities": {"admin": {"sites": [site]}}})
+
+
+def test_omitted_identity_refuses_before_the_daemon_starts(db_path: str) -> None:
+    from unittest import mock
+
+    _seed_item(db_path, 4553)
+    req_id = _seed_requirement(
+        db_path,
+        4553,
+        "browser-check",
+        {
+            "steps": [
+                {"action": "navigate", "route": "/"},
+                _browser_verdict_assertion(),
+            ]
+        },
+    )
+    patches = _patch_external_deps(db_path, identities=_admin_declarations())
+    for patcher in patches:
+        patcher.start()
+    try:
+        with mock.patch.object(browser_qa, "_ensure_daemon_running") as ensure:
+            result = browser_qa.execute_scenario(
+                item_id=4553,
+                project="testproj",
+                requirement_id=req_id,
+                base_url="http://localhost:9999",
+            )
+    finally:
+        for patcher in patches:
+            patcher.stop()
+    assert result.verdict == "error"
+    assert result.note == "browser_identity_required"
+    assert ensure.call_count == 0
+
+
+def test_explicit_default_still_starts_the_default_daemon(db_path: str) -> None:
+    from unittest import mock
+
+    _seed_item(db_path, 4554)
+    req_id = _seed_requirement(
+        db_path,
+        4554,
+        "browser-check",
+        {
+            "browser_identity": "default",
+            "steps": [
+                {"action": "navigate", "route": "/"},
+                _browser_verdict_assertion(),
+            ],
+        },
+    )
+    patches = _patch_external_deps(
+        db_path,
+        identities=_admin_declarations(),
+        execute_step_responses=[{"success": True, "artifacts": []}],
+    )
+    for patcher in patches:
+        patcher.start()
+    try:
+        with mock.patch.object(
+            browser_qa, "_ensure_daemon_running", return_value=None
+        ) as ensure:
+            result = browser_qa.execute_scenario(
+                item_id=4554,
+                project="testproj",
+                requirement_id=req_id,
+                base_url="http://localhost:9999",
+            )
+    finally:
+        for patcher in patches:
+            patcher.stop()
+    assert result.verdict == "pass"
+    assert [call.kwargs["identity"] for call in ensure.call_args_list] == ["default"]

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 from yoke_cli.commands.browser_sign_in import (
     prepare_browser_runtime,
-    resolve_authorization_target as resolve_identity_target,
+    resolve_identity_target,
 )
 
 
