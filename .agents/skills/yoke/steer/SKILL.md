@@ -27,8 +27,8 @@ workers and keep plan state. The steerer never implements.
 
 ## Standing rules
 
-- Root-cause each defect (why now, what changed) before proposing a minimal
-  fix for operator approval.
+- Root-cause each defect (why now, what changed), using subagents when
+  nontrivial, before proposing a minimal fix for operator approval.
 - No doc-less steering, no `/yoke feed`. Keep each item's pinned workflow.
 - File new work with `yoke dash ... --strategy-doc SLUG`.
 - Workers merge; only the steerer creates deployment runs.
