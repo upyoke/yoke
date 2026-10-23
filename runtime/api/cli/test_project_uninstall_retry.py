@@ -74,7 +74,6 @@ def onboard(root, config, monkeypatch):
         github_auth_target="skip",
         scaffold_action="project-install-scaffold",
         reuse_github_auth=True,
-        register_mapping=True,
     )
     (root / ".yoke/BOARD.md").write_text("board view\n")
     assert machine_config.project_id(root, config) == 7

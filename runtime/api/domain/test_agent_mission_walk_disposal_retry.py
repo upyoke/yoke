@@ -8,6 +8,9 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.cli import test_project_uninstall_owned_cleanup as install_support
+from runtime.api.cli import (
+    test_project_uninstall_registration_only as registration_support,
+)
 from runtime.api.domain import test_qa_fixture_project_disposal as disposal_support
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_cli.commands.adapters.install import project_uninstall
@@ -30,6 +33,17 @@ from yoke_core.domain.qa_plan_execution_state import lock_plan_execution
 
 
 installed = install_support.installed
+registered = registration_support.registered
+
+
+@pytest.fixture(params=["installed", "registered"])
+def disposable_checkout(request):
+    if request.param == "installed":
+        return request.getfixturevalue("installed")
+    root, config = request.getfixturevalue("registered")
+    return root, None, config
+
+
 walking_mission = disposal_support.walking_mission
 removed_mission = disposal_support.removed_mission
 item_close_shares_the_fixture_connection = (
@@ -39,11 +53,11 @@ item_close_shares_the_fixture_connection = (
 
 @pytest.mark.parametrize("receipt_failure", [False, True])
 def test_active_walk_retry(
-    test_db, installed, walking_mission, monkeypatch, capsys, receipt_failure
+    test_db, disposable_checkout, walking_mission, monkeypatch, capsys, receipt_failure
 ):
     _assert_owned_retry(
         test_db,
-        installed,
+        disposable_checkout,
         walking_mission,
         monkeypatch,
         capsys,
@@ -57,11 +71,11 @@ def test_active_walk_retry(
     "removed_mission", ["removed", "failed", "cancelled"], indirect=True
 )
 def test_ended_deployment_cleanup_retry(
-    test_db, installed, removed_mission, monkeypatch, capsys, receipt_failure
+    test_db, disposable_checkout, removed_mission, monkeypatch, capsys, receipt_failure
 ):
     _assert_owned_retry(
         test_db,
-        installed,
+        disposable_checkout,
         removed_mission,
         monkeypatch,
         capsys,
@@ -95,6 +109,7 @@ def _assert_owned_retry(
         test_db, actor_id=int(subject.actor.actor_id), project_id=7, role_name="owner"
     )
     test_db.commit()
+    had_manifest = (root / ".yoke/install-manifest.json").exists()
     dirty = root / "uv.lock"
     dirty.write_text("mission-owned fixture\n")
     scratch = mission_scratch_path(subject.payload["execution_id"])
@@ -200,7 +215,8 @@ def _assert_owned_retry(
     assert "project_uninstall_dirty_tree" in output.out
     assert "uv.lock" in output.out
     assert "starting_state_restore" not in output.out
-    assert dirty.exists() and (root / ".yoke/install-manifest.json").exists()
+    assert dirty.exists()
+    assert (root / ".yoke/install-manifest.json").exists() == had_manifest
     assert str(root) in config.read_text()
     assert not any(p.startswith(scratch) for p in host.existing_paths)
     assert not restored

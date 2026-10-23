@@ -298,10 +298,10 @@ def test_uninstall_preserves_modified_and_preexisting_contract_files(
     assert (repo / ".yoke").exists(), "preserved files keep the dir"
 
 
-def test_uninstall_without_manifest_is_a_typed_error(repo) -> None:
+def test_uninstall_without_registration_or_manifest_is_a_typed_error(repo) -> None:
     with pytest.raises(ProjectInstallError) as exc_info:
         project_install.uninstall(repo)
-    assert "install-manifest" in str(exc_info.value)
+    assert "project_uninstall_registration_missing" in str(exc_info.value)
 
 
 def test_uninstall_preflights_malformed_settings_before_file_removal(repo) -> None:
