@@ -243,7 +243,7 @@ def test_debt_writer_preserves_the_callers_transaction(test_db, tmp_path, monkey
     test_db.execute("INSERT INTO reset_debt_probe VALUES (1)")
     record_reset_owed(
         test_db,
-        case={"project_id": 1, "host_baseline": None},
+        case={"project_id": 1, "host_baseline": "fresh-host"},
         machine=MACHINE,
         lease_id=77,
     )

@@ -92,7 +92,7 @@ def test_releasing_either_simultaneous_host_settles_the_whole_set(
     current = lock_plan_execution(test_db, execution["id"])
     assert current["state"] == "aborted" and current["machine_lease_id"] is None
     assert all(not get_claim(test_db, lease.id).is_active for lease in leases)
-    assert all(reset_owed(test_db, machine) == "fresh-host" for machine in MACHINES)
+    assert all(reset_owed(test_db, machine) is None for machine in MACHINES)
 
 
 def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
@@ -141,6 +141,4 @@ def test_manual_release_owes_the_settled_case_baseline(
     test_db.commit()
     release_claim_by_id(test_db, original["lease_id"], "stop host work")
     assert not get_claim(test_db, original["lease_id"]).is_active
-    assert reset_owed(test_db, original["settings"]["resource_name"]) == (
-        baseline or "fresh-host"
-    )
+    assert reset_owed(test_db, original["settings"]["resource_name"]) == baseline

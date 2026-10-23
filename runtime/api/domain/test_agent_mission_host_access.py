@@ -309,5 +309,7 @@ def test_as_is_companion_commands_and_cleanup_never_owe_a_reset(test_db, mission
     finally:
         clear_host_control_factory()
     assert ended["removed"]
-    assert ended["starting_state_restore"]["baseline"] is None
+    assert ended["starting_state_restore"]["restored"] is False
+    assert "as found" in ended["starting_state_restore"]["reason"]
+    assert "error_code" not in ended["starting_state_restore"]
     assert reset_owed(test_db, COMPANION) is None
