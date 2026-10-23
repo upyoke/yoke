@@ -32,6 +32,7 @@ from typing import Any, Optional
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.floor_attestation import uses_agent_attested_floor
+from yoke_core.domain.standalone_item_merge_recovery import ACQUIRE_ADVICE
 
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.
@@ -265,7 +266,8 @@ def closed_out_envelope(
         "warnings": [
             f"{public_ref} already closed out: evidence recorded at "
             f"{evidence.get('recorded_at') or 'an earlier attempt'} and the "
-            f"item is {CLOSED_OUT_STATUS} ({claim_note})"
+            f"item is {CLOSED_OUT_STATUS} "
+            f"({claim_note.removesuffix(ACQUIRE_ADVICE)})"
         ],
     }
 

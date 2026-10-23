@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.release_wait_park import at_release_wait
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     ENGINE_WAIT_STAGE_IDS,
@@ -76,9 +77,11 @@ def landing_notice_pending(claim: dict[str, Any]) -> bool:
 
 def stop_is_legitimate(claim: dict[str, Any]) -> bool:
     """Whether ending the turn on this claim needs no reminder."""
-    if str(claim.get("status") or "").strip() in _HOLD_EXEMPT_STATUSES:
+    status = str(claim.get("status") or "").strip()
+    if status in _HOLD_EXEMPT_STATUSES or waiting_on_landing(claim):
         return True
-    return waiting_on_landing(claim)
+    pin = {"id": claim.get("workflow_id"), "version": claim.get("workflow_version")}
+    return at_release_wait({"workflow": pin}, status)
 
 
 def unfinished_work_name(claim: dict[str, Any]) -> str:

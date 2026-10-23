@@ -113,9 +113,11 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     row = conn.execute(
         f"""SELECT i.id AS item_id, i.status, i.merged_at,
                     i.merge_queue_landed_at, i.merge_queue_enqueued_at,
-                    {OPEN_ATTEMPT_ENQUEUED_AT}
+                    {OPEN_ATTEMPT_ENQUEUED_AT},
+                    wv.workflow_id, wv.version AS workflow_version
               FROM work_claims wc
               JOIN items i ON i.id = {item_id_scope}
+              LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
               {OPEN_ATTEMPT_JOIN}
              WHERE wc.session_id = {placeholder}
                AND wc.target_kind = 'item'

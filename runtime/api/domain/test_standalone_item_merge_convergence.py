@@ -32,7 +32,8 @@ class TestClosedOutConvergence:
         monkeypatch.setattr(
             sim_cli.recovery,
             "claim_error",
-            lambda *_a: "no live work claim on this item",
+            lambda *_a: "no live work claim on this item"
+            + sim_cli.recovery.ACQUIRE_ADVICE,
         )
         monkeypatch.setattr(
             evidence,
@@ -57,6 +58,7 @@ class TestClosedOutConvergence:
         assert envelope["touched_files"] == ["feature.txt"]
         assert envelope["status"] == "done"
         assert any("already closed out" in w for w in envelope["warnings"])
+        assert not any("acquire" in w for w in envelope["warnings"])
 
     def test_a_released_claim_with_no_evidence_stays_a_refusal(
         self,

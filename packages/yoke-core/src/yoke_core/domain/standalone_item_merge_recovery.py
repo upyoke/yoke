@@ -16,6 +16,7 @@ from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
 _MISSING_CLAIM = "no live work claim on this item"
+ACQUIRE_ADVICE = "; acquire one with `yoke claims work acquire`"
 _UNRECOVERED_LANE = (
     "no active worktree lane and no landing the base branch "
     "contains; merge source cannot be recovered"
@@ -117,7 +118,7 @@ def _claim_error_from_lookup(
         return _lookup_failure(connection, "response omitted the holder field")
     holder = result.get("holder")
     if holder is None:
-        return f"{_MISSING_CLAIM}; acquire one with `yoke claims work acquire`"
+        return f"{_MISSING_CLAIM}{ACQUIRE_ADVICE}"
     if not isinstance(holder, Mapping):
         return _lookup_failure(connection, "holder response was malformed")
     try:
