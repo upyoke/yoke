@@ -114,6 +114,7 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
         "project": "yoke",
         "deployment_run_id": "run-20260728-906",
         "limit": 100,
+        "detail": "summary",
     }
 
 
