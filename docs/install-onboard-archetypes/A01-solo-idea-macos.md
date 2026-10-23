@@ -31,7 +31,7 @@ If `uv` is missing:
 
 uv installs automatically via the official Astral installer — no
 confirmation prompt. The shim then runs
-`uv run --isolated --no-project python` on the downloaded `install.py`.
+`uv run --isolated --no-project --python 3.11 python` on the downloaded `install.py`.
 
 ```
 ☀ Setting up Yoke…
