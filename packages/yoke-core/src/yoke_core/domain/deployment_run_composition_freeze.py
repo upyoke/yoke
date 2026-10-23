@@ -10,9 +10,9 @@ frozen exactly as given.
 Writing the derived list back is what keeps a retry honest. A retry copies
 its predecessor's member rows verbatim, so once a run has frozen, every one
 of its rows carries a concrete list and the retry's own freeze takes it as
-given and reproduces the same snapshot. The only retry that inherits no
-list is a retry of a run that never froze, which has no acceptance contract
-to preserve.
+given and reproduces the same snapshot. Its recorded ``retry_of`` is what
+marks it a retry (:func:`is_frozen_retry`); a takeover's moved snapshots
+are not.
 """
 
 from __future__ import annotations
@@ -139,21 +139,25 @@ def member_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     return tuple(int(_cell(row, "item_id", 0)) for row in rows)
 
 
-def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
-    """Whether this run's members came from a run that already froze them.
+def is_frozen_retry(conn: Any, run_id: str) -> bool:
+    """Whether this run is a retry delivering the membership its source froze.
 
-    ``deployment_run_items.requirement_snapshot`` has exactly two writers:
-    the freeze below, and the retry copy that carries a frozen run's members
-    onto its replacement. A member holding one before this run has frozen
-    anything can only have been inherited, which is the durable mark of a
-    retry — and the reason its membership is read rather than derived again.
+    Provenance decides, not snapshots: a takeover also moves frozen
+    ``requirement_snapshot`` rows onto a new candidate that still owes what it
+    newly carries. Only a creation recorded with ``create_request.retry_of``
+    is the same candidate, and it keeps the roster only when the retried run
+    froze one; a retry of a never-frozen run has no contract to preserve.
     """
     row = conn.execute(
-        f"SELECT COUNT(*) FROM {run_items()} WHERE run_id={_p(conn)} "
-        "AND COALESCE(requirement_snapshot,'')<>''",
+        f"SELECT dr.create_request,EXISTS(SELECT 1 FROM {run_items('m')} "
+        "WHERE m.run_id=dr.id AND COALESCE(m.requirement_snapshot,'')<>'') "
+        f"AS frozen FROM deployment_runs dr WHERE dr.id={_p(conn)}",
         (run_id,),
     ).fetchone()
-    return bool(row and int(_cell(row, "count", 0) or 0))
+    if row is None or not _cell(row, "frozen", 1):
+        return False
+    request = json.loads(str(_cell(row, "create_request", 0) or "{}"))
+    return bool(str(request.get("retry_of") or "").strip())
 
 
 #: Delivery policies whose items a release run delivers as members.
