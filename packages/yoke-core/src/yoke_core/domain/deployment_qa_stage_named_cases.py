@@ -55,15 +55,13 @@ def stage_names_cases(
     are passed in rather than re-derived. Only the directly authored
     cases need a query of their own.
 
-    Rows an earlier agent selection materialized are deliberately NOT
-    counted. Re-supplying the same plan is how a corrected plan case
-    reaches a subject that already has rows
-    (:mod:`qa_deployment_case_content_refresh`), so refusing there would
-    take away the repair rather than the duplicate.
+    An earlier agent selection is now a frozen obligation too. Selecting its
+    existing admission returns before expansion; adding another plan requires
+    an explicit correction rather than treating the stage as empty again.
     """
     if isinstance(subject["stage"].get("cases"), Mapping):
         return True
-    if any(not snapshot.get("selected_by_agent") for snapshot in frozen_plans):
+    if frozen_plans:
         return True
     if any(requirement.get("method_id") for requirement in admitted):
         return True
