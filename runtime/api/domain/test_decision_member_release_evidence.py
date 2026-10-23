@@ -127,12 +127,19 @@ def test_item_evidence_is_its_current_release_member_capture(test_db) -> None:
 
 
 def test_item_with_no_capture_reports_missing_not_attached(test_db) -> None:
-    _seed_earlier_release(test_db)
+    requirement = _seed_earlier_release(test_db)
 
-    evidence = related_screenshot_evidence(test_db, item_id=MEMBER)
+    command_only = related_screenshot_evidence(test_db, item_id=MEMBER)
+    test_db.execute(
+        "UPDATE qa_requirements SET method_id='browser-inspection' WHERE id=%s",
+        (requirement,),
+    )
+    visual = related_screenshot_evidence(test_db, item_id=MEMBER)
 
-    assert evidence["state"] == "missing"
-    assert evidence["screenshots"] == []
+    # A command check never promised a screenshot; a screenshot check did.
+    assert command_only["state"] == "not_expected"
+    assert visual["state"] == "missing"
+    assert visual["screenshots"] == []
 
 
 def _pending_done_approval(conn: Any) -> int:

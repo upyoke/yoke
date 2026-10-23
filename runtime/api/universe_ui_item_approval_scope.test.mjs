@@ -167,6 +167,6 @@ for (const [view, render] of [["Shipping", shipping], ["run detail", runDetail]]
     const item = byClass(host, "item-qa-section")[0];
     const note = byClass(item, "review-evidence-note")[0];
     assert.equal(note.textContent,
-      "QA ran for this decision's subject but captured no screenshot.");
+      "A screenshot check for this decision's subject has no screenshot.");
   });
 }

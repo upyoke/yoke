@@ -139,7 +139,9 @@ export function evidenceOf(row) {
   // an empty strip a reader could take for missing rendering.
   const notes = {
     absent: "No QA is recorded for this decision's subject.",
-    missing: "QA ran for this decision's subject but captured no screenshot.",
+    not_required: "No item QA was required, so no screenshot was expected.",
+    not_expected: "Its checks are command checks, which capture no screenshots.",
+    missing: "A screenshot check for this decision's subject has no screenshot.",
     failed: "This evidence includes a failed QA result.",
     stale: "These screenshots cover an older revision than this decision.",
     revision_unknown: "The screenshot revision was not recorded.",

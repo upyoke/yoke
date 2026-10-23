@@ -93,3 +93,17 @@ test("a reader without authority sees who decides instead of controls", () => {
   assert.equal(buttons(panel, "approve").length, 0);
   assert.match(visibleText(panel, " "), /owner/);
 });
+
+test("command checks and a no-obligation answer never warn of a missing screenshot", () => {
+  for (const [state, note] of [
+    ["not_expected", /command checks, which capture no screenshots/],
+    ["not_required", /No item QA was required/],
+    ["missing", /A screenshot check .* has no screenshot/],
+  ]) {
+    const gate = approval(8, "pending");
+    gate.subject_context.evidence = { state, screenshots: [] };
+    const text = visibleText(itemApprovalsPanel(context([]), { ...ITEM, approvals: [gate] }), " ");
+    assert.match(text, note);
+    if (state !== "missing") assert.doesNotMatch(text, /QA ran|has no screenshot/);
+  }
+});

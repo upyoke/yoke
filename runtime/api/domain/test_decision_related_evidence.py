@@ -75,3 +75,18 @@ def test_unrelated_and_non_screenshot_artifacts_are_not_shown(test_db) -> None:
     assert result["requirement_count"] == 1
     assert result["screenshots"] == []
     assert unrelated["state"] == "absent"
+
+
+def test_a_no_obligation_answer_expects_no_screenshot(test_db) -> None:
+    from runtime.api.domain.test_no_obligation_member_close_out import (
+        _no_obligation,
+    )
+    from runtime.api.fixtures.backlog_inserts import insert_item
+
+    insert_item(test_db, id=4914, workflow_id="dash", status="release")
+    _no_obligation(test_db, 4914, reason="nothing observable once deployed")
+
+    result = related_screenshot_evidence(test_db, item_id=4914)
+
+    assert result["state"] == "not_required"
+    assert result["requirement_count"] == 1
