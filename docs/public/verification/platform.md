@@ -169,10 +169,10 @@ run. For known cards, query those subjects, not globally recent QA. Captures
 stay captured until reviewed; no-obligation Item QA names its settled reason;
 Run Identity names recorded artifact or source-revision-only identity.
 
-With public_refs, limit applies per item within each named deployment run and
-separately to run-less checks. deployment_run_ids limits displayed run groups;
-run-less item checks still travel. item_selection reports per_group_limit and
-truncated_groups. History trimming never hides pending review: join reviews by
+With public_refs alone, limit caps the total rows, newest first; item_selection
+reports limit, total and truncated. With deployment_run_ids too, limit applies
+per item within each named run and separately to run-less checks, which still
+travel; item_selection reports per_group_limit and truncated_groups. History trimming never hides pending review: join reviews by
 their item/member subject, not only capped activity rows.
 
 ## Events

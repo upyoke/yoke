@@ -185,7 +185,9 @@ def test_a_busy_item_cannot_hide_another_carried_item() -> None:
                 created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
             )
 
-        result = read_activity(conn, project="yoke", item_ids=[4810, 4811], limit=5)
+        result = read_activity(
+            conn, project="yoke", item_ids=[4810, 4811], deployment_run_ids=[], limit=5
+        )
 
         subjects = {row["item_id"] for row in result["rows"]}
         assert subjects == {4810, 4811}, result["rows"]
@@ -272,7 +274,13 @@ def test_one_release_worth_of_checks_cannot_hide_another_release_s() -> None:
                 created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
             )
 
-        result = read_activity(conn, project="yoke", item_ids=[4830], limit=3)
+        result = read_activity(
+            conn,
+            project="yoke",
+            item_ids=[4830],
+            deployment_run_ids=["run-20260101-001", "run-20260601-009"],
+            limit=3,
+        )
 
         runs = Counter(row["deployment_run_id"] for row in result["rows"])
         assert runs["run-20260101-001"] == 1, result["rows"]

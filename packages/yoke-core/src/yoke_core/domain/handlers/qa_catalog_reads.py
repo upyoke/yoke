@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -47,9 +47,10 @@ class PlanGetRequest(ProjectReadRequest):
 
 
 class ActivityListRequest(ProjectReadRequest):
-    #: Without ``item_ids`` this caps the whole recency page. With them it
-    #: caps rows PER ITEM, so one busy subject cannot crowd another out of
-    #: the answer, and ``item_selection`` reports what that cost.
+    #: Caps the rows returned, newest first. Only with both ``item_ids`` and
+    #: ``deployment_run_ids`` does it cap each item's rows per named run
+    #: instead, so one busy subject cannot crowd another off a card.
+    #: ``item_selection`` reports what either bound cut.
     limit: int = Field(default=100, ge=1, le=500)
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
     #: Narrows to the QA these items own, so a reader showing a known set of
@@ -80,17 +81,28 @@ class ActivityTruncatedGroup(BaseModel):
     deployment_run_id: Optional[str] = None
 
 
-class ActivityItemSelection(BaseModel):
-    """How an item-scoped read was bounded, and which groups it cut short."""
+class ActivityRunGroupSelection(BaseModel):
+    """How a run-group read was bounded, and which groups it cut short."""
 
     per_group_limit: int = Field(..., ge=1)
     truncated_groups: List[ActivityTruncatedGroup]
 
 
+class ActivityTotalSelection(BaseModel):
+    """How an item read without run groups was capped, and what matched."""
+
+    limit: int = Field(..., ge=1)
+    total: int = Field(..., ge=0)
+    truncated: bool
+
+
 class ActivityListResponse(RowsResponse):
     summary: ActivitySummaryResponse
-    #: Present only for an ``item_ids`` read, whose bounding is per item.
-    item_selection: Optional[ActivityItemSelection] = None
+    #: Present only for an ``item_ids`` read: per run group when the caller
+    #: named ``deployment_run_ids``, otherwise the total cap.
+    item_selection: Optional[
+        Union[ActivityRunGroupSelection, ActivityTotalSelection]
+    ] = None
     #: Present only for a run-scoped read: per run, the plans its members
     #: share (drawn once under Run QA) and its removed members.
     run_sharing: Optional[Dict[str, Any]] = None
@@ -305,7 +317,8 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "ActivityItemSelection",
+    "ActivityRunGroupSelection",
+    "ActivityTotalSelection",
     "ActivityTruncatedGroup",
     "ActivityListResponse",
     "ActivityListRequest",
