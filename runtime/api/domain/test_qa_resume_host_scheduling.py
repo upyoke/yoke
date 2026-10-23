@@ -147,16 +147,16 @@ def test_standalone_multi_platform_resume_uses_durable_hosts(
                 "method_id": "terminal-check",
                 "instructions": f"Run the {platform} check.",
                 "expected_outcome": "The check passes.",
-                "method_config": _terminal_recipe(),
+                "method_config": {**_terminal_recipe(), "os": platform},
                 "entry_surface": "printf done",
                 "required_completion": "complete",
                 "starting_state": "as_is",
                 "starting_state_reason": "Read host identity without changing its state.",
             }
             for key, platform in [
-                ("linux-first", "Linux"),
-                ("mac", "macOS"),
-                ("linux-resume", "Linux"),
+                ("linux-first", "linux"),
+                ("mac", "macos"),
+                ("linux-resume", "linux"),
             ]
         ],
     )

@@ -45,8 +45,11 @@ single-machine missions; declare its host set below.
 ```
 
 Omit `machine` to select a registered host matching the case OS. Execution
-checks the method, instructions, capabilities and executable steps before
-leasing a host; portable cases keep verification/name ordering. An unavailable
+checks `method_config.os` / `platform`, capability requirements and executable
+steps before leasing a host. A declared machine supplies its registered `os`
+when those fields do not choose one. Instructions never choose an OS. Without
+a declared platform or machine OS, `test_machine_platform_undeclared` asks for
+`method_config.os` or a registered `method_config.machine`. An unavailable
 platform refuses as `test_machine_platform_unavailable`: register and verify
 a matching host, then retry with its `--machine NAME`. When present, it
 is validated during plan authoring and becomes the case's durable
@@ -57,8 +60,8 @@ omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 For a mission that needs two hosts at once, also declare
 `"machines":["linux-example","macos-example"]` with `"machine":"macos-example"` naming the
 driving host. Every name must be registered and listed once. Each host uses its
-registered OS; the inferred case platform must match at least one host in the
-set. Platform words in instructions do not change the declared driver. The plan runner
+registered OS; the declared case platform must match at least one host in the
+set. Platform words in instructions do not constrain the host set. The plan runner
 acquires the complete set in sorted name order through each host's FIFO;
 contention releases partial acquisitions before waiting. Both leases remain
 held and heartbeated through the walk and independent review. Mission access

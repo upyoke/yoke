@@ -89,7 +89,7 @@ def _materialize_mission(conn: Any, *, item_id: int) -> int:
                 "method_id": "exploratory-mission",
                 "instructions": "Investigate onboarding gaps.",
                 "expected_outcome": "Return ranked findings.",
-                "method_config": {"executor": "informed_subagent"},
+                "method_config": {"executor": "informed_subagent", "os": "macos"},
                 "host_baselines": ["fresh-host"],
             }
         ],

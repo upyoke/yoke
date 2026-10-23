@@ -39,13 +39,14 @@ def execution_machine(
     from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
-    platform = case_platform(case)
     hosts = {
         row.machine: row.settings["os"]
         for row in test_machine_capability_rows(
             conn, project_id=int(case["project_id"])
         )
     }
+
+    platform = case_platform(case, hosts)
 
     def matches(machine: str | None) -> bool:
         if machine and platform is not None and machine not in hosts:
