@@ -47,7 +47,9 @@ def _execution_text(value: Any) -> str:
         )
     if isinstance(value, (list, tuple)):
         return " ".join(_execution_text(v) for v in value)
-    return str(value or "")
+    text = str(value or "")
+    # A specific machine capability names a registered host, not an OS.
+    return "" if text.startswith("test-machine:") else text
 
 
 def platform_config(config: Mapping[str, Any]) -> dict[str, str]:
@@ -74,6 +76,7 @@ def case_platform(
 ) -> str | None:
     """Resolve declared execution inputs and registered machines to an OS."""
     config = case.get("method_config") or {}
+    platform_config(config)
     text = " ".join(
         [
             _execution_text(

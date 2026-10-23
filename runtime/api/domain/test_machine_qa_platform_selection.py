@@ -160,3 +160,27 @@ def test_empty_fleet_still_names_the_required_platform_and_recovery():
         matching_platform_hosts(
             [], ({"instructions": "Run on Linux", "method_config": {"os": "linux"}},)
         )
+
+
+@pytest.mark.parametrize("field", ["os", "platform"])
+@pytest.mark.parametrize("value", ["plan9", [], None])
+def test_invalid_platform_declaration_names_recovery(field, value):
+    with pytest.raises(
+        CapabilityError, match="test_machine_platform_invalid.*method_config.os"
+    ):
+        case_platform({"method_config": {field: value}})
+
+
+def test_machine_capability_name_uses_its_registered_os():
+    assert (
+        case_platform(
+            {"required_capability_kinds": ["test-machine:linux-lab"]},
+            {"linux-lab": "macos"},
+        )
+        == "macos"
+    )
+
+
+def test_method_name_does_not_declare_platform():
+    with pytest.raises(CapabilityError, match="test_machine_platform_undeclared"):
+        case_platform({"method_id": "linux-terminal-check"})
