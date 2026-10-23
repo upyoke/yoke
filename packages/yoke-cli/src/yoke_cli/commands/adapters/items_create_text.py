@@ -12,11 +12,15 @@ def add_create_text_args(parser: argparse.ArgumentParser) -> None:
     # Positional words are captured only so they can refuse by name.
     parser.add_argument("positional", nargs="*", help=argparse.SUPPRESS)
     title = parser.add_mutually_exclusive_group()
-    title.add_argument("--title", help="Item title text.")
-    title.add_argument("--title-file", help="Read title from this UTF-8 file.")
+    title.add_argument("--title", metavar="TEXT", help="Item title text.")
+    title.add_argument(
+        "--title-file", metavar="PATH", help="Read the title from this UTF-8 file."
+    )
     spec = parser.add_mutually_exclusive_group()
-    spec.add_argument("--spec-file", help="Read spec from this UTF-8 file.")
-    spec.add_argument("--stdin", action="store_true", help="Read spec from stdin.")
+    spec.add_argument(
+        "--spec-file", metavar="PATH", help="Read the spec from this UTF-8 file."
+    )
+    spec.add_argument("--stdin", action="store_true", help="Read the spec from stdin.")
 
 
 def positional_refusal(command: str, workflow_flag: str) -> str:

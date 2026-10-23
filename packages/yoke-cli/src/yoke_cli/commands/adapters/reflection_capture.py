@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 USAGE = (
     "yoke ouroboros reflection capture (--text-file PATH | --stdin) "
-    "[--default-agent ROLE] [--project P] [--json]"
+    "[--default-agent ROLE] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -27,16 +27,21 @@ def reflection_capture(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros reflection capture",
         usage=USAGE,
-        epilog="Retain the response text until capture succeeds. On an older "
-        "server, ask the control-plane operator to serve the carrying release; "
-        "do not switch to a database connection.",
+        epilog="Keep the response text until capture succeeds. If the server is "
+        "too old to accept this command, ask the control-plane operator to deploy "
+        "a release that has it; do not switch to a direct database connection.",
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--text-file", help="File holding the reflection text.")
-    source.add_argument("--stdin", action="store_true", help="Read text from stdin.")
+    source.add_argument(
+        "--text-file", metavar="PATH", help="File holding the reflection text."
+    )
+    source.add_argument(
+        "--stdin", action="store_true", help="Read the reflection text from stdin."
+    )
     parser.add_argument(
         "--default-agent",
         default="unknown",
+        metavar="ROLE",
         help="Agent role for entries that name none; default: unknown.",
     )
     add_project_arg(parser)

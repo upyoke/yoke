@@ -54,7 +54,7 @@ __all__ = [
 
 ITEMS_GET_SYNOPSIS = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
-    '[--section "## Heading"] [--session-id S] [--json]'
+    "[--section HEADING] [--full] [--project P] [--session-id S] [--json]"
 )
 ITEMS_GET_CLAIM_NOTE = "Claim holder: yoke claims work holder-get <PREFIX-N>"
 ITEMS_GET_USAGE = f"{ITEMS_GET_SYNOPSIS}. {ITEMS_GET_CLAIM_NOTE}"
@@ -76,6 +76,7 @@ def items_get(args: List[str]) -> int:
     parser.add_argument(
         "--section",
         default=None,
+        metavar="HEADING",
         help=(
             "Print only one '## Heading' block of a structured text or "
             "body field; requires exactly one field argument."
@@ -154,8 +155,8 @@ def items_get(args: List[str]) -> int:
 
 PROGRESS_LOG_USAGE = (
     "yoke items progress-log append <PREFIX-N> --headline TEXT "
-    "(--content TEXT | --content-file PATH | --stdin) [--source S] "
-    "[--session-id S] [--json]"
+    "(--content TEXT | --content-file PATH | --stdin) [--source TAG] "
+    "[--project P] [--session-id S] [--json]"
 )
 
 
@@ -165,7 +166,9 @@ def items_progress_log_append(args: List[str]) -> int:
         usage=PROGRESS_LOG_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--headline", required=True, help="One-line entry headline.")
+    parser.add_argument(
+        "--headline", required=True, metavar="TEXT", help="One-line entry headline."
+    )
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         content_group,
@@ -175,7 +178,9 @@ def items_progress_log_append(args: List[str]) -> int:
         help_text="Current-state checkpoint, at most 4,096 UTF-8 bytes. Write only what changed and the next step; move evidence to artifacts or field-notes. Use --content-file to read from a path.",
     )
     add_stdin_flag(content_group, help_text="Read the entry body from stdin.")
-    parser.add_argument("--source", default=None, help="Optional source tag.")
+    parser.add_argument(
+        "--source", default=None, metavar="TAG", help="Optional source tag."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROGRESS_LOG_USAGE)
@@ -207,7 +212,7 @@ def items_progress_log_append(args: List[str]) -> int:
 STRUCTURED_FIELD_USAGE = (
     "yoke items structured-field replace <PREFIX-N> --field FIELD "
     "(--content TEXT | --content-file PATH | --stdin) "
-    "[--source S] [--force] [--session-id S] [--json]"
+    "[--source TAG] [--force] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -231,11 +236,14 @@ def items_structured_field_replace(args: List[str]) -> int:
         action="store_true",
         help="Read new field content from stdin.",
     )
-    parser.add_argument("--source", default="", help="Optional source tag.")
+    parser.add_argument(
+        "--source", default="", metavar="TAG", help="Optional source tag."
+    )
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Bypass shrinkage / empty guards (use sparingly).",
+        help="Allow new content under half the lines of a field that has 10 "
+        "or more (use sparingly). An empty write is always refused.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

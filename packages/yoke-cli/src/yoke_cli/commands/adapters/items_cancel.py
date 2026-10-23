@@ -27,7 +27,7 @@ from yoke_cli.commands._helpers import (
 
 ITEMS_CANCEL_USAGE = (
     "yoke items cancel <PREFIX-N> --reason TEXT [--ref PREFIX-M] "
-    "[--abandon-merged] [--session-id S] [--json]"
+    "[--abandon-merged] [--project P] [--session-id S] [--json]"
 )
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "items.cancel.run": ITEMS_CANCEL_USAGE,
@@ -61,16 +61,18 @@ def _build_parser() -> Any:
         prog="yoke items cancel",
         usage=ITEMS_CANCEL_USAGE,
         description=(
-            "Cancel an item that will never resume. This is the sibling of "
-            "`yoke items freeze`, which parks work that will come back.\n\n"
-            "The command takes the item claim for you, writes cancelled with "
-            "the reason, reconciles item_dependencies, closes the GitHub "
-            "issue, and releases the claim. A foreign holder is refused.\n\n"
-            "Cancel is an administrative close, not work: the session's "
-            "model level is not checked. A session in another project may "
-            "cancel only while it holds a live steering seat covering the "
-            "item's project (`yoke claims steering acquire --project P`); "
-            "without one it refuses session_project_mismatch.\n\n"
+            "Cancel an item that will never resume. For work that will come "
+            "back, use `yoke items freeze` instead.\n\n"
+            "The command claims the item for you, sets it to cancelled with "
+            "the reason, updates the items that depend on it, closes the "
+            "GitHub issue, and releases the claim. It refuses if another "
+            "session holds the item.\n\n"
+            "Cancelling is an administrative close, not work, so the "
+            "session's model level is not checked. A session in another "
+            "project may cancel only while it holds a live steering seat "
+            "for the item's project (`yoke claims steering acquire "
+            "--project P`); without one it refuses session_project_mismatch."
+            "\n\n"
             "Cancelling deletes all of the item's lanes, because the work is "
             "not wanted: every lane worktree on this machine is removed even "
             "when dirty, locked or unmerged, then its local branch and its "
@@ -83,7 +85,6 @@ def _build_parser() -> Any:
             "cancel are different intents; a cancelled item is terminal, so "
             "frozen is cleared as part of this close. There is no --thaw "
             "flag.\n\n"
-            "--ref records the superseding item when one exists.\n\n"
             "--abandon-merged lets an operator with a live covering steering "
             "seat close merged work that cannot finish. It preserves merge "
             "evidence and records the actor, session, prior status and reason "
@@ -96,21 +97,23 @@ def _build_parser() -> Any:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item to cancel.")
     parser.add_argument(
         "--reason",
         required=True,
-        help="One-line reason stored in items.resolution.",
+        metavar="TEXT",
+        help="One-line reason, stored as the item's resolution.",
     )
     parser.add_argument(
         "--ref",
         default=None,
-        help="Optional superseding item PREFIX-N stored as resolution_ref.",
+        metavar="PREFIX-M",
+        help="Item that replaces this one, if any; stored as resolution_ref.",
     )
     add_session_arg(parser)
     parser.add_argument(
         "--abandon-merged", action="store_true",
-        help="Operator-only: abandon merged work that cannot reach done, with audit.",
+        help="Operators only: close merged work that cannot reach done; see above.",
     )
     add_json_arg(parser)
     return parser

@@ -9,37 +9,31 @@ DIRECT_WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="direct_workflow.dash.survey",
         cli_invocation=(
-            "yoke direct-workflow dash survey ITEM "
-            "(--path PATH | --no-changes) "
-            "[--integration-target BRANCH]"
+            ('yoke direct-workflow dash survey ITEM (--path PATH [--path PATH ...] | --no-changes) [--integration-target BRANCH] [--project P] [--session-id S] [--json]')
         ),
     ),
     AdapterEntry(
         function_id="direct_workflow.blitz.survey",
         cli_invocation=(
-            "yoke direct-workflow blitz survey ITEM --path PATH "
-            "[--integration-target BRANCH]"
+            ('yoke direct-workflow blitz survey ITEM --path PATH [--path PATH ...] [--integration-target BRANCH] [--project P] [--session-id S] [--json]')
         ),
     ),
     AdapterEntry(
         function_id="direct_workflow.dash.evidence",
         cli_invocation=(
-            "yoke direct-workflow dash evidence ITEM --result TEXT "
-            "--verification TEXT --commit-sha SHA --merge-sha SHA"
+            ('yoke direct-workflow dash evidence ITEM --result TEXT --verification TEXT [--verification-status approved|completed|passed|satisfied] [--commit-sha SHA --merge-sha SHA] [--path PATH ... | --no-changes] [--posture-check KEY=STATUS ...] [--tree-root PATH] [--tree-head-sha SHA] [--project P] [--session-id S] [--json]')
         ),
     ),
     AdapterEntry(
         function_id="direct_workflow.dash.escalate",
         cli_invocation=(
-            "yoke direct-workflow dash escalate ITEM --issue-title TITLE "
-            "--findings TEXT"
+            ('yoke direct-workflow dash escalate ITEM --issue-title TITLE --findings TEXT [--priority P] [--project P] [--session-id S] [--json]')
         ),
     ),
     AdapterEntry(
         function_id="direct_workflow.conflict_survey.status",
         cli_invocation=(
-            "yoke direct-workflow conflict-survey status ITEM "
-            "[--project P]"
+            ('yoke direct-workflow conflict-survey status PREFIX-N [--project P] [--full] [--session-id S] [--json]')
         ),
         notes="read-only recorded-survey + live conflict re-check",
         read_shape=True,
@@ -47,7 +41,7 @@ DIRECT_WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="ouroboros.field_note.promote",
         cli_invocation=(
-            "yoke ouroboros field-note promote ENTRY --title TITLE"
+            ('yoke ouroboros field-note promote ENTRY --title TITLE [--instruction TEXT] [--project P] [--priority P] [--session-id S] [--json]')
         ),
     ),
 ]

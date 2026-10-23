@@ -30,7 +30,7 @@ EXECUTION_STATUS_USAGE_TOKEN = "|".join(VALID_EXECUTION_STATUSES)
 EXECUTION_STATUS_HELP = (
     "Capture outcome, distinct from the quality verdict. "
     f"One of: {', '.join(VALID_EXECUTION_STATUSES)}. "
-    "captured requires qa_artifacts or capture_degraded_reason. "
+    "captured needs attached evidence or --capture-degraded-reason. "
     "Omit to leave it unset."
 )
 

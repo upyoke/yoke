@@ -23,7 +23,7 @@ EPHEMERAL_ENV_CREATE_USAGE = (
     "[--workflow-run-id ID] [--github-ref REF] [--session-id S] [--json]"
 )
 EPHEMERAL_ENV_GET_USAGE = (
-    "yoke ephemeral-env get PROJECT BRANCH [--session-id S] [--json]"
+    "yoke ephemeral-env get PROJECT BRANCH [--full] [--session-id S] [--json]"
 )
 
 
@@ -32,8 +32,12 @@ def ephemeral_env_get(args: List[str]) -> int:
         prog="yoke ephemeral-env get",
         usage=EPHEMERAL_ENV_GET_USAGE,
     )
-    parser.add_argument("project", help="Project that owns the environment.")
-    parser.add_argument("branch", help="Git branch the environment serves.")
+    parser.add_argument(
+        "project", metavar="PROJECT", help="Project that owns the environment."
+    )
+    parser.add_argument(
+        "branch", metavar="BRANCH", help="Git branch the environment serves."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPHEMERAL_ENV_GET_USAGE)
@@ -61,21 +65,28 @@ def ephemeral_env_create(args: List[str]) -> int:
         prog="yoke ephemeral-env create",
         usage=EPHEMERAL_ENV_CREATE_USAGE,
     )
-    parser.add_argument("project", help="Project that owns the environment.")
-    parser.add_argument("branch", help="Git branch the environment serves.")
+    parser.add_argument(
+        "project", metavar="PROJECT", help="Project that owns the environment."
+    )
+    parser.add_argument(
+        "branch", metavar="BRANCH", help="Git branch the environment serves."
+    )
     parser.add_argument(
         "--item",
         default="",
+        metavar="PREFIX-N",
         help="Work item the environment is for, as PREFIX-N.",
     )
     parser.add_argument(
         "--workflow-run-id",
         default="",
+        metavar="ID",
         help="Workflow run that created the environment.",
     )
     parser.add_argument(
         "--github-ref",
         default="",
+        metavar="REF",
         help="Git ref the environment was built from.",
     )
     add_session_arg(parser)
@@ -108,9 +119,9 @@ def ephemeral_env_update(args: List[str]) -> int:
         prog="yoke ephemeral-env update",
         usage=EPHEMERAL_ENV_UPDATE_USAGE,
     )
-    parser.add_argument("env_id", help="Ephemeral environment id.")
-    parser.add_argument("field", help="Field to change.")
-    parser.add_argument("value", help="New value for the field.")
+    parser.add_argument("env_id", metavar="ENV-ID", help="Preview environment id.")
+    parser.add_argument("field", metavar="FIELD", help="Field to change.")
+    parser.add_argument("value", metavar="VALUE", help="New value for the field.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPHEMERAL_ENV_UPDATE_USAGE)

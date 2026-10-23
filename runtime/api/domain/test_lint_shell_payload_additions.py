@@ -81,7 +81,7 @@ def test_raw_status_update_emits_lifecycle_transition_note(monkeypatch) -> None:
     )
     assert decision.outcome is Outcome.WARN
     assert decision.block is False
-    assert "yoke lifecycle transition YOK-N --to <next>" in decision.message
+    assert "yoke lifecycle transition <PREFIX-N> --to STATUS" in decision.message
     assert emitted and emitted[0][0] == "warn"
 
 

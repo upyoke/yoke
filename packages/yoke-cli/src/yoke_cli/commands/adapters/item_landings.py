@@ -20,7 +20,7 @@ from yoke_cli.commands._helpers import (
 )
 
 ITEM_LANDINGS_LIST_USAGE = (
-    "yoke item-landings list <PREFIX-N> [--project P] [--session-id S] [--json]"
+    "yoke item-landings list <PREFIX-N> [--project P] [--full] [--session-id S] [--json]"
 )
 
 #: How much of a commit sha the human listing shows. Long enough to name a
@@ -45,11 +45,13 @@ def item_landings_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "item",
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N).",
     )
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help="Project slug or numeric id the item belongs to.",
     )
     add_session_arg(parser)

@@ -19,7 +19,9 @@ ADMISSION_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="machine_authorization.resolve",
-        cli_invocation="yoke machines approve CODE [--json]",
+        cli_invocation=(
+            "yoke machines approve CODE [--json] | yoke machines deny CODE [--json]"
+        ),
         notes="Use yoke machines deny CODE to refuse the request.",
     ),
     AdapterEntry(

@@ -91,7 +91,8 @@ def test_resolve_dispatches_the_scope_and_renders_only_matching_prose(
     }
     assert USAGE_BY_FUNCTION_ID[captured["function_id"]] == (
         "yoke workflow execution-instruction resolve "
-        "--workflow W --project P [--delivery-point POINT] [--stage-bucket B] [--full] [--json]"
+        "--workflow W --project P [--delivery-point POINT] [--stage-bucket BUCKET] "
+        "[--full] [--session-id S] [--json]"
     )
 
     # The default names what binds the scope and how to read it.

@@ -38,10 +38,10 @@ __all__ = ["items_scalar_update", "ITEMS_SCALAR_UPDATE_USAGE"]
 
 
 ITEMS_SCALAR_UPDATE_USAGE = (
-    "yoke items scalar update <PREFIX-N> --field FIELD "
+    "yoke items scalar update PREFIX-N --field FIELD "
     "(--value VALUE | --null | --value-json JSON) "
     "[--done-nonce-verified] [--force] [--qa-bypass] "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 
 
@@ -50,18 +50,22 @@ def items_scalar_update(args: List[str]) -> int:
         prog="yoke items scalar update",
         usage=ITEMS_SCALAR_UPDATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="The item to change.")
     parser.add_argument(
         "--field",
         required=True,
-        help="Scalar field name. See "
-        "yoke_core.domain.mutation_fields.SUPPORTED_UPDATE_FIELDS.",
+        metavar="FIELD",
+        help=(
+            "Field to change: status, frozen, blocked, blocked_reason, priority, "
+            "project, deployment_flow, deployed_to or title."
+        ),
     )
     value_group = parser.add_mutually_exclusive_group(required=True)
     value_group.add_argument(
         "--value",
         default=None,
-        help="New value (string). Bool fields accept true|false|1|0.",
+        metavar="VALUE",
+        help="New value as text. frozen and blocked accept true, false, 1 or 0.",
     )
     value_group.add_argument(
         "--null",
@@ -72,24 +76,25 @@ def items_scalar_update(args: List[str]) -> int:
         "--value-json",
         dest="value_json",
         default=None,
-        help="New value parsed as JSON (for typed integers / booleans / structures).",
+        metavar="JSON",
+        help="New value as JSON, when plain text is ambiguous (numbers, booleans).",
     )
     parser.add_argument(
         "--done-nonce-verified",
         dest="done_nonce_verified",
         action="store_true",
-        help="Internal: caller verified the done-nonce gate.",
+        help="For internal callers only: the caller already checked the done nonce.",
     )
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Bypass frozen-item block and gate guards (use sparingly).",
+        help="Change a frozen item and skip the status gates. Use sparingly.",
     )
     parser.add_argument(
         "--qa-bypass",
         dest="qa_bypass",
         action="store_true",
-        help="Bypass QA gates (operator-asserted).",
+        help="Skip the QA gates; you assert QA is handled.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

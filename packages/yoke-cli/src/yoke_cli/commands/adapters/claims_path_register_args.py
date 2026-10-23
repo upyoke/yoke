@@ -27,7 +27,7 @@ CLAIM_PATH_REGISTER_USAGE = (
     "[--task-num N] "
     "[--mode exclusive|exception] [--exception-reason TEXT] [--allow-planned] "
     "[--tentative-paths PATH1,PATH2,...] "
-    "[--integration-target NAME] [--session-id S] [--json]"
+    "[--integration-target NAME] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -51,44 +51,51 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
     parser.add_argument(
         "--item",
         required=True,
-        help="Item id (PREFIX-N).",
+        metavar="PREFIX-N",
+        help="Item the claim is for.",
     )
     parser.add_argument(
         "--task-num",
         type=int,
         default=None,
-        help="Generated Epic task scope for required-per-task workflows.",
+        metavar="N",
+        help="Epic task the claim covers, for workflows that claim per task.",
     )
     parser.add_argument(
         "--paths",
         default=None,
-        help="Comma-separated paths required in exclusive mode.",
+        metavar="PATH1,PATH2,...",
+        help="Comma-separated paths to claim; required in exclusive mode.",
     )
     parser.add_argument(
         "--mode",
         choices=("exclusive", "exception"),
         default="exclusive",
-        help="Claim mode; default: exclusive.",
+        help="exclusive claims the listed paths; exception claims no paths and "
+        "needs --exception-reason (default: exclusive).",
     )
     parser.add_argument(
         "--exception-reason",
         default=None,
-        help="Required justification in exception mode.",
+        metavar="TEXT",
+        help="Why no paths are claimed; required in exception mode.",
     )
     parser.add_argument(
         "--allow-planned",
         action="store_true",
-        help="Permit claim registration for not-yet-committed paths.",
+        help="Allow paths that are not committed yet.",
     )
     parser.add_argument(
         "--tentative-paths",
         default="",
-        help="Subset of --paths to mint as materialization_state=tentative.",
+        metavar="PATH1,PATH2,...",
+        help="Which --paths you might not touch after all; needs --allow-planned.",
     )
     parser.add_argument(
         "--integration-target",
         default=None,
-        help="Override integration target classification (advanced).",
+        metavar="NAME",
+        help="Branch the work merges into (default: worked out from the item).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

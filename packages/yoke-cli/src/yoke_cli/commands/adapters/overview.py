@@ -26,11 +26,12 @@ def overview_activation_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke overview activation get",
         usage=OVERVIEW_ACTIVATION_GET_USAGE,
+        description="Show which setup steps on the overview page are done.",
     )
     parser.add_argument(
         "--machine-connected",
         action="store_true",
-        help="Forward host_facts.machine_connected=true to the read.",
+        help="Report that this machine is connected, so that step counts as done.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

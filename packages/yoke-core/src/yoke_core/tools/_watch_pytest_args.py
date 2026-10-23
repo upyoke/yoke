@@ -94,6 +94,11 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
     """Parse wrapper flags; pytest pass-through stays in ``passthrough``."""
     parser = argparse.ArgumentParser(
         prog=prog,
+        usage=(
+            f"{prog} [--local] [--impacted [BASE]] [--bounded] [--widen] "
+            "[--allow-tree-mismatch] [--print-streaming-pair] [--flush-seconds N] "
+            "[--raw-capture PATH] [--progress-capture PATH] [-- PYTEST-ARG ...]"
+        ),
         description=(
             "Run pytest under a shared raw+progress watcher wrapper. For a "
             "project that declares its CI workflow the run executes on CI: "
@@ -152,6 +157,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         "--raw-capture",
         type=Path,
         default=None,
+        metavar="PATH",
         help="Explicit raw capture file path. Defaults to a helper-resolved "
         "path under the project scratch root. Must precede the '--' "
         "separator; after it, pytest takes the flag as an unknown option.",
@@ -160,6 +166,7 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         "--progress-capture",
         type=Path,
         default=None,
+        metavar="PATH",
         help="Explicit progress capture file path, the one watch_tail "
         "follows. Defaults to a helper-resolved path under the project "
         "scratch root. Must precede the '--' separator; after it, pytest "
@@ -201,10 +208,11 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
     parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
+        metavar="PYTEST-ARG",
         help=(
-            "Bare pytest arguments. Use ``--`` to separate wrapper flags "
-            "from pytest flags when ambiguous. Do NOT include "
-            "``python3 -m pytest``; the wrapper supplies that prefix."
+            "Bare pytest arguments. Put -- before them to separate them from "
+            "wrapper flags. Do not include python3 -m pytest; the wrapper "
+            "supplies that prefix."
         ),
     )
     return parser.parse_args(list(argv))

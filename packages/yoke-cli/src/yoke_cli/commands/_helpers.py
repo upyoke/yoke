@@ -61,6 +61,7 @@ def add_session_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--session-id",
         default=None,
+        metavar="S",
         help="Override the detected session id (debugging only).",
     )
 
@@ -98,6 +99,7 @@ def add_project_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help=(
             "Project slug or id (default: the checkout's mapped project "
             "from machine config)."
@@ -115,7 +117,8 @@ def _ensure_project_arg_for_item_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--project",
         default=None,
-        help="Project scope for the operation.",
+        metavar="P",
+        help="Project slug or id (default: the checkout's mapped project).",
     )
 
 

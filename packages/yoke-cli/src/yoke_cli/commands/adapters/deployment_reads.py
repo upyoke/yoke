@@ -17,7 +17,8 @@ from yoke_contracts.api.function_call import TargetRef, FunctionError
 DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD ...] [--full] [--include-member-closure] [--session-id S] [--json]"
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
-    "[--relevance overview] [--limit N] [--cursor CURSOR] [--session-id S] [--json]"
+    "[--relevance overview] [--limit N] [--cursor CURSOR] [--full] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -85,10 +86,11 @@ def deployment_runs_get(args: List[str]) -> int:
         " carried_work is recorded at composition freeze; before that get"
         " derives it live and it stays unrecorded.",
     )
-    parser.add_argument("run_id", help="Deployment run id.")
+    parser.add_argument("run_id", metavar="RUN-ID", help="Deployment run id.")
     parser.add_argument(
         "fields",
         nargs="*",
+        metavar="FIELD",
         help="Return only these row or computed fields.",
     )
     parser.add_argument(
@@ -140,10 +142,12 @@ def deployment_runs_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs list",
         usage=DEPLOYMENT_RUNS_LIST_USAGE,
-        description="Defaults to 20 summary rows; use next_cursor with --cursor to continue. Read full row fields with get RUN-ID FIELD ... .",
+        description="Defaults to 20 summary rows; use next_cursor with --cursor "
+        "to continue. Read one run's fields with "
+        "yoke deployment-runs get RUN-ID FIELD ...",
     )
     parser.add_argument(
-        "--project", default=None, help="Show only this project's runs."
+        "--project", default=None, metavar="P", help="Show only this project's runs."
     )
     parser.add_argument("--status", default=None, help="Show only runs in this status.")
     parser.add_argument(
@@ -156,7 +160,8 @@ def deployment_runs_list(args: List[str]) -> int:
         "--limit",
         type=int,
         default=None,
-        help="Maximum number of recent runs to return.",
+        metavar="N",
+        help="Most recent runs to return; default: 20.",
     )
     parser.add_argument("--cursor", help="Continue the summary page using next_cursor.")
     add_full_arg(parser, "all returned summary columns")

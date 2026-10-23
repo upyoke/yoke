@@ -94,7 +94,8 @@ def qa_artifact_rehome(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The requirement whose run captured the artifacts.",
+        metavar="N",
+        help="QA requirement whose run captured the artifacts.",
     )
     parser.add_argument(
         "--artifact-id",
@@ -102,7 +103,8 @@ def qa_artifact_rehome(args: List[str]) -> int:
         type=int,
         action="append",
         required=True,
-        help="A qa_artifacts.id to move into the serving build's store; repeat.",
+        metavar="N",
+        help="Artifact id to move into the shared artifact store; repeatable.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

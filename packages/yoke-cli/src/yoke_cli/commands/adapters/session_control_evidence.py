@@ -27,27 +27,27 @@ from yoke_contracts.session_control.function_ids import EVIDENCE_GET_FUNCTION_ID
 EVIDENCE_GET_USAGE = (
     "yoke session-control evidence get --session SESSION-ID "
     "[--kind relay|watcher|diagnostic] [--file NAME] [--evidence-id ND-REF] "
-    "[--tail N] [--wait-seconds N] [--json]"
+    "[--tail N] [--wait-seconds N] [--session-id S] [--json]"
 )
-_DESCRIPTION = """Read one machine-local relay, watcher, or diagnostic file for a session.
+_DESCRIPTION = """Read one relay, watcher or diagnostic file from a session's machine.
 
-Relay diagnostics, watcher captures, and the relay's own service logs live
-only on the machine that produced them, so a seat elsewhere can see that a
-launch or wake failed without seeing why. This asks that machine's relay,
-over the same job routing that carries wakes and launch batches, for a
-listing of what it holds for the session plus the tail of one file.
+Relay diagnostics, watcher captures and the relay's own logs stay on the
+machine that wrote them. From another machine you can see that a launch or
+wake failed, but not why. This command asks that machine's relay, the same
+way wakes and launches are sent, for a list of the session's files and the
+end of one file.
 
-Selection, in order: --evidence-id names an exact `nd-` diagnostic (what the
-fleet report links); --file names one entry from a previous listing; with
-neither, the newest file of the requested --kind is read. --kind alone
-narrows the listing.
+Which file is read: --evidence-id picks an exact `nd-` diagnostic (the id
+the fleet report links); otherwise --file picks a name from an earlier
+list; otherwise the newest file of --kind is read. --kind also narrows the
+list.
 
-Bounds: --tail caps lines (default {default}, max {max_lines}) and the relay
-re-caps the answer in bytes whatever it was handed. The read never writes.
+Size: --tail limits lines (default {default}, max {max_lines}), and the relay
+also limits the answer's size in bytes. The command only reads.
 
-If the owning relay does not answer within --wait-seconds the request stays
-pending and this same command reads it back — retrying joins the request in
-flight rather than queueing a second one.
+If the relay does not answer within --wait-seconds, the request stays
+open. Run the same command again to read the answer; it joins the open
+request instead of sending a second one.
 """.format(
     default=EVIDENCE_TAIL_DEFAULT_LINES,
     max_lines=EVIDENCE_TAIL_MAX_LINES,
@@ -93,7 +93,8 @@ def session_evidence_get(args: List[str]) -> int:
         "--session",
         dest="target_session_id",
         required=True,
-        help="Session whose evidence to read.",
+        metavar="SESSION-ID",
+        help="Session whose files to read.",
     )
     parser.add_argument(
         "--kind",
@@ -105,25 +106,29 @@ def session_evidence_get(args: List[str]) -> int:
         "--file",
         dest="file_name",
         default=None,
+        metavar="NAME",
         help="File name from a previous listing.",
     )
     parser.add_argument(
         "--evidence-id",
         dest="evidence_id",
         default=None,
-        help="Exact nd- diagnostic ref to read.",
+        metavar="ND-REF",
+        help="Exact nd- diagnostic id to read.",
     )
     parser.add_argument(
         "--tail",
         type=int,
         default=EVIDENCE_TAIL_DEFAULT_LINES,
+        metavar="N",
         help=f"Lines to return (max {EVIDENCE_TAIL_MAX_LINES}).",
     )
     parser.add_argument(
         "--wait-seconds",
         type=int,
         default=EVIDENCE_WAIT_DEFAULT_SECONDS,
-        help=f"Seconds to wait for the owning relay (max {EVIDENCE_WAIT_MAX_SECONDS}).",
+        metavar="N",
+        help=f"Seconds to wait for the session's relay (max {EVIDENCE_WAIT_MAX_SECONDS}).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

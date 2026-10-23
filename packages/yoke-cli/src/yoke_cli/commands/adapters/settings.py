@@ -19,10 +19,10 @@ from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 from yoke_contracts.settings_catalog import CATALOG, SCOPES, resolve_setting
 
 _SYNOPSES = {
-    "list": "yoke settings list [--scope machine|project|org|universe] [--project P] [--json]",
-    "get": "yoke settings get KEY [--project P] [--json]",
-    "set": "yoke settings set KEY VALUE [--project P] [--json]",
-    "unset": "yoke settings unset KEY [--project P] [--json]",
+    "list": "yoke settings list [--scope machine|project|org|universe] [--project P] [--session-id S] [--json]",
+    "get": "yoke settings get KEY [--project P] [--session-id S] [--json]",
+    "set": "yoke settings set KEY VALUE [--project P] [--session-id S] [--json]",
+    "unset": "yoke settings unset KEY [--project P] [--session-id S] [--json]",
 }
 USAGES = {**_SYNOPSES, "set": _SYNOPSES["set"] + " (VALUE - reads JSON from stdin)"}
 
@@ -31,15 +31,25 @@ def run(args, operation):
     parser = argparse.ArgumentParser(
         prog=f"yoke settings {operation}",
         usage=_SYNOPSES[operation],
-        description="Machine writes stay local. Project writes require project admin; org and universe writes require org admin. Unset follows defaults. Structured capabilities, environment settings and secrets use their own surfaces.",
+        description=(
+            "Each setting belongs to one scope: machine, project, org or universe. "
+            "Machine settings are stored on this machine only. Changing a project "
+            "setting needs project admin; org and universe settings need org "
+            "admin. An unset setting uses its default. Capabilities, environment "
+            "settings and secrets have their own commands."
+        ),
     )
     if operation == "list":
         parser.add_argument("--scope", choices=SCOPES, help="List only this scope.")
     else:
-        parser.add_argument("key", help="Setting key, as shown by yoke settings list.")
+        parser.add_argument(
+            "key", metavar="KEY", help="Setting key, as shown by yoke settings list."
+        )
     if operation == "set":
         parser.add_argument(
-            "value", help="Typed scalar or JSON document; - reads the value from stdin."
+            "value",
+            metavar="VALUE",
+            help="The new value: a plain value or a JSON document; - reads it from stdin.",
         )
     add_project_arg(parser)
     add_session_arg(parser)

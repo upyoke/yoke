@@ -57,6 +57,7 @@ def test_machine_exec(args: List[str]) -> int:
     command = args[split + 1 :]
     parser = argparse.ArgumentParser(
         prog="yoke test-machine exec",
+        usage=EXEC_USAGE,
         description=(
             "Run one command on a registered Test Machine over SSH, as the "
             "capability's user at its host. The words after `--` reach the "
@@ -70,8 +71,15 @@ def test_machine_exec(args: List[str]) -> int:
             "under an awaiting mission's retained lease."
         ),
     )
-    parser.add_argument("--project", required=True, help="Project that owns it.")
-    parser.add_argument("--machine", help="Registered test machine to run on.")
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project that owns the machine."
+    )
+    parser.add_argument(
+        "--machine",
+        metavar="NAME",
+        help="Registered test machine to run on; list them with "
+        "yoke test-machine list --project P.",
+    )
     parser.add_argument(
         "--admin",
         action="store_true",

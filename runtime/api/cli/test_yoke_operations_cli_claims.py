@@ -270,7 +270,7 @@ class TestReleaseHelp:
         out = buf.getvalue()
         assert "--epic" in out
         assert "--task-num" in out
-        assert "epic_task" in out
+        assert "epic task" in out
         assert "--process" in out
         assert "STRATEGIZE" in out
 

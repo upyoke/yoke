@@ -81,7 +81,7 @@ def qa_method_list(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method list",
-        usage="yoke qa method list [--project P] [--json]",
+        usage="yoke qa method list [--project P] [--full] [--session-id S] [--json]",
         function_id="qa.method.list",
         payload=lambda _args: {},
         project_required=False,
@@ -92,7 +92,10 @@ def qa_method_get(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method get",
-        usage="yoke qa method get METHOD [--project P] [--json]",
+        usage=(
+            "yoke qa method get METHOD [--project P] [--full] "
+            "[--session-id S] [--json]"
+        ),
         function_id="qa.method.get",
         configure=configure_method_get,
         payload=lambda parsed: {"method_id": parsed.method_id},
@@ -107,7 +110,7 @@ def qa_method_register(args: List[str]) -> int:
         "--verdict-path automatic|agent --verdict-contract TEXT "
         "--evidence-contract TEXT [--concurrency-mode parallel|serial] "
         "[--required-capability KIND ...] "
-        "[--success-policy-params JSON] [--json]"
+        "[--success-policy-params JSON] [--session-id S] [--json]"
     )
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
@@ -190,7 +193,7 @@ def qa_plan_create(args: List[str]) -> int:
     usage = (
         "yoke qa plan create SLUG --project P "
         "--environment SITE/NAME|ENV_ID "
-        "[--name NAME] [--description TEXT] [--json]"
+        "[--name NAME] [--description TEXT] [--session-id S] [--json]"
     )
     return _global(
         args,
@@ -210,14 +213,25 @@ def qa_plan_create(args: List[str]) -> int:
 def qa_plan_cases_replace(args: List[str]) -> int:
     usage = (
         "yoke qa plan-cases replace --project P --plan-id N "
-        "(--cases-file PATH | --stdin) [--json]"
+        "(--cases-file PATH | --stdin) [--source-revision FULL_SHA] "
+        "[--session-id S] [--json]"
     )
+
+    def configure(parser: argparse.ArgumentParser) -> None:
+        _configure_case_replace(
+            parser,
+            source_revision_help=(
+                "Refused here: cases exported from source go through "
+                "yoke qa plan-cases sync."
+            ),
+        )
+
     return _global(
         args,
         prog="yoke qa plan-cases replace",
         usage=usage,
         function_id="qa.plan_cases.replace",
-        configure=_configure_case_replace,
+        configure=configure,
         payload=_case_payload,
     )
 
@@ -236,7 +250,8 @@ def qa_plan_cases_sync(args: List[str]) -> int:
 def qa_plan_item_attach(args: List[str]) -> int:
     usage = (
         "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N "
-        "--transition T [--qa-phase PHASE] [--json]"
+        "--transition T [--qa-phase PHASE] [--acknowledge-unreachable-target] "
+        "[--session-id S] [--json]"
     )
     parser = build_item_plan_attach_parser(usage)
     parsed = parse_or_usage_error(parser, args, usage)

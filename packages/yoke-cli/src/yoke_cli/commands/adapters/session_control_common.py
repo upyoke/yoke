@@ -37,6 +37,39 @@ SELECTOR_ARGUMENTS = (
     ("exclude_session_ids", "--exclude-session"),
 )
 
+#: The value placeholder each selector flag shows in help and usage.
+SELECTOR_METAVARS = {
+    "public_refs": "PREFIX-N",
+    "actors": "ACTOR",
+    "epic_tasks": "ITEM:N",
+    "process_keys": "KEY",
+    "projects": "P",
+    "session_ids": "S",
+    "executor_families": "FAMILY",
+    "executor_surfaces": "SURFACE",
+    "work_roles": "ROLE",
+    "execution_levels": "LEVEL",
+    "worktree_lanes": "LANE",
+    "machine_ids": "MACHINE",
+    "liveness": "|".join(LIVENESS_CHOICES),
+    "exclude_session_ids": "S",
+}
+
+#: The selector part of a usage line: anchors add recipients, filters narrow them.
+SELECTOR_SYNOPSIS = (
+    "(--item PREFIX-N | --actor ACTOR | --epic-task ITEM:N | --process KEY | "
+    "--project P | --session S | --universe | --steering | --steering-scope JSON) "
+    "[--executor FAMILY] [--surface SURFACE] [--role ROLE] "
+    "[--execution-level LEVEL] [--worktree LANE] [--machine MACHINE] "
+    f"[--liveness {'|'.join(LIVENESS_CHOICES)}] [--exclude-session S]"
+)
+SELECTOR_HELP = (
+    "Anchors add recipients; pass one or more: --item, --actor, --epic-task,\n"
+    "--process, --project, --session, --universe, --steering, --steering-scope.\n"
+    "Filters keep only matching recipients: --executor, --surface, --role,\n"
+    "--execution-level, --worktree, --machine, --liveness, --exclude-session."
+)
+
 
 #: The shape --steering-scope names, quoted for a shell.
 STEERING_SCOPE_EXAMPLE = "'{\"project_id\": 1}'"
@@ -102,6 +135,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
             dest=dest,
             action="append",
             default=[],
+            metavar=SELECTOR_METAVARS[dest],
             choices=LIVENESS_CHOICES if dest == "liveness" else None,
             help=anchor_help.get(dest) or filter_help[dest],
         )
@@ -128,6 +162,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         dest="steering_scope",
         type=steering_scope_argument,
         default=None,
+        metavar="JSON",
         help=(
             "ANCHOR (union). The steering scope to address when you hold no "
             "item, as JSON: '{\"project_id\": N}'. Implies --steering."
@@ -201,6 +236,8 @@ def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
 
 __all__ = [
     "STEERING_SCOPE_EXAMPLE",
+    "SELECTOR_HELP",
+    "SELECTOR_SYNOPSIS",
     "add_selector_arguments",
     "read_stdin_payload",
     "selector_payload",

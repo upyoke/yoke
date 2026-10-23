@@ -20,7 +20,8 @@ from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATE
 SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] "
     "[--liveness active|waiting|stale|ended] [--ended-cause killed|wound_down] "
-    "[--limit N] [--offset N] [--full] [--session S] [--json]"
+    "[--limit N] [--offset N] [--full] [--session SESSION-ID] "
+    "[--session-id S] [--json]"
 )
 SESSION_ROSTER_HELP = """Find registered top-level sessions in 25-row summary pages.
 
@@ -50,11 +51,14 @@ def session_control_roster_list(args: List[str]) -> int:
         description=SESSION_ROSTER_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", default=None, help="Project slug or id.")
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project slug or id."
+    )
     parser.add_argument(
         "--liveness",
         choices=LIVENESS_STATES,
         default=None,
+        metavar="|".join(LIVENESS_STATES),
         help="Only show sessions in this liveness state.",
     )
     parser.add_argument(
@@ -62,15 +66,22 @@ def session_control_roster_list(args: List[str]) -> int:
         dest="ended_cause",
         choices=ENDED_CAUSES,
         default=None,
+        metavar="|".join(ENDED_CAUSES),
         help=(
             "Only show ended sessions that ended this way: 'killed' for a "
             "terminated session, 'wound_down' for an ordinary end."
         ),
     )
     parser.add_argument(
-        "--limit", type=int, default=None, help="Page size (default: 25; maximum: 500)."
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Page size (default: 25; maximum: 500).",
     )
-    parser.add_argument("--offset", type=int, default=0, help="Start at this row.")
+    parser.add_argument(
+        "--offset", type=int, default=0, metavar="N", help="Start at this row."
+    )
     add_full_arg(
         parser, "all sessions and complete roster details unless --limit is named"
     )
@@ -78,7 +89,8 @@ def session_control_roster_list(args: List[str]) -> int:
         "--session",
         dest="session_filter",
         default=None,
-        help="Select exactly this session; add --full for its complete roster row.",
+        metavar="SESSION-ID",
+        help="Show only this session; add --full for its complete roster row.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

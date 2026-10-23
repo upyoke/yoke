@@ -13,14 +13,14 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 AdapterFn = Callable[[List[str]], int]
 
 USHER_RECONCILE_GITHUB_USAGE = (
-    "yoke usher reconcile-github YOK-N [--workflow-run-id ID]"
+    "yoke usher reconcile-github PREFIX-N [--workflow-run-id ID] [--project P]"
 )
 
 _USHER_RECONCILE_GITHUB_HELP = """\
-Align Yoke deploy records with GitHub Actions truth when an usher deploy
-reported failure but the GitHub workflow actually succeeded. Pass
---workflow-run-id when the operator has an explicit GH run id to use as
-evidence."""
+Correct Yoke's deploy records for an item when the usher deploy reported a
+failure but the GitHub Actions workflow succeeded. Pass --workflow-run-id
+when you know which GitHub Actions run proves the success. Needs the Yoke
+source-dev or admin runtime."""
 
 
 def usher_reconcile_github(args: List[str]) -> int:
@@ -30,11 +30,18 @@ def usher_reconcile_github(args: List[str]) -> int:
         description=_USHER_RECONCILE_GITHUB_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item", help="Item ref (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="The item whose deploy to correct.")
     parser.add_argument(
         "--workflow-run-id",
         default="",
-        help="Operator-provided GitHub Actions run id.",
+        metavar="ID",
+        help="GitHub Actions run id to use as evidence.",
+    )
+    parser.add_argument(
+        "--project",
+        default=None,
+        metavar="P",
+        help="Ignored; the project comes from the item's deployment run.",
     )
     parsed = parse_or_usage_error(
         parser,

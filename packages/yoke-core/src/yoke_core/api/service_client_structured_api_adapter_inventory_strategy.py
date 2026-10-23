@@ -90,17 +90,23 @@ STRATEGY_ADAPTERS = [
     ),
     _read_entry(
         function_id="strategy.doc.list",
-        cli_invocation="yoke strategy doc list",
+        cli_invocation=(
+            "yoke strategy doc list [--project P] [--session-id S] [--json]"
+        ),
         notes="Per-project DB-authoritative strategy docs (slug, title, status metadata, updated_at, bytes); .yoke/strategy/ is a rendered view.",
     ),
     _read_entry(
         function_id="strategy.doc.get",
-        cli_invocation="yoke strategy doc get <slug>",
+        cli_invocation=(
+            "yoke strategy doc get <slug> [--project P] [--session-id S] [--json]"
+        ),
         notes="Prints one strategy doc's DB-authoritative content to stdout.",
     ),
     AdapterEntry(
         function_id="strategy.doc.create",
-        cli_invocation="yoke strategy doc create <slug> --summary TEXT --state TEXT --content-file PATH --target-root PATH",
+        cli_invocation=(
+            "yoke strategy doc create <slug> --summary TEXT --state TEXT (--content TEXT | --content-file PATH | --stdin) [--target-root PATH] [--project P] [--session-id S] [--json]"
+        ),
         notes="Create with separate bounded Summary and free-text State fields; --help prints limits. Explicit fields replace body copies, reported in replaced_body_fields. Render the gitignored local view into target_root.",
     ),
     AdapterEntry(
@@ -115,29 +121,37 @@ STRATEGY_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="strategy.doc.archive",
-        cli_invocation="yoke strategy doc archive <slug> --target-root PATH",
+        cli_invocation=(
+            "yoke strategy doc archive SLUG [--target-root PATH] [--project P] [--session-id S] [--json]"
+        ),
         notes="Stamp archived_at on the strategy_docs row and re-render so the view relocates to .yoke/strategy/archive/<slug>.md; the doc stays a full editable row. Refused only while a foreign session holds the live STRATEGIZE/FEED process claim.",
     ),
     AdapterEntry(
         function_id="strategy.doc.unarchive",
-        cli_invocation="yoke strategy doc unarchive <slug> --target-root PATH",
+        cli_invocation=(
+            "yoke strategy doc unarchive SLUG [--target-root PATH] [--project P] [--session-id S] [--json]"
+        ),
         notes="Clear archived_at and re-render so the view moves back to the active .yoke/strategy/<slug>.md location. Refused only while a foreign session holds the live STRATEGIZE/FEED process claim.",
     ),
     AdapterEntry(
         function_id="strategy.render.run",
-        cli_invocation="yoke strategy render [SLUG ...] [--include-archives] --target-root PATH",
+        cli_invocation=(
+            "yoke strategy render [SLUG ...] [--include-archives] [--target-root PATH] [--project P] [--session-id S] [--json]"
+        ),
         notes="Writes needed/changed gitignored .yoke/strategy/ files from the DB (active corpus by default; archives on-demand; known-active→archived returns metadata without bodies; unchanged bodies omitted via header known-set); target_root resolves client-side.",
     ),
     AdapterEntry(
         function_id="strategy.ingest.run",
         cli_invocation=(
-            "yoke strategy ingest [SLUG ...] [--content-file PATH] [--dry-run]"
+            "yoke strategy ingest [SLUG ...] [--content-file PATH] [--dry-run] [--target-root PATH] [--project P] [--session-id S] [--json]"
         ),
         notes="CAS write-back of operator-edited rendered files on each header's base updated_at (lost-update protection); --content-file accepts one rendered handoff from a readable path; receipts carry the proposed content SHA-256; refuses headerless files; re-renders written docs.",
     ),
     AdapterEntry(
         function_id="strategy.seed_defaults.run",
-        cli_invocation="yoke strategy seed-defaults [--project P]",
+        cli_invocation=(
+            "yoke strategy seed-defaults [--project P] [--session-id S] [--json]"
+        ),
         notes="Top up the default placeholder corpus (MISSION/VISION/MASTER-PLAN/LANDSCAPE/CURRENT-PLAN): each missing default slug gains its placeholder, existing rows are never touched — the healer for projects predating a roster addition. The install bundle runs the same seeding server-side.",
     ),
 ]

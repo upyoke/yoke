@@ -24,20 +24,23 @@ DIFF_FUNCTION_ID = "models.diff.run"
 PUBLISH_FUNCTION_ID = "models.publish.run"
 REVISIONS_FUNCTION_ID = "models.revisions.run"
 RESTORE_FUNCTION_ID = "models.restore.run"
-LOOKUP_USAGE = "yoke models lookup MODEL_ID [--json]"
-GET_USAGE = (
-    "yoke models get [--model-id MODEL_ID] [--revision-id REV | --at UTC] [--json]"
+LOOKUP_USAGE = (
+    "yoke models lookup MODEL_ID [--at UTC] [--full] [--session-id S] [--json]"
 )
-VALIDATE_USAGE = "yoke models validate --stdin [--json]"
-DIFF_USAGE = "yoke models diff --stdin [--json]"
+GET_USAGE = (
+    "yoke models get [--model-id MODEL_ID] [--revision-id REV | --at UTC] "
+    "[--full] [--session-id S] [--json]"
+)
+VALIDATE_USAGE = "yoke models validate --stdin [--full] [--session-id S] [--json]"
+DIFF_USAGE = "yoke models diff --stdin [--full] [--session-id S] [--json]"
 PUBLISH_USAGE = (
     "yoke models publish --stdin --expected-base REV --source-note TEXT "
-    "[--effective-at UTC] [--json]"
+    "[--effective-at UTC] [--session-id S] [--json]"
 )
-REVISIONS_USAGE = "yoke models revisions [--json]"
+REVISIONS_USAGE = "yoke models revisions [--full] [--session-id S] [--json]"
 RESTORE_USAGE = (
     "yoke models restore REV --expected-base REV --source-note TEXT "
-    "[--effective-at UTC] [--json]"
+    "[--effective-at UTC] [--session-id S] [--json]"
 )
 
 
@@ -74,7 +77,9 @@ def models_lookup(args: List[str]) -> int:
     parser.add_argument(
         "model_id", help="Launch --model string, including effort suffixes."
     )
-    parser.add_argument("--at", help="Catalog effective at this UTC time.")
+    parser.add_argument(
+        "--at", metavar="UTC", help="Read the catalog as it was at this UTC time."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LOOKUP_USAGE)
@@ -95,10 +100,16 @@ def models_lookup(args: List[str]) -> int:
 
 def models_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke models get", usage=GET_USAGE)
-    parser.add_argument("--model-id", default=None, help="Optional single-id lookup.")
+    parser.add_argument(
+        "--model-id", default=None, help="Show only this model's record."
+    )
     selector = parser.add_mutually_exclusive_group()
-    selector.add_argument("--revision-id", help="Read one immutable revision.")
-    selector.add_argument("--at", help="Catalog effective at this UTC time.")
+    selector.add_argument(
+        "--revision-id", metavar="REV", help="Read this one saved catalog revision."
+    )
+    selector.add_argument(
+        "--at", metavar="UTC", help="Read the catalog as it was at this UTC time."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GET_USAGE)
@@ -167,7 +178,11 @@ def _catalog_from_stdin() -> list[dict[str, Any]] | None:
 
 def models_diff(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke models diff", usage=DIFF_USAGE)
-    parser.add_argument("--stdin", action="store_true", help="Read full catalog JSON.")
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the full proposed catalog, a JSON list of records, from stdin.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DIFF_USAGE)
@@ -191,15 +206,27 @@ def models_publish(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke models publish", usage=PUBLISH_USAGE
     )
-    parser.add_argument("--stdin", action="store_true", help="Read full catalog JSON.")
     parser.add_argument(
-        "--expected-base", required=True, help="Revision diffed before this write."
+        "--stdin",
+        action="store_true",
+        help="Read the full new catalog, a JSON list of records, from stdin.",
     )
     parser.add_argument(
-        "--source-note", required=True, help="Research and publication evidence."
+        "--expected-base",
+        required=True,
+        metavar="REV",
+        help="The current revision you diffed against; the write fails if it moved.",
     )
     parser.add_argument(
-        "--effective-at", help="Future ISO-8601 UTC effective time; default now."
+        "--source-note",
+        required=True,
+        metavar="TEXT",
+        help="Where the new data came from and why it is being published.",
+    )
+    parser.add_argument(
+        "--effective-at",
+        metavar="UTC",
+        help="Future ISO-8601 UTC time the catalog takes effect (default: now).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -247,15 +274,27 @@ def models_restore(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke models restore", usage=RESTORE_USAGE
     )
-    parser.add_argument("revision_id", help="Revision whose complete catalog to copy.")
     parser.add_argument(
-        "--expected-base", required=True, help="Current diffed revision."
+        "revision_id",
+        metavar="REV",
+        help="The saved revision whose whole catalog becomes current again.",
     )
     parser.add_argument(
-        "--source-note", required=True, help="Recovery reason and evidence."
+        "--expected-base",
+        required=True,
+        metavar="REV",
+        help="The current revision; the restore fails if it moved.",
     )
     parser.add_argument(
-        "--effective-at", help="Future ISO-8601 UTC effective time; default now."
+        "--source-note",
+        required=True,
+        metavar="TEXT",
+        help="Why the old revision is being restored, with evidence.",
+    )
+    parser.add_argument(
+        "--effective-at",
+        metavar="UTC",
+        help="Future ISO-8601 UTC time the restore takes effect (default: now).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

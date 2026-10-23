@@ -34,7 +34,9 @@ DASH_SURVEY_USAGE = (
 )
 DASH_EVIDENCE_USAGE = (
     "yoke direct-workflow dash evidence ITEM --result TEXT "
-    "--verification TEXT [--commit-sha SHA --merge-sha SHA] "
+    "--verification TEXT "
+    "[--verification-status approved|completed|passed|satisfied] "
+    "[--commit-sha SHA --merge-sha SHA] "
     "[--path PATH ... | --no-changes] [--posture-check KEY=STATUS ...] "
     "[--tree-root PATH] [--tree-head-sha SHA] "
     "[--project P] [--session-id S] [--json]"
@@ -48,10 +50,11 @@ DASH_ESCALATE_USAGE = (
 # Parse-time filing choices; stored priority semantics stay in the domain.
 def _item_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, usage=usage)
-    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument("item", metavar="ITEM", help="Dash item id, as PREFIX-N.")
     parser.add_argument(
         "--project",
-        help="Project that owns the item; default: resolved from the item.",
+        metavar="P",
+        help="Project that owns the item; default: found from the item.",
     )
     return parser
 
@@ -66,6 +69,7 @@ def dash_survey(args: List[str]) -> int:
         "--path",
         dest="paths",
         action="append",
+        metavar="PATH",
         help="Path the change will touch; repeat for each path.",
     )
     scope.add_argument(
@@ -76,6 +80,7 @@ def dash_survey(args: List[str]) -> int:
     parser.add_argument(
         "--integration-target",
         default="main",
+        metavar="BRANCH",
         help="Branch the change merges into; default: main.",
     )
     add_session_arg(parser)
@@ -154,22 +159,26 @@ def dash_evidence(args: List[str]) -> int:
     parser.add_argument(
         "--result",
         required=True,
+        metavar="TEXT",
         help="One-line summary of what the change did.",
     )
     parser.add_argument(
         "--verification",
         required=True,
+        metavar="TEXT",
         help="How the change was verified.",
     )
     parser.add_argument("--verification-status", **status_argument_kwargs())
     parser.add_argument(
         "--commit-sha",
         default="",
+        metavar="SHA",
         help="Commit that holds the change.",
     )
     parser.add_argument(
         "--merge-sha",
         default="",
+        metavar="SHA",
         help="Merge commit that landed the change.",
     )
     parser.add_argument(
@@ -177,13 +186,15 @@ def dash_evidence(args: List[str]) -> int:
         dest="paths",
         action="append",
         default=[],
+        metavar="PATH",
         help="File the change touched; repeat for each file.",
     )
     parser.add_argument(
         "--posture-check",
         action="append",
         default=[],
-        help="Posture check result as KEY=STATUS; repeatable.",
+        metavar="KEY=STATUS",
+        help="Result of one posture check; repeatable.",
     )
     parser.add_argument(
         "--no-changes",
@@ -193,14 +204,15 @@ def dash_evidence(args: List[str]) -> int:
     parser.add_argument(
         "--tree-root",
         default="",
-        help="Verification tree root. Defaults to the item's recorded "
-        "implementation lane.",
+        metavar="PATH",
+        help="Folder where the change was verified. Defaults to the item's "
+        "recorded implementation lane.",
     )
     parser.add_argument(
         "--tree-head-sha",
         default="",
-        help="HEAD sha of the verification tree. Defaults to --commit-sha, "
-        "the lane head this evidence records.",
+        metavar="SHA",
+        help="HEAD commit of that folder. Defaults to --commit-sha.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -265,14 +277,16 @@ def dash_escalate(args: List[str]) -> int:
     parser.add_argument(
         "--issue-title",
         required=True,
+        metavar="TITLE",
         help="Title for the issue filed for follow-up work.",
     )
     parser.add_argument(
         "--findings",
         required=True,
+        metavar="TEXT",
         help="What was found that needs follow-up.",
     )
-    parser.add_argument("--priority", help="Priority for the filed issue.")
+    parser.add_argument("--priority", metavar="P", help="Priority for the filed issue.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_ESCALATE_USAGE)

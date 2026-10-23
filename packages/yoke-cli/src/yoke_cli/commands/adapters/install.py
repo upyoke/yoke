@@ -44,22 +44,18 @@ PUBLICATION_PENDING_EXIT = 3
 PROJECT_UNINSTALL_USAGE = "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
 
 
-def _install_parser(prog: str) -> argparse.ArgumentParser:
+def _install_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog, usage=usage
     )
-    parser.add_argument(
-        "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
-    )
+    _add_root_and_config(parser)
     parser.add_argument(
         "--project-id",
         dest="project_id",
         type=int,
         default=None,
+        metavar="N",
         help="Project id; default: the checkout's mapped project.",
-    )
-    parser.add_argument(
-        "--config", dest="config_path", default=None, help="Machine config file to use."
     )
     parser.add_argument(
         "--force",
@@ -91,46 +87,65 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
     return parser
 
 
+def _add_root_and_config(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "repo_root",
+        nargs="?",
+        default=None,
+        metavar="REPO_ROOT",
+        help="Project repo root (default: the current directory).",
+    )
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        metavar="PATH",
+        help="Machine config file to use.",
+    )
+
+
 def _refresh_parser() -> argparse.ArgumentParser:
-    parser = _install_parser("yoke project refresh")
-    source_group = parser.add_argument_group("source-dev/admin local-source refresh")
+    parser = _install_parser("yoke project refresh", PROJECT_REFRESH_USAGE)
+    source_group = parser.add_argument_group(
+        "refresh from a local Yoke source checkout (source developers)"
+    )
     source_group.add_argument(
         "--source-checkout",
         metavar="PATH",
         help=(
-            "Explicit Yoke source checkout used to build an unshipped local "
-            "bundle. Preview-only unless --apply is also passed."
+            "Yoke source checkout to build an unreleased local bundle from. "
+            "Only previews unless --apply is also passed."
         ),
     )
     source_group.add_argument(
         "--project-slug",
         metavar="SLUG",
         help=(
-            "Real project slug. Required for a legacy manifest that does not "
-            "record project_slug."
+            "The project's slug. Required when an older install manifest does "
+            "not record project_slug."
         ),
     )
     source_group.add_argument(
         "--manifest-from",
         metavar="PATH",
         help=(
-            "Existing install-manifest.json to use as lineage when the target "
-            "is a linked worktree without its gitignored manifest."
+            "An existing install-manifest.json to start from when the target "
+            "is a linked worktree that lacks its own (gitignored) manifest."
         ),
     )
     source_group.add_argument(
         "--apply",
         action="store_true",
         help=(
-            "Apply the local-source preview. This mode never writes machine "
-            "registration or external/server snapshot state."
+            "Write the local-source preview. This never writes machine "
+            "registration or server snapshot state."
         ),
     )
     return parser
 
 
 def _run_install(args: List[str], usage: str, prog: str, operation: str) -> int:
-    parsed = parse_or_usage_error(_install_parser(prog), args, usage)
+    parsed = parse_or_usage_error(_install_parser(prog, usage), args, usage)
     if parsed is None:
         return 2
     domain = _project_install_domain()
@@ -214,14 +229,10 @@ def project_uninstall(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project uninstall",
+        usage=PROJECT_UNINSTALL_USAGE,
         description="Remove this checkout's installed layer, installer-owned registration and exact folder trust. Shared, edited or unproven entries stay with a reason and recovery; the manifest stays for retry. Credentials, shared tools and server history stay intact.",
     )
-    parser.add_argument(
-        "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
-    )
-    parser.add_argument(
-        "--config", dest="config_path", default=None, help="Machine config file to use."
-    )
+    _add_root_and_config(parser)
     parser.add_argument(
         "--json", dest="json_mode", action="store_true", help="Print JSON output."
     )

@@ -26,7 +26,7 @@ PACKET_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="packets.budget.get",
-        cli_invocation="yoke packets budget get [--json]",
+        cli_invocation=("yoke packets budget get [--full] [--session-id S] [--json]"),
         notes=(
             "Packet line budget, current usage, and headroom per role plus "
             "the aggregate. Named by the budget-exceeded messages so the "
@@ -36,7 +36,7 @@ PACKET_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="packets.startup_delivery.get",
         cli_invocation=(
-            "yoke packets startup-delivery get [--target-root PATH] [--json]"
+            "yoke packets startup-delivery get [--target-root PATH] [--full] [--session-id S] [--json]"
         ),
         notes=(
             "Per harness, the combined instruction payload each startup "

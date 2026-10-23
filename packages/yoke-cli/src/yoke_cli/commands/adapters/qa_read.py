@@ -20,28 +20,19 @@ from yoke_contracts.api.function_call import TargetRef
 
 QA_REQUIREMENT_LIST_USAGE = (
     "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | "
-    "--deployment-run-id ID] [--project P] [--session-id S] [--json]"
+    "--deployment-run-id ID] [--project P] [--full] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_LIST_HELP_DEEP = """\
-List qa_requirements rows. Exactly one filter (or none for every row);
-precedence when several are passed: item, then epic, then deployment run.
+List QA requirements. Pass one filter, or none to list every requirement in
+the project. When several are passed, --item wins, then --deployment-run-id,
+then --epic.
 
-Worked example:
   yoke qa requirement list --item YOK-N
   yoke qa requirement list --epic YOK-1704 --json
 
-Flag matrix:
-  flag                 required  value shape
-  --item               no        PREFIX-N
-  --epic               no        PREFIX-N
-  --deployment-run-id  no        run id string (run-YYYYMMDD-NNN)
-  --project            no        project slug (any mapped checkout)
-  --session-id         no        opaque session id (operator-debug)
-  --json               no        flag (typed envelope on stdout)
-
-Epic filter returns every task's requirements for the epic; filter by
-task_num client-side. Exit codes: 0 success, 1 dispatch failure, 2 usage.
+The --epic filter returns the requirements of every task in the epic; filter
+by task_num yourself. Exit codes: 0 success, 1 dispatch failure, 2 usage.
 """
 
 
@@ -52,18 +43,22 @@ def qa_requirement_list(args: List[str]) -> int:
         description=_REQUIREMENT_LIST_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", default=None, help="Filter to one item (PREFIX-N).")
+    parser.add_argument(
+        "--item", default=None, metavar="PREFIX-N", help="Only this item's requirements."
+    )
     parser.add_argument(
         "--epic",
         dest="epic",
         default=None,
-        help="Filter to one epic's task requirements.",
+        metavar="PREFIX-N",
+        help="Only the requirements of this epic's tasks.",
     )
     parser.add_argument(
         "--deployment-run-id",
         dest="deployment_run_id",
         default=None,
-        help="Filter to one deployment run.",
+        metavar="ID",
+        help="Only this deployment run's requirements (run-YYYYMMDD-NNN).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -94,20 +89,14 @@ def qa_requirement_list(args: List[str]) -> int:
 
 
 QA_REQUIREMENT_GET_USAGE = (
-    "yoke qa requirement get (N | --requirement-id N) [--session-id S] [--json]"
+    "yoke qa requirement get (N | --requirement-id N) [--full] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_GET_HELP_DEEP = """\
-Fetch one qa_requirements row by primary key.
+Show one QA requirement by its id. Pass the id positionally or with
+--requirement-id, not both.
 
-  yoke qa requirement get --requirement-id 5731
-
-Flag matrix:
-
-  flag              required  value shape
-  N or --requirement-id  yes  qa_requirements.id (integer)
-  --session-id      no        opaque session id (operator-debug)
-  --json            no        flag (typed envelope on stdout)
+  yoke qa requirement get 5731
 
 Exit codes: 0 success, 1 not found / dispatch failure, 2 usage error.
 """
@@ -121,9 +110,11 @@ def qa_requirement_get(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "requirement", nargs="?", type=int, help="Target qa_requirements.id."
+        "requirement", nargs="?", type=int, metavar="N", help="QA requirement id."
     )
-    parser.add_argument("--requirement-id", type=int, help="Target qa_requirements.id.")
+    parser.add_argument(
+        "--requirement-id", type=int, metavar="N", help="QA requirement id."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_GET_USAGE)
@@ -149,28 +140,21 @@ def qa_requirement_get(args: List[str]) -> int:
 
 
 QA_RUN_LIST_USAGE = (
-    "yoke qa run list [--requirement-id N] [--project P] [--session-id S] [--json]"
+    "yoke qa run list [--requirement-id N] [--project P] [--full] [--session-id S] "
+    "[--json]"
 )
 
 _RUN_LIST_HELP_DEEP = """\
-With --requirement-id, list the current execution first, selected by aware
-start instant and then id. Retain all other rows as id-descending audit
-history. Missing or invalid execution starts refuse as qa_execution_order_ambiguous.
-Omit the filter to list every run in id-ascending order (operator-debug
-breadth; agent calls filter by requirement).
+With --requirement-id, list that requirement's runs: the current run first
+(latest start time, then highest id), then the older runs, newest id first.
+A run with a missing or invalid start time refuses the list with
+qa_execution_order_ambiguous. Without --requirement-id, list every run in the
+project, oldest id first (for debugging; agents filter by requirement).
 
   yoke qa run list --requirement-id 5731
 
-Flag matrix:
-
-  flag              required  value shape
-  --requirement-id  no        owning qa_requirements.id (integer)
-  --project         no        project slug (any mapped checkout)
-  --session-id      no        opaque session id (operator-debug)
-  --json            no        flag (typed envelope on stdout)
-
-Rows retain capture execution_status, raw_result and verdict. case_outcome
-is the native judged-outcome projection, including final capture reviews.
+Each row keeps the captured execution_status, raw_result and verdict;
+case_outcome is the judged outcome, including final capture reviews.
 Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 """
 
@@ -186,7 +170,8 @@ def qa_run_list(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         default=None,
-        help="Owning qa_requirements.id.",
+        metavar="N",
+        help="Only runs of this QA requirement id.",
     )
     add_project_arg(parser)
     add_session_arg(parser)
@@ -212,13 +197,16 @@ def qa_run_list(args: List[str]) -> int:
     )
 
 
-QA_RUN_GET_USAGE = "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
-_RUN_GET_HELP_DEEP = (
-    "Fetch one run with native judged case_outcome and retained capture evidence. "
-    "Project-scoped (--project / $YOKE_PROJECT / "
-    "checkout map); wrong-project runs are refused. "
-    "Example: yoke qa run get --run-id 8142"
+QA_RUN_GET_USAGE = (
+    "yoke qa run get --run-id N [--project P] [--full] [--session-id S] [--json]"
 )
+_RUN_GET_HELP_DEEP = """\
+Show one QA run with its judged case_outcome and captured evidence. The
+project comes from --project, then $YOKE_PROJECT, then the checkout's mapped
+project; a run from another project is refused.
+
+  yoke qa run get --run-id 8142
+"""
 
 
 def qa_run_get(args: List[str]) -> int:
@@ -227,7 +215,8 @@ def qa_run_get(args: List[str]) -> int:
         usage=QA_RUN_GET_USAGE, description=_RUN_GET_HELP_DEEP,
     )
     parser.add_argument(
-        "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
+        "--run-id", dest="run_id", type=int, required=True, metavar="N",
+        help="The QA run's id.",
     )
     add_project_arg(parser)
     add_session_arg(parser)
@@ -252,34 +241,24 @@ def qa_run_get(args: List[str]) -> int:
 
 QA_GATE_SUMMARY_USAGE = (
     "yoke qa gate-summary (--item PREFIX-N | --epic PREFIX-N --task-num K) "
-    "--target {reviewed-implementation,implemented} [--session-id S] [--json]"
+    "--target {reviewed-implementation,implemented} [--project P] [--full] "
+    "[--session-id S] [--json]"
 )
 
 _GATE_SUMMARY_HELP_DEEP = """\
-Read-only summary of QA requirements for the implementation/polish handoff —
-which blocking requirements still lack the evidence their kind requires.
-Shares satisfaction semantics with the verification gate
-(yoke_core.domain.qa_gates); never mutates qa_runs/qa_requirements.
+List which blocking QA requirements still lack the evidence their kind
+requires before a work item or epic task can move to --target. It uses the
+same rules as the gate itself and changes nothing. Pass --item, or both
+--epic and --task-num.
 
   yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
   yoke qa gate-summary --epic YOK-1704 --task-num 5 --target implemented
 
-Flag matrix:
-
-  flag          required          value shape
-  --item        yes (or epic)     PREFIX-N
-  --epic     with --task-num   PREFIX-N
-  --task-num    with --epic    1-based task number (integer)
-  --target      yes               reviewed-implementation | implemented
-  --session-id  no                opaque session id (operator-debug)
-  --json        no                flag (typed envelope on stdout)
-
-reviewed-implementation scopes to qa_phase=verification; implemented
-covers blocking requirements from every phase, and for an item also lists
-unsettled_records from the done gate's terminal-settlement check (latest
-executions without a verdict, live host leases, active plan executions);
-any entry makes the summary unsatisfied. Exit codes: 0 success
-(regardless of satisfied state), 1 dispatch failure, 2 usage error.
+reviewed-implementation checks only verification-phase requirements.
+implemented checks blocking requirements from every phase; for an item it
+also lists unsettled_records (latest runs without a verdict, live host
+leases, active plan runs), and any entry makes the summary unsatisfied.
+Exit codes: 0 success (satisfied or not), 1 dispatch failure, 2 usage error.
 """
 
 
@@ -290,25 +269,27 @@ def qa_gate_summary(args: List[str]) -> int:
         description=_GATE_SUMMARY_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", default=None, help="Target item (PREFIX-N).")
+    parser.add_argument("--item", default=None, metavar="PREFIX-N", help="The item.")
     parser.add_argument(
         "--epic",
         dest="epic",
         default=None,
-        help="Epic id (with --task-num).",
+        metavar="PREFIX-N",
+        help="The epic (with --task-num).",
     )
     parser.add_argument(
         "--task-num",
         dest="task_num",
         type=int,
         default=None,
-        help="Task number (with --epic).",
+        metavar="K",
+        help="The epic's task number, starting at 1 (with --epic).",
     )
     parser.add_argument(
         "--target",
         required=True,
         choices=("reviewed-implementation", "implemented"),
-        help="Gate transition to summarize against.",
+        help="The status the item or task is moving to.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

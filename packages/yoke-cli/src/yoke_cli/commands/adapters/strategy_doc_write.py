@@ -7,7 +7,7 @@ Section replacement shares these mutation and rendering helpers.
 
 from __future__ import annotations
 
-from yoke_contracts.project_contract.strategy_doc_fields import fields_recipe
+from yoke_contracts.project_contract.strategy_doc_fields import fields_rule
 
 import argparse
 from yoke_cli.transport.human_values import write_human
@@ -150,7 +150,7 @@ def dispatch_and_render(
 
 
 STRATEGY_DOC_REPLACE_USAGE = (
-    "yoke strategy doc replace <slug> --base-updated-at TS "
+    "yoke strategy doc replace SLUG --base-updated-at TS "
     "(--content TEXT | --content-file PATH | --stdin) "
     "[--target-root PATH] [--project P] [--force] [--session-id S] [--json]"
 )
@@ -159,27 +159,26 @@ STRATEGY_DOC_REPLACE_USAGE = (
 def strategy_doc_replace(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy doc replace",
-        epilog=fields_recipe(),
+        usage=STRATEGY_DOC_REPLACE_USAGE,
+        epilog=fields_rule(),
         description=(
-            "Replace one strategy doc's full content in the Yoke DB "
-            "(the authority), then re-render the latest full strategy "
-            "corpus into the checkout's gitignored .yoke/strategy/ view. "
-            "Replacement content may be header-free body or a rendered "
-            ".yoke/strategy/<slug>.md file; a valid generated header is "
-            "ignored before storage. "
-            "Requires an active STRATEGIZE/FEED "
-            "process work-claim on the target project, and every write "
-            "is compare-and-swap: --base-updated-at carries the "
-            "updated_at you read via `yoke strategy doc get` so a "
-            "moved row refuses instead of losing the newer content."
+            "Replace one strategy doc's full text in the Yoke database, then "
+            "render all strategy docs again into the checkout's gitignored "
+            ".yoke/strategy/ folder. The new text may be the body alone or a "
+            "rendered .yoke/strategy/<slug>.md file; a valid generated header "
+            "is dropped before saving. Needs an active STRATEGIZE/FEED process "
+            "work claim on the project. If the doc changed after the "
+            "--base-updated-at value, the write is refused instead of "
+            "overwriting the newer text."
         ),
     )
-    parser.add_argument("slug", help="Strategy doc slug, e.g. MISSION.")
+    parser.add_argument("slug", metavar="SLUG", help="Strategy doc slug, e.g. MISSION.")
     parser.add_argument(
         "--base-updated-at",
         dest="base_updated_at",
         required=True,
-        help="The updated_at the new content was authored against.",
+        metavar="TS",
+        help="The doc's updated_at, as `yoke strategy doc get` showed it.",
     )
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -197,16 +196,14 @@ def strategy_doc_replace(args: List[str]) -> int:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Bypass the shrink guard for an intentional rewrite.",
+        help="Allow a much shorter text than the current one (an intended rewrite).",
     )
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
-        help=(
-            "Checkout root receiving the refreshed .yoke/strategy/ files "
-            "(defaults like `yoke strategy render`)."
-        ),
+        metavar="PATH",
+        help="Checkout root to render .yoke/strategy/ into (default: as `yoke strategy render`).",
     )
     add_project_arg(parser)
     add_session_arg(parser)
@@ -257,12 +254,12 @@ def strategy_doc_replace(args: List[str]) -> int:
 
 
 STRATEGY_DOC_ARCHIVE_USAGE = (
-    "yoke strategy doc archive <slug> [--target-root PATH] "
+    "yoke strategy doc archive SLUG [--target-root PATH] "
     "[--project P] [--session-id S] [--json]"
 )
 
 STRATEGY_DOC_UNARCHIVE_USAGE = (
-    "yoke strategy doc unarchive <slug> [--target-root PATH] "
+    "yoke strategy doc unarchive SLUG [--target-root PATH] "
     "[--project P] [--session-id S] [--json]"
 )
 
@@ -278,26 +275,23 @@ def _strategy_doc_set_archived(
     verb = "archive" if archived else "unarchive"
     parser = argparse.ArgumentParser(
         prog=f"yoke strategy doc {verb}",
+        usage=usage,
         description=(
-            f"{verb.capitalize()} one strategy doc on its DB row "
-            f"({'stamps' if archived else 'clears'} archived_at), then "
-            "re-render the corpus so the rendered file "
-            f"{'moves into' if archived else 'moves back out of'} "
-            ".yoke/strategy/archive/ and the stale sibling is pruned. The "
-            "doc stays a full, editable row either way — nothing is "
-            "deleted. Refused only while another session holds the live "
-            "STRATEGIZE/FEED process work-claim for the project."
+            f"{verb.capitalize()} one strategy doc "
+            f"({'sets' if archived else 'clears'} archived_at), then render the "
+            f"docs again so its file moves {'into' if archived else 'back out of'} "
+            ".yoke/strategy/archive/ and the old copy is removed. Nothing is "
+            "deleted; the doc stays editable. Refused only while another session "
+            "holds the live STRATEGIZE/FEED process work claim for the project."
         ),
     )
-    parser.add_argument("slug", help="Strategy doc slug, e.g. INSTALLER-PLAN.")
+    parser.add_argument("slug", metavar="SLUG", help="Strategy doc slug, e.g. INSTALLER-PLAN.")
     parser.add_argument(
         "--target-root",
         dest="target_root",
         default=None,
-        help=(
-            "Checkout root receiving the refreshed .yoke/strategy/ files "
-            "(defaults like `yoke strategy render`)."
-        ),
+        metavar="PATH",
+        help="Checkout root to render .yoke/strategy/ into (default: as `yoke strategy render`).",
     )
     add_project_arg(parser)
     add_session_arg(parser)

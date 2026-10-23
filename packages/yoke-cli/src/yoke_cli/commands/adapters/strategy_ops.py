@@ -26,11 +26,11 @@ STRATEGY_CARRY_REGISTER_NEW_USAGE = (
 )
 STRATEGY_CARRY_CANDIDATE_SET_USAGE = (
     "yoke strategy carry candidate-set --project P [--horizon-days N] "
-    "[--carry-limit N] [--new-ids ID ...] [--session-id S] [--json]"
+    "[--carry-limit N] [--new-ids ID ...] [--full] [--session-id S] [--json]"
 )
 STRATEGY_CARRY_SUMMARY_USAGE = (
     "yoke strategy carry summary --project P [--horizon-days N] "
-    "[--carry-limit N] [--new-ids ID ...] [--display-limit N] "
+    "[--carry-limit N] [--new-ids ID ...] [--display-limit N] [--full] "
     "[--session-id S] [--json]"
 )
 STRATEGY_CARRY_MARK_USAGE = (
@@ -42,45 +42,41 @@ STRATEGY_CHECKPOINT_RECORD_USAGE = (
     "[--session-id S] [--json]"
 )
 STRATEGY_CHECKPOINT_LATEST_USAGE = (
-    "yoke strategy checkpoint latest --project P [--session-id S] [--json]"
+    "yoke strategy checkpoint latest --project P "
+    "[--kind strategize|drift_review] [--full] [--session-id S] [--json]"
 )
 STRATEGY_MASTER_PLAN_CHECK_USAGE = (
     "yoke strategy master-plan-check [--plan-path PATH] "
-    "[--exit-nonzero-on-drift] [--session-id S] [--json]"
+    "[--exit-nonzero-on-drift] [--full] [--session-id S] [--json]"
 )
 
 
 __all__ = [
-    "strategy_carry_register_new",
-    "strategy_carry_candidate_set",
-    "strategy_carry_summary",
-    "strategy_carry_mark",
-    "strategy_checkpoint_record",
-    "strategy_checkpoint_latest",
-    "strategy_master_plan_check",
-    "STRATEGY_CARRY_REGISTER_NEW_USAGE",
-    "STRATEGY_CARRY_CANDIDATE_SET_USAGE",
-    "STRATEGY_CARRY_SUMMARY_USAGE",
-    "STRATEGY_CARRY_MARK_USAGE",
-    "STRATEGY_CHECKPOINT_RECORD_USAGE",
-    "STRATEGY_CHECKPOINT_LATEST_USAGE",
+    "strategy_carry_register_new", "strategy_carry_candidate_set",
+    "strategy_carry_summary", "strategy_carry_mark", "strategy_checkpoint_record",
+    "strategy_checkpoint_latest", "strategy_master_plan_check",
+    "STRATEGY_CARRY_REGISTER_NEW_USAGE", "STRATEGY_CARRY_CANDIDATE_SET_USAGE",
+    "STRATEGY_CARRY_SUMMARY_USAGE", "STRATEGY_CARRY_MARK_USAGE",
+    "STRATEGY_CHECKPOINT_RECORD_USAGE", "STRATEGY_CHECKPOINT_LATEST_USAGE",
     "STRATEGY_MASTER_PLAN_CHECK_USAGE",
 ]
 
 
-_NEW_IDS_HELP = "Item ids that register-new just added."
+def _add_new_ids(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--new-ids", nargs="*", default=[], metavar="ID",
+                        help="Item ids that register-new just added.")
 
 
 def _add_project_required(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--project", required=True, help="Project to work on.")
+    parser.add_argument("--project", required=True, metavar="P", help="Project slug or id.")
 
 
 def _add_carry_window(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--horizon-days", type=int, default=None, help="Days back to look for landings."
+        "--horizon-days", type=int, metavar="N", help="Days back to look for landings."
     )
     parser.add_argument(
-        "--carry-limit", type=int, default=None, help="Most items to carry forward."
+        "--carry-limit", type=int, metavar="N", help="Most items to carry forward."
     )
     parser.add_argument("--now", default=None, help=argparse.SUPPRESS)
 
@@ -137,7 +133,7 @@ def strategy_carry_candidate_set(args: List[str]) -> int:
     )
     _add_project_required(parser)
     _add_carry_window(parser)
-    parser.add_argument("--new-ids", nargs="*", default=[], help=_NEW_IDS_HELP)
+    _add_new_ids(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRATEGY_CARRY_CANDIDATE_SET_USAGE)
@@ -167,9 +163,10 @@ def strategy_carry_summary(args: List[str]) -> int:
     )
     _add_project_required(parser)
     _add_carry_window(parser)
-    parser.add_argument("--new-ids", nargs="*", default=[], help=_NEW_IDS_HELP)
+    _add_new_ids(parser)
     parser.add_argument(
-        "--display-limit", type=int, default=10, help="Most rows to print; default: 10."
+        "--display-limit", type=int, default=10, metavar="N",
+        help="Most rows to print; default: 10.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -199,9 +196,13 @@ def strategy_carry_mark(args: List[str]) -> int:
         usage=STRATEGY_CARRY_MARK_USAGE,
     )
     _add_project_required(parser)
-    parser.add_argument("--state", required=True, help="New carry state for the items.")
-    parser.add_argument("--reason", help="Why the state changes.")
-    parser.add_argument("--items", nargs="+", required=True, help="Item ids to mark.")
+    parser.add_argument(
+        "--state", required=True, metavar="STATE", help="New carry state for the items."
+    )
+    parser.add_argument("--reason", metavar="TEXT", help="Why the state changes.")
+    parser.add_argument(
+        "--items", nargs="+", required=True, metavar="ID", help="Item ids to mark."
+    )
     parser.add_argument("--now", default=None, help=argparse.SUPPRESS)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -240,7 +241,8 @@ def _checkpoint_args(
     parser = argparse.ArgumentParser(prog=prog, usage=usage)
     _add_project_required(parser)
     parser.add_argument(
-        "--kind", default="strategize", help="Checkpoint kind; default: strategize."
+        "--kind", default="strategize", metavar="strategize|drift_review",
+        help="Checkpoint kind; default: strategize.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -301,7 +303,11 @@ def strategy_master_plan_check(args: List[str]) -> int:
         prog="yoke strategy master-plan-check",
         usage=STRATEGY_MASTER_PLAN_CHECK_USAGE,
     )
-    parser.add_argument("--plan-path", help="Master plan file; default: the project's.")
+    parser.add_argument(
+        "--plan-path",
+        metavar="PATH",
+        help="Master plan file (default: .yoke/strategy/MASTER-PLAN.md in this checkout).",
+    )
     parser.add_argument(
         "--exit-nonzero-on-drift",
         action="store_true",

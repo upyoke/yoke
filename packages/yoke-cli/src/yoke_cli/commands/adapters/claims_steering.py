@@ -21,9 +21,10 @@ STEERING_ACQUIRE_USAGE = (
 )
 STEERING_RELEASE_USAGE = "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
 STEERING_LIST_USAGE = (
-    "yoke claims steering list [--project P] [--session-id S] [--active-only] [--json]"
+    "yoke claims steering list [--project P] [--session-id S] [--active-only] "
+    "[--full] [--json]"
 )
-STEERING_VERIFY_USAGE = "yoke claims steering verify --project P [--json]"
+STEERING_VERIFY_USAGE = "yoke claims steering verify --project P [--full] [--json]"
 
 
 def _scope(claim: Dict[str, Any]) -> Dict[str, Any]:
@@ -121,10 +122,11 @@ def claims_steering_acquire(args: List[str]) -> int:
         prog="yoke claims steering acquire",
         usage=STEERING_ACQUIRE_USAGE,
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--project", required=True, metavar="P", help="Project slug or id.")
     parser.add_argument(
         "--doc",
         default=None,
+        metavar="SLUG",
         help=(
             "Strategy document this seat steers: narrows the seat to that "
             "document's linked items and takes its lock. Omit for a seat "
@@ -134,13 +136,16 @@ def claims_steering_acquire(args: List[str]) -> int:
     parser.add_argument(
         "--plan-doc",
         default=None,
+        metavar="SLUG",
         help=(
             "Standing plan this seat reads and writes: takes that "
             "document's lock while the seat still covers the whole "
             "project. Use with a project-wide seat, never beside --doc."
         ),
     )
-    parser.add_argument("--reason", default=None, help="Optional acquire rationale.")
+    parser.add_argument(
+        "--reason", default=None, metavar="TEXT", help="Why you are taking the seat."
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
@@ -176,8 +181,14 @@ def claims_steering_release(args: List[str]) -> int:
         prog="yoke claims steering release",
         usage=STEERING_RELEASE_USAGE,
     )
-    parser.add_argument("claim_id", help="Steering work_claims.id.")
-    parser.add_argument("--reason", required=True, help="Release rationale.")
+    parser.add_argument(
+        "claim_id",
+        metavar="CLAIM_ID",
+        help="The seat's claim id, as `yoke claims steering list` shows it.",
+    )
+    parser.add_argument(
+        "--reason", required=True, metavar="TEXT", help="Why you are releasing the seat."
+    )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_RELEASE_USAGE)
     if parsed is None:
@@ -201,12 +212,14 @@ def claims_steering_list(args: List[str]) -> int:
         prog="yoke claims steering list",
         usage=STEERING_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None, help="Project slug or id.")
-    parser.add_argument("--session-id", default=None, help="Filter by claim holder.")
+    parser.add_argument("--project", default=None, metavar="P", help="Project slug or id.")
+    parser.add_argument(
+        "--session-id", default=None, metavar="S", help="Only seats this session holds."
+    )
     parser.add_argument(
         "--active-only",
         action="store_true",
-        help="Restrict to claims that have not been released.",
+        help="Only seats that have not been released.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_LIST_USAGE)
@@ -240,7 +253,7 @@ def claims_steering_verify(args: List[str]) -> int:
             "Refuses with steering_seat_required and the acquire command."
         ),
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--project", required=True, metavar="P", help="Project slug or id.")
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STEERING_VERIFY_USAGE)
     if parsed is None:

@@ -45,13 +45,14 @@ __all__ = [
 
 
 def _epic_target_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument("--epic", required=True, metavar="PREFIX-N", help="The epic.")
     parser.add_argument(
         "--task-num",
         dest="task_num",
         type=int,
         required=True,
-        help="Task number within the epic (1-based).",
+        metavar="N",
+        help="Task number within the epic, starting at 1.",
     )
 
 
@@ -136,7 +137,8 @@ def epic_task_split(args: List[str]) -> int:
         "--children-json",
         dest="children_json",
         required=True,
-        help="JSON array of child task dicts (title required).",
+        metavar="JSON",
+        help="JSON array of child task objects; each needs a title.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -178,6 +180,7 @@ def epic_task_reassign(args: List[str]) -> int:
         "--new-worktree",
         dest="new_worktree",
         required=True,
+        metavar="NAME",
         help="Worktree branch name to reassign the task to.",
     )
     add_session_arg(parser)
@@ -210,20 +213,26 @@ def epic_task_add(args: List[str]) -> int:
         prog="yoke workflow-item epic-task add",
         usage=EPIC_TASK_ADD_USAGE,
     )
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
-    parser.add_argument("--title", required=True, help="New task title.")
+    parser.add_argument("--epic", required=True, metavar="PREFIX-N", help="The epic.")
+    parser.add_argument("--title", required=True, metavar="TEXT", help="New task title.")
     add_text_file_pair(
         parser, "--body", "--body-file", dest="body", help_text="Optional task body."
     )
-    parser.add_argument("--worktree", default="", help="Worktree branch name.")
+    parser.add_argument(
+        "--worktree", default="", metavar="NAME", help="Worktree branch name."
+    )
     parser.add_argument(
         "--context-estimate",
         dest="context_estimate",
         default="",
-        help="Token/budget hint.",
+        metavar="TEXT",
+        help="Rough size of the task, as a hint for planning.",
     )
     parser.add_argument(
-        "--dependencies", default="", help="Comma-separated dependency task nums."
+        "--dependencies",
+        default="",
+        metavar="TEXT",
+        help="Comma-separated numbers of the tasks this task depends on.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -274,7 +283,7 @@ def epic_task_remove(args: List[str]) -> int:
         usage=EPIC_TASK_REMOVE_USAGE,
     )
     _epic_target_flags(parser)
-    parser.add_argument("--reason", default="", help="Optional remove reason.")
+    parser.add_argument("--reason", default="", metavar="TEXT", help="Why the task is removed.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASK_REMOVE_USAGE)
@@ -309,12 +318,13 @@ def epic_task_metadata_update(args: List[str]) -> int:
         "--fields-json",
         dest="fields_json",
         required=True,
+        metavar="JSON",
         help=(
-            "JSON object of title, context_estimate, dependencies, "
-            "github_issue, or max_attempts. Record a task lane with "
-            "`yoke workflow-item epic-task reassign --new-worktree BRANCH` "
-            "and `yoke item-worktrees path-record PREFIX-N --worktree-id ID "
-            "--branch BRANCH --path PATH`."
+            "JSON object with any of: title, context_estimate, dependencies, "
+            "github_issue, max_attempts. To set a task's worktree, use "
+            "yoke workflow-item epic-task reassign --new-worktree BRANCH, then "
+            "yoke item-worktrees path-record PREFIX-N --worktree-id ID "
+            "--branch BRANCH --path PATH."
         ),
     )
     add_session_arg(parser)

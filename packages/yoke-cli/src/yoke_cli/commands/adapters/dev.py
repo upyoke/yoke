@@ -43,8 +43,8 @@ DEV_SETUP_USAGE = (
 )
 DEV_PATH_SNAPSHOT_PREWARM_USAGE = "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
 DEV_DB_ADMIN_SETUP_USAGE = (
-    "yoke dev db-admin setup ENV [--project PROJECT] [--database MODEL] "
-    "[--admin-env ENV] [--control-plane-env CONNECTION_ENV] "
+    "yoke dev db-admin setup ENV [--project P] [--config PATH] [--database MODEL] "
+    "[--admin-env NAME] [--control-plane-env CONNECTION] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
     "[--allow-render-only] [--prod | --non-prod] "
     "[--yes | --dry-run] [--json]"
@@ -57,6 +57,7 @@ PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 
 def dev_setup(args: List[str]) -> int:
     parser = build_setup_parser()
+    parser.usage = DEV_SETUP_USAGE
     parsed = parse_or_usage_error(parser, args, DEV_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -107,17 +108,18 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev path-snapshot-prewarm",
+        usage=DEV_PATH_SNAPSHOT_PREWARM_USAGE,
         description=(
-            "Source-dev/admin path-snapshot prewarm. Builds the HEAD "
-            "snapshot and integration-target snapshot through the local "
-            "Yoke DB authority; product git hooks never invoke this "
-            "silently."
+            "For Yoke source development: build the path snapshots for HEAD "
+            "and for the integration target now, through the local Yoke "
+            "database. Git hooks never run this on their own."
         ),
     )
     parser.add_argument(
         "project_id",
         nargs="?",
         default=None,
+        metavar="PROJECT_ID",
         help="Project id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     add_json_arg(parser)
@@ -159,6 +161,7 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
 
 def dev_db_admin_setup(args: List[str]) -> int:
     parser = build_db_admin_setup_parser()
+    parser.usage = DEV_DB_ADMIN_SETUP_USAGE
     parsed = parse_or_usage_error(parser, args, DEV_DB_ADMIN_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -191,6 +194,7 @@ def dev_db_admin_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev db-admin exec",
+        usage=DEV_DB_ADMIN_EXEC_USAGE,
         description=(
             "Run one command with a db-admin profile's DSN in a variable you "
             "name, set for that subprocess only. The managed secret is read "

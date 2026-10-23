@@ -1,4 +1,4 @@
-"""CLI adapter for an steering-authorized stage private-route proof."""
+"""CLI adapter for a steering-authorized stage private-route proof."""
 
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ from yoke_contracts.session_execution import is_subagent_execution
 
 QUALIFICATION_OPEN_USAGE = (
     "yoke session-control qualification open --project P --release-sha SHA "
-    "--run-id RUN --surface S --version V --operation OP --route ROUTE [--json]"
+    "--run-id RUN --surface SURFACE --version V --operation OP "
+    "--route (direct | broker | hook) [--session-id S] [--json]"
 )
 
 
@@ -38,19 +39,31 @@ def session_qualification_open(args: List[str]) -> int:
         prog="yoke session-control qualification open",
         usage=QUALIFICATION_OPEN_USAGE,
     )
-    parser.add_argument("--project", required=True, help="Project the grant covers.")
     parser.add_argument(
-        "--release-sha", required=True, help="Full commit SHA being qualified."
+        "--project", required=True, metavar="P", help="Project the grant covers."
+    )
+    parser.add_argument(
+        "--release-sha",
+        required=True,
+        metavar="SHA",
+        help="Full commit SHA being qualified.",
     )
     parser.add_argument(
         "--run-id",
         required=True,
         dest="acceptance_run_id",
+        metavar="RUN",
         help="Acceptance run this grant belongs to.",
     )
-    parser.add_argument("--surface", required=True, help="Surface being qualified.")
-    parser.add_argument("--version", required=True, help="Surface version qualified.")
-    parser.add_argument("--operation", required=True, help="Operation being qualified.")
+    parser.add_argument(
+        "--surface", required=True, metavar="SURFACE", help="Surface being qualified."
+    )
+    parser.add_argument(
+        "--version", required=True, metavar="V", help="Surface version qualified."
+    )
+    parser.add_argument(
+        "--operation", required=True, metavar="OP", help="Operation being qualified."
+    )
     parser.add_argument(
         "--route",
         required=True,

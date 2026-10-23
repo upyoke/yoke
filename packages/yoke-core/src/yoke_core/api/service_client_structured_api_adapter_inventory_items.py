@@ -20,18 +20,19 @@ ITEMS_ADAPTERS = [
     read_entry(
         function_id="items.overview.list",
         cli_invocation=(
-            "yoke items overview list --project P [--relevance overview] "
-            "[--page-size N] [--cursor C]"
+            "yoke items overview list [--project P] [--projects P,Q] [--limit N] [--relevance overview] [--search TEXT] [--workflow W] [--status STATUS] [--page-size N] [--cursor C] [--sort-column COLUMN] [--sort-direction asc|desc] [--full] [--session-id S] [--json]"
         ),
     ),
     read_entry(
         function_id="items.detail.get",
-        cli_invocation="yoke items detail get ITEM --project P",
+        cli_invocation=(
+            "yoke items detail get PREFIX-N [--project P] [--include SECTIONS] [--full] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="item_landings.list",
         cli_invocation=(
-            "yoke item-landings list <PREFIX-N> [--project P] [--session-id S] [--json]"
+            "yoke item-landings list <PREFIX-N> [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
@@ -49,7 +50,7 @@ ITEMS_ADAPTERS = [
     read_entry(
         function_id="item_worktrees.inventory",
         cli_invocation=(
-            "yoke item-worktrees inventory --project P [--session-id S] [--json]"
+            "yoke item-worktrees inventory --project P [--full] [--session-id S] [--json]"
         ),
         notes=(
             "Every registered lane in a project, released ones included, with "
@@ -61,8 +62,7 @@ ITEMS_ADAPTERS = [
     read_entry(
         function_id="item_worktrees.list",
         cli_invocation=(
-            "yoke item-worktrees list <PREFIX-N> "
-            "[--project P] [--session-id S] [--json]"
+            "yoke item-worktrees list <PREFIX-N> [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
@@ -80,25 +80,20 @@ ITEMS_ADAPTERS = [
     read_entry(
         function_id="item_worktrees.get",
         cli_invocation=(
-            "yoke item-worktrees get <PREFIX-N> [--lane-role ROLE] "
-            "[--field branch|path|lane-role|state|id] "
-            "[--session-id S] [--json]"
+            "yoke item-worktrees get <PREFIX-N> [--lane-role ROLE] [--field branch|path|lane-role|state|id] [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="item_worktrees.release",
         cli_invocation=(
-            "yoke item-worktrees release <PREFIX-N> --all-active "
-            "--reason evidence-only-recovery [--session-id S] [--json]"
+            "yoke item-worktrees release <PREFIX-N> --all-active --reason evidence-only-recovery [--project P] [--session-id S] [--json]"
         ),
         notes="Guarded release of one attested clean evidence-only lane.",
     ),
     AdapterEntry(
         function_id="items.create",
         cli_invocation=(
-            "yoke items create --title TEXT --workflow W --spec-file PATH "
-            "--entry-surface harness_skill "
-            "--project P --execution-instructions-considered"
+            "yoke items create (--title TEXT | --title-file PATH) --workflow W (--spec-file PATH | --stdin) --execution-instructions-considered [--project P] [--priority high|medium|low] [--status STAGE] [--deployment-flow FLOW] [--source N] [--owner N] [--strategy-doc SLUG] [--entry-surface SURFACE] [--verification-plan ID_OR_SLUG | --verification-method METHOD] [--path-claims] [--approval-on-done] [--deployment] [--dry-run] [--session-id S] [--json]"
         ),
         notes=(
             "Workflow-selected creation with spec input through --spec-file or --stdin "
@@ -171,17 +166,23 @@ ITEMS_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="items.freeze.run",
-        cli_invocation="yoke items freeze YOK-N",
+        cli_invocation=(
+            "yoke items freeze <PREFIX-N> [--project P] [--session-id S] [--json]"
+        ),
         notes="Takes the item claim for the caller; refuses a foreign holder.",
     ),
     AdapterEntry(
         function_id="items.thaw.run",
-        cli_invocation="yoke items thaw YOK-N",
+        cli_invocation=(
+            "yoke items thaw <PREFIX-N> [--project P] [--session-id S] [--json]"
+        ),
         notes="Takes the item claim for the caller; refuses a foreign holder.",
     ),
     AdapterEntry(
         function_id="items.cancel.run",
-        cli_invocation="yoke items cancel YOK-N --reason TEXT [--ref PREFIX-M]",
+        cli_invocation=(
+            "yoke items cancel <PREFIX-N> --reason TEXT [--ref PREFIX-M] [--abandon-merged] [--project P] [--session-id S] [--json]"
+        ),
         notes=(
             "Takes the item claim for the caller; refuses a foreign holder. "
             "Consumes execute_close (dependency reconciliation + GitHub close). "
@@ -192,7 +193,9 @@ ITEMS_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="items.block.run",
-        cli_invocation="yoke items block YOK-N --reason TEXT",
+        cli_invocation=(
+            "yoke items block <PREFIX-N> --reason TEXT [--project P] [--session-id S] [--json]"
+        ),
         notes=(
             "Takes the item claim for the caller; refuses a foreign holder. "
             "Writes blocked_reason before blocked so the flag is the only "
@@ -201,14 +204,15 @@ ITEMS_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="items.unblock.run",
-        cli_invocation="yoke items unblock YOK-N",
+        cli_invocation=(
+            "yoke items unblock <PREFIX-N> [--project P] [--session-id S] [--json]"
+        ),
         notes="Takes the item claim for the caller; refuses a foreign holder.",
     ),
     AdapterEntry(
         function_id="items.merge_provenance.operator_correct",
         cli_invocation=(
-            "yoke items merge-provenance operator-correct YOK-N "
-            "--merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT"
+            "yoke items merge-provenance operator-correct <PREFIX-N> [--merged-at TIME] [--pr-number N] --reason TEXT [--project P] [--session-id S] [--json]"
         ),
         notes=(
             "Human-only repair for a terminal item whose merged_at was never "
@@ -227,7 +231,7 @@ ITEMS_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="items.github_sync",
-        cli_invocation="yoke items github-sync YOK-N",
+        cli_invocation=("yoke items github-sync <PREFIX-N> [--session-id S] [--json]"),
         notes=(
             "Backlog GitHub item/epic sync; registered agent surface is "
             "yoke items github-sync YOK-N."
