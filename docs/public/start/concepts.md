@@ -55,7 +55,7 @@ See [Workflows](../workflows/index.md) and [workflows/lifecycle.md](../workflows
 The universe workbench sidenav is the operator map, in three groups. Focus is
 the working day: Strategy, Frontier, Items, Shipping, Machines, Sessions, Inbox.
 Settings is what persists: Universe, Levels, Workflows, Projects, GitHub,
-Team, Members, Billing. Diagnostics is the drawer, closed until you open it:
+Team, Billing. Diagnostics is the drawer, closed until you open it:
 Deployments, Environments, Databases, QA methods, QA plans, QA activity,
 Capabilities, Packs, Architecture, Messages, Launches, Events, Doctor,
 Ouroboros. This docs set follows that map.

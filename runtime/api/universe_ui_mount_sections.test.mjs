@@ -19,60 +19,69 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-test("host-fed sections light their nav entries and render as the view", async (t) => {
+test("a host-fed section lights its nav entry and renders as the view", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/members";
+  documentNode.defaultView.location.href = "/billing";
   const root = documentNode.createElement("div");
-  const membersPanel = documentNode.createElement("section");
   const billingPanel = documentNode.createElement("section");
+  const seatsPanel = documentNode.createElement("section");
   const mounted = mountUniverseApp(root, {
     client: injectedClient("host"),
-    // One section arrives as an element, the other through a factory: both
-    // shapes of UniverseSlotContent materialize the same way.
-    sections: { members: membersPanel, billing: () => billingPanel },
+    // One section arrives through a factory, the other as an element in a
+    // spec: both shapes materialize the same way.
+    sections: {
+      billing: () => billingPanel,
+      team: { content: seatsPanel, placement: "beforeScope" },
+    },
   });
   await settle();
 
-  // Both host-fed entries join the one flat nav arc as ordinary links.
+  // The host-fed entry joins the one flat nav arc; Team is the only people
+  // destination, so no Members entry appears.
   const navLabels = byClass(root, "nav-link")
     .map((link) => link.children[1] && link.children[1].textContent);
-  assert.ok(navLabels.includes("Members"));
   assert.ok(navLabels.includes("Billing"));
+  assert.ok(navLabels.includes("Team"));
+  assert.ok(!navLabels.includes("Members"));
 
   // The routed host-fed view mounts the host's node as the whole body under
   // the entry's page head. Host-fed destinations are unscoped, so the
   // project selector stays hidden.
-  assert.ok(allNodes(root).includes(membersPanel));
-  assert.equal(byClass(root, "title")[0].textContent, "Members");
+  assert.ok(allNodes(root).includes(billingPanel));
+  assert.equal(byClass(root, "title")[0].textContent, "Billing");
   assert.equal(byClass(root, "scope-bar").length, 0);
   assert.equal(byClass(root, "stub-panel").length, 0);
-  assert.ok(membersPanel.parentNode.classList.contains("view-host"));
+  assert.ok(billingPanel.parentNode.classList.contains("view-host"));
 
-  // Routing to the other host-fed view swaps sections and releases the
-  // outgoing node completely — it never strands in a discarded subtree.
-  documentNode.defaultView.location.href = "/billing";
+  // Team's beforeScope section leads the page, between the page head and
+  // the view's own content, and the outgoing Billing node is released.
+  documentNode.defaultView.location.href = "/team";
   documentNode.defaultView.dispatchEvent(new Event("popstate"));
   await settle();
-  assert.ok(allNodes(root).includes(billingPanel));
-  assert.equal(membersPanel.parentNode, null);
-  assert.equal(byClass(root, "title")[0].textContent, "Billing");
+  const viewHost = byClass(root, "view-host")[0];
+  assert.equal(viewHost.parentNode.children[1], seatsPanel);
+  assert.equal(viewHost.parentNode.children[2], viewHost);
+  assert.ok(!allNodes(viewHost).includes(seatsPanel));
+  assert.equal(billingPanel.parentNode, null);
+  assert.equal(byClass(root, "title")[0].textContent, "Team");
 
   // Unmount detaches the mounted section, leaving the node reusable.
   mounted.unmount();
   assert.equal(billingPanel.parentNode, null);
-  assert.equal(membersPanel.parentNode, null);
+  assert.equal(seatsPanel.parentNode, null);
 });
+
 test("a host-fed deep link without its section stays honest", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/members";
+  documentNode.defaultView.location.href = "/billing";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: injectedClient("local") });
   await settle();
@@ -80,14 +89,29 @@ test("a host-fed deep link without its section stays honest", async (t) => {
   // No supplied section, no nav entry: the arc carries no dead links.
   const navLabels = byClass(root, "nav-link")
     .map((link) => link.children[1] && link.children[1].textContent);
-  assert.ok(!navLabels.includes("Members"));
   assert.ok(!navLabels.includes("Billing"));
 
   // The deep link still routes — the page head names the destination and
   // the body is the coming-soon stub, not a blank or a crash.
-  assert.equal(byClass(root, "title")[0].textContent, "Members");
+  assert.equal(byClass(root, "title")[0].textContent, "Billing");
   assert.equal(byClass(root, "stub-panel").length, 1);
 
+  mounted.unmount();
+});
+
+test("a link to the retired Members path opens Team", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.href = "/members";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, { client: injectedClient("host") });
+  await settle();
+
+  assert.equal(byClass(root, "title")[0].textContent, "Team");
+  assert.equal(new URL(documentNode.defaultView.location.href, "http://x").pathname, "/team");
   mounted.unmount();
 });
 
@@ -245,7 +269,7 @@ test("a section entry is told from a spec by being a node, not by its keys", asy
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/members";
+  documentNode.defaultView.location.href = "/billing";
   const root = documentNode.createElement("div");
   // A <template> owns a `content` property of its own, so an entry sniffed
   // for a `content` key would read this Element as a placement spec and hand
@@ -254,7 +278,7 @@ test("a section entry is told from a spec by being a node, not by its keys", asy
   template.content = new FakeNode(documentNode, "fragment", 11);
 
   const mounted = mountUniverseApp(root, {
-    client: injectedClient("unused"), sections: { members: template },
+    client: injectedClient("unused"), sections: { billing: template },
   });
   await settle();
 

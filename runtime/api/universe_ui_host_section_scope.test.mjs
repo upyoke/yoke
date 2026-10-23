@@ -77,13 +77,13 @@ test("beforeScope factories receive selection and can return the same reusable n
 });
 
 test("unscoped host-fed sections cancel on universe remount", async (t) => {
-  const state = setup(t, "/members", (factory) => ({ members: factory }), "first");
+  const state = setup(t, "/billing", (factory) => ({ billing: factory }), "first");
   await settle();
   assert.equal(state.contexts[0].scope, null);
   state.mounted.unmount();
   const next = mountUniverseApp(state.root, {
     universeId: "second", client: multiProjectWorkbenchClient(),
-    sections: { members(context) { state.contexts.push(context); return state.documentNode.createElement("aside"); } },
+    sections: { billing(context) { state.contexts.push(context); return state.documentNode.createElement("aside"); } },
   });
   await settle();
   assert.equal(state.contexts[0].signal.aborted, true);

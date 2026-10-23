@@ -85,9 +85,11 @@ export interface UniverseAction {
 /**
  * Opaque host capability data. Capability presence and string flags carry
  * state without coupling the app to a bag of host-specific booleans.
- * `data.github` is the GitHub page's `UniverseGitHubHost`.
+ * `data.github` is the GitHub page's `UniverseGitHubHost`; `data.team` is
+ * the Team page's `UniverseTeamHost`.
  */
 export type { UniverseGitHubHost } from "./universe-github-host.js";
+export type { UniverseTeamHost } from "./universe-team-host.js";
 export interface UniverseCapabilities {
     readonly flags?: readonly string[];
     readonly data?: Readonly<Record<string, unknown>>;
@@ -116,8 +118,8 @@ export interface UniverseAppSlots {
  *   setting. It renders above the scope control, so the picker never appears
  *   to filter facts it cannot touch.
  *
- * A scope-less view has no picker to sit above, so both placements put the
- * section in the same place; the declaration still records which it is.
+ * On a scope-less view, `beforeScope` leads the page above the view's own
+ * content and `inView` follows it.
  */
 export type UniverseViewSectionPlacement = "inView" | "beforeScope";
 /** Factories run when their page renders; signals abort on scope/route change or unmount. */
@@ -198,12 +200,11 @@ export interface UniverseAppMount {
     unmount(): void;
 }
 /**
- * Every destination in the workbench, host-fed screens included. Members and
- * Billing route like any other view and sit in the one flat nav arc, but
- * their content is host-owned: each renders the host's `sections` entry as
- * its body, and its nav entry appears exactly when that section is supplied.
+ * Every destination in the workbench, host-fed Billing included: it routes
+ * like any view, renders the host's `sections` entry as its body, and its nav
+ * entry appears exactly when that section is supplied. `/members` opens Team.
  */
-export type UniverseRouteView = "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox" | "profile" | "organization" | "levels" | "workflows" | "projects" | "github" | "team" | "members" | "billing" | "items" | "deployments" | "environments" | "databases" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";
+export type UniverseRouteView = "strategy" | "frontier" | "shipping" | "machines" | "sessions" | "inbox" | "profile" | "organization" | "levels" | "workflows" | "projects" | "github" | "team" | "billing" | "items" | "deployments" | "environments" | "databases" | "qa-methods" | "qa-plans" | "qa-activity" | "capabilities" | "packs" | "architecture" | "messages" | "launches" | "events" | "doctor" | "ouroboros";
 /**
  * The optional second segment identifies a detail within a destination.
  * Views interpret that identifier, including the workflow being inspected.
@@ -228,7 +229,7 @@ export interface UniverseRoute {
  */
 export type UniverseScope = "multi" | "single" | "none";
 /** Canonical value; the runtime module is emitted from this source. */
-export declare const UNIVERSE_APP_CONTRACT_VERSION: 11;
+export declare const UNIVERSE_APP_CONTRACT_VERSION: 12;
 export declare function createHttpFunctionClient(options?: HttpFunctionClientOptions): UniverseFunctionClient;
 export declare function parseUniverseRoute(href: string, basePath?: string): UniverseRoute;
 /** Preserve selection on ordinary host navigation and detail links. Explicit
