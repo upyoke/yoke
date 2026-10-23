@@ -3,6 +3,7 @@
 Pass full --candidate-sha and --consumer-sha commits. An immutable consumer
 tag binds workflow source, so release retries, explicit diagnostics and
 simultaneous stage/prod releases of one exact pair join one consumer run.
+A pending join retries that same request id for about two minutes.
 
 On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
 Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
@@ -16,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 from runtime.api.tools.platform_consumer_dispatch_ref import (
@@ -40,6 +42,8 @@ CONSUMER_CONNECTION = "platform-consumer-check"
 
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _COMMAND_TIMEOUT_SECONDS = 300
+_PENDING_JOIN_CODE = "workflow_dispatch_pending"
+_PENDING_JOIN_BUDGET_SECONDS = 120.0
 
 
 def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
@@ -128,25 +132,34 @@ def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
     if error:
         return "", error
     request_id = pair_request_id(candidate_sha, consumer_sha)
-    code, stdout, stderr = _yoke(
-        [
-            "github-actions",
-            "trigger",
-            CONSUMER_REPO,
-            CONSUMER_CHECK_WORKFLOW,
-            "--ref",
-            ref,
-            "--input",
-            f"{CANDIDATE_INPUT}={candidate_sha}",
-            "--request-id",
-            request_id,
-            "--correlation-input",
-            WORKFLOW_DISPATCH_CORRELATION_INPUT,
-            "--project",
-            CONSUMER_PROJECT,
-        ],
-        timeout=_COMMAND_TIMEOUT_SECONDS,
-    )
+    trigger = [
+        "github-actions",
+        "trigger",
+        CONSUMER_REPO,
+        CONSUMER_CHECK_WORKFLOW,
+        "--ref",
+        ref,
+        "--input",
+        f"{CANDIDATE_INPUT}={candidate_sha}",
+        "--request-id",
+        request_id,
+        "--correlation-input",
+        WORKFLOW_DISPATCH_CORRELATION_INPUT,
+        "--project",
+        CONSUMER_PROJECT,
+    ]
+    deadline = time.monotonic() + _PENDING_JOIN_BUDGET_SECONDS
+    delay = 2.0
+    while True:
+        code, stdout, stderr = _yoke(trigger, timeout=_COMMAND_TIMEOUT_SECONDS)
+        if code == 0 or _PENDING_JOIN_CODE not in f"{stderr}\n{stdout}":
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        print("consumer check join is pending; retrying same request_id", flush=True)
+        time.sleep(min(delay, remaining))
+        delay = min(delay * 2, 30.0)
     if code != 0:
         return "", f"consumer check could not be dispatched: {_detail(stdout, stderr)}"
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
