@@ -28,7 +28,6 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYMENT_TARGET_UNRESOLVED,
     IDENTITY_PROOF_MALFORMED,
     IDENTITY_PROOF_UNAVAILABLE,
-    SHA_MISMATCH,
 )
 from yoke_core.domain.handlers import qa_browser
 from yoke_core.domain.served_revision_probe import ServedRevisionRead
@@ -139,21 +138,21 @@ class TestStandalonePersistentTargetEnv(unittest.TestCase):
             self.assertEqual(sha, SERVED_SHA)
             self.assertEqual(urls, [f"{HOSTED_PLATFORM_URL}{IDENTITY_PATH}"])
 
-    def test_a_wrong_revision_is_refused_without_asking_a_preview(self):
+    def test_another_revision_is_recorded_without_asking_a_preview(self):
         with test_database() as conn:
             _seed_prod(conn)
             _seed_item_case(conn, requirement_id=REQ_STANDALONE, target_env="prod")
             fetch, urls = _asked(OTHER_SHA)
-            failure, origin, _sha = _establish_deployment_freshness(
+            failure, origin, sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
                 context=_context(REQ_STANDALONE),
                 fetch_identity=fetch,
             )
-            self.assertIsNotNone(failure)
-            self.assertEqual(failure.reason, SHA_MISMATCH)
-            self.assertEqual(origin, "")
+            self.assertIsNone(failure)
+            self.assertEqual(sha, OTHER_SHA)
+            self.assertTrue(origin)
             self.assertEqual(urls, [f"{HOSTED_PLATFORM_URL}{IDENTITY_PATH}"])
 
     def test_missing_identity_path_is_refused_by_name(self):

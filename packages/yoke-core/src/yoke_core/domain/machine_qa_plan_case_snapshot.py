@@ -104,5 +104,8 @@ def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
             conn, str(current.get("deployment_run_id") or ""), target
         ):
             current["deployment_run_id"] = stored.get("deployment_run_id")
+    # The checkout source follows the current owning run, not the admission.
+    current.pop("deployment_source_revision", None)
+    stored.pop("deployment_source_revision", None)
     if canonical(current) != canonical(stored):
         raise ValueError("ordered plan case snapshot changed during execution")

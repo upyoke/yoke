@@ -191,7 +191,10 @@ a persistent target also freezes the Yoke release the deployed candidate pins
 `endpoints.release_version`. Channels and the environment's desired-pin leaf
 both move with later releases; the deployed commit does not. An install step
 passes `{{release_version}}` to the installer (`--version` or `YOKE_VERSION`)
-through the bound `installer_url`. Freezing refuses, each naming its recovery,
+through the bound `installer_url`. After a takeover, once the successor has a
+ready deploy receipt, the execution and mission views name the successor's pin
+instead; the stored target and its digest stay unchanged. Freezing refuses,
+each naming its recovery,
 as `deployment_qa_release_pin_missing` (no pin at that commit),
 `deployment_qa_release_pin_unreadable` (no checkout or GitHub binding can read
 it), or `deployment_qa_release_unpublished` (absent from the installer origin).
@@ -206,8 +209,9 @@ snapshot. Re-running the stage against the same receipt reuses the
 existing requirement rather than minting a second copy. When evidence
 exists but a caller still asks under a different digest, the refusal
 names the recorded requirement and that it is out of scope — never "no
-cases". Result-write validation still live-resolves against a named
-receipt so a replaced candidate on the same run row cannot be written over.
+cases". Result writes check the subject, tenant, project and endpoints; the
+release, source and receipt a target was frozen from are provenance, so a
+newer ready receipt or a takeover successor never refuses a write.
 
 A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that

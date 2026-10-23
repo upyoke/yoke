@@ -160,9 +160,10 @@ def resolve_run_pinned_source(
 ) -> dict[str, str]:
     """Return the case project's release source and inherited observation scope.
 
-    Fresh QA validates the delivered commit. Inherited QA observes the build
-    served at its authorized environment, even before its new owner deploys.
-    The frozen target and recorded takeover ancestry establish that exception.
+    Fresh QA names the delivered commit. Inherited QA needs none, so it runs
+    even before its new owner deploys; the frozen target and recorded takeover
+    ancestry establish that scope. Either way a deployment-bound case records
+    the commit its environment serves at case start.
     """
     from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 

@@ -98,7 +98,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
             # target's own, never a host derived from the branch name.
             self.assertEqual(origin, PROD_ORIGIN)
 
-    def test_a_target_serving_another_revision_is_refused(self):
+    def test_a_target_serving_another_revision_records_what_it_serves(self):
         with test_database() as conn:
             _seed_case(conn, requirement_id=9402, target=_target())
             _configure_identity(conn)
@@ -106,7 +106,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
                 conn, requirement_id=9402, project_id=1
             )
 
-            failure, origin, _sha = _establish_deployment_freshness(
+            failure, origin, sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -114,8 +114,10 @@ class TestBoundTargetFreshness(unittest.TestCase):
                 fetch_identity=_serves(OTHER_SHA),
             )
 
-            self.assertIsNotNone(failure)
-            self.assertEqual(origin, "")
+            # QA tests whatever is deployed: the case records the observed
+            # commit instead of refusing a newer build.
+            self.assertIsNone(failure)
+            self.assertEqual((origin, sha), (PROD_ORIGIN, OTHER_SHA))
 
     def test_a_project_publishing_no_identity_proof_is_refused(self):
         with test_database() as conn:

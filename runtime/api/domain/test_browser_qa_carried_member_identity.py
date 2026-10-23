@@ -135,12 +135,10 @@ def test_a_target_serving_the_release_output_is_fresh() -> None:
     assert (origin, sha) == ("https://app.example.test", OUTPUT)
 
 
-def test_a_genuinely_different_served_commit_still_refuses_by_name() -> None:
-    failure, _origin, _sha = _freshness(OTHER)
-    assert failure is not None
-    assert failure.reason == "sha_mismatch"
-    assert OTHER in failure.message and OUTPUT in failure.message
-    assert "project 'externalwebapp'" in failure.message
+def test_a_different_served_commit_is_recorded_not_refused() -> None:
+    failure, _origin, sha = _freshness(OTHER)
+    assert failure is None
+    assert sha == OTHER
 
 
 def _frozen(project_id: int) -> str:

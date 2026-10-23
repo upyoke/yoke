@@ -1,13 +1,10 @@
-"""Ask the frozen target what it serves before a deployment QA stage starts.
+"""Ask the frozen target what it serves when a deployment QA stage starts.
 
-Target occupancy keeps another run from deploying over a server while this
-run's QA is open, but a stage can still start on a server that changed
-underneath it — a deploy outside any run, or one that predates occupancy.
-Walking it anyway costs a host reset, a human gate, and a verdict that has
-to be recorded as a failure afterwards. So before the runner resets a test
-host or raises a gate, it asks the target the same present-tense question
-the Browser freshness check asks per case, once, and a drifted target
-refuses in seconds with both builds named.
+QA tests whatever is deployed at its destination. A newer build than the
+run delivered is normal (a later release took over), so the runner never
+refuses on it: before any host reset or human gate it asks the target the
+same present-tense question the Browser case check asks, once, and reports
+a different served commit on stderr as an observation.
 
 The server composes the expectation (which origin, which proof path, which
 commit) because those are control-plane facts; the runner probes, because
@@ -28,7 +25,6 @@ from yoke_core.domain.browser_qa_freshness_outcome import SHA_MISMATCH
 
 #: The begin response field carrying the expectation.
 START_IDENTITY_FIELD = "deployment_start_identity"
-DRIFT_CODE = "deployment_target_drifted"
 
 
 def _p(conn: Any) -> str:
@@ -93,25 +89,23 @@ def start_identity_expectation(
     }
 
 
-def require_start_identity(
+def report_start_identity(
     execution: Mapping[str, Any],
     *,
     run_id: str,
     stage: str,
     fetch: Optional[Callable[[str], object]] = None,
-) -> Optional[str]:
-    """Return the drift refusal for a begun execution, else ``None``.
+) -> None:
+    """Report on stderr what a begun execution's target serves, if it differs.
 
-    Only drift refuses: the target answered with a different build. A
-    target that cannot be asked (no proof path, unreachable, no delivered
-    commit) is reported on stderr as unverified and left to the per-case
-    checks, because refusing there would stop QA for every project that
-    publishes no served-revision proof. A server that predates this field
-    sends none, and the stage starts as it did before.
+    Nothing here refuses. A target serving another build than the run
+    delivered is observed, not drift; a target that cannot be asked (no
+    proof path, unreachable, no delivered commit) is reported as unverified.
+    A server that predates this field sends none, and nothing is reported.
     """
     expectation = execution.get(START_IDENTITY_FIELD)
     if not isinstance(expectation, Mapping):
-        return None
+        return
     target = DeploymentUnderTest.from_payload(expectation.get("target"))
     expected = str(expectation.get("expected_sha") or "")
     if not expected and not target.unresolved:
@@ -121,7 +115,7 @@ def require_start_identity(
             f"{expectation.get('project')!r}.",
             file=sys.stderr,
         )
-        return None
+        return
     failure = validate_deployment_identity(
         expected,
         target=target,
@@ -129,26 +123,24 @@ def require_start_identity(
         fetch=fetch,
     )
     if failure is None:
-        return None
-    if failure.reason != SHA_MISMATCH:
+        return
+    if failure.reason == SHA_MISMATCH:
         print(
-            f"yoke qa plan run: identity at QA start unverified for run {run_id} "
-            f"stage {stage} ({failure.reason}): {failure.message}",
+            f"yoke qa plan run: observed at QA start for run {run_id} stage "
+            f"{stage}: {failure.message} QA continues against the deployed "
+            "build; each case records the commit it observed.",
             file=sys.stderr,
         )
-        return None
-    return (
-        f"{DRIFT_CODE}: QA stage {stage} of run {run_id} did not start. "
-        f"{failure.message} No host was reset and no gate was raised. "
-        "Recovery: redeliver the candidate to this environment (a new run "
-        "for the same members), or record this stage's outcome against the "
-        "build the environment actually serves."
+        return
+    print(
+        f"yoke qa plan run: identity at QA start unverified for run {run_id} "
+        f"stage {stage} ({failure.reason}): {failure.message}",
+        file=sys.stderr,
     )
 
 
 __all__ = [
-    "DRIFT_CODE",
     "START_IDENTITY_FIELD",
-    "require_start_identity",
+    "report_start_identity",
     "start_identity_expectation",
 ]

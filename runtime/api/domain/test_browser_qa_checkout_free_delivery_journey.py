@@ -265,19 +265,19 @@ class TestProductionRunJourney:
         # else; this is what the scenario binds execution against.
         assert verified_origin == ENVIRONMENT_URL
 
-    def test_an_environment_serving_another_commit_refuses(self):
+    def test_an_environment_serving_another_commit_records_it(self):
         with test_database() as conn:
             requirement_id = self._seed_production_run(conn)
             context = _context(conn, requirement_id, run_id=RUN_ID)
-            failure, _, _sha = _establish_deployment_freshness(
+            failure, _, sha = _establish_deployment_freshness(
                 PROJECT,
                 BRANCH,
                 DEPLOYED_SHA,
                 context=context,
                 fetch_identity=_answers(SUPERSEDED_SHA),
             )
-        assert failure is not None
-        assert failure.reason == outcome.SHA_MISMATCH
+        assert failure is None
+        assert sha == SUPERSEDED_SHA
 
     def test_an_environment_that_publishes_nothing_refuses_by_name(self):
         with test_database() as conn:
