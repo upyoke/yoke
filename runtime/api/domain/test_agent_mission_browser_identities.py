@@ -124,6 +124,7 @@ def test_public_bundle_passes_its_database_to_mission_selection(monkeypatch):
             "state": "pending",
             "bundle_json": json.dumps({"cases": [{"capture_runner": "agent_mission"}]}),
         },
+        execution={},
     )
     assert observed == [conn]
     assert result["dispatch"]["dispatch_kind"] == "main_agent_mission"

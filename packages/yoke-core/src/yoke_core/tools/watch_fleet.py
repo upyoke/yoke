@@ -151,8 +151,8 @@ def _probe_argv(args: Sequence[str]) -> list[str]:
 
 
 HELP_EPILOG = f"""\
-Pass bare probe arguments after ``--``; the wrapper supplies
-``python3 -m yoke_core.domain.fleet_delta_probe``:
+Pass probe arguments after --; the wrapper runs
+python3 -m yoke_core.domain.fleet_delta_probe with them:
 
   --project P    Project to watch. Repeatable. Defaults to the
                  checkout's mapped project.
@@ -220,6 +220,11 @@ def _parse_args(
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=prog,
+        usage=(
+            f"{prog} [--print-streaming-pair] [--flush-seconds N] "
+            "[--raw-capture PATH] [--progress-capture PATH] "
+            "-- [--project P ...] [--interval N] [--duration N]"
+        ),
         description=(
             "Run the fleet-delta probe under the shared raw+progress watcher."
         ),
@@ -238,18 +243,21 @@ def _parse_args(
         "--raw-capture",
         type=Path,
         default=None,
+        metavar="PATH",
         help="Explicit raw capture path. Defaults under project scratch.",
     )
     parser.add_argument(
         "--progress-capture",
         type=Path,
         default=None,
+        metavar="PATH",
         help="Explicit progress capture path. Defaults under project scratch.",
     )
     parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
-        help="Bare probe arguments, separated from wrapper flags by --.",
+        metavar="PROBE-ARG",
+        help="Probe arguments, listed below. Put -- before them.",
     )
     return parser.parse_args(list(argv))
 

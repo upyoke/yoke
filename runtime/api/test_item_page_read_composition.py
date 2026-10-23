@@ -103,6 +103,21 @@ def test_overview_list_rejects_unknown_relevance():
     assert outcome.error.jsonpath == "$.payload.relevance"
 
 
+def test_overview_list_refuses_limit_with_paging_inputs():
+    outcome = item_page_reads.handle_items_overview_list(
+        FunctionCallRequest(
+            function="items.overview.list",
+            actor=ActorContext(actor_id="71", session_id="session-visible"),
+            target=TargetRef(kind="global"),
+            payload={"limit": 5, "page_size": 10, "status": "idea"},
+        )
+    )
+    assert not outcome.primary_success
+    assert outcome.error.code == "limit_with_paged_roster"
+    assert outcome.error.jsonpath == "$.payload.limit"
+    assert "page_size" in outcome.error.message
+
+
 def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
     conn = _connection()
     observed_at = parse_instant("2026-07-25T08:00:00.123456Z")
@@ -174,12 +189,19 @@ class _SpentConnection:
 
 
 def _instructions(monkeypatch, conn, rows):
-    """Serve the fixture connection once, then a fresh handle, as live does."""
+    """Serve the fixture connection once, then a fresh handle, as live does.
+
+    The second handle serves the instruction and approval reads, both stubbed.
+    """
     handles = iter([conn])
 
+    import yoke_core.domain.item_lifecycle_approvals as approval_reads
     import yoke_core.domain.workflow_execution_instructions as instruction_reads
 
     monkeypatch.setattr(instruction_reads, "resolve_for_item", lambda *_args: rows)
+    monkeypatch.setattr(
+        approval_reads, "item_approval_gates", lambda *_args, **_kwargs: []
+    )
     monkeypatch.setattr(
         item_detail_read.db_helpers,
         "connect",
@@ -200,6 +222,7 @@ def test_detail_serves_instructions_independently_of_content_selection(
     result = outcome.result_payload
     assert result["execution_instructions"] == rows
     assert result["include"] == []
+    assert result["item"]["approvals"] == []
     index = result["item"]["content_index"]["execution_instructions"]
     assert index["count"] == 1
     assert index["bytes"] == len("Cover the full scope.")

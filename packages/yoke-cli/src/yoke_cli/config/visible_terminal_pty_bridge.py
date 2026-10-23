@@ -288,10 +288,10 @@ def _parser() -> argparse.ArgumentParser:
             "Terminal, even when the launcher logs through a pipe."
         )
     )
-    parser.add_argument("--fifo", required=True)
-    parser.add_argument("--log", required=True)
-    parser.add_argument("--status", required=True)
-    parser.add_argument("cmd", nargs=argparse.REMAINDER)
+    parser.add_argument("--fifo", required=True, help="FIFO whose input feeds the PTY.")
+    parser.add_argument("--log", required=True, help="File that logs PTY output.")
+    parser.add_argument("--status", required=True, help="File for the pid and paths.")
+    parser.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to run.")
     return parser
 
 

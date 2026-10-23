@@ -54,12 +54,12 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
         self,
         *,
         lease: CoordinationClaim,
-        machine: str,
+        test_machine: str,
         contention: ClaimContention | None = None,
     ) -> None:
-        super().__init__(held_host(lease, machine))
+        super().__init__(held_host(lease, test_machine))
         self.lease = lease
-        self.machine = machine
+        self.test_machine = test_machine
         self.contention = contention
 
 
@@ -85,7 +85,7 @@ def commit_deferred_connection(conn: Any) -> Any:
 
 def _issue(
     conn: Any,
-    machine: TestMachineContract,
+    test_machine: TestMachineContract,
     lease: CoordinationClaim,
     *,
     operation: HostControlOperation,
@@ -101,7 +101,7 @@ def _issue(
     case_position: int | None = None,
     baseline_position: int | None = None,
 ) -> HostControlExecutionContract:
-    settings = dict(machine.settings)
+    settings = dict(test_machine.settings)
     if operation == "golden_capture":
         # Capture changes this output pointer; excluding it keeps retries stable.
         from yoke_core.domain.machine_qa_golden_destination import (
@@ -119,8 +119,8 @@ def _issue(
         operation=operation,
         lease_id=lease.id,
         lease_key=lease.key,
-        project_id=machine.project_id,
-        project=machine.project,
+        project_id=test_machine.project_id,
+        project=test_machine.project,
         settings=settings,
         selection_reason=selection_reason,
         checks=list(checks),
@@ -152,7 +152,7 @@ def begin_host_control_execution(
     ordinal: int | None = None,
     case_position: int | None = None,
     baseline_position: int | None = None,
-    machine: str | None = None,
+    test_machine: str | None = None,
     select_any: bool = True,
     healthy_only: bool = False,
     host_cases: Sequence[dict[str, Any]] | None = None,
@@ -162,7 +162,7 @@ def begin_host_control_execution(
         raise MachineQaProtocolError(
             "host-control execution requires an owning session"
         )
-    if any((case.get("method_config") or {}).get("machines") for case in cases):
+    if any((case.get("method_config") or {}).get("test_machines") for case in cases):
         raise MachineQaProtocolError(
             "test_machine_set_requires_plan: run this simultaneous-host case "
             "through yoke qa plan run so every declared host is leased together"
@@ -172,7 +172,7 @@ def begin_host_control_execution(
             conn,
             project=project,
             session_id=session_id,
-            machine=machine,
+            test_machine=test_machine,
             select_any=select_any,
             healthy_only=healthy_only,
             cases=tuple(host_cases if host_cases is not None else cases),
@@ -183,7 +183,7 @@ def begin_host_control_execution(
         held = exc.busy[0]
         raise MachineQaProtocolLeaseHeld(
             lease=held.lease,
-            machine=held.machine,
+            test_machine=held.test_machine,
             contention=held.contention,
         ) from None
     return _issue(
@@ -220,17 +220,17 @@ def _validate_lease_owner(
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "no lease was issued with that id")
         ) from exc
-    machine_id = lease.target.machine_id
+    machine_id = lease.target.test_machine
     if machine_id is None:
         raise MachineQaProtocolError(
             invalid_lease(lease_id, "it does not name a machine")
         )
-    machine = load_test_machine_contract(
+    test_machine = load_test_machine_contract(
         conn,
         project=project,
-        machine=machine_id,
+        test_machine=machine_id,
     )
-    resource_name = machine.settings["resource_name"]
+    resource_name = test_machine.settings["resource_name"]
     if lease.is_active and lease.key != host_claim_key(resource_name):
         raise MachineQaProtocolError(
             conflicting_lease(
@@ -251,7 +251,7 @@ def _validate_lease_owner(
         raise MachineQaProtocolError(
             conflicting_lease(lease, resource_name, "the lease is no longer active")
         )
-    return lease, machine
+    return lease, test_machine
 
 
 def validate_host_control_submission(
@@ -276,7 +276,7 @@ def validate_host_control_submission(
     baseline_position: int | None = None,
 ) -> tuple[CoordinationClaim, HostControlExecutionContract]:
     """Lock the lease and validate actor, target, and issued contract."""
-    lease, machine = _validate_lease_owner(
+    lease, test_machine = _validate_lease_owner(
         conn,
         project=project,
         session_id=session_id,
@@ -286,7 +286,7 @@ def validate_host_control_submission(
     )
     expected = _issue(
         conn,
-        machine,
+        test_machine,
         lease,
         operation=operation,
         checks=checks,

@@ -37,9 +37,11 @@ def build_plan_execution_target(
             "exactly one of public_ref or deployment_run_id is required"
         )
     if public_ref:
-        if not transition_id:
-            raise QaPlanExecutionError("item QA plan execution requires transition_id")
-        if plan:
+        if bool(transition_id) == bool(deployment_stage) or deployment_member:
+            raise QaPlanExecutionError(
+                "item QA requires one transition or deployment stage, without a member selector"
+            )
+        if plan and not deployment_stage:
             raise QaPlanExecutionError(
                 "item QA plan execution uses attached plans, not plan"
             )
@@ -49,7 +51,9 @@ def build_plan_execution_target(
                 public_ref=str(public_ref),
                 project_id=project,
             ),
-            {"transition_id": transition_id},
+            {"deployment_stage": deployment_stage, **({"plan": plan} if plan else {})}
+            if deployment_stage
+            else {"transition_id": transition_id},
         )
     if transition_id:
         raise QaPlanExecutionError(

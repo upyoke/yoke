@@ -1,0 +1,4 @@
+{
+  "pulumi": "Run Pulumi infrastructure commands for a project.",
+  "pulumi exec": "Run one Pulumi command against a project stack."
+}

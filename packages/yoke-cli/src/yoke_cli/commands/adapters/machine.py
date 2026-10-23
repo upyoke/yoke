@@ -71,8 +71,12 @@ def machine_register(args: List[str]) -> int:
             "claims, who owns it, and which actors may spend its capacity."
         ),
     )
-    parser.add_argument("--name", default=None)
-    parser.add_argument("--access-mode", default=None)
+    parser.add_argument(
+        "--name", default=None, help="Display name; default: this host's name."
+    )
+    parser.add_argument(
+        "--access-mode", default=None, help="Who may use this machine (use.mode)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_REGISTER_USAGE)
@@ -154,7 +158,9 @@ def machine_show(args: List[str]) -> int:
             f"{OFFERS_ENFORCEMENT_NOTE}"
         ),
     )
-    parser.add_argument("machine_id", nargs="?", default=None)
+    parser.add_argument(
+        "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_SHOW_USAGE)
@@ -174,7 +180,9 @@ def machine_detail(args: List[str]) -> int:
         prog="yoke machine detail",
         description="Show machine identity, harness, project, session, and token facts.",
     )
-    parser.add_argument("machine_id", nargs="?", default=None)
+    parser.add_argument(
+        "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_DETAIL_USAGE)
@@ -199,8 +207,12 @@ def machine_retire(args: List[str]) -> int:
             "automatically."
         ),
     )
-    parser.add_argument("machine_id", nargs="?", default=None)
-    parser.add_argument("--confirm", action="store_true")
+    parser.add_argument(
+        "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
+    )
+    parser.add_argument(
+        "--confirm", action="store_true", help="Required: confirm the retirement."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_RETIRE_USAGE)
@@ -229,8 +241,12 @@ def machine_access_get(args: List[str]) -> int:
             f"offers.deploys). {OFFERS_ENFORCEMENT_NOTE}"
         ),
     )
-    parser.add_argument("machine_id", nargs="?", default=None)
-    parser.add_argument("--path", default=None)
+    parser.add_argument(
+        "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
+    )
+    parser.add_argument(
+        "--path", default=None, help="Dotted leaf to read; default: whole document."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_SETTINGS_GET_USAGE)
@@ -258,9 +274,13 @@ def machine_access_set(args: List[str]) -> int:
             f"{OFFERS_ENFORCEMENT_NOTE}"
         ),
     )
-    parser.add_argument("machine_id", nargs="?", default=None)
-    parser.add_argument("--path", required=True)
-    parser.add_argument("--value", required=True)
+    parser.add_argument(
+        "machine_id", nargs="?", default=None, help="Machine id; default: this machine."
+    )
+    parser.add_argument("--path", required=True, help="Dotted leaf to replace.")
+    parser.add_argument(
+        "--value", required=True, help="New value as JSON; a bare word is a string."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MACHINE_SETTINGS_SET_USAGE)

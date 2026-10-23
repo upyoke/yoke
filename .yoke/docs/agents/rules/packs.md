@@ -17,16 +17,17 @@
 
 ## Credentials
 
-Provider credentials belong to a project capability, not the shell; a bare `aws ...` may fail
-for that reason. Use the Yoke capability resolver to pass them to a subprocess. Verify by
-listing keys or redacted evidence; never print a secret.
+Provider credentials belong to project capabilities; bare `aws ...` may fail. Pass credentials
+to subprocesses through the Yoke capability resolver. Verify keys or redacted evidence;
+never print secrets.
 Storage: [capabilities](../../projects/capabilities.md).
 
 ## Declared infrastructure
 
-Create or change an external resource only through the project's infrastructure-as-code
-declaration, in the same change. A console or ad hoc CLI result is not a declaration: import it
-or remove it. Reusable infrastructure belongs in a Pack.
+Declare external resources and settings in project infrastructure-as-code in the same change.
+Import or remove anything created by hand during investigation; record which you did.
+Emergency patches need operator approval and immediate IaC catch-up.
+Reusable infrastructure belongs in a Pack.
 
 ## Related
 

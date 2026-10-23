@@ -76,7 +76,7 @@ def cmd_release(conn, claim_id: int, reason: str = "released") -> str:
     if row["rel"]:
         raise PermissionError(f"claim '{claim_id}' has already been released")
     target = _target(row["target_kind"], row["scope"])
-    if target.machine_id:
+    if target.test_machine:
         # A Test Machine release must advance the host's waiting line.
         from yoke_core.domain.coordination_claims import release
 

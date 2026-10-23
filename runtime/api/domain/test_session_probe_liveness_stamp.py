@@ -1,4 +1,4 @@
-"""Wake/registration probes must not refresh session liveness."""
+"""Genuine reactivation refreshes liveness; live registration probes do not."""
 
 from __future__ import annotations
 
@@ -40,8 +40,8 @@ def _row(conn, session_id: str) -> dict:
     }
 
 
-class TestProbeDoesNotStampLiveness:
-    def test_reactivation_preserves_last_heartbeat(self, conn) -> None:
+class TestRegistrationLiveness:
+    def test_reactivation_refreshes_last_heartbeat(self, conn) -> None:
         original = _register(conn, session_id="idle-wake")
         _backdate_heartbeat(conn, "idle-wake")
         before = _row(conn, "idle-wake")
@@ -55,9 +55,9 @@ class TestProbeDoesNotStampLiveness:
         after = _row(conn, "idle-wake")
 
         assert revived["ended_at"] is None
-        assert after["last_heartbeat"] == before["last_heartbeat"]
-        assert after["last_heartbeat"] != original["last_heartbeat"]
-        assert after["last_heartbeat"] == _STALE_AT
+        assert after["last_heartbeat"] > before["last_heartbeat"]
+        assert after["last_heartbeat"] >= original["last_heartbeat"]
+        assert after["last_heartbeat"] == revived["last_heartbeat"]
 
     def test_live_reregister_preserves_last_heartbeat(self, conn) -> None:
         _register(conn, session_id="still-live")
@@ -69,7 +69,7 @@ class TestProbeDoesNotStampLiveness:
         assert exc_info.value.code == "SESSION_EXISTS"
         assert _row(conn, "still-live")["last_heartbeat"] == before["last_heartbeat"]
 
-    def test_wake_reactivation_leaves_effective_liveness_age(self, conn) -> None:
+    def test_wake_reactivation_refreshes_effective_liveness_age(self, conn) -> None:
         _register(conn, session_id="stale-idle")
         _backdate_heartbeat(conn, "stale-idle")
         age_before = latest_activity(conn, "stale-idle")
@@ -96,9 +96,9 @@ class TestProbeDoesNotStampLiveness:
             now=now + timedelta(seconds=1),
         )
 
-        assert age_after == age_before == _STALE_AT
+        assert age_after == after["last_heartbeat"] > age_before == _STALE_AT
         assert liveness_before == "stale"
-        assert liveness_after == "stale"
+        assert liveness_after == "active"
 
     def test_explicit_heartbeat_still_stamps(self, conn) -> None:
         _register(conn, session_id="real-activity")

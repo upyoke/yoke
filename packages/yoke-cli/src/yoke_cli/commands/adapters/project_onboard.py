@@ -51,11 +51,11 @@ ONBOARD_PROJECT_USAGE = (
 
 def project_create(args: List[str]) -> int:
     parser = _project_parser("yoke project create", PROJECT_CREATE_USAGE)
-    parser.add_argument("checkout")
+    parser.add_argument("checkout", help="Path to the project checkout.")
     # Consume one obsolete positional value so argparse never reflects a
     # possibly-secret value into stderr. It is rejected generically below and
     # is never passed to onboarding.
-    parser.add_argument("_unexpected_positional", nargs="?")
+    parser.add_argument("_unexpected_positional", nargs="?", help=argparse.SUPPRESS)
     _add_github_adoption_args(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_CREATE_USAGE)
     if parsed is None:
@@ -90,8 +90,8 @@ def project_create(args: List[str]) -> int:
 
 def project_import(args: List[str]) -> int:
     parser = _project_parser("yoke project import", PROJECT_IMPORT_USAGE)
-    parser.add_argument("remote_url")
-    parser.add_argument("checkout")
+    parser.add_argument("remote_url", help="Git URL of the repository to import.")
+    parser.add_argument("checkout", help="Path to clone the repository into.")
     parser.add_argument(
         "--existing-yoke-layer",
         choices=LAYER_DECISIONS,
@@ -143,7 +143,7 @@ def _import_clone_plan(parsed: argparse.Namespace) -> ClonePlan:
 
 def onboard_project(args: List[str]) -> int:
     parser = _project_parser("yoke onboard project", ONBOARD_PROJECT_USAGE)
-    parser.add_argument("checkout")
+    parser.add_argument("checkout", help="Path to the project checkout.")
     _add_github_adoption_args(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_PROJECT_USAGE)
     if parsed is None:
@@ -183,22 +183,33 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog=prog,
-        description=usage,
+        usage=usage,
     )
-    parser.add_argument("--slug", required=True)
-    parser.add_argument("--name", required=True)
+    parser.add_argument("--slug", required=True, help="Short id for the project.")
+    parser.add_argument("--name", required=True, help="Display name for the project.")
     parser.add_argument(
         "--org",
         dest="org",
         default=None,
         help="Owning organization slug or id for a newly created project.",
     )
-    parser.add_argument("--github-repo", dest="github_repo", default=None)
-    parser.add_argument("--default-branch", dest="default_branch", required=True)
+    parser.add_argument(
+        "--github-repo",
+        dest="github_repo",
+        default=None,
+        help="GitHub repository, as OWNER/REPO.",
+    )
+    parser.add_argument(
+        "--default-branch",
+        dest="default_branch",
+        required=True,
+        help="Main branch of the repository.",
+    )
     parser.add_argument(
         "--public-item-prefix",
         dest="public_item_prefix",
         required=True,
+        help="Prefix for the project's item refs, as in PREFIX-N.",
     )
     parser.add_argument(
         "--config",
@@ -207,8 +218,15 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
         help="Machine config override; defaults to the machine config resolver.",
     )
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--yes", dest="apply", action="store_true")
-    mode.add_argument("--dry-run", dest="dry_run", action="store_true")
+    mode.add_argument(
+        "--yes", dest="apply", action="store_true", help="Apply the plan."
+    )
+    mode.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="Print the plan without applying it (the default).",
+    )
     parser.set_defaults(apply=False, dry_run=False)
     add_json_arg(parser)
     return parser

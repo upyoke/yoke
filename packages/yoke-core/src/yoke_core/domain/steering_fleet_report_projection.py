@@ -120,11 +120,12 @@ def _landed_dict(entry: LandedItem, *, idle_after_seconds: int) -> dict[str, Any
         "custody_state": entry.custody_state,
         "custody_run_id": entry.custody_run_id,
         "stranded": entry.stranded,
-        # Empty when the row needs nothing: a live holder owns its own
-        # close-out, and a parked one still inside the idle threshold is
-        # waiting on the delivery that close-out needs. A quiet holder is
-        # not that owner; the recovery names a wake and the close-out that
-        # runs once the claim is free.
+        "delivery_gate": entry.delivery_gate.state,
+        "awaiting_release": entry.awaiting_release,
+        # Empty when the row needs nothing: the item's gate waits only on its
+        # next release, or a live holder owns its own close-out. A quiet
+        # holder is not that owner; the recovery names a wake and the
+        # close-out that runs once the claim is free.
         "recovery": landed_recovery(entry, idle_after_seconds=idle_after_seconds),
     }
 

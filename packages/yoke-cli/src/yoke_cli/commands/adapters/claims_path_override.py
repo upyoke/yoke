@@ -29,19 +29,37 @@ CLAIMS_PATH_OVERRIDE_USAGE = (
 def claims_path_override(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path override",
-        description=CLAIMS_PATH_OVERRIDE_USAGE,
+        usage=CLAIMS_PATH_OVERRIDE_USAGE,
     )
-    parser.add_argument("--claim-id", required=True, help="path_claims.id")
+    parser.add_argument(
+        "--claim-id", required=True, help="Path claim to approve the collision for."
+    )
     parser.add_argument(
         "--override-point",
         required=True,
         choices=("creation", "amend", "revalidation_conflict"),
+        help="Claim step where the collision happened.",
     )
-    parser.add_argument("--integration-target", required=True)
-    parser.add_argument("--actor-id", required=True, type=int)
-    parser.add_argument("--actor-reason", required=True)
-    parser.add_argument("--blocking-claim-id", type=int, default=None)
-    parser.add_argument("--blocking-path-targets", default=None)
+    parser.add_argument(
+        "--integration-target", required=True, help="Branch the claim merges into."
+    )
+    parser.add_argument(
+        "--actor-id", required=True, type=int, help="Id of the person approving."
+    )
+    parser.add_argument(
+        "--actor-reason", required=True, help="Why the collision is approved."
+    )
+    parser.add_argument(
+        "--blocking-claim-id",
+        type=int,
+        default=None,
+        help="Path claim that collides with this one.",
+    )
+    parser.add_argument(
+        "--blocking-path-targets",
+        default=None,
+        help="Comma-separated ids of the colliding path targets.",
+    )
     parser.add_argument(
         "--conflict-reason",
         default=None,
@@ -51,9 +69,10 @@ def claims_path_override(args: List[str]) -> int:
             "claim_overlap",
             "continuity_unknown",
         ),
+        help="Kind of collision being approved.",
     )
-    parser.add_argument("--item", default=None)
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--item", default=None, help="Item the claim belongs to.")
+    parser.add_argument("--project", default=None, help="Project scope.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_OVERRIDE_USAGE)

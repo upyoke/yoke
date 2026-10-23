@@ -13,6 +13,11 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.github_actions_workflow_parser import (
+    PROJECT_HELP as _PROJECT_HELP,
+    add_common_args as _add_common,
+    add_workflow_args as _add_workflow,
+)
 from yoke_cli.transport import local_github_dispatch as local_github
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import (
@@ -28,18 +33,18 @@ from yoke_contracts.github_workflow_dispatch import (
 
 
 GITHUB_ACTIONS_TRIGGER_USAGE = (
-    "yoke github-actions trigger <repo-slug> <workflow-file> "
+    "yoke github-actions workflow dispatch <repo-slug> <workflow-file> "
     "[--ref REF] [--input KEY=VALUE] --request-id ID "
     "--correlation-input yoke_dispatch_id --project P "
     "[--session-id S] [--json]"
 )
 GITHUB_ACTIONS_TRIGGER_ONCE_USAGE = (
-    "yoke github-actions trigger-once <repo-slug> <workflow-file> "
+    "yoke github-actions workflow dispatch-once <repo-slug> <workflow-file> "
     "[--ref REF] [--input KEY=VALUE] --project P [--session-id S] [--json]"
 )
 GITHUB_ACTIONS_FIND_RUN_USAGE = (
-    "yoke github-actions find-run <repo-slug> <workflow-file> [<commit-sha>] "
-    "[--branch BRANCH] [--event EVENT] [--status STATUS] --project P "
+    "yoke github-actions workflow find-run <repo-slug> <workflow-file> "
+    "[<commit-sha>] [--branch BRANCH] [--event EVENT] [--status STATUS] --project P "
     "[--session-id S] [--json]"
 )
 GITHUB_ACTIONS_POLL_USAGE = (
@@ -47,26 +52,13 @@ GITHUB_ACTIONS_POLL_USAGE = (
     "--project P [--session-id S] [--json]"
 )
 GITHUB_ACTIONS_JOBS_COUNT_USAGE = (
-    "yoke github-actions jobs-count <repo-slug> <run-id> [--attempt N] "
+    "yoke github-actions run jobs-count <repo-slug> <run-id> [--attempt N] "
     "--project P [--session-id S] [--json]"
 )
 
 # Point-in-time workflow state: 0 success, 1 failure/not-found, 2 waiting,
 # 3 running. Hosted transport failures stay at 4 so deploy polling retries.
 GITHUB_ACTIONS_OPERATION_ERROR_EXIT = 4
-
-
-def _add_common(parser: argparse.ArgumentParser, *, run_id: bool = False) -> None:
-    parser.add_argument("repo", help="GitHub repo slug, e.g. upyoke/platform.")
-    if run_id:
-        parser.add_argument("run_id", help="GitHub Actions workflow run id.")
-    parser.add_argument(
-        "--project",
-        required=True,
-        help="Project capability owning the GitHub App repo binding.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
 
 
 def _call(
@@ -144,16 +136,13 @@ def _emit_operation_error(
 
 def github_actions_trigger(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke github-actions trigger",
+        prog="yoke github-actions workflow dispatch",
         description=(
             "Dispatch one workflow or recover the existing run for the same "
             "--request-id. Prints the run id; stderr names recovered vs posted."
         ),
     )
-    parser.add_argument("repo")
-    parser.add_argument("workflow")
-    parser.add_argument("--ref", default="main")
-    parser.add_argument("--input", action="append", dest="inputs", default=[])
+    _add_workflow(parser, dispatch=True)
     parser.add_argument(
         "--request-id",
         required=True,
@@ -165,7 +154,7 @@ def github_actions_trigger(args: List[str]) -> int:
         choices=(WORKFLOW_DISPATCH_CORRELATION_INPUT,),
         help="Declared workflow input used for GitHub-visible recovery.",
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_TRIGGER_USAGE)
@@ -202,17 +191,14 @@ def github_actions_trigger(args: List[str]) -> int:
 
 def github_actions_trigger_once(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke github-actions trigger-once",
+        prog="yoke github-actions workflow dispatch-once",
         description=(
             "Dispatch one correlation-unaware workflow exactly once. A lost "
             "response is reported as ambiguous and is never retried."
         ),
     )
-    parser.add_argument("repo")
-    parser.add_argument("workflow")
-    parser.add_argument("--ref", default="main")
-    parser.add_argument("--input", action="append", dest="inputs", default=[])
-    parser.add_argument("--project", required=True)
+    _add_workflow(parser, dispatch=True)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_TRIGGER_ONCE_USAGE)
@@ -246,14 +232,14 @@ def github_actions_trigger_once(args: List[str]) -> int:
 
 
 def github_actions_find_run(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke github-actions find-run")
-    parser.add_argument("repo")
-    parser.add_argument("workflow")
-    parser.add_argument("commit_sha", nargs="?", default="")
-    parser.add_argument("--branch", default="")
-    parser.add_argument("--event")
-    parser.add_argument("--status")
-    parser.add_argument("--project", required=True)
+    parser = argparse.ArgumentParser(prog="yoke github-actions workflow find-run")
+    _add_workflow(parser, dispatch=False)
+    add = parser.add_argument
+    add("commit_sha", nargs="?", default="", help="Commit the run was for.")
+    add("--branch", default="", help="Branch the run was for; needed without a commit.")
+    add("--event", help="Only runs started by this event, e.g. push.")
+    add("--status", help="Only runs in this GitHub status, e.g. completed.")
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_FIND_RUN_USAGE)
@@ -314,9 +300,11 @@ def github_actions_poll(args: List[str]) -> int:
 
 
 def github_actions_jobs_count(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke github-actions jobs-count")
+    parser = argparse.ArgumentParser(prog="yoke github-actions run jobs-count")
     _add_common(parser, run_id=True)
-    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument(
+        "--attempt", type=int, default=1, help="Run attempt to count; default: 1."
+    )
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_JOBS_COUNT_USAGE)
     if parsed is None:
         return 2

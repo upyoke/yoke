@@ -58,15 +58,25 @@ expired or unreachable, or the check could not run; 2 prerequisite failure
 def browser_verify(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke browser verify",
-        description=f"{BROWSER_VERIFY_USAGE}\n\n{_BROWSER_VERIFY_HELP_DEEP}",
+        usage=BROWSER_VERIFY_USAGE,
+        description=_BROWSER_VERIFY_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project whose identity to verify; default: the checkout's project.",
+    )
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
     parser.add_argument(
         "--declarations-json", default=None, help=DECLARATIONS_FLAG_HELP
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the result as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, BROWSER_VERIFY_USAGE)
     if parsed is None:
         return 2

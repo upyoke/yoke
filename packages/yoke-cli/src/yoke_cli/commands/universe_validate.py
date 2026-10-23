@@ -36,9 +36,15 @@ def universe_validate(args: List[str]) -> int:
             f"restore also requires {ROUNDTRIP_CONFIRM_ENV}=1."
         ),
     )
-    parser.add_argument("archive")
-    parser.add_argument("--roundtrip", action="store_true")
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument("archive", help="Path of the universe archive to check.")
+    parser.add_argument(
+        "--roundtrip",
+        action="store_true",
+        help="Also restore into the disposable scratch database.",
+    )
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, VALIDATE_USAGE)
     if parsed is None:
         return 2

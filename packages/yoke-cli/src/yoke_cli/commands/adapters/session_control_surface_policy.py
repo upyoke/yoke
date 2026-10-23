@@ -19,20 +19,22 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_table,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 
 
 SURFACE_POLICY_DISABLE_USAGE = (
     "yoke session-control surface-policy disable --project P --machine M "
-    "--surface S --reason TEXT [--evidence TEXT] [--json]"
+    "--surface SURFACE --reason TEXT [--evidence TEXT] [--session-id S] [--json]"
 )
 SURFACE_POLICY_ENABLE_USAGE = (
     "yoke session-control surface-policy enable --project P --machine M "
-    "--surface S [--json]"
+    "--surface SURFACE [--session-id S] [--json]"
 )
 SURFACE_POLICY_LIST_USAGE = (
-    "yoke session-control surface-policy list [--machine M] [--surface S] "
-    "[--include-cleared] [--json]"
+    "yoke session-control surface-policy list [--machine M] [--surface SURFACE] "
+    "[--include-cleared] [--full] [--session-id S] [--json]"
 )
+_SURFACES = "One of: " + ", ".join(KNOWN_SURFACE_LABELS) + "."
 
 
 def _write_mark(response: Any, stdout: TextIO, _stderr: TextIO) -> None:
@@ -75,13 +77,23 @@ def _write_list(response: Any, stdout: TextIO, _stderr: TextIO) -> None:
 def session_surface_policy_disable(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy disable",
-        description=SURFACE_POLICY_DISABLE_USAGE,
+        usage=SURFACE_POLICY_DISABLE_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", dest="machine_id", required=True)
-    parser.add_argument("--surface", required=True)
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--evidence", default=None)
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project the policy covers."
+    )
+    parser.add_argument(
+        "--machine", dest="machine_id", required=True, metavar="M", help="Machine name or id."
+    )
+    parser.add_argument(
+        "--surface", required=True, metavar="SURFACE", help=f"Surface to turn off. {_SURFACES}"
+    )
+    parser.add_argument(
+        "--reason", required=True, metavar="TEXT", help="Why it is turned off."
+    )
+    parser.add_argument(
+        "--evidence", default=None, metavar="TEXT", help="Evidence for the reason."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_DISABLE_USAGE)
@@ -108,11 +120,20 @@ def session_surface_policy_disable(args: List[str]) -> int:
 def session_surface_policy_enable(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy enable",
-        description=SURFACE_POLICY_ENABLE_USAGE,
+        usage=SURFACE_POLICY_ENABLE_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", dest="machine_id", required=True)
-    parser.add_argument("--surface", required=True)
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project the policy covers."
+    )
+    parser.add_argument(
+        "--machine", dest="machine_id", required=True, metavar="M", help="Machine name or id."
+    )
+    parser.add_argument(
+        "--surface",
+        required=True,
+        metavar="SURFACE",
+        help=f"Surface to turn back on. {_SURFACES}",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_ENABLE_USAGE)
@@ -135,11 +156,17 @@ def session_surface_policy_enable(args: List[str]) -> int:
 def session_surface_policy_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy list",
-        description=SURFACE_POLICY_LIST_USAGE,
+        usage=SURFACE_POLICY_LIST_USAGE,
     )
-    parser.add_argument("--machine", dest="machine_id", default=None)
-    parser.add_argument("--surface", default=None)
-    parser.add_argument("--include-cleared", action="store_true")
+    parser.add_argument(
+        "--machine", dest="machine_id", default=None, metavar="M", help="Only this machine."
+    )
+    parser.add_argument(
+        "--surface", default=None, metavar="SURFACE", help=f"Only this surface. {_SURFACES}"
+    )
+    parser.add_argument(
+        "--include-cleared", action="store_true", help="Also list cleared marks."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_LIST_USAGE)

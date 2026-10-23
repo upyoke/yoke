@@ -41,7 +41,7 @@ __all__ = [
 
 ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE = (
     "yoke items merge-provenance operator-correct <PREFIX-N> "
-    "[--merged-at YYYY-MM-DDTHH:MM:SSZ] [--pr-number N] --reason TEXT "
+    "[--merged-at TIME] [--pr-number N] --reason TEXT [--project P] "
     "[--session-id S] [--json]"
 )
 
@@ -91,7 +91,7 @@ Recovering the real timestamp: read the merge commit's date from git, e.g.
 def items_merge_provenance_operator_correct(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items merge-provenance operator-correct",
-        description=ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE,
+        usage=ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -100,6 +100,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
         "--merged-at",
         default="",
         dest="merged_at",
+        metavar="TIME",
         help=(
             "When the branch actually landed, as YYYY-MM-DDTHH:MM:SSZ "
             "(UTC). Must not be in the future. Fills an unset value on an "
@@ -110,6 +111,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
         "--pr-number",
         default="",
         dest="pr_number",
+        metavar="N",
         help=(
             "The pull request that actually merged this item's work. "
             "Verified merged against GitHub before the item is repointed."
@@ -118,6 +120,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
     parser.add_argument(
         "--reason",
         required=True,
+        metavar="TEXT",
         help=(
             "Non-empty operator justification. Recorded on the WARN correction event."
         ),
@@ -125,6 +128,7 @@ def items_merge_provenance_operator_correct(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help="Project scope for the operation.",
     )
     add_session_arg(parser)

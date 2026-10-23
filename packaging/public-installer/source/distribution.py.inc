@@ -139,7 +139,11 @@ def fetch_url(url: str) -> bytes:
 def _install_candidate(command: list[str], env: dict[str, str], root: Path, generation: Path, version: str):
     """uv owns each private tool environment; only publication changes PATH."""
     isolated = dict(env, UV_TOOL_DIR=str(generation / "tools"), UV_TOOL_BIN_DIR=str(generation / "bin"))
-    result = subprocess.run(command, env=isolated, capture_output=True, text=True, check=False)
+    try:
+        result = _install_qualified_candidate(command, isolated, generation)
+    except InstallError:
+        shutil.rmtree(generation)
+        raise
     if result.returncode:
         shutil.rmtree(generation)
         return result

@@ -194,11 +194,11 @@ def test_inherit_refuses_a_different_driver_with_recovery(encoded):
 
     cases = [_case("open", baselines=["fresh-host"]), _case("next", state="inherit")]
     for case, machine in zip(cases, ["mac-lab", "linux-lab"]):
-        config = {"machine": machine}
+        config = {"test_machine": machine}
         case["method_config"] = json.dumps(config) if encoded else config
     with pytest.raises(StartingStateError, match="inherited_driver_mismatch") as error:
         chain_baselines(cases)
-    assert "predecessor's method_config.machine" in str(error.value)
+    assert "predecessor's method_config.test_machine" in str(error.value)
 
 
 def test_a_mission_can_inherit_as_the_chain_tail():
@@ -207,7 +207,7 @@ def test_a_mission_can_inherit_as_the_chain_tail():
         _case("walk", runner="agent_mission", state="inherit"),
     ]
     for case in cases:
-        case["method_config"] = {"machine": "mac-lab"}
+        case["method_config"] = {"test_machine": "mac-lab"}
     assert chain_baselines(cases)["walk"] == ["fresh-host"]
     with pytest.raises(StartingStateError, match="no case may inherit after"):
         chain_baselines([*cases, _case("after", state="inherit")])

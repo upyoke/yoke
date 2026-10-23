@@ -35,7 +35,8 @@ yoke items --help
 yoke items get --help
 ```
 
-Each level lists immediate children. Command help owns its recipe and options.
+Each level lists immediate children with one-line summaries. Command help owns
+its recipe and options.
 For agent help, ask `/yoke help` a topic. [Help and replies](../cli/help.md) explains
 labeled results, complete saved evidence and deliberate machine formats.
 

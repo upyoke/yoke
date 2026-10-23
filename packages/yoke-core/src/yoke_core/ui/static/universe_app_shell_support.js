@@ -196,8 +196,10 @@ export function createHostSectionPlacement(resolvedSections, { rootNode, univers
         child === previousNode ? (node ? [node] : []) : [child]));
     }
   }
-  function append(entry, viewHost, { scoped = false } = {}) {
-    if (!current || (scoped && current.placement === "beforeScope")) return;
+  // `headPlaced`: the caller already put any `beforeScope` section at the
+  // top of the page, so only an `inView` section is appended here.
+  function append(entry, viewHost, { headPlaced = false } = {}) {
+    if (!current || (headPlaced && current.placement === "beforeScope")) return;
     const node = content();
     if (node) viewHost.appendChild(node);
   }

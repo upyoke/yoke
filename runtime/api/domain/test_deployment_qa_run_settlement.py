@@ -38,6 +38,7 @@ def test_closure_preserves_execution_that_completes_before_its_lock(monkeypatch)
     from unittest.mock import Mock
 
     conn = Mock()
+    monkeypatch.setattr(settlement, "preserves_inherited_qa", lambda *args: False)
     monkeypatch.setattr(settlement, "_table_exists", lambda *args: True)
     monkeypatch.setattr(settlement, "settled_obligation_sql", lambda *args: "FALSE")
     monkeypatch.setattr(
@@ -179,11 +180,11 @@ def test_run_closure_retires_only_its_open_qa(test_db, disposition, writer):
     else:
         assert cmd_update(run_id, "status", disposition) is None
     row = test_db.execute(
-        "SELECT state,release_reason,machine_lease_id FROM qa_plan_executions WHERE id=%s",
+        "SELECT state,release_reason,test_machine_lease_id FROM qa_plan_executions WHERE id=%s",
         (execution["id"],),
     ).fetchone()
     assert row["state"] == "aborted" and run_id in row["release_reason"]
-    assert row["machine_lease_id"] is None
+    assert row["test_machine_lease_id"] is None
     for label in ("open", "info"):
         row = test_db.execute(
             "SELECT retracted_at,retraction_rationale,waived_at FROM qa_requirements WHERE id=%s",

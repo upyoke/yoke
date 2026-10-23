@@ -72,8 +72,6 @@ def test_walk_end_finishes_its_cleanup_lease_once_disposal_settles(
     )
     code = agent_mission_walk_cli.run_end(
         [
-            "--deployment-run-id",
-            RUN,
             "--execution-id",
             request.payload["execution_id"],
             "--requirement-id",
@@ -152,7 +150,7 @@ def test_unsettled_disposal_defers_cleanup_and_names_the_release(
     )
 
     code = agent_mission_walk_cli.run_end(
-        ["--deployment-run-id", RUN, "--execution-id", request.payload["execution_id"]]
+        ["--execution-id", request.payload["execution_id"]]
         + ["--requirement-id", str(request.payload["requirement_id"])]
         + ["--run-id", str(request.payload["run_id"])]
     )

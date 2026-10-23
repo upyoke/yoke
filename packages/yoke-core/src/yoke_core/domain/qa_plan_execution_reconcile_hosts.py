@@ -39,7 +39,7 @@ def held_leases(conn: Any, execution: dict[str, Any]) -> tuple[list, list]:
 
     hosts = {lease.id: lease for lease in execution_host_leases(conn, execution)}
     review = []
-    primary = execution.get("machine_lease_id")
+    primary = execution.get("test_machine_lease_id")
     if primary is not None:
         claim = get_claim(conn, int(primary))
         mission_review = execution["state"] in {"walking", "awaiting_walk_review"} and (
@@ -98,8 +98,8 @@ def host_recovery_refusal(
     if baseline and case.get("starting_state") != "as_is":
         lead = "reset each held host to the interrupted case's declared baseline"
         steps = [
-            f"yoke test-machine reset --project {project} --machine "
-            f"{lease.target.machine_id} --baseline {baseline}"
+            f"yoke test-machine reset --project {project} --test-machine "
+            f"{lease.target.test_machine} --baseline {baseline}"
             for lease in leases
         ]
     else:

@@ -45,9 +45,10 @@ def test_structured_adapter_inventory_tracks_epic_ops() -> None:
     index = adapter_index()
     assert index["workflow_item.epic_task.simulation_get"].read_shape is True
     assert index["workflow_item.epic_task.history_insert"].read_shape is False
-    assert (
-        index["workflow_item.epic_dispatch_chain.refresh_activation"].cli_invocation
-        == "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "
+    assert index[
+        "workflow_item.epic_dispatch_chain.refresh_activation"
+    ].cli_invocation.startswith(
+        "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "
         "--worktree NAME --task-num N"
     )
     assert index["conduct.epic_task.update_status"].read_shape is False

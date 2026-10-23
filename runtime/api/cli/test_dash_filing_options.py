@@ -74,7 +74,7 @@ def test_dash_filing_help_lists_priority_choices(capsys):
         dash_file.dash_file(["--help"])
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
-    assert "{high,medium,low}" in help_text
+    assert "--priority high|medium|low" in help_text
 
 
 def test_dash_filing_accepts_named_priority(monkeypatch):

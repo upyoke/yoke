@@ -1,0 +1,6 @@
+{
+  "invites": "List, reissue and revoke teammate invites.",
+  "invites list": "List teammate invites that are not used yet.",
+  "invites reissue": "Make a new code for a teammate invite.",
+  "invites revoke": "Cancel a teammate invite so it cannot be used."
+}

@@ -44,7 +44,7 @@ def test_campaign_exports_the_session_scope_cases_in_order():
     install = reinstall.index("/bin/sh", before)
     assert install < reinstall.index("{yoke_bin} reinstall-after")
     for key in KEYS:
-        assert keyed[key]["method_config"]["machine"] == "primary-test"
+        assert keyed[key]["method_config"]["test_machine"] == "primary-test"
     # The host adapter expands braces inside entry_surface, scripts included.
     assert "{" not in SESSION_SCOPE_SCRIPT and "}" not in SESSION_SCOPE_SCRIPT
 

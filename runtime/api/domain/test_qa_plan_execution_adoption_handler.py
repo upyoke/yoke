@@ -50,7 +50,7 @@ def test_registered_handler_adopts_with_durable_receipt(monkeypatch):
 def test_busy_adoption_rolls_back_and_teaches_retry(monkeypatch):
     from yoke_core.domain import (
         db_helpers,
-        qa_plan_execution_adoption,
+        qa_plan_execution_store,
         qa_plan_execution_reentry,
     )
 
@@ -70,7 +70,7 @@ def test_busy_adoption_rolls_back_and_teaches_retry(monkeypatch):
     monkeypatch.setattr(
         qa_plan_execution_reentry, "bound_checkin_queries", lambda _: None
     )
-    monkeypatch.setattr(qa_plan_execution_adoption, "adopt_execution", busy)
+    monkeypatch.setattr(qa_plan_execution_store, "lock_plan_execution", busy)
     outcome = handler.handle_execution_adopt(_request("capture", "7"))
     assert not outcome.primary_success
     assert outcome.error.code == "qa_adoption_busy"

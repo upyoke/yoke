@@ -40,10 +40,15 @@ def immediate_children(prefix: tuple[str, ...]) -> list[tuple[str, ...]]:
 
 
 def child_lines(prefix: tuple[str, ...]) -> list[str]:
-    return [
-        f"  {labeled_cli_form('yoke ' + ' '.join(child))}  --help"
+    """One line per child: its name, then its one-line summary."""
+    from yoke_cli.commands.command_summaries import summary_for
+
+    rows = [
+        (labeled_cli_form("yoke " + " ".join(child)), summary_for(child))
         for child in immediate_children(prefix)
     ]
+    width = max((len(name) for name, _ in rows), default=0)
+    return [f"  {name:<{width}}  {summary}".rstrip() for name, summary in rows]
 
 
 def render_root_help() -> str:

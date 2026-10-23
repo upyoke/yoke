@@ -330,7 +330,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Explicitly allow source code to write the real machine home.",
     )
-    parser.add_argument("command", nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "command", nargs=argparse.REMAINDER, help="Command to run in the lane, after --."
+    )
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     return run(
         parsed.command,

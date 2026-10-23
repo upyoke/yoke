@@ -53,7 +53,7 @@ def test_latest_machine_pack_example_is_an_executable_informed_mission() -> None
     )
     for case in cases:
         assert validate_method_config("agent-mission", case["method_config"]) == {
-            "executor": "informed_subagent"
+            "executor": "informed_subagent", "os": "macos"
         }
         assert case["host_baselines"] == ["fresh-host"]
         assert "without a source checkout" in case["instructions"]

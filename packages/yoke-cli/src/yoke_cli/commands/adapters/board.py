@@ -113,7 +113,7 @@ def _timing_connection():
 def board_rebuild(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke board rebuild",
-        description=BOARD_REBUILD_USAGE,
+        usage=BOARD_REBUILD_USAGE,
     )
     parser.add_argument(
         "--force",

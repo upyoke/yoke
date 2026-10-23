@@ -184,10 +184,11 @@ def _load_edited_document(path: Path, slug: str) -> dict[str, Any]:
 def qa_plan_edit(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan edit",
-        description=f"{QA_PLAN_EDIT_USAGE}\n\n{_QA_PLAN_EDIT_HELP_DEEP}",
+        usage=QA_PLAN_EDIT_USAGE,
+        description=_QA_PLAN_EDIT_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("slug")
+    parser.add_argument("slug", help="QA plan to edit.")
     add_project_arg(parser)
     parser.add_argument(
         "--editor",

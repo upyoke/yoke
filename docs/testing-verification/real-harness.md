@@ -28,8 +28,8 @@ yoke dev run -- uv build --all-packages --wheel --out-dir /tmp/harness-wheels
 yoke dev run -- python3 ops/qa/real_harness_plan.py --wheel-dir /tmp/harness-wheels --wheel-archive /tmp/harness-wheels.tar --versions-file /tmp/harness-versions.json --output /tmp/harness-cases.json
 yoke qa plan create real-harness-hooks --project P --environment ENV
 yoke qa plan-cases replace --project P --plan-id PLAN_ID --cases-file /tmp/harness-cases.json
-yoke watch qa-plan -- --plan real-harness-hooks --project P --machine LINUX_MACHINE
-yoke watch qa-plan -- --plan real-harness-hooks --project P --machine MACOS_MACHINE
+yoke watch qa-plan -- --plan real-harness-hooks --project P --test-machine LINUX_MACHINE
+yoke watch qa-plan -- --plan real-harness-hooks --project P --test-machine MACOS_MACHINE
 ```
 
 Read each command's `--help` before selecting source or continuation options.

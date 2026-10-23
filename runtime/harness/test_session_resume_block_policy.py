@@ -95,7 +95,7 @@ def test_chain_runs_the_block_right_after_session_dispatch(event) -> None:
 
 
 def test_codex_resumed_thread_session_start_renders_nothing_in_dispatch() -> None:
-    """An already-armed Codex start marker leaves the block to the policy."""
+    """Codex registration leaves resume context to its independently owned policy."""
     ctx = _context("codex")
     with (
         mock.patch(
@@ -103,14 +103,7 @@ def test_codex_resumed_thread_session_start_renders_nothing_in_dispatch() -> Non
             return_value="sess-r",
         ),
         mock.patch("yoke_core.hooks.codex_payload.write_runtime_cache"),
-        mock.patch(
-            "yoke_core.hooks.codex_payload.session_marker_path",
-            return_value="/nonexistent/marker",
-        ),
-        mock.patch(
-            "yoke_core.hooks.codex_payload.check_and_arm_marker",
-            return_value=False,
-        ),
+        mock.patch("yoke_core.hooks.session_dispatch._register_codex", return_value=""),
         mock.patch.dict("os.environ", {}, clear=False),
     ):
         stdout = session_dispatch._run_codex_session_start(ctx, "/repo")

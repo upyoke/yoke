@@ -29,7 +29,7 @@ def checkin_view(execution):
                 "cursor_ordinal",
                 "roster_digest",
                 "execution_target_digest",
-                "machine_lease_id",
+                "test_machine_lease_id",
                 "heartbeat_at",
             )
         },
@@ -42,8 +42,8 @@ def require_execution_custody(conn, execution):
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
     lease_ids = {claim.id for claim in execution_host_leases(conn, execution)}
-    if execution.get("machine_lease_id") is not None:
-        lease_ids.add(int(execution["machine_lease_id"]))
+    if execution.get("test_machine_lease_id") is not None:
+        lease_ids.add(int(execution["test_machine_lease_id"]))
     if not lease_ids:
         return
     project = str(execution["roster"][0]["project"])
@@ -162,7 +162,7 @@ def resume_execution(conn: Any, execution: dict) -> dict:
                 "SELECT 1 FROM qa_runs WHERE qa_requirement_id=%s AND created_at >= %s LIMIT 1",
                 (requirement_id, execution["created_at"]),
             ).fetchone()
-            if execution.get("machine_lease_id") is not None or captured is not None:
+            if execution.get("test_machine_lease_id") is not None or captured is not None:
                 raise QaPlanExecutionStateError(
                     "qa_action_outcome_unknown: active custody or a capture exists without "
                     "a confirmed safe pause; inspect and record the saved case outcome "

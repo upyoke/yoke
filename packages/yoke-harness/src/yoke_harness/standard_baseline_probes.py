@@ -24,7 +24,7 @@ CHECKLIST = "docs/packs/machine-qa/host-provisioning.md"
 #: Saving a sign-in is a recapture: it proves the real requests, quits the apps
 #: holding sign-ins and seals a new baseline, so no later reset rolls it back.
 SAVE_BASELINE_COMMAND = (
-    "yoke test-machine golden-capture --project PROJECT --machine MACHINE"
+    "yoke test-machine golden-capture --project PROJECT --test-machine TEST_MACHINE"
 )
 RECOVERIES = {
     "Claude real request": "Sign in Claude with claude auth login in the test user's session.",

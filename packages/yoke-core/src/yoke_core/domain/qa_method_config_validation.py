@@ -24,9 +24,9 @@ COMMAND_SHELL_CONTRACT = (
 #: A Command that reaches a Test Machine must take that host's queue turn.
 HOST_COMMAND_NEEDS_MACHINE = (
     "method_config.command calls `yoke test-machine`, but the case declares "
-    "no method_config.machine, so it runs without the host's queue turn and "
-    "is refused while another run leases the host. Set method_config.machine "
-    "to the Test Machine the command reaches; the case then waits for its "
+    "no method_config.test_machine, so it runs without the host's queue turn "
+    "and is refused while another run leases the host. Set "
+    "method_config.test_machine to the Test Machine the command reaches; the case then waits for its "
     "turn and runs under the plan's lease."
 )
 
@@ -90,6 +90,9 @@ def validate_method_config(
         config = dict(raw)
     else:
         raise QaMethodConfigError("method_config must be a JSON object")
+    from yoke_core.domain.machine_qa_case_platform import platform_config
+
+    platform_config(config)
     from yoke_contracts.qa_continuity_fingerprint import KEY, normalize_fingerprint
 
     if KEY in config:
@@ -113,16 +116,16 @@ def validate_method_config(
     )
 
     try:
-        machine = normalize_config_machine(config_contract_id, config)
+        test_machine = normalize_config_machine(config_contract_id, config)
         if conn is not None and project_id is not None:
             require_registered_machine(
                 conn,
                 project_id=project_id,
-                machine=machine,
+                test_machine=test_machine,
             )
-            for companion in config.get("machines") or []:
+            for companion in config.get("test_machines") or []:
                 require_registered_machine(
-                    conn, project_id=project_id, machine=companion
+                    conn, project_id=project_id, test_machine=companion
                 )
 
     except MachineConstraintError as exc:
@@ -138,7 +141,7 @@ def validate_method_config(
             raise QaMethodConfigError(COMMAND_SHELL_CONTRACT)
         if (
             config_contract_id == "command"
-            and machine is None
+            and test_machine is None
             and "yoke test-machine" in config["command"]
         ):
             raise QaMethodConfigError(HOST_COMMAND_NEEDS_MACHINE)
@@ -237,8 +240,10 @@ def validate_method_config(
             or set(config)
             - {
                 "executor",
-                "machine",
-                "machines",
+                "os",
+                "platform",
+                "test_machine",
+                "test_machines",
                 "host_starting_state",
                 "continuity_fingerprint",
                 "browser_identities",
@@ -247,8 +252,9 @@ def validate_method_config(
         ):
             raise QaMethodConfigError(
                 "agent_mission_executor_invalid: set method_config.executor to "
-                "informed_subagent. Agent missions may also name machine, machines, "
-                "host_starting_state, browser_identities and continuity_fingerprint; remove other keys. "
+                "informed_subagent. Agent missions may also name test_machine, "
+                "test_machines, os, platform, host_starting_state, browser_identities "
+                "and continuity_fingerprint; remove other keys. "
                 "Update the saved plan case and rematerialize affected requirements "
                 "before retrying."
             )

@@ -46,7 +46,7 @@ second one.
 def qa_post_deploy_declare_none(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa post-deploy declare-none",
-        description=QA_POST_DEPLOY_DECLARE_NONE_USAGE,
+        usage=QA_POST_DEPLOY_DECLARE_NONE_USAGE,
         epilog=QA_POST_DEPLOY_DECLARE_NONE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -123,7 +123,7 @@ writing a second one.
 def qa_post_deploy_record_no_obligation(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa post-deploy record-no-obligation",
-        description=QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE,
+        usage=QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE,
         epilog=QA_POST_DEPLOY_RECORD_NO_OBLIGATION_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

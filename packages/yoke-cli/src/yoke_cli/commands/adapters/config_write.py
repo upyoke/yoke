@@ -43,6 +43,25 @@ CONFIG_SELECTION_HELP = (
     "an explicit machine home refuse as machine_config_not_owned. "
     "See CLI and config: Machine config."
 )
+_CREDENTIAL_HELP = "API token or Postgres DSN; the kind is inferred from its shape."
+
+
+def _add_credential_args(parser: argparse.ArgumentParser) -> None:
+    add = parser.add_argument
+    add("--token-file", default=None, help="Read the API token from this file.")
+    add("--token-stdin", action="store_true", help="Read the API token from stdin.")
+    add("--dsn", default=None, help="Postgres DSN for a local-postgres connection.")
+    add("--dsn-file", default=None, help="Read the Postgres DSN from this file.")
+    add("--dsn-stdin", action="store_true", help="Read the Postgres DSN from stdin.")
+
+
+def _add_config_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to write; default: the standard config path.",
+    )
 
 
 def env_use(args: List[str]) -> int:
@@ -51,8 +70,8 @@ def env_use(args: List[str]) -> int:
         prog="yoke env use",
         description=CONFIG_SELECTION_HELP,
     )
-    parser.add_argument("env")
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument("env", help="Connection name to make active.")
+    _add_config_arg(parser)
     parsed = parse_or_usage_error(parser, args, ENV_USE_USAGE)
     if parsed is None:
         return 2
@@ -71,23 +90,26 @@ def connection_set(args: List[str]) -> int:
         prog="yoke connection set",
         description=CONFIG_SELECTION_HELP,
     )
-    parser.add_argument("env")
-    parser.add_argument("credential", nargs="?")
+    parser.add_argument("env", help="Connection name to create or change.")
+    parser.add_argument("credential", nargs="?", help=_CREDENTIAL_HELP)
     parser.add_argument(
-        "--transport", choices=["local-postgres", "https"], default=None
+        "--transport",
+        choices=["local-postgres", "https"],
+        default=None,
+        help="How to reach Yoke; default: inferred from the credential given.",
     )
     prod_group = parser.add_mutually_exclusive_group()
-    prod_group.add_argument("--prod", dest="prod", action="store_true", default=False)
     prod_group.add_argument(
-        "--non-prod", dest="non_prod", action="store_true", default=False
+        "--prod", action="store_true", help="Mark this connection as production."
     )
-    parser.add_argument("--api-url", dest="api_url", default=None)
-    parser.add_argument("--token-file", dest="token_file", default=None)
-    parser.add_argument("--token-stdin", dest="token_stdin", action="store_true")
-    parser.add_argument("--dsn", dest="dsn", default=None)
-    parser.add_argument("--dsn-file", dest="dsn_file", default=None)
-    parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
-    parser.add_argument("--config", dest="config_path", default=None)
+    prod_group.add_argument(
+        "--non-prod",
+        action="store_true",
+        help="Mark this connection as not production.",
+    )
+    parser.add_argument("--api-url", default=None, help="Yoke API URL for https.")
+    _add_credential_args(parser)
+    _add_config_arg(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_SET_USAGE)
     if parsed is None:
         return 2
@@ -120,14 +142,14 @@ def connection_remove(args: List[str]) -> int:
             "are refused. " + CONFIG_SELECTION_HELP
         ),
     )
-    parser.add_argument("env")
+    parser.add_argument("env", help="Connection name to remove.")
     parser.add_argument(
         "--activate",
         default=None,
         metavar="ENV",
         help="Connection to make active when retiring the active authority.",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    _add_config_arg(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_REMOVE_USAGE)
     if parsed is None:
         return 2
@@ -147,14 +169,10 @@ def auth_set(args: List[str]) -> int:
         prog="yoke auth set",
         description=CONFIG_SELECTION_HELP,
     )
-    parser.add_argument("env")
-    parser.add_argument("credential", nargs="?")
-    parser.add_argument("--token-file", dest="token_file", default=None)
-    parser.add_argument("--token-stdin", dest="token_stdin", action="store_true")
-    parser.add_argument("--dsn", dest="dsn", default=None)
-    parser.add_argument("--dsn-file", dest="dsn_file", default=None)
-    parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument("env", help="Connection name whose credential to set.")
+    parser.add_argument("credential", nargs="?", help=_CREDENTIAL_HELP)
+    _add_credential_args(parser)
+    _add_config_arg(parser)
     parsed = parse_or_usage_error(parser, args, AUTH_SET_USAGE)
     if parsed is None:
         return 2

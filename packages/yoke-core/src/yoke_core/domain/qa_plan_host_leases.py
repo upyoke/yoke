@@ -27,7 +27,7 @@ def execution_host_leases(conn: Any, execution: dict[str, Any]) -> list[Any]:
     )
     return sorted(
         (get_claim(conn, int(row["id"])) for row in rows),
-        key=lambda claim: str(claim.target.machine_id),
+        key=lambda claim: str(claim.target.test_machine),
     )
 
 
@@ -35,7 +35,7 @@ def heartbeat_execution_hosts(
     conn: Any, execution: dict[str, Any], *, now: datetime
 ) -> None:
     for claim in execution_host_leases(conn, execution):
-        if claim.id != execution.get("machine_lease_id"):
+        if claim.id != execution.get("test_machine_lease_id"):
             heartbeat(conn, claim.id, now=now, commit=False)
 
 
@@ -49,7 +49,7 @@ def release_execution_hosts(
     for claim in leases:
         lock_host_turn(conn, claim.target)
     for claim in leases:
-        if claim.id != execution.get("machine_lease_id"):
+        if claim.id != execution.get("test_machine_lease_id"):
             release(conn, claim.id, reason, commit=False)
 
 
@@ -63,7 +63,7 @@ def require_case_host_leases(
     from yoke_core.domain.machine_qa_execution_protocol import _validate_lease_owner
 
     leases = {
-        str(claim.target.machine_id): claim
+        str(claim.target.test_machine): claim
         for claim in execution_host_leases(conn, execution)
     }
     if not set(names).issubset(leases):
@@ -88,7 +88,7 @@ def begin_case_host_contract(
     case: dict[str, Any],
     *,
     ordinal: int,
-    machine: str | None,
+    test_machine: str | None,
     actor_id: str | None,
     session_id: str,
 ) -> Any:
@@ -120,51 +120,61 @@ def begin_case_host_contract(
     )
 
     retained = execution_machine(conn, execution, case)
-    if retained and machine and retained != machine:
+    if retained and test_machine and retained != test_machine:
         custody = (
             "active plan lease"
-            if execution.get("machine_lease_id")
+            if execution.get("test_machine_lease_id")
             else "recorded platform host"
         )
         raise ValueError(
             f"test_machine_constraint_mismatch: {custody} uses {retained!r}, "
-            f"but --machine names {machine!r}; omit --machine to resume on its recorded host"
+            f"but --test-machine names {test_machine!r}; omit --test-machine to resume on its recorded host"
         )
-    driver = resolve_case_machine(case, retained or machine)
+    driver = resolve_case_machine(case, retained or test_machine)
     declared_driver = resolve_case_machine(case, None)
     hosts = set(case_machines(case, driver))
     for row in execution["roster"]:
         if resolve_case_machine(row, None) == declared_driver:
             hosts.update(case_machines(row))
     names = tuple(sorted(hosts))
-    lease_id = execution.get("machine_lease_id")
+    lease_id = execution.get("test_machine_lease_id")
     if (
         lease_id is not None
-        and get_claim(conn, int(lease_id)).target.machine_id != driver
+        and get_claim(conn, int(lease_id)).target.test_machine != driver
     ):
         release_execution_hosts(conn, execution, reason="qa-case-host-change")
         release(conn, int(lease_id), "qa-case-host-change", commit=False)
         conn.execute(
-            f"UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id={marker(conn)}",
+            f"UPDATE qa_plan_executions SET test_machine_lease_id=NULL WHERE id={marker(conn)}",
             (str(execution["id"]),),
         )
-        execution["machine_lease_id"] = None
+        execution["test_machine_lease_id"] = None
+    from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
+
+    platforms = {}
+    if any(case_machines(row) for row in execution["roster"]):
+        platforms = {
+            row.test_machine: row.settings["os"]
+            for row in test_machine_capability_rows(
+                conn, project_id=int(case["project_id"])
+            )
+        }
     arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
     deferred = commit_deferred_connection(conn)
-    lease_id = execution.get("machine_lease_id")
+    lease_id = execution.get("test_machine_lease_id")
     if len(names) < 2:
         if lease_id is None:
             contract = begin_host_control_execution(
                 deferred,
                 project=str(case["project"]),
                 session_id=session_id,
-                machine=driver,
+                test_machine=driver,
                 healthy_only=True,
                 host_cases=[
                     row
                     for row in execution["roster"]
                     if row.get("runner_id") in {"host_control", "agent_mission"}
-                    and case_platform(row) == case_platform(case)
+                    and case_platform(row, platforms) == case_platform(case, platforms)
                     and resolve_case_machine(row, None) in {None, driver}
                 ],
                 **arguments,
@@ -177,7 +187,7 @@ def begin_case_host_contract(
             session_id=session_id,
             actor_id=actor_id,
             lease_id=int(lease_id),
-            machine=driver,
+            test_machine=driver,
             **{key: value for key, value in arguments.items() if key != "operation"},
         )
 
@@ -185,7 +195,13 @@ def begin_case_host_contract(
         require_case_host_leases(
             conn,
             execution,
-            {**case, "method_config": {"machine": driver, "machines": list(names)}},
+            {
+                **case,
+                "method_config": {
+                    "test_machine": driver,
+                    "test_machines": list(names),
+                },
+            },
         )
         return continue_plan_host_control_execution(
             conn,
@@ -193,7 +209,7 @@ def begin_case_host_contract(
             session_id=session_id,
             actor_id=actor_id,
             lease_id=int(lease_id),
-            machine=driver,
+            test_machine=driver,
             **{key: value for key, value in arguments.items() if key != "operation"},
         )
 
@@ -211,7 +227,7 @@ def begin_case_host_contract(
                 deferred,
                 project=str(case["project"]),
                 session_id=session_id,
-                machine=name,
+                test_machine=name,
                 select_any=False,
                 healthy_only=True,
                 cases=(),
@@ -226,7 +242,7 @@ def begin_case_host_contract(
         release_execution_hosts(conn, execution, reason="qa-host-set-incomplete")
         held = exc.busy[0]
         raise MachineQaProtocolLeaseHeld(
-            lease=held.lease, machine=held.machine, contention=held.contention
+            lease=held.lease, test_machine=held.test_machine, contention=held.contention
         ) from None
     except TestMachineHostUnhealthy:
         release_execution_hosts(conn, execution, reason="qa-host-set-incomplete")

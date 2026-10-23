@@ -4,9 +4,11 @@ import { deploymentRunHref } from "./universe_navigation.js";
 import { deliveryStateLabel, NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { relativeAge, relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
+import {
+  CLEARED_QA_STATES, clearedMemberOutcome, newestDoneApproval,
+} from "./item_completion_standing.js";
 
 const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
-const ACCEPTED_QA = new Set(["accepted", "discharged"]);
 
 function memberItemId(member) {
   const value = member.public_ref ?? member.ref ?? member.item_ref;
@@ -106,8 +108,10 @@ function itemOutcome(run) {
     return { symbol: "✗", text: `QA failed · ${qa.failed_requirement_ids.map((id) => `#${id}`).join(", ")}` };
   }
   if (qa?.state === "rejected") return { symbol: "✗", text: "QA failed" };
-  if (run.delivery_relation === "member" && ACCEPTED_QA.has(qa?.state)) {
-    return { symbol: "◐", text: `QA ${qa.state === "accepted" ? "passed" : "discharged"} · awaiting item completion` };
+  if (run.delivery_relation === "member" && CLEARED_QA_STATES.has(qa?.state)) {
+    return clearedMemberOutcome(qa, newestDoneApproval(run.gates, run.delivery_item?.id ?? ""), {
+      ref: memberItemId(run.delivery_item || {}), settling: Boolean(run.settling_at),
+    });
   }
   const status = String(run.status || "");
   if (status === "failed" || status === "cancelled") {
@@ -152,7 +156,7 @@ function runWait(run) {
   const ownId = memberItemId(run.delivery_item || {});
   const pending = (run.member_items || []).filter((member) => (
     memberItemId(member) !== ownId
-    && (member.item_qa ? !ACCEPTED_QA.has(member.item_qa.state) : member.status !== "done")
+    && (member.item_qa ? !CLEARED_QA_STATES.has(member.item_qa.state) : member.status !== "done")
   )).map((member) => member.ref).filter(Boolean);
   if (pending.length) return `run still open: waiting on ${pending.join(", ")}`;
   const gate = (run.gates || []).find((entry) => entry.status === "pending");

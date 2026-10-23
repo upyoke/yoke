@@ -28,7 +28,12 @@ def sweep(args: list[str]) -> int:
         action="store_true",
         help="Report without writing configs or backups.",
     )
-    parser.add_argument("--json", action="store_true", dest="json_mode")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_mode",
+        help="Print the result as JSON.",
+    )
     parser.add_argument(
         "--managed-root",
         type=Path,

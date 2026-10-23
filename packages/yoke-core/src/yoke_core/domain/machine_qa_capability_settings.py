@@ -28,28 +28,28 @@ def _target_type(
     rows: list[Any],
     *,
     project: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
     document: Mapping[str, str],
 ) -> str:
     settings_machine = document["resource_name"]
-    if machine is not None:
-        selected = validate_test_machine_resource_name(machine)
+    if test_machine is not None:
+        selected = validate_test_machine_resource_name(test_machine)
         if selected != settings_machine:
             raise TestMachineCapabilityError(
-                f"--machine {selected!r} does not match settings resource_name "
+                f"--test-machine {selected!r} does not match settings resource_name "
                 f"{settings_machine!r}"
             )
         return test_machine_capability_type(selected)
     if len(rows) > 1:
-        available = ", ".join(row.machine for row in rows)
+        available = ", ".join(row.test_machine for row in rows)
         raise TestMachineCapabilityError(
             f"project {project!r} has multiple test machines: {available}; "
-            "pass --machine NAME"
+            "pass --test-machine TEST_MACHINE"
         )
-    if rows and rows[0].machine != settings_machine:
+    if rows and rows[0].test_machine != settings_machine:
         raise TestMachineCapabilityError(
             f"settings name test machine {settings_machine!r}, but the project has "
-            f"one machine {rows[0].machine!r}; pass --machine "
+            f"one machine {rows[0].test_machine!r}; pass --test-machine "
             f"{settings_machine} --new to register another machine"
         )
     return test_machine_capability_type(settings_machine)
@@ -61,7 +61,7 @@ def replace_test_machine_settings(
     project: str,
     settings: Mapping[str, Any],
     base_settings: str | None,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     """CAS-replace one machine row and invalidate only its verification."""
     identity = resolve_project(conn, project, required=False)
@@ -73,7 +73,7 @@ def replace_test_machine_settings(
     capability_type = _target_type(
         rows,
         project=identity.slug,
-        machine=machine,
+        test_machine=test_machine,
         document=document,
     )
     assert_sole_host_registrar(
@@ -130,7 +130,7 @@ def replace_test_machine_settings(
     return {
         "project_id": int(identity.id),
         "project": identity.slug,
-        "machine": document["resource_name"],
+        "test_machine": document["resource_name"],
         "capability_type": capability_type,
         "settings": json.loads(canonical),
         "settings_token": canonical,

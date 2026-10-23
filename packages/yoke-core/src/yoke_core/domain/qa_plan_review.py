@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
+from yoke_core.domain.deployment_qa_release_version import current_release_target
 from yoke_core.domain.qa_plan_review_dispatch import dispatch_contract
 from yoke_core.domain.qa_review_evidence import (
     capture_artifacts,
@@ -168,7 +169,11 @@ def execution_missions_walkable(execution: Mapping[str, Any]) -> bool:
 
 
 def _public_bundle(
-    conn: Any, stored: Mapping[str, Any], *, missions_walkable: bool = True
+    conn: Any,
+    stored: Mapping[str, Any],
+    *,
+    execution: Mapping[str, Any],
+    missions_walkable: bool = True,
 ) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
     from yoke_core.domain.qa_mission_stop_settlement import mission_review_cases
@@ -183,9 +188,7 @@ def _public_bundle(
     from yoke_core.domain.qa_plan_review_subject import public_review_subject
 
     subject = result.get("subject") or {}
-    allowed_verdicts = stage_review_verdicts(
-        conn, {**subject, "execution_target": result.get("execution_target")}
-    )
+    allowed_verdicts = stage_review_verdicts(conn, execution)
     try:
         result["subject"] = public_review_subject(conn, subject)
     except ValueError as exc:
@@ -220,7 +223,10 @@ def begin_plan_review(
     )
     if existing is not None:
         bundle = _public_bundle(
-            conn, existing, missions_walkable=execution_missions_walkable(execution)
+            conn,
+            existing,
+            execution=execution,
+            missions_walkable=execution_missions_walkable(execution),
         )
         return bundle if bundle["cases"] else None
     from yoke_core.domain.qa_plan_execution_store import result_rows
@@ -263,7 +269,9 @@ def begin_plan_review(
     payload = {
         "execution_id": str(execution["id"]),
         "roster_digest": str(execution["roster_digest"]),
-        "execution_target": execution.get("execution_target"),
+        "execution_target": current_release_target(
+            conn, execution.get("deployment_run_id"), execution.get("execution_target")
+        ),
         "execution_target_digest": str(execution.get("execution_target_digest") or ""),
         "subject": {
             key: execution.get(key)
@@ -313,7 +321,10 @@ def begin_plan_review(
     )
     assert stored is not None
     return _public_bundle(
-        conn, stored, missions_walkable=execution_missions_walkable(execution)
+        conn,
+        stored,
+        execution=execution,
+        missions_walkable=execution_missions_walkable(execution),
     )
 
 

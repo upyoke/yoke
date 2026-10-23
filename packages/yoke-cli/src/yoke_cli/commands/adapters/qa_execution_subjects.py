@@ -18,11 +18,8 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.transport.dispatcher import (
-    build_actor,
-    call_dispatcher,
-    emit_response,
-)
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.transport.test_machine_response_field import recorded_test_machine
 from yoke_cli.commands.adapters.qa_catalog_usage import (
     PLAN_MATERIALIZE_EPILOG,
     PLAN_REMATERIALIZE_EPILOG,
@@ -47,33 +44,35 @@ from yoke_contracts.qa_requirement_replacement import (
 def qa_plan_materialize_for_item(args: List[str]) -> int:
     usage = (
         "yoke qa plan materialize "
-        "(--item PREFIX-N --transition T | "
-        "--deployment-run-id RUN --plan PLAN --project P "
-        f"[--stage STAGE [--member PREFIX-N]]) [--replaces {REPLACES_METAVAR} ...] "
-        "[--json]"
+        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) "
+        "[--project P] | --deployment-run-id RUN --project P "
+        "(--plan PLAN [--stage STAGE] | --stage STAGE)) "
+        f"[--replaces {REPLACES_METAVAR} ...] "
+        "[--replaces-requirement REQUIREMENT_ID ...] [--session-id S] [--json]"
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
-        description=usage,
+        usage=usage,
         epilog=PLAN_MATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--transition")
-    parser.add_argument("--plan")
-    parser.add_argument("--project")
-    parser.add_argument(
-        "--stage",
-        help=(
-            "Bind the materialized cases to a pinned deployment QA stage. "
-            "An item-scoped stage also requires --member."
-        ),
+    subject.add_argument("--item", metavar="PREFIX-N", help="Item whose QA cases to build.")
+    subject.add_argument(
+        "--deployment-run-id", metavar="RUN", help="Deployment run to build cases for."
     )
     parser.add_argument(
-        "--member",
-        help="The run member item an item-scoped QA stage credits.",
+        "--transition", metavar="T", help="Workflow transition the cases block."
+    )
+    parser.add_argument("--plan", metavar="PLAN", help="QA plan to build cases from.")
+    parser.add_argument("--project", metavar="P", help="Project that owns the item or run.")
+    parser.add_argument(
+        "--stage",
+        metavar="STAGE",
+        help=(
+            "Tie the cases to this pinned deployment QA stage. With --item, "
+            "the cases are that item's deployment QA."
+        ),
     )
     add_replaces_argument(parser)
     add_session_arg(parser)
@@ -81,16 +80,14 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if parsed.item and not parsed.transition:
-        return usage_error("--item requires --transition")
-    if parsed.item and parsed.plan:
+    if parsed.item and parsed.stage and parsed.transition:
+        return usage_error("item stage excludes a transition selector")
+    if parsed.item and not (parsed.transition or parsed.stage):
+        return usage_error("--item requires --transition or --stage")
+    if parsed.item and parsed.plan and not parsed.stage:
         return usage_error("--item uses attached plans and does not accept --plan")
     if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         return usage_error("--deployment-run-id requires --plan")
-    if parsed.member and not parsed.stage:
-        return usage_error("--member requires --stage")
-    if parsed.stage and not parsed.deployment_run_id:
-        return usage_error("--stage belongs to --deployment-run-id materialization")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
@@ -109,7 +106,6 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "plan": parsed.plan,
         "project": parsed.project,
         "deployment_stage": parsed.stage,
-        "deployment_member": parsed.member,
     }
     if parsed.replaces:
         payload["replacements"] = parsed.replaces
@@ -125,49 +121,54 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
 def qa_plan_rematerialize(args: List[str]) -> int:
     usage = (
         "yoke qa plan rematerialize "
-        "(--item PREFIX-N --transition T | "
-        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P]) "
-        "[--json]"
+        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) | "
+        "--deployment-run-id RUN --stage STAGE [--plan PLAN]) "
+        "[--project P] [--session-id S] [--json]"
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan rematerialize",
-        description=usage,
+        usage=usage,
         epilog=PLAN_REMATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--transition")
-    parser.add_argument("--project")
-    parser.add_argument(
-        "--stage", help="The pinned deployment QA stage whose cases to refresh."
+    subject.add_argument(
+        "--item", metavar="PREFIX-N", help="Item whose QA cases to refresh."
+    )
+    subject.add_argument(
+        "--deployment-run-id", metavar="RUN", help="Deployment run to refresh."
     )
     parser.add_argument(
-        "--member", help="The run member item an item-scoped QA stage credits."
+        "--transition", metavar="T", help="Workflow transition the cases block."
+    )
+    parser.add_argument("--project", metavar="P", help="Project that owns the item or run.")
+    parser.add_argument(
+        "--stage",
+        metavar="STAGE",
+        help="Pinned deployment QA stage whose cases to refresh.",
     )
     parser.add_argument(
-        "--plan", help="Refresh only cases materialized from this plan."
+        "--plan",
+        metavar="PLAN",
+        help="Refresh only cases built from this plan; needs --stage.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if parsed.item and parsed.plan:
+    if parsed.item and parsed.plan and not parsed.stage:
         return usage_error(
             "item_plan_filter_unsupported: remove --plan; --item refreshes attached plans"
         )
-    if parsed.item and not parsed.transition:
-        return usage_error("--item requires --transition")
+    if parsed.item and parsed.stage and parsed.transition:
+        return usage_error("item stage excludes a transition selector")
+    if parsed.item and not (parsed.transition or parsed.stage):
+        return usage_error("--item requires --transition or --stage")
     if parsed.deployment_run_id and not parsed.stage:
         return usage_error("--deployment-run-id requires --stage")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
-    if parsed.member and not parsed.stage:
-        return usage_error("--member requires --stage")
-    if parsed.stage and not parsed.deployment_run_id:
-        return usage_error("--stage belongs to --deployment-run-id rematerialization")
     target = (
         item_target("item", parsed.item, parsed.project)
         if parsed.item
@@ -179,10 +180,9 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     )
     payload = (
         {"transition_id": parsed.transition}
-        if parsed.item
+        if parsed.item and not parsed.stage
         else {
             "deployment_stage": parsed.stage,
-            "deployment_member": parsed.member,
             "plan": parsed.plan,
         }
     )
@@ -198,41 +198,39 @@ def qa_plan_rematerialize(args: List[str]) -> int:
 def qa_artifact_read(args: List[str]) -> int:
     usage = (
         "yoke qa artifact read --requirement-id N --artifact-id N "
-        f"[--output PATH] [--region {REGION_FORMAT}] [--scale N] [--json]"
+        f"[--output PATH] [--region {REGION_FORMAT}] [--scale N] [--full] "
+        "[--session-id S] [--json]"
     )
-    parser = argparse.ArgumentParser(
-        prog="yoke qa artifact read",
-        description=usage,
-    )
-    parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--artifact-id", type=int, required=True)
+    parser = argparse.ArgumentParser(prog="yoke qa artifact read", usage=usage)
+    for flag, text in (
+        ("--requirement-id", "QA requirement id."),
+        ("--artifact-id", "Artifact id."),
+    ):
+        parser.add_argument(flag, type=int, required=True, metavar="N", help=text)
     parser.add_argument(
         "--output",
+        metavar="PATH",
         help=(
-            "Where to land the evidence bytes. Defaults to a fresh private "
-            "directory under this machine's temp root, so a reviewer can "
-            "open the file without choosing a destination its own path "
-            "guard would refuse. The destination differs on every read -- "
-            "read it back from the reported path rather than composing it."
+            "File to save the artifact to. Default: a new private folder "
+            "under this machine's temp folder. That path changes on every "
+            "read, so take it from the printed result instead of guessing it."
         ),
     )
     parser.add_argument(
         "--region",
         metavar=REGION_FORMAT,
         help=(
-            "Render only this pixel rectangle of a screenshot, measured from "
-            "the top-left of the capture. A full-page screenshot of a long "
-            "screen is unreadable once scaled to fit a viewer, so name the "
-            "part being judged. The stored artifact is unchanged; only the "
-            "landed file is the view."
+            "Save only this pixel rectangle of a screenshot, measured from "
+            "its top-left corner. Use it to read one part of a long page. "
+            "The stored artifact does not change; only the saved file does."
         ),
     )
     parser.add_argument(
         "--scale",
+        metavar="N",
         help=(
-            "Multiply the rendered size, applied after --region. Use 0.5 to "
-            "fit a tall capture into a viewer, or 2 to read small text. "
-            "Combines with --region to enlarge one panel."
+            "Multiply the saved image's size, after --region. Use 0.5 to "
+            "fit a tall capture on screen, or 2 to read small text."
         ),
     )
     add_session_arg(parser)
@@ -323,9 +321,8 @@ def _artifact_read_to_path(
 def _no_bytes_message(parsed, result: dict) -> str:
     """Name why no bytes landed, with the handler's detail and the recovery."""
     disposition = result.get("disposition") or "unknown"
-    parts = [
-        str(part) for part in (result.get("detail"), result.get("machine")) if part
-    ]
+    named = (result.get("detail"), recorded_test_machine(result))
+    parts = [str(part) for part in named if part]
     detail = f"; {'; '.join(parts)}" if parts else ""
     if disposition == "evidence_missing":
         recovery = "Re-run the QA case to capture the evidence again."

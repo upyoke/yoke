@@ -110,8 +110,8 @@ class WorkClaimTarget:
         return str(value) if value is not None else None
 
     @property
-    def machine_id(self) -> Optional[str]:
-        value = self.scope.get("machine_id")
+    def test_machine(self) -> Optional[str]:
+        value = self.scope.get("test_machine")
         return str(value) if value is not None else None
 
     @property
@@ -157,7 +157,7 @@ class WorkClaimTarget:
                 f"{item_ref_for_id(int(self.item_id))})"
             )
         if self.kind == TARGET_KIND_QA_ADMISSION:
-            return f"test machine {self.machine_id}"
+            return f"test machine {self.test_machine}"
         if self.kind == TARGET_KIND_ROUTE_QUALIFICATION:
             return f"route qualification for project {self.project_id}"
         if self.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
@@ -232,9 +232,11 @@ def make_migration_serialization_target(
     )
 
 
-def make_qa_admission_target(machine_id: str) -> WorkClaimTarget:
+def make_qa_admission_target(test_machine: str) -> WorkClaimTarget:
     """Build the target serializing one physical test machine."""
-    return WorkClaimTarget(TARGET_KIND_QA_ADMISSION, {"machine_id": str(machine_id)})
+    return WorkClaimTarget(
+        TARGET_KIND_QA_ADMISSION, {"test_machine": str(test_machine)}
+    )
 
 
 def make_route_qualification_target(

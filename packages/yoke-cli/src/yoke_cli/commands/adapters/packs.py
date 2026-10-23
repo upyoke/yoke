@@ -45,9 +45,19 @@ def packs_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
     _add_catalog_args(parser)
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the usual config file.",
+    )
     add_session_arg(parser)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the report as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, PACKS_LIST_USAGE)
     if parsed is None:
         return 2
@@ -87,15 +97,41 @@ def packs_relink(args: List[str]) -> int:
         ),
     )
     parser.add_argument("pack", help="Installed Pack slug.")
-    parser.add_argument("repo_root", nargs="?", default=None)
+    parser.add_argument(
+        "repo_root",
+        nargs="?",
+        default=None,
+        help="Project checkout path; default: the current checkout.",
+    )
     parser.add_argument("--project", required=True, help="Project slug or id.")
-    parser.add_argument("--from", dest="from_path", required=True)
-    parser.add_argument("--to", dest="to_path", required=True)
+    parser.add_argument(
+        "--from",
+        dest="from_path",
+        required=True,
+        help="Current project path of the Pack-owned file.",
+    )
+    parser.add_argument(
+        "--to", dest="to_path", required=True, help="New project path for that file."
+    )
     _add_catalog_args(parser)
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the usual config file.",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Record the move; without it, only preview.",
+    )
     add_session_arg(parser)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the report as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, PACKS_RELINK_USAGE)
     if parsed is None:
         return 2
@@ -132,11 +168,21 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
         ),
     )
     parser.add_argument("pack", help="Pack slug from `yoke packs list`.")
-    parser.add_argument("repo_root", nargs="?", default=None)
+    parser.add_argument(
+        "repo_root",
+        nargs="?",
+        default=None,
+        help="Project checkout path; default: the current checkout.",
+    )
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--version", default=None, help="Exact Pack version.")
     _add_catalog_args(parser)
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to use; default: the usual config file.",
+    )
     if operation == "update":
         parser.add_argument(
             "--accept-current",
@@ -159,7 +205,12 @@ def _pack_write(operation: str, args: List[str], usage: str) -> int:
         help="Apply despite unsatisfied declared tool prerequisites.",
     )
     add_session_arg(parser)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the report as JSON.",
+    )
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2

@@ -1,14 +1,4 @@
-"""What a deployment-run Browser case is required to be looking at.
-
-A case attached to a deployment run exists to certify what that run
-delivered, so the commit it is judged against comes from the run itself.
-Before this, the expectation arrived as ``--expected-branch`` /
-``--expected-sha`` command-line arguments, which the deployment stage never
-supplies: every production-certifying capture was therefore recorded with no
-code identity at all and ``freshness_validated`` false, while the same case
-run by hand was bound properly. The run has always known which commit it
-froze; nothing asked it.
-"""
+"""Resolve release identity for fresh QA and observed identity for inherited QA."""
 
 from __future__ import annotations
 
@@ -30,12 +20,16 @@ def run_bound_identity(
 ) -> Tuple[Optional[FreshnessFailure], str, str]:
     """Resolve the branch and commit a run-bound case must be judged against.
 
-    Returns ``(failure, branch, sha)``. A caller-supplied commit is allowed
+    Inherited QA records the environment's observed commit instead of imposing
+    the current release's commit. Returns ``(failure, branch, sha)``.
+    For fresh QA, a caller-supplied commit is allowed
     only when it agrees with the run's own: the run is authority over what it
     shipped, so a disagreement is a contradiction to report rather than a
     choice to make.
     """
     source = context.get("run_source") or {}
+    if source.get("identity_scope") == "environment":
+        return None, str(source.get("branch") or ""), ""
     pinned = str(source.get("sha") or "").strip()
     project = str(source.get("project") or "").strip()
     whose = f" for project {project!r}" if project else ""

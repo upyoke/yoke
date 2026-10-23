@@ -35,9 +35,22 @@ def qa_browser_stop(args: List[str]) -> int:
             "is already stopped is reported as not_running."
         ),
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--identity", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project whose browser to stop; default: the current project.",
+    )
+    parser.add_argument(
+        "--identity",
+        default=None,
+        help="Browser identity whose daemon to stop; default: default.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print JSON instead of text.",
+    )
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STOP_USAGE)
     if parsed is None:
         return 2

@@ -25,6 +25,8 @@ def _write_subject(conn, stage_read, *, member, replaced_requirement_ids):
         materialize_subject,
     )
 
+    if stage_read.selected_admission is not None:
+        return stage_read.selected_admission
     subject, target = stage_read.subject, stage_read.target
     freeze_selected_plans(conn, subject, stage_read.snapshots)
 

@@ -66,7 +66,7 @@ def test_successor_reviews_existing_capture_and_preserves_terminal_history(
             "roster_digest",
             "cursor_ordinal",
             "execution_target_digest",
-            "machine_lease_id",
+            "test_machine_lease_id",
             "state",
         ):
             assert adopted[key] == before[key]

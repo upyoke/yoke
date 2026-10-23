@@ -1,0 +1,8 @@
+{
+  "ui": "Start, stop and check the local Yoke web view.",
+  "ui down": "Stop the local web view.",
+  "ui restart-running": "Restart the local web view if it is running.",
+  "ui serve-process": "Serve the local web view in this terminal.",
+  "ui status": "Show whether the local web view is running.",
+  "ui up": "Start the web view and open it in the browser."
+}

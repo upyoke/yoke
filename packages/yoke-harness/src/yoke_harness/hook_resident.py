@@ -331,10 +331,10 @@ def main() -> int:
     if not _serve(socket_path, args.lock_fd):
         os.close(args.lock_fd)
         return 0
-    os.execv(
-        sys.executable,
+    from yoke_cli.config.cli_release_runtime import exec_current_python
+
+    return exec_current_python(
         [
-            sys.executable,
             "-m",
             "yoke_harness.hook_resident",
             "--socket",
@@ -343,7 +343,6 @@ def main() -> int:
             str(args.lock_fd),
         ],
     )
-    return 0
 
 
 if __name__ == "__main__":

@@ -5,9 +5,6 @@ import json
 from typing import Any, Callable, List
 
 from yoke_cli.commands._helpers import (
-    add_full_arg,
-    add_json_arg,
-    add_session_arg,
     detail_of,
     dispatch_and_emit,
     item_target,
@@ -19,8 +16,16 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_materialize_for_item,
     qa_plan_rematerialize,
 )
+from yoke_cli.commands.adapters.qa_catalog_parser import (
+    build_item_plan_attach_parser,
+    build_parser,
+    configure_activity_list,
+    configure_method_get,
+    configure_method_register,
+    configure_plan_create,
+    configure_plan_get,
+)
 from yoke_cli.commands.adapters.qa_catalog_usage import (
-    ITEM_PLAN_ATTACH_EPILOG,
     PLAN_CASES_SYNC_USAGE,
     USAGE_BY_FUNCTION_ID,
 )
@@ -30,19 +35,6 @@ from yoke_cli.commands.adapters.qa_plan_source_input import (
     case_payload as _case_payload,
     configure_case_replace as _configure_case_replace,
 )
-from yoke_cli.commands.adapters.qa_catalog_usage import (
-    configure_attachment as _configure_attachment,
-)
-
-
-def _parser(
-    prog: str, usage: str, *, project_required: bool = True
-) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("--project", required=project_required, help="slug or id")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    return parser
 
 
 def _global(
@@ -55,7 +47,7 @@ def _global(
     payload: Callable[[argparse.Namespace], dict[str, Any]],
     project_required: bool = True,
 ) -> int:
-    parser = _parser(prog, usage, project_required=project_required)
+    parser = build_parser(prog, usage, project_required=project_required)
     if configure is not None:
         configure(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -89,7 +81,7 @@ def qa_method_list(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method list",
-        usage="yoke qa method list [--project P] [--json]",
+        usage="yoke qa method list [--project P] [--full] [--session-id S] [--json]",
         function_id="qa.method.list",
         payload=lambda _args: {},
         project_required=False,
@@ -100,44 +92,15 @@ def qa_method_get(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method get",
-        usage="yoke qa method get METHOD [--project P] [--json]",
+        usage=(
+            "yoke qa method get METHOD [--project P] [--full] "
+            "[--session-id S] [--json]"
+        ),
         function_id="qa.method.get",
-        configure=lambda parser: parser.add_argument("method_id"),
+        configure=configure_method_get,
         payload=lambda parsed: {"method_id": parsed.method_id},
         project_required=False,
     )
-
-
-def _configure_method_register(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--slug", required=True)
-    parser.add_argument("--name", required=True)
-    parser.add_argument("--description", required=True)
-    parser.add_argument(
-        "--runner",
-        required=True,
-        choices=(
-            "worktree_run",
-            "browser_substrate",
-        ),
-    )
-    parser.add_argument(
-        "--verdict-path",
-        required=True,
-        choices=("automatic", "agent"),
-    )
-    parser.add_argument("--verdict-contract", required=True)
-    parser.add_argument("--evidence-contract", required=True)
-    parser.add_argument(
-        "--required-capability",
-        dest="required_capability_kinds",
-        action="append",
-    )
-    parser.add_argument(
-        "--concurrency-mode",
-        choices=("parallel", "serial"),
-        default="parallel",
-    )
-    parser.add_argument("--success-policy-params", default="{}")
 
 
 def qa_method_register(args: List[str]) -> int:
@@ -147,7 +110,7 @@ def qa_method_register(args: List[str]) -> int:
         "--verdict-path automatic|agent --verdict-contract TEXT "
         "--evidence-contract TEXT [--concurrency-mode parallel|serial] "
         "[--required-capability KIND ...] "
-        "[--success-policy-params JSON] [--json]"
+        "[--success-policy-params JSON] [--session-id S] [--json]"
     )
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
@@ -172,19 +135,13 @@ def qa_method_register(args: List[str]) -> int:
         prog="yoke qa project-method register",
         usage=usage,
         function_id="qa.project_method.register",
-        configure=_configure_method_register,
+        configure=configure_method_register,
         payload=payload,
     )
 
 
 def qa_plan_get(args: List[str]) -> int:
     usage = USAGE_BY_FUNCTION_ID["qa.plan.get"]
-
-    def configure(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("plan", nargs="?", help="Plan id or project-local slug.")
-        parser.add_argument("--plan-id", help="Plan id or project-local slug.")
-        parser.add_argument("--deployment-run-id")
-        add_full_arg(parser, "each probe's source and every proof's evidence")
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
         if (parsed.plan is None) == (parsed.plan_id is None):
@@ -206,7 +163,7 @@ def qa_plan_get(args: List[str]) -> int:
         prog="yoke qa plan get",
         usage=usage,
         function_id="qa.plan.get",
-        configure=configure,
+        configure=configure_plan_get,
         payload=payload,
     )
 
@@ -214,13 +171,8 @@ def qa_plan_get(args: List[str]) -> int:
 def qa_activity_list(args: List[str]) -> int:
     usage = USAGE_BY_FUNCTION_ID["qa.activity.list"]
 
-    def configure(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--deployment-run-id")
-        parser.add_argument("--item", action="append", default=[])
-        parser.add_argument("--limit", type=int, default=100)
-
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
-        result: dict[str, Any] = {"limit": parsed.limit}
+        result: dict[str, Any] = {"limit": parsed.limit, "detail": detail_of(parsed)}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         if parsed.item:
@@ -232,22 +184,8 @@ def qa_activity_list(args: List[str]) -> int:
         prog="yoke qa activity list",
         usage=usage,
         function_id="qa.activity.list",
-        configure=configure,
+        configure=configure_activity_list,
         payload=payload,
-    )
-
-
-def _configure_plan_create(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("slug")
-    parser.add_argument("--name")
-    parser.add_argument("--description", default="")
-    parser.add_argument(
-        "--environment",
-        required=True,
-        help=(
-            "Target environment as SITE/NAME, or an environment id. A bare "
-            "name resolves within the project's default site."
-        ),
     )
 
 
@@ -255,14 +193,14 @@ def qa_plan_create(args: List[str]) -> int:
     usage = (
         "yoke qa plan create SLUG --project P "
         "--environment SITE/NAME|ENV_ID "
-        "[--name NAME] [--description TEXT] [--json]"
+        "[--name NAME] [--description TEXT] [--session-id S] [--json]"
     )
     return _global(
         args,
         prog="yoke qa plan create",
         usage=usage,
         function_id="qa.plan.create",
-        configure=_configure_plan_create,
+        configure=configure_plan_create,
         payload=lambda parsed: {
             "slug": parsed.slug,
             "name": parsed.name,
@@ -275,14 +213,25 @@ def qa_plan_create(args: List[str]) -> int:
 def qa_plan_cases_replace(args: List[str]) -> int:
     usage = (
         "yoke qa plan-cases replace --project P --plan-id N "
-        "(--cases-file PATH | --stdin) [--json]"
+        "(--cases-file PATH | --stdin) [--source-revision FULL_SHA] "
+        "[--session-id S] [--json]"
     )
+
+    def configure(parser: argparse.ArgumentParser) -> None:
+        _configure_case_replace(
+            parser,
+            source_revision_help=(
+                "Refused here: cases exported from source go through "
+                "yoke qa plan-cases sync."
+            ),
+        )
+
     return _global(
         args,
         prog="yoke qa plan-cases replace",
         usage=usage,
         function_id="qa.plan_cases.replace",
-        configure=_configure_case_replace,
+        configure=configure,
         payload=_case_payload,
     )
 
@@ -301,19 +250,10 @@ def qa_plan_cases_sync(args: List[str]) -> int:
 def qa_plan_item_attach(args: List[str]) -> int:
     usage = (
         "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N "
-        "--transition T [--qa-phase PHASE] [--json]"
+        "--transition T [--qa-phase PHASE] [--acknowledge-unreachable-target] "
+        "[--session-id S] [--json]"
     )
-    parser = argparse.ArgumentParser(
-        prog="yoke qa item-plan attach",
-        description=usage,
-        epilog=ITEM_PLAN_ATTACH_EPILOG,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument("--item", required=True)
-    parser.add_argument("--project", required=True)
-    _configure_attachment(parser)
-    add_session_arg(parser)
-    add_json_arg(parser)
+    parser = build_item_plan_attach_parser(usage)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2

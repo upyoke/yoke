@@ -37,7 +37,7 @@ class TestReasonCarriesTheDiagnosis:
         )
 
         diagnostic = (
-            "deployment_target_drifted: expected "
+            "qa_execution_subject_detached: expected "
             + "a" * 40
             + "; live "
             + "b" * 40
@@ -61,7 +61,7 @@ class TestReasonCarriesTheDiagnosis:
         assert len(requests) == 1
         assert len(requests[0].reason) == 200
         assert abort_reason_code(requests[0].reason) == UNUSABLE_BEGIN_REASON
-        assert "deployment_target_drifted" in requests[0].reason
+        assert "qa_execution_subject_detached" in requests[0].reason
         assert diagnostic.strip() in str(refusal)
         assert "has been released" in str(refusal)
         assert "correct the plan or the arguments and re-run" in str(refusal)

@@ -183,6 +183,15 @@ def _handle_paged_roster(
             "inputs to read the unpaged shape",
             "$.payload.relevance",
         )
+    if payload.limit is not None:
+        return _error(
+            "limit_with_paged_roster",
+            "limit caps only the unpaged read; the paged roster is sized by "
+            "page_size. Drop limit and pass page_size "
+            f"(1..{MAX_ROSTER_PAGE_SIZE}), or drop the paging inputs to read "
+            "the unpaged shape",
+            "$.payload.limit",
+        )
     if payload.page_size is None:
         return _error(
             "payload_invalid",
@@ -269,10 +278,17 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
     except LookupError as exc:
         return _error("not_found", str(exc))
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.item_lifecycle_approvals import item_approval_gates
     from yoke_core.domain.workflow_execution_instructions import resolve_for_item
 
+    actor = request.actor.actor_id if request.actor else None
     with connect() as conn:
         instructions = resolve_for_item(conn, int(request.target.item_id))
+        item["approvals"] = item_approval_gates(
+            conn,
+            int(request.target.item_id),
+            actor_id=int(actor) if str(actor or "").isdigit() else None,
+        )
     item["content_index"]["execution_instructions"] = instruction_index(
         instructions,
         public_ref=str(item["public_ref"]),

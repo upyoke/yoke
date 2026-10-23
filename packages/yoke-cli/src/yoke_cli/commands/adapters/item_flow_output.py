@@ -31,6 +31,7 @@ def compact_item_result(
                     "workflow_id",
                     "blocked",
                     "deployment_flow",
+                    "post_deploy_qa",
                 )
                 if key in fields
             },

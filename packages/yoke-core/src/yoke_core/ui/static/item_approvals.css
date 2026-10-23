@@ -1,0 +1,9 @@
+/* An item's work approvals: the open request, then earlier answers. */
+.universe-app-root .item-approval-transition { margin: 0 0 6px; }
+.universe-app-root .item-approval-history {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--yoke-border);
+}

@@ -129,7 +129,7 @@ def remove_members_on(
             ).fetchall()
         }
         gone = sorted({int(row["item_id"]) for row in projection.members()} - remaining)
-    stopped, cleaning = abort_removed_member_executions(
+    _stopped, cleaning = abort_removed_member_executions(
         conn, run_id=run_id, item_ids=ids, projection=projection, removed=gone
     )
     cancelled = retract_member_copies(conn, run_id, item_ids=ids, reason=reason)
@@ -148,7 +148,6 @@ def remove_members_on(
             reason=reason,
             removed_by=removed_by,
             removed_at=removed_at,
-            execution_aborted=item_id in stopped,
             host_cleanup_pending=item_id in cleaning,
             cancelled_requirement_ids=cancelled.get(item_id, ()),
         )

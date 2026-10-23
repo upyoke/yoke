@@ -23,6 +23,7 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_abort
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
+from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     lock_plan_execution,
@@ -55,9 +56,7 @@ def deployment_execution(test_db):
     request = FunctionCallRequest(
         function="qa.plan_execution.abort",
         actor=ActorContext(actor_id="2", session_id="qa-owner"),
-        target=TargetRef(
-            kind="deployment_run", deployment_run_id=run_id, project_id="yoke"
-        ),
+        target=TargetRef(kind="global", project_id="yoke"),
         payload={"execution_id": execution["id"], "reason": "stop failed run"},
     )
     return request
@@ -67,7 +66,9 @@ def test_owner_aborts_after_run_failure_and_records_status(
     test_db, deployment_execution
 ):
     request = deployment_execution
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", 9701)
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", 9701)
     outcome = handle_plan_execution_abort(request)
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["state"] == "aborted"
@@ -87,7 +88,9 @@ def test_settled_execution_reports_state_without_active_stage_recovery(
         (state, request.payload["execution_id"]),
     )
     test_db.commit()
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", 9701)
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", 9701)
     outcome = handle_plan_execution_abort(request)
     if state == "aborted":
         assert outcome.primary_success, outcome.error
@@ -105,7 +108,10 @@ def test_terminal_run_keeps_other_writes_and_other_sessions_guarded(
     with pytest.raises(ValueError, match="active stage"):
         resolve_run_qa_subject(
             test_db,
-            request.model_copy(update={"function": "qa.plan_execution.advance"}),
+            resolve_execution_request(
+                test_db,
+                request.model_copy(update={"function": "qa.plan_execution.advance"}),
+            ),
         )
     other = request.model_copy(
         update={"actor": ActorContext(actor_id="2", session_id="other-session")}
@@ -127,7 +133,9 @@ def test_terminal_run_walk_end_restores_scratch_and_releases_lease(
 
     request, control, original = terminal_mission
     assert qa_subject_claim_verdict(request) == (True, None, None)
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", 7841)
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", 7841)
     acquired = handle_agent_mission_access(request)
     assert acquired.primary_success, acquired.error
     contract = acquired.result_payload["execution"]
@@ -167,7 +175,7 @@ def test_terminal_run_walk_end_restores_scratch_and_releases_lease(
     assert finished.primary_success, finished.error
     assert not get_claim(test_db, contract["lease_id"]).is_active
     execution = lock_plan_execution(test_db, request.payload["execution_id"])
-    assert execution["state"] == "aborted" and execution["machine_lease_id"] is None
+    assert execution["state"] == "aborted" and execution["test_machine_lease_id"] is None
     assert "deployment run status=" in execution["release_reason"]
 
 

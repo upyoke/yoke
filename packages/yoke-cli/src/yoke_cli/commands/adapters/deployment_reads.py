@@ -17,7 +17,8 @@ from yoke_contracts.api.function_call import TargetRef, FunctionError
 DEPLOYMENT_RUNS_GET_USAGE = "yoke deployment-runs get RUN-ID [FIELD ...] [--full] [--include-member-closure] [--session-id S] [--json]"
 DEPLOYMENT_RUNS_LIST_USAGE = (
     "yoke deployment-runs list [--project P] [--status STATUS] "
-    "[--relevance overview] [--limit N] [--cursor CURSOR] [--session-id S] [--json]"
+    "[--relevance overview] [--limit N] [--cursor CURSOR] [--full] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -79,16 +80,17 @@ def _require_projection(expected_fields=None, summary=False, requested=()):
 def deployment_runs_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs get",
-        description=DEPLOYMENT_RUNS_GET_USAGE
-        + " Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
+        usage=DEPLOYMENT_RUNS_GET_USAGE,
+        description="Defaults to a bounded run and membership summary; select FIELD ... for detail or --full for the whole run. Computed fields: member_items (attached members, removed ones"
         " excluded) and membership_removals (reason, removed_at, later_run_id)."
         " carried_work is recorded at composition freeze; before that get"
         " derives it live and it stays unrecorded.",
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", metavar="RUN-ID", help="Deployment run id.")
     parser.add_argument(
         "fields",
         nargs="*",
+        metavar="FIELD",
         help="Return only these row or computed fields.",
     )
     parser.add_argument(
@@ -139,11 +141,15 @@ def deployment_runs_get(args: List[str]) -> int:
 def deployment_runs_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs list",
-        description=DEPLOYMENT_RUNS_LIST_USAGE
-        + " Defaults to 20 summary rows; use next_cursor with --cursor to continue. Read full row fields with get RUN-ID FIELD ... .",
+        usage=DEPLOYMENT_RUNS_LIST_USAGE,
+        description="Defaults to 20 summary rows; use next_cursor with --cursor "
+        "to continue. Read one run's fields with "
+        "yoke deployment-runs get RUN-ID FIELD ...",
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--status", default=None)
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Show only this project's runs."
+    )
+    parser.add_argument("--status", default=None, help="Show only runs in this status.")
     parser.add_argument(
         "--relevance",
         choices=["overview"],
@@ -154,7 +160,13 @@ def deployment_runs_list(args: List[str]) -> int:
         "--limit",
         type=int,
         default=None,
-        help="Maximum number of recent runs to return.",
+        metavar="N",
+        help=(
+            "Most recent runs to return; default: 20. With --relevance "
+            "overview and no --project it caps each project's runs, so the "
+            "total can reach N times the visible projects; add --project to "
+            "cap the total."
+        ),
     )
     parser.add_argument("--cursor", help="Continue the summary page using next_cursor.")
     add_full_arg(parser, "all returned summary columns")

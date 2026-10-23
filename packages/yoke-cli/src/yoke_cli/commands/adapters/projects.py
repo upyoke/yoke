@@ -51,18 +51,19 @@ __all__ = [
 
 
 PROJECTS_GET_USAGE = (
-    "yoke projects get --project NAME [--field FIELD] [--session-id S] [--json]"
+    "yoke projects get --project NAME [--field FIELD] [--full] "
+    "[--session-id S] [--json]"
 )
 
 
 def projects_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects get",
-        description=PROJECTS_GET_USAGE,
+        usage=PROJECTS_GET_USAGE,
     )
-    parser.add_argument("--project", required=True, help="Project name.")
+    parser.add_argument("--project", required=True, metavar="NAME", help="Project name.")
     parser.add_argument(
-        "--field", default=None, help="Optional field projection (single column)."
+        "--field", default=None, help="Print only this one field's value."
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -97,15 +98,19 @@ def projects_get(args: List[str]) -> int:
     )
 
 
-PROJECTS_LIST_USAGE = "yoke projects list [--include-retired] [--session-id S] [--json]"
+PROJECTS_LIST_USAGE = (
+    "yoke projects list [--include-retired] [--full] [--session-id S] [--json]"
+)
 
 
 def projects_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects list",
-        description=PROJECTS_LIST_USAGE,
+        usage=PROJECTS_LIST_USAGE,
     )
-    parser.add_argument("--include-retired", action="store_true")
+    parser.add_argument(
+        "--include-retired", action="store_true", help="Also list retired projects."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_LIST_USAGE)
@@ -127,16 +132,22 @@ def projects_list(args: List[str]) -> int:
 
 PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE = (
     "yoke projects resolve-by-github-repo --github-repo OWNER/REPO "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
 def projects_resolve_by_github_repo(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects resolve-by-github-repo",
-        description=PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
+        usage=PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
     )
-    parser.add_argument("--github-repo", dest="github_repo", required=True)
+    parser.add_argument(
+        "--github-repo",
+        dest="github_repo",
+        required=True,
+        metavar="OWNER/REPO",
+        help="GitHub repository to look up.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -166,23 +177,22 @@ def projects_resolve_by_github_repo(args: List[str]) -> int:
 PROJECTS_CHECKOUT_CONTEXT_USAGE = (
     "yoke projects checkout-context "
     "[--field id|slug|name|public_item_prefix] [--project P] "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
 def projects_checkout_context(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects checkout-context",
+        usage=PROJECTS_CHECKOUT_CONTEXT_USAGE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Resolve which project this checkout is standing in and print "
-            "id|slug|name|public_item_prefix (or one --field). The mapping "
-            "resolves client-side (--project flag > $YOKE_PROJECT > the "
-            "machine-config checkout→project map; `yoke project register` "
-            "records the mapping); the server enriches it with the projects "
-            "row, falling back to session inference when no hint resolves. "
-            "Works over https and from any cwd — no checkout import path, "
-            "no direct DB connection."
+            "Print the project this checkout belongs to as\n"
+            "id|slug|name|public_item_prefix, or one value with --field.\n"
+            "The project comes from --project, then $YOKE_PROJECT, then the\n"
+            "checkout-to-project map in machine config (written by\n"
+            "`yoke project register`). If none of those name a project, the\n"
+            "server uses your session's project."
         ),
         epilog=(
             "Example (the strategize/feed preamble):\n"
@@ -196,7 +206,7 @@ def projects_checkout_context(args: List[str]) -> int:
         "--field",
         default=None,
         choices=CHECKOUT_CONTEXT_FIELDS,
-        help="Print just this field's value (bare, newline-terminated).",
+        help="Print only this field's value, on its own line.",
     )
     add_project_arg(parser)
     add_session_arg(parser)
@@ -237,21 +247,24 @@ def projects_checkout_context(args: List[str]) -> int:
 
 PROJECTS_CAPABILITY_HAS_USAGE = (
     "yoke projects capability has --project NAME --cap-type TYPE "
-    "[--session-id S] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
 def projects_capability_has(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects capability has",
-        description=PROJECTS_CAPABILITY_HAS_USAGE,
+        usage=PROJECTS_CAPABILITY_HAS_USAGE,
     )
-    parser.add_argument("--project", required=True, help="Project name.")
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project name."
+    )
     parser.add_argument(
         "--cap-type",
         dest="cap_type",
         required=True,
-        help="Capability type to test for presence.",
+        metavar="TYPE",
+        help="Capability type to look for.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -268,8 +281,8 @@ def projects_capability_has(args: List[str]) -> int:
 
 
 PROJECT_STRUCTURE_PATCH_APPLY_USAGE = (
-    "yoke project-structure patch apply --project NAME "
-    "--ops-json JSON [--item ITEM] [--actor ACTOR] [--session-id S] [--json]"
+    "yoke project-structure patch apply --project ID "
+    "--ops-json JSON [--item PREFIX-N] [--actor ACTOR] [--session-id S] [--json]"
 )
 PROJECT_STRUCTURE_PATCH_APPLY_EPILOG = """\
 Each op is an object:
@@ -288,22 +301,25 @@ Example, one test root:
 def project_structure_patch_apply(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke project-structure patch apply",
-        description=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
+        usage=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
         epilog=PROJECT_STRUCTURE_PATCH_APPLY_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", required=True, help="Project id.")
-    parser.add_argument("--item", help="Optional work-item provenance.")
+    parser.add_argument("--project", required=True, metavar="ID", help="Project id.")
+    parser.add_argument(
+        "--item", metavar="PREFIX-N", help="Work item this change is made for."
+    )
     parser.add_argument(
         "--ops-json",
         dest="ops_json",
         required=True,
-        help="JSON array of patch op dicts.",
+        metavar="JSON",
+        help="JSON array of changes; each change is described below.",
     )
     parser.add_argument(
         "--actor",
         default=None,
-        help="Optional actor override (defaults to session actor).",
+        help="Record this actor instead of the session's actor.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

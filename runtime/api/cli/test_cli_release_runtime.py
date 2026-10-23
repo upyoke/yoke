@@ -178,6 +178,8 @@ def test_real_installer_runner_isolates_uv_and_activates_candidate(
             output = str(tmp_path / "tools")
         elif command == ["uv", "tool", "dir", "--bin"]:
             output = str(tmp_path / "bin")
+        elif command[3:4] == [installer.HELPER_SOURCE_CHECK]:
+            output = '{"checked": 19, "unsafe_permissions": [], "refusal": null}'
         return subprocess.CompletedProcess(command, 0, output, "")
 
     monkeypatch.setattr(installer.subprocess, "run", run)
@@ -291,3 +293,29 @@ def test_symlinked_tool_root_retains_current_and_uninstalls(tmp_path):
     assert active.exists()
     runtime.uninstall(alias, bin_dir)
     assert not root.exists()
+
+
+def test_resident_exec_holds_publication_lock_and_keeps_virtualenv_path(
+    tmp_path, monkeypatch
+):
+    import fcntl
+
+    root = tmp_path / "runtime"
+    old = root / "releases/old/tools/yoke-cli/bin/python3"
+    new = root / "releases/new/tools/yoke-cli/bin/python3"
+    old.parent.mkdir(parents=True)
+    new.parent.mkdir(parents=True)
+    new.symlink_to(sys.executable)
+    runtime._point(root / "current", new.parents[3])
+    monkeypatch.setattr(sys, "executable", str(old))
+    calls = []
+
+    def replace(python, arguments):
+        with (root / "publication.lock").open("a+") as contender:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        calls.append((python, arguments))
+
+    monkeypatch.setattr(os, "execv", replace)
+    assert runtime.exec_current_python(["-m", "yoke_harness.hook_resident"]) == 0
+    assert calls == [(str(new), [str(new), "-m", "yoke_harness.hook_resident"])]

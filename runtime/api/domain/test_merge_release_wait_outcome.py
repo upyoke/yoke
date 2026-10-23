@@ -65,8 +65,7 @@ def test_a_wakeable_owner_of_a_qa_stage_holds_and_waits_for_the_wake():
     assert lines[0] == "ITEM-1 merged, not closed: awaiting delivery at release"
     assert "owes delivery: item-scoped QA stage item-qa (requirements 41, 42)" in body
     assert (
-        "`yoke watch qa-plan -- --deployment-run-id RUN --stage item-qa "
-        "--member ITEM-1 --project proj`" in body
+        "`yoke watch qa-plan -- --item ITEM-1 --stage item-qa --project proj`" in body
     )
     assert "woken natively when a stage needs it" in body
     assert "do not release, do not end this session" in body
@@ -82,7 +81,7 @@ def test_an_operator_woken_owner_is_told_no_wake_will_arrive():
     assert "Yoke never resumes a claude-desktop session" in body
     assert "operator or a steering seat must re-enter it" in body
     assert "do not end this session" not in body
-    assert "--stage item-qa --member ITEM-1" in body
+    assert "--item ITEM-1 --stage item-qa" in body
 
 
 def test_an_item_that_owes_nothing_is_not_told_to_wait():

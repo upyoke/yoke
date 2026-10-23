@@ -36,11 +36,13 @@ def _run(
 ) -> int:
     parser = argparse.ArgumentParser(
         prog=f"yoke workflow-item epic-task {name}",
-        description=usage,
+        usage=usage,
     )
     parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     if task:
-        parser.add_argument("--task-num", type=int, required=True)
+        parser.add_argument(
+            "--task-num", type=int, required=True, help="Task number within the epic."
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

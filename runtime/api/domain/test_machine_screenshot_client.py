@@ -62,7 +62,7 @@ def test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt(
         lambda *args, **kwargs: destination,
     )
     code = cli.test_machine_screenshot(
-        ["--project", "yoke", "--machine", "test", "--json"]
+        ["--project", "yoke", "--test-machine", "test", "--json"]
     )
     response = json.loads(capsys.readouterr().out)
     assert code == (0 if status == "verified" else 1)

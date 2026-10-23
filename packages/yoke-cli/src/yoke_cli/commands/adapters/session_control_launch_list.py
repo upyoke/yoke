@@ -19,7 +19,7 @@ from yoke_contracts.session_control.models import LaunchState
 LAUNCH_LIST_USAGE = (
     "yoke session-control launch list --project P [--state STATE] "
     "[--surface SURFACE] [--machine MACHINE] [--item PREFIX-N] [--limit N] "
-    "[--cursor CURSOR] [--full] [--json]"
+    "[--cursor CURSOR] [--full] [--session-id S] [--json]"
 )
 
 
@@ -53,27 +53,56 @@ def _item_filter_floor(response: Any, _actor: Any) -> Any:
 def session_launch_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch list",
-        description=LAUNCH_LIST_USAGE
-        + " The ITEM column is the item an assignment launch staffs, read from "
-        "its session name (PREFIX-N: title). Defaults to compact rows; --full "
-        "shows placement, model and registered-session columns.",
+        usage=LAUNCH_LIST_USAGE,
+        description=(
+            "The ITEM column is the item an assignment launch staffs, read from "
+            "its session name (PREFIX-N: title). Defaults to compact rows; --full "
+            "shows placement, model and registered-session columns."
+        ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--state", choices=get_args(LaunchState), default=None)
-    parser.add_argument("--surface", default=None)
-    parser.add_argument("--machine", default=None)
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project whose launches to list."
+    )
+    parser.add_argument(
+        "--state",
+        choices=get_args(LaunchState),
+        default=None,
+        metavar="STATE",
+        help="Only launches in this state: " + ", ".join(get_args(LaunchState)) + ".",
+    )
+    parser.add_argument(
+        "--surface", default=None, help="Only launches on this surface."
+    )
+    parser.add_argument(
+        "--machine", default=None, help="Only launches on this machine."
+    )
     parser.add_argument(
         "--item",
         default=None,
-        help="only launches staffing this item (session name starts with PREFIX-N:)",
+        metavar="PREFIX-N",
+        help="Only launches staffing this item (session name starts with PREFIX-N:).",
     )
-    parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        metavar="N",
+        help=(
+            "Completed-history launches per page; default: 50. Every "
+            "operational launch is always listed on the first page, beyond "
+            "this cap."
+        ),
+    )
     parser.add_argument(
         "--cursor",
         default=None,
-        help="continuation cursor from a previous page's next_cursor",
+        help="Start after this point: the next_cursor value from the previous page.",
     )
-    add_full_arg(parser, "all launch table columns; get LAUNCH-ID --full for one launch")
+    add_full_arg(
+        parser,
+        "all launch table columns; for one launch use "
+        "yoke session-control launch get LAUNCH-ID --full",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LAUNCH_LIST_USAGE)

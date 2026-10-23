@@ -159,7 +159,7 @@ def load_test_machine_contract(
     conn: Any,
     *,
     project: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> TestMachineContract:
     """Resolve server-authoritative settings without touching local secrets."""
     identity = resolve_project(conn, project, required=False)
@@ -168,7 +168,7 @@ def load_test_machine_contract(
     selected = select_test_machine_row(
         test_machine_capability_rows(conn, project_id=identity.id),
         project=identity.slug,
-        machine=machine,
+        test_machine=test_machine,
     )
     return TestMachineContract(
         project_id=int(identity.id),
@@ -270,11 +270,11 @@ def materialize_test_machine(
     conn: Any,
     *,
     project: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> TestMachineMaterial:
     """Resolve settings and required machine-local secrets for local execution."""
     return materialize_test_machine_contract(
-        load_test_machine_contract(conn, project=project, machine=machine),
+        load_test_machine_contract(conn, project=project, test_machine=test_machine),
     )
 
 
@@ -297,11 +297,11 @@ def resolve_host_control(
     conn: Any,
     *,
     project: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> tuple[HostControl, TestMachineMaterial]:
     """Materialize the configured adapter or fail closed."""
     return resolve_contract_host_control(
-        load_test_machine_contract(conn, project=project, machine=machine),
+        load_test_machine_contract(conn, project=project, test_machine=test_machine),
     )
 
 

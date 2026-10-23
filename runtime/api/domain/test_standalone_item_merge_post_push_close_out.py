@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as merge_boundary
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_post_push as post_push
@@ -183,7 +184,7 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli,
         "_resolve_checkout",

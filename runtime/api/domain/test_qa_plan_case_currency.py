@@ -169,7 +169,7 @@ def test_a_refresh_refuses_a_case_the_live_walk_has_reached() -> None:
     assert ROSTER_CASE_REACHED_CODE in message
     # The recovery names the whole invocation, not the bare command, because
     # the bare command answers with a usage error rather than an abort.
-    assert f"yoke qa plan abort --execution-id {execution['id']} --item" in message
+    assert f"yoke qa plan abort --execution-id {execution['id']} --reason TEXT" in message
 
 
 def test_a_row_whose_case_left_the_plan_reads_as_orphaned() -> None:

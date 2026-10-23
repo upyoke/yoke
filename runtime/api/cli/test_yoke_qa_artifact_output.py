@@ -230,8 +230,9 @@ def test_read_names_the_disposition_when_no_bytes_can_be_landed() -> None:
     code = _read_without_output(
         {
             "disposition": "evidence_on_machine",
-            "machine": "test-mac-01",
+            "test_machine": "test-mac-01",
             "detail": "the evidence bytes are not present on this machine",
+            "recorded_path": "/captures/run/screen.png",
         },
         io.StringIO(),
         err,

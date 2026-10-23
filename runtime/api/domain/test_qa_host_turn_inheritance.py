@@ -76,7 +76,7 @@ def test_recovery_walk_resumes_next_ahead_of_unrelated_waiters(test_db, monkeypa
     assert first_turn.session_id == "first"
 
     waiting = record_host_wait(
-        test_db, _row(test_db, recovery), machine=MACHINE, rationale="host busy"
+        test_db, _row(test_db, recovery), test_machine=MACHINE, rationale="host busy"
     )
 
     assert waiting["host_wait"]["position"] == 1

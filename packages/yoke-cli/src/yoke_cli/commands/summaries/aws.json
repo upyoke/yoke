@@ -1,0 +1,7 @@
+{
+  "aws": "Run AWS commands with a project's admin keys.",
+  "aws admin-link": "Print the AWS link that creates the admin keys.",
+  "aws admin-status": "Check the project's AWS admin keys and report readiness.",
+  "aws exec": "Run the AWS CLI with the project's admin keys.",
+  "aws preflight": "Check that the AWS CLI is installed and runnable."
+}

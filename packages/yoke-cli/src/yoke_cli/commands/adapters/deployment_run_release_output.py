@@ -56,7 +56,7 @@ def deployment_runs_release_output_record(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=_DESCRIPTION,
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run id.")
     parser.add_argument(
         "--promotion-receipt-file",
         type=Path,

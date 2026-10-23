@@ -17,9 +17,6 @@ def test_all_lifecycle_marker_owners_use_bound_project(monkeypatch, tmp_path):
     with scratch.scratch_project("7"):
         codex_payload.write_runtime_cache("session", '{"source":"startup"}')
         assert codex_payload.read_runtime_cache_field("session", "source") == "startup"
-        assert codex_payload.session_marker_path("session").startswith(
-            str(tmp_path / "7")
-        )
         assert first_prompt("session", codex=True)
         assert first_prompt("session", codex=False)
         helpers_markers.write_current_item_marker(42)

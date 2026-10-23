@@ -159,7 +159,7 @@ def release_claim_by_id(
             f"Claim {claim_id} has already been released.",
         )
     target = work_claim_target_from_row(dict(row))
-    if target.machine_id:
+    if target.test_machine:
         # A Test Machine release must advance the host's waiting line.
         from .qa_host_manual_release import release_host_claim
 

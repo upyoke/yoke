@@ -258,10 +258,6 @@ def get_case_execution_context(
         )
     except SourceLaneError as exc:
         raise QaCaseExecutionError(str(exc)) from exc
-    if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
-        context["deployment_source_revision"] = run_source_sha(
-            conn, str(row["deployment_run_id"]), int(row["project_id"])
-        )
     raw_target = row["execution_target_json"]
     if raw_target and row["execution_target_digest"]:
         try:
@@ -334,6 +330,12 @@ def get_case_execution_context(
             raise QaCaseExecutionError(str(exc)) from exc
         context["execution_target"] = execution_target
         context["execution_target_digest"] = target_digest(execution_target)
+    if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
+        # The current owning run's source: after a takeover that is the
+        # successor's, so a retried command case tests the corrected code.
+        context["deployment_source_revision"] = run_source_sha(
+            conn, str(context["deployment_run_id"]), int(context["project_id"])
+        )
     if context.get("standalone_execution_id"):
         from yoke_core.domain.qa_standalone_context import restore_standalone_source
 

@@ -12,6 +12,20 @@ from yoke_contracts.dash_evidence_status import status_argument_kwargs
 #: release wait. Read as ``yoke merge item --help``; the skills carry the one
 #: short recipe and point here.
 _EPILOG = """\
+Landing readiness
+-----------------
+Before anything lands or waits, the merge asks every landing question at
+once -- review stage, evidence flags, lane, work claim, stale lane,
+uncommitted lane files, blocking QA proof, post-deploy QA answer -- and
+refuses with every failing gate and its recovery in one message. Run the
+same report without side effects first:
+
+  yoke merge item PREFIX-N --check
+
+An item one declared edge before its review stage is not a blocker: the
+merge moves it into review (that stage's gates run) with --verification as
+the reason, after the other gates pass and before the branch lands.
+
 Close-out routes
 ----------------
 This is the ONE agent-facing close-out for a merging item. It merges the lane
@@ -44,11 +58,10 @@ QA or recover a close-out that could not finish automatically; a surface whose
 wake authority is operator (a desktop app) is never resumed by Yoke, so its
 operator or a steering seat re-enters it. If it asks for
 item QA, credit it with the stage-scoped form -- a stage credits only the
-requirements bound to its own name, and an item-scoped stage needs the member
-too, so the run-wide form is refused rather than recording a pass the stage
-ignores:
+requirements bound to its own name. Name the item so the current admitted
+release supplies its membership:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+  yoke qa plan run --item PREFIX-N --stage STAGE --project P
 
 Add `--plan PLAN` only when the wake says the stage names no cases; a stage
 already naming its own accepts only a correction-only plan whose every case
@@ -95,10 +108,14 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Item (PREFIX-N) to merge.")
+    parser.add_argument("--project", help="Project the item belongs to.")
     parser.add_argument("--target", default="", help="Override the base branch.")
-    parser.add_argument("--session-id", default=os.environ.get("YOKE_SESSION_ID", ""))
+    parser.add_argument(
+        "--session-id",
+        default=os.environ.get("YOKE_SESSION_ID", ""),
+        help="Calling session id; default: $YOKE_SESSION_ID.",
+    )
     parser.add_argument(
         "--result",
         default="",
@@ -128,10 +145,16 @@ def build_parser() -> argparse.ArgumentParser:
             "lifecycle edge; this flag does not attest no_changes.",
         ),
         (
+            "--check",
+            "Report every landing blocker, each with its recovery, and "
+            "what the merge would do itself; land and change nothing. "
+            "Exit 0 when the item may land, else 1.",
+        ),
+        (
             "--skip-status",
-            "Merge without changing lifecycle status. Admission still "
-            "requires the item to have reached the review stage its "
-            "pinned workflow declares.",
+            "Merge without the close-out transition. The merge still "
+            "moves an item one edge before review into its review stage; "
+            "an item further back is refused.",
         ),
         ("--pr", "Merge through a pull request."),
         (
@@ -154,7 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     for flag, help_text in boolean_options:
         parser.add_argument(flag, action="store_true", help=help_text)
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Print JSON output.")
     return parser
 
 

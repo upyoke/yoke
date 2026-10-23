@@ -68,7 +68,7 @@ def test_another_cases_receipt_cannot_release_interrupted_case(monkeypatch):
 def test_non_host_interruption_does_not_owe_another_cases_restore():
     conn = Mock()
     execution = {
-        "machine_lease_id": 1,
+        "test_machine_lease_id": 1,
         "cursor_ordinal": 1,
         "release_reason": PAUSE_REASON + json.dumps({"case_inflight": 1}),
         "roster": [

@@ -40,30 +40,6 @@ class BrowserRuntime(NamedTuple):
     env: dict[str, str]
 
 
-def select_authorization_identity(identities, name):
-    choices = sorted(key for key, value in identities.items() if value.sites)
-    if name is None and not identities["default"].sites and choices:
-        raise BrowserIdentityError(
-            "browser_identity_required: default declares no sites. Choose --identity "
-            + " or --identity ".join(choices)
-            + " before opening a sign-in window."
-        )
-    return select_identity(identities, name)
-
-
-def resolve_authorization_target(project, identity, declarations_json=None):
-    from yoke_cli.config import browser_profile
-    from yoke_cli.config.browser_identities import declared_identities
-
-    if declarations_json is None:
-        key = browser_profile.profile_project_key(project)
-        identities = declared_identities(key)
-    else:
-        key, _ = resolve_identity_target(project, identity, declarations_json)
-        identities = parse_identity_declarations(json.loads(declarations_json))
-    return key, select_authorization_identity(identities, identity)
-
-
 def resolve_identity_target(
     project: str | None, identity: str | None, declarations_json: str | None = None
 ) -> tuple[str, BrowserIdentity]:

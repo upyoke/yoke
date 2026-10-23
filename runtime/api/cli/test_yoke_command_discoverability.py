@@ -89,7 +89,7 @@ def test_space_separated_hyphenated_family_resolves(capsys) -> None:
             ),
             (
                 "yoke direct-workflow dash survey ITEM (--path PATH",
-                "yoke direct-workflow conflict-survey status ITEM",
+                "yoke direct-workflow conflict-survey status PREFIX-N",
             ),
         ),
     ],
@@ -100,7 +100,7 @@ def test_conceptual_cli_names_name_the_real_adapter(
     assert main(argv) == 2
     err = capsys.readouterr().err
     assert "unknown subcommand" in err
-    assert "subcommand group." not in err
+    assert "<subcommand> [arguments]" not in err
     for adapter in adapters:
         assert f"Did you mean `{adapter}`?" in err
     for recipe in recipes:

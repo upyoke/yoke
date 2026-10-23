@@ -21,7 +21,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_execution_roster_correction import (
@@ -116,7 +115,7 @@ def test_rematerialize_refuses_a_case_the_live_walk_has_reached(
     message = str(excinfo.value)
     assert ROSTER_CASE_REACHED_CODE in message
     assert f"yoke qa plan abort --execution-id {execution['id']}" in message
-    assert f"--deployment-run-id {run_id}" in message
+    assert "--deployment-run-id" not in message
     # Rolled back whole: the frozen body is exactly as the walk saw it.
     row = test_db.execute(
         "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
@@ -124,16 +123,10 @@ def test_rematerialize_refuses_a_case_the_live_walk_has_reached(
     assert str(row["instructions"]) == "run the frozen smoke command"
 
 
-def test_a_walk_refuses_an_unjudged_case_its_selected_plan_has_since_amended(
+def test_selection_keeps_frozen_body_until_explicit_rematerialization(
     test_db,
 ) -> None:
-    """An unjudged row behind its selected plan never runs; the refusal
-    names the refresh, and once refreshed the walk freezes the new body.
-
-    The stage selects its plan at walk time, so the walk re-reads that plan:
-    a failed row would be re-minted beside it, but a row nobody has judged
-    still answers for the case and must be brought current instead.
-    """
+    """Selection preserves the contract; explicit refresh replaces its body."""
     from runtime.api.domain.test_deployment_qa_stage_execution import (
         _plan,
         _seed_run,
@@ -142,7 +135,6 @@ def test_a_walk_refuses_an_unjudged_case_its_selected_plan_has_since_amended(
     from yoke_core.domain.deployment_qa_stage_materialization import (
         materialize_deployment_qa_stage,
     )
-    from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.qa_plan_management import replace_plan_cases
 
     run_id, member = "run-selected-plan-amended", 9895
@@ -169,16 +161,15 @@ def test_a_walk_refuses_an_unjudged_case_its_selected_plan_has_since_amended(
     replace_plan_cases(test_db, plan_id=plan_id, cases=[corrected])
     test_db.commit()
 
-    with pytest.raises(QaPlanError) as excinfo:
-        materialize_deployment_qa_stage(
-            test_db, **subject, agent_plan="selected-amended-smoke"
-        )
-    message = str(excinfo.value)
-    assert STALE_PLAN_CASE_CODE in message
-    assert (
-        f"yoke qa plan rematerialize --deployment-run-id {run_id} --stage item-qa "
-        f"--member {render_item_ref(test_db, member)}"
-    ) in message
+    selected = materialize_deployment_qa_stage(
+        test_db, **subject, agent_plan="selected-amended-smoke"
+    )
+    assert selected["created_requirement_ids"] == []
+    frozen = test_db.execute(
+        "SELECT instructions FROM qa_requirements WHERE id=%s",
+        (selected["existing_requirement_ids"][0],),
+    ).fetchone()
+    assert frozen["instructions"] == "run the frozen smoke command"
 
     rematerialize_for_deployment_stage(test_db, **subject)
     materialize_deployment_qa_stage(

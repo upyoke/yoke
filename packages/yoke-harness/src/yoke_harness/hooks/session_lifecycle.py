@@ -14,10 +14,9 @@ The control-plane duties run where the session row lives: an in-process
 local universe runs them in ``session_dispatch``; over HTTPS the authority
 runs registration (relay ensure-register), the resume block
 (``yoke_core.hooks.session_resume_block``) and end-of-session cleanup
-(``yoke_core.hooks.remote_lifecycle``). The Codex start marker that tells
-``session_dispatch`` a resumed thread from a new one guards those
-control-plane duties, so it lives with them; the relay records the Codex
-runtime cache itself (``relay_identity_guard.capture_codex_session``).
+(``yoke_core.hooks.remote_lifecycle``). The relay records the Codex runtime cache itself
+(``relay_identity_guard.capture_codex_session``). Orientation emission is
+confirmed independently from registration and resume handling.
 
 Every duty is best effort and never fails the hook; an update that could not
 run is written to stderr as ``YOKE_MAIN_CHECKOUT_NOT_SYNCED`` with the

@@ -102,10 +102,7 @@ QA_COMMANDS: list[dict] = [
         "startup_roles": (),
         "topic": "qa",
         "purpose": "Materialize attached QA plan cases for a transition",
-        "recipe": (
-            "yoke qa plan materialize --item PREFIX-N "
-            "--transition STAGE"
-        ),
+        "recipe": ("yoke qa plan materialize --item PREFIX-N --transition STAGE"),
         "notes": (
             "Registered write qa.plan.materialize; STAGE is the attachment's "
             "pinned-workflow stage. Materialization is "
@@ -205,8 +202,7 @@ QA_COMMANDS: list[dict] = [
         "topic": "qa",
         "purpose": "Run one deployment QA stage",
         "recipe": (
-            "yoke qa plan run --deployment-run-id RUN --stage STAGE "
-            "[--member PREFIX-N] [--plan PLAN] --project P"
+            "yoke qa plan run --item PREFIX-N --stage STAGE [--plan PLAN] --project P"
         ),
         "notes": (
             "Registered writes qa.plan.materialize and qa.plan_execution.begin. "
@@ -217,10 +213,11 @@ QA_COMMANDS: list[dict] = [
             "The stage must be the run's active pinned schema-2 QA stage. A "
             "stage is credited only by requirements bound to its own stage "
             "name, and an item-scoped stage only by ones bound to the member "
-            "too: item scope requires --member, run scope omits it, and the "
+            "too: item scope uses --item, run-level orchestration uses its run, and the "
             "run-wide form refuses on an item-scoped stage. Frozen snapshots "
             "supply flow cases and admitted member requirements. --plan selects "
-            "cases only for a stage naming none. Every case "
+            "existing frozen admissions without adding obligations; a new plan fills "
+            "only a stage naming none. Every case "
             "and verdict stays on the existing qa_requirements/qa_runs/"
             "qa_artifacts authority, bound to the deployed target and lineage."
         ),
@@ -245,7 +242,7 @@ QA_COMMANDS: list[dict] = [
             "deployment_run_id; never assume a case has an item. "
             "This is not the form that credits a deployment QA stage: an "
             "item-scoped binding refuses and names `yoke qa plan run "
-            "--deployment-run-id RUN --stage STAGE --member PREFIX-N`. "
+            "--item PREFIX-N --stage STAGE`. "
             "browser-check decides automatically; "
             "browser-inspection attaches evidence before an undetermined verdict, "
             "which halts the item and creates an owner/operator review request. "

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_cli.transport import function_version_skew
 from yoke_cli.transport.function_version_skew import (
     ARGUMENT_SKEW_ERROR_CODE,
@@ -14,7 +16,11 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
-from yoke_contracts.function_serving_floors import declared_argument_floors
+from yoke_contracts.function_serving_floors import (
+    FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS,
+    TEST_MACHINE_ARGUMENT_FUNCTIONS,
+    declared_argument_floors,
+)
 
 LAUNCH_CREATE = "session_control.launch.create"
 LAUNCH_PREVIEW = "session_control.launch.preview"
@@ -138,3 +144,29 @@ def test_a_level_reason_refused_as_payload_invalid_names_its_own_floor(
     assert error.code == ARGUMENT_SKEW_ERROR_CODE
     assert "level_reason (minimum serving version next-release)" in error.message
     assert "item-posture amend PREFIX-N --key level" in error.recovery_hint
+
+
+@pytest.mark.parametrize(
+    "function_id", [*TEST_MACHINE_ARGUMENT_FUNCTIONS, "test_machine.operation.begin"]
+)
+def test_an_older_server_refusing_test_machine_teaches_the_machine_flag(
+    monkeypatch, function_id
+) -> None:
+    request = _request(function_id, {"project": "yoke", "test_machine": "mac-lab"})
+
+    response = _retype(monkeypatch, request, _refused(request, "payload_invalid"))
+
+    error = response.error
+    assert error.code == ARGUMENT_SKEW_ERROR_CODE
+    assert "test_machine (minimum serving version next-release)" in error.message
+    assert "`--machine NAME` flag" in error.recovery_hint
+
+
+def test_every_argument_floor_names_a_field_of_its_registered_request_model() -> None:
+    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.yoke_function_registry import list_entries
+
+    register_all_handlers()
+    models = {entry.function_id: entry.request_model for entry in list_entries()}
+    for function_id, floors in FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS.items():
+        assert set(floors) <= set(models[function_id].model_fields), function_id

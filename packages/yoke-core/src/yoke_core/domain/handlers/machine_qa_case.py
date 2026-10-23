@@ -87,7 +87,7 @@ def _waiting_result(held: Any) -> MachineCaseResult:
         verdict="waiting",
         evidence={
             "runner_id": "host_control",
-            "machine": held.machine,
+            "test_machine": held.test_machine,
             "case_started": False,
             "lease": waiting_claim_evidence(held.lease, held.contention),
         },

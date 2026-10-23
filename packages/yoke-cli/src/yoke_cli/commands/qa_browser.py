@@ -22,69 +22,67 @@ from yoke_contracts.project_defaults import MissingProjectError
 
 QA_BROWSER_SCREENSHOT_USAGE = (
     "yoke qa browser screenshot <url> --output PATH "
-    "[--viewport WxH] [--annotate] [--project PROJECT] [--identity NAME]"
+    "[--viewport WxH] [--annotate] [--project P] [--identity NAME]"
 )
 QA_BROWSER_STEP_USAGE = (
     "yoke qa browser step --base-url URL --step-json JSON "
-    "[--output-dir PATH] [--project PROJECT] [--identity NAME]"
+    "[--output-dir PATH] [--project P] [--identity NAME]"
 )
 
 _PROJECT_FLAG_HELP = (
-    "Project whose authorized browser profile the daemon opens "
-    "(explicit flag, YOKE_PROJECT, or caller checkout binding; "
-    "missing context refuses with project_required and accessible projects)."
+    "Project whose signed-in browser profile to use (default: "
+    "$YOKE_PROJECT, then this checkout's project). With none, the "
+    "command refuses and lists the projects you can use."
 )
 _IDENTITY_FLAG_HELP = (
-    "Browser identity whose profile the daemon opens (default: `default`). "
-    "Each identity has its own profile and daemon; an identity never signed in "
-    "on this host runs in a clean context, named in the log with the "
+    "Browser identity to use (default: `default`). Each identity has its "
+    "own profile and browser process. An identity never signed in on this "
+    "machine starts signed out; the log names the "
     "`yoke browser authorize --identity NAME` command that signs it in."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
-Capture one screenshot of a URL with the machine-local browser daemon
-(started on demand, bounded retries). This is diagnostic capture tooling;
-it does not record a QA verdict or replace `yoke qa case run`.
+Capture one screenshot of a URL with this machine's browser process,
+which starts if it is not running. Use it to look at a page; it does not
+record a QA verdict or replace `yoke qa case run`.
 
 Worked example:
 
   yoke qa browser screenshot "$_eph_url/dashboard" \\
       --output /tmp/yok-1234-dashboard.png
 
-Stdout: the daemon's JSON snapshot response.
-Exit codes: 0 captured; 1 capture failed; 2 prerequisite failure
-(daemon could not start, bad usage).
-
-Source-dev/admin module forms are intentionally not part of this product
-surface; use the installed ``yoke qa browser screenshot`` command."""
+Stdout: the browser's JSON response.
+Exit codes: 0 captured; 1 capture failed; 2 could not start
+(the browser did not start, or the command was used wrongly)."""
 
 
 def qa_browser_screenshot(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser screenshot",
-        description=(
-            f"{QA_BROWSER_SCREENSHOT_USAGE}\n\n{_QA_BROWSER_SCREENSHOT_HELP_DEEP}"
-        ),
+        usage=QA_BROWSER_SCREENSHOT_USAGE,
+        description=_QA_BROWSER_SCREENSHOT_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("url", help="Absolute URL to capture.")
     parser.add_argument(
         "--output",
         required=True,
-        help="Local file path the PNG is written to.",
+        metavar="PATH",
+        help="Local file to write the PNG to.",
     )
     parser.add_argument(
         "--viewport",
         default=None,
-        help="Viewport WxH (e.g. 1280x720; default: daemon default).",
+        metavar="WxH",
+        help="Window size, e.g. 1280x720 (default: the browser's default).",
     )
     parser.add_argument(
         "--annotate",
         action="store_true",
-        help="Annotate interactive elements in the capture.",
+        help="Mark the elements you can interact with in the capture.",
     )
-    parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
-    parser.add_argument("--identity", default=None, help=_IDENTITY_FLAG_HELP)
+    parser.add_argument("--project", metavar="P", help=_PROJECT_FLAG_HELP)
+    parser.add_argument("--identity", metavar="NAME", help=_IDENTITY_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SCREENSHOT_USAGE)
     if parsed is None:
         return 2
@@ -132,14 +130,21 @@ def qa_browser_step(args: List[str]) -> int:
     """Execute one agent-selected step with the machine-local browser."""
     parser = argparse.ArgumentParser(
         prog="yoke qa browser step",
+        usage=QA_BROWSER_STEP_USAGE,
         description=declared_schema_help(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--step-json", required=True)
-    parser.add_argument("--output-dir")
-    parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
-    parser.add_argument("--identity", default=None, help=_IDENTITY_FLAG_HELP)
+    parser.add_argument(
+        "--base-url", required=True, metavar="URL", help="Base URL for the step."
+    )
+    parser.add_argument(
+        "--step-json", required=True, metavar="JSON", help="One step as a JSON object."
+    )
+    parser.add_argument(
+        "--output-dir", metavar="PATH", help="Folder for files the step writes."
+    )
+    parser.add_argument("--project", metavar="P", help=_PROJECT_FLAG_HELP)
+    parser.add_argument("--identity", metavar="NAME", help=_IDENTITY_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
     if parsed is None:
         return 2
@@ -200,11 +205,10 @@ QA_BROWSER_SUBCOMMANDS = {
 
 QA_BROWSER_USAGE = {
     "yoke qa browser screenshot": (
-        "Capture one URL screenshot with the machine-local browser daemon "
-        "for substrate diagnostics."
+        "Take one screenshot of a web page with this machine's browser."
     ),
     "yoke qa browser step": (
-        "Execute one agent-selected JSON step with the machine-local browser."
+        "Run one JSON browser step with this machine's browser."
     ),
 }
 

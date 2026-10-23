@@ -52,6 +52,7 @@ from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
+from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.deployment_qa_presentation_facts import (
     member_presentation,
     run_presentation,
@@ -255,6 +256,8 @@ def member_qa_standings(
             "stage": answer.stage,
             "reason": answer.reason,
             "failed_requirement_ids": list(answer.failed_requirement_ids),
+            "no_item_qa_required": answer.state == STAGE_DISCHARGED
+            and answer_for_item(conn, int(item_id)).no_obligation,
         }
     return standing
 

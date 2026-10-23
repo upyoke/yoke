@@ -113,7 +113,9 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         parse_context_window_tokens,
     )
 
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project", required=True, metavar="P", help="Project to launch in."
+    )
     parser.add_argument(
         "--level",
         default=None,
@@ -127,6 +129,7 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--surface",
         default=None,
         dest="executor_surface",
+        metavar="SURFACE",
         help="Use this surface. On an item-bound create without --model, "
         "choose an option at the item stage level on this surface; "
         "omit effort/context knobs in that form. With --model, launch the "
@@ -136,19 +139,41 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--machine",
         default=None,
         dest="machine_id",
-        metavar="NAME",
-        help="Registered name or machine id (`yoke machine list`).",
+        metavar="MACHINE_ID",
+        help="Registered Machine id (`yoke machine list`); a name resolves only "
+        "when one live Machine carries it. A test machine is not a Machine: it "
+        "is reached through its QA lease.",
     )
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--reasoning-effort", default=None)
+    parser.add_argument(
+        "--model", default=None, metavar="MODEL", help="Model; needs --surface."
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        default=None,
+        metavar="EFFORT",
+        help="Reasoning effort; needs --surface.",
+    )
     parser.add_argument(
         "--context-window",
         dest="context_window_tokens",
         type=parse_context_window_tokens,
         default=None,
         metavar="TOKENS",
+        help="Context window size in tokens; needs --surface.",
     )
-    parser.add_argument("--allow-surface-fallback", action="store_true")
+    parser.add_argument(
+        "--allow-surface-fallback",
+        action="store_true",
+        help="Use another surface when no relay serves the named one.",
+    )
+    # maybe_list_models answers --list-models before this parser runs; it is
+    # declared here so the help page lists it.
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="Print the models each surface offers (with --surface, that "
+        "surface only) and exit without launching.",
+    )
 
 
 def maybe_list_models(args: List[str]) -> int | None:
@@ -160,7 +185,12 @@ def maybe_list_models(args: List[str]) -> int | None:
     )
 
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--surface", dest="executor_surface", default=None)
+    parser.add_argument(
+        "--surface",
+        dest="executor_surface",
+        default=None,
+        help="List models for this surface only.",
+    )
     add_json_arg(parser)
     parsed, _unknown = parser.parse_known_args(args)
     from yoke_harness.session_relay_native_models import observe_native_models

@@ -28,11 +28,21 @@ def workflows_version_publish(args: list[str]) -> int:
         epilog="Read the current definition with yoke workflows version get WORKFLOW VERSION --json, "
         "edit its definition object, then publish it with an audit reason.",
     )
-    parser.add_argument("workflow")
-    parser.add_argument("--definition-file", required=True)
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--expected-current-version", type=int)
-    parser.add_argument("--keep-current", action="store_true")
+    parser.add_argument("workflow", help="Workflow id to publish a version for.")
+    parser.add_argument(
+        "--definition-file", required=True, help="JSON file holding the definition."
+    )
+    parser.add_argument("--reason", required=True, help="Audit reason for the change.")
+    parser.add_argument(
+        "--expected-current-version",
+        type=int,
+        help="Current version you read; required for an existing workflow.",
+    )
+    parser.add_argument(
+        "--keep-current",
+        action="store_true",
+        help="Add the version without making it the current one.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_VERSION_PUBLISH_USAGE)

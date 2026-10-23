@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "test-machine-execution",
  "position": 0,
- "description": "Single-host admission filters case methods, instructions, capabilities and executable steps by required OS before ranking verified hosts. Simultaneous cases retain the declared driver, admit each registered host and require the inferred platform somewhere in the full set. A missing platform refuses with registration and verification recovery."
+ "description": "Single-host admission derives OS only from method_config.os/platform, executable steps, capability requirements or declared machines’ registered os before ranking verified hosts. Instructions never choose an OS. An undeclared platform refuses with test_machine_platform_undeclared and asks for method_config.os or method_config.test_machine. Simultaneous cases retain the declared driver, admit each registered host and require the declared platform somewhere in the full set. A missing platform refuses with registration and verification recovery."
 }

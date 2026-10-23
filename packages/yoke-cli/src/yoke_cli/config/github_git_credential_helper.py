@@ -59,8 +59,18 @@ def main(
     parser = argparse.ArgumentParser(
         prog="python -m yoke_cli.config.github_git_credential_helper",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("operation", nargs="?", default="")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to read; default: the standard config path.",
+    )
+    parser.add_argument(
+        "operation",
+        nargs="?",
+        default="",
+        help="Git credential operation; only get answers, others do nothing.",
+    )
     parsed = parser.parse_args(sys.argv[1:] if argv is None else list(argv))
     if parsed.operation != "get":
         return 0

@@ -25,7 +25,11 @@ def classify_dirty(args: list[str]) -> int:
         ),
     )
     parser.add_argument("--project", required=True, help="Mapped project slug or id.")
-    parser.add_argument("--exclude-worktrees", action="store_true")
+    parser.add_argument(
+        "--exclude-worktrees",
+        action="store_true",
+        help="Skip files inside the checkout's worktrees.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE)

@@ -186,7 +186,7 @@ test("every evidence disposition renders an honest terminal state", async () => 
     },
     4: {
       disposition: "evidence_on_machine",
-      machine: "Test Machine",
+      test_machine: "Test Machine",
       detail: "the evidence bytes are not present on this machine",
     },
     5: {

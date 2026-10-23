@@ -41,7 +41,7 @@ def selected_test_machine_row(
     conn: Any,
     *,
     project: str,
-    machine: str | None,
+    test_machine: str | None,
 ) -> TestMachineCapabilityRow:
     """Return the one machine a project-and-name pair addresses."""
     identity = resolve_project(conn, project, required=False)
@@ -50,7 +50,7 @@ def selected_test_machine_row(
     return select_test_machine_row(
         test_machine_capability_rows(conn, project_id=identity.id),
         project=identity.slug,
-        machine=machine,
+        test_machine=test_machine,
     )
 
 
@@ -71,7 +71,7 @@ def resolve_golden_capture_destination(
     declared = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
     if not declared:
         raise TestMachineCapabilityError(
-            f"test machine {row.machine!r} declares no {GOLDEN_BASELINE_PATH_KEY}, "
+            f"test machine {row.test_machine!r} declares no {GOLDEN_BASELINE_PATH_KEY}, "
             "so there is nowhere to put a capture beside; pass an absolute "
             "--destination for the first golden baseline"
         )
@@ -80,7 +80,7 @@ def resolve_golden_capture_destination(
     if candidate == declared:
         raise TestMachineCapabilityError(
             f"golden_capture_destination_collision: {declared} already names "
-            f"the current golden for {row.machine!r}; retry after the UTC "
+            f"the current golden for {row.test_machine!r}; retry after the UTC "
             "second changes or pass a different explicit --destination"
         )
     return validate_golden_baseline_path(candidate)
@@ -118,7 +118,7 @@ def record_captured_golden_baseline(
     changed = getattr(updated, "rowcount", 1)
     if changed is not None and int(changed) < 1:
         raise TestMachineCapabilityError(
-            f"test machine {row.machine!r} settings changed while its golden "
+            f"test machine {row.test_machine!r} settings changed while its golden "
             "baseline was being captured; re-read the machine and record "
             f"{destination} as its {GOLDEN_BASELINE_PATH_KEY}"
         )
@@ -128,7 +128,7 @@ def record_captured_golden_baseline(
 def kept_golden_fields(
     conn: Any,
     *,
-    machine: str,
+    test_machine: str,
     destination: str | None,
 ) -> dict[str, Any]:
     """Name every registered golden beside a capture so retention keeps it.
@@ -146,7 +146,7 @@ def kept_golden_fields(
     rows = conn.execute(
         "SELECT c.project_id,COALESCE(c.settings,'{}') FROM project_capabilities c "
         f"WHERE c.type={marker} ORDER BY c.project_id",
-        (TEST_MACHINE_CAPABILITY_PREFIX + machine,),
+        (TEST_MACHINE_CAPABILITY_PREFIX + test_machine,),
     ).fetchall()
     kept = {destination}
     for project_id, settings in rows:
@@ -155,7 +155,7 @@ def kept_golden_fields(
         except (TypeError, ValueError, AttributeError):
             return {
                 KEPT_GOLDEN_PATHS_UNKNOWN_KEY: (
-                    f"project {project_id}'s registration of {machine!r} has "
+                    f"project {project_id}'s registration of {test_machine!r} has "
                     "unreadable settings, so its golden is unknown; repair it "
                     "through yoke test-machine settings-replace"
                 )

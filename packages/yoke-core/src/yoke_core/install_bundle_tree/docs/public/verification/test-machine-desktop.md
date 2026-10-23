@@ -13,7 +13,7 @@ its owning session or plan, and the next step: wait for another holder, or finis
 or abort your own mission before resetting. Do not reset an active mission from
 an unrelated command.
 
-A Command QA case that operates a host declares `method_config.machine` in its
+A Command QA case that operates a host declares `method_config.test_machine` in its
 saved plan. The plan acquires that host, queues when it is busy or unhealthy,
 and heartbeats its lease while the local command runs. Nested host operations
 borrow that owned active Command plan lease. A Command without a machine
@@ -22,14 +22,27 @@ running its host operations. A missing or expired lease requires fresh admission
 a released lease with an unknown receipt requires inspecting the retained
 capture, rather than repeating the operation.
 
+Machine QA chooses the required OS from `method_config.os` or `platform`,
+executable steps, capability requirements, or the registered `os` of declared
+`method_config.test_machine` / `test_machines`. Instructions never choose a platform:
+"Do not use linux-lab" does not require Linux. Cases without these declarations
+refuse with `test_machine_platform_undeclared`; set `method_config.os` to `linux`,
+`macos` or `windows`, or declare a registered machine with an `os`.
+
 Simultaneous machine-QA cases keep their declared driver and check platforms
 across the full host set; see [host-set authoring](exploration.md#authoring-shape).
 
 When verification marks a host unhealthy, repair the named failure and run
-`yoke test-machine verify --project P --machine NAME` to wake the waiting line.
+`yoke test-machine verify --project P --test-machine NAME` to wake the waiting line.
 Keep the sealed baseline unchanged during this recovery. Run
-`yoke test-machine reset --project P --machine NAME` for an authorized reset;
+`yoke test-machine reset --project P --test-machine NAME` for an authorized reset;
 read each command's `--help`.
+
+Test Machine reads, operation receipts and desktop routes name the host in
+`test_machine`; `yoke test-machine list` returns `test_machines`. A CLI reading
+an answer from a server that predates those fields refuses
+`test_machine_response_field_missing`: run the Yoke CLI release that server
+serves, or update the server.
 
 Mission preparation requires at least 1 GiB free on the home and temporary
 filesystems before package setup or scratch creation. A
@@ -41,12 +54,12 @@ section describes before retrying QA. Test Machines need at least 40 GiB.
 
 The named machine's `desktop_password` secret is its administrator password,
 used for desktop access and macOS/Linux administrator commands. Run one setup
-command with `yoke test-machine exec --project P --machine NAME --admin -- COMMAND ARGS...`.
+command with `yoke test-machine exec --project P --test-machine NAME --admin -- COMMAND ARGS...`.
 Read its `--help`; product code reads the stored secret, supplies it on private
 stdin to sudo, and redacts output. The command receives no stdin. Import the
 credential through `yoke projects capability secret set --project P --cap-type test-machine:NAME --key desktop_password --value-file PASSWORD_FILE`.
 
-Run `yoke test-machine desktop-access --project P --machine NAME --view` on the
+Run `yoke test-machine desktop-access --project P --test-machine NAME --view` on the
 workstation holding the registered fixture credentials. Read the command's
 `--help` for route prerequisites, refusals, and cleanup.
 
@@ -101,7 +114,7 @@ Keep browser sign-ins live, never golden-capture or wipe them, and require the
 fresh request's exact approval tab. An older restored tab is never approval proof.
 
 To sign a browser identity in, run `yoke browser authorize --project P
---identity NAME --machine MACHINE` from the connected workstation. It reads
+--identity NAME --test-machine MACHINE` from the connected workstation. It reads
 the project's declarations, opens this FreeRDP viewer when the machine has a
 Linux or Windows WSL RDP route, and opens the authorization window on that
 desktop. Close the browser window when done; the viewer closes when

@@ -66,7 +66,7 @@ def _help_epilogue() -> str:
         "An aborted or errored walk's bundle contains its completed captures;\n"
         "review them with verdicts while the execution stays terminal.\n"
         "Host contention is a hold, never a verdict (including agent_only).\n"
-        'Submit {"host_wait":{"machine":"NAME","rationale":"holder evidence"}}\n'
+        'Submit {"host_wait":{"test_machine":"NAME","rationale":"holder evidence"}}\n'
         "alone to keep requirements open and queue a fresh mission in FIFO order."
     )
 
@@ -126,15 +126,23 @@ def run(args: List[str]) -> int:
         epilog=_help_epilogue(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    subject.add_argument("--project")
-    parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--bundle-id", required=True)
-    parser.add_argument("--bundle-digest", required=True)
-    parser.add_argument("--stdin", action="store_true", required=True)
-    parser.add_argument("--session-id")
+    subject = parser.add_mutually_exclusive_group()
+    subject.add_argument("--item", help="Item whose plan was reviewed, as PREFIX-N.")
+    subject.add_argument("--project", help="Project whose plan was reviewed.")
+    parser.add_argument("--execution-id", required=True, help="Plan execution id.")
+    parser.add_argument("--bundle-id", required=True, help="Review bundle id.")
+    parser.add_argument(
+        "--bundle-digest", required=True, help="Digest of the bundle you reviewed."
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        required=True,
+        help="Read the verdict JSON from standard input.",
+    )
+    parser.add_argument(
+        "--session-id", help="Override the detected session id (debugging only)."
+    )
     parsed = parser.parse_args(args)
     try:
         submission = _submission(sys.stdin.read())
@@ -153,11 +161,6 @@ def run(args: List[str]) -> int:
         TargetRef(kind="item", public_ref=f"{prefix}-{sequence}")
         if parsed.item is not None
         else TargetRef(kind="global", project_id=parsed.project)
-        if parsed.project
-        else TargetRef(
-            kind="deployment_run",
-            deployment_run_id=str(parsed.deployment_run_id),
-        )
     )
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 

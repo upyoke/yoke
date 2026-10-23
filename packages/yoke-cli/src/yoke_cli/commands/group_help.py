@@ -6,6 +6,7 @@ import sys
 from difflib import get_close_matches
 from typing import Optional, Sequence, TextIO
 
+from yoke_cli.commands.command_summaries import summary_for
 from yoke_cli.commands.command_tree import child_lines
 from yoke_cli.commands.registry import (
     SPACE_EXPANDED_ROUTE_REGISTRY,
@@ -107,7 +108,7 @@ def emit_group_help_if_available(
     group = " ".join(prefix)
     if prefix == ("onboard",):
         print("For machine setup, run `yoke setup`.", file=out)
-    print(f"yoke {group} - subcommand group.", file=out)
+    print(f"yoke {group} - {summary_for(prefix)}", file=out)
     print(f"Usage: yoke {group} <subcommand> [arguments]", file=out)
     print("Immediate children (open --help for recipes and options):", file=out)
     print("\n".join(lines), file=out)

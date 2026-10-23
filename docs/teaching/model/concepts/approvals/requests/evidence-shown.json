@@ -2,6 +2,8 @@
  "id": "evidence-shown",
  "title": "Evidence shown",
  "status": "draft-copy",
+ "summary": "A missing-screenshot note is a warning only where a check's method captures screenshots; command checks and a no-item-QA answer say why none is shown.",
+ "sources": ["docs/public/sessions/inbox.md"],
  "page": "approvals",
  "position": 2
 }

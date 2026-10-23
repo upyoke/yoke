@@ -1,0 +1,5 @@
+{
+  "source-authority": "Move the main database to a new home, under watch.",
+  "source-authority export": "Export the main database during a write freeze.",
+  "source-authority quiesce": "Start, check, stop or end a database write freeze."
+}

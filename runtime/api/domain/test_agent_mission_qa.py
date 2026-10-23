@@ -5,9 +5,7 @@ from __future__ import annotations
 import subprocess
 from typing import Any
 
-from runtime.api.domain.machine_qa_host_test_support import (
-    configure_test_machine,
-)
+from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.domain import test_qa_execution_walk_states as walk_states
@@ -126,7 +124,7 @@ def _materialize_mission(conn: Any, *, item_id: int) -> int:
                     "Return ranked actionable findings and name anything "
                     "that could not be checked."
                 ),
-                "method_config": {"executor": "informed_subagent"},
+                "method_config": {"executor": "informed_subagent", "os": "macos"},
                 "host_baselines": ["fresh-host"],
             }
         ],
@@ -219,7 +217,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
 
     assert bundle is not None
     walk_states.assert_walking_proof(test_db, current)
-    assert current["machine_lease_id"] == lease_id
+    assert current["test_machine_lease_id"] == lease_id
     assert get_claim(test_db, lease_id).is_active is True
     dispatch = bundle["dispatch"]
     assert dispatch["dispatch_kind"] == "main_agent_mission"

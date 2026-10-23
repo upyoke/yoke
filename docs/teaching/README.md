@@ -11,17 +11,45 @@ material: it lives only in the Yoke source repository and never ships in the
 install bundle.
 
 Build the local views with `yoke dev run -- python3 docs/teaching/tools/build.py`,
-then open `docs/teaching/views/index.html` in a browser from that checkout.
+then open `docs/teaching/views/explore/index.html` in a browser from that checkout.
 This registered scanner works on the mapped main checkout without a work claim
-and in a claimed lane. It writes only ignored views (and `live/` with `--live`);
+and in a claimed lane. It writes only ignored guide files;
 it never rewrites the model.
 Agents read the model JSON directly. If a review tool refuses `file:` URLs,
 serve this directory locally (`python3 -m http.server` from `docs/teaching`).
-The gap index links to one generated page per gap; existing index anchors stay
-valid. The overview links to each record home; aggregate model counts stay out of
-that shared page so independent model edits can land together.
+The responsive guide is the only reading interface. The old catalogue pages and compatibility routes are removed. Model JSON files retain
+their identities and remain the editable source of research truth.
 
 ## Canonical source and access
+
+### Human reading view
+
+Open `views/explore/index.html` after building for the responsive context guide.
+Each page shows its immediate children in a normal CSS grid. Cards grow with
+content and the browser scrolls naturally. Open a card to read or explore it;
+breadcrumbs, the source navigator and browser Back preserve navigation.
+
+The top level separates homepage, public docs, setup, global/project hooks,
+project rules, skills, roles, command help, command replies, context packets,
+scoped instructions and project documentation. Public docs has three children: Website docs page, Installed docs directory,
+and The docs. Both access points link to The docs; the website also links to
+the overview it displays on entry. Under The docs, the overview and actual
+category/file tree appear once; agent replies and terminal screens sit under setup.
+Dashboard teaching stays with the dashboard prototype. Instructions for
+resuming work sit under Skills; changing work state is not teaching content.
+Replaced proposals are retained in History. Research proposals appear in attached research sections, separate from actual source content.
+
+Source groups in `tools/explorer_sources.py` are editorial navigation, not
+new authorities. New surfaces must be assigned to a group; the build reports
+`EXPLORER_SOURCE` otherwise. The explorer reads source definitions, not captured session data. Availability never establishes actual context receipt.
+
+Serve the checkout root over loopback: `python3 -m http.server 8765 --bind
+127.0.0.1` from the checkout, then open
+`/docs/teaching/views/explore/index.html`. This is a local design review, not
+product-delivery proof. Search highlighting across related context chains is
+reserved for after the operator locks the map structure.
+
+### Source access
 
 Ordinary repository access is the canonical route. Every machine and worker
 reads this directory from a Yoke checkout, or from the public repository at an
@@ -42,18 +70,15 @@ machine paths. The check refuses private paths and identifiers.
 | `model/docs-graph.json` | Documentation areas for the live docs graph |
 | `views/` | Untracked generated HTML and CSS; build locally to read |
 | `tools/` | The builder and check |
-| `live/` | Untracked live pages, written by `--live` |
 
-Every record has a stable `id`; it is the HTML anchor of the record's view.
+Every record has a stable `id`; the guide uses it to identify the record's node.
 A concept's full id is its path (`context/hooks`), stored at
 `model/concepts/context/hooks.json`. Teaching and lesson ids are prefixed by
 their owner (`setup-agent/desired-01`), stored at
 `model/surfaces/setup-agent/desired-01.json`. Each filename matches its
 record's local `id`. Add a record by creating its file; claim that concrete
 path without changing or claiming its parent record. Optional `position`
-sets display order (then filename). `page` names the generated page a record
-renders on: give a large concept branch its own page by setting `page` on the
-child and each descendant; surface and scenario parts move the same way.
+sets display order (then filename). Legacy `page` metadata does not create pages or routes in the guide.
 Evidence collection metadata lives at
 `model/evidence/<collection>.json`, with records in the matching directory.
 `docs-graph.json` remains the documentation graph configuration.
@@ -70,10 +95,7 @@ existing record files without an array source retain their data and receive
 canonical formatting. Rebuild and check afterwards.
 
 Commands, functions and skills are never copied here. Concept records name
-them, and the check resolves every name against the live registries. The
-command crosswalk and documentation graph read live state, so they are written
-only to the untracked `live/` directory; generated views depend on the model
-alone and are also untracked. The stylesheet source lives in `tools/style.css`.
+them, and the check resolves every name against the live registries. The guide reads current command registries and tracked-document inventories at build time; it does not capture live session state. All generated views are untracked. The stylesheet source lives in `tools/explorer.css`.
 
 ## Record status
 
@@ -118,15 +140,11 @@ prototype change, file a linked Yoke item (`/yoke idea` in the yoke project)
 that names the exact node ids, the requested change, the evidence and the
 producer/consumer relationship.
 
-## Live pages
+## Source inventories
 
-```text
-yoke dev run -- python3 docs/teaching/tools/build.py --live
-```
-
-writes `live/commands.html` (live totals and every unmapped command, function
-and skill) and `live/docs-graph.html` (every tracked document by area, with
-inbound and outbound link counts).
+Every build refreshes registry entries with topic coverage and documents with
+incoming/outgoing links inside the guide. It removes obsolete generated files
+and the retired `live/` directory; no compatibility pages are produced.
 
 ## Check failures
 
@@ -144,7 +162,7 @@ Fix the named records, rebuild, then run `--check`:
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
 | `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
-| `LINE_LIMIT` | For a view, move a large child branch or part group to its own page with `page`; for another file, split it at a meaningful boundary. Keep record content; rebuild |
+| `LINE_LIMIT` | For generated data, split nodes into smaller chunks; for another file, split it at a meaningful boundary. Keep record content; rebuild |
 | `PAGE_COLLISION` | Give the part a `page` name no other surface or scenario uses |
 | `PRIVATE_MATERIAL` | Remove the private path or id |
 
@@ -153,3 +171,109 @@ Every file here obeys the shared 350-line hard limit, counted at 80 columns;
 memory, checking links, privacy and limits without reading or writing local
 views. CI runs this build validation through
 `tests/teaching_prototype/test_teaching_prototype_check.py`.
+
+The homepage contains the agent request and install command. Named connections
+lead from that command to agent and interactive setup; the connection panel
+also shows incoming routes and the connections inherited from a parent source.
+Public docs follow the actual directories, category index headings and document
+names in `docs/public`, including the root overview and contents. Project docs
+show this repository's current documentation, excluding public docs, archives
+and teaching research. Rules, skills and roles expose their files and named
+sections. Setup questions and literal answer choices are extracted from
+`SetupPrompt` definitions; dynamic values remain in the folded source definition.
+Hooks show orientation blocks, registered events, tool matchers and handlers.
+Packets show the registered roles, topics and table references. Command results
+show the shared envelope and declared response models with their actual fields.
+Scoped instructions show the shipped text and the command that reads privately
+scoped instructions; no private records or live session payloads are copied.
+These connections describe source routes, not proof of live delivery.
+
+Each page keeps the title, summary, applicability and output size above its cards.
+Leaf pages show their full content; parents provide a Read full content disclosure.
+Related-source links appear below the grid. Hash URLs restore the selected node
+on refresh, including alternate representations with their arrival breadcrumbs.
+There is no canvas, pan/zoom, hover tracing, clipped card preview or floating control.
+
+Node types describe content form, not review status. Every node carries a short
+label, icon and form-specific card treatment: pages, files, conceptual groups,
+concepts, CLI groups/commands, screens, replies, hooks, packets and scoped rules.
+Research teaching records do not appear as source nodes. Files show their actual
+source path; code definitions are folded beneath the visible content or fields. A command that also has children is marked as both.
+
+The AGENTS.md source opens directly onto shared topics and repository additions,
+with no duplicate file level. Shared topics come from the shipped template;
+repository topics come only from outside the local managed block. This includes
+level-one headings and the shipped preamble, not just level-two sections.
+Audience scope is independent of content form: green globe labels mean All Yoke
+projects; purple branch labels mean Yoke repo only. Repository documentation
+inherits the latter; product docs, skills, roles and runtime definitions retain
+the shared label. A shared label describes distribution, not unconditional
+applicability of every instruction. Private user/project instructions are not
+invented or loaded into this map.
+
+Hook message cards expose their concrete message sections. Both hook views show events directly, with their messages, checks and background
+actions nested inside. Global contents use the runtime applicability filter;
+project and global event cards link as two views of the same hook. Message sections
+use a neutral text style, distinct from purple event containers. Message bodies are descriptions of templates, not live
+session captures. Readable guidance shows exact UTF-8 byte and line counts (character
+counts on hover); implementation code has no size badge. Generated messages show
+output estimates in lines and bytes, or explicitly variable output when bodies are unbounded. Containers total their child output estimates; an exact document or whole-message
+sample already includes its children and is counted once. Links do not add text.
+Variable hook messages also show estimates from offline examples: synthetic IDs,
+zero to five project folders, and explicit allowances for setup or other variable
+fields. Hover for each estimate's assumptions. These are illustrative ranges, not
+observed percentiles or hard limits; open-ended instruction bodies show a base size
+plus variable content. Every card has a line/byte range or an explicit variable remainder. Incoming message
+parts are measured from output templates with synthetic IDs and optional notices.
+Unsampled output uses visibly labelled rough planning bands, documented on hover;
+these are not measured renders. Parent totals are an inventory, not a claim that
+all conditional messages are delivered together.
+Long Markdown leaves (80 words or more) expose headings or original passages as
+subnodes. Incoming-message and resume-message topics describe the delivered prose.
+
+Reading order follows the encounter sequence: public entry and installation,
+global context, project rules and context, then work procedures and command use.
+Both hook views use session start → prompt → before tool → permission → tool
+success/failure → stop → session end. These are lifecycle positions, not a promise
+that every event fires in every harness. Setup keeps its declared step order;
+public documents follow nav.yaml; skills and roles follow their workflow groups.
+
+Harness-specific orientation cards show prominent applicability badges and delivery timing: Codex / Claude Code on the first prompt, Cursor only at session start.
+
+Alternate install-mode cards expose the actual setup subtree in place. Cross-map navigation retains a Back button to the previous view.
+
+Command help separates root output from the command-group tree. Every group has its own rendered help output alongside child commands; all groups remain available through normal page scrolling.
+
+Cards have no fixed heights or nested preview layers; each title and Explore link opens the next level.
+
+
+## One guide, three ways to browse
+
+Sources keeps the thirteen concrete context categories. Topics follows the original
+concept hierarchy; Journeys follows scenario and lesson order. These are recorded
+situations, not executable workflow sequences. Research collects teaching plans,
+design decisions, gaps, evidence, history, and dashboard research owned elsewhere.
+No research record is deleted or promoted into shipped instructions by this view.
+
+`explorer_research.py` connects explicit topic/surface references, named commands
+and skills, and exact cited source files. Connections show their basis; shared-file
+evidence is related research, never automatically proof of a claim. Source pages
+keep these links in expandable Connected teaching sections. Unattached decisions
+and gaps remain accessible through Research; topic pages show direct teaching
+mapping counts, including zero. Parent mappings do not cover child topics.
+
+The original JSON is fetched for full record content, including every field and
+citation. Research has its own status explanation and no agent-output size badge:
+research prose is not delivered context. History isolates superseded proposals.
+`explorer_inventory.py` folds registry coverage and document-link counts into the
+same UI, with connections from Command help, Public docs and Project documentation.
+The guide displays each record independently; old page paths and anchors are retired.
+
+
+Source freshness shows the build time, checkout commit, dirty state and a digest
+of inspected files plus registry identities. Each build re-reads documents, runtime
+definitions, command help formatters, model references and inventories. No copied
+research text becomes authoritative current behavior. Editorial group names and
+research judgements remain authored; historical evidence is not reverified by a
+build. Rebuild and refresh after source changes; this local preview is a snapshot,
+not a background monitor of main or a released installation.

@@ -11,20 +11,42 @@ from yoke_contracts.api.function_call import TargetRef
 
 QA_REQUIREMENT_TRANSFER_USAGE = (
     "yoke qa requirement transfer --requirement-id N --to-item PREFIX-N "
-    "--workflow-transition STAGE --rationale TEXT [--json]"
+    "--workflow-transition STAGE --rationale TEXT [--session-id S] [--json]"
 )
 
 
 def qa_requirement_transfer(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement transfer",
-        description=QA_REQUIREMENT_TRANSFER_USAGE,
-        epilog="Hold both item work claims in one project. Only an unexecuted direct case can move; frozen plan/run cases and settled history retain their subject. A blocking case must retain an executable method or a destination with manual review credit. The receipt is recorded on both items; this command records no pass.",
+        usage=QA_REQUIREMENT_TRANSFER_USAGE,
+        epilog=(
+            "You must hold the work claims of both items, and both must be in\n"
+            "one project. Only a requirement that has not run and was added\n"
+            "directly can move; requirements from a frozen plan or run, and\n"
+            "settled history, stay with their item. A blocking requirement must\n"
+            "keep a way to run it, or the new item must accept manual review\n"
+            "for it. Both items record the move; this command records no pass."
+        ),
     )
-    parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--to-item", required=True)
-    parser.add_argument("--workflow-transition", required=True)
-    parser.add_argument("--rationale", required=True)
+    parser.add_argument(
+        "--requirement-id",
+        type=int,
+        required=True,
+        metavar="N",
+        help="QA requirement id to move.",
+    )
+    parser.add_argument(
+        "--to-item", required=True, metavar="PREFIX-N", help="Item to move it to."
+    )
+    parser.add_argument(
+        "--workflow-transition",
+        required=True,
+        metavar="STAGE",
+        help="Workflow transition it gates on the new item.",
+    )
+    parser.add_argument(
+        "--rationale", required=True, metavar="TEXT", help="Why the requirement moves."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_TRANSFER_USAGE)

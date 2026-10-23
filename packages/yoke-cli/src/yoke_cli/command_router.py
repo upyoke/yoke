@@ -175,6 +175,20 @@ def _extract_global_env(argv: List[str]) -> tuple[List[str], Optional[str], bool
     return out, selected, True
 
 
+def _print_leaf_summary(route: Sequence[str], remaining: Sequence[str]) -> None:
+    """Open a leaf command's ``--help`` page with its one-line summary."""
+    options = list(remaining)
+    before = options[: options.index("--")] if "--" in options else options
+    if not any(token in ("-h", "--help") for token in before):
+        return
+    from yoke_cli.commands.command_summaries import summary_for
+
+    summary = summary_for(tuple(route))
+    if summary:
+        print(summary)
+        print()
+
+
 def route_command(argv: List[str]) -> int:
     """Run one registry-routed ``yoke`` invocation. Returns the exit code."""
     argv, global_env, env_ok = _extract_global_env(argv)
@@ -197,12 +211,14 @@ def route_command(argv: List[str]) -> int:
     if argv[0] in ("-V", "--version", "version"):
         return _emit_version()
 
+    group_help_printed = False
     if argv[-1] in ("-h", "--help", "help"):
         from yoke_cli.commands.command_tree import command_routes
         from yoke_cli.commands.group_help import can_route_group
 
         prefix = tuple(argv[:-1])
         if can_route_group(prefix):
+            group_help_printed = True
             group_result = emit_group_help_if_available(argv)
             if prefix not in command_routes():
                 return group_result if group_result is not None else 0
@@ -210,7 +226,7 @@ def route_command(argv: List[str]) -> int:
 
     _function_id = None
     try:
-        _cli_tokens, _function_id, adapter, remaining = resolve(argv)
+        route_tokens, _function_id, adapter, remaining = resolve(argv)
     except KeyError:
         # Tool-shaped commands (git hook bodies, QA case/substrate tools,
         # the client-local installer/onboarding flows) carry no function
@@ -221,11 +237,15 @@ def route_command(argv: List[str]) -> int:
         tool_shaped = resolve_tool_shaped(argv)
         if tool_shaped is not None:
             adapter, remaining = tool_shaped
+            route_tokens = tuple(argv[: len(argv) - len(remaining)])
         else:
             group_help = emit_group_help_if_available(argv)
             if group_help is not None:
                 return group_help
             return _emit_unknown(argv, explicit_env=global_env)
+
+    if not group_help_printed:
+        _print_leaf_summary(route_tokens, remaining)
 
     old_env = os.environ.get(ENV_OVERRIDE)
     try:

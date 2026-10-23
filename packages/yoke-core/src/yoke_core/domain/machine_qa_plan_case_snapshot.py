@@ -65,3 +65,47 @@ def normalized_result(
         "host_baseline": case.get("host_baseline"),
         **result,
     }
+
+
+def assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_case_execution_context import (
+        get_case_execution_context,
+    )
+    from yoke_core.domain.qa_plan_case_currency import require_current_requirement
+    from yoke_core.domain.qa_plan_execution_store import canonical, marker
+
+    requirement_id = int(case["requirement_id"])
+    # An amendment that landed after the roster froze is named here rather
+    # than surfacing as an anonymous snapshot change.
+    require_current_requirement(conn, requirement_id)
+    # A waiver changes no definition: the frozen case still runs and records
+    # beside the waiver, which keeps governing the gate.
+    current = get_case_execution_context(
+        conn, requirement_id=requirement_id, include_waived=True
+    )
+    row = query_one(
+        conn,
+        "SELECT case_position,baseline_position FROM qa_requirements "
+        f"WHERE id={marker(conn)}",
+        (requirement_id,),
+    )
+    if row is None:
+        raise ValueError("ordered plan requirement no longer exists")
+    current["case_position"], current["baseline_position"] = case_positions(case, row)
+    stored = {key: value for key, value in case.items() if key != "ordinal"}
+    if current.get("deployment_run_id") != stored.get("deployment_run_id"):
+        from yoke_core.domain.deployment_qa_takeover_identity import inherited_target
+
+        target = stored.get("execution_target") or {}
+        if current.get("execution_target_digest") == stored.get(
+            "execution_target_digest"
+        ) and inherited_target(
+            conn, str(current.get("deployment_run_id") or ""), target
+        ):
+            current["deployment_run_id"] = stored.get("deployment_run_id")
+    # The checkout source follows the current owning run, not the admission.
+    current.pop("deployment_source_revision", None)
+    stored.pop("deployment_source_revision", None)
+    if canonical(current) != canonical(stored):
+        raise ValueError("ordered plan case snapshot changed during execution")

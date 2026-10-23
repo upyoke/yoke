@@ -35,7 +35,7 @@ those differences are healthy and do not repoint a row.
 
 ```text
 yoke qa plan rematerialize --item PREFIX-N --transition STAGE
-yoke qa plan rematerialize --deployment-run-id RUN --stage STAGE [--member PREFIX-N]
+yoke qa plan rematerialize --item PREFIX-N --stage STAGE
 ```
 
 The operation refreshes matching live rows in place, preserves QA run history,

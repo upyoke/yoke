@@ -102,19 +102,43 @@ function grantsCell(documentNode, actor, roster) {
   return cell;
 }
 
+function utcMinute(instant) {
+  const iso = new Date(instant).toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+// The newest use across an actor's keys, as "<UTC minute> · <machine>".
+function latestKeyUse(tokens) {
+  const used = tokens.filter((token) => token.last_used_at && !Number.isNaN(Date.parse(token.last_used_at)));
+  if (!used.length) return "Never used";
+  const latest = used.reduce((best, token) => (
+    Date.parse(token.last_used_at) > Date.parse(best.last_used_at) ? token : best));
+  const machine = latest.machine_id ? ` · ${latest.machine_name || latest.machine_id}` : "";
+  return `Last used ${utcMinute(latest.last_used_at)}${machine}`;
+}
+
+// A key count and its newest use lead the cell; every key line sits behind
+// the disclosure, so a person with many keys keeps a short row.
 function keysCell(documentNode, actor) {
   const cell = el(documentNode, "td", "actors-keys");
-  if (!actor.tokens?.length) {
+  const tokens = actor.tokens || [];
+  if (!tokens.length) {
     cell.appendChild(el(documentNode, "span", "actors-muted", "No active keys"));
     return cell;
   }
-  for (const token of actor.tokens) {
+  const disclosure = el(documentNode, "details", "actors-keys-disclosure");
+  const summary = el(documentNode, "summary", "actors-keys-summary");
+  summary.appendChild(el(documentNode, "b", null, `${tokens.length} ${tokens.length === 1 ? "key" : "keys"}`));
+  summary.appendChild(el(documentNode, "span", "actors-keys-latest", latestKeyUse(tokens)));
+  disclosure.appendChild(summary);
+  for (const token of tokens) {
     const machine = token.machine_id ? ` · machine ${token.machine_name || token.machine_id}` : "";
-    cell.appendChild(el(
+    disclosure.appendChild(el(
       documentNode, "div", "actors-key",
       `${token.name} (#${token.token_id}) · last used ${token.last_used_at || "never"}${machine}`,
     ));
   }
+  cell.appendChild(disclosure);
   return cell;
 }
 

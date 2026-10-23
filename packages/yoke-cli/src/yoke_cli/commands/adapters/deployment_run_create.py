@@ -80,49 +80,60 @@ DEPLOYMENT_RUNS_CREATE_USAGE = (
 def deployment_runs_create(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs create",
+        usage=DEPLOYMENT_RUNS_CREATE_USAGE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=CREATE_DESCRIPTION,
         epilog="Environment release recipe: yoke deployment-runs resolve-target --help",
     )
-    parser.add_argument("project")
-    parser.add_argument("flow")
+    parser.add_argument("project", metavar="PROJECT", help="Project to deploy.")
+    parser.add_argument("flow", metavar="FLOW", help="Deployment flow to run.")
     parser.add_argument(
         "--idempotency-key",
         required=True,
+        metavar="KEY",
         help=(
-            "Stable name for the one run this invocation intends. Repeating "
-            "the identical request with the same key returns that run "
-            "instead of minting another; a new, intentional deployment "
-            "takes a new key."
+            "Name for the one run you mean to create. Sending the same "
+            "request with the same key again returns that run instead of "
+            "creating another; a new deployment needs a new key."
         ),
     )
-    parser.add_argument("--environment", dest="environment", default=None)
-    parser.add_argument("--created-by", dest="created_by", default="operator")
+    parser.add_argument(
+        "--environment",
+        dest="environment",
+        default=None,
+        metavar="ENV",
+        help="Registered environment to deploy to; default: the flow's environment.",
+    )
+    parser.add_argument(
+        "--created-by",
+        dest="created_by",
+        default="operator",
+        metavar="WHO",
+        help="Who created the run; default: operator.",
+    )
     parser.add_argument(
         "--project-repo-path",
         default=None,
-        help=(
-            "Git top-level used to bind release_lineage mechanically from "
-            "the selected remote source ref."
-        ),
+        metavar="PATH",
+        help="Top folder of a git checkout of the project; needs --source-ref.",
     )
     parser.add_argument(
         "--source-ref",
         default=None,
+        metavar="REF",
         help=(
-            "Commit-ish to bind, resolved in --project-repo-path. Omit both "
-            "to bind the gate branch tip on a CI-gated flow, dispatching "
-            "its CI workflow if the tip has no run. Failed or cancelled "
-            "tip CI refuses; fix the branch or name a passing source."
+            "Commit, branch or tag to release, looked up in "
+            "--project-repo-path. Omit both on a flow that waits for CI to "
+            "release the gate branch tip; if the tip has no CI run, its CI "
+            "workflow is started. Failed or cancelled CI on the tip refuses: "
+            "fix the branch or name a commit whose CI passed."
         ),
     )
     parser.add_argument(
         "--retry-of",
         default=None,
-        help=(
-            "Reuse the immutable release lineage pinned on a failed or "
-            "cancelled deployment run."
-        ),
+        metavar="RUN-ID",
+        help="Release the same commits as this failed or cancelled run.",
     )
     artifact_group = parser.add_mutually_exclusive_group()
     add_text_file_pair(
@@ -130,13 +141,15 @@ def deployment_runs_create(args: List[str]) -> int:
         "--artifact-json",
         "--artifact-file",
         dest="artifact_identity",
+        help_text="Identity of the build artifact to deploy, as JSON.",
+        file_help="Read the artifact identity JSON from a file.",
     )
     parser.add_argument(
         "--allow-pin-regression",
         action="store_true",
         help=(
-            "Deploy even when the source ref carries an older version pin "
-            "than the target environment currently runs."
+            "Deploy even when the source pins an older version than the "
+            "target environment runs now."
         ),
     )
     add_session_arg(parser)

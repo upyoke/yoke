@@ -63,7 +63,9 @@ def _print_applied(stdout, row: Dict[str, Any], from_version: Any) -> None:
 
 def workflows_canon_status_list(args: List[str]) -> int:
     parser = _parser("yoke workflows canon-status list", CANON_STATUS_LIST_DESCRIPTION)
-    parser.add_argument("--pending", action="store_true")
+    parser.add_argument(
+        "--pending", action="store_true", help="Only workflows with an update waiting."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_STATUS_LIST_USAGE)
@@ -83,7 +85,7 @@ def workflows_canon_status_list(args: List[str]) -> int:
 
 def workflows_canon_update_preview(args: List[str]) -> int:
     parser = _parser("yoke workflows canon-update preview", PREVIEW_DESCRIPTION)
-    parser.add_argument("workflow")
+    parser.add_argument("workflow", help="Workflow to preview.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_PREVIEW_USAGE)
@@ -109,8 +111,13 @@ def workflows_canon_update_preview(args: List[str]) -> int:
 
 def workflows_canon_update_apply(args: List[str]) -> int:
     parser = _parser("yoke workflows canon-update apply", APPLY_DESCRIPTION)
-    parser.add_argument("workflow")
-    parser.add_argument("--expected-current-version", type=int, required=True)
+    parser.add_argument("workflow", help="Workflow to update.")
+    parser.add_argument(
+        "--expected-current-version",
+        type=int,
+        required=True,
+        help="Version you previewed; refuses if it changed.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_APPLY_USAGE)
@@ -153,7 +160,12 @@ def _apply_all_entries(raw: List[str]) -> List[Dict[str, Any]] | str:
 
 def workflows_canon_update_apply_all(args: List[str]) -> int:
     parser = _parser("yoke workflows canon-update apply-all", APPLY_ALL_DESCRIPTION)
-    parser.add_argument("entries", nargs="+", metavar="WORKFLOW=VERSION")
+    parser.add_argument(
+        "entries",
+        nargs="+",
+        metavar="WORKFLOW=VERSION",
+        help="Workflow and its expected current version; repeatable.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_UPDATE_APPLY_ALL_USAGE)
@@ -204,8 +216,10 @@ def workflows_canon_update_apply_all(args: List[str]) -> int:
 
 def workflows_canon_follow_set(args: List[str]) -> int:
     parser = _parser("yoke workflows canon-follow set", FOLLOW_DESCRIPTION)
-    parser.add_argument("workflow")
-    parser.add_argument("follow", choices=("auto", "manual"))
+    parser.add_argument("workflow", help="Workflow to set.")
+    parser.add_argument(
+        "follow", choices=("auto", "manual"), help="Apply updates automatically or not."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, WORKFLOWS_CANON_FOLLOW_SET_USAGE)

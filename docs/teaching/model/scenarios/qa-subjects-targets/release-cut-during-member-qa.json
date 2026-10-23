@@ -1,0 +1,14 @@
+{
+ "id": "release-cut-during-member-qa",
+ "title": "Cut a release while member QA walks",
+ "status": "observed",
+ "audience": "both",
+ "when": "Member QA is walking and a newer candidate on the same flow and target is ready.",
+ "need": "Cut the superseding release while the walk runs. Takeover moves each live execution with its leases and host turns, and the owner continues the same execution ID.",
+ "disclosure": "current cue",
+ "surface": "Release-batch create, the member-owner role, and the delivery rules",
+ "review": "The deployed takeover keeps the live execution; this lesson records that action.",
+ "topics": ["deployments/recovery/run-takeover"],
+ "sources": ["docs/public/deployments/model/run-members.md", "docs/public/agents/rules/delivery.md", "docs/public/agents/rules/release-roles.md", ".agents/skills/yoke/steer/release-batches.md"],
+ "position": 6
+}

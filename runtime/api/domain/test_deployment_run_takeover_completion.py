@@ -181,3 +181,163 @@ def test_a_refused_succeeded_gate_refuses_the_takeover_and_changes_nothing(
         takeover_case.PASSED,
         takeover_case.WAITING,
     }
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_run_qa_wait_transfers_failed_requirement_and_cursor_without_rewriting(
+    test_db, monkeypatch, apply
+):
+    from yoke_core.domain.qa_plan_execution_store import roster_digest
+
+    cases = takeover_case._seed_old(test_db, run_qa=True)
+    requirement = takeover_case._memberless_copy(
+        test_db, cases[takeover_case.WAITING], stage=takeover_case.RUN_QA_STAGE
+    )
+    takeover_case.record_case_verdict(test_db, requirement, "fail", evidence=True)
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (takeover_case.RUN_QA_STAGE, takeover_case.OLD),
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
+        "actor_id,session_id,roster_digest,roster_json,cursor_ordinal,state,"
+        "created_at,heartbeat_at) VALUES ('retained-cursor',%s,%s,'1',%s,%s,"
+        "'[]',0,'waiting',now()-interval '6 hours',now())",
+        (
+            takeover_case.OLD,
+            takeover_case.RUN_QA_STAGE,
+            DRIVER_SESSION,
+            roster_digest([]),
+        ),
+    )
+    takeover_case._seed_new(test_db)
+    takeover_case._contains(monkeypatch)
+    before = dict(
+        test_db.execute(
+            "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+        ).fetchone()
+    )
+    assert (
+        take_over_waiting_run(
+            test_db, takeover_case.NEW, session_id=DRIVER_SESSION, apply=apply
+        )
+        == takeover_case.OLD
+    )
+    after = dict(
+        test_db.execute(
+            "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+        ).fetchone()
+    )
+    assert after == {**before, "deployment_run_id": takeover_case.NEW}
+    assert test_db.execute(
+        "SELECT deployment_run_id,retracted_at FROM qa_requirements WHERE id=%s",
+        (requirement,),
+    ).fetchone() == (takeover_case.NEW, None)
+    assert (
+        test_db.execute(
+            "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s", (requirement,)
+        ).fetchone()[0]
+        == "fail"
+    )
+    test_db.rollback()
+    assert (
+        dict(
+            test_db.execute(
+                "SELECT * FROM qa_plan_executions WHERE id='retained-cursor'"
+            ).fetchone()
+        )
+        == before
+    )
+    assert takeover_case._members(test_db, takeover_case.OLD) == {
+        takeover_case.PASSED,
+        takeover_case.WAITING,
+    }
+    assert takeover_case._members(test_db, takeover_case.NEW) == set()
+
+
+def test_failed_successor_keeps_obligations_for_another_takeover(test_db, monkeypatch):
+    from yoke_core.domain.deployment_qa_execution_target import (
+        validate_deployment_execution_target,
+    )
+    from yoke_core.domain.deployment_run_terminalization import terminalize_run_on
+    from yoke_core.domain.qa_plan_execution_store import roster_digest
+
+    cases = takeover_case._seed_old(test_db, run_qa=True)
+    requirement = takeover_case._memberless_copy(
+        test_db, cases[takeover_case.WAITING], stage=takeover_case.RUN_QA_STAGE
+    )
+    takeover_case.record_case_verdict(test_db, requirement, "fail", evidence=True)
+    test_db.execute(
+        "INSERT INTO qa_plan_executions(id,deployment_run_id,deployment_stage,"
+        "actor_id,session_id,roster_digest,roster_json,cursor_ordinal,state,"
+        "execution_target_json,execution_target_digest,created_at,heartbeat_at) "
+        "SELECT 'carried-cursor',deployment_run_id,deployment_stage,'1',%s,%s,"
+        "'[]',0,'waiting',execution_target_json,execution_target_digest,now(),now() "
+        "FROM qa_requirements WHERE id=%s",
+        (DRIVER_SESSION, roster_digest([]), requirement),
+    )
+    takeover_case._seed_new(test_db)
+    takeover_case._contains(monkeypatch)
+    assert takeover_case._take_over(test_db) == takeover_case.OLD
+    target = json.loads(
+        test_db.execute(
+            "SELECT execution_target_json FROM qa_requirements WHERE id=%s",
+            (cases[takeover_case.WAITING],),
+        ).fetchone()[0]
+    )
+    subject = {
+        "deployment_run_id": takeover_case.NEW,
+        "deployment_stage": takeover_case.ITEM_QA_STAGE,
+        "deployment_member_item_id": takeover_case.WAITING,
+        "execution_target": target,
+    }
+    validate_deployment_execution_target(test_db, subject)
+    test_db.execute(
+        "UPDATE deployment_runs SET status='executing' WHERE id=%s",
+        (takeover_case.NEW,),
+    )
+    terminalize_run_on(
+        test_db,
+        takeover_case.NEW,
+        disposition="failed",
+        reason="deployment failed",
+        actor_id=1,
+        session_id=DRIVER_SESSION,
+    )
+    test_db.commit()
+    validate_deployment_execution_target(test_db, subject)
+    assert (
+        test_db.execute(
+            "SELECT state FROM qa_plan_executions WHERE id='carried-cursor'"
+        ).fetchone()[0]
+        == "waiting"
+    )
+    assert (
+        test_db.execute(
+            "SELECT retracted_at FROM qa_requirements WHERE id=%s", (requirement,)
+        ).fetchone()[0]
+        is None
+    )
+    third = "run-takeover-recovery"
+    test_db.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,target_tier,target_environment_id,"
+        "release_lineage,status,created_at) SELECT %s,project_id,flow,target_tier,"
+        "target_environment_id,%s,'created',created_at FROM deployment_runs WHERE id=%s",
+        (third, "d" * 40, takeover_case.NEW),
+    )
+    assert (
+        take_over_waiting_run(test_db, third, session_id=DRIVER_SESSION)
+        == takeover_case.NEW
+    )
+    assert takeover_case._run(test_db, takeover_case.NEW)["status"] == "failed"
+    validate_deployment_execution_target(
+        test_db, {**subject, "deployment_run_id": third}
+    )
+    assert test_db.execute(
+        "SELECT deployment_run_id,state FROM qa_plan_executions WHERE id='carried-cursor'"
+    ).fetchone() == (third, "waiting")
+    assert test_db.execute(
+        "SELECT deployment_run_id,retracted_at FROM qa_requirements WHERE id=%s",
+        (requirement,),
+    ).fetchone() == (third, None)
+    test_db.rollback()

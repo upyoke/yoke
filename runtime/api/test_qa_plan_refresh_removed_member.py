@@ -138,14 +138,16 @@ def test_item_plan_filter_is_refused_before_lookup():
 
 
 def test_removed_private_member_has_no_refresh_recipe(test_db):
-    _seed(test_db)
+    plan = _seed(test_db)
     row = {
         "id": 0,
+        "plan_id": plan,
         "deployment_run_id": RUN,
         "deployment_stage": "item-qa",
         "deployment_member_item_id": MEMBERS[0],
     }
-    assert "--member" in refresh_invocation(test_db, row)
+    assert f"--item YOK-{MEMBERS[0]} --stage item-qa" in refresh_invocation(test_db, row)
+    assert f"--plan {plan}" in refresh_invocation(test_db, row)
     test_db.execute(
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
         (RUN, MEMBERS[0]),
@@ -164,6 +166,6 @@ def test_shared_recipe_selects_remaining_member(test_db):
         "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
         (RUN, MEMBERS[0]),
     )
-    assert f"--member YOK-{MEMBERS[1]}" in refresh_invocation(test_db, row)
+    assert f"--item YOK-{MEMBERS[1]} --stage item-qa" in refresh_invocation(test_db, row)
     test_db.execute("DELETE FROM deployment_run_items WHERE run_id=%s", (RUN,))
     assert refresh_invocation(test_db, row) == ""

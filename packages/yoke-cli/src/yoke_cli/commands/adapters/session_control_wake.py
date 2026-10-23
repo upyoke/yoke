@@ -18,8 +18,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSION_WAKE_USAGE = (
-    "yoke session-control session wake (SESSION-ID | --item ITEM) "
-    "[--prompt TEXT] [--idempotency-key KEY] [--json]"
+    "yoke session-control session wake (SESSION-ID | --item PREFIX-N) "
+    "[--prompt TEXT] [--idempotency-key KEY] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -51,47 +51,52 @@ def session_wake(args: List[str]) -> int:
         prog="yoke session-control session wake",
         usage=SESSION_WAKE_USAGE,
         description=(
-            "Request one stopped-session native resume through the ordinary "
-            "message relay, regardless of the target's liveness label. A "
-            "desktop target is refused: Yoke never resumes the window a "
-            "person is reading, because that forks their transcript. Send "
-            "the message instead — `yoke say --session SESSION-ID --stdin` "
-            "— and it is delivered by hook injection the moment that "
-            "operator types anything in the chat.\n\n"
-            "A wake already moving refuses this one as `wake_in_flight`, "
-            "naming the receipt and when to retry. A wake the plane was "
-            "owed and never attempted is not moving: after the acknowledgement "
-            "grace period, it stops blocking a new wake. Its message remains "
-            "pending: this command never cancels another message's unread "
-            "content. Idempotent retries reuse only uncancelled receipts. A "
-            "session whose pinned model would spend a published meter "
-            "that is already at zero, while the provider's paid extra "
-            "usage is disabled, capped or unfunded, is refused as "
-            "`meter_exhausted`, naming the meter, remaining quota, reset "
-            "time, the extra-usage facts, and that recovery is a relaunch "
-            "on a surface with headroom or turning on or funding extra "
-            "usage; the wake is not dispatched. Extra usage that is "
-            "available, unknown or stale does not refuse the wake."
+            "Resume one stopped session by sending it a resume message through "
+            "the normal message relay, whatever its liveness label says. A "
+            "desktop session is refused: Yoke never resumes a window a person "
+            "is reading, because that splits their transcript. Send a message "
+            "instead with `yoke say --session SESSION-ID --stdin`; it arrives "
+            "the next time that person types in the chat.\n\n"
+            "A wake already in progress refuses this one as `wake_in_flight`, "
+            "naming its receipt and when to retry. A wake that was due but "
+            "never attempted stops blocking a new wake after the "
+            "acknowledgement grace period; its message stays pending, because "
+            "this command never cancels another message.\n\n"
+            "Refused as `meter_exhausted` when the session's model would spend "
+            "a usage meter already at zero and the provider's paid extra usage "
+            "is off, capped or unfunded. The refusal names the meter, the "
+            "remaining quota, the reset time and the extra-usage facts. To "
+            "recover, relaunch on a surface with headroom, or turn on or fund "
+            "extra usage. Extra usage that is available, unknown or stale does "
+            "not refuse the wake."
         ),
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")
+    parser.add_argument(
+        "target_session_id",
+        metavar="SESSION-ID",
+        nargs="?",
+        help="Session to wake; or use --item.",
+    )
     parser.add_argument(
         "--item",
         default=None,
-        help="Wake the item's current work-claim holder.",
+        metavar="PREFIX-N",
+        help="Wake the session that holds this item's work claim.",
     )
     parser.add_argument(
         "--prompt",
         default=None,
-        help=(
-            "Prompt delivered by the pending-message envelope; defaults to the "
-            "standard pending-message resume prompt."
-        ),
+        metavar="TEXT",
+        help="Prompt the resumed session receives; default: the standard resume prompt.",
     )
     parser.add_argument(
         "--idempotency-key",
         default=None,
-        help="Reuse the uncancelled receipt; retry a cancelled intent with a fresh message.",
+        metavar="KEY",
+        help=(
+            "Retry key: a repeat with the same key reuses the earlier receipt "
+            "unless it was cancelled, in which case a fresh message is sent."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)

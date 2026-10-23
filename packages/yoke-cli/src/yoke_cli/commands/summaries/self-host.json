@@ -1,0 +1,7 @@
+{
+  "self-host": "Install and manage a self-hosted Yoke server.",
+  "self-host import": "Restore a universe archive into a self-host bundle.",
+  "self-host init": "Write a self-host server bundle to a folder.",
+  "self-host teardown": "Stop and remove a self-host server.",
+  "self-host upgrade": "Upgrade the CLI and self-host server together."
+}

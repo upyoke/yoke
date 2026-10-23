@@ -59,8 +59,14 @@ def epic_dispatch_chain_get(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain get",
         description="Read one pipe row and its in-flight head's resume diagnostic; task acquire is the final gate.",
     )
-    parser.add_argument("--epic", required=True)
-    parser.add_argument("--worktree", required=True)
+    parser.add_argument(
+        "--epic",
+        required=True,
+        help="Epic item that owns the dispatch chain, as PREFIX-N.",
+    )
+    parser.add_argument(
+        "--worktree", required=True, help="Worktree name of the dispatch chain (lane)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_GET_USAGE)
@@ -86,7 +92,11 @@ def epic_dispatch_chain_list(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain list",
         description="List pipe rows and in-flight head resume diagnostics; task acquire is the final gate.",
     )
-    parser.add_argument("--epic", required=True)
+    parser.add_argument(
+        "--epic",
+        required=True,
+        help="Epic item that owns the dispatch chain, as PREFIX-N.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_DISPATCH_CHAIN_LIST_USAGE)
@@ -113,9 +123,19 @@ def epic_dispatch_chain_update(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain update",
         description="Update one whitelisted epic_dispatch_chains field.",
     )
-    parser.add_argument("--epic", required=True)
-    parser.add_argument("--worktree", required=True)
-    parser.add_argument("--field", required=True)
+    parser.add_argument(
+        "--epic",
+        required=True,
+        help="Epic item that owns the dispatch chain, as PREFIX-N.",
+    )
+    parser.add_argument(
+        "--worktree", required=True, help="Worktree name of the dispatch chain (lane)."
+    )
+    parser.add_argument(
+        "--field",
+        required=True,
+        help="Chain field to set; only allowed fields are accepted.",
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(group, "--value", "--value-file", dest="value")
     group.add_argument("--stdin", action="store_true", help="Read value.")
@@ -160,9 +180,17 @@ def epic_dispatch_chain_refresh_activation(args: List[str]) -> int:
         prog="yoke workflow-item epic-dispatch-chain refresh-activation",
         description="Refresh current task, attempt, and timestamp on activation.",
     )
-    parser.add_argument("--epic", required=True)
-    parser.add_argument("--worktree", required=True)
-    parser.add_argument("--task-num", type=int, required=True)
+    parser.add_argument(
+        "--epic",
+        required=True,
+        help="Epic item that owns the dispatch chain, as PREFIX-N.",
+    )
+    parser.add_argument(
+        "--worktree", required=True, help="Worktree name of the dispatch chain (lane)."
+    )
+    parser.add_argument(
+        "--task-num", type=int, required=True, help="Task number that is now active."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -196,8 +224,14 @@ def epic_dispatch_chain_advance(args: List[str]) -> int:
             "chain_complete with the recovery."
         ),
     )
-    parser.add_argument("--epic", required=True)
-    parser.add_argument("--worktree", required=True)
+    parser.add_argument(
+        "--epic",
+        required=True,
+        help="Epic item that owns the dispatch chain, as PREFIX-N.",
+    )
+    parser.add_argument(
+        "--worktree", required=True, help="Worktree name of the dispatch chain (lane)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

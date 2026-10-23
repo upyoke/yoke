@@ -124,7 +124,7 @@ def _detail(
         function="test_machine.get",
         version="v1",
         result={
-            "machine": "test-mac",
+            "test_machine": "test-mac",
             "settings": {"host": HOST, "user": USER, "os": os_name},
             "active_lease": lease,
         },
@@ -188,7 +188,7 @@ def test_a_host_leased_by_another_session_is_refused(cli, capsys) -> None:
     err = capsys.readouterr().err
     assert "test_machine_leased" in err
     assert "session theirs for QA-1" in err
-    assert "`method_config.machine`" in err
+    assert "`method_config.test_machine`" in err
     assert cli.ran == []
 
 

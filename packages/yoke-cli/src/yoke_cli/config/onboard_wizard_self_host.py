@@ -197,7 +197,7 @@ def _goto_failure(
                 key="connect.failure",
                 step=STEP_CONNECT,
                 title="Self-host server setup needs attention.",
-                message=str(error),
+                message=f"{error.code}: {error}",
                 detail_lines=tuple(details),
                 choices=tuple(rows),
                 tone=TONE_ERROR,

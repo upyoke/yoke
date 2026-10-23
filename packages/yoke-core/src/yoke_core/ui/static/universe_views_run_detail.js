@@ -203,7 +203,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     ]);
     try {
       activity = await callFunction(context.client, "qa.activity.list", {
-        project: String(project.id), deployment_run_id: String(runId), limit: 100,
+        project: String(project.id), deployment_run_id: String(runId), limit: 100, detail: "full",
       });
     } catch (error) {
       activity = { status: 0, envelope: { success: false, error: { message: String(error) } } };

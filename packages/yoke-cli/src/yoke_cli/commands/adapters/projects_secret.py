@@ -46,12 +46,33 @@ def projects_capability_secret_set(args: List[str]) -> int:
             "without printing it."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--cap-type", dest="cap_type", required=True)
-    parser.add_argument("--key", required=True)
-    parser.add_argument("value", nargs="?")
-    parser.add_argument("--value-file", dest="value_file", default=None)
-    parser.add_argument("--value-stdin", dest="value_stdin", action="store_true")
+    parser.add_argument(
+        "--project", required=True, help="Project that owns the capability."
+    )
+    parser.add_argument(
+        "--cap-type",
+        dest="cap_type",
+        required=True,
+        help="Capability type the secret belongs to, such as aws-admin.",
+    )
+    parser.add_argument(
+        "--key", required=True, help="Name of the secret within the capability."
+    )
+    parser.add_argument(
+        "value", nargs="?", help="Secret value; or use --value-file or --value-stdin."
+    )
+    parser.add_argument(
+        "--value-file",
+        dest="value_file",
+        default=None,
+        help="Read the secret value from this file.",
+    )
+    parser.add_argument(
+        "--value-stdin",
+        dest="value_stdin",
+        action="store_true",
+        help="Read the secret value from standard input.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

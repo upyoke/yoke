@@ -104,7 +104,9 @@ def test_case_cli_uses_plan_review_and_exit_semantics(monkeypatch, state, code):
     qualify = Mock()
     monkeypatch.setattr(plan_cli, "_qualify_review_dispatch", qualify)
     assert cli.run(["--requirement-id", "51"]) == code
-    assert qualify.call_count == (1 if state in {"walking", "awaiting_walk_review"} else 0)
+    assert qualify.call_count == (
+        1 if state in {"walking", "awaiting_walk_review"} else 0
+    )
 
 
 def test_review_wake_resumes_the_frozen_execution_instead_of_the_whole_scope(test_db):
@@ -141,7 +143,7 @@ def test_host_wait_resumes_the_frozen_execution(monkeypatch):
     actual = turns._resume_command(
         Mock(), {"qa_plan_execution_id": "selected-execution"}
     )
-    assert actual == command + " --resume-execution-id selected-execution"
+    assert actual == "yoke qa plan run --resume-execution-id selected-execution"
 
 
 def test_standalone_subject_cannot_silently_ignore_a_case_selector(test_db):

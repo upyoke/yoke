@@ -68,27 +68,35 @@ __all__ = [
 
 CLAIM_WORK_ACQUIRE_USAGE = (
     "yoke claims work acquire (--item PREFIX-N | --epic PREFIX-N --task-num N | "
-    "--process KEY) [--reason TEXT] [--session-id S] [--json]"
+    "--process KEY) [--project P] [--reason TEXT] [--session-id S] [--json]"
 )
 
 
 def claims_work_acquire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims work acquire",
-        description=CLAIM_WORK_ACQUIRE_USAGE,
+        usage=CLAIM_WORK_ACQUIRE_USAGE,
     )
-    parser.add_argument("--item", default=None, help="Item id (PREFIX-N).")
+    parser.add_argument("--item", metavar="PREFIX-N", help="Item to claim.")
     parser.add_argument(
-        "--epic", default=None, help="Parent epic id for an epic-task claim."
-    )
-    parser.add_argument("--task-num", default=None, help="Task number within the epic.")
-    parser.add_argument(
-        "--process", default=None, help="Process key for a process claim."
+        "--epic", metavar="PREFIX-N", help="Epic whose task to claim (with --task-num)."
     )
     parser.add_argument(
-        "--project", default=None, help="Project scope for the operation."
+        "--task-num", metavar="N", help="Task number within the epic."
     )
-    parser.add_argument("--reason", default=None, help="Optional intent / rationale.")
+    parser.add_argument(
+        "--process",
+        metavar="KEY",
+        help="Process to claim, such as STRATEGIZE, FEED or DOCTOR.",
+    )
+    parser.add_argument(
+        "--project",
+        metavar="P",
+        help="Project for the claim (default: this checkout's project).",
+    )
+    parser.add_argument(
+        "--reason", metavar="TEXT", help="Optional note on why you claim it."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_WORK_ACQUIRE_USAGE)
@@ -143,19 +151,20 @@ def claims_work_acquire(args: List[str]) -> int:
     )
 
 
-CLAIM_WORK_RELEASE_USAGE = (
+_CLAIM_WORK_RELEASE_SYNOPSIS = (
     "yoke claims work release "
     "(--claim-id N | --item PREFIX-N | --epic PREFIX-N --task-num N | "
     "--process KEY | --all-mine) "
-    "[--reason TEXT] [--session-id S] [--json]\n"
-    "  --epic + --task-num release the calling session's active "
-    "epic_task claim on (epic_id, task_num).\n"
-    "  --process KEY releases this session's active process claim "
-    "(STRATEGIZE, FEED, DOCTOR).\n"
-    "  --all-mine releases every active liveness-bound claim this session "
-    "holds, without ending the session; sticky resource claims survive.\n"
-    "  --claim-id on a QA_HOST:<machine> claim reserves the host for the "
-    "oldest live waiter in its line and wakes that session."
+    "[--project P] [--reason TEXT] [--session-id S] [--json]"
+)
+_CLAIM_WORK_RELEASE_NOTES = (
+    "Pick exactly one claim to release. Every choice except --all-mine\n"
+    "needs --reason.\n"
+    "Releasing a QA_HOST:<machine> claim by --claim-id hands the host to\n"
+    "the session that has waited longest for it and wakes that session."
+)
+CLAIM_WORK_RELEASE_USAGE = (
+    f"{_CLAIM_WORK_RELEASE_SYNOPSIS}\n{_CLAIM_WORK_RELEASE_NOTES}"
 )
 
 _SELECTOR_ERR = (
@@ -167,44 +176,44 @@ _SELECTOR_ERR = (
 def claims_work_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims work release",
-        description=CLAIM_WORK_RELEASE_USAGE,
-    )
-    parser.add_argument("--claim-id", default=None, help="work_claims.id to release.")
-    parser.add_argument(
-        "--item", default=None, help="Release this session's active claim on the item."
+        usage=_CLAIM_WORK_RELEASE_SYNOPSIS,
+        epilog=_CLAIM_WORK_RELEASE_NOTES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--epic", default=None, help="Parent epic id (pair with --task-num)."
+        "--claim-id", metavar="N", help="The claim's id."
     )
     parser.add_argument(
-        "--task-num",
-        default=None,
-        help="Task number within the epic (pair with --epic).",
+        "--item", metavar="PREFIX-N", help="Release this session's claim on the item."
+    )
+    parser.add_argument(
+        "--epic",
+        metavar="PREFIX-N",
+        help="Release this session's claim on an epic task (with --task-num).",
+    )
+    parser.add_argument(
+        "--task-num", metavar="N", help="Task number within the epic (with --epic)."
     )
     parser.add_argument(
         "--process",
-        default=None,
-        help="Process key for this session's process claim (STRATEGIZE, FEED, DOCTOR).",
+        metavar="KEY",
+        help="Release this session's claim on a process: STRATEGIZE, FEED or DOCTOR.",
     )
     parser.add_argument(
         "--project",
-        default=None,
-        help="Project scope for process or item queries.",
+        metavar="P",
+        help="Project of the item or process (default: this checkout's project).",
     )
     parser.add_argument(
         "--all-mine",
         action="store_true",
         help=(
-            "Release every active liveness-bound claim this session still "
-            "holds without ending the session; sticky resource claims survive "
-            "(canonical reason "
-            "'agent_handoff_session_scoped')."
+            "Release every claim that lasts only as long as this session, "
+            "without ending the session. Long-lived resource claims stay."
         ),
     )
     parser.add_argument(
-        "--reason",
-        default=None,
-        help=("Required with --claim-id, --item, --epic+--task-num, or --process."),
+        "--reason", metavar="TEXT", help="Why you release the claim."
     )
     add_session_arg(parser)
     add_json_arg(parser)

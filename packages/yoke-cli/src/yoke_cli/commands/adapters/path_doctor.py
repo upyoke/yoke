@@ -104,7 +104,9 @@ def path_check(args: List[str]) -> int:
         prog="yoke path check",
         description="Show actual and canonical Yoke paths for every supported shell context.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parser.parse_args(args)
     diag = doctor.diagnose()
     if parsed.json_mode:
@@ -122,8 +124,10 @@ def path_fix(args: List[str]) -> int:
         prog="yoke path fix",
         description="Repair only Yoke-owned blocks; remaining overrides need manual correction.",
     )
-    parser.add_argument("--yes", action="store_true")
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument("--yes", action="store_true", help="Apply without asking first.")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parser.parse_args(args)
     if not parsed.yes:
         print("Repair Yoke-owned PATH blocks in supported shell startup files.")
@@ -178,7 +182,9 @@ def path_verify(args: List[str]) -> int:
         prog="yoke path verify",
         description="Fail if any required shell context cannot resolve canonical Yoke.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parser.parse_args(args)
     diag = doctor.diagnose()
     if parsed.json_mode:

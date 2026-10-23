@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_verify as verify
@@ -66,7 +67,7 @@ def test_pruned_lane_reconstructs_the_same_receipt_head(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     recovery_calls: list[dict] = []
 
     def recover(**kwargs):
@@ -122,7 +123,7 @@ def test_released_only_history_still_recovers_from_the_receipt(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery, "reacquire_landed_claim", lambda **_k: (LANE, ""),
     )
@@ -160,7 +161,7 @@ def test_live_branch_does_not_enter_receipt_recovery(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: False)
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,
         "reacquire_landed_claim",

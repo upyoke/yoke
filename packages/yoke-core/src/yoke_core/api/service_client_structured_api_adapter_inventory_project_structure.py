@@ -25,18 +25,18 @@ PROJECT_STRUCTURE_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="project_structure.deploy_defaults.get",
-        cli_invocation="yoke project-structure deploy-defaults get --project NAME",
+        cli_invocation=('yoke project-structure deploy-defaults get --project NAME [--full] [--session-id S] [--json]'),
     ),
     _read_entry(
         function_id="project_structure.architecture_health.get",
         cli_invocation=(
-            "yoke project-structure architecture-health get --project NAME"
+            ('yoke project-structure architecture-health get --project NAME [--full] [--session-id S] [--json]')
         ),
     ),
     _read_entry(
         function_id="project_structure.architecture_draft.get",
         cli_invocation=(
-            "yoke project-structure architecture-draft get --project NAME"
+            ('yoke project-structure architecture-draft get --project NAME [--full] [--session-id S] [--json]')
         ),
     ),
 ]

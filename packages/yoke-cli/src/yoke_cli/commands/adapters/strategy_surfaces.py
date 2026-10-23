@@ -40,7 +40,7 @@ def _global(
     payload: Callable[[argparse.Namespace], dict],
 ) -> int:
     usage = f"yoke {tokens} [--project P] [--json]"
-    parser = argparse.ArgumentParser(prog=f"yoke {tokens}", description=usage)
+    parser = argparse.ArgumentParser(prog=f"yoke {tokens}")
     if configure is not None:
         configure(parser)
     add_project_arg(parser)
@@ -72,7 +72,9 @@ def strategy_surface_get(args: List[str]) -> int:
     return _global(
         args,
         tokens="strategy surface get",
-        configure=lambda parser: parser.add_argument("slug"),
+        configure=lambda parser: parser.add_argument(
+            "slug", help="Strategy document slug."
+        ),
         function_id="strategy.surface.get",
         payload=lambda parsed: {"slug": parsed.slug},
     )
@@ -144,9 +146,9 @@ def _item(
     payload: Callable[[argparse.Namespace], dict] = lambda _parsed: {},
 ) -> int:
     usage = f"yoke {tokens} ITEM [--project P] [--json]"
-    parser = argparse.ArgumentParser(prog=f"yoke {tokens}", description=usage)
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser = argparse.ArgumentParser(prog=f"yoke {tokens}")
+    parser.add_argument("item", metavar="ITEM", help="Item, as PREFIX-N.")
+    parser.add_argument("--project", metavar="P", help="Project that owns the item.")
     if configure is not None:
         configure(parser)
     add_session_arg(parser)
@@ -199,22 +201,28 @@ def strategy_claim_release(args: List[str]) -> int:
     ``claims.work.release`` so era closeout can run
     ``yoke strategy claim release STRATEGIZE`` without a claim id.
     """
-    usage = (
+    synopsis = (
         "yoke strategy claim release (ITEM | PROCESS_KEY) "
-        "[--reason TEXT] [--project P] [--json]\n"
-        "  ITEM releases the Blitz document claim on that item.\n"
-        "  PROCESS_KEY (STRATEGIZE, FEED, DOCTOR) releases this "
-        "session's process claim via claims.work.release.\n"
-        "  Equivalent process form: yoke claims work release "
+        "[--reason TEXT] [--project P] [--session-id S] [--json]"
+    )
+    epilog = (
+        "  ITEM (PREFIX-N) releases the Blitz document claim on that item.\n"
+        "  PROCESS_KEY (STRATEGIZE, FEED or DOCTOR) releases this session's "
+        "claim on that process,\n  the same as: yoke claims work release "
         "--process KEY --reason TEXT"
     )
+    usage = synopsis + "\n" + epilog
     parser = argparse.ArgumentParser(
         prog="yoke strategy claim release",
-        description=usage,
+        usage=synopsis,
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--reason")
+    parser.add_argument(
+        "item", metavar="ITEM|PROCESS_KEY", help="Item or process whose claim to release."
+    )
+    parser.add_argument("--project", metavar="P", help="Project of the item or process.")
+    parser.add_argument("--reason", metavar="TEXT", help="Why the claim is released.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -267,7 +275,9 @@ def strategy_claim_break_glass_release(args: List[str]) -> int:
         args,
         tokens="strategy claim break-glass-release",
         function_id="strategy.claim.break_glass_release",
-        configure=lambda parser: parser.add_argument("--reason", required=True),
+        configure=lambda parser: parser.add_argument(
+            "--reason", required=True, metavar="TEXT", help="Why the claim must be broken now."
+        ),
         payload=lambda parsed: {"reason": parsed.reason},
     )
 

@@ -158,6 +158,7 @@ def require_continuable_execution(
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
     session_id: str | None = None,
+    expected_execution_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the settled mission execution a continuation may resume.
 
@@ -183,6 +184,11 @@ def require_continuable_execution(
     if _failed_before_host(conn, prior):
         prior = select_plan_execution(
             conn, str(prior["continues_execution_id"]), lock=False
+        )
+    if expected_execution_id is not None and str(prior["id"]) != expected_execution_id:
+        raise QaPlanExecutionStateError(
+            "qa_continuation_source_changed: the latest eligible walk differs from "
+            "the requested execution; inspect its history before continuing"
         )
     state = str(prior["state"])
     reason = str(prior.get("release_reason") or "")
@@ -228,6 +234,7 @@ def resolve_continuation_source(
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
     session_id: str | None = None,
+    expected_execution_id: str | None = None,
 ) -> str:
     try:
         if live_execution_id is not None:
@@ -243,6 +250,7 @@ def resolve_continuation_source(
             deployment_stage=deployment_stage,
             deployment_member_item_id=deployment_member_item_id,
             session_id=session_id,
+            expected_execution_id=expected_execution_id,
         )
     except QaPlanExecutionStateError:
         conn.rollback()
@@ -252,34 +260,9 @@ def resolve_continuation_source(
 
 def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
     """Render the exact command that continues *execution*'s walk."""
-    if execution.get("item_id") is not None:
-        from yoke_core.domain.project_identity import render_item_ref
-
-        public_ref = render_item_ref(conn, int(execution["item_id"]))
-        subject = (
-            f"--item {public_ref} "
-            f"--transition {str(execution.get('transition_id') or '')}"
-        )
-    elif execution.get("standalone_plan_id") is not None:
-        subject = (
-            f"--plan {_plan_slug(conn, execution)} --project {_project_slug(execution)}"
-        )
-    else:
-        stage = str(execution.get("deployment_stage") or "")
-        member = execution.get("requesting_member_item_id") or execution.get(
-            "deployment_member_item_id"
-        )
-        scope = f" --stage {stage}" if stage else ""
-        if member is not None:
-            from yoke_core.domain.project_identity import render_item_ref
-
-            scope += f" --member {render_item_ref(conn, int(member))}"
-        plan = f" --plan {_plan_slug(conn, execution)}" if not stage else ""
-        subject = (
-            f"--deployment-run-id {str(execution.get('deployment_run_id') or '')}"
-            f"{plan} --project {_project_slug(execution)}{scope}"
-        )
-    return f"yoke qa plan run {subject} {CONTINUATION_FLAG}"
+    return (
+        f"yoke qa plan run --resume-execution-id {execution['id']} {CONTINUATION_FLAG}"
+    )
 
 
 def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:
@@ -307,27 +290,6 @@ def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:
         "skipping the host baseline, with: "
         f"{continuation_recipe(conn, execution)}"
     )
-
-
-def _plan_slug(conn: Any, execution: Mapping[str, Any]) -> str:
-    roster = execution.get("roster") or []
-    plan_ids = [case.get("plan_id") for case in roster if case.get("plan_id")]
-    if not plan_ids:
-        return "<plan-slug>"
-    row = conn.execute(
-        f"SELECT slug FROM qa_plans WHERE id={marker(conn)}",
-        (int(plan_ids[0]),),
-    ).fetchone()
-    if row is None:
-        return "<plan-slug>"
-    return str(row["slug"] if hasattr(row, "keys") else row[0])
-
-
-def _project_slug(execution: Mapping[str, Any]) -> str:
-    for case in execution.get("roster") or []:
-        if case.get("project"):
-            return str(case["project"])
-    return "<project-slug>"
 
 
 __all__ = [

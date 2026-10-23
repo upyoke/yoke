@@ -153,7 +153,7 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     )
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(
-        merge_cli.landed,
+        landed,
         "landed_lane",
         lambda **_kw: landed.LandedLane(
             branch="ITEM-1",

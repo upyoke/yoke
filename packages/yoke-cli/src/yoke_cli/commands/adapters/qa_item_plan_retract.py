@@ -52,14 +52,24 @@ use `yoke qa requirement waive` or `supersede --help` for settlement.
 def qa_plan_item_retract(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa item-plan retract",
-        description=QA_ITEM_PLAN_RETRACT_USAGE,
+        usage=QA_ITEM_PLAN_RETRACT_USAGE,
         epilog=QA_ITEM_PLAN_RETRACT_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", required=True)
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--plan-id", type=int, required=True)
-    parser.add_argument("--transition", required=True)
+    parser.add_argument(
+        "--item",
+        required=True,
+        help="Item whose plan attachment to retract, as PREFIX-N.",
+    )
+    parser.add_argument("--project", required=True, help="Project that owns the item.")
+    parser.add_argument(
+        "--plan-id", type=int, required=True, help="Id of the attached QA plan."
+    )
+    parser.add_argument(
+        "--transition",
+        required=True,
+        help="Workflow transition where the plan is attached.",
+    )
     reason_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         reason_group,

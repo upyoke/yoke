@@ -61,9 +61,9 @@ def _work_claim_lookup(argv: List[str]) -> Optional[dict[str, Any]]:
     if not argv or _help_requested(argv):
         return None
     parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
-    parser.add_argument("item")
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--session-id", default=None)
+    parser.add_argument("item", help="Item to look up, as PREFIX-N.")
+    parser.add_argument("--project", default=None, help="Project that owns the item.")
+    parser.add_argument("--session-id", default=None, help="Session making the call.")
     try:
         parsed, _unknown = parser.parse_known_args(argv)
     except (argparse.ArgumentError, SystemExit):

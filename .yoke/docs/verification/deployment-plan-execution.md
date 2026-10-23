@@ -4,13 +4,13 @@
 [Yoke](../index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
-Use the attaching member's pinned stage to run or resume its owed cases:
+Use the item and its pinned stage to start its owed cases:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
-Read `yoke qa plan run --help` for correction and continuation options.
+Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
 [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
 owns the scope and target-binding contract.
 
@@ -19,6 +19,15 @@ Method-less standing requirements remain on their source item; a selected
 plan supplies the executable stage cases. A deployment-stage target (persistent environment or run preview) supplies
 `target_env` even when a correction case has no `target_envs` selector, so its
 scope matches the case it replaces.
+
+[QA continuity](deployment-qa-continuity.md) describes current item authority,
+release takeover, cross-build observations and exact-execution recovery.
+
+Use `--plan ID_OR_SLUG` to run an admitted frozen chain without new obligations.
+Run, stage, member/shared subject and target must match; invalid admissions
+refuse before host access. New plans fill empty stages; corrections need
+replacements. `qa_plan_selector_cursor_conflict` retains the private cursor
+and names its owner-resume recovery.
 
 ## Shared plan credit
 
@@ -30,8 +39,8 @@ A plan only one run member attaches stays that member's private copy and keeps
 its `deployment_member_item_id`; a formed group stays shared until its last
 attaching member leaves.
 The shared execution records the member that requested it, separately from its
-run-wide subject. Continuation and host-wait commands retain that member as
-`--member`; another attaching member resuming it does not change the requester.
+run-wide subject. Continuation and host-wait commands use its execution ID;
+another attaching member does not change the recorded requester.
 The shared target omits `deployment.member_item_id` and records
 `deployment.shared_plan`; the run and stage remain explicit. Each member waits
 only for its attached groups. A failing shared case blocks every attaching
@@ -46,7 +55,7 @@ persisted. Record an unpersisted verdict again after repairing the cause; for a
 persisted one, re-drive the run with `yoke watch deploy -- RUN` so its runner
 adopts it.
 
-Use the `--stage` / `--member` command above. It runs unfinished private
+Use the `--item` / `--stage` command above. It runs unfinished private
 member cases first, retaining their own target, order, host prerequisites and
 reviews. Completing that private roster ends this invocation; it does not
 start an attached shared campaign. Private evidence alone does not accept a
@@ -56,16 +65,15 @@ completed group evidence. When other sessions' live executions hold every
 group you still owe, it returns `state=waiting` with
 `shared_execution_wait.execution_id` and `owner_session_id`. Keep the work claim
 and park with `yoke sessions touch --mode parked --reason "waiting for shared QA"`.
-The deployment's member stage
-line retains the wait. Passing shared evidence credits every attaching member;
+The member stage retains the wait. Passing shared evidence credits every attaching member;
 completion, abort or error wakes members still owing QA to retry their own
-stage/member command. The owner resumes its existing execution as usual.
+item/stage command. The owner resumes its existing execution as usual.
 Refresh and declared corrections
 also use an attaching member and keep the failed group's target identity.
 For a correction, name its plan and failed requirement:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
+yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
@@ -74,8 +82,6 @@ group. Other original cases and unrelated groups remain owed independently.
 Replacement scopes stay in the frozen selection, so later materialization
 does not create private copies of shared corrections. A passing independent
 verdict supersedes the failed requirement.
-A member refresh with `--plan` naming the member's own plan refreshes only that
-member's rows, so a live run-wide walk of a shared plan does not block it.
 Removing one member or withdrawing its attachment preserves shared evidence for
 the members still attached. Removing the last attaching member with
 `yoke deployment-runs remove-item` retracts the group's unsettled rows, so an
@@ -100,14 +106,14 @@ capture of a passed requirement uses --replaces. A failed or undetermined
 verdict stays open: rerunning begins a fresh execution that captures it
 again. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
-accepted only when every required case passes. Omit --machine for this
+accepted only when every required case passes. Omit --test-machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.
 
 For one case that needs several hosts simultaneously, declare its driving host
-as `method_config.machine` and every required host in `method_config.machines`:
-`{"machine":"macos-example","machines":["linux-example","macos-example"]}`. Names must be
-registered, unique, and include the driving host. Run this case through
-`yoke qa plan run`; direct case execution refuses it. The
+as `method_config.test_machine` and every required host in
+`method_config.test_machines`; names must be registered, unique, and include
+the driving host. Run this case through `yoke qa plan run`; direct case
+execution refuses it. The
 runner acquires every host through its FIFO in sorted name order, releases
 partial acquisitions on contention, and retains the full set through case
 execution and mission review. Completion or abort releases the set; [completed captures remain reviewable](requirement-state.md). Independent cases with different driving hosts or declared sets use separate
@@ -117,7 +123,7 @@ that driver before the first capture and retains them through completion,
 review or abort. Contention releases partial acquisitions and queues the
 chain; a retry never reacquires lost custody. Definition-time validation
 refuses `inherited_driver_mismatch` for a changed driver: use the predecessor's
-`method_config.machine`, or start a new baseline / `as_is` chain.
+`method_config.test_machine`, or start a new baseline / `as_is` chain.
 
 An exploratory mission walks after captures and may inherit only at a chain's
 tail; no case may inherit after it. Item and deployment scopes isolate the
@@ -132,8 +138,8 @@ An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
 is busy, let the plan runner queue you, then park; you are woken when it is
 your turn. When a host its case needs is leased, or its newest health fact
 is a failed verification, plan acquisition keeps its cursor open and its
-session joins the host's waiting line (`qa_host_waits`), the same FIFO line a
-refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
+session joins the host's waiting line (`qa_test_machine_waits`), the same
+FIFO line a refused manual `yoke claims coordination-claim acquire --key QA_HOST:<machine>`
 joins. The runner prints `Queued for QA host <machine>, position N of M` with
 the park command; write no host hold of your own. A session keeps its place
 from its first wait and across retries; a rerun of an aborted shared walk
@@ -174,13 +180,13 @@ If a walker discovers a second required host is occupied, return
 through the current bundle's `yoke qa plan review-submit ... --stdin`:
 
 ```json
-{"host_wait":{"machine":"linux-example","rationale":"lease holder and resume point"}}
+{"host_wait":{"test_machine":"linux-example","rationale":"holder evidence"}}
 ```
 
 Submit this object alone. It records no verdict or human review request,
 retains the old capture and bundle as history, and queues a new capture against
 the identical immutable target. Host-ready and continuation commands omit
-`--machine`, so every platform in a multi-host roster can resume. The scheduler
+`--test-machine`, so every platform in a multi-host roster can resume. The scheduler
 keeps simultaneous cases on their declared driver with the full host set. For
 single-host cases it returns each previously used platform to its recorded host; only a new platform
 selects a fresh eligible host. Correction-ready commands also omit the pin; scheduling retains each corrected
@@ -192,7 +198,7 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```json
 {
   "executor":"informed_subagent",
-  "machine":"linux-example",
+  "test_machine":"linux-example",
   "host_starting_state":{"os_packages":{
     "absent":["python3-venv","python3.12-venv"],"present":[]
   }}
@@ -200,13 +206,13 @@ Exploratory mission `method_config` can declare an apt package fixture:
 ```
 
 A Command case whose command calls `yoke test-machine` must declare
-`method_config.machine`; without it the case would run outside the host's queue
-and meet `test_machine_leased`, so authoring refuses it naming that field.
+`method_config.test_machine`; without it the case would run outside the host's
+queue and meet `test_machine_leased`, so authoring refuses it naming that field.
 
-`method_config.machine` selects that registered host even when this direct
+`method_config.test_machine` selects that registered host even when this direct
 requirement has only the generic <!-- qa:test-machine-capability -->`test-machine` capability. Admitted deployment
-copies retain the pin; omitting `--machine` does not permit another host, and a
-conflicting run pin is refused before a lease is acquired.
+copies retain the pin; omitting `--test-machine` does not permit another
+host, and a conflicting run pin is refused before a lease is acquired.
 
 Before a plan's first golden reset on each Test Machine, Yoke compares the
 harness CLI versions recorded beside that golden with each vendor's latest
@@ -256,7 +262,7 @@ blocks execution. Continuations preserve the existing walk and journal.
 ## Stop host work safely
 
 ```text
-yoke qa plan abort --deployment-run-id RUN --execution-id EXECUTION_ID \
+yoke qa plan abort --execution-id EXECUTION_ID \
     --reason 'Stop this host case'
 ```
 
@@ -284,7 +290,7 @@ runner; the lease holder or a project steering seat can reset retained machines
 to the interrupted case's baseline:
 
 ```text
-yoke test-machine reset --project P --machine NAME --baseline BASELINE
+yoke test-machine reset --project P --test-machine NAME --baseline BASELINE
 ```
 
 Then retry the same scoped abort command. Only a successful reset receipt for
@@ -315,15 +321,8 @@ own roster: abort it first to drop cases passed elsewhere.
 
 ## Recover communication on the frozen execution
 
-```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N \
-    --project P --resume-execution-id EXECUTION_ID
-```
-
-Keep the scope and source arguments; omit `--member` for run-scoped stages.
-Resume preserves the cursor, frozen candidate and custody, without new cases.
-For a lost reply, follow [check-in recovery](standalone-plans.md#recover-a-lost-check-in-response)
-with its pause receipts and saved evidence; do not abort or replay the action.
+Use the [exact execution recovery](deployment-qa-continuity.md#recover-communication-on-the-frozen-execution)
+recipe; preserve its saved receipts and host state.
 
 ## Related
 

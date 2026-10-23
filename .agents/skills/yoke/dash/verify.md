@@ -13,13 +13,15 @@ yoke qa case run --requirement-id <requirement-id>
 
 A requested screenshot selects `--verification-method browser-inspection` on the same amend. A capture is not a pass: submit the returned review bundle. Browser placement: `.yoke/docs/verification/browser-targets.md`.
 
-If the completion flow has item-scoped QA, answer it before merge: attach a plan at the release stage with `--qa-phase post_deploy`, or record that nothing is observable.
+If `yoke items get ITEM post_deploy_qa` says unanswered, answer before merge with one of the two commands it names: attach a plan at the release stage with `--qa-phase post_deploy`, or record that nothing is observable.
+
+Selected posture: path claims cover touched files; approval-on-done waits for the owner. When cases pass, a laned item runs the landing check. It lists every landing blocker with its recovery and changes nothing:
 
 ```text
-yoke qa post-deploy record-no-obligation --item ITEM --reason "<why no observable obligation>"
+yoke merge item ITEM --check --result "<result>" --verification "<proof>"
 ```
 
-Selected posture: path claims cover touched files; approval-on-done waits for the owner. When cases pass, laned items follow [merge](merge.md). Only laneless items transition:
+Fix every blocker, then follow [merge](merge.md). The merge itself moves the item into review. A laneless item transitions instead:
 
 ```text
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Implementation complete; verification passed"

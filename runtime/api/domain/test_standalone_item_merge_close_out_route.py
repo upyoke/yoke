@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from yoke_core.domain import release_wait_park
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import (
@@ -50,7 +51,7 @@ def _wire(monkeypatch, *, route):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
+    monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
         verify,

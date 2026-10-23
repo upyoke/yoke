@@ -29,7 +29,7 @@ instead, then move this universe across with export/import.
   macOS uses a LaunchAgent; Linux uses a systemd user service that stops at
   logout without linger. See [Linux relay supervision](../sessions/linux-relay.md).
 - Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
-- Members and Billing tabs do not apply (Cloud-only platform features)
+- Billing and Team seats do not apply (Cloud-only platform features)
 
 Init preserves an existing active connection. Use `yoke init --local --activate`
 to select local explicitly; see [connection repair](../verification/local-connection-repair.md).
@@ -54,7 +54,7 @@ Hosted core at upyoke.com. Collaborate from the web dashboard.
   the connect step
 - Private beta: seats and tenant attached to the code; bring your own workers
   and model credentials
-- Members and Billing are platform-managed sections in the workbench
+- Billing and the seat section at the top of Team are platform-managed
 
 Hosted cores serve through the same trusted-proxy boundary as self-hosted
 ones: only transport peers listed in `YOKE_API_TRUSTED_PROXIES` (explicit
@@ -98,7 +98,7 @@ machine with a display.
 - The server serves the workbench at its own URL. People sign in with company
   sign-in (OIDC) and work with full read and write as their own actor; see
   [Browser Sign-In](https://github.com/upyoke/yoke/blob/main/docs/self-host-browser-sign-in.md)
-- Members and Billing tabs do not apply (Cloud-only platform features)
+- Billing and Team seats do not apply (Cloud-only platform features)
 
 `yoke self-host init` keeps loopback-only by default; add `--listen ADDRESS`
 to publish on a LAN or Tailscale IP (or `0.0.0.0` for all IPv4 interfaces).

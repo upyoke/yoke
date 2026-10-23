@@ -156,11 +156,6 @@ def prompt_marker_path(session_id: str) -> str:
     return str(hook_marker_path(f"codex-prompt-{session_id}"))
 
 
-def session_marker_path(session_id: str) -> str:
-    """Return the fire-once session marker path for *session_id*."""
-    return str(hook_marker_path(f"codex-session-{session_id}"))
-
-
 def runtime_cache_path(session_id: str) -> str:
     """Return the per-session runtime-cache JSON path."""
     return str(harness_runtime_cache_path(f"codex-runtime-{session_id}.json"))

@@ -18,33 +18,36 @@ from yoke_contracts.api.function_call import TargetRef
 
 USAGE = (
     "yoke qa plan list --project P [--limit N] [--offset N] [--include-retired] "
-    "[--full] [--json]"
+    "[--full] [--session-id S] [--json]"
 )
 
 
 def qa_plan_list(args: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke qa plan list", description=USAGE)
-    parser.add_argument("--project", required=True)
+    parser = argparse.ArgumentParser(prog="yoke qa plan list", usage=USAGE)
     parser.add_argument(
-        "--limit", type=int, help="Page size (default: 25; maximum: 500)."
+        "--project", required=True, metavar="P", help="Project whose plans to list."
+    )
+    parser.add_argument(
+        "--limit", type=int, metavar="N", help="Page size (default: 25; maximum: 500)."
     )
     parser.add_argument(
         "--offset",
         type=int,
         default=0,
-        help="Start at this row of the stable project/slug order.",
+        metavar="N",
+        help="Plans to skip first; plans are ordered by project, then slug.",
     )
     parser.add_argument(
         "--include-retired",
         action="store_true",
         help=(
-            "Also list retired plans; every row carries retired_at and "
+            "Also list retired plans, each with retired_at and "
             "retirement_reason (default: active plans only)."
         ),
     )
     add_full_arg(
         parser,
-        "descriptions, attachments and execution targets for the same page; --limit and --offset still page",
+        "descriptions, attachments and execution targets for the same page",
     )
     add_session_arg(parser)
     add_json_arg(parser)

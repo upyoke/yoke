@@ -27,6 +27,7 @@ from yoke_core.domain.deployment_run_membership_removals import (
 )
 from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_abort
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
+from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
 from yoke_core.domain.qa_host_turns import (
     host_line,
     join_host_line,
@@ -79,7 +80,7 @@ def _execution(
 def _state(conn, execution):
     return dict(
         conn.execute(
-            "SELECT state,machine_lease_id,release_reason FROM qa_plan_executions WHERE id=%s",
+            "SELECT state,test_machine_lease_id,release_reason FROM qa_plan_executions WHERE id=%s",
             (execution,),
         ).fetchone()
     )
@@ -101,7 +102,7 @@ def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
     else:
         lease = acquire(test_db, target, "removed-qa")
         test_db.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=%s WHERE id=%s",
             (lease.id, execution),
         )
         test_db.commit()
@@ -112,7 +113,7 @@ def test_removal_aborts_live_cursor_and_releases_reserved_or_attached_host(
     test_db.commit()
     assert _state(test_db, execution) == {
         "state": "aborted",
-        "machine_lease_id": None,
+        "test_machine_lease_id": None,
         "release_reason": "deployment-member-removed",
     }
     assert _state(test_db, other)["state"] == "waiting"
@@ -153,9 +154,7 @@ def _request(execution, *, function="qa.plan_execution.abort", session="removed-
     return FunctionCallRequest(
         function=function,
         actor=ActorContext(actor_id="1", session_id=session),
-        target=TargetRef(
-            kind="deployment_run", deployment_run_id=RUN, project_id="yoke"
-        ),
+        target=TargetRef(kind="global", project_id="yoke"),
         payload={"execution_id": execution, "reason": "removed member residue"},
     )
 
@@ -173,7 +172,10 @@ def test_removed_holder_can_abort_legacy_residue_but_cannot_continue_it(test_db)
     )
     test_db.commit()
     request = _request(execution)
-    assert resolve_run_qa_subject(test_db, request)[2] == REMOVED
+    assert (
+        resolve_run_qa_subject(test_db, resolve_execution_request(test_db, request))[2]
+        == REMOVED
+    )
     assert (
         check_dispatch_permission(test_db, _entry(request.function), request).error
         is None
@@ -190,7 +192,13 @@ def test_removed_holder_can_abort_legacy_residue_but_cannot_continue_it(test_db)
     assert handle_plan_execution_abort(request).primary_success  # Idempotent cleanup.
     with pytest.raises(ValueError, match="not an attached member"):
         resolve_run_qa_subject(
-            test_db, _request(execution, function="qa.plan_execution.heartbeat")
+            test_db,
+            request.model_copy(
+                update={
+                    "function": "qa.plan_execution.heartbeat",
+                    "target": TargetRef(kind="deployment_run", deployment_run_id=RUN),
+                }
+            ),
         )
 
 
@@ -203,7 +211,9 @@ def test_unrecorded_missing_member_does_not_gain_abort_authority(test_db):
     )
     test_db.commit()
     with pytest.raises(ValueError, match="not an attached member"):
-        resolve_run_qa_subject(test_db, _request(execution))
+        resolve_run_qa_subject(
+            test_db, resolve_execution_request(test_db, _request(execution))
+        )
 
 
 def test_member_admission_serializes_with_removal_and_refuses_after_commit(test_db):

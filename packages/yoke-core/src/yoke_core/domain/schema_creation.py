@@ -51,9 +51,11 @@ from yoke_core.domain.project_onboarding_runs import (
 from yoke_core.domain.project_structure import create_project_structure_tables
 from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
-from yoke_core.domain.qa_host_wait_schema import ensure_qa_host_wait_schema
 from yoke_core.domain.qa_plan_execution_schema import converge_qa_plan_execution_schema
 from yoke_core.domain.qa_plan_review_schema import ensure_qa_plan_review_schema
+from yoke_core.domain.qa_test_machine_wait_schema import (
+    ensure_qa_test_machine_wait_schema,
+)
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
@@ -154,7 +156,7 @@ def _create_in_dependency_order(conn: Any) -> None:
     ensure_workflow_execution_instructions_schema(conn, commit=False)
     converge_qa_plan_execution_schema(conn)
     ensure_qa_plan_review_schema(conn)
-    ensure_qa_host_wait_schema(conn)
+    ensure_qa_test_machine_wait_schema(conn)
     ensure_test_machine_schema(conn)
     ensure_harness_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)

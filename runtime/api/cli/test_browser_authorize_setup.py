@@ -98,7 +98,7 @@ def test_omitted_identity_refuses_before_runtime_or_window(
     monkeypatch.setattr(
         browser_identities,
         "declared_identities",
-        lambda *a: parse_identity_declarations(declarations),
+        lambda *a, **kwargs: parse_identity_declarations(declarations),
     )
     args = ["--project", "project", "--json"] + (
         ["--desktop-browser"] if desktop else []

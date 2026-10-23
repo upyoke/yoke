@@ -179,7 +179,7 @@ export function inboxClient(needsRows = null, itemActivityRows = []) {
             artifact_id: artifactId,
             backend: "local",
             disposition: "evidence_on_machine",
-            machine: "studio-mini",
+            test_machine: "studio-mini",
             detail: "the evidence bytes are not present on this machine",
           });
         }

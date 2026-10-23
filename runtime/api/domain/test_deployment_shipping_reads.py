@@ -107,6 +107,7 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
             "stage": expected.stage,
             "reason": expected.reason,
             "failed_requirement_ids": list(expected.failed_requirement_ids),
+            "no_item_qa_required": False,
         }
     before_elapsed = perf_counter() - before
     assert sum(conn.queries.values()) < sum(baseline.queries.values())

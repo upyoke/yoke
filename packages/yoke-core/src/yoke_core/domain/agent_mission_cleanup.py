@@ -48,6 +48,9 @@ def cleanup_authority(conn: Any, request: Any, execution: dict) -> bool:
 
     if not cleanup_request(request) or not cleanup_execution(conn, execution):
         return False
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    request = resolve_execution_request(conn, request, execution)
     require_plan_execution_subject(
         execution,
         item_id=request.target.item_id,
@@ -111,10 +114,10 @@ def _original_host(conn: Any, run_id: int) -> str:
             "mission_cleanup_host_unknown: the docket has no original lease; "
             "ask the control-plane operator to recover the host identity"
         )
-    machine = get_claim(conn, int(lease_id)).target.machine_id
-    if not machine:
+    test_machine = get_claim(conn, int(lease_id)).target.test_machine
+    if not test_machine:
         raise ValueError("mission_cleanup_host_unknown: inspect the docket's lease")
-    return str(machine)
+    return str(test_machine)
 
 
 def _finish(
@@ -123,7 +126,7 @@ def _finish(
     from yoke_core.domain.coordination_claims import get_claim, release
     from yoke_core.domain.qa_plan_execution_store import marker
 
-    lease_id = execution.get("machine_lease_id")
+    lease_id = execution.get("test_machine_lease_id")
     if lease_id is None or parsed.lease_id != lease_id:
         raise ValueError(
             "mission_cleanup_lease_mismatch: rerun walk-end to acquire cleanup custody"
@@ -180,14 +183,14 @@ def _finish(
         outcome is not None and not outcome.primary_success
     ):
         record_reset_owed(
-            conn, case=case, machine=lease.target.machine_id, lease_id=lease.id
+            conn, case=case, test_machine=lease.target.test_machine, lease_id=lease.id
         )
     release(conn, lease.id, "mission-teardown-finished", commit=False)
     conn.execute(
-        f"UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id={marker(conn)}",
+        f"UPDATE qa_plan_executions SET test_machine_lease_id=NULL WHERE id={marker(conn)}",
         (execution["id"],),
     )
-    execution["machine_lease_id"] = None
+    execution["test_machine_lease_id"] = None
     from yoke_core.domain.qa_plan_execution_abort_state import abort_request
     from yoke_core.domain.qa_plan_execution_schema import TERMINAL_PLAN_EXECUTION_STATES
     from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
@@ -249,7 +252,7 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
             raise ValueError(
                 f"mission_cleanup_run_mismatch: rerun walk-end with --run-id {run_id}"
             )
-        lease_id = execution.get("machine_lease_id")
+        lease_id = execution.get("test_machine_lease_id")
         if parsed.cleanup == "finish":
             outcome = _finish(conn, request, parsed, execution, run_id)
             if outcome is not None:
@@ -277,13 +280,13 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
                     commit_deferred_connection(conn),
                     project=case["project"],
                     session_id=request.actor.session_id,
-                    machine=_original_host(conn, run_id),
+                    test_machine=_original_host(conn, run_id),
                     select_any=False,
                     **arguments,
                 )
                 p = marker(conn)
                 conn.execute(
-                    f"UPDATE qa_plan_executions SET machine_lease_id={p} WHERE id={p}",
+                    f"UPDATE qa_plan_executions SET test_machine_lease_id={p} WHERE id={p}",
                     (issued.lease_id, execution["id"]),
                 )
             conn.commit()

@@ -29,8 +29,18 @@ def env_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke env list"
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to read; default: the standard config path.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print JSON instead of a table.",
+    )
     parsed = parse_or_usage_error(parser, args, ENV_LIST_USAGE)
     if parsed is None:
         return 2
@@ -78,14 +88,41 @@ def config_example(args: List[str]) -> int:
 
 
 def status(args: List[str]) -> int:
+    return _status(args, prog="yoke status", usage=STATUS_USAGE)
+
+
+def config_status(args: List[str]) -> int:
+    return _status(args, prog="yoke config status", usage=CONFIG_STATUS_USAGE)
+
+
+def _status(args: List[str], *, prog: str, usage: str) -> int:
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke status"
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog
     )
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--repo-root", default=None)
-    parser.add_argument("--env", dest="explicit_env", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parsed = parse_or_usage_error(parser, args, STATUS_USAGE)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to read; default: the standard config path.",
+    )
+    parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository checkout to inspect; default: the current directory.",
+    )
+    parser.add_argument(
+        "--env",
+        dest="explicit_env",
+        default=None,
+        help="Connection to report on instead of the active one.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print JSON instead of text.",
+    )
+    parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
     report = machine_config_status.build_status(
@@ -106,6 +143,7 @@ __all__ = [
     "ENV_LIST_USAGE",
     "STATUS_USAGE",
     "config_example",
+    "config_status",
     "env_list",
     "status",
 ]

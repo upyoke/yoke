@@ -238,60 +238,6 @@ class TestQaRunRecordVerdict:
         assert rc == 1
 
 
-class TestQaDeploymentPlanMaterialize:
-    def test_dispatches_real_deployment_run_subject(self) -> None:
-        rc = _run(
-            _stub_ok,
-            "qa",
-            "plan",
-            "materialize",
-            "--deployment-run-id",
-            "run-20260728-901",
-            "--plan",
-            "installer-campaign",
-            "--project",
-            "yoke",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "qa.plan.materialize"
-        assert req.target.kind == "deployment_run"
-        assert req.target.deployment_run_id == "run-20260728-901"
-        assert req.target.project_id == "yoke"
-        assert req.payload == {
-            "transition_id": None,
-            "plan": "installer-campaign",
-            "project": "yoke",
-            "deployment_stage": None,
-            "deployment_member": None,
-        }
-
-    def test_replaces_declares_each_failed_requirement(self) -> None:
-        rc = _run(
-            _stub_ok, "qa", "plan", "materialize",
-            "--deployment-run-id", "run-20260728-901", "--stage", "run-visual-qa",
-            "--plan", "corrected", "--project", "yoke",
-            "--replaces", "desktop=32796", "--replaces", "narrow=32797",
-        )
-        assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].payload["replacements"] == [
-            {"case_key": "desktop", "requirement_id": 32796},
-            {"case_key": "narrow", "requirement_id": 32797},
-        ]
-
-    def test_requires_named_plan_and_project(self) -> None:
-        rc = _run(
-            _stub_ok,
-            "qa",
-            "plan",
-            "materialize",
-            "--deployment-run-id",
-            "run-20260728-901",
-        )
-        assert rc == 2
-        assert _CAPTURED_REQUESTS == []
-
-
 class TestQaPlanRematerialize:
     def test_dispatches_item_snapshot_replacement(self) -> None:
         rc = _run(
@@ -312,17 +258,16 @@ class TestQaPlanRematerialize:
         assert req.payload == {"transition_id": "release"}
 
     def test_dispatches_deployment_stage_refresh(self) -> None:
-        args = ("qa", "plan", "rematerialize", "--deployment-run-id", "run-901")
-        assert _run(_stub_ok, *args, "--stage", "item-qa", "--member", "YOK-1927") == 0
+        args = ("qa", "plan", "rematerialize", "--item", "YOK-1927")
+        assert _run(_stub_ok, *args, "--stage", "item-qa") == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.plan.rematerialize"
-        assert req.target.kind == "deployment_run"
-        assert req.target.deployment_run_id == "run-901"
+        assert req.target.kind == "item"
+        assert req.target.public_ref == "YOK-1927"
         # No empty transition rides along on a deployment subject, and the
         # item subject's payload above stays exactly what it was.
         assert req.payload == {
             "deployment_stage": "item-qa",
-            "deployment_member": "YOK-1927",
             "plan": None,
         }
         assert _run(_stub_ok, *args) == 2  # a stage is required

@@ -69,7 +69,7 @@ async function loadEvidenceRow(context, projects, requirement, requirementId) {
     }
   }
   for (const payload of payloads) {
-    const result = await readOptionalCase(context, "qa.activity.list", payload);
+    const result = await readOptionalCase(context, "qa.activity.list", { ...payload, detail: "full" });
     const row = (result?.rows || []).find(
       (candidate) => String(candidate.requirement_id) === String(requirementId),
     );

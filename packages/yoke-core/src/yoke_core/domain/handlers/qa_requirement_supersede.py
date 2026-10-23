@@ -121,16 +121,15 @@ def handle_qa_requirement_supersede(
 
                     member = declared.get("deployment_member_item_id")
                     scope = (
-                        f" --member {render_item_ref(conn, int(member))}"
+                        f"--item {render_item_ref(conn, int(member))}"
                         if member is not None
-                        else ""
+                        else f"--deployment-run-id {declared['deployment_run_id']}"
                     )
                     notice = {
                         "delivery": "failed",
                         "recovery": f"Correction is durable but wake failed: {exc}. Run "
-                        f"`yoke watch qa-plan -- --deployment-run-id "
-                        f"{declared['deployment_run_id']} --stage "
-                        f"{declared['deployment_stage']}{scope} --machine NAME`; "
+                        f"`yoke watch qa-plan -- {scope} --stage "
+                        f"{declared['deployment_stage']} --test-machine TEST_MACHINE`; "
                         "replace NAME with the host in the failed attempt's QA run evidence.",
                     }
                 return HandlerOutcome(

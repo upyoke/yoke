@@ -168,7 +168,7 @@ def submit_plan_review(
 
     execution_before = {
         key: execution.get(key)
-        for key in ("state", "machine_lease_id", "completed_at", "release_reason")
+        for key in ("state", "test_machine_lease_id", "completed_at", "release_reason")
     }
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     try:
@@ -181,7 +181,10 @@ def submit_plan_review(
         if stored is None or str(stored["bundle_digest"]) != bundle_digest:
             raise QaPlanReviewError("agent review bundle identity does not match")
         bundle = _public_bundle(
-            conn, stored, missions_walkable=execution_missions_walkable(execution)
+            conn,
+            stored,
+            execution=execution,
+            missions_walkable=execution_missions_walkable(execution),
         )
         validated = _validated_verdicts(bundle["cases"], verdicts)
         existing = {

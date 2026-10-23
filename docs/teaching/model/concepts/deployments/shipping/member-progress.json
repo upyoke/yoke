@@ -5,5 +5,5 @@
  "page": "shipping",
  "position": 1,
  "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_member_qa_projection.py", "packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js", "docs/public/verification/index.md"],
- "text": "Shipping cards and deployment run detail show current applicable member obligations before copies or attempts exist. Matching deployment copies supply release-specific proof; waived obligations stay explicit and completed releases preserve frozen definitions."
+ "text": "Shipping cards and deployment run detail show current applicable member obligations before copies or attempts exist. Matching deployment copies supply release-specific proof; waived obligations stay explicit and completed releases preserve frozen definitions. Authorized takeover transfers open members and their private/shared QA without discarding pass/fail evidence or unfinished execution state. Closed members retain delivery history; the current owner still owes its own delivery gates."
 }

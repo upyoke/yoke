@@ -1,8 +1,7 @@
 // Read-only, hand-authored universe app. `mountUniverseApp(rootNode, options?)`
 // accepts same-realm clients, host slots, and sections without forking the UI.
 // Path routes preserve shared selection and independent resource focus. NAV owns
-// the flat destination arc; host-fed Members and Billing contribute only their
-// body while the workbench retains routing and page chrome.
+// the flat destination arc; host-fed Billing contributes only its body.
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
@@ -251,12 +250,12 @@ export function mountUniverseApp(rootNode, options = {}) {
       }
       const viewHost = el(documentNode, "div", "view-host");
       const pageHead = createPageHead(documentNode, entry);
-      main.replaceChildren(pageHead, viewHost);
+      main.replaceChildren(pageHead, ...beforeScopeSections(entry), viewHost);
       const handle = renderer(context, viewHost, null, route.detail, { setPageHead(options) {
         if (mounted && main.children[0] === pageHead) configurePageHead(documentNode, pageHead, options);
       } });
       Promise.resolve(handle).then(() => {
-        if (mounted && viewHost.parentNode === main) appendViewSection(entry, viewHost);
+        if (mounted && viewHost.parentNode === main) appendViewSection(entry, viewHost, { headPlaced: true });
       });
       return;
     }
@@ -305,7 +304,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     });
     Promise.resolve(handle).then((loaded) => {
       if (!mounted || viewHost.parentNode !== main) return;
-      appendViewSection(entry, viewHost, { scoped: true });
+      appendViewSection(entry, viewHost, { headPlaced: true });
       heldScope.register(entry.id, scope, picker, loaded);
     });
   }

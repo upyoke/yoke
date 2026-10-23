@@ -41,13 +41,16 @@ __all__ = [
 
 
 def _epic_target_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--epic", required=True, metavar="PREFIX-N", help="Epic item id (PREFIX-N)."
+    )
     parser.add_argument(
         "--task-num",
         dest="task_num",
         type=int,
         required=True,
-        help="Task number within the epic (1-based).",
+        metavar="N",
+        help="Task number within the epic, counting from 1.",
     )
 
 
@@ -65,16 +68,18 @@ def _epic_task_target(parsed) -> TargetRef:
 
 EPIC_TASK_BODY_GET_USAGE = (
     "yoke workflow-item epic-task body-get --epic PREFIX-N --task-num N "
-    "[--output-file PATH] [--session-id S] [--json]"
+    "[--output-file PATH] [--full] [--session-id S] [--json]"
 )
 
 
 def epic_task_body_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task body-get",
+        usage=EPIC_TASK_BODY_GET_USAGE,
         description=(
-            "Read one epic task body verbatim. --output-file writes the "
-            "body to a path instead of stdout (for chained file reads). "
+            "Print one epic task's text exactly as stored. --output-file writes "
+            "it to a file instead, for a later file read; it cannot be used "
+            "with --json. "
             "Example: yoke workflow-item epic-task body-get "
             "--epic PREFIX-N --task-num 3"
         ),
@@ -84,7 +89,8 @@ def epic_task_body_get(args: List[str]) -> int:
         "--output-file",
         dest="output_file",
         default=None,
-        help="Write the body to this path instead of stdout.",
+        metavar="PATH",
+        help="Write the text to this file instead of stdout.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -125,17 +131,18 @@ EPIC_TASK_UPDATE_STATUS_USAGE = (
 def epic_task_update_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task update-status",
+        usage=EPIC_TASK_UPDATE_STATUS_USAGE,
         description=(
-            "Write a non-terminal lifecycle status on one epic task "
-            "(syncs the GitHub label). Terminal success statuses are "
-            "pipeline-owned and refused here. Example: yoke "
+            "Set a lifecycle status on one epic task and update its GitHub "
+            "label. Final success statuses are set only by the pipeline and "
+            "are refused here. Example: yoke "
             "workflow-item epic-task update-status --epic PREFIX-N "
             "--task-num 3 --status planned"
         ),
     )
     _epic_target_flags(parser)
     parser.add_argument(
-        "--status", required=True, help="Target task status (lifecycle vocabulary)."
+        "--status", required=True, help="New task status, a lifecycle status name."
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -161,7 +168,7 @@ def epic_task_update_status(args: List[str]) -> int:
 # ---------------------------------------------------------------------------
 
 EPIC_TASK_SIMULATION_UPSERT_USAGE = (
-    "yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase P "
+    "yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase PHASE "
     "(--body TEXT | --body-file PATH | --stdin) [--head-sha COMMIT] [--session-id S] [--json]"
 )
 
@@ -169,22 +176,31 @@ EPIC_TASK_SIMULATION_UPSERT_USAGE = (
 def epic_task_simulation_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task simulation-upsert",
+        usage=EPIC_TASK_SIMULATION_UPSERT_USAGE,
         description=(
-            "Persist a Simulator report for an epic phase as qa rows "
-            "(epic-level: no --task-num; CLEAN / GAPS FOUND is parsed "
-            "from canonical SIMULATION / EPIC headers; retains every actual attempt for the phase). "
-            "Returns public_ref, phase, message, requirement_id, run_id, verdict and verified=true after exact-run readback. "
+            "Save a Simulator report for one epic phase as QA evidence. It "
+            "covers the whole epic, so there is no --task-num. The verdict "
+            "(CLEAN or GAPS FOUND) is read from the report's SIMULATION / EPIC "
+            "headers, and every attempt for the phase is kept. Returns "
+            "public_ref, phase, message, requirement_id, run_id, verdict and "
+            "verified=true once the saved run reads back. "
             "Example: yoke workflow-item epic-task simulation-upsert "
             "--epic PREFIX-N --phase plan --body-file /tmp/sim-report.md"
         ),
     )
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--epic", required=True, metavar="PREFIX-N", help="Epic item id (PREFIX-N)."
+    )
     parser.add_argument(
         "--phase", required=True, help="Simulation phase (e.g. plan, integration)."
     )
     parser.add_argument(
         "--head-sha",
-        help="Exact code commit verified; required when no clean claimed epic lane supplies it.",
+        metavar="COMMIT",
+        help=(
+            "Commit the report checked. Required unless the epic has "
+            "a clean, claimed lane to read it from."
+        ),
     )
     body_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -238,19 +254,19 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
 
 EPIC_TASK_SUBMISSION_RECEIPT_GET_USAGE = (
     "yoke workflow-item epic-task submission-receipt-get --epic PREFIX-N "
-    "--task-num N [--after-note-count N] [--session-id S] [--json]"
+    "--task-num N [--after-note-count N] [--full] [--session-id S] [--json]"
 )
 
 
 def epic_task_submission_receipt_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task submission-receipt-get",
+        usage=EPIC_TASK_SUBMISSION_RECEIPT_GET_USAGE,
         description=(
-            "Read + validate the latest Engineer submission receipt from "
-            "epic_progress_notes. Prints "
-            "PASS|epic|task|note|commit|ts|fields on success; fails with "
-            "target_not_found (no receipt) or receipt_invalid (failing "
-            "fields). Example: yoke workflow-item epic-task "
+            "Read and check the latest Engineer submission receipt in the "
+            "epic's progress notes. Prints PASS|epic|task|note|commit|ts|fields "
+            "on success; fails with target_not_found (no receipt) or "
+            "receipt_invalid (naming the failing fields). Example: yoke workflow-item epic-task "
             "submission-receipt-get --epic PREFIX-N --task-num 3 "
             "--after-note-count 2"
         ),
@@ -261,7 +277,8 @@ def epic_task_submission_receipt_get(args: List[str]) -> int:
         dest="after_note_count",
         type=int,
         default=0,
-        help="Only consider notes after this note_num watermark (default 0 = all).",
+        metavar="N",
+        help="Only consider progress notes numbered above N (default 0: all notes).",
     )
     add_session_arg(parser)
     add_json_arg(parser)

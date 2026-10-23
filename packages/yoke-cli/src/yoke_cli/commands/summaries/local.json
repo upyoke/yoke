@@ -1,0 +1,5 @@
+{
+  "local": "Tools for a universe stored on this machine.",
+  "local demo": "Load demo data into a local universe.",
+  "local demo seed": "Add demo items to a local universe for smoke tests."
+}

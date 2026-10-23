@@ -25,7 +25,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import deployment_qa_shared_plans, qa_deployment_function_subject
+from yoke_core.domain import (
+    deployment_qa_takeover_identity,
+    qa_deployment_function_subject,
+)
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
@@ -131,9 +134,7 @@ def _dispatch(run_id: str, execution: dict, function: str, payload: dict) -> Non
         FunctionCallRequest(
             function=function,
             actor=ActorContext(actor_id=actor_id, session_id=SESSION),
-            target=TargetRef(
-                kind="deployment_run", deployment_run_id=run_id, project_id="yoke"
-            ),
+            target=TargetRef(kind="global", project_id="yoke"),
             payload={"execution_id": str(execution["id"]), **payload},
         )
     )
@@ -175,9 +176,9 @@ def test_each_execution_request_resolves_its_subject_once(test_db):
     for function, payload in _requests(execution):
         with (
             mock.patch.object(
-                deployment_qa_shared_plans,
-                "_read_execution_subject",
-                wraps=deployment_qa_shared_plans._read_execution_subject,
+                deployment_qa_takeover_identity,
+                "read_execution_subject",
+                wraps=deployment_qa_takeover_identity.read_execution_subject,
             ) as execution_reads,
             mock.patch.object(
                 qa_deployment_function_subject,
@@ -196,6 +197,7 @@ def test_execution_request_statements_grow_at_most_linearly(test_db):
         _request_statements(test_db, f"run-subject-linear-{size}", size)
         for size in sizes
     ]
+    print(f"execution request statement counts for {sizes}: {counts}")
     for function in counts[0]:
         small, middle, large = (count[function] for count in counts)
         # Linear cost adds the same statements per doubling step at most

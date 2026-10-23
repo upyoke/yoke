@@ -59,9 +59,9 @@ def test_current_mission_restore_records_debt_only_from_its_holder(
         ("fresh-host", False, None, True, "fresh-host"),
         ("fresh-host", True, None, True, None),
         (None, False, None, True, None),
-        (None, False, "restore_failed", True, "fresh-host"),
+        (None, False, "restore_failed", True, None),
         ("fresh-host", None, None, True, "fresh-host"),
-        (None, None, None, True, "fresh-host"),
+        (None, None, None, True, None),
         ("fresh-host", None, None, False, None),
     ],
 )
@@ -87,7 +87,7 @@ def test_case_capture_persists_unproven_restore_debt(
         duration_ms=1,
         evidence={
             "runner_id": "host_control",
-            "machine": MACHINE,
+            "test_machine": MACHINE,
             "baseline": baseline,
             "method_id": case["method_id"],
             **({"starting_state_restore": restore} if restored is not None else {}),
@@ -108,6 +108,9 @@ def test_case_capture_persists_unproven_restore_debt(
     )
     assert recorded == {"run_id": 17}
     assert reset_owed(test_db, MACHINE) == owed
+    assert result.evidence.get("starting_state_restore") == (
+        restore if restored is not None else None
+    )
 
 
 def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
@@ -137,7 +140,7 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
     record_reset_owed(
         test_db,
         case={"project_id": 1, "host_baseline": "shell-preconfigured"},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     test_db.commit()
@@ -217,7 +220,7 @@ def test_failed_owed_reset_keeps_original_debt_without_starting_case(
     record_reset_owed(
         test_db,
         case={**case, "host_baseline": "shell-preconfigured"},
-        machine=MACHINE,
+        test_machine=MACHINE,
         lease_id=77,
     )
     result = recording.MachineCaseSubmissionResult(
@@ -228,7 +231,7 @@ def test_failed_owed_reset_keeps_original_debt_without_starting_case(
         duration_ms=1,
         evidence={
             "runner_id": "host_control",
-            "machine": MACHINE,
+            "test_machine": MACHINE,
             "baseline": "fresh-host",
             "method_id": case["method_id"],
             "case_started": False,

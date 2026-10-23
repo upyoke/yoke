@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSIONS_HOOK_OVERHEAD_USAGE = (
-    "yoke sessions hook-overhead [--hours N] [--session-id S] [--json]"
+    "yoke sessions hook-overhead [--hours N] [--full] [--session-id S] [--json]"
 )
 
 
@@ -50,9 +50,15 @@ def _tool_coverage(row):
 def sessions_hook_overhead(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions hook-overhead",
-        description=SESSIONS_HOOK_OVERHEAD_USAGE,
+        usage=SESSIONS_HOOK_OVERHEAD_USAGE,
     )
-    parser.add_argument("--hours", type=int, default=None)
+    parser.add_argument(
+        "--hours",
+        type=int,
+        default=None,
+        metavar="N",
+        help="How many recent hours to report; default: 24.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_HOOK_OVERHEAD_USAGE)

@@ -112,14 +112,11 @@ export const NAV = [
     id: "github", label: "GitHub", scope: SCOPE_MULTI,
     group: GROUP_SETTINGS,
   },
+  // People, machine accounts, roles and invites in every mode. A host's
+  // seat facts arrive as Team's own host section, not a second destination.
   {
     id: "team", label: "Team", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
-  },
-  {
-    id: "members", label: "Members", scope: SCOPE_NONE,
-    group: GROUP_SETTINGS,
-    hostFed: true,
   },
   {
     id: "billing", label: "Billing", scope: SCOPE_NONE,
@@ -207,3 +204,8 @@ export const NAV = [
     group: GROUP_DIAGNOSTICS,
   },
 ];
+
+// Retired destination ids and the destination their links now open. The
+// route contract still serves each path, so a saved link lands on the
+// replacement instead of the first destination.
+export const MOVED_VIEWS = { members: "team" };

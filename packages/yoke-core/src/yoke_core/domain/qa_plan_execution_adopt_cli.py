@@ -17,13 +17,17 @@ def main(argv: list[str] | None = None) -> int:
         epilog="Requires the item's current work claim and a verified ended predecessor. "
         "After adoption, review captured evidence with review-begin or resume the exact live execution.",
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--session-id")
-    parser.add_argument("--json", action="store_true")
+    subject = parser.add_mutually_exclusive_group()
+    subject.add_argument("--item", help="Item that owns the execution, as PREFIX-N.")
+    subject.add_argument("--project", help="Project that owns the execution.")
+    parser.add_argument(
+        "--execution-id", required=True, help="Id of the QA plan execution to adopt."
+    )
+    parser.add_argument(
+        "--reason", required=True, help="Why this session adopts the execution."
+    )
+    parser.add_argument("--session-id", help="Session making the call.")
+    parser.add_argument("--json", action="store_true", help="Print the result as JSON.")
     parsed = parser.parse_args(argv)
     if parsed.item:
         prefix, sequence = parse_public_item_ref(parsed.item)
@@ -35,9 +39,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         target = TargetRef(kind="item", public_ref=f"{prefix}-{sequence}")
     else:
-        target = TargetRef(
-            kind="deployment_run", deployment_run_id=parsed.deployment_run_id
-        )
+        target = TargetRef(kind="global", project_id=parsed.project)
     try:
         result = _call_plan_function(
             function_id="qa.plan_execution.adopt",

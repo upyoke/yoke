@@ -31,17 +31,16 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 WORKFLOWS_DEFINITION_GET_USAGE = (
-    "yoke workflows definition get [--project P] [--session-id S] [--json]"
+    "yoke workflows definition get [--project P] [--full] [--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_GET_USAGE = (
-    "yoke workflows item get ITEM [--project P] [--session-id S] [--json]"
+    "yoke workflows item get PREFIX-N [--project P] [--full] [--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_MIGRATE_USAGE = (
-    "yoke workflows item migrate ITEM [--version N] [--preview] [--project P] "
+    "yoke workflows item migrate PREFIX-N [--version N] [--preview] [--project P] "
     "[--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
-    f"{WORKFLOWS_ITEM_MIGRATE_USAGE}\n\n"
     "Requires a live steering seat covering the item's project or document. "
     "Acquire it with yoke claims steering acquire --project P --reason TEXT, "
     "or route via yoke say --steering."
@@ -51,9 +50,11 @@ WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
 def workflows_definition_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows definition get",
-        description=WORKFLOWS_DEFINITION_GET_USAGE,
+        usage=WORKFLOWS_DEFINITION_GET_USAGE,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project to read from."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -83,10 +84,12 @@ def workflows_definition_get(args: List[str]) -> int:
 def workflows_item_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item get",
-        description=WORKFLOWS_ITEM_GET_USAGE,
+        usage=WORKFLOWS_ITEM_GET_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project", default=None)
+    parser.add_argument("item", metavar="PREFIX-N", help="Item to read.")
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project that owns the item."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -113,16 +116,25 @@ def workflows_item_get(args: List[str]) -> int:
 def workflows_item_migrate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item migrate",
+        usage=WORKFLOWS_ITEM_MIGRATE_USAGE,
         description=WORKFLOWS_ITEM_MIGRATE_DESCRIPTION,
     )
-    parser.add_argument("item")
-    parser.add_argument("--version", type=int, default=None)
+    parser.add_argument("item", metavar="PREFIX-N", help="Item to migrate.")
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Version to move to; default: current.",
+    )
     parser.add_argument(
         "--preview",
         action="store_true",
         help="Return migration conflicts without changing the item pin.",
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project that owns the item."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

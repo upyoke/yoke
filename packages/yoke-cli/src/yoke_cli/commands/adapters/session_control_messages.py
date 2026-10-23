@@ -18,6 +18,8 @@ from yoke_cli.commands.adapters.session_control_message_body_output import (
     projected_message_writer,
 )
 from yoke_cli.commands.adapters.session_control_common import (
+    SELECTOR_HELP,
+    SELECTOR_SYNOPSIS,
     add_selector_arguments,
     read_stdin_payload,
     selector_payload,
@@ -27,30 +29,31 @@ from yoke_cli.commands.adapters.session_control_common import (
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageListState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
-from yoke_contracts.session_control.teaching import (
-    FLEET_OWNERSHIP_GUIDANCE,
-)
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import is_subagent_execution
 
 
 SAY_USAGE = (
-    "yoke say (--preview | --stdin) "
-    "(--steering | --steering-scope JSON | --actor ACTOR | --item ITEM | "
-    "--epic-task ITEM:N | --process P | --project P | --session S | "
-    "--universe) [--liveness active|waiting|stale|ended|all] "
-    "[recipient filters] [--json]"
+    f"yoke say (--preview | --stdin) {SELECTOR_SYNOPSIS} "
+    "[--idempotency-key K] [--confirmation-token T] [--session-id S] [--json]"
 )
-MESSAGE_PREVIEW_USAGE = "yoke session-control message preview [selector] [--json]"
+MESSAGE_PREVIEW_USAGE = (
+    f"yoke session-control message preview {SELECTOR_SYNOPSIS} "
+    "[--full] [--session-id S] [--json]"
+)
 MESSAGE_SEND_USAGE = (
-    "yoke session-control message send --stdin [selector] "
-    "[--idempotency-key K] [--confirmation-token T] [--json]"
+    f"yoke session-control message send --stdin {SELECTOR_SYNOPSIS} "
+    "[--idempotency-key K] [--confirmation-token T] [--session-id S] [--json]"
 )
 MESSAGE_LIST_USAGE = (
-    "yoke messages list [--state STATE] [--recipient-session S] [--limit N] [--json]"
+    "yoke messages list [--state STATE] [--recipient-session S] [--limit N] "
+    "[--full] [--session-id S] [--json]"
 )
-MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
-MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
-MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
+MESSAGE_GET_USAGE = (
+    "yoke messages get MESSAGE-ID [FIELD ...] [--full] [--session-id S] [--json]"
+)
+MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--session-id S] [--json]"
+MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--session-id S] [--json]"
 MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/sessions/inbox.md"
 
 
@@ -63,11 +66,11 @@ def _refuse_subagent_message_operation(operation: str) -> int | None:
     )
 
 
-def _selector_parser(prog: str, usage: str) -> argparse.ArgumentParser:
+def _selector_parser(prog: str, usage: str, purpose: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=prog,
         usage=usage,
-        description="Preview or send a durable Fleet message to people and sessions.",
+        description=f"{purpose}\n\n{SELECTOR_HELP}",
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -108,6 +111,8 @@ def session_message_preview(args: List[str]) -> int:
     parser = _selector_parser(
         "yoke session-control message preview",
         MESSAGE_PREVIEW_USAGE,
+        "Show which people and sessions a Fleet message would reach, "
+        "without sending it.",
     )
     parsed = parse_or_usage_error(parser, args, MESSAGE_PREVIEW_USAGE)
     if parsed is None:
@@ -122,11 +127,13 @@ def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--idempotency-key",
         default=None,
+        metavar="K",
         help="Reuse a caller-generated key to avoid duplicate sends.",
     )
     parser.add_argument(
         "--confirmation-token",
         default=None,
+        metavar="T",
         help="Exact token returned by a required universe preview.",
     )
 
@@ -144,6 +151,7 @@ def session_message_send(args: List[str]) -> int:
     parser = _selector_parser(
         "yoke session-control message send",
         MESSAGE_SEND_USAGE,
+        "Send a durable Fleet message, read from stdin, to people and sessions.",
     )
     _add_send_arguments(parser)
     parsed = parse_or_usage_error(parser, args, MESSAGE_SEND_USAGE)
@@ -163,7 +171,8 @@ def session_message_send(args: List[str]) -> int:
 
 
 def say(args: List[str]) -> int:
-    parser = _selector_parser("yoke say", SAY_USAGE)
+    purpose = "Preview (--preview) or send (--stdin) a durable Fleet message to people and sessions."
+    parser = _selector_parser("yoke say", SAY_USAGE, purpose)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
         "--preview",
@@ -209,17 +218,23 @@ def session_message_list(args: List[str]) -> int:
         "--state",
         choices=get_args(MessageListState),
         default="unacknowledged",
+        metavar="STATE",
         help=(
-            "Filter by recipient state; defaults to unacknowledged, which includes "
-            "pending and injected."
+            "Filter by recipient state: "
+            f"{', '.join(get_args(MessageListState))}. The default, "
+            "unacknowledged, includes pending and injected."
         ),
     )
     parser.add_argument(
         "--recipient-session",
         default=None,
+        metavar="S",
         help="Only show messages addressed to this exact session.",
     )
-    parser.add_argument("--limit", type=int, default=50, help="Maximum rows.")
+    parser.add_argument(
+        "--limit", type=int, default=50, metavar="N",
+        help="Settled messages per page (default 50); actionable ones are all listed.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MESSAGE_LIST_USAGE)
@@ -257,17 +272,17 @@ def _message_by_id(args: List[str], operation: str) -> int:
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("message_id", help="Durable message id.")
+    parser.add_argument("message_id", metavar="MESSAGE-ID", help="The message's id.")
     if operation == "get":
         parser.add_argument(
             "fields",
             nargs="*",
+            metavar="FIELD",
             default=[],
             help=(
-                "Optional field projection — `body`, `sender_session_id`, "
-                "`acknowledgement_command`, `recipients`, `attempts`, or any "
-                "other key the message carries. Omit them for the routine "
-                "answer."
+                "Print only these fields: body, sender_session_id, "
+                "acknowledgement_command, recipients, attempts, or any other "
+                "key the message carries. Omit them for the routine answer."
             ),
         )
         add_full_arg(

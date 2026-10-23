@@ -23,16 +23,20 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 
 
 READINESS_CHECK_USAGE = (
-    "yoke readiness check PREFIX-N [--skip-readiness-check] [--session-id S] [--json]"
+    "yoke readiness check PREFIX-N [--skip-readiness-check] [--full] [--project P] "
+    "[--session-id S] [--json]"
 )
 READINESS_PRD_VALIDATE_USAGE = (
-    "yoke readiness prd-validate PREFIX-N [--strict] [--session-id S] [--json]"
+    "yoke readiness prd-validate PREFIX-N [--strict] [--full] [--project P] "
+    "[--session-id S] [--json]"
 )
 READINESS_REPAIR_STALE_COUNT_USAGE = (
-    "yoke readiness repair-stale-count --item PREFIX-N [--session-id S] [--json]"
+    "yoke readiness repair-stale-count --item PREFIX-N [--project P] "
+    "[--session-id S] [--json]"
 )
 READINESS_REPAIR_CLAIM_COVERAGE_USAGE = (
-    "yoke readiness repair-claim-coverage --item PREFIX-N [--session-id S] [--json]"
+    "yoke readiness repair-claim-coverage --item PREFIX-N [--project P] "
+    "[--session-id S] [--json]"
 )
 
 # One round answers a check. A repair needs a second, because its own
@@ -55,8 +59,9 @@ report and the control plane has no tree to check it against: it catches
 a tree edited mid-read, not a machine that misreports.
 
 At the in-progress stage of a pinned Refine binding, closure also checks
-acceptance criteria using PRD-9. Missing checkboxes block with a named
-recovery; idea-time authoring and workflows without Refine are exempt.
+that acceptance criteria are present as checkboxes (check PRD-9). Missing checkboxes
+block with a named recovery; idea-time authoring and workflows without
+Refine are exempt.
 
 Reports one of three verdicts in the result payload:
 
@@ -77,7 +82,7 @@ Reports one of three verdicts in the result payload:
 def readiness_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke readiness check",
-        description=READINESS_CHECK_USAGE,
+        usage=READINESS_CHECK_USAGE,
         epilog=_READINESS_CHECK_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -107,7 +112,7 @@ def readiness_check(args: List[str]) -> int:
 def readiness_prd_validate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke readiness prd-validate",
-        description=READINESS_PRD_VALIDATE_USAGE,
+        usage=READINESS_PRD_VALIDATE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
@@ -170,8 +175,13 @@ def _repair(
     usage: str,
     function_id: str,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("--item", required=True, help="YOK-N or N.")
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
+    parser.add_argument(
+        "--item",
+        required=True,
+        metavar="PREFIX-N",
+        help="Item id (PREFIX-N, or the bare number).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

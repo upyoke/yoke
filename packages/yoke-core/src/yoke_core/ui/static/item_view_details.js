@@ -21,6 +21,7 @@ import {
   withoutMarkdownSections,
 } from "./item_view_primitives.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
+import { itemApprovalsPanel } from "./item_view_approvals.js";
 import { itemClaimantPanel } from "./item_view_claimant.js";
 import { itemDeliveryPanel } from "./item_view_delivery.js";
 import { itemLandingsPanel } from "./item_view_landings.js";
@@ -29,12 +30,14 @@ import {
   shepherdVerdictsPanel,
 } from "./item_view_verdicts.js";
 
-// Who holds an item is a fact about the item, not about one workflow, so
-// every detail shape carries the holder's own session card when a live claim
-// names a session. An unclaimed item has no panel rather than an empty one.
-function claimantPanels(context, item) {
+// Who holds an item and what it waits on a person to decide are facts about
+// the item, not about one workflow, so every detail shape carries the
+// holder's own session card when a live claim names a session, and its work
+// approvals once one was requested. Neither draws an empty panel.
+function claimAndApprovalPanels(context, item) {
   const panel = itemClaimantPanel(context, item);
-  return panel ? [panel] : [];
+  const approvals = itemApprovalsPanel(context, item);
+  return [panel, approvals].filter(Boolean);
 }
 
 function issuePanels(context, documentNode, item) {
@@ -62,7 +65,7 @@ function issuePanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      ...claimantPanels(context, item),
+      ...claimAndApprovalPanels(context, item),
       verificationPanel(context, item),
       itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
@@ -130,7 +133,7 @@ function epicPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      ...claimantPanels(context, item),
+      ...claimAndApprovalPanels(context, item),
       verificationPanel(context, item),
       itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
@@ -184,7 +187,7 @@ function dashPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      ...claimantPanels(context, item),
+      ...claimAndApprovalPanels(context, item),
       ...(origin ? [origin] : []),
       itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
@@ -211,7 +214,7 @@ function taskPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      ...claimantPanels(context, item),
+      ...claimAndApprovalPanels(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -237,7 +240,7 @@ function fallbackPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      ...claimantPanels(context, item),
+      ...claimAndApprovalPanels(context, item),
       verificationPanel(context, item),
       itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),

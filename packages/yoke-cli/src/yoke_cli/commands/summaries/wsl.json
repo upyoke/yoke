@@ -1,0 +1,4 @@
+{
+  "wsl": "Set up Windows Subsystem for Linux for Yoke.",
+  "wsl setup": "Keep WSL running and turn on systemd."
+}

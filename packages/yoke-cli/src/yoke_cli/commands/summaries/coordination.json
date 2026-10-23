@@ -1,0 +1,6 @@
+{
+  "coordination": "Read and release shared coordination claims.",
+  "coordination claim": "Read and release shared coordination claims.",
+  "coordination claim list": "List coordination claims and who holds them.",
+  "coordination claim release": "Release a coordination claim held by a session."
+}

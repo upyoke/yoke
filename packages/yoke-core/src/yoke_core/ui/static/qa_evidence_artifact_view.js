@@ -205,7 +205,7 @@ export function showArtifactResult(documentNode, host, artifact, result) {
   const label = artifactLabel(artifact);
   if (disposition !== "ready") {
     const state = {
-      evidence_on_machine: `on ${result.machine || "capture machine"}`,
+      evidence_on_machine: `on ${result.test_machine || "capture machine"}`,
       evidence_not_portable: "not portable",
       evidence_missing: "evidence missing",
       too_large: "too large",

@@ -159,7 +159,7 @@ def test_exact_requirement_correction_materializes_only_its_host_baseline(
         "instructions": "check the host",
         "expected_outcome": "passes",
         "method_config": {
-            "machine": "mac-mini-lab",
+            "test_machine": "mac-mini-lab",
             "assertions": [{"argv": ["/usr/bin/true"]}],
         },
         "host_baselines": ["fresh-host", "shell-preconfigured"],

@@ -1,16 +1,16 @@
 {
  "id": "02",
  "title": "Follow the installed OS-specific procedure",
- "status": "draft-copy",
+ "status": "observed",
  "audience": "both",
  "when": "User agrees that dedicated machine coverage is needed",
- "need": "Use the installed Pack version: dedicated account/network, named test-machine settings, workstation-local SSH/desktop secrets, required tools/sign-ins and effective desktop permissions. Supported recipes cover macOS, Ubuntu 24.04 and Windows through WSL2; native Windows Yoke is not this fixture.",
+ "need": "Use the installed Pack version: dedicated account/network, named test-machine settings, workstation-local SSH/desktop secrets, required tools/sign-ins and effective desktop permissions. Supported recipes cover macOS, Ubuntu 24.04 and Windows through WSL2; native Windows Yoke is not this fixture. Before capture follow the project-owned manual runtime inventory; Yoke's guide includes Docker/Compose and portable Mac external-state preparation. Retain every credential/GUI check.",
  "disclosure": "current cue",
  "surface": "Pack README → host-provisioning → per-OS procedure; settings contract.",
  "gap": "Setup support exists; improve discovery instead of building another provisioner. Keep project-specific infrastructure/accounts and private fixture policy out of a universal user recipe.",
- "review": "Pending exact recipe proof.",
- "recipes": ["yoke test-machine settings-replace --help", "yoke test-machine list --project P --json", "yoke test-machine get --project P --machine NAME --json"],
+ "review": "Source guidance updated; provisioning evidence distinguishes passing runtime/restores from unresolved Windows desktop proof.",
+ "recipes": ["yoke test-machine settings-replace --help", "yoke test-machine list --project P --json", "yoke test-machine get --project P --test-machine NAME --json"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/README.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/windows-host-provisioning.md", "packages/yoke-contracts/src/yoke_contracts/machine_config/test_machine.py"],
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/linux-host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/windows-host-provisioning.md"],
  "position": 1
 }

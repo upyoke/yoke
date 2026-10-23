@@ -1,8 +1,4 @@
 /* Team keeps the prototype's flush roster table in the shared dashboard. */
-.universe-app-root .actors-controls {
-  margin: 0 0 10px;
-}
-
 .universe-app-root .actors-show-disabled {
   display: inline-flex;
   align-items: center;
@@ -18,8 +14,14 @@
 .universe-app-root .actors-local-notice {
   margin-bottom: 14px;
 }
+.universe-app-root .actors-local-notice code { white-space: nowrap; }
+.universe-app-root .actors-local-heading {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
 
-.universe-app-root .actors-invites { margin-top: 14px; }
+.universe-app-root .actors-invites { margin-bottom: 14px; }
 .universe-app-root .actors-invite-slot:not(:empty) { margin-bottom: 14px; }
 .universe-app-root .actors-invites td { overflow-wrap: anywhere; }
 .universe-app-root .actors-invites .actors-role { white-space: nowrap; }
@@ -53,6 +55,14 @@
 
 .universe-app-root .actors-key + .actors-key {
   margin-top: 5px;
+}
+
+.universe-app-root .actors-keys-summary { cursor: pointer; }
+.universe-app-root .actors-keys-summary b { font-weight: 600; }
+.universe-app-root .actors-keys-disclosure[open] > .actors-keys-summary { margin-bottom: 6px; }
+.universe-app-root .actors-keys-latest {
+  display: block;
+  color: var(--yoke-muted);
 }
 
 .universe-app-root .actors-table .actor-avatar.current {

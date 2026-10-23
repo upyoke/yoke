@@ -124,12 +124,16 @@ Reading the result
 def workflows_item_posture_amend(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item-posture amend",
-        description=WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
+        usage=WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
         epilog=WORKFLOWS_ITEM_POSTURE_AMEND_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project that owns the item; default: resolved from the item.",
+    )
     parser.add_argument(
         "--reason",
         required=True,

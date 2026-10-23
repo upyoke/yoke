@@ -16,26 +16,33 @@ from yoke_cli.commands.adapters.workflow_execution_instructions import (
 
 LIFECYCLE_TRANSITION_USAGE = (
     "yoke lifecycle transition <PREFIX-N> --to STATUS "
-    "[--from STATUS] [--reason TEXT] [--session-id S] [--json]"
+    "[--from STATUS] [--reason TEXT] [--project P] [--session-id S] [--json]"
 )
 
 
 def lifecycle_transition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke lifecycle transition",
-        description=LIFECYCLE_TRANSITION_USAGE,
+        usage=LIFECYCLE_TRANSITION_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item to move.")
     parser.add_argument(
-        "--to", dest="to_status", required=True, help="Target lifecycle status."
+        "--to",
+        dest="to_status",
+        required=True,
+        metavar="STATUS",
+        help="Status to move the item to.",
     )
     parser.add_argument(
         "--from",
         dest="from_status",
         default=None,
-        help="Optional precondition: current status must equal this.",
+        metavar="STATUS",
+        help="Refuse unless the item's current status is this one.",
     )
-    parser.add_argument("--reason", default=None, help="Human-readable rationale.")
+    parser.add_argument(
+        "--reason", default=None, metavar="TEXT", help="Why the item moves."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LIFECYCLE_TRANSITION_USAGE)

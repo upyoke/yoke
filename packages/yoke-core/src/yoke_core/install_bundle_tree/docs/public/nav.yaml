@@ -304,6 +304,8 @@ root:
         - {title: "Consumer proof", summary: "Use the release-time exact-pair gate and diagnose producer failures.", path: "verification/consumer-proof.md"}
         - {title: "Starting state and activity", summary: "Declare Machine starting state and read case activity.", path: "verification/case-attachment-rules.md"}
         - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
+        - {title: "Deployment QA continuity", summary: "Continue existing QA through takeover and recover the exact execution.", path: "verification/deployment-qa-continuity.md"}
+        - {title: "Failed item QA", summary: "Keep correction ownership, wait for delivery and retest the qualifying candidate.", path: "verification/failed-item-qa.md"}
         - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}
         - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
         - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}

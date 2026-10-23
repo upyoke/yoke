@@ -47,7 +47,7 @@ def begin_requested_standalone_execution(conn, request, parsed):
         project=str(request.target.project_id),
         actor_id=request.actor.actor_id,
         session_id=request.actor.session_id,
-        machine=parsed.machine,
+        test_machine=parsed.test_machine,
         continue_mission=parsed.continue_mission,
         source_revision=parsed.source_revision,
         source_ref=parsed.source_ref,
@@ -191,8 +191,9 @@ def begin_standalone_execution(
     project: str,
     actor_id: str | None,
     session_id: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
     continue_mission: bool = False,
+    continuation_execution_id: str | None = None,
     source_revision: str | None = None,
     source_ref: str | None = None,
     checkout_path: str | None = None,
@@ -234,7 +235,7 @@ def begin_standalone_execution(
                 source_ref=source_ref,
                 checkout_path=checkout_path,
             )
-            validate_roster_machine(conn, prior["roster"], machine)
+            validate_roster_machine(conn, prior["roster"], test_machine)
             return resume_owned_plan_execution(
                 conn, prior, digest=str(prior["roster_digest"])
             )
@@ -248,7 +249,11 @@ def begin_standalone_execution(
         selected = _plan(conn, plan, project)
     continuation = None
     if continue_mission:
-        continuation = require_continuable_execution(conn, standalone_plan_id=plan_id)
+        continuation = require_continuable_execution(
+            conn,
+            standalone_plan_id=plan_id,
+            expected_execution_id=continuation_execution_id,
+        )
     execution_id = str(uuid4())
     roster = _roster(
         conn,
@@ -269,7 +274,7 @@ def begin_standalone_execution(
             "chain to a separate plan, or attach the plan to an item or "
             "deployment stage for automatic execution partitioning"
         )
-    validate_roster_machine(conn, roster, machine)
+    validate_roster_machine(conn, roster, test_machine)
     if continuation:
         require_same_mission_roster(continuation, roster)
     target, digest = execution_target_for_roster(roster)

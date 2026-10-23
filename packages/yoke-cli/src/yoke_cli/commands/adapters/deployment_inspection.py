@@ -17,28 +17,32 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 DEPLOYMENT_FLOWS_LIST_USAGE = (
-    "yoke deployment-flows list [--project P] [--include-disabled] "
+    "yoke deployment-flows list [--project P] [--include-disabled] [--full] "
     "[--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE = (
-    "yoke deployment-runs find-by-item ITEM [--project P] [--status STATUS] "
-    "[--session-id S] [--json]"
+    "yoke deployment-runs find-by-item PREFIX-N [--project P] [--status STATUS] "
+    "[--full] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_STAGES_USAGE = (
-    "yoke deployment-runs stages RUN-ID [--session-id S] [--json]"
+    "yoke deployment-runs stages RUN-ID [--full] [--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE = (
-    "yoke deployment-runs failure-trace RUN-ID [--session-id S] [--json]"
+    "yoke deployment-runs failure-trace RUN-ID [--full] [--session-id S] [--json]"
 )
 
 
 def deployment_flows_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-flows list",
-        description=DEPLOYMENT_FLOWS_LIST_USAGE,
+        usage=DEPLOYMENT_FLOWS_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--include-disabled", action="store_true")
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project to list flows for."
+    )
+    parser.add_argument(
+        "--include-disabled", action="store_true", help="Also list disabled flows."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_LIST_USAGE)
@@ -64,11 +68,15 @@ def deployment_flows_list(args: List[str]) -> int:
 def deployment_runs_find_by_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs find-by-item",
-        description=DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
+        usage=DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--status", default=None)
+    parser.add_argument(
+        "item", metavar="PREFIX-N", help="Item id (PREFIX-N) whose runs to find."
+    )
+    parser.add_argument(
+        "--project", default=None, metavar="P", help="Project the item belongs to."
+    )
+    parser.add_argument("--status", default=None, help="Only runs with this status.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE)
@@ -91,9 +99,9 @@ def deployment_runs_find_by_item(args: List[str]) -> int:
 def deployment_runs_stages(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs stages",
-        description=DEPLOYMENT_RUNS_STAGES_USAGE,
+        usage=DEPLOYMENT_RUNS_STAGES_USAGE,
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", metavar="RUN-ID", help="Deployment run id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_STAGES_USAGE)
@@ -118,12 +126,13 @@ def deployment_runs_stages(args: List[str]) -> int:
 def deployment_runs_failure_trace(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs failure-trace",
+        usage=DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE,
         description=(
-            "Walk relayed GitHub Actions runs to the terminal failing job, "
-            "preserving every reached run URL and any partial-stop reason."
+            "Follow the run's GitHub Actions runs to the job that failed. "
+            "Prints the URL of every run it reached and, if it stopped early, why."
         ),
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", metavar="RUN-ID", help="Deployment run id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

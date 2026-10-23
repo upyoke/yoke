@@ -12,7 +12,7 @@ def materialized_execution(value: Mapping[str, Any]) -> dict[str, Any]:
 
     row = dict(value)
     row["cursor_ordinal"] = int(row["cursor_ordinal"])
-    for field in ("item_id", "machine_lease_id", "deployment_member_item_id"):
+    for field in ("item_id", "test_machine_lease_id", "deployment_member_item_id"):
         if row.get(field) is not None:
             row[field] = int(row[field])
     try:
@@ -81,7 +81,7 @@ def execution_target_for_roster(
             "--transition T) runs one target at a time, so rerun it until "
             "nothing remains; for a deployment run, execute each matching "
             "deployment QA stage with yoke qa plan run --deployment-run-id RUN "
-            "--stage STAGE --member ITEM, or each requirement with yoke qa "
+            "--item ITEM --stage STAGE, or each requirement with yoke qa "
             "case run."
         )
     target = dict(targets[0])

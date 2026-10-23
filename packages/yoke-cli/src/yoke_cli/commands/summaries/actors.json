@@ -1,0 +1,7 @@
+{
+  "actors": "Change people's org roles and turn actors on or off.",
+  "actors role": "Change a person's org role.",
+  "actors role set": "Set a person's org role: admin, operator or viewer.",
+  "actors state": "Turn an actor on or off.",
+  "actors state set": "Enable or disable an actor and its keys."
+}

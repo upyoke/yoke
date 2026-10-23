@@ -1,0 +1,7 @@
+{
+  "packs": "Install and update Packs of project files.",
+  "packs get": "Preview or install a Pack in a project.",
+  "packs list": "List available, installed and stale Packs.",
+  "packs relink": "Record that a Pack's file moved in the project.",
+  "packs update": "Preview or apply a newer version of a Pack."
+}

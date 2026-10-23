@@ -1,5 +1,6 @@
-"""Delivery parks stay compact, while actionable landings retain their recovery."""
+"""Release waits stay compact by gate facts; owed close-outs keep their recovery."""
 
+import json
 from dataclasses import replace
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from yoke_contracts.hook_context_compose import (
     REPORT_OMITTED_NOTICE,
 )
 from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
+from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.delivery_landing_custody import HELD, REMERGED, UNDETERMINED
 from yoke_core.domain.steering_fleet_report import FleetReport
 from yoke_core.domain.steering_fleet_report_compose import (
@@ -18,6 +20,13 @@ from yoke_core.domain.steering_fleet_report_compose import (
 )
 from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
+from yoke_core.domain.steering_fleet_report_landed_gate import (
+    AWAITING_RELEASE,
+    CLOSE_OUT_READY,
+    DELIVERED,
+    UNREADABLE,
+    LandedGate,
+)
 from yoke_core.domain.steering_fleet_report_landed_open import (
     LandedItem,
     landed_without_closeout,
@@ -27,6 +36,9 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 
 NOW = "2026-10-01T18:20:00.000000Z"
 IDLE_SECONDS = 20 * 60
+FLOW = "hosted-release"
+WAITING = LandedGate(AWAITING_RELEASE, flow=FLOW)
+OWED = LandedGate(DELIVERED, flow=FLOW)
 
 
 def landing(number=1, **changes):
@@ -43,6 +55,7 @@ def landing(number=1, **changes):
         holder_quiet_reason=f"awaiting TEST-{number} delivery: deployment run, "
         "then post-deploy validation and the done close-out",
         completion_flow_available=True,
+        delivery_gate=WAITING,
     )
     return replace(entry, **changes)
 
@@ -82,11 +95,12 @@ def report(*entries):
 @pytest.mark.parametrize(
     "custody, run, expected",
     [
-        ("unheld", "", "awaiting deployment run"),
-        (HELD, str(uuid4()), "delivering in"),
-        (REMERGED, str(uuid4()), "awaiting deployment run"),
+        ("unheld", "", f"awaiting next {FLOW} release (parked)"),
+        (HELD, str(uuid4()), f"awaiting {FLOW} release — delivering in"),
+        (REMERGED, str(uuid4()), f"awaiting next {FLOW} release — merged again"),
+        (UNDETERMINED, "", "release custody unreadable"),
     ],
-    ids=["awaiting-enrollment", "delivering", "awaiting-later-candidate"],
+    ids=["awaiting-enrollment", "delivering", "awaiting-later-candidate", "unread"],
 )
 def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     custody, run, expected
@@ -96,7 +110,6 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     lines = [line for line in body.splitlines() if entry.public_ref in line]
     assert len(lines) == 1
     assert expected in lines[0]
-    assert "(parked)" in lines[0]
     assert entry.holder_session_id not in body
     assert "idle holders" not in body
     assert "wake `" not in body
@@ -104,13 +117,37 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
 
 
 @pytest.mark.parametrize(
+    "changes, context",
+    [
+        ({"holder_parked": False}, "holder idle 360m"),
+        ({"holder_session_id": ""}, "no live holder"),
+        (
+            {
+                "holder_native_process_gone": True,
+                "holder_process_phrase": "process gone, claims held",
+            },
+            "holder process gone, claims held",
+        ),
+    ],
+    ids=["unparked-quiet", "no-holder", "process-gone"],
+)
+def test_release_wait_is_decided_by_gate_facts_not_holder_posture(changes, context):
+    entry = landing(**changes)
+    body = report_body(report(entry))
+    lines = [line for line in body.splitlines() if entry.public_ref in line]
+    assert lines == [f"  {entry.public_ref}  awaiting next {FLOW} release ({context})"]
+    assert "wake `" not in body
+    assert "merge item" not in body
+    assert "finish close-out" not in body
+    assert "holder is not driving this" not in body
+
+
+@pytest.mark.parametrize(
     "changes, expected",
     [
         ({"holder_session_id": ""}, "finish close-out"),
         ({"holder_parked": False}, "holder is not driving this"),
-        ({"status": "implementing"}, "holder is not driving this"),
-        ({"custody_state": UNDETERMINED}, "release custody unreadable"),
-        ({"completion_flow_available": False}, "no active completion flow"),
+        ({}, "holder is not driving this"),
         (
             {
                 "holder_native_process_gone": True,
@@ -129,10 +166,23 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
             {"holder_native_process_gone": True, "holder_resumable": True},
             "message the holder `yoke say --item",
         ),
+        (
+            {"delivery_gate": LandedGate(CLOSE_OUT_READY), "holder_parked": False},
+            "close-out ready",
+        ),
+        (
+            {"delivery_gate": LandedGate(UNREADABLE, detail="flow unreadable")},
+            "delivery gate unreadable — flow unreadable",
+        ),
+        ({"delivery_gate": WAITING, "status": "implementing"}, "not driving this"),
+        (
+            {"delivery_gate": WAITING, "completion_flow_available": False},
+            "no active completion flow",
+        ),
     ],
 )
-def test_actionable_landings_keep_detail_and_appear_once(changes, expected):
-    entry = landing(**changes)
+def test_owed_close_outs_keep_detail_and_appear_once(changes, expected):
+    entry = landing(**{"delivery_gate": OWED, **changes})
     body = report_body(report(entry))
     assert expected in body
     assert "landed 14h00m ago" in body
@@ -141,8 +191,17 @@ def test_actionable_landings_keep_detail_and_appear_once(changes, expected):
         assert "wake `" not in body
 
 
+def test_owed_close_out_with_quiet_holder_names_wake_and_close_out():
+    entry = landing(delivery_gate=OWED, holder_parked=False)
+    body = report_body(report(entry))
+    assert f"wake `yoke say --item {entry.public_ref} --stdin`" in body
+    assert "finish close-out with `" in body
+
+
 def test_working_holder_stalls_at_the_existing_idle_threshold():
-    entry = landing(holder_parked=False, holder_idle_seconds=IDLE_SECONDS - 1)
+    entry = landing(
+        delivery_gate=OWED, holder_parked=False, holder_idle_seconds=IDLE_SECONDS - 1
+    )
     assert "holder is not driving this" not in report_body(report(entry))
     entry = replace(entry, holder_idle_seconds=IDLE_SECONDS)
     assert "holder is not driving this" in report_body(report(entry))
@@ -168,7 +227,7 @@ def test_thirteen_release_parks_fit_hook_ceiling_with_a_delivery(harness):
     assert len(report_body(fleet).encode()) < min(INLINE_CONTEXT_BYTES.values())
 
 
-def test_resolved_active_flow_and_process_observation_decide_compaction(test_db):
+def test_gate_facts_and_active_flow_decide_the_release_wait(test_db):
     from runtime.api.fixtures.backlog import insert_item
 
     insert_item(
@@ -179,29 +238,38 @@ def test_resolved_active_flow_and_process_observation_decide_compaction(test_db)
         status="release",
         merged_at=NOW,
     )
-    # Use the real active-flow query and the shared batched resolution surface.
-    flow = test_db.execute(
-        "SELECT id FROM deployment_flows WHERE project_id=1 AND status='active' LIMIT 1"
-    ).fetchone()
-    if flow is None:
-        test_db.execute(
-            "INSERT INTO deployment_flows (id, project_id, name, stages, created_at, status) VALUES ('delivery', 1, 'Delivery', '[]', %s, 'active')",
-            (NOW,),
-        )
-        flow_id = "delivery"
-    else:
-        flow_id = str(flow[0])
-    test_db.execute("UPDATE items SET deployment_flow=%s WHERE id=1", (flow_id,))
-    holder = report(landing()).holders[0]
-    entries = landed_without_closeout(test_db, project_id=1, now=NOW, holders=(holder,))
-    assert entries[0].delivery_wait
-    test_db.execute(
-        "UPDATE deployment_flows SET status='disabled' WHERE id=%s", (flow_id,)
+    # The real active-flow query, the shared flow resolution and gate facts.
+    stages = [{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]
+    cmd_create(
+        test_db,
+        FLOW,
+        "yoke",
+        FLOW,
+        "",
+        json.dumps(stages),
+        target_tier="persistent",
+        environment="development",
     )
-    assert not landed_without_closeout(
-        test_db, project_id=1, now=NOW, holders=(holder,)
-    )[0].delivery_wait
+    test_db.execute("UPDATE items SET deployment_flow=%s WHERE id=1", (FLOW,))
+    # An unparked holder: posture must not change the classification.
+    holder = replace(report(landing(holder_parked=False)).holders[0], parked=False)
+
+    def entry(of=holder):
+        return landed_without_closeout(test_db, project_id=1, now=NOW, holders=(of,))[0]
+
+    assert entry().delivery_gate == WAITING
+    assert entry().awaiting_release
+    test_db.execute(
+        "UPDATE deployment_flows SET status='disabled' WHERE id=%s", (FLOW,)
+    )
+    assert entry().delivery_gate == WAITING
+    assert not entry().awaiting_release
+    test_db.execute(
+        "UPDATE deployment_flows SET status='active', target_tier=NULL, "
+        "target_environment_id=NULL WHERE id=%s",
+        (FLOW,),
+    )
+    assert entry().delivery_gate.state == CLOSE_OUT_READY
+    assert not entry().awaiting_release
     dead = replace(holder, native_process_gone_at=NOW)
-    assert landed_without_closeout(test_db, project_id=1, now=NOW, holders=(dead,))[
-        0
-    ].holder_native_process_gone
+    assert entry(dead).holder_native_process_gone

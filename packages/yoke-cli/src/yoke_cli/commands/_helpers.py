@@ -61,13 +61,8 @@ def add_session_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--session-id",
         default=None,
-        help=(
-            "Operator-debug override for the ambient session id. Sessions "
-            "self-identify automatically (env chain, then the hook-written "
-            "process-anchor registry, then cursor-session-map); overrides "
-            "are recorded on the "
-            "dispatched event as session_override."
-        ),
+        metavar="S",
+        help="Override the detected session id (debugging only).",
     )
 
 
@@ -104,6 +99,7 @@ def add_project_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help=(
             "Project slug or id (default: the checkout's mapped project "
             "from machine config)."
@@ -121,7 +117,8 @@ def _ensure_project_arg_for_item_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--project",
         default=None,
-        help="Project scope for the operation.",
+        metavar="P",
+        help="Project slug or id (default: the checkout's mapped project).",
     )
 
 
@@ -182,6 +179,7 @@ def parse_or_usage_error(
     _ensure_project_arg_for_item_parser(parser)
     from yoke_cli.transport.output_limit import (
         full_output_requested,
+        record_read_parser,
         registered_read_requested,
     )
 
@@ -193,6 +191,8 @@ def parse_or_usage_error(
             action="store_true",
             help="Full read detail; bypass the oversized human-read safety net.",
         )
+    if registered_read_requested():
+        record_read_parser(parser)
     try:
         return parser.parse_args(args)
     except SystemExit as exc:

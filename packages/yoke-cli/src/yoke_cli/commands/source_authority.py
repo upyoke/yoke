@@ -34,11 +34,24 @@ def source_authority_quiesce(args: List[str]) -> int:
     )
     parser.add_argument(
         "operation", choices=("begin", "status", "abort", "retire"),
+        help="Step to run: begin, status, abort, or retire.",
     )
-    parser.add_argument("--credential-file", required=True)
-    parser.add_argument("--service-stop-receipt", default=None)
-    parser.add_argument("--retirement-receipt", default=None)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--credential-file",
+        required=True,
+        help="File holding the prod admin database credential.",
+    )
+    parser.add_argument(
+        "--service-stop-receipt",
+        default=None,
+        help="Receipt proving the old service is stopped; needed for begin.",
+    )
+    parser.add_argument(
+        "--retirement-receipt",
+        default=None,
+        help="Receipt from the recorded retirement gates; needed for retire.",
+    )
+    parser.add_argument("--json", dest="json_mode", action="store_true", help="Print JSON.")
     parsed = parse_or_usage_error(parser, args, QUIESCE_USAGE)
     if parsed is None:
         return 2
@@ -73,9 +86,17 @@ def source_authority_export(args: List[str]) -> int:
             "the resolved DSN or credentials."
         ),
     )
-    parser.add_argument("--out", required=True)
-    parser.add_argument("--credential-file", required=True)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--out",
+        required=True,
+        help="File or directory to write the export to.",
+    )
+    parser.add_argument(
+        "--credential-file",
+        required=True,
+        help="File holding the prod admin database credential.",
+    )
+    parser.add_argument("--json", dest="json_mode", action="store_true", help="Print JSON.")
     parsed = parse_or_usage_error(parser, args, EXPORT_USAGE)
     if parsed is None:
         return 2

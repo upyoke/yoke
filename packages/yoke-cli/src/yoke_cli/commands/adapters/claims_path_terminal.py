@@ -17,7 +17,7 @@ from yoke_cli.commands._helpers import (
 def terminal_usage(action: str) -> str:
     return (
         f"yoke claims path {action} --item PREFIX-N --claim-id N "
-        "--reason TEXT [--session-id S] [--json]"
+        "--reason TEXT [--project P] [--session-id S] [--json]"
     )
 
 
@@ -25,16 +25,21 @@ def _terminal(args: list[str], action: str) -> int:
     usage = terminal_usage(action)
     parser = argparse.ArgumentParser(
         prog=f"yoke claims path {action}",
-        description=usage,
+        usage=usage,
         epilog=(
-            "Requires the owning item's work claim. Release finished coverage; "
-            "cancel abandoned coverage. Terminal claims cannot be reopened; "
-            "register fresh coverage before editing reopened work."
+            "You must hold the item's work claim. Use release when the work on\n"
+            "those paths is finished and cancel when it is abandoned. A released\n"
+            "or cancelled path claim cannot be reopened; record a new path claim\n"
+            "before you edit those paths again."
         ),
     )
-    parser.add_argument("--item", required=True, help="Owning item (PREFIX-N).")
-    parser.add_argument("--claim-id", required=True, help="Path claim id.")
-    parser.add_argument("--reason", required=True, help="Why coverage is ending.")
+    parser.add_argument(
+        "--item", required=True, metavar="PREFIX-N", help="The item that owns the path claim."
+    )
+    parser.add_argument("--claim-id", required=True, metavar="N", help="The path claim's id.")
+    parser.add_argument(
+        "--reason", required=True, metavar="TEXT", help="Why the path claim ends."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

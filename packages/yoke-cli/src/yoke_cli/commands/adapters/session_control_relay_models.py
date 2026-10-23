@@ -26,10 +26,16 @@ def relay_probe_models(args: List[str]) -> int:
     from yoke_harness.session_relay_native_models import observe_native_models
 
     parser = argparse.ArgumentParser(
-        prog="yoke relay probe-models", description=RELAY_PROBE_MODELS_USAGE
+        prog="yoke relay probe-models", usage=RELAY_PROBE_MODELS_USAGE
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parser.add_argument("--surface", choices=NATIVE_MODEL_SURFACES)
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
+    parser.add_argument(
+        "--surface",
+        choices=NATIVE_MODEL_SURFACES,
+        help="Probe only this surface; default: every surface.",
+    )
     parsed = parse_or_usage_error(parser, args, RELAY_PROBE_MODELS_USAGE)
     if parsed is None:
         return 2

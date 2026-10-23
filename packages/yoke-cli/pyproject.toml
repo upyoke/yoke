@@ -45,5 +45,8 @@ where = ["src"]
 # init` materializes it via importlib.resources.
 "yoke_cli.self_host" = ["docker-compose.yml"]
 
+# One-line command summaries ship as data beside the command catalog.
+"yoke_cli.commands" = ["summaries/*.json"]
+
 # Immutable ownership evidence lets packaged clients retire known released copies.
 "yoke_cli.project_install" = ["released_bundle_hashes.json"]

@@ -24,6 +24,15 @@ def field_heading(name: str) -> str:
     return f"## {name} ({FIELD_LIMITS[name]} chars max)"
 
 
+def fields_rule() -> str:
+    """What every edit of a strategy document must keep."""
+    return (
+        f"The document must keep {field_heading('Summary')} and "
+        f"{field_heading('State')} present, unique, non-empty, and one line "
+        "each. State is free text."
+    )
+
+
 def fields_recipe() -> str:
     return (
         f"Create with --summary TEXT ({SUMMARY_MAX_CHARS} chars max) and "

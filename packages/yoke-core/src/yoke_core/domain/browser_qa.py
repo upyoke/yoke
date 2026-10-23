@@ -78,6 +78,9 @@ from yoke_core.domain.browser_qa_steps import (
     _record_run,
     _upload_artifact,
 )
+from yoke_core.domain.browser_qa_sign_in_evidence import (
+    load_project_browser_identities,
+)
 from yoke_core.domain.browser_qa_scenario import (
     _fetch_browser_context,
     execute_scenario,
@@ -88,6 +91,7 @@ __all__ = [
     "RunResult",
     "ScenarioResult",
     "execute_scenario",
+    "load_project_browser_identities",
     "_DAEMON_MAX_RETRIES",
     "_SCREENSHOT_ACTIONS",
     "_build_code_identity",

@@ -28,7 +28,7 @@ COORDINATION_KEY_PREFIXES: tuple[tuple[str, str], ...] = (
 #: The scope key naming the resource, per coordination kind.
 COORDINATION_SCOPE_KEY = {
     TARGET_KIND_MIGRATION_SERIALIZATION: "model",
-    TARGET_KIND_QA_ADMISSION: "machine_id",
+    TARGET_KIND_QA_ADMISSION: "test_machine",
     TARGET_KIND_ROUTE_QUALIFICATION: "grant_key",
 }
 

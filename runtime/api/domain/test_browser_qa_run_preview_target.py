@@ -143,8 +143,8 @@ class TestRunPreviewTarget(unittest.TestCase):
             self.assertIsNone(failure)
             self.assertEqual(origin, PREVIEW_URL)
 
-    def test_a_preview_serving_another_revision_is_refused(self):
-        """The receipt locates the target; it never answers for it."""
+    def test_a_preview_serving_another_revision_records_it(self):
+        """The receipt locates the target; the preview answers for itself."""
         with test_database() as conn:
             _seed(conn, requirement_id=9503, target=_preview_target(receipt_id=703))
             _insert_receipt(conn, receipt_id=703)
@@ -153,7 +153,7 @@ class TestRunPreviewTarget(unittest.TestCase):
                 conn, requirement_id=9503, project_id=1
             )
 
-            failure, origin, _sha = _establish_deployment_freshness(
+            failure, origin, sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -161,8 +161,9 @@ class TestRunPreviewTarget(unittest.TestCase):
                 fetch_identity=_serves(OTHER_SHA),
             )
 
-            self.assertIsNotNone(failure)
-            self.assertEqual(origin, "")
+            self.assertIsNone(failure)
+            self.assertTrue(origin)
+            self.assertEqual(sha, OTHER_SHA)
 
 
 class TestRunPreviewReceiptAuthority(unittest.TestCase):

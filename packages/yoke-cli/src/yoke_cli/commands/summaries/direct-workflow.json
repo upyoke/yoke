@@ -1,0 +1,13 @@
+{
+  "direct-workflow": "Run Dash and Blitz work outside the full pipeline.",
+  "direct-workflow blitz": "Record Blitz work surveys.",
+  "direct-workflow blitz survey": "Record the paths a Blitz item changes and check conflicts.",
+  "direct-workflow conflict-survey": "Read recorded conflict surveys.",
+  "direct-workflow conflict-survey status": "Show an item's conflict survey and check it again.",
+  "direct-workflow dash": "Survey, finish and escalate Dash work.",
+  "direct-workflow dash escalate": "File an issue with findings and cancel the Dash item.",
+  "direct-workflow dash evidence": "Record a Dash item's result and how it was checked.",
+  "direct-workflow dash survey": "Record the paths a Dash item changes and check conflicts.",
+  "direct-workflow worktree": "Prepare lanes for Dash and Blitz work.",
+  "direct-workflow worktree prepare": "Prepare an item's lane from the latest upstream."
+}

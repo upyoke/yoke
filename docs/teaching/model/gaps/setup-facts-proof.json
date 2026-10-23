@@ -3,6 +3,7 @@
  "title": "Prove refreshed setup facts in the installed campaign",
  "status": "observed",
  "text": "Source tests cover scoped resume, saved profiles, setting changes and machine observations. Run the existing installer campaign against the released candidate before claiming installed proof; preserve its current execution and owner.",
- "sources": ["docs/public/start/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py"],
- "position": 22
+ "sources": ["docs/public/start/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py", "docs/testing-verification/test-machine-golden-baseline.md", "runtime/api/cli/test_setup_self_host_prerequisite_guidance.py"],
+ "position": 22,
+ "summary": " New shared self-host preparation guidance has source coverage in both modes; released interactive/agent delivery remains unproved. Yoke's Windows/WSL runtime and restored home do not establish desktop readiness: non-blank XFCE/xrdp verification and final fresh-host evidence remain unresolved and require separately authorized fixture repair, preserving the failed screenshot check."
 }

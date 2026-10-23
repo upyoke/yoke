@@ -102,7 +102,7 @@ def run_operation(
 
 
 def operation_receipts(conn: Any) -> list[dict[str, Any]]:
-    return machine_detail(conn, project="yoke", machine=MACHINE)["operations"]
+    return machine_detail(conn, project="yoke", test_machine=MACHINE)["operations"]
 
 
 __all__ = [

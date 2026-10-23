@@ -92,14 +92,19 @@ def test_closed_deployment_still_authorizes_its_bound_capture_review(
     )
     test_db.commit()
     actor = ActorContext(actor_id="7", session_id="review-session")
-    target = TargetRef(kind="deployment_run", deployment_run_id=run_id)
+    target = TargetRef(kind="global")
     request = FunctionCallRequest(
         function="qa.plan_review.begin",
         actor=actor,
         target=target,
         payload={"execution_id": execution["id"]},
     )
-    assert resolve_run_qa_subject(test_db, request)[2] == item_id
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    assert (
+        resolve_run_qa_subject(test_db, resolve_execution_request(test_db, request))[2]
+        == item_id
+    )
     begun = handle_plan_review_begin(request)
     assert begun.primary_success, begun.error
     bundle = begun.result_payload["review_bundle"]

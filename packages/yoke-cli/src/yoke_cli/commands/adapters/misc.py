@@ -43,14 +43,15 @@ __all__ = [
 
 OUROBOROS_ENTRY_LIST_USAGE = (
     "yoke ouroboros entry list [--unreviewed] [--project P] "
-    "[--limit N] [--offset N] [--count] [--session-id S] [--json]"
+    "[--limit N] [--offset N] [--count] [--full] [--session-id S] [--json]"
 )
 
 
 def ouroboros_entry_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry list",
-        description=OUROBOROS_ENTRY_LIST_USAGE,
+        usage=OUROBOROS_ENTRY_LIST_USAGE,
+        description="List improvement notes (ouroboros entries) for one project.",
     )
     parser.add_argument(
         "--unreviewed",
@@ -60,27 +61,30 @@ def ouroboros_entry_list(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
+        metavar="P",
         help=(
-            "Filter by project slug or id. Defaults to the checkout "
-            "project (same ladder as the project-scoped writers)."
+            "Project slug or id. Default: $YOKE_PROJECT, then the checkout's "
+            "mapped project."
         ),
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
+        metavar="N",
         help="Maximum rows to return (default 50, max 500).",
     )
     parser.add_argument(
         "--offset",
         type=int,
         default=None,
+        metavar="N",
         help="Rows to skip before the page (default 0).",
     )
     parser.add_argument(
         "--count",
         action="store_true",
-        help="Return the matching row count instead of entry bodies.",
+        help="Print only how many entries match.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -113,16 +117,16 @@ def ouroboros_entry_list(args: List[str]) -> int:
 
 
 OUROBOROS_ENTRY_GET_USAGE = (
-    "yoke ouroboros entry get ENTRY_ID [--session-id S] [--json]"
+    "yoke ouroboros entry get ENTRY-ID [--full] [--session-id S] [--json]"
 )
 
 
 def ouroboros_entry_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros entry get",
-        description=OUROBOROS_ENTRY_GET_USAGE,
+        usage=OUROBOROS_ENTRY_GET_USAGE,
     )
-    parser.add_argument("entry_id", help="Ouroboros entry id (integer).")
+    parser.add_argument("entry_id", metavar="ENTRY-ID", help="The entry's id (an integer).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, OUROBOROS_ENTRY_GET_USAGE)
@@ -131,7 +135,7 @@ def ouroboros_entry_get(args: List[str]) -> int:
     try:
         entry_id = int(parsed.entry_id)
     except ValueError:
-        return usage_error("ENTRY_ID must be an integer")
+        return usage_error("ENTRY-ID must be an integer")
     return dispatch_and_emit(
         function_id="ouroboros.entry.get",
         target=TargetRef(kind="global"),
@@ -146,7 +150,7 @@ def ouroboros_entry_get(args: List[str]) -> int:
 # ---------------------------------------------------------------------------
 
 SCRATCH_DISPATCH_INPUTS_USAGE = (
-    "yoke scratch dispatch-inputs <PREFIX-N> <session_id> <attempt>"
+    "yoke scratch dispatch-inputs PREFIX-N SESSION-ID ATTEMPT [--project P] [--full]"
 )
 
 
@@ -169,11 +173,16 @@ def scratch_dispatch_inputs(args: List[str]) -> int:
     scratch_dir = importlib.import_module("yoke_core.domain.project_scratch_dir")
     parser = argparse.ArgumentParser(
         prog="yoke scratch dispatch-inputs",
-        description=SCRATCH_DISPATCH_INPUTS_USAGE,
+        usage=SCRATCH_DISPATCH_INPUTS_USAGE,
+        description=(
+            "Create, if needed, the dispatch inputs folder for one item, session\n"
+            "and attempt, and print its absolute path as one line. Runs on this\n"
+            "machine only."
+        ),
     )
-    parser.add_argument("item", help="Public item ref (PREFIX-N).")
-    parser.add_argument("session_id", help="Harness session id.")
-    parser.add_argument("attempt", help="Per-dispatch attempt counter (1-based).")
+    parser.add_argument("item", metavar="PREFIX-N", help="The item.")
+    parser.add_argument("session_id", metavar="SESSION-ID", help="The harness session id.")
+    parser.add_argument("attempt", metavar="ATTEMPT", help="The dispatch attempt number, starting at 1.")
     parsed = parse_or_usage_error(parser, args, SCRATCH_DISPATCH_INPUTS_USAGE)
     if parsed is None:
         return 2

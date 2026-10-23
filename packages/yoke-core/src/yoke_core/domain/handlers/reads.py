@@ -99,6 +99,14 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
                     item_id,
                     {"value": "", "source": "none"},
                 )
+        elif col == "post_deploy_qa":
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.post_deploy_qa_obligation import (
+                obligation_for_item,
+            )
+
+            with connect() as conn:
+                out[col] = obligation_for_item(conn, item_id).summary()
         elif col == "owner":
             from yoke_core.domain.db_helpers import connect
             from yoke_core.domain.item_owner_label import (

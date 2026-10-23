@@ -30,12 +30,12 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
         self,
         *,
         lease: CoordinationClaim,
-        machine: str,
+        test_machine: str,
         contention: ClaimContention | None = None,
     ) -> None:
-        super().__init__(held_host(lease, machine))
+        super().__init__(held_host(lease, test_machine))
         self.lease = lease
-        self.machine = machine
+        self.test_machine = test_machine
         self.contention = contention
 
     def waiting_result(self) -> MachineCaseResult:
@@ -44,7 +44,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
             verdict="waiting",
             evidence={
                 "runner_id": "host_control",
-                "machine": self.machine,
+                "test_machine": self.test_machine,
                 "case_started": False,
                 "lease": waiting_claim_evidence(self.lease, self.contention),
             },

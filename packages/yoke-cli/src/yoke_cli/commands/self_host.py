@@ -140,7 +140,9 @@ def self_host_init(args: List[str]) -> int:
         action="store_true",
         help="Start/restart through the private host secret handoff; with --protect-existing, refresh the Compose template and preserve database credentials.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, INIT_USAGE)
     if parsed is None:
         return 2
@@ -234,7 +236,9 @@ def self_host_upgrade(args: List[str]) -> int:
         action="store_true",
         help="Accept the displayed plan without an interactive confirmation.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, UPGRADE_USAGE)
     if parsed is None:
         return 2

@@ -1,0 +1,12 @@
+{
+  "lifecycle": "Move work items between lifecycle statuses.",
+  "lifecycle repair": "Repair an item's lifecycle status.",
+  "lifecycle repair status": "Force an item's status, with an audited reason.",
+  "lifecycle repair-status": "Force an item's status, with an audited reason.",
+  "lifecycle skip": "Record skipped lifecycle steps.",
+  "lifecycle skip record": "Record a skipped lifecycle step.",
+  "lifecycle skip record recoverable": "Record a step skipped for a recoverable failure.",
+  "lifecycle skip record recoverable substrate": "Record a step skipped for a recoverable outage.",
+  "lifecycle skip record-recoverable-substrate": "Record a step skipped for a recoverable outage.",
+  "lifecycle transition": "Move an item to another lifecycle status."
+}

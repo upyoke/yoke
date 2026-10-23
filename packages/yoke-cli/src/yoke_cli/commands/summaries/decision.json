@@ -1,0 +1,8 @@
+{
+  "decision": "Read and answer requests waiting for a decision.",
+  "decision requests": "Read and answer requests waiting for a decision.",
+  "decision requests dispose": "Close decision requests whose subject has ended.",
+  "decision requests dispose ended": "Close pending decision requests whose subject has ended.",
+  "decision requests get": "Show one decision request and its decisions.",
+  "decision requests resolve": "Record your decision on a pending decision request."
+}

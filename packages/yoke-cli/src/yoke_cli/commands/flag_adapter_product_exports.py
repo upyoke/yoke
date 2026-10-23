@@ -200,6 +200,7 @@ FLAG_ADAPTER_EXPORT_NAMES = [
     "hook_evaluate",
     "scratch_dispatch_inputs",
     "config_example",
+    "config_status",
     "status",
     "dev_setup",
     "dev_db_admin_exec",

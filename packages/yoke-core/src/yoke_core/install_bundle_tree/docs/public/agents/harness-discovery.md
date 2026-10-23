@@ -100,7 +100,10 @@ Read `.yoke/harness/<harness-dir>/manifest.json` for the installed release.
 Directories are `claude`, `codex`, and `cursor`; `claude-code` uses `claude`.
 `agent_wake` names wake support and its evidence, `session_control` names
 message/launch routes, and `supports` names hook affordances. `unverified`
-means the capability has no proof; it does not authorize guessing.
+means the capability has no proof; it does not authorize guessing. Implement shared behavior
+once behind its harness-neutral owner. Keep capability-specific branches thin, named and
+co-located; record an explicit designed deferral for a missing primitive, and teach each
+harness only the primitives it supports.
 The existing install bundle publishes renderer-owned release bytes and
 refresh manages their digests, restores missing files and resumes interrupted
 application. Do not edit managed manifests to change capabilities.
@@ -140,10 +143,25 @@ Inspect hook configuration with `yoke hook --help`.
 
 ## Verify native discovery
 
-Startup orientation is composed on the client and confirmed only after it
-reaches an allow response. HTTPS skips the server lifecycle renderer. Local
-universes mark supplied client context so lifecycle dispatch keeps registration
-and resume handling without emitting a second orientation.
+Startup orientation uses one client composer, harness JSON envelope and combined
+context budget. Codex delivers early on `SessionStart` when its startup payload
+is ready (a `startup` without a transcript is suppressed); Claude delivers on
+`UserPromptSubmit`, and Cursor on `SessionStart`. A later Codex or Claude prompt,
+or Cursor tool result, retries missing or unconfirmed orientation, including
+hooks installed during a conversation. Only actual emitted valid context arms
+the existing delivered marker; registration success and composition do not.
+A denied or interrupted emission remains eligible for recovery. Successful
+emission stops repeat orientation while registration/backfill, model facts,
+first-prompt telemetry and independently owned resume notices still run.
+
+Install advice and command pointers stay in the shared orientation; Codex no
+longer emits a separate command catalog on its first prompt. Registration
+failures retain their named reason and recovery in the same budgeted envelope.
+The delivered marker records the emitted UTF-8 body byte count and SHA-256;
+it proves hook emission, not that an agent read it. If marker writes fail,
+restore write access to the hook-markers directory or set `YOKE_SCRATCH_ROOT`
+to a writable path, then retry a context-bearing hook. HTTPS skips server
+lifecycle rendering; local lifecycle handlers share the client output path.
 
 After fresh install and repeated refresh, inspect the native skills menu:
 each native Yoke entry should appear once. Select the installed `yoke` skill,

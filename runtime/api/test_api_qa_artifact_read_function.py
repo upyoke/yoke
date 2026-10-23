@@ -68,7 +68,7 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
                 "backend": "local",
                 "path": str(tmp_path / "missing.png"),
             },
-            metadata={"machine": "Test Machine"},
+            metadata={"test_machine": "Test Machine"},
         )
         with (
             patch(
@@ -84,7 +84,7 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
 
     assert outcome.primary_success
     assert outcome.result_payload["disposition"] == "evidence_on_machine"
-    assert outcome.result_payload["machine"] == "Test Machine"
+    assert outcome.result_payload["test_machine"] == "Test Machine"
     assert "content_base64" not in outcome.result_payload
 
 

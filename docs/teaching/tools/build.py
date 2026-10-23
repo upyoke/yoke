@@ -4,11 +4,9 @@ Run from a Yoke source checkout:
 
     yoke dev run -- python3 docs/teaching/tools/build.py          # rebuild views
     yoke dev run -- python3 docs/teaching/tools/build.py --check  # verify only
-    yoke dev run -- python3 docs/teaching/tools/build.py --live   # + live pages
 
-Generated views are untracked and depend only on the model. ``--live`` also
-writes the command crosswalk and documentation graph, which read the live registries and git
-tree, into the untracked ``docs/teaching/live/`` directory.
+Generated views are untracked and combine the model with source inventories.
+The responsive guide is the only generated reading interface.
 """
 
 from __future__ import annotations
@@ -16,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -26,30 +25,18 @@ from model import (
     REBUILD,
     TEACHING_ROOT,
     Problem,
-    coverage,
     dump,
     load,
     model_files,
     validate,
 )
-from render import LINE_LIMIT, wrapped_lines
-from render_pages import LIVE, Pages
-from render_overview import index_page
+from limits import LINE_LIMIT, wrapped_lines
+from guide_data import GuideData
+from render_explorer import build_explorer
 
 VIEWS_ROOT = TEACHING_ROOT / "views"
 LIVE_ROOT = TEACHING_ROOT / "live"
-INTRO = (
-    "The maintained catalog of what Yoke teaches agents and people, up front "
-    "and in each situation: concepts, the surfaces that carry teaching, the "
-    "scenarios that need it, boundaries, evidence and gaps. Mapped means a "
-    "direct teaching link; it never proves the teaching works."
-)
-PAGE_SPLIT = (
-    "move a large child branch to its own page by setting the record field "
-    "`page` on that child and its descendants (or on surface and scenario "
-    'parts), e.g. "page": "qa-cases" in model/concepts/qa-plans/cases.json; '
-    "keep record content unchanged"
-)
+PAGE_SPLIT = "split generated node data into smaller chunks; keep record content unchanged"
 FILE_SPLIT = "split it into a new file at a meaningful boundary"
 _HREF = re.compile(r'href="([^"]*)"')
 _ID = re.compile(r'id="([^"]*)"')
@@ -62,11 +49,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="validate the model and build views in memory without writing",
     )
-    parser.add_argument(
-        "--live",
-        action="store_true",
-        help="also write the live command and docs-graph pages",
-    )
     args = parser.parse_args(argv)
 
     model = load()
@@ -77,28 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     if model.problems:
         return report(model.problems, check=args.check)
     graph = model.docs_graph
-    pages = Pages(
-        model, live, coverage(model), docs, lambda path: inventory.area_of(path, graph)
-    )
-    views: dict[str, str] = {
-        "style.css": (Path(__file__).parent / "style.css").read_text(encoding="utf-8")
-    }
-    pages.concept_pages(views)
-    pages.owned_pages(
-        views, "surfaces", model.surfaces, model.teaching, "Teaching surfaces"
-    )
-    pages.owned_pages(views, "scenarios", model.scenarios, model.lessons, "Scenarios")
-    pages.evidence_pages(views)
-    pages.record_page(views, "boundaries.html", "Locked boundaries", model.boundaries)
-    pages.record_page(views, "gaps.html", "Gaps", model.gaps)
-    pages.docs_pages(views)
-    pages.commands_page(views)
-    index_page(views, INTRO)
-    live_pages = {
-        path[len(LIVE) :]: views.pop(path)
-        for path in list(views)
-        if path.startswith(LIVE)
-    }
+    pages = GuideData(model, live, docs, lambda path: inventory.area_of(path, graph))
+    views: dict[str, str] = {}
+    build_explorer(views, pages)
     check_links(model, views, set(files))
 
     canonical = {
@@ -110,8 +73,8 @@ def main(argv: list[str] | None = None) -> int:
         check_canonical_model(model, canonical)
     else:
         _replace_tree(VIEWS_ROOT, views)
-    if args.live:
-        _replace_tree(LIVE_ROOT, live_pages)
+        if LIVE_ROOT.exists():
+            shutil.rmtree(LIVE_ROOT)
     limits_and_privacy(model, views)
     return report(model.problems, check=args.check)
 
@@ -169,9 +132,9 @@ def check_canonical_model(model, canonical: dict) -> None:
 
 
 def _replace_tree(root: Path, pages: dict[str, str]) -> None:
-    """Write ``pages`` under ``root`` and delete HTML pages no longer generated."""
-    for stale in root.rglob("*.html"):
-        if stale.relative_to(root).as_posix() not in pages:
+    """Write ``pages`` under ``root`` and delete obsolete generated files."""
+    for stale in root.rglob("*"):
+        if stale.is_file() and stale.relative_to(root).as_posix() not in pages:
             stale.unlink()
     for path, text in pages.items():
         target = root / path

@@ -24,7 +24,7 @@ Model: [verification](../../verification/index.md).
 - A quiet or backgrounded gate is still running: continue it. If its watcher was killed, rerun
   `yoke qa case run`; it rejoins or adopts the CI run for that commit.
 - A requirement bound to an item-scoped deployment stage runs with
-  `yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N`.
+  `yoke qa plan run --item PREFIX-N --stage STAGE`.
 - Never run raw `python3 -m pytest` over whole test roots; use `yoke watch pytest`.
 - CI verdict wake-ups need a healthy relay on this machine
   ([CI wake-ups](../../github/index.md#ci-verdicts-and-session-wake-ups)).
@@ -56,6 +56,9 @@ the same inputs belongs to this item. Failed trains use the recorded
   Never rerun an older run through another tool.
 
 ## Visual evidence
+
+Run browser checks at their specified sizes. Verify UI fixes with rendered screenshots
+against the supported deployment context.
 
 - Render captures against a universe you name: `YOKE_ENV=<local-env> yoke ui up`. Seed through
   that env. Keep admission tokens out of output; add a `delay` step before a screenshot.

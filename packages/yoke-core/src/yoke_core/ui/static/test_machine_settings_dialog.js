@@ -44,10 +44,10 @@ export function machineSettingsDialog(context, detail, close, saved) {
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute(
-    "aria-label", `Edit Test Machine ${detail.machine} settings`,
+    "aria-label", `Edit Test Machine ${detail.test_machine} settings`,
   );
   dialog.appendChild(el(
-    documentNode, "h2", null, `Edit Test Machine · ${detail.machine}`,
+    documentNode, "h2", null, `Edit Test Machine · ${detail.test_machine}`,
   ));
   dialog.appendChild(el(
     documentNode,
@@ -165,7 +165,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
         "test_machine.settings_replace",
         {
           project: detail.project,
-          machine: detail.machine,
+          test_machine: detail.test_machine,
           settings: Object.fromEntries(
             Object.entries(inputs)
               .filter(([key, input]) => (

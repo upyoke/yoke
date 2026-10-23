@@ -44,8 +44,19 @@ def config_bind_actor(args: List[str]) -> int:
             'actors"`.'
         ),
     )
-    parser.add_argument("--actor-id", dest="actor_id", type=int, required=True)
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--actor-id",
+        dest="actor_id",
+        type=int,
+        required=True,
+        help="Actor id this machine operates as.",
+    )
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to write; default: the standard location.",
+    )
     parsed = parse_or_usage_error(parser, args, BIND_ACTOR_USAGE)
     if parsed is None:
         return 2

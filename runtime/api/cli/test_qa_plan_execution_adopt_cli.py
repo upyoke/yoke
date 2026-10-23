@@ -13,7 +13,7 @@ from yoke_core.domain.qa_plan_execution import QaPlanExecutionError
     "arguments,kind",
     [
         (["--item", "PREFIX-42"], "item"),
-        (["--deployment-run-id", "release-run"], "deployment_run"),
+        ([], "global"),
     ],
 )
 def test_adopt_dispatches_registered_function_with_exact_subject(

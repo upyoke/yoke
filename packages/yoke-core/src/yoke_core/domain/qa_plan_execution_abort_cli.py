@@ -41,16 +41,15 @@ def run(args: List[str]) -> int:
             "See yoke qa plan run --help."
         ),
     )
-    subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--execution-id", required=True)
+    parser.add_argument("--item", help="Item whose QA execution to abort, as PREFIX-N.")
+    parser.add_argument("--execution-id", required=True, help="QA execution to abort.")
     parser.add_argument("--reason", required=True, help=REASON_HELP)
-    parser.add_argument("--project")
-    parser.add_argument("--session-id")
+    parser.add_argument("--project", help="Project that owns the execution.")
+    parser.add_argument(
+        "--session-id",
+        help="Override the detected session id (debugging only).",
+    )
     parsed = parser.parse_args(args)
-    if not parsed.item and not parsed.deployment_run_id and not parsed.project:
-        parser.error("standalone abort requires --project P")
     if len(parsed.reason) > ABORT_REASON_MAX_LENGTH:
         parser.error(
             f"abort_reason_too_long: --reason is {len(parsed.reason)} characters; "
@@ -69,12 +68,6 @@ def run(args: List[str]) -> int:
         )
         if parsed.item
         else TargetRef(kind="global", project_id=parsed.project)
-        if not parsed.deployment_run_id
-        else TargetRef(
-            kind="deployment_run",
-            deployment_run_id=str(parsed.deployment_run_id),
-            project_id=parsed.project,
-        )
     )
     try:
         result = _call_plan_function(
@@ -98,7 +91,7 @@ def run(args: List[str]) -> int:
             "transition_id",
             "state",
             "cursor_ordinal",
-            "machine_lease_id",
+            "test_machine_lease_id",
         )
     }
     if result.get("standalone_plan_id") is not None:

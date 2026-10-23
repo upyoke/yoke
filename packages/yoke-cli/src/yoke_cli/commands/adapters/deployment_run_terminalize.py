@@ -40,11 +40,12 @@ def deployment_runs_terminalize(args: List[str]) -> int:
         ),
         epilog=INTERRUPTED_RUN_RECOVERY,
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Id of the active deployment run to close.")
     parser.add_argument(
         "--disposition",
         required=True,
         choices=("failed", "cancelled"),
+        help="Final state to record: failed or cancelled.",
     )
     parser.add_argument(
         "--reason",

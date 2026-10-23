@@ -38,24 +38,25 @@ __all__ = [
 DB_CLAIM_AMEND_USAGE = (
     "yoke db-claim amend <PREFIX-N> --reason TEXT "
     "(--payload JSON | --payload-file PATH | --stdin | --state none) "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 DB_CLAIM_PROSE_CHECK_USAGE = (
     "yoke db-claim prose-check (<PREFIX-N> | --stdin) "
-    "[--public-ref PREFIX-N] [--session-id S] [--json]"
+    "[--public-ref PREFIX-N] [--project P] [--full] [--session-id S] [--json]"
 )
 
 
 def db_claim_amend(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke db-claim amend",
-        description=DB_CLAIM_AMEND_USAGE,
+        usage=DB_CLAIM_AMEND_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item id.")
     parser.add_argument(
         "--reason",
         required=True,
-        help="Non-empty operator-facing justification.",
+        metavar="TEXT",
+        help="Why the claim changes; must not be empty.",
     )
     payload_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -63,18 +64,19 @@ def db_claim_amend(args: List[str]) -> int:
         "--payload",
         "--payload-file",
         dest="payload",
-        help_text="Unified claim JSON (object). Use --payload-file for a path.",
+        help_text="The new database change claim, as a JSON object.",
+        file_help="Read the new claim's JSON from a file.",
     )
     payload_group.add_argument(
         "--stdin",
         action="store_true",
-        help="Read unified claim JSON from stdin.",
+        help="Read the new claim's JSON from stdin.",
     )
     payload_group.add_argument(
         "--state",
         choices=("none",),
         default=None,
-        help='Convenience alias for --payload \'{"state":"none"}\'.',
+        help='Claim no database changes; same as --payload \'{"state":"none"}\'.',
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -116,24 +118,26 @@ def db_claim_amend(args: List[str]) -> int:
 def db_claim_prose_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke db-claim prose-check",
-        description=DB_CLAIM_PROSE_CHECK_USAGE,
+        usage=DB_CLAIM_PROSE_CHECK_USAGE,
     )
     parser.add_argument(
         "item",
         nargs="?",
         default=None,
-        help="Item id (PREFIX-N). Omit when using --stdin.",
+        metavar="PREFIX-N",
+        help="Item whose text to check. Omit when using --stdin.",
     )
     parser.add_argument(
         "--stdin",
         action="store_true",
-        help="Detect over prose from stdin (local; no DB).",
+        help="Check text read from stdin instead, on this machine only.",
     )
     parser.add_argument(
         "--public-ref",
         dest="public_ref",
         default=None,
-        help="Public ref quoted in recovery when using --stdin.",
+        metavar="PREFIX-N",
+        help="With --stdin, the item id to name in the suggested next steps.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

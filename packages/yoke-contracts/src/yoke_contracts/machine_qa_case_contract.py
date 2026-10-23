@@ -92,9 +92,9 @@ class MachineQaCaseContract(BaseModel):
             raise ValueError("Machine QA execution target digest is invalid")
         require_case_execution_target(self)
         if self.runner_id == "worktree_run":
-            if not self.method_config.get("machine"):
+            if not self.method_config.get("test_machine"):
                 raise ValueError(
-                    "Command host admission requires method_config.machine"
+                    "Command host admission requires method_config.test_machine"
                 )
         else:
             require_materialized_starting_state(self)

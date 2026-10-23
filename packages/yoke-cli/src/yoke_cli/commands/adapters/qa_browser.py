@@ -43,34 +43,37 @@ from yoke_contracts.qa_execution_status import (
 QA_BROWSER_CONTEXT_GET_USAGE = (
     "yoke qa browser-context get (--item PREFIX-N | --deployment-run RUN-ID) "
     "--requirement-id N --project P "
-    "[--expected-branch BRANCH] [--session-id S] [--json]"
+    "[--expected-branch BRANCH] [--full] [--session-id S] [--json]"
 )
 
 
 def qa_browser_context_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser-context get",
-        description=QA_BROWSER_CONTEXT_GET_USAGE,
+        usage=QA_BROWSER_CONTEXT_GET_USAGE,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item", help="Target item (PREFIX-N).")
+    subject.add_argument("--item", metavar="PREFIX-N", help="Item the case belongs to.")
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",
-        help="Target deployment run (run-YYYYMMDD-NNN) for a run-scoped case.",
+        metavar="RUN-ID",
+        help="Deployment run (run-YYYYMMDD-NNN) the case belongs to.",
     )
     parser.add_argument(
         "--requirement-id",
         dest="requirement_id",
         type=int,
         required=True,
-        help="Materialized Browser case id.",
+        metavar="N",
+        help="QA requirement id of the Browser case.",
     )
     parser.add_argument(
         "--expected-branch",
         dest="expected_branch",
         default=None,
-        help="Also return the branch's latest deployed_sha.",
+        metavar="BRANCH",
+        help="Also return this branch's latest deployed commit (deployed_sha).",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -120,7 +123,7 @@ QA_RUN_ADD_USAGE = (
 def qa_run_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run add",
-        description=QA_RUN_ADD_USAGE,
+        usage=QA_RUN_ADD_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument(
@@ -128,56 +131,72 @@ def qa_run_add(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="Target qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id the run belongs to.",
     )
     parser.add_argument(
         "--performed-by",
         dest="performed_by",
         required=True,
-        help="Runner that runs the QA check.",
+        metavar="TYPE",
+        help=(
+            "Who ran the check, e.g. agent, browser_substrate, host_control, "
+            "agent_mission. Browser cases refuse agent."
+        ),
     )
     parser.add_argument(
         "--qa-kind",
         dest="qa_kind",
         default=None,
-        help="Must match the requirement's stored kind.",
+        metavar="KIND",
+        help="QA kind; when given it must match the requirement's kind.",
     )
     parser.add_argument(
-        "--verdict", default=None, help="Optional verdict (omitted for started runs)."
+        "--verdict",
+        default=None,
+        metavar="V",
+        help="Verdict: pass, fail, undetermined, or error. Omit it to start a run.",
     )
     parser.add_argument(
         "--verdict-reason",
         dest="verdict_reason",
         default=None,
-        help="Required with undetermined; see evidence rule below.",
+        metavar="REASON",
+        help="Why the result is undetermined; required with that verdict.",
     )
     parser.add_argument(
         "--execution-status",
         dest="execution_status",
         choices=VALID_EXECUTION_STATUSES,
         default=None,
+        metavar=EXECUTION_STATUS_USAGE_TOKEN,
         help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
         "--capture-degraded-reason",
         dest="capture_degraded_reason",
         default=None,
-        help="Why a captured run produced no qa_artifacts.",
+        metavar="TEXT",
+        help="Why a captured run has no attached evidence files.",
     )
     parser.add_argument(
         "--raw-result",
         dest="raw_result",
         default=None,
-        help="Optional raw output snippet.",
+        metavar="TEXT",
+        help="Short raw output from the check.",
     )
     parser.add_argument(
         "--duration-ms",
         dest="duration_ms",
         type=int,
         default=None,
-        help="Optional duration in milliseconds.",
+        metavar="N",
+        help="How long the check took, in milliseconds.",
     )
-    parser.add_argument("--head-sha", help="Full commit SHA this evidence verifies.")
+    parser.add_argument(
+        "--head-sha", metavar="SHA", help="Full commit SHA this evidence verifies."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_ADD_USAGE)
@@ -222,7 +241,7 @@ QA_RUN_COMPLETE_USAGE = (
 def qa_run_complete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run complete",
-        description=QA_RUN_COMPLETE_USAGE,
+        usage=QA_RUN_COMPLETE_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument(
@@ -230,47 +249,55 @@ def qa_run_complete(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The run's owning qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id the run belongs to.",
     )
     parser.add_argument(
-        "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
+        "--run-id", dest="run_id", type=int, required=True, metavar="N",
+        help="Id of the started QA run to complete.",
     )
     parser.add_argument(
         "--verdict",
         default=None,
-        help="Verdict to set (at least one of verdict/status).",
+        metavar="V",
+        help="Verdict: pass, fail, undetermined, or error. Give it, --execution-status, or both.",
     )
     parser.add_argument(
         "--verdict-reason",
         dest="verdict_reason",
         default=None,
-        help="Required with undetermined; see evidence rule below.",
+        metavar="REASON",
+        help="Why the result is undetermined; required with that verdict.",
     )
     parser.add_argument(
         "--execution-status",
         dest="execution_status",
         choices=VALID_EXECUTION_STATUSES,
         default=None,
+        metavar=EXECUTION_STATUS_USAGE_TOKEN,
         help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
         "--capture-degraded-reason",
         dest="capture_degraded_reason",
         default=None,
-        help="Why a captured run produced no qa_artifacts.",
+        metavar="TEXT",
+        help="Why a captured run has no attached evidence files.",
     )
     parser.add_argument(
         "--raw-result",
         dest="raw_result",
         default=None,
-        help="Optional raw output snippet.",
+        metavar="TEXT",
+        help="Short raw output from the check.",
     )
     parser.add_argument(
         "--duration-ms",
         dest="duration_ms",
         type=int,
         default=None,
-        help="Optional duration in milliseconds.",
+        metavar="N",
+        help="How long the check took, in milliseconds.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

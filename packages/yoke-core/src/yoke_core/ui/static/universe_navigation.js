@@ -4,6 +4,7 @@ import {
   SCOPE_MULTI,
   SCOPE_NONE,
   SCOPE_SINGLE,
+  MOVED_VIEWS,
 } from "./universe_destinations.js";
 import {
   canonicalSelection, knownProjectId, projectSelection, resolveProjectSelection,
@@ -85,7 +86,9 @@ export function routeHref(href, basePath = "") {
 export function parseUniverseRoute(href, basePath = "") {
   const raw = routePath(href, basePath).replace(/^\//, "");
   const [pathPart, queryPart] = raw.split("?");
-  const [viewPart, firstSegment, secondSegment] = pathPart.split("/");
+  const [requestedView, firstSegment, secondSegment] = pathPart.split("/");
+  const viewPart = Object.hasOwn(MOVED_VIEWS, requestedView)
+    ? MOVED_VIEWS[requestedView] : requestedView;
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const query = new URLSearchParams(queryPart || "");

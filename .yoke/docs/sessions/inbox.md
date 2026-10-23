@@ -33,8 +33,11 @@ Read decisions and delivery notices, then address messages to their intended rec
   with its cancelled check count, never as open QA. An item with no QA for this run and no decision shows no Item QA; a run with no run checks and no decision has no Run QA. An item's work
   approval — pending with **Reject** and **Approve**, or answered — appears
   only in its Item QA, never under Run QA, with any screenshot of the item's
-  current release its checks have not already shown, or a note that none was
-  captured. A decision never replaces a check's result: while one is owed
+  current release its checks have not already shown, or a note saying why
+  none is shown: no item QA was required, its checks are command checks, or
+  a screenshot check captured none. Only the last is a warning, and an
+  answered approval keeps it only while one of its checks captures
+  screenshots. A decision never replaces a check's result: while one is owed
   the heading reads **Awaiting approval**, and once answered the record
   below the evidence names who approved or rejected it, and when. The run
   page uses the same order. A run whose stages are complete but whose
@@ -95,7 +98,23 @@ Read decisions and delivery notices, then address messages to their intended rec
   got to and where its item has, as two short statuses. Its item stage strip
   follows a recorded status change after landing, including a return to
   implementation; a merge stamp with no later transition keeps a stale
-  earlier status at closeout
+  earlier status at closeout. Each release row on an item card names the
+  item's QA as it was — **QA passed**, **QA waived**, **no item QA
+  required**, or **QA failed** — and then where completion stands:
+  **awaiting approval**, **approved · completion pending** (hover for where
+  to read its remaining done gates), **approved · closing** only while the
+  run is settling, **approval rejected**, or **awaiting item completion**
+  when no approval applies. The item page's **Delivery** panel adds the same
+  line under the release closing the item; once that release delivered it,
+  the line reads the QA disposition then **item completed**.
+- An item page lists its work approvals under **Approvals** once one was
+  requested: the current request with the transition it moves, when it was
+  asked, who can decide, and **Approve** and **Reject** for a reader who
+  may answer, then earlier decisions. It is the same decision as the Inbox
+  card, so answering either answers both. A request for a transition the
+  item has since left reads superseded and offers no answer. Approving an
+  item's done transition retries that item's own close-out at once; another
+  carried item's open approval never holds it
 - A desktop conversation cannot be resumed for you, so a message waiting in
   one raises a notice asking you to open that chat. The notice is derived
   from the waiting message, so it settles itself the moment the wait ends —

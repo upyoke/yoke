@@ -27,8 +27,12 @@ def _run_check(module: str, args: List[str]) -> int:
         prog=f"yoke dev {module.replace('_', '-')}", add_help=False, allow_abbrev=False
     )
     selector = parser.add_mutually_exclusive_group()
-    selector.add_argument("--lane", dest="selected_lane", metavar="PATH")
-    selector.add_argument("--workdir", dest="selected_lane", metavar="PATH")
+    selector.add_argument(
+        "--lane", dest="selected_lane", metavar="PATH", help="Source lane to use."
+    )
+    selector.add_argument(
+        "--workdir", dest="selected_lane", metavar="PATH", help="Same as --lane."
+    )
     parsed, command_args = parser.parse_known_args(args)
     command = ["python3", "-m", f"yoke_core.tools.{module}", *command_args]
     runner = _source_runner()

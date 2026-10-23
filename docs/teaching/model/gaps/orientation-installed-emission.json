@@ -1,0 +1,8 @@
+{
+ "id": "orientation-installed-emission",
+ "title": "Installed Codex startup and next-prompt emission proof",
+ "status": "deferred",
+ "topics": ["context/hooks"],
+ "sources": ["runtime/harness/test_hook_runner_codex_reminders.py", "docs/public/agents/harness-discovery.md"],
+ "note": "Automated source checks cover delivery recovery and emission fingerprints. The coordinated installer regression must still observe one fresh Codex session and its next prompt on the admitted published candidate. Preserve earlier failure evidence; do not infer agent receipt from an emission marker."
+}

@@ -1,0 +1,9 @@
+{
+  "core": "Run a local Yoke server in containers.",
+  "core build": "Build a local Yoke server image from a checkout.",
+  "core logs": "Print the local server's API and database logs.",
+  "core start": "Start the local Yoke database and API containers.",
+  "core status": "Show whether the local server is installed and healthy.",
+  "core stop": "Stop the local server containers, keeping their data.",
+  "core upgrade": "Upgrade the local server and restart its API."
+}

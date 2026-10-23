@@ -6,8 +6,17 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.post_deploy_verification_answer import (
+    DECLARATION_QA_KIND,
+    NO_OBLIGATION_QA_KIND,
+)
+from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.schema_common import _table_exists
+
+
+#: Requirement kinds that record an answer about item QA rather than a check.
+POST_DEPLOY_ANSWER_KINDS = (NO_OBLIGATION_QA_KIND, DECLARATION_QA_KIND)
 
 
 def _value(row: Any, key: str, index: int) -> Any:
@@ -64,8 +73,9 @@ def related_screenshot_evidence(
     prove nothing about this release and stay out.
     Standalone plan evidence is deliberately excluded: an approval must not
     imply that an unattached plan proved its item or release. The returned
-    state distinguishes no attachment, an attached run with no screenshots,
-    failed evidence, and evidence for an older revision. A review result may
+    state distinguishes no attachment, a recorded answer that no item QA was
+    owed, checks whose methods capture no screenshot, a screenshot check that
+    captured none, failed evidence, and evidence for an older revision. A review result may
     point back to its immutable capture run; those screenshots remain visible.
     """
     required = ("qa_requirements", "qa_runs", "qa_artifacts")
@@ -91,7 +101,8 @@ def related_screenshot_evidence(
         params = (str(deployment_run_id),)
     latest_rows = conn.execute(
         "SELECT q.id AS requirement_id, r.id AS run_id, r.verdict, "
-        "r.execution_status, r.raw_result FROM qa_requirements q "
+        "r.execution_status, r.raw_result, q.method_id, q.qa_kind "
+        "FROM qa_requirements q "
         "LEFT JOIN qa_runs r ON r.id=(SELECT latest.id FROM qa_runs latest "
         "WHERE latest.qa_requirement_id=q.id "
         "ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1) "
@@ -99,6 +110,12 @@ def related_screenshot_evidence(
         params,
     ).fetchall()
     requirement_ids = {int(_value(row, "requirement_id", 0)) for row in latest_rows}
+    visual = any(
+        is_browser_method_requirement(_value(row, "method_id", 5)) for row in latest_rows
+    )
+    answers_only = bool(latest_rows) and all(
+        _value(row, "qa_kind", 6) in POST_DEPLOY_ANSWER_KINDS for row in latest_rows
+    )
     latest: dict[int, dict[str, Any]] = {}
     source_run_ids: set[int] = set()
     for row in latest_rows:
@@ -160,7 +177,15 @@ def related_screenshot_evidence(
                 "code_revision": revision,
             }
         )
-    state = "absent" if not requirement_ids else "missing"
+    # "missing" is a warning, so it is said only where a check's own method
+    # captures screenshots; command checks and a recorded answer that no
+    # item QA was owed never expected one.
+    state = (
+        "absent" if not requirement_ids
+        else "not_required" if answers_only
+        else "missing" if visual
+        else "not_expected"
+    )
     if screenshots:
         state = "failed" if failed else "attached"
         expected = str(expected_revision or "").strip()

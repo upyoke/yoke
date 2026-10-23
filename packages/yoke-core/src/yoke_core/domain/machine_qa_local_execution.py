@@ -148,7 +148,7 @@ def execute_machine_case_contract(
             raise
         return unreachable_submission(contract, exc)
     case = contract.cases[0]
-    machine = contract.settings["resource_name"]
+    test_machine = contract.settings["resource_name"]
     secret_values = tuple(execution.material.secrets.values())
     started = time.monotonic()
     reset = None
@@ -185,13 +185,13 @@ def execute_machine_case_contract(
         if continuity is not None:
             result = continuity
         elif reset is not None and not reset["ok"]:
-            result = unstarted_reset_failure(case, machine, reset)
+            result = unstarted_reset_failure(case, test_machine, reset)
         else:
             result = execute_case_with_fixture_lifecycle(execution, case)
         check_abort(progress_callback)
     except MachineResetFailed:
         result = unstarted_reset_failure(
-            case, machine, owed_reset, error_code="machine_needs_repair"
+            case, test_machine, owed_reset, error_code="machine_needs_repair"
         )
     except MachineQaAborted as exc:
         from yoke_core.domain.machine_qa_case_result import MachineCaseResult
@@ -202,7 +202,7 @@ def execute_machine_case_contract(
             error_code="qa_host_abort_requested",
             evidence={
                 "runner_id": "host_control",
-                "machine": machine,
+                "test_machine": test_machine,
                 "method_id": case.method_id,
                 "baseline": contract.baselines[0] if contract.baselines else None,
                 "abort": {"reason": str(exc), "host_work_stopped": True},
@@ -213,7 +213,7 @@ def execute_machine_case_contract(
             raise
         with heartbeat_during(STARTING_STATE_RESTORE, callback, propagate_abort=False):
             restore = restore_chain_start(
-                case, execution.reach_baseline, machine=machine
+                case, execution.reach_baseline, test_machine=test_machine
             )
         exc.add_note(restore_summary(restore))
         raise
@@ -227,7 +227,7 @@ def execute_machine_case_contract(
     ):
         with heartbeat_during(STARTING_STATE_RESTORE, callback, propagate_abort=False):
             evidence[STARTING_STATE_RESTORE] = restore_chain_start(
-                case, execution.reach_baseline, machine=machine
+                case, execution.reach_baseline, test_machine=test_machine
             )
     evidence, artifacts, artifact_paths = pack_local_artifacts(
         redact_machine_qa_value(evidence, secret_values)

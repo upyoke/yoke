@@ -53,9 +53,9 @@ def project_snapshot_sync(args: List[str]) -> int:
             "a snapshot the server already holds are read and uploaded."
         ),
     )
-    parser.add_argument("repo_root", nargs="?", default=None)
+    parser.add_argument("repo_root", nargs="?", default=None, help="Checkout to sync.")
     add_project_arg(parser)
-    parser.add_argument("--integration-target", default=None)
+    parser.add_argument("--integration-target", help="Integration branch to snapshot.")
     parser.add_argument(
         "--head-only",
         action="store_true",

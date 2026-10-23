@@ -15,6 +15,7 @@ from yoke_core.domain.qa_plan_run_target_partition import (
     target_passed_requirements,
 )
 from yoke_core.domain.qa_plan_execution_store import (
+    QaPlanExecutionStateError,
     live_plan_execution_id,
     marker,
     select_plan_execution,
@@ -28,7 +29,7 @@ def member_machine_partition(
     deployment_run_id: str | None,
     deployment_stage: str | None,
     deployment_member_item_id: int | None,
-    machine: str | None,
+    test_machine: str | None,
     session_id: str,
 ) -> tuple[list[dict[str, Any]], int | None, dict[str, Any] | None]:
     """Use scoped evidence to advance between host executions.
@@ -112,7 +113,7 @@ def member_machine_partition(
             raise StageRosterHeld(holder)
         return open_rows, None, None
     for row in roster:
-        resolve_case_machine(row, machine)
+        resolve_case_machine(row, test_machine)
     from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 
     digest = str(roster[0]["execution_target_digest"])
@@ -155,6 +156,14 @@ def member_machine_partition(
                 row for row in roster if int(row["requirement_id"]) in ids
             )
         ]
+        if not selected:
+            raise QaPlanExecutionStateError(
+                f"qa_plan_selector_cursor_conflict: execution {live_id} already owns "
+                "this subject's cursor for another plan. Keep its custody; "
+                "ask its owner to finish or resume it with "
+                f"`yoke qa plan run --resume-execution-id {live_id}`, then retry "
+                "the selected plan."
+            )
         return (
             selected,
             sum(int(row["requirement_id"]) not in ids for row in pending),

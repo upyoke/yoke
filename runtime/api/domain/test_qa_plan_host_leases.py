@@ -40,7 +40,7 @@ def test_case_holds_both_hosts_and_releases_them_after_completion(
     assert response.primary_success, response.error
     current = lock_plan_execution(test_db, execution["id"])
     leases = execution_host_leases(test_db, current)
-    assert [claim.target.machine_id for claim in leases] == list(MACHINES)
+    assert [claim.target.test_machine for claim in leases] == list(MACHINES)
     assert response.result_payload["execution"]["lease_id"] == leases[1].id
     assert _case_begin(current).primary_success
     require_case_host_leases(test_db, current, current["roster"][0])
@@ -64,7 +64,7 @@ def test_partial_acquisition_releases_first_host_and_queues_second(
     response = _case_begin(execution)
     assert response.primary_success, response.error
     assert response.result_payload["state"] == "waiting"
-    assert response.result_payload["host_wait"]["machine"] == MACHINES[1]
+    assert response.result_payload["host_wait"]["test_machine"] == MACHINES[1]
     assert not execution_host_leases(test_db, execution)
     assert (
         test_db.execute(
@@ -78,7 +78,7 @@ def test_partial_acquisition_releases_first_host_and_queues_second(
     response = _case_begin(resumed)
     assert response.primary_success, response.error
     leases = execution_host_leases(test_db, resumed)
-    assert [claim.target.machine_id for claim in leases] == list(MACHINES)
+    assert [claim.target.test_machine for claim in leases] == list(MACHINES)
     # Consuming one FIFO reservation must not cancel the companion host.
     assert all(claim.is_active for claim in leases)
 
@@ -179,7 +179,7 @@ def test_failed_contract_issue_rolls_back_partial_acquisitions(
     assert not response.primary_success
     assert "contract failed" in response.error.message
     assert not execution_host_leases(test_db, execution)
-    assert lock_plan_execution(test_db, execution["id"])["machine_lease_id"] is None
+    assert lock_plan_execution(test_db, execution["id"])["test_machine_lease_id"] is None
 
 
 @pytest.mark.parametrize("parked,ended", [(False, True), (True, False)])
@@ -261,9 +261,9 @@ def test_removed_member_cleanup_releases_both_hosts_atomically(
 @pytest.mark.parametrize(
     "config",
     [
-        {"machines": list(MACHINES)},
-        {"machine": MACHINES[0], "machines": [MACHINES[0], MACHINES[0]]},
-        {"machine": "missing-driver", "machines": list(MACHINES)},
+        {"test_machines": list(MACHINES)},
+        {"test_machine": MACHINES[0], "test_machines": [MACHINES[0], MACHINES[0]]},
+        {"test_machine": "missing-driver", "test_machines": list(MACHINES)},
     ],
 )
 def test_invalid_host_sets_refuse_with_a_recovery(config):
@@ -283,7 +283,7 @@ def test_direct_execution_cannot_silently_drop_companion_hosts():
             session_id=SESSION,
             operation="case",
             cases=(
-                {"method_config": {"machine": MACHINES[0], "machines": list(MACHINES)}},
+                {"method_config": {"test_machine": MACHINES[0], "test_machines": list(MACHINES)}},
             ),
         )
 
@@ -295,12 +295,12 @@ def test_mission_config_preserves_validated_simultaneous_hosts():
         "agent-mission",
         {
             "executor": "informed_subagent",
-            "machine": MACHINES[1],
-            "machines": list(reversed(MACHINES)),
+            "test_machine": MACHINES[1],
+            "test_machines": list(reversed(MACHINES)),
         },
     )
-    assert config["machines"] == list(MACHINES)
-    assert config["machine"] == MACHINES[1]
+    assert config["test_machines"] == list(MACHINES)
+    assert config["test_machine"] == MACHINES[1]
 
 
 def test_each_chain_resets_and_an_inheriting_case_keeps_the_machine():
@@ -345,6 +345,6 @@ def test_acquisition_order_does_not_depend_on_driving_host(
     ) as acquire_spy:
         response = _case_begin(_begin(test_db))
     assert response.primary_success, response.error
-    assert [call.kwargs["machine"] for call in acquire_spy.call_args_list] == list(
+    assert [call.kwargs["test_machine"] for call in acquire_spy.call_args_list] == list(
         MACHINES
     )

@@ -73,7 +73,7 @@ run, a stage, and a member, this command refuses and prints the invocation
 that would credit the stage, rather than exiting zero with a pass the stage
 ignores:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+  yoke qa plan run --item PREFIX-N --stage STAGE --project P
 
 Add `--plan PLAN` for a stage that names no cases, or with `--replaces
 CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a correction-only plan.
@@ -97,7 +97,9 @@ def run(args: List[str]) -> int:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--requirement-id", type=int, required=True)
+    parser.add_argument(
+        "--requirement-id", type=int, required=True, help="QA case to run."
+    )
     parser.add_argument(
         "--base-url",
         default="",
@@ -114,7 +116,9 @@ def run(args: List[str]) -> int:
         "--expected-sha",
         help="Full source commit; CI refuses a different checkout HEAD before publication.",
     )
-    parser.add_argument("--timeout-seconds", type=int)
+    parser.add_argument(
+        "--timeout-seconds", type=int, help="Stop the case after this many seconds."
+    )
     parser.add_argument(
         "--checkout-path",
         help=(
@@ -132,7 +136,9 @@ def run(args: List[str]) -> int:
             "refusal names this flag; it exists so that recovery is real."
         ),
     )
-    parser.add_argument("--session-id")
+    parser.add_argument(
+        "--session-id", help="Override the detected session id (debugging only)."
+    )
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
         parser.error("--expected-branch and --expected-sha must be paired")

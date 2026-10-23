@@ -18,25 +18,27 @@ from yoke_contracts.api.function_call import TargetRef
 
 PATH_CLAIMS_CONFLICTS_LIST_USAGE = (
     "yoke path-claims conflicts list [--integration-target NAME] "
-    "[--item PREFIX-N] [--project P] [--session-id S] [--json]"
+    "[--item PREFIX-N] [--project P] [--full] [--session-id S] [--json]"
 )
 
 
 def path_claims_conflicts_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke path-claims conflicts list",
-        description=PATH_CLAIMS_CONFLICTS_LIST_USAGE,
+        usage=PATH_CLAIMS_CONFLICTS_LIST_USAGE,
     )
     parser.add_argument(
         "--integration-target",
         dest="integration_target",
         default=None,
-        help="Filter to a specific integration target (e.g. 'main').",
+        metavar="NAME",
+        help="Only conflicts on this integration target (e.g. 'main').",
     )
     parser.add_argument(
         "--item",
         default=None,
-        help="Optional item filter (PREFIX-N).",
+        metavar="PREFIX-N",
+        help="Only conflicts involving this item.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

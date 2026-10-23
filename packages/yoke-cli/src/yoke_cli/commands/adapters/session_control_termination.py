@@ -16,26 +16,28 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSION_TERMINATE_USAGE = (
-    "yoke sessions terminate SESSION-ID --reason R [--allow-resume-in-flight] [--json]"
+    "yoke sessions terminate SESSION-ID --reason TEXT [--allow-resume-in-flight] "
+    "[--session-id S] [--json]"
 )
-SESSION_TERMINATE_DESCRIPTION = (
-    "Permanently end one top-level session, cancel its undelivered "
-    "messages, request one bounded verified native-process reap, and release "
-    "every claim the session holds, including steering seats and their "
-    "paired strategy-document locks. The caller must hold a live steering "
-    "seat on any project; the target may be on any project. A session a "
-    "wake is resuming is "
-    "refused as TERMINATION_RESUME_IN_FLIGHT: a headless worker's process "
-    "exits between turns and a message resumes it from its transcript, so "
-    "message it instead. Logical termination is immediate; physical exit "
-    "is recorded separately by the machine relay. It sends TERM, waits up "
-    "to 2 seconds, then KILL and verifies exit for up to 2 seconds. Signal "
-    "errors, missing custody, or unverified exit remain unresolved with "
-    "custody retained. Inspect machine custody/permissions, then explicitly "
-    "repeat this command to retry a failed reap. A pending attempt is not "
-    "duplicated, and a verified successful repeat is a no-op. Claude's "
-    "native job-stop command retains its separate 20-second timeout."
-)
+SESSION_TERMINATE_DESCRIPTION = """\
+Permanently end one top-level session. The command cancels the session's
+undelivered messages, releases every claim it holds (including steering
+seats and their strategy-document locks), and asks the machine relay to
+stop its process. You must hold a live steering seat on some project; the
+target session may be on any project.
+
+A session that a wake is resuming is refused with TERMINATION_RESUME_IN_FLIGHT.
+A headless worker's process exits between turns and a message resumes it,
+so send it a message instead.
+
+The session ends at once in the record. The relay then sends TERM, waits up
+to 2 seconds, sends KILL, and checks for up to 2 seconds that the process
+exited. If a signal fails, the relay does not hold the process, or the exit
+is not confirmed, the stop stays unresolved. Check the machine's process
+ownership and permissions, then run this command again to retry. A stop
+already pending is not repeated, and a repeat after a confirmed stop does
+nothing. Claude's own job-stop command keeps its separate 20-second timeout.
+"""
 
 
 def _write_termination_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
@@ -66,9 +68,14 @@ def session_terminate(args: List[str]) -> int:
         prog="yoke sessions terminate",
         usage=SESSION_TERMINATE_USAGE,
         description=SESSION_TERMINATE_DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID")
-    parser.add_argument("--reason", required=True)
+    parser.add_argument(
+        "target_session_id", metavar="SESSION-ID", help="Session to terminate."
+    )
+    parser.add_argument(
+        "--reason", required=True, metavar="TEXT", help="Why the session ends."
+    )
     parser.add_argument(
         "--allow-resume-in-flight",
         action="store_true",

@@ -79,12 +79,14 @@ def _stage_recipe(
     stage: Mapping[str, str], *, deployment_run_id: str, plan: str, project: str
 ) -> str:
     """The invocation that binds a plan to one pinned stage."""
-    member = (
-        " --member PREFIX-N" if stage.get("scope") == ITEM_STAGE_SCOPE else ""
+    subject = (
+        "--item PREFIX-N"
+        if stage.get("scope") == ITEM_STAGE_SCOPE
+        else f"--deployment-run-id {deployment_run_id}"
     )
     return (
-        f"`yoke qa plan run --deployment-run-id {deployment_run_id} "
-        f"--stage {stage['name']}{member} --plan {plan} --project {project}`"
+        f"`yoke qa plan run {subject} "
+        f"--stage {stage['name']} --plan {plan} --project {project}`"
     )
 
 
@@ -118,7 +120,7 @@ def require_stage_scoped_materialization(
         "run-wide would write requirements no stage reads, so even a passing "
         "verdict would discharge nothing and the stage would keep waiting. "
         f"Name the stage this evidence answers for: {recipes} (the same "
-        "--stage/--member pair works on `yoke qa plan materialize`)."
+        "item/stage selection works on `yoke qa plan materialize`)."
     )
 
 
@@ -141,8 +143,7 @@ def require_stage_scoped_requirement(
     if not stages:
         return
     named = ", ".join(
-        f"{stage['name']!r} (scope {stage['scope'] or 'unset'!s})"
-        for stage in stages
+        f"{stage['name']!r} (scope {stage['scope'] or 'unset'!s})" for stage in stages
     )
     raise QaPlanError(
         f"deployment run {deployment_run_id!r} pins QA stage(s) {named}, and a "

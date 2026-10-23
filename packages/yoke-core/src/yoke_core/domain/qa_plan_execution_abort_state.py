@@ -33,7 +33,7 @@ def owed_host_abort(conn, execution, *, reason):
     from yoke_core.domain.qa_plan_execution_reentry import PAUSE_REASON
     from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 
-    if not execution.get("machine_lease_id") and not execution_host_leases(
+    if not execution.get("test_machine_lease_id") and not execution_host_leases(
         conn, execution
     ):
         return None
@@ -63,7 +63,7 @@ def owed_host_abort(conn, execution, *, reason):
 
         return (
             request
-            if execution.get("machine_lease_id")
+            if execution.get("test_machine_lease_id")
             and not mission_restores_recorded(conn, execution)
             else None
         )
@@ -157,7 +157,7 @@ def require_host_restored(conn, execution, *, reason, commit):
         "runner connected and retry only after that proof is recorded. If the "
         "runner is gone or cleanup fails, stop that runner, then have the lease "
         "holder or a covering steering seat run `yoke test-machine reset --project P "
-        "--machine NAME --baseline BASELINE` with the interrupted case's declared "
+        "--test-machine TEST_MACHINE --baseline BASELINE` with the interrupted case's declared "
         "baseline, and retry this abort. The reset must succeed after cancellation "
         "was recorded; it retains the lease until abort settles. Without a declared "
         "baseline, recover the runner's no-restore cleanup receipt instead."

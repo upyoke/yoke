@@ -29,7 +29,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="qa.plan_execution.adopt",
         cli_invocation=(
-            "yoke qa plan adopt (--item PREFIX-N | --deployment-run-id RUN) "
+            "yoke qa plan adopt [--item PREFIX-N] "
             "--execution-id ID --reason TEXT [--session-id S] [--json]"
         ),
     ),
@@ -43,7 +43,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="qa.plan_execution.abort",
         cli_invocation=(
-            "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "
+            "yoke qa plan abort [--item PREFIX-N] "
             "--execution-id ID --reason TEXT [--project P]"
         ),
     ),
@@ -51,72 +51,93 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.plan_review.submit",
         cli_invocation=(
             "yoke qa plan review-submit "
-            "(--item PREFIX-N | --deployment-run-id RUN | --project P) "
+            "[--item PREFIX-N] [--project P] "
             "--execution-id ID --bundle-id ID --bundle-digest SHA256 "
             "--stdin [--session-id S]"
         ),
     ),
     AdapterEntry(
         function_id="qa.plan_review.begin",
-        cli_invocation="yoke qa plan review-begin (--item PREFIX-N | --deployment-run-id RUN | --project P) --execution-id ID [--session-id S] [--json]",
+        cli_invocation="yoke qa plan review-begin [--item PREFIX-N] [--project P] --execution-id ID [--session-id S] [--json]",
     ),
     _read_entry(
-        function_id="qa.method.list", cli_invocation="yoke qa method list --project P"
+        function_id="qa.method.list",
+        cli_invocation=("yoke qa method list [--project P]"),
     ),
     _read_entry(
         function_id="qa.method.get",
-        cli_invocation="yoke qa method get METHOD --project P",
+        cli_invocation=("yoke qa method get METHOD [--project P]"),
     ),
     AdapterEntry(
         "qa.project_method.register",
-        "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --runner worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT",
+        (
+            "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --runner worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT [--required-capability KIND ...]"
+        ),
     ),
     _read_entry(
-        function_id="qa.plan.list", cli_invocation="yoke qa plan list --project P"
+        function_id="qa.plan.list",
+        cli_invocation=(
+            "yoke qa plan list --project P [--limit N] [--offset N] [--include-retired] [--full]"
+        ),
     ),
     _read_entry(
         function_id="qa.plan.get",
         cli_invocation=(
-            "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN]"
+            "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="qa.activity.list",
         cli_invocation=(
-            "yoke qa activity list --project P [--deployment-run-id RUN] "
-            "[--item-id N ...] [--limit N] [--json]"
+            "yoke qa activity list --project P [--deployment-run-id RUN] [--item PREFIX-N ...] [--limit N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="qa.artifact.read",
-        cli_invocation="yoke qa artifact read --requirement-id N --artifact-id N",
+        cli_invocation=(
+            "yoke qa artifact read --requirement-id N --artifact-id N [--output PATH] [--region x,y,w,h] [--scale N]"
+        ),
     ),
     _read_entry(
         function_id="qa.artifact.get",
-        cli_invocation="yoke qa artifact get ARTIFACT_ID --requirement-id N",
+        cli_invocation=(
+            "yoke qa artifact get (ARTIFACT_ID | --artifact-id ARTIFACT_ID) --requirement-id N [--full] [--session-id S] [--json] (metadata only; use `yoke qa artifact read` for evidence)"
+        ),
     ),
-    AdapterEntry("qa.plan.create", "yoke qa plan create SLUG --project P"),
-    AdapterEntry("qa.plan.edit", "yoke qa plan edit PLAN_SLUG --project P"),
+    AdapterEntry(
+        "qa.plan.create", ("yoke qa plan create SLUG --project P --environment ENV")
+    ),
+    AdapterEntry(
+        "qa.plan.edit",
+        (
+            "yoke qa plan edit PLAN_SLUG [--project P] [--editor COMMAND] [--session-id S] [--json]"
+        ),
+    ),
     AdapterEntry(
         "qa.plan_cases.replace",
         "yoke qa plan-cases replace --project P --plan-id N --stdin",
     ),
     AdapterEntry(
         "qa.plan_cases.sync",
-        "yoke qa plan-cases sync --project P --plan-id N --stdin",
+        (
+            "yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | --stdin) [--session-id S] [--json]\n       yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | --stdin) --source-revision FULL_SHA [--session-id S] [--json]\nWithout --source-revision, the input must be the exporter's document. Write a manual case array with yoke qa plan-cases replace."
+        ),
     ),
     AdapterEntry(
         "qa.registered_command.set",
-        "yoke qa registered-command set --project P --scope SCOPE --command ARGV "
-        "[--environment SITE/NAME|ENV_ID | --requires-base-url]",
+        (
+            "yoke qa registered-command set --project P --scope quick|full|e2e|smoke --command ARGV [--environment SITE/NAME|ENV_ID | --requires-base-url]"
+        ),
     ),
     AdapterEntry(
         "qa.no_tests.attest",
-        "yoke qa no-tests attest --project P --reason REASON",
+        (
+            'yoke qa no-tests attest --project P --reason "why this project has no suite to bind"'
+        ),
     ),
     AdapterEntry(
         "qa.no_tests.clear",
-        "yoke qa no-tests clear --project P --reason REASON",
+        ('yoke qa no-tests clear --project P --reason "what changed"'),
     ),
     AdapterEntry(
         "qa.project_default.set",
@@ -128,7 +149,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.item_plan.attach",
-        "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition T [--qa-phase post_deploy]",
+        (
+            "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition T [--qa-phase post_deploy] [--acknowledge-unreachable-target]"
+        ),
     ),
     AdapterEntry(
         "qa.item_plan.retract",
@@ -138,21 +161,23 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.plan.retire",
-        "yoke qa plan retire PLAN --project P --reason TEXT [--session-id S] [--json]",
+        (
+            "yoke qa plan retire PLAN [--project P] (--reason TEXT | --content-file PATH | --stdin) [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.plan.materialize",
-        "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
+        ("yoke qa plan materialize --item PREFIX-N --transition T"),
     ),
     AdapterEntry(
         "qa.plan.rematerialize",
-        "yoke qa plan rematerialize (--item PREFIX-N --transition T | "
-        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P])",
+        ("yoke qa plan rematerialize --item PREFIX-N --transition T"),
     ),
     AdapterEntry(
         "qa.requirement.transfer",
-        "yoke qa requirement transfer --requirement-id N --to-item PREFIX-N "
-        "--workflow-transition STAGE --rationale TEXT [--json]",
+        (
+            "yoke qa requirement transfer --requirement-id N --to-item PREFIX-N --workflow-transition STAGE --rationale TEXT [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.requirement.update",
@@ -168,10 +193,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.requirement.supersede",
-        "yoke qa requirement supersede --requirement-id N "
-        "--superseded-by-requirement-id N "
-        "(--rationale TEXT | --content-file PATH | --stdin) "
-        "[--source operator|agent] [--session-id S] [--json]",
+        (
+            "yoke qa requirement supersede --requirement-id N --superseded-by-requirement-id N (--rationale TEXT | --content-file PATH | --stdin) [--declare-replacement | --reconcile] [--source operator|agent] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.post_deploy.declare_none",
@@ -202,88 +226,81 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.requirement.list",
         cli_invocation=(
-            "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | "
-            "--deployment-run-id ID] [--project P] [--session-id S] [--json]"
+            "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | --deployment-run-id ID] [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="qa.requirement.get",
         cli_invocation=(
-            "yoke qa requirement get (N | --requirement-id N) [--session-id S] [--json]"
+            "yoke qa requirement get (N | --requirement-id N) [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         "qa.requirement.add",
-        "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) "
-        "(--qa-kind KIND | --method-id METHOD) "
-        "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
-        "[--requirement-source S] [--success-policy all-pass|JSON] "
-        "[--required-capability KIND ...] [--suite-id ID] "
-        "[--instructions TEXT | --instructions-file PATH | --stdin] "
-        "[--expected-outcome TEXT | --expected-outcome-file PATH] "
-        "[--host-baseline NAME | --starting-state as_is "
-        "--starting-state-reason TEXT] "
-        "[--workflow-transition STAGE] [--deployment-stage STAGE] "
-        "[--deployment-member-item PREFIX-N] [--session-id S] [--json]",
+        (
+            "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) (--qa-kind KIND | --method-id METHOD) --qa-phase PHASE [--target-env E] [--blocking-mode M] [--requirement-source S] [--success-policy all-pass|JSON] [--required-capability KIND ...] [--suite-id ID] [--instructions TEXT | --instructions-file PATH | --stdin] [--expected-outcome TEXT | --expected-outcome-file PATH] [--method-config JSON] [--host-baseline NAME | --starting-state as_is --starting-state-reason TEXT] [--workflow-transition STAGE] [--deployment-stage STAGE] [--deployment-member-item PREFIX-N] [--project P] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.requirement.add_batch",
-        "yoke qa requirement add-batch --item PREFIX-N "
-        "(--rows-file PATH | --stdin) [--session-id S] [--json]",
+        (
+            "yoke qa requirement add-batch --item PREFIX-N (--rows-file PATH | --stdin) [--project P] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.run.list",
         cli_invocation=(
-            "yoke qa run list [--requirement-id N] [--project P] "
-            "[--session-id S] [--json]"
+            "yoke qa run list [--requirement-id N] [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="qa.run.get",
         cli_invocation=(
-            "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
+            "yoke qa run get --run-id N [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="qa.gate_summary.run",
         cli_invocation=(
-            "yoke qa gate-summary "
-            "(--item PREFIX-N | --epic PREFIX-N --task-num K) "
-            "--target {reviewed-implementation,implemented} "
-            "[--session-id S] [--json]"
+            "yoke qa gate-summary (--item PREFIX-N | --epic PREFIX-N --task-num K) --target {reviewed-implementation,implemented} [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     # Browser case DB legs consumed by the shared per-requirement runner.
     _read_entry(
         function_id="qa.browser_context.get",
         cli_invocation=(
-            "yoke qa browser-context get "
-            "(--item PREFIX-N | --deployment-run RUN-ID) "
-            "--requirement-id N --project P"
+            "yoke qa browser-context get (--item PREFIX-N | --deployment-run RUN-ID) --requirement-id N --project P [--expected-branch BRANCH] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         "qa.run.add",
-        "yoke qa run add --requirement-id N --performed-by WHO "
-        "[--verdict V --verdict-reason REASON --head-sha SHA]",
+        (
+            "yoke qa run add --requirement-id N --performed-by TYPE [--qa-kind KIND] [--verdict V] [--verdict-reason REASON] [--execution-status captured|capture_failed] [--capture-degraded-reason TEXT] [--raw-result TEXT] [--head-sha SHA] [--duration-ms N] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.run.complete",
-        "yoke qa run complete --requirement-id N --run-id N --verdict V "
-        "[--verdict-reason REASON]",
+        (
+            "yoke qa run complete --requirement-id N --run-id N [--verdict V] [--verdict-reason REASON] [--execution-status captured|capture_failed] [--capture-degraded-reason TEXT] [--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.artifact.add",
-        "yoke qa artifact add --requirement-id N --run-id N --artifact-type TYPE "
-        "(--artifact-handle JSON | --content-base64 B64 --filename NAME | --content-file PATH)",
+        (
+            "yoke qa artifact add --requirement-id N --run-id N --artifact-type TYPE (--artifact-handle JSON | --content-base64 B64 --filename NAME | --content-file PATH) [--content-type CT] [--metadata JSON] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.artifact.presign",
-        cli_invocation="yoke qa artifact presign --requirement-id N --run-id N --filename F",
+        cli_invocation=(
+            "yoke qa artifact presign --requirement-id N --run-id N --filename NAME [--content-type CT] [--full] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.artifact.rehome",
-        "yoke qa artifact rehome --requirement-id N --artifact-id N [--artifact-id N ...]",
+        (
+            "yoke qa artifact rehome --requirement-id N --artifact-id N [--artifact-id N ...] [--session-id S] [--json]"
+        ),
     ),
 ]
 

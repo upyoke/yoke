@@ -38,7 +38,7 @@ def begin_command_host(
             "execution_id": execution_id,
             "ordinal": ordinal,
             "requirement_id": int(case["requirement_id"]),
-            "machine": case["method_config"]["machine"],
+            "test_machine": case["method_config"]["test_machine"],
         },
         host_contact_possible=False,
     )
@@ -57,6 +57,6 @@ def command_liveness(requirement, check_in):
     """Supply plan heartbeats only for Commands declaring host custody."""
     if requirement.get("runner_id") == "worktree_run" and (
         requirement.get("method_config") or {}
-    ).get("machine"):
+    ).get("test_machine"):
         return {"liveness": CommandPlanLiveness(check_in)}
     return {}

@@ -1,0 +1,13 @@
+{
+  "relay": "Run the background relay that starts sessions here.",
+  "relay diagnostic": "Show one saved native failure capture.",
+  "relay install": "Install the relay as a background service.",
+  "relay probe-models": "Check which models this machine's harnesses offer now.",
+  "relay probe-surface": "Check which harness apps this machine can run.",
+  "relay report": "Manage relay reports the server rejected.",
+  "relay report quarantine": "Set aside a relay report the server rejected for good.",
+  "relay serve": "Run the relay in the foreground until stopped.",
+  "relay serve-once": "Run one relay pass and exit.",
+  "relay status": "Show whether the relay service is installed and healthy.",
+  "relay uninstall": "Remove the relay background service."
+}

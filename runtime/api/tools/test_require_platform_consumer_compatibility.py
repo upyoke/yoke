@@ -208,6 +208,73 @@ def test_the_gate_reuses_the_consumer_s_own_required_check(
     assert seen[0][seen[0].index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
 
 
+_PENDING = (1, "", "error (workflow_dispatch_pending): run not listed")
+
+
+def _clock(monkeypatch: pytest.MonkeyPatch) -> List[float]:
+    now = {"t": 0.0}
+    slept: List[float] = []
+
+    def _sleep(seconds: float) -> None:
+        slept.append(seconds)
+        now["t"] += float(seconds)
+
+    monkeypatch.setattr(gate.time, "monotonic", lambda: now["t"])
+    monkeypatch.setattr(gate.time, "sleep", _sleep)
+    return slept
+
+
+def _script(outcomes: List[tuple], calls: List[List[str]]):
+    def _yoke(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
+        if argv[1:3] == ["dispatch-tag", "ensure"]:
+            receipt = {"success": True, "result": {"repo": argv[3], "tag": argv[4], "sha": argv[5]}}
+            return 0, json.dumps(receipt), ""
+        calls.append(list(argv))
+        return outcomes.pop(0)
+
+    return _yoke
+
+
+def test_a_pending_join_retries_and_returns_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slept = _clock(monkeypatch)
+    calls: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _script([_PENDING, (0, "9001\n", "")], calls))
+    run_id, error = gate.dispatch(CANDIDATE, CONSUMER_REVISION)
+    assert (run_id, error, slept) == ("9001", "", [2.0])
+    ids = {argv[argv.index("--request-id") + 1] for argv in calls}
+    assert len(calls) == 2 and len(ids) == 1
+
+
+def test_a_pending_join_past_the_budget_stays_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slept = _clock(monkeypatch)
+    calls: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _script([_PENDING] * 20, calls))
+    code, narrative, proven = gate.prove_pair(CANDIDATE, CONSUMER_REVISION, timeout_sec=1)
+    assert (code, proven) == (gate.UNAVAILABLE, "")
+    assert "could not be dispatched" in narrative
+    assert "unproven:" in narrative and "workflow_dispatch_pending" in narrative
+    assert sum(slept) == gate._PENDING_JOIN_BUDGET_SECONDS
+    ids = {argv[argv.index("--request-id") + 1] for argv in calls}
+    assert len(calls) > 1 and len(ids) == 1
+
+
+def test_a_dispatch_error_other_than_pending_is_not_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slept = _clock(monkeypatch)
+    calls: List[List[str]] = []
+    refused = (1, "", "error (workflow_dispatch_scope_required): missing")
+    monkeypatch.setattr(gate, "_yoke", _script([refused], calls))
+    run_id, error = gate.dispatch(CANDIDATE, CONSUMER_REVISION)
+    assert run_id == "" and slept == [] and len(calls) == 1
+    assert "could not be dispatched" in error
+    assert "workflow_dispatch_scope_required" in error
+
+
 def test_the_same_pair_rejoins_one_consumer_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

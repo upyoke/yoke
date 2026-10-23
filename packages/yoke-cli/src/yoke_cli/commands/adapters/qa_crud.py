@@ -38,123 +38,158 @@ from yoke_cli.commands.text_file import resolve_optional_text_source
 def qa_requirement_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement add",
-        description=(f"{QA_REQUIREMENT_ADD_USAGE}\n\n{QA_REQUIREMENT_ADD_HELP_DEEP}"),
+        usage=QA_REQUIREMENT_ADD_USAGE,
+        description=QA_REQUIREMENT_ADD_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item", help="Target item (PREFIX-N).")
+    subject.add_argument(
+        "--item", metavar="PREFIX-N", help="Item whose own verification this case is."
+    )
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",
-        help="Target deployment run (run-YYYYMMDD-NNN).",
+        metavar="RUN-ID",
+        help="Deployment run (run-YYYYMMDD-NNN) whose own check this case is.",
     )
     parser.add_argument(
         "--deployment-stage",
         dest="deployment_stage",
         default=None,
-        help="Run-attached: the pinned stage the case is about.",
+        metavar="STAGE",
+        help="Run case only: the run's pinned stage the case is about.",
     )
     parser.add_argument(
         "--deployment-member-item",
         dest="deployment_member_item",
         default=None,
-        help="Run-attached: member item the case is about (needs a stage).",
+        metavar="PREFIX-N",
+        help="Run case only: the member item the case is about; needs a stage.",
     )
     case_kind = parser.add_mutually_exclusive_group(required=True)
     case_kind.add_argument(
         "--qa-kind",
         dest="qa_kind",
-        help="Requirement kind (verification plumbing).",
+        metavar="KIND",
+        help="QA kind for a case with no registered method, e.g. ac_verification.",
     )
     case_kind.add_argument(
         "--method-id",
         dest="method_id",
-        help="Registered method for an executable case.",
+        metavar="METHOD",
+        help="Registered QA method the case runs.",
     )
     parser.add_argument(
         "--qa-phase",
         dest="qa_phase",
         required=True,
-        help="Lifecycle phase the requirement gates.",
+        metavar="PHASE",
+        help="Phase the case gates: verification, post_deploy, or manual_acceptance.",
     )
     parser.add_argument(
         "--target-env",
         dest="target_env",
         default=None,
-        help="Optional target environment.",
+        metavar="E",
+        help="Name of the environment the case targets.",
     )
     parser.add_argument(
         "--blocking-mode",
         dest="blocking_mode",
         default="blocking",
+        metavar="M",
         help="blocking (default) or non_blocking.",
     )
     parser.add_argument(
         "--requirement-source",
         dest="requirement_source",
         default="explicit",
-        help="Provenance of the requirement.",
+        metavar="S",
+        help="Where the case came from: explicit (default), seeded_default, "
+        "ac_derived, or flow_derived.",
     )
     parser.add_argument(
         "--success-policy",
         dest="success_policy",
         default=None,
-        help="Policy text; browser kinds require steps JSON.",
+        metavar="all-pass|JSON",
+        help='all-pass, or a JSON policy such as {"id":"all-pass","params":{}}.',
     )
     parser.add_argument(
         "--required-capability",
         dest="capability_requirements",
         action="append",
         default=None,
-        help="Required capability kind; repeat for more than one.",
+        metavar="KIND",
+        help="Capability kind the case needs; repeat for more than one.",
     )
     parser.add_argument(
-        "--suite-id", dest="suite_id", default=None, help="Optional suite id."
+        "--suite-id", dest="suite_id", default=None, metavar="ID", help="Test suite id."
     )
     parser.add_argument(
-        "--instructions", default=None, help="Method case instructions."
+        "--instructions", default=None, metavar="TEXT", help="What the case does."
     )
     parser.add_argument(
         "--instructions-file",
         dest="instructions_file",
         default=None,
-        help="Read method case instructions from a path.",
+        metavar="PATH",
+        help="Read the instructions from this file.",
     )
     parser.add_argument(
         "--stdin",
         action="store_true",
-        help="Read method case instructions from stdin.",
+        help="Read the instructions from stdin.",
     )
     parser.add_argument(
         "--expected-outcome",
         dest="expected_outcome",
         default=None,
-        help="Method case passing outcome.",
+        metavar="TEXT",
+        help="The observable outcome that means the case passed.",
     )
     parser.add_argument(
         "--expected-outcome-file",
         dest="expected_outcome_file",
         default=None,
-        help="Read the passing outcome from a path.",
+        metavar="PATH",
+        help="Read the expected outcome from this file.",
     )
     parser.add_argument(
         "--method-config",
         dest="method_config",
         default=None,
-        help="Method-specific JSON object.",
-    )
-    parser.add_argument("--host-baseline", dest="host_baseline", default=None)
-    parser.add_argument(
-        "--starting-state", dest="starting_state", choices=("as_is",), default=None
+        metavar="JSON",
+        help="Method-specific settings as a JSON object; see Browser method config.",
     )
     parser.add_argument(
-        "--starting-state-reason", dest="starting_state_reason", default=None
+        "--host-baseline",
+        dest="host_baseline",
+        default=None,
+        metavar="NAME",
+        help="Machine case: registered baseline to reset to first, e.g. fresh-host.",
+    )
+    parser.add_argument(
+        "--starting-state",
+        dest="starting_state",
+        choices=("as_is",),
+        default=None,
+        metavar="as_is",
+        help="Machine case: run on the machine as found, with no reset.",
+    )
+    parser.add_argument(
+        "--starting-state-reason",
+        dest="starting_state_reason",
+        default=None,
+        metavar="TEXT",
+        help="Why the machine as found is the right starting state.",
     )
     parser.add_argument(
         "--workflow-transition",
         dest="workflow_transition_id",
         default=None,
-        help="Item-attached: pinned workflow stage this case governs.",
+        metavar="STAGE",
+        help="Item case, required: the pinned workflow stage this case gates.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

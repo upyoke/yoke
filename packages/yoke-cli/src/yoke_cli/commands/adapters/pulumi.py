@@ -50,8 +50,12 @@ def pulumi_exec(args: List[str]) -> int:
             "confirmation with `--yes --non-interactive`."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--stack", required=True)
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project that owns the Pulumi stack.",
+    )
+    parser.add_argument("--stack", required=True, help="Pulumi stack to run against.")
     parser.add_argument(
         "--bootstrap-local-authority",
         action="store_true",
@@ -61,7 +65,11 @@ def pulumi_exec(args: List[str]) -> int:
         ),
     )
     add_session_arg(parser)
-    parser.add_argument("command", nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Pulumi command and its arguments, e.g. preview.",
+    )
     parsed = parse_or_usage_error(parser, args, PULUMI_EXEC_USAGE)
     if parsed is None:
         return 2

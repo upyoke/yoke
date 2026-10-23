@@ -14,7 +14,6 @@ from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
-    add_project_arg,
     add_session_arg,
     client_project_context,
     dispatch_and_emit,
@@ -35,9 +34,13 @@ __all__ = [
 
 
 ITEMS_LIST_USAGE = (
-    "yoke items list [--status S] [--priority P] [--workflow W] "
+    "yoke items list [--status STATUS] [--priority PRIORITY] [--workflow W] "
     "[--frozen 0|1] [--blocked 0|1] [--project P|all] "
-    '[--fields "f1,f2,..."] [--limit N] [--session-id S] [--json]'
+    '[--fields "f1,f2,..."] [--limit N] [--full] [--session-id S] [--json]'
+)
+_PROJECT_HELP = (
+    "Project slug or id, or `all` for every project "
+    "(default: the checkout's mapped project)."
 )
 
 
@@ -52,29 +55,38 @@ def _parse_binary_flag(raw: str, flag: str):
 def items_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items list",
-        description=ITEMS_LIST_USAGE,
+        usage=ITEMS_LIST_USAGE,
     )
-    parser.add_argument("--status", default=None, help="Filter by status.")
-    parser.add_argument("--priority", default=None, help="Filter by priority.")
+    parser.add_argument("--status", default=None, help="Only items with this status.")
+    parser.add_argument(
+        "--priority", default=None, help="Only items with this priority."
+    )
     parser.add_argument(
         "--workflow",
         default=None,
-        help="Filter by workflow identity.",
+        metavar="W",
+        help="Only items in this workflow.",
     )
-    parser.add_argument("--frozen", default=None, help="Filter frozen flag (0|1).")
-    parser.add_argument("--blocked", default=None, help="Filter blocked flag (0|1).")
-    add_project_arg(parser)
+    parser.add_argument(
+        "--frozen", default=None, metavar="0|1", help="1 for frozen items only, 0 to exclude them."
+    )
+    parser.add_argument(
+        "--blocked", default=None, metavar="0|1", help="1 for blocked items only, 0 to exclude them."
+    )
+    parser.add_argument("--project", default=None, metavar="P|all", help=_PROJECT_HELP)
     parser.add_argument(
         "--fields",
         default=None,
+        metavar='"f1,f2,..."',
         help=(
-            "Comma-separated column projection "
+            "Comma-separated columns to print "
             "(default id,title,status,priority,workflow_id,source)."
         ),
     )
     parser.add_argument(
         "--limit",
         default=None,
+        metavar="N",
         help="Max rows returned, 1..1000.",
     )
     add_session_arg(parser)
@@ -121,7 +133,8 @@ def items_list(args: List[str]) -> int:
 
 
 ITEMS_SEARCH_USAGE = (
-    "yoke items search KEYWORDS [--project P|all] [--limit N] [--session-id S] [--json]"
+    "yoke items search KEYWORDS [--project P|all] [--limit N] [--full] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -142,16 +155,18 @@ def _write_search(response, stdout, stderr) -> None:
 def items_search(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items search",
-        description=ITEMS_SEARCH_USAGE,
+        usage=ITEMS_SEARCH_USAGE,
     )
     parser.add_argument(
         "keywords",
-        help="Keyword phrase matched against title/spec/design/plan.",
+        metavar="KEYWORDS",
+        help="Words to match against each item's title, spec, design and plan.",
     )
-    add_project_arg(parser)
+    parser.add_argument("--project", default=None, metavar="P|all", help=_PROJECT_HELP)
     parser.add_argument(
         "--limit",
         type=int,
+        metavar="N",
         help=f"Maximum matches (default {DEFAULT_SEARCH_LIMIT}; 1..1000).",
     )
     add_session_arg(parser)

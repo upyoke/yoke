@@ -162,23 +162,24 @@ A project may register several `test-machine:<resource_name>` rows, one per
 physical host. Resource names are global; `QA_HOST:<resource_name>` admits
 one execution at a time. Machine-backed plans prefer a free verified machine,
 then stable name, and report why. A run's machine pin is subordinate to durable
-case `method_config.machine` constraints.
+case `method_config.test_machine` constraints.
 
 Settings and operation receipts are live capability facts. Read them with
 `yoke test-machine list --project P` or `yoke test-machine get --project P
---machine NAME`; read each command's `--help` for its projection. Hostnames,
+--test-machine NAME`; read each command's `--help` for its projection. Hostnames,
 users, golden paths, desktop routes and cloud instance ids belong in those
 project records. Capacity-machine registration grants launch capacity and
 relay identity separately; it does not grant Test Machine readiness.
 
-All host setup, sign-in, permissions, desktop access, baseline saving/restoration
-and recovery live in the Machine QA Pack's complete ordered per-OS procedures:
+Yoke's [manual baseline inventory](testing-verification/test-machine-golden-baseline.md)
+owns its runtime preparation and proof. Follow it with the Machine QA Pack's
+ordered account, sign-in, permissions, desktop and save/restore procedures:
 
-- [macOS](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md) also installs
+The [provisioning index](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md) also installs
 as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
 customized project. [Operation contracts](testing-verification/test-machine-operations.md)
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)

@@ -29,25 +29,28 @@ __all__ = [
 
 
 ITEMS_DEPENDENCY_LIST_USAGE = (
-    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--session-id S] [--json]"
+    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--full] [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
 def items_dependency_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency list",
-        description=ITEMS_DEPENDENCY_LIST_USAGE,
+        usage=ITEMS_DEPENDENCY_LIST_USAGE,
     )
     parser.add_argument(
         "--item",
         default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
         "item_positional",
         nargs="?",
         default=None,
-        help="Item id positional (alternative to --item).",
+        metavar="PREFIX-N",
+        help="Item id (PREFIX-N). Alternative to --item.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -74,7 +77,7 @@ ITEMS_DEPENDENCY_ADD_USAGE = (
     "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "(--rationale TEXT | --rationale-file PATH) "
-    "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
+    "[--evidence JSON | --evidence-file PATH] [--project P] [--session-id S] [--json]"
 )
 
 _EXISTING_EDGE_HELP = """Existing edge:
@@ -95,9 +98,11 @@ unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk.
 Reserve fact:deployed:<environment-name> for a dependent that needs that code running
-in a registered environment before the blocker reaches done. A succeeded
-run satisfies it only when the blocker is an actual run member, even when the
-run belongs to another project. Mere code containment does not satisfy it.
+in a registered environment. It requires the blocker at done with durable
+completion delivery attribution to that environment, run and candidate, including
+source-bound cross-project delivery. Merge or release status alone is insufficient.
+Later sibling failure or cancellation does not erase completed attribution.
+For failed delivery QA, see .yoke/docs/verification/failed-item-qa.md.
 Add and update refuse an environment not registered for the blocking item's project.
 
 Examples:
@@ -113,7 +118,7 @@ Examples:
 def items_dependency_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency add",
-        description=ITEMS_DEPENDENCY_ADD_USAGE,
+        usage=ITEMS_DEPENDENCY_ADD_USAGE,
         epilog=_EXISTING_EDGE_HELP + _SATISFACTION_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -132,7 +137,10 @@ def items_dependency_add(args: List[str]) -> int:
         "source", choices=sorted(VALID_SOURCES), help="Dependency source."
     )
     parser.add_argument(
-        "--gate-point", choices=sorted(VALID_GATE_POINTS), default="activation"
+        "--gate-point",
+        choices=sorted(VALID_GATE_POINTS),
+        default="activation",
+        help="Point the edge blocks; default: activation.",
     )
     parser.add_argument(
         "--satisfaction",
@@ -199,14 +207,14 @@ ITEMS_DEPENDENCY_UPDATE_USAGE = (
     "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "[--rationale TEXT | --rationale-file PATH] [--source SOURCE] "
-    "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
+    "[--evidence JSON | --evidence-file PATH] [--project P] [--session-id S] [--json]"
 )
 
 
 def items_dependency_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency update",
-        description=ITEMS_DEPENDENCY_UPDATE_USAGE,
+        usage=ITEMS_DEPENDENCY_UPDATE_USAGE,
         epilog=_SATISFACTION_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -216,8 +224,18 @@ def items_dependency_update(args: List[str]) -> int:
         help="Dependent item id (PREFIX-N).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
-    parser.add_argument("--match-gate-point", default=None)
-    parser.add_argument("--gate-point", default=None)
+    parser.add_argument(
+        "--match-gate-point",
+        default=None,
+        metavar="POINT",
+        help="Gate point of the edge to update.",
+    )
+    parser.add_argument(
+        "--gate-point",
+        default=None,
+        metavar="POINT",
+        help="New gate point for the edge.",
+    )
     parser.add_argument(
         "--satisfaction",
         default=None,
@@ -233,7 +251,12 @@ def items_dependency_update(args: List[str]) -> int:
     )
     from yoke_contracts.dependency_values import VALID_SOURCES
 
-    parser.add_argument("--source", choices=sorted(VALID_SOURCES), default=None)
+    parser.add_argument(
+        "--source",
+        choices=sorted(VALID_SOURCES),
+        default=None,
+        help="New dependency source.",
+    )
     evidence = parser.add_mutually_exclusive_group()
     add_text_file_pair(
         evidence,
@@ -280,14 +303,15 @@ def items_dependency_update(args: List[str]) -> int:
 
 
 ITEMS_DEPENDENCY_REMOVE_USAGE = (
-    "yoke items dependency remove <dependent> <blocking> [--session-id S] [--json]"
+    "yoke items dependency remove <dependent> <blocking> [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
 def items_dependency_remove(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency remove",
-        description=ITEMS_DEPENDENCY_REMOVE_USAGE,
+        usage=ITEMS_DEPENDENCY_REMOVE_USAGE,
     )
     parser.add_argument(
         "item",

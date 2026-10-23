@@ -36,7 +36,7 @@ pass. Failed/error admitted cases on a named stage can be corrected (never a
 passed/no-verdict case): author only the corrected case and execute:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}
+yoke watch qa-plan -- --item PREFIX-N --stage {STAGE} --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}
 ```
 
 Materialization/declaration commit together; old failure remains history,
@@ -145,6 +145,11 @@ and closes with run. Same-project/QA-owning carried members still owe proof.
 No cases otherwise means unanswered, except recorded no-post-deploy-obligation
 or waiver-backed declaration. `yoke qa post-deploy record-no-obligation` is not
 a waiver. Read `yoke qa plan run --help`.
+
+The question is asked while the item is still in hand. `yoke items get ITEM
+post_deploy_qa` shows the answer status; filing and `yoke direct-workflow
+worktree prepare` report an unanswered one with both ways to answer; and
+`yoke merge item ITEM --check` lists it as a landing blocker.
 
 ## Related
 

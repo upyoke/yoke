@@ -83,7 +83,7 @@ def test_capture_records_the_baseline_it_just_produced(
     assert destination.startswith("/Users/Shared/yoke-golden/")
     assert control.captured_destinations == [destination]
     assert submitted.result_payload["golden_baseline_path"] == destination
-    detail = machine_detail(conn, project="yoke", machine=MACHINE)
+    detail = machine_detail(conn, project="yoke", test_machine=MACHINE)
     assert detail["settings"]["golden_baseline_path"] == destination
     [receipt] = detail["operations"]
     assert receipt["operation"] == "golden_capture"
@@ -126,7 +126,7 @@ def test_a_refused_capture_leaves_the_declared_baseline_alone(
     assert submitted.result_payload["status"] == "error"
     assert submitted.result_payload["error_code"] == "golden_capture_yoke_residue"
     assert submitted.result_payload["golden_baseline_path"] is None
-    detail = machine_detail(conn, project="yoke", machine=MACHINE)
+    detail = machine_detail(conn, project="yoke", test_machine=MACHINE)
     assert "golden_baseline_path" not in detail["settings"]
     [receipt] = detail["operations"]
     assert receipt["checks"][0]["refusal"]["reason"] == "yoke_residue"
@@ -189,7 +189,7 @@ def _row(golden_baseline_path: str) -> TestMachineCapabilityRow:
         project_id=1,
         project="yoke",
         capability_type=f"test-machine:{MACHINE}",
-        machine=MACHINE,
+        test_machine=MACHINE,
         settings=settings,
         settings_token=json.dumps(settings, separators=(",", ":"), sort_keys=True),
         verified_at=None,
@@ -226,7 +226,7 @@ def test_two_default_captures_on_one_day_register_distinct_goldens(
         )
         assert execution["golden_destination"] == expected
         assert submitted.result_payload["golden_baseline_path"] == expected
-        detail = machine_detail(conn, project="yoke", machine=MACHINE)
+        detail = machine_detail(conn, project="yoke", test_machine=MACHINE)
         assert detail["settings"]["golden_baseline_path"] == expected
     assert len(set(control.captured_destinations)) == 2
 

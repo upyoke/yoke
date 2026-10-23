@@ -249,8 +249,7 @@ def test_report_lists_the_manual_wake_with_evidence_owner_and_run(
     assert f"{RUN_ID}  {ref}  requirement #9801 case real-traffic" in body
     assert f"evidence: {EVIDENCE}" in body
     run_command = (
-        f"yoke qa plan run --deployment-run-id {RUN_ID} --stage {ITEM_QA_STAGE} "
-        f"--member {ref} --project yoke"
+        f"yoke qa plan run --item {ref} --stage {ITEM_QA_STAGE} --project yoke"
     )
     assert wake.run_command() == run_command
     assert f"run: {run_command}" in body

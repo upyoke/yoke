@@ -40,7 +40,11 @@ def decision_requests_get(args: List[str]) -> int:
         prog="yoke decision-requests get",
         description="Read one request and its decisions when you are its originator or an authorized reviewer.",
     )
-    parser.add_argument("request_id", type=int)
+    parser.add_argument(
+        "request_id",
+        type=int,
+        help="Numeric id of the decision request.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DECISION_REQUESTS_GET_USAGE)

@@ -33,7 +33,7 @@ from yoke_core.domain.handlers.qa_case_execution import handle_case_execution_be
 from yoke_core.domain.handlers.qa_reads import handle_qa_run_get
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
-    begin_plan_execution,
+    select_plan_execution,
     finish_plan_execution,
 )
 from yoke_core.domain.qa_start_bound_authority import PAYLOAD_KEY
@@ -60,6 +60,8 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
     actor_id = _consumer_actor(conn, release["consumer_id"])
     member = release["consumer_ref"]
     request = _request("qa.plan.materialize", member=member)
+    request.target = TargetRef(kind="item", item_id=CONSUMER_ITEM_ID)
+    request.payload.pop("deployment_member")
     request.actor.actor_id = str(actor_id)
     assert resolve_project_context(conn, _entry(request.function), request) == (
         release["consumer_id"],
@@ -120,14 +122,22 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
     assert case_contract.primary_success
     assert case_contract.result_payload["case"][PAYLOAD_KEY] == 17
     assert bound_claim.call_args.kwargs["item_id"] == CONSUMER_ITEM_ID
-    execution = begin_plan_execution(
-        conn,
-        deployment_run_id=RUN,
-        deployment_stage=STAGE,
-        deployment_member_item_id=CONSUMER_ITEM_ID,
-        actor_id=str(actor_id),
-        session_id="consumer-qa",
+    from yoke_core.domain.handlers.qa_plan_execution import handle_plan_execution_begin
+
+    begun = handle_plan_execution_begin(
+        request.model_copy(
+            update={
+                "function": "qa.plan_execution.begin",
+                "payload": {"deployment_stage": STAGE, "plan": "consumer-smoke"},
+            }
+        )
     )
+    assert begun.primary_success, begun.error
+    execution = select_plan_execution(
+        conn, begun.result_payload["execution_id"], lock=False
+    )
+    assert execution["deployment_run_id"] == RUN
+    assert execution["deployment_member_item_id"] == CONSUMER_ITEM_ID
     for function in ("qa.plan_execution.begin", "qa.plan.rematerialize"):
         leg = _request(function, member=member)
         leg.actor.actor_id = str(actor_id)

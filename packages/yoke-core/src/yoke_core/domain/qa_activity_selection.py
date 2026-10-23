@@ -2,9 +2,10 @@
 
 Reading a set of items' QA as one recency page is a defect rather than a
 page: the busiest subject fills the cap and every other requested subject
-reads back as having nothing. What this module composes instead is a read
-bounded per subject per deployment run, restricted to the run groups a
-caller is actually drawing, and honest about what it cut short.
+reads back as having nothing. A caller drawing known run groups therefore
+gets a read bounded per subject per deployment run, restricted to those
+groups. A caller naming no run groups asked for at most ``limit`` rows, and
+gets that many, newest first. Either way the read says what it cut short.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Iterable, Optional
 
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 
 
@@ -132,7 +134,7 @@ ACTIVITY_SOURCE = (
 #: same rule, so what the query bounds and what a caller shows agree.
 SUBJECT = "COALESCE(q.item_id, q.deployment_member_item_id)"
 
-#: What an item-scoped read bounds: each item's checks WITHIN each deployment
+#: What a run-group read bounds: each item's checks WITHIN each deployment
 #: run they were recorded against, with the item's own run-less checks as
 #: their own group. Bounding an item as a whole would let its busiest release
 #: cut off the very rows another release's card needs — the read would drop
@@ -148,9 +150,9 @@ def subject_of(row: Any) -> Optional[int]:
     return None if value is None else int(value)
 
 
-def activity_query(marker: str, where: str, *, item_scoped: bool) -> str:
+def activity_query(marker: str, where: str, *, per_run_group: bool) -> str:
     """The recency page, or the per-subject-per-run bounded selection."""
-    if not item_scoped:
+    if not per_run_group:
         return (
             f"SELECT {ACTIVITY_COLUMNS} {ACTIVITY_SOURCE} {where} "
             f"ORDER BY happened_at DESC, q.id DESC LIMIT {marker}"
@@ -200,6 +202,58 @@ def bound_groups(
     }
 
 
+def bound_total(
+    conn: Any,
+    rows: list[Any],
+    bounded: int,
+    where: str,
+    params: list[Any],
+) -> tuple[list[Any], dict[str, Any]]:
+    """Keep the newest ``bounded`` rows, and count what matched when cut.
+
+    The probe row past the cap is what proves a cut; only then is the full
+    match counted, so a reader knows how far to narrow or raise the limit.
+    """
+    truncated = len(rows) > bounded
+    total = len(rows)
+    if truncated:
+        counted = query_rows(
+            conn, f"SELECT COUNT(*) AS total {ACTIVITY_SOURCE} {where}", tuple(params)
+        )
+        total = int(counted[0]["total"])
+    return rows[:bounded], {"limit": bounded, "total": total, "truncated": truncated}
+
+
+def select_activity(
+    conn: Any,
+    marker: str,
+    where: str,
+    params: list[Any],
+    *,
+    bounded: int,
+    item_scoped: bool,
+    per_run_group: bool,
+) -> tuple[list[Any], Optional[dict[str, Any]]]:
+    """Run the bounded read, and say how an item-scoped one was bounded.
+
+    Only a caller naming the run groups it draws gets the per-run bound: it
+    already sized the answer by what is on screen. Without them every run an
+    item ever took part in is a group, so a per-run bound would grow with the
+    item's lifetime instead of honouring the limit the caller asked for.
+    """
+    probe = bounded + 1 if item_scoped else bounded
+    rows = query_rows(
+        conn,
+        activity_query(marker, where, per_run_group=per_run_group),
+        (*params, probe),
+    )
+    if not item_scoped:
+        return rows, None
+    if per_run_group:
+        return bound_groups(rows, bounded)
+    return bound_total(conn, rows, bounded, where, params)
+
+
 __all__ = [
     "ACTIVITY_COLUMNS",
     "ACTIVITY_SOURCE",
@@ -211,7 +265,9 @@ __all__ = [
     "SUBJECT_GROUP",
     "activity_query",
     "bound_groups",
+    "bound_total",
     "item_filter",
     "run_group_filter",
+    "select_activity",
     "subject_of",
 ]

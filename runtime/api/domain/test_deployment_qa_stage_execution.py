@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
-
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain.deployment_flow_versioning import cmd_create
@@ -286,7 +284,7 @@ def test_done_members_keep_independent_stage_executions_and_gates(test_db) -> No
     assert any("no completed" in reason for reason in blocked["reasons"])
 
 
-def test_frozen_plan_survives_edit_and_replaced_candidate_refuses_results(
+def test_frozen_plan_survives_edit_and_a_newer_receipt_keeps_writing(
     test_db,
 ) -> None:
     plan_id = _plan(test_db, "frozen-release-smoke")
@@ -317,10 +315,36 @@ def test_frozen_plan_survives_edit_and_replaced_candidate_refuses_results(
         session_id="frozen-qa",
     )
     assert execution["roster"][0]["instructions"] == "run the frozen smoke command"
+    # A redeploy mid-stage records a newer ready receipt. QA tests whatever is
+    # deployed, so the frozen receipt is provenance and the walk keeps writing.
     test_db.execute(
-        "UPDATE deployment_runs SET release_lineage=%s WHERE id=%s",
-        ("b" * 40, "run-frozen-stage"),
+        "UPDATE deployment_runs SET current_stage='deploy' WHERE id=%s",
+        ("run-frozen-stage",),
+    )
+    receipt = allocate_deployment_stage_receipt(
+        test_db,
+        run_id="run-frozen-stage",
+        stage_name="deploy",
+        correlation_id="run-frozen-stage-deploy-2",
+        target_kind="persistent_environment",
+        executor="test",
+        commit=False,
+    )
+    complete_deployment_stage_receipt(
+        test_db,
+        run_id="run-frozen-stage",
+        receipt_id=int(receipt["id"]),
+        correlation_id=str(receipt["correlation_id"]),
+        status="ready",
+        target_name="stage",
+        observed_url="https://preview.example.test",
+        observed_release_lineage="a" * 40,
+        executor_receipt="test://deploy-ready-again",
+        commit=False,
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage='item-qa' WHERE id=%s",
+        ("run-frozen-stage",),
     )
     test_db.commit()
-    with pytest.raises(ValueError, match="replaced"):
-        validate_deployment_execution_target(test_db, execution)
+    validate_deployment_execution_target(test_db, execution)

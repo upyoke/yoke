@@ -25,7 +25,7 @@ from yoke_cli.commands.browser_sign_in import (
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
-    resolve_authorization_target as resolve_identity_target,
+    resolve_identity_target,
 )
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
@@ -36,14 +36,15 @@ from yoke_cli.config.browser_profile_cookies import (
 
 BROWSER_AUTHORIZE_USAGE = (
     "yoke browser authorize [--project PROJECT] [--identity NAME] [--url URL] "
-    "[--machine NAME] [--desktop-browser] [--declarations-json JSON] [--reset] [--json]"
+    "[--test-machine TEST_MACHINE] [--desktop-browser] [--declarations-json JSON] [--reset] [--json]"
 )
 
 
 def browser_authorize(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke browser authorize",
-        description=(f"{BROWSER_AUTHORIZE_USAGE}\n\n{AUTHORIZE_HELP}"),
+        usage=BROWSER_AUTHORIZE_USAGE,
+        description=AUTHORIZE_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -53,12 +54,14 @@ def browser_authorize(args: List[str]) -> int:
     )
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
     parser.add_argument(
-        "--machine", help="Registered Test Machine whose GUI opens the sign-in window."
+        "--test-machine",
+        metavar="TEST_MACHINE",
+        help="Registered Test Machine whose GUI opens the sign-in window.",
     )
     parser.add_argument(
         "--desktop-browser",
         action="store_true",
-        help="Check this host's native Chromium or Safari instead of an automation profile. --machine includes both automatically.",
+        help="Check this host's native Chromium or Safari instead of an automation profile. --test-machine includes both automatically.",
     )
     parser.add_argument(
         "--include-desktop-browser", action="store_true", help=argparse.SUPPRESS
@@ -79,12 +82,14 @@ def browser_authorize(args: List[str]) -> int:
             "sign-in starts from an empty browser."
         ),
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, BROWSER_AUTHORIZE_USAGE)
     if parsed is None:
         return 2
 
-    if parsed.machine is not None:
+    if parsed.test_machine is not None:
         from yoke_cli.commands.browser_authorize_remote import authorize_remote
 
         return authorize_remote(parsed)

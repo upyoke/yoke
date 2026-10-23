@@ -108,6 +108,7 @@ def reactivate_registration(
         execution_level,
         workspace,
         mode,
+        now,
         envelope_json,
         executor_version,
         machine_id,
@@ -120,7 +121,7 @@ def reactivate_registration(
     return conn.execute(
         f"""UPDATE harness_sessions
            SET provider = {p}, {model_assignments}, execution_level = {p},
-               workspace = {p}, mode = {p}, ended_at = NULL,
+               workspace = {p}, mode = {p}, last_heartbeat = {p}, ended_at = NULL,
                offer_envelope = {p}, executor_version = {p}, machine_id = {p}
                {thread_clause}{episode_clause}{actor_clause}
            WHERE session_id = {p} AND ended_at IS NOT NULL""",

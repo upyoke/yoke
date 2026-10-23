@@ -216,7 +216,7 @@ def _test_machine_detail(
     return {
         "project_id": row.project_id,
         "project": row.project,
-        "machine": row.machine,
+        "test_machine": row.test_machine,
         "capability_type": row.capability_type,
         "kind": TEST_MACHINE_CAPABILITY,
         "display_name": definition["display_label"],
@@ -242,7 +242,7 @@ def _test_machine_detail(
             "surfaces": verification_surfaces(
                 list(receipt.get("checks") or []),
                 project=row.project,
-                machine=row.machine,
+                test_machine=row.test_machine,
             ),
             "status_meaning": (
                 "bookkeeping: verified_at is unset; not a health or "
@@ -294,7 +294,7 @@ def test_machine_detail(
     conn: Any,
     *,
     project: str,
-    machine: str | None = None,
+    test_machine: str | None = None,
 ) -> dict[str, Any]:
     """Return one selected machine, allowing omission only for one-row fleets."""
     identity = resolve_project(conn, project, required=False)
@@ -304,7 +304,7 @@ def test_machine_detail(
     selected = select_test_machine_row(
         rows,
         project=identity.slug,
-        machine=machine,
+        test_machine=test_machine,
     )
     return _test_machine_detail(conn, row=selected)
 
@@ -318,7 +318,7 @@ def test_machine_list(conn: Any, *, project: str) -> dict[str, Any]:
     return {
         "project_id": int(identity.id),
         "project": identity.slug,
-        "machines": [_test_machine_detail(conn, row=row) for row in rows],
+        "test_machines": [_test_machine_detail(conn, row=row) for row in rows],
     }
 
 

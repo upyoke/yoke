@@ -1,0 +1,13 @@
+{
+  "watch": "Run long commands with saved output and progress.",
+  "watch ci-run": "Watch every CI run for one commit.",
+  "watch deploy": "Run a deployment and watch its progress.",
+  "watch doctor": "Run doctor and watch its progress.",
+  "watch fleet": "Watch for changes across the fleet.",
+  "watch merge": "Run a merge and report only its outcome.",
+  "watch preflight": "Run the migration preflight and watch its progress.",
+  "watch pytest": "Run tests and watch their progress.",
+  "watch qa-case": "Run one QA case and watch its progress.",
+  "watch qa-plan": "Run a QA plan and watch its progress.",
+  "watch tail": "Follow a watcher's progress file until the run ends."
+}

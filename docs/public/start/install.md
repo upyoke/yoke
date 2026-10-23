@@ -176,7 +176,12 @@ server's admin upgrades it; hosted servers update with each hosted release.
 
 Install, reinstall and upgrade restart the machine's hook evaluator and check
 that it answers; on failure, read the named log, run `yoke hook resident
-restart` and retry. Hook timing stays in the diagnostics log. Setup also
+restart` and retry. A resident with the immutable-generation restart fix selects
+the current installed generation when a hook requests a new revision, retaining
+its exclusive start lock. An already-running resident from before this fix needs
+one ordinary `yoke hook resident restart` after installing the corrected CLI;
+installing code alone cannot change that old process. Hook timing stays in the
+diagnostics log. Setup also
 writes Yoke's machine-wide hooks into each existing harness home's user config,
 so sessions outside a project register; inside one, the project's hooks run.
 
@@ -196,6 +201,13 @@ one launcher pointer atomically. Running commands keep their original modules;
 new commands use the published release. Old environments retire after their
 commands finish; cleanup failures name the reason and the update to retry.
 The installer repairs git credential-helper references for the new release.
+uv runs with umask `022`, so the new release's files are not group- or
+other-writable, and uv keeps its normal cache. Before publishing, the installer
+checks every credential-helper source in the new release. If cached files are
+group- or other-writable, it runs `uv cache clean yoke-cli yoke-contracts` once
+and reinstalls. Any other unsafe source, a failed cleanup, or unsafe files
+after that one retry refuses with a named reason. The current release stays
+active.
 
 Every successful install or reinstall restarts a running machine-local
 dashboard with the newly installed executable. It keeps the same environment,

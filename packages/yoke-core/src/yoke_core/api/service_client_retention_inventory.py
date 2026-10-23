@@ -6,7 +6,11 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 RETENTION_ADAPTERS = [
     AdapterEntry(
-        "universe.retention.get", "yoke universe retention get", read_shape=True
+        "universe.retention.get",
+        ("yoke universe retention get [--json]"),
+        read_shape=True,
     ),
-    AdapterEntry("universe.prune.run", "yoke universe prune [--dry-run | --apply]"),
+    AdapterEntry(
+        "universe.prune.run", ("yoke universe prune [--dry-run | --apply] [--json]")
+    ),
 ]

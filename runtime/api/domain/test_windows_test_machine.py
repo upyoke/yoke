@@ -209,7 +209,7 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
             success=True,
             function="test_machine.get",
             version="v1",
-            result={"settings": SETTINGS, "machine": "windows-lab"},
+            result={"settings": SETTINGS, "test_machine": "windows-lab"},
         ),
     )
     monkeypatch.setattr(

@@ -69,7 +69,9 @@ def github_open_work_list(args: List[str]) -> int:
             "counts and the first rows of each list; --json carries every row."
         ),
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project whose repository to read."
+    )
     parser.add_argument(
         "--limit",
         type=int,

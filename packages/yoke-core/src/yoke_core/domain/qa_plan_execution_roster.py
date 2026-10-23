@@ -143,14 +143,14 @@ def ordered_plan_requirements(
 
 
 def validate_roster_machine(
-    conn: Any, roster: list[dict[str, Any]], machine: str | None
+    conn: Any, roster: list[dict[str, Any]], test_machine: str | None
 ) -> None:
     from yoke_core.domain.machine_qa_case_machine import (
         require_registered_machine,
         resolve_plan_machine,
     )
 
-    resolve_plan_machine(roster, machine)
+    resolve_plan_machine(roster, test_machine)
     projects = {
         int(row["project_id"])
         for row in roster
@@ -159,7 +159,7 @@ def validate_roster_machine(
     from yoke_core.domain.machine_qa_case_hosts import case_machines
 
     for project_id in projects:
-        names = {machine} if machine else set()
+        names = {test_machine} if test_machine else set()
         for row in roster:
             if row.get("project_id") == project_id:
                 names.update(case_machines(row))
@@ -167,8 +167,8 @@ def validate_roster_machine(
             require_registered_machine(
                 conn,
                 project_id=project_id,
-                machine=name,
-                subject="run pin" if machine else "case constraint",
+                test_machine=name,
+                subject="run pin" if test_machine else "case constraint",
             )
 
 

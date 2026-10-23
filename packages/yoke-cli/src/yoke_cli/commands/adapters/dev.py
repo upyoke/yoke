@@ -19,12 +19,13 @@ from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_cli.project_install.files import ProjectInstallError
 
 from yoke_cli.config.project_selection import required_project_context
+from yoke_cli.commands.adapters.dev_parser import (
+    build_db_admin_setup_parser,
+    build_setup_parser,
+)
 from yoke_cli.commands.adapters.dev_setup_flags import (
     DevSetupAdapterError,
     _checkout_and_positional_dsn,
-    _add_secret_args,
-    _add_tunnel_args,
-    _add_authority_args,
     _postgres,
     _authority,
 )
@@ -42,8 +43,8 @@ DEV_SETUP_USAGE = (
 )
 DEV_PATH_SNAPSHOT_PREWARM_USAGE = "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
 DEV_DB_ADMIN_SETUP_USAGE = (
-    "yoke dev db-admin setup ENV [--project PROJECT] [--database MODEL] "
-    "[--admin-env ENV] [--control-plane-env CONNECTION_ENV] "
+    "yoke dev db-admin setup ENV [--project P] [--config PATH] [--database MODEL] "
+    "[--admin-env NAME] [--control-plane-env CONNECTION] "
     "[--local-port PORT] [--secret-name NAME] [--set-active-env] "
     "[--allow-render-only] [--prod | --non-prod] "
     "[--yes | --dry-run] [--json]"
@@ -55,34 +56,8 @@ PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 
 
 def dev_setup(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        prog="yoke dev setup",
-        description=(
-            "Plan or apply Yoke source-dev/admin setup. This is the only "
-            "command that owns source-link repair, editable install bootstrap, "
-            "and local-postgres admin connector entries."
-        ),
-    )
-    parser.add_argument("checkout_or_dsn", nargs="?", default=None)
-    parser.add_argument("dsn_value", nargs="?", default=None)
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument(
-        "--admin-env", dest="env_name", default=dev_setup_config.DEFAULT_ADMIN_ENV
-    )
-    _add_secret_args(parser)
-    parser.add_argument("--set-active-env", action="store_true")
-    parser.add_argument("--editable-install", action="store_true")
-    parser.add_argument("--with-test-postgres", action="store_true")
-    parser.add_argument("--postgres-host", default=None)
-    parser.add_argument("--postgres-port", type=int, default=None)
-    _add_tunnel_args(parser)
-    _add_authority_args(parser)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--yes", dest="apply", action="store_true")
-    mode.add_argument("--dry-run", dest="dry_run", action="store_true")
-    parser.set_defaults(apply=False, dry_run=False)
-    add_json_arg(parser)
+    parser = build_setup_parser()
+    parser.usage = DEV_SETUP_USAGE
     parsed = parse_or_usage_error(parser, args, DEV_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -133,17 +108,18 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev path-snapshot-prewarm",
+        usage=DEV_PATH_SNAPSHOT_PREWARM_USAGE,
         description=(
-            "Source-dev/admin path-snapshot prewarm. Builds the HEAD "
-            "snapshot and integration-target snapshot through the local "
-            "Yoke DB authority; product git hooks never invoke this "
-            "silently."
+            "For Yoke source development: build the path snapshots for HEAD "
+            "and for the integration target now, through the local Yoke "
+            "database. Git hooks never run this on their own."
         ),
     )
     parser.add_argument(
         "project_id",
         nargs="?",
         default=None,
+        metavar="PROJECT_ID",
         help="Project id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     add_json_arg(parser)
@@ -184,54 +160,8 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
 
 
 def dev_db_admin_setup(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        prog="yoke dev db-admin setup",
-        description=(
-            "Plan or apply a machine-local db-admin Postgres profile from "
-            "DB-backed deploy-environment infrastructure. By default it "
-            "reaches the Yoke control-plane database, whose identity is read "
-            "through a named tenant-routed HTTPS control plane; --database "
-            "MODEL reaches the project's own database declared under that "
-            "model of its migration_model capability instead. Endpoint and "
-            "managed-secret authority come from Pulumi without materializing "
-            "the secret value."
-        ),
-    )
-    parser.add_argument("env_name")
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument(
-        "--database",
-        default=None,
-        metavar="MODEL",
-        help=(
-            "Reach the project's own database declared as migration_model "
-            "models.MODEL.authoritative_db (profile <project>-<env>-MODEL-db-admin)."
-        ),
-    )
-    parser.add_argument("--admin-env", default=None)
-    parser.add_argument("--local-port", type=int, default=None)
-    parser.add_argument("--secret-name", default=None)
-    parser.add_argument(
-        "--control-plane-env",
-        default=None,
-        help=(
-            "Named HTTPS connection used for tenant-routed current_database() "
-            "identity or the --database declaration read (defaults to ENV "
-            "only when that connection is HTTPS)."
-        ),
-    )
-    parser.add_argument("--set-active-env", action="store_true")
-    parser.add_argument("--allow-render-only", action="store_true")
-    production = parser.add_mutually_exclusive_group()
-    production.add_argument("--prod", dest="prod", action="store_true")
-    production.add_argument("--non-prod", dest="prod", action="store_false")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--yes", dest="apply", action="store_true")
-    mode.add_argument("--dry-run", dest="dry_run", action="store_true")
-    parser.set_defaults(apply=False, dry_run=False, prod=False)
-    add_json_arg(parser)
+    parser = build_db_admin_setup_parser()
+    parser.usage = DEV_DB_ADMIN_SETUP_USAGE
     parsed = parse_or_usage_error(parser, args, DEV_DB_ADMIN_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -264,6 +194,7 @@ def dev_db_admin_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev db-admin exec",
+        usage=DEV_DB_ADMIN_EXEC_USAGE,
         description=(
             "Run one command with a db-admin profile's DSN in a variable you "
             "name, set for that subprocess only. The managed secret is read "
@@ -272,8 +203,13 @@ def dev_db_admin_exec(args: List[str]) -> int:
             "never printed, logged, or written to disk."
         ),
     )
-    parser.add_argument("admin_env", metavar="ADMIN_ENV")
-    parser.add_argument("--dsn-var", required=True, metavar="NAME")
+    parser.add_argument("admin_env", metavar="ADMIN_ENV", help="Profile to use.")
+    parser.add_argument(
+        "--dsn-var",
+        required=True,
+        metavar="NAME",
+        help="Environment variable that receives the DSN.",
+    )
     split = args.index("--") if "--" in args else len(args)
     parsed = parse_or_usage_error(parser, args[:split], DEV_DB_ADMIN_EXEC_USAGE)
     if parsed is None:

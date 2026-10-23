@@ -26,22 +26,25 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 CLAIMS_PATH_REQUIRED_GATE_USAGE = (
-    "yoke claims path required-gate PREFIX-N [--session-id S] [--json]"
+    "yoke claims path required-gate PREFIX-N [--project P] [--full] "
+    "[--session-id S] [--json]"
 )
 CLAIMS_PATH_ACTIVATION_RUN_USAGE = (
-    "yoke claims path activation-run --item PREFIX-N [--session-id S] [--json]"
+    "yoke claims path activation-run --item PREFIX-N [--project P] "
+    "[--session-id S] [--json]"
 )
 CLAIMS_PATH_BOUNDARY_PROVE_USAGE = (
-    "yoke claims path boundary-prove --item PREFIX-N [--session-id S] [--json]"
+    "yoke claims path boundary-prove --item PREFIX-N [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
 def claims_path_required_gate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path required-gate",
-        description=CLAIMS_PATH_REQUIRED_GATE_USAGE,
+        usage=CLAIMS_PATH_REQUIRED_GATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item to check.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_REQUIRED_GATE_USAGE)
@@ -59,9 +62,17 @@ def claims_path_required_gate(args: List[str]) -> int:
 def claims_path_activation_run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path activation-run",
-        description="Activate planned claims using integration heads resolved from this machine’s registered checkout. Incomplete activation exits non-zero with recovery instructions; no claims is a successful no-op.",
+        usage=CLAIMS_PATH_ACTIVATION_RUN_USAGE,
+        description=(
+            "Activate the item's planned path claims, using integration heads "
+            "read from this machine's registered checkout. If activation is "
+            "incomplete, the command exits non-zero and prints recovery steps. "
+            "An item with no planned claims succeeds and changes nothing."
+        ),
     )
-    parser.add_argument("--item", required=True, help="Item public ref (PREFIX-N).")
+    parser.add_argument(
+        "--item", required=True, metavar="PREFIX-N", help="Item to activate."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_ACTIVATION_RUN_USAGE)
@@ -93,9 +104,14 @@ def claims_path_boundary_prove(args: List[str]) -> int:
     """Observe the recorded local lane and stamp a hosted-consumable proof."""
     parser = argparse.ArgumentParser(
         prog="yoke claims path boundary-prove",
-        description=CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
+        usage=CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
     )
-    parser.add_argument("--item", required=True, help="YOK-N or N.")
+    parser.add_argument(
+        "--item",
+        required=True,
+        metavar="PREFIX-N",
+        help="Item to prove; run on the machine that holds its lane.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_BOUNDARY_PROVE_USAGE)

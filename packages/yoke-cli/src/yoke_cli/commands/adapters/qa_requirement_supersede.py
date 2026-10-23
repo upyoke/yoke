@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import textwrap
 from yoke_cli.transport.human_values import write_human
 from typing import List, TextIO
 
@@ -28,13 +29,14 @@ QA_REQUIREMENT_SUPERSEDE_USAGE = (
     "[--declare-replacement | --reconcile] [--source operator|agent] [--session-id S] [--json]"
 )
 
-_EPILOG = (
+_EPILOG_PARAGRAPHS = (
     "Discharge a failed case whose defect only became visible after it was "
     "materialized, using a corrected case that actually passed instead of a "
     "waiver. The usual route records this for you: materialize the corrected "
     "case with --replaces CASE_KEY=FAILED_REQUIREMENT_ID on 'yoke qa plan run' "
     "or 'yoke qa plan materialize', and its passing independent verdict "
-    "supersedes the failed case automatically. By hand, the corrected case "
+    "supersedes the failed case automatically.",
+    "By hand, the corrected case "
     "must be bound to the same run, stage, member and deployment target (for "
     "an item case: the same item, transition, phase and target), be blocking, "
     "and have a recorded "
@@ -43,18 +45,20 @@ _EPILOG = (
     "answered by the named case. Order matters: record the replacement's "
     "passing verdict FIRST -- run its case, or submit the review bundle that "
     "settles it -- and supersede after. A replacement with no recorded pass "
-    "yet is refused. For a failed case -- an admitted run case, or an item "
+    "yet is refused.",
+    "For a failed case -- an admitted run case, or an item "
     "case of the same item, transition and phase -- with a corrected "
     "requirement already created, --declare-replacement atomically links "
     "that pending blocking case, skips the failed capture in the scoped "
     "roster, and wakes a run case's holder. A pass then supersedes "
-    "automatically. "
+    "automatically.",
     "Supersession is for a case that has already answered. A case with no "
     "determinate verdict yet takes configuration fixes such as method_config "
     "or success_policy in place with 'yoke qa requirement update'; its "
     "instructions and expected_outcome are not updatable, so record the "
     "corrected case with 'yoke qa requirement add' and retire the unjudged "
-    "one with 'yoke qa requirement waive'. Superseding an admitted copy is run-local: its item source "
+    "one with 'yoke qa requirement waive'.",
+    "Superseding an admitted copy is run-local: its item source "
     "row is untouched and still outstanding, so the next release admits the "
     "same body again. The receipt names that row and how to retire it. To "
     "retire a post_deploy item source, record the corrected body as a new "
@@ -70,7 +74,7 @@ _EPILOG = (
     "the run failed or was cancelled, or nothing admitted the source yet -- "
     "the supersession is recorded and the receipt's proof_owed_notice says "
     "the corrected requirement owes its own proof on the next release. "
-    "Either way later releases admit only the corrected requirement. "
+    "Either way later releases admit only the corrected requirement.",
     "Successor links must converge on the named terminal case; supersession "
     "updates an existing replacement link to that same case. To repair "
     "inconsistent links, an operator or project steering holder runs this "
@@ -81,7 +85,11 @@ _EPILOG = (
     "scope and reason. Operator-sourced reconciliation requires a live operator "
     "session or steering seat covering the requirement, without the item claim. "
     "The item claim alone is insufficient. The holder is notified and retains "
-    "its claim; the receipt reports notice delivery and any recovery."
+    "its claim; the receipt reports notice delivery and any recovery.",
+)
+_EPILOG = "\n\n".join(
+    textwrap.fill(text, width=79, break_on_hyphens=False, break_long_words=False)
+    for text in _EPILOG_PARAGRAPHS
 )
 
 
@@ -126,7 +134,7 @@ def _write_supersede_result(
 def qa_requirement_supersede(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement supersede",
-        description=QA_REQUIREMENT_SUPERSEDE_USAGE,
+        usage=QA_REQUIREMENT_SUPERSEDE_USAGE,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -135,14 +143,18 @@ def qa_requirement_supersede(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="The frozen qa_requirements.id being discharged, or the post_deploy item source being retired.",
+        metavar="N",
+        help="QA requirement id of the frozen case being discharged, or of the "
+        "post_deploy item source being retired.",
     )
     parser.add_argument(
         "--superseded-by-requirement-id",
         dest="superseded_by_requirement_id",
         type=int,
         required=True,
-        help="The corrected qa_requirements.id that passed in its place, or the corrected item requirement retiring a source.",
+        metavar="N",
+        help="QA requirement id of the corrected case that passed in its place, "
+        "or of the corrected item requirement retiring a source.",
     )
     rationale_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -160,7 +172,7 @@ def qa_requirement_supersede(args: List[str]) -> int:
         "--source",
         choices=("operator", "agent"),
         default="agent",
-        help="Supersession authority source.",
+        help="Who authorizes the supersession: operator or agent; default: agent.",
     )
     parser.add_argument(
         "--declare-replacement",

@@ -1,0 +1,7 @@
+{
+  "onboard": "Add a project to Yoke and track its setup steps.",
+  "onboard checklist": "Record progress on a project's setup checklist.",
+  "onboard checklist get": "Show a project's setup checklist.",
+  "onboard checklist init": "Start a setup checklist for a project.",
+  "onboard project": "Register a local checkout as a new Yoke project."
+}

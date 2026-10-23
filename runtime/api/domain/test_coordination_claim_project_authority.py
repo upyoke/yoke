@@ -149,9 +149,9 @@ def _migration_claim(conn: Any, *, project: str, session_id: str) -> int:
     return claim_id
 
 
-def _qa_host_claim(conn: Any, *, machine: str, session_id: str) -> int:
+def _qa_host_claim(conn: Any, *, test_machine: str, session_id: str) -> int:
     """Insert a machine-scoped QA_HOST row built by the production constructor."""
-    target = make_qa_admission_target(machine)
+    target = make_qa_admission_target(test_machine)
     cur = conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
@@ -271,7 +271,7 @@ def test_qa_admission_release_by_claim_id_resolves_holding_session_project(
     yoke = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, yoke)
     _session(conn, "holder-session", yoke)
-    claim_id = _qa_host_claim(conn, machine="mac-mini-lab", session_id="holder-session")
+    claim_id = _qa_host_claim(conn, test_machine="mac-mini-lab", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(actor_id, {"claim_id": claim_id, "reason": "done"})
@@ -289,7 +289,7 @@ def test_qa_admission_release_refuses_an_actor_without_the_session_project(
     external = resolve_project_id(conn, "externalwebapp")
     outsider = _project_owner(conn, external)
     _session(conn, "holder-session", yoke)
-    claim_id = _qa_host_claim(conn, machine="mac-mini-lab", session_id="holder-session")
+    claim_id = _qa_host_claim(conn, test_machine="mac-mini-lab", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(outsider, {"claim_id": claim_id, "reason": "done"})
@@ -308,7 +308,7 @@ def test_machine_recovery_and_list_retain_holder_project_authority(
     external = resolve_project_id(conn, "externalwebapp")
     actor_id = _project_owner(conn, yoke if authorized else external)
     _session(conn, "holder-session", yoke)
-    claim_id = _qa_host_claim(conn, machine="test-mac", session_id="holder-session")
+    claim_id = _qa_host_claim(conn, test_machine="test-mac", session_id="holder-session")
     function_id = f"claims.coordination_claim.{function}"
     payload = {"key": "QA_HOST:test-mac", "active_only": True}
     if function == "operator_release":

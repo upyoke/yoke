@@ -72,7 +72,7 @@ def route(monkeypatch):
 
     def dispatch(**kwargs):
         result = (
-            {"machine": "lab", "settings": state["settings"], "active_lease": None}
+            {"test_machine": "lab", "settings": state["settings"], "active_lease": None}
             if kwargs["function_id"] == "test_machine.get"
             else {"settings_json": json.dumps(DECLARATIONS)}
         )
@@ -89,7 +89,7 @@ def route(monkeypatch):
 
 def authorize(*extra):
     return browser_authorize.browser_authorize(
-        ["--project", "acme", "--identity", "buyer", "--machine", "lab", *extra]
+        ["--project", "acme", "--identity", "buyer", "--test-machine", "lab", *extra]
     )
 
 
@@ -127,7 +127,7 @@ def test_missing_client_prints_view_command_and_still_authorizes(
     out = capsys.readouterr().out
     assert "desktop_rdp_client_missing" in out
     assert "sdl-freerdp" in out
-    assert "yoke test-machine desktop-access --project acme --machine lab --view" in out
+    assert "yoke test-machine desktop-access --project acme --test-machine lab --view" in out
     assert route["events"] == ["gui"]
 
 
@@ -141,7 +141,7 @@ def test_no_desktop_route_prints_command_without_view(route, capsys):
     assert authorize() == 0
     out = capsys.readouterr().out
     assert "desktop_route_missing" in out
-    assert "Run `yoke test-machine desktop-access --project acme --machine lab`." in out
+    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
     assert "--view" not in out
     assert "Sign in on its desktop" in out
     assert route["events"] == ["gui"]
@@ -157,7 +157,7 @@ def test_vnc_route_prints_desktop_access_without_view(route, capsys):
     assert authorize() == 0
     out = capsys.readouterr().out
     assert "desktop_view_requires_xfce_rdp" in out
-    assert "Run `yoke test-machine desktop-access --project acme --machine lab`." in out
+    assert "Run `yoke test-machine desktop-access --project acme --test-machine lab`." in out
     assert "--view" not in out
     assert route["events"] == ["gui"]
 
@@ -175,7 +175,7 @@ def test_viewer_cleanup_failure_tells_the_operator_and_keeps_success(
     )
     assert authorize() == 0
     err = capsys.readouterr().err
-    assert "Close the desktop viewer for machine lab yourself" in err
+    assert "Close the desktop viewer for test machine lab yourself" in err
     assert "desktop_view_unresponsive" in err
     assert route["events"] == ["open", "gui", "close"]
 
@@ -189,6 +189,6 @@ def test_json_mode_keeps_the_receipt_and_still_closes_the_viewer(
     )
     assert authorize("--json") == 0
     captured = capsys.readouterr()
-    assert json.loads(captured.out)["machine"] == "lab"
+    assert json.loads(captured.out)["test_machine"] == "lab"
     assert "Yoke desktop: lab" in captured.err
     assert route["events"] == ["open", "gui", "close"]

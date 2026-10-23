@@ -28,7 +28,7 @@ def test_a_failed_bridge_leaves_the_ssh_surface_passed() -> None:
             {"name": "terminal_bridge", "ok": False},
         ],
         project="yoke",
-        machine=MACHINE,
+        test_machine=MACHINE,
     )
 
     assert surfaces["ssh"] == {"status": SURFACE_PASSED, "check": "connection"}
@@ -36,7 +36,7 @@ def test_a_failed_bridge_leaves_the_ssh_surface_passed() -> None:
     assert bridge["status"] == SURFACE_FAILED
     assert "SSH still works" in bridge["recovery"]
     assert (
-        f"yoke test-machine bridge-diagnose --project yoke --machine {MACHINE}"
+        f"yoke test-machine bridge-diagnose --project yoke --test-machine {MACHINE}"
         in bridge["recovery"]
     )
 
@@ -45,12 +45,12 @@ def test_a_failed_transport_reports_the_bridge_as_not_run() -> None:
     surfaces = verification_surfaces(
         [{"name": "connection", "ok": False}],
         project="yoke",
-        machine=MACHINE,
+        test_machine=MACHINE,
     )
 
     assert surfaces["ssh"]["status"] == SURFACE_FAILED
     assert (
-        f"yoke test-machine exec --project yoke --machine {MACHINE} -- /usr/bin/true"
+        f"yoke test-machine exec --project yoke --test-machine {MACHINE} -- /usr/bin/true"
         in surfaces["ssh"]["recovery"]
     )
     assert surfaces["terminal_bridge"] == {
@@ -76,7 +76,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     record_test_machine_verification(
         conn,
         1,
-        machine=MACHINE,
+        test_machine=MACHINE,
         status="error",
         checks=[
             {"name": "connection", "ok": True},
@@ -85,7 +85,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
         error_code="terminal_app_control_unavailable",
     )
 
-    verification = read_test_machine_detail(conn, project="yoke", machine=MACHINE)[
+    verification = read_test_machine_detail(conn, project="yoke", test_machine=MACHINE)[
         "verification"
     ]
 

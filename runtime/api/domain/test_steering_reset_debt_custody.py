@@ -26,7 +26,7 @@ def test_live_walk_debt_names_execution_without_recovery(
     request, _, contract = removed_mission
     execution_id = request.payload["execution_id"]
     lease_id = contract["lease_id"]
-    machine = contract["settings"]["resource_name"]
+    test_machine = contract["settings"]["resource_name"]
     test_db.execute(
         "UPDATE qa_plan_executions SET state=%s WHERE id=%s", (state, execution_id)
     )
@@ -36,13 +36,13 @@ def test_live_walk_debt_names_execution_without_recovery(
             ("qa-plan-hosts:" + execution_id, lease_id),
         )
         test_db.execute(
-            "UPDATE qa_plan_executions SET machine_lease_id=NULL WHERE id=%s",
+            "UPDATE qa_plan_executions SET test_machine_lease_id=NULL WHERE id=%s",
             (execution_id,),
         )
     record_reset_owed(
         test_db,
         case={"project_id": 1, "host_baseline": "fresh-host"},
-        machine=machine,
+        test_machine=test_machine,
         lease_id=lease_id,
     )
     test_db.commit()
@@ -50,12 +50,12 @@ def test_live_walk_debt_names_execution_without_recovery(
     assert rows[0].execution_id == execution_id
     assert rows[0].recovery is None
     assert reset_debt_lines(rows) == [
-        f"Test Machine {machine}: reset owed after {execution_id}"
+        f"Test Machine {test_machine}: reset owed after {execution_id}"
     ]
     seed_steering_scope(test_db)
     report = compose(test_db)
     assert report_dict(report)["reset_debts"] == [
-        {"machine": machine, "recovery": None, "execution_id": execution_id}
+        {"test_machine": test_machine, "recovery": None, "execution_id": execution_id}
     ]
     assert "reset owed after " + execution_id in report_body(report)
     assert "yoke test-machine reset" not in report_body(report)
@@ -72,11 +72,11 @@ def test_live_walk_debt_names_execution_without_recovery(
 
 def test_terminal_execution_does_not_hide_reset_recovery(test_db, removed_mission):
     request, _, contract = removed_mission
-    machine = contract["settings"]["resource_name"]
+    test_machine = contract["settings"]["resource_name"]
     record_reset_owed(
         test_db,
-        case={"project_id": 1},
-        machine=machine,
+        case={"project_id": 1, "host_baseline": "fresh-host"},
+        test_machine=test_machine,
         lease_id=contract["lease_id"],
     )
     test_db.execute(

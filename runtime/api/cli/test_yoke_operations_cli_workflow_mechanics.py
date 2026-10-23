@@ -14,6 +14,13 @@ from yoke_contracts.api.function_call import (
 from yoke_cli.main import main as cli_main
 
 
+#: Minimal served answers for reads whose CLI checks the response shape.
+_SERVED_RESULTS = {
+    "test_machine.list": {"test_machines": []},
+    "test_machine.get": {"test_machine": "mac-mini-lab"},
+}
+
+
 def _run(*argv: str) -> tuple[int, FunctionCallRequest]:
     captured: list[FunctionCallRequest] = []
 
@@ -24,7 +31,7 @@ def _run(*argv: str) -> tuple[int, FunctionCallRequest]:
             function=request.function,
             version=request.version,
             request_id=request.request_id,
-            result={},
+            result=_SERVED_RESULTS.get(request.function, {}),
         )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
@@ -181,13 +188,13 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
         "get",
         "--project",
         "yoke",
-        "--machine",
+        "--test-machine",
         "mac-mini-lab",
     )
     assert result == 0
     assert request.payload == {
         "project": "yoke",
-        "machine": "mac-mini-lab",
+        "test_machine": "mac-mini-lab",
     }
 
     settings_file = tmp_path / "test-machine.json"
@@ -204,7 +211,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
         "settings-replace",
         "--project",
         "yoke",
-        "--machine",
+        "--test-machine",
         "mac-mini-lab",
         "--settings-file",
         str(settings_file),
@@ -213,7 +220,7 @@ def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
     assert result == 0
     assert request.payload == {
         "project": "yoke",
-        "machine": "mac-mini-lab",
+        "test_machine": "mac-mini-lab",
         "settings": settings,
         "base_settings": None,
     }

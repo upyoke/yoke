@@ -268,18 +268,22 @@ def _establish_deployment_freshness(
         # The bound environment answers when it is the target under test:
         # a deployment run, or an item case whose --base-url is that same
         # origin. A pre-merge candidate on another origin returned above.
+        # QA tests whatever is deployed, so the case records the commit the
+        # environment serves at case start rather than demanding one.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         run_source = context.get("run_source") or {}
+        observed = []
         failure = validate_deployment_identity(
-            expected_sha,
+            "",
             target=target,
             project=str(run_source.get("project") or project),
             fetch=fetch_identity,
+            record_observation=observed.append,
         )
         if failure is not None:
             return failure, "", ""
         origin = credential_free_origin(target.origin) if target.origin else ""
-        return None, origin, expected_sha
+        return None, origin, observed[0]
 
     # Unbound cases only. qa.browser_context.get populates
     # context.deployment_target from the case/run/stage target, so a

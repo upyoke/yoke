@@ -1,0 +1,5 @@
+{
+  "path-claims": "Read file path claims held by items.",
+  "path-claims conflicts": "Read overlaps between item path claims.",
+  "path-claims conflicts list": "List path claims that overlap between items."
+}

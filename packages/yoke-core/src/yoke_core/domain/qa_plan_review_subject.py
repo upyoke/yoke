@@ -22,10 +22,8 @@ def public_review_subject(conn: Any, subject: Mapping[str, Any]) -> dict[str, An
 
 def subject_flag(subject: Mapping[str, Any], target: Mapping[str, Any] | None) -> str:
     """Name the bundle subject with the canonical reviewer CLI argument."""
-    if subject.get("standalone_plan_id") is not None:
-        return f"--project {(target or {})['project']['slug']}"
     return (
         f"--item {subject['public_ref']}"
         if subject.get("public_ref") is not None
-        else f"--deployment-run-id {subject['deployment_run_id']}"
+        else ""
     )

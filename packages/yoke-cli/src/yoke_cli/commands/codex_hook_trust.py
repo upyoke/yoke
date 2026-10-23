@@ -24,8 +24,8 @@ def codex_hook_trust_sweep(args: List[str]) -> int:
     """Drop trust entries whose literal hooks or project paths are gone."""
     parser = argparse.ArgumentParser(
         prog="yoke codex hook-trust sweep",
+        usage=CODEX_HOOK_TRUST_SWEEP_USAGE,
         description=(
-            f"{CODEX_HOOK_TRUST_SWEEP_USAGE}\n\n"
             "Remove Codex hook-trust and project tables only when their "
             "absolute filesystem paths no longer exist. Existing paths and "
             "unrecognized third-party entries are preserved."

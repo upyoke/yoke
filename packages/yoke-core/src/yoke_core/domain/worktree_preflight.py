@@ -300,16 +300,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         prog="yoke worktree prepare",
         description="Prepare registered item lanes from the owning main checkout.",
     )
+    parser.add_argument("--item", required=True, help="Item to prepare, as PREFIX-N.")
+    parser.add_argument("--project", default=None, help="Project that owns the item.")
     parser.add_argument(
-        "--item",
-        required=True,
-        help="Complete public item ref (PREFIX-N)",
+        "--no-worktree", action="store_true", help="Work in place; create no lane."
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--no-worktree", action="store_true")
     parser.add_argument(
         "--session-id",
         default=resolve_ambient_session_id() or "",
+        help="Override the detected session id (debugging only).",
     )
     args = parser.parse_args(argv)
     try:

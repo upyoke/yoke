@@ -208,14 +208,14 @@ def reconcile_execution(
         for lease in hosts + review_leases:
             release(conn, int(lease.id), settle_reason, commit=False)
             released.append(int(lease.id))
-        execution["machine_lease_id"] = None
+        execution["test_machine_lease_id"] = None
     if bundle_id is not None and not hand_off:
         _close_unreviewable(conn, bundle_id, actor_id, session_id)
     owner = (actor_id, session_id) if session_id else (prior[1], prior[2])
     conn.execute(
         "UPDATE qa_plan_executions SET actor_id=%s,session_id=%s,"
-        "machine_lease_id=%s WHERE id=%s",
-        (*owner, execution.get("machine_lease_id"), execution_id),
+        "test_machine_lease_id=%s WHERE id=%s",
+        (*owner, execution.get("test_machine_lease_id"), execution_id),
     )
     execution.update(actor_id=owner[0], session_id=owner[1])
     outcome = "review_handoff" if hand_off else "aborted"

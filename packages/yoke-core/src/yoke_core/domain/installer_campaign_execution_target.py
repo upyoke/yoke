@@ -70,7 +70,7 @@ def installer_campaign_cases_for_target(
     # Admission journeys serve their own disposable server on the host they run on.
     for case in cases:
         if case["case_key"] not in {row["case_key"] for row in recovery}:
-            case["method_config"]["machine"] = primary_machine
+            case["method_config"]["test_machine"] = primary_machine
     for case in cases:
         require_case_target(case, target)
     return cases

@@ -1,0 +1,4 @@
+{
+  "schema": "Bring the database schema up to date.",
+  "schema converge": "Create missing tables and apply pending migrations."
+}

@@ -189,7 +189,7 @@ SECOND_MACHINE_JOIN = terminal_case(
     "exploratory-mission",
     instructions=(
         "Explore a second physical machine joining the same organization. Hold both "
-        "declared hosts; use --machine NAME for companion host commands. Establish "
+        "declared hosts; use --test-machine TEST_MACHINE for companion host commands. Establish "
         "the first machine's hosted connection through the public installer and real "
         "browser approval before joining the distinct second host. Record both machine "
         "identities, the organization and shared project facts before and after joining. "
@@ -335,11 +335,11 @@ def recovery_cases(*, primary_machine: str, joining_machine: str):
         )
     cases = deepcopy(INSTALLER_RECOVERY_CASES)
     for case in cases:
-        case["method_config"]["machine"] = (
+        case["method_config"]["test_machine"] = (
             joining_machine
             if case["case_key"] == "second-machine-join"
             else primary_machine
         )
         if case["case_key"] == "second-machine-join":
-            case["method_config"]["machines"] = [primary_machine, joining_machine]
+            case["method_config"]["test_machines"] = [primary_machine, joining_machine]
     return cases

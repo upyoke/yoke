@@ -30,8 +30,12 @@ def projects_github_sync_mode_repair(args: List[str]) -> int:
             "supplied."
         ),
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--project", default=None, help="Repair only this project; default: all."
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="Write the repairs; default: dry run."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

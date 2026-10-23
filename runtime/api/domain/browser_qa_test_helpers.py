@@ -114,6 +114,7 @@ def _patch_external_deps(
     *,
     reachable: bool = True,
     daemon_ok: bool = True,
+    identities=None,
     execute_step_responses: List[Dict[str, Any]] | None = None,
     assertion_responses: Dict[str, Dict[str, Any]] | None = None,
     opened_pages: List[Dict[str, int]] | None = None,
@@ -145,7 +146,17 @@ def _patch_external_deps(
         if closed_pages is not None:
             closed_pages.append(str(page_id))
 
+    from yoke_contracts.browser_identity import parse_identity_declarations
+
+    declared = (
+        parse_identity_declarations({}) if identities is None else identities
+    )
     patches = [
+        mock.patch.object(
+            browser_qa,
+            "load_project_browser_identities",
+            return_value=declared,
+        ),
         mock.patch.object(browser_qa, "open_owned_page", side_effect=_open_page),
         mock.patch.object(browser_qa, "close_owned_page", side_effect=_close_page),
         mock.patch.object(

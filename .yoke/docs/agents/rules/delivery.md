@@ -9,7 +9,7 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
 
 ## Deployment runs
 
-- Merge before release; the hosted flow owns the exact commits and proof. Remote changes start
+- Merge before release; the hosted flow owns the commits and proof. Remote changes start
   from a local commit.
 - Creating or driving a run takes no claim. `/yoke usher PREFIX-N` uses
   `yoke deployment-runs start-for-item`; drive with `yoke watch deploy -- RUN_ID`.
@@ -17,11 +17,12 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
   wait for it or follow its recovery. A run with a live driver answers only to that session.
 - A busy run (`run_busy`) never fails; the driver retries. Re-run a stopped driver with
   `yoke watch deploy -- RUN_ID`. Never start a second run beside it.
-- A newer run on the same flow and target takes over a run waiting only on item QA. While a
+- A newer run on the same flow and target takes over a run waiting only on item QA. Live
+  member QA moves intact ([run members](../../deployments/model/run-members.md)). While a
   steering seat covers the project, only the seat holder or the older run's creator may. Others
   report and wait: `printf %s "LANDED <ref> <merge sha>" | yoke say --stdin --steering`.
 - A self-deploy needs this machine's paired same-universe DB connection; otherwise escalate the
-  named refusal. Never look for control-plane database credentials to deploy a project.
+  named refusal. Never look for control-plane database credentials to deploy.
 - Retire a flow with `yoke deployment-flows set-status FLOW disabled`; change one with
   `yoke deployment-flows version`. Never delete a flow a run references.
 - Before retrying a start whose response was lost, or marking it failed, read
@@ -29,7 +30,7 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
 
 ## Binding-based multi-project delivery
 
-- A stage's `input_bindings` ships another project's branch with the run; read pins with
+- A stage's `input_bindings` ships another project's branch; read pins with
   `yoke deployment-runs get RUN-ID bound_sources`. One commit per project per run.
 - A release that writes its own commit (a version-pin promotion) records it with
   `yoke deployment-runs release-output record RUN-ID --project P`.
@@ -44,11 +45,11 @@ Verify on production. A stage case needs a `stage_reason` (`creates_or_destroys_
 `changes_infrastructure`). A case that needs real traffic sets `wake_path: manual` with
 `wake_evidence`
 ([real traffic](../../verification/standalone-plans.md#cases-that-wait-for-real-traffic)).
-All records stay on the connected control plane.
+Records stay on this control plane.
 
 ## Wait on another item's merge or delivery
 
-Record the wait, then park. Use the item skill in place of `dash`, or `operator` for steering:
+Record the wait, then park. Use the item skill, not `dash`, or `operator` for steering:
 
 ```text
 yoke items dependency list ITEM
@@ -58,11 +59,11 @@ yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
 ```
 
 - Add the edge before the landing you need: an unfinished blocker's landing counts only after the
-  edge's creation. A blocker at `done` always satisfies it. For a re-landing, re-add an older edge.
+  edge exists. A blocker at `done` always satisfies it. Re-add an older edge to re-land.
 - For delivery use `--gate-point closure --satisfaction fact:deployed:prod` (an environment of the
   blocking project); `status:done` only when the whole close-out is required.
-- Park only after the write succeeds. On `dependency_cycle`, settle the order with steering, or use
-  `coordination_only` when the work is independent. Keep the claim and lane.
+- Park only after the write succeeds. On `dependency_cycle`, settle it with steering, or use
+  `coordination_only` when independent. Keep the claim and lane.
 - Your own item's release wait needs no edge. Details: `yoke items dependency add --help` and
   [dependencies](../../items/model/dependencies.md).
 

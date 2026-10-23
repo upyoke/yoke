@@ -30,29 +30,37 @@ from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 
 
 _SELECTION_USAGE = (
-    "(--level LEVEL | --surface S [--model M] [--reasoning-effort E] "
-    "[--context-window N] [--allow-surface-fallback]) [--machine M]"
+    "(--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] "
+    "[--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID]"
 )
 LAUNCH_PREVIEW_USAGE = (
     f"yoke session-control launch preview --project P {_SELECTION_USAGE} "
-    "[--list-models] [--json]"
+    "[--list-models] [--full] [--session-id S] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
     f"yoke session-control launch create --project P [{_SELECTION_USAGE}] "
     "(--item PREFIX-N [--level-reason TEXT] | --raw-instructions --stdin) "
-    "--idempotency-key K [--presentation P] [--list-models] [--json]"
+    "--idempotency-key K [--presentation MODE] [--list-models] "
+    "[--session-id S] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     f"yoke sessions create --project P {_SELECTION_USAGE} "
     "(--preview | --idempotency-key K [--item PREFIX-N [--level-reason TEXT]] "
     "[--stdin] [--raw-instructions]) "
-    "[--presentation P] [--list-models] [--json]"
+    "[--presentation MODE] [--list-models] [--session-id S] [--json]"
 )
-LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
-LAUNCH_CANCEL_USAGE = "yoke session-control launch cancel LAUNCH-ID [--json]"
-LAUNCH_RETRY_USAGE = "yoke session-control launch retry LAUNCH-ID [--json]"
+LAUNCH_GET_USAGE = (
+    "yoke session-control launch get LAUNCH-ID [--full] [--session-id S] [--json]"
+)
+LAUNCH_CANCEL_USAGE = (
+    "yoke session-control launch cancel LAUNCH-ID [--session-id S] [--json]"
+)
+LAUNCH_RETRY_USAGE = (
+    "yoke session-control launch retry LAUNCH-ID [--session-id S] [--json]"
+)
 LAUNCH_RECONCILE_USAGE = (
-    "yoke session-control launch reconcile LAUNCH-ID [--observed-native-id ID] [--json]"
+    "yoke session-control launch reconcile LAUNCH-ID [--observed-native-id ID] "
+    "[--session-id S] [--json]"
 )
 
 
@@ -111,7 +119,7 @@ def session_launch_preview(args: List[str]) -> int:
         return listed
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch preview",
-        description=LAUNCH_PREVIEW_USAGE,
+        usage=LAUNCH_PREVIEW_USAGE,
     )
     _add_launch_selector(parser)
     add_session_arg(parser)
@@ -132,21 +140,28 @@ def session_launch_preview(args: List[str]) -> int:
 def _launch_create_parser(
     prog: str, usage: str, *, preview: bool
 ) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     _add_launch_selector(parser)
     if preview:
         mode = parser.add_mutually_exclusive_group(required=False)
-        mode.add_argument("--preview", action="store_true")
+        mode.add_argument(
+            "--preview",
+            action="store_true",
+            help="Show what would launch without starting a session.",
+        )
         mode.add_argument(
             "--stdin",
             action="store_true",
-            help="Optional extras for --item; required non-empty body for --raw-instructions.",
+            help="Read instructions from standard input: optional extras for "
+            "--item, or the whole body (required) with --raw-instructions.",
         )
     else:
         parser.add_argument(
             "--stdin",
             action="store_true",
-            help="Optional extras appended after the server-composed mandate.",
+            help="Read instructions from standard input: extras appended after "
+            "the server-composed mandate, or the whole body with "
+            "--raw-instructions.",
         )
     parser.add_argument(
         "--raw-instructions",
@@ -156,10 +171,16 @@ def _launch_create_parser(
     parser.add_argument(
         "--idempotency-key",
         default=None,
+        metavar="K",
         help="Replays the same launch; if its session ended, no new worker starts. "
         "Use a new key to relaunch.",
     )
-    parser.add_argument("--item", default=None)
+    parser.add_argument(
+        "--item",
+        default=None,
+        metavar="PREFIX-N",
+        help="Work item the session works on, as PREFIX-N.",
+    )
     parser.add_argument(
         "--level-reason",
         default=None,
@@ -170,6 +191,7 @@ def _launch_create_parser(
     parser.add_argument(
         "--presentation",
         default=None,
+        metavar="MODE",
         help="Requested native presentation; Claude accepts only 'local'.",
     )
     add_session_arg(parser)
@@ -255,11 +277,17 @@ def _launch_by_id(args: List[str], operation: str) -> int:
     }[operation]
     parser = argparse.ArgumentParser(
         prog=f"yoke session-control launch {operation}",
-        description=LAUNCH_DESCRIPTIONS.get(operation, usage),
+        usage=usage,
+        description=LAUNCH_DESCRIPTIONS.get(operation),
     )
-    parser.add_argument("launch_id")
+    parser.add_argument("launch_id", metavar="LAUNCH-ID", help="Session launch id.")
     if operation == "reconcile":
-        parser.add_argument("--observed-native-id", default=None)
+        parser.add_argument(
+            "--observed-native-id",
+            default=None,
+            metavar="ID",
+            help="Native process id seen on the machine for this launch.",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

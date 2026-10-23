@@ -266,7 +266,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   assert.equal(
     prepared.requests.some(
       (request) => request.function === "test_machine.settings_replace" &&
-        request.payload.machine === "mac-mini-lab",
+        request.payload.test_machine === "mac-mini-lab",
     ),
     true,
   );
@@ -274,16 +274,16 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
 
 test("Test Machine fleet chooser opens the selected machine", async () => {
   const second = structuredClone(detail);
-  second.machine = "mac-studio-lab";
+  second.test_machine = "mac-studio-lab";
   second.capability_type = "test-machine:mac-studio-lab";
   second.display_name = "Test Machine · mac-studio-lab";
-  second.settings.resource_name = second.machine;
+  second.settings.resource_name = second.test_machine;
   second.settings.host = "mac-studio-lab.local";
   const prepared = context([detail, second]);
   const main = prepared.documentNode.createElement("main");
   await renderTestMachineDetail(prepared.value, main, "yoke");
 
-  assert.match(text(main), /Choose a machine to inspect/);
+  assert.match(text(main), /Choose a test machine to inspect/);
   const choose = byClass(main, "test-machine-method")[1];
   choose.dispatchEvent(new Event("click"));
   await settle();
@@ -291,7 +291,7 @@ test("Test Machine fleet chooser opens the selected machine", async () => {
   assert.equal(
     prepared.requests.some((request) =>
       request.function === "test_machine.get" &&
-      request.payload.machine === second.machine),
+      request.payload.test_machine === second.test_machine),
     true,
   );
 });

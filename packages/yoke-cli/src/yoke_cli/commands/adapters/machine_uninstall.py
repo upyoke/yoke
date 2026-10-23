@@ -25,16 +25,21 @@ def uninstall(args: list[str]) -> int:
         ),
     )
     backup = parser.add_mutually_exclusive_group()
-    backup.add_argument("--backup", dest="backup", action="store_true")
-    backup.add_argument("--no-backup", dest="backup", action="store_false")
+    backup.add_argument(
+        "--backup", dest="backup", action="store_true", help="Export a backup first."
+    )
+    backup.add_argument(
+        "--no-backup", dest="backup", action="store_false", help="Skip the backup."
+    )
     parser.set_defaults(backup=None)
     parser.add_argument(
-        "--projects", help="all, none, or comma-separated registered checkout paths"
+        "--projects",
+        help="Projects to clean: all, none, or comma-separated checkout paths.",
     )
     parser.add_argument(
         "--yes",
         action="store_true",
-        help="Run unattended with explicit project and data choices",
+        help="Run unattended with explicit project and data choices.",
     )
     parsed = parser.parse_args(args)
     try:

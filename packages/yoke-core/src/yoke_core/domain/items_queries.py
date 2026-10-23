@@ -50,7 +50,8 @@ def item_field_read_batch(conn, item_ids, fields):
         dict.fromkeys(
             field
             for field in fields
-            if field not in {"id", "deployment_flow", "body", "merge_queue_status"}
+            if field
+            not in {"id", "deployment_flow", "body", "merge_queue_status", "post_deploy_qa"}
         )
     )
     expressions = [

@@ -27,6 +27,9 @@ from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 from yoke_core.domain.machine_qa_host_unreachable import wait_if_host_unreachable
 from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
 from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
+from yoke_core.domain.machine_qa_plan_case_snapshot import (
+    assert_current_snapshot as _assert_current_snapshot,
+)
 
 
 def _owned_case(
@@ -46,6 +49,13 @@ def _owned_case(
     )
 
     execution = lock_plan_execution(conn, parsed.execution_id)
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    request = resolve_execution_request(conn, request, execution)
+    item_id, deployment_run_id = (
+        request.target.item_id,
+        request.target.deployment_run_id,
+    )
     if request.target.kind == "global":
         from yoke_core.domain.qa_standalone_execution import require_standalone_project
 
@@ -72,38 +82,6 @@ def _owned_case(
 
         require_case_host_leases(conn, execution, case)
     return execution, case
-
-
-def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
-    from yoke_core.domain.db_helpers import query_one
-    from yoke_core.domain.machine_qa_plan_case_snapshot import case_positions
-    from yoke_core.domain.qa_case_execution_context import (
-        get_case_execution_context,
-    )
-    from yoke_core.domain.qa_plan_case_currency import require_current_requirement
-    from yoke_core.domain.qa_plan_execution_store import canonical, marker
-
-    requirement_id = int(case["requirement_id"])
-    # An amendment that landed after the roster froze is named here rather
-    # than surfacing as an anonymous snapshot change.
-    require_current_requirement(conn, requirement_id)
-    # A waiver changes no definition: the frozen case still runs and records
-    # beside the waiver, which keeps governing the gate.
-    current = get_case_execution_context(
-        conn, requirement_id=requirement_id, include_waived=True
-    )
-    row = query_one(
-        conn,
-        "SELECT case_position,baseline_position FROM qa_requirements "
-        f"WHERE id={marker(conn)}",
-        (requirement_id,),
-    )
-    if row is None:
-        raise ValueError("ordered plan requirement no longer exists")
-    current["case_position"], current["baseline_position"] = case_positions(case, row)
-    stored = {key: value for key, value in case.items() if key != "ordinal"}
-    if canonical(current) != canonical(stored):
-        raise ValueError("ordered plan case snapshot changed during execution")
 
 
 def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
@@ -135,7 +113,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"} and not (
             case.get("runner_id") == "worktree_run"
-            and (case.get("method_config") or {}).get("machine")
+            and (case.get("method_config") or {}).get("test_machine")
         ):
             raise ValueError("the ordered plan case is not machine-backed")
         from yoke_core.domain.qa_plan_case_chain import settle_without_machine
@@ -152,7 +130,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     "result": settled[1],
                 },
             )
-        previous_lease_id = execution.get("machine_lease_id")
+        previous_lease_id = execution.get("test_machine_lease_id")
         from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 
         try:
@@ -161,7 +139,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 execution,
                 case,
                 ordinal=parsed.ordinal,
-                machine=parsed.machine,
+                test_machine=parsed.test_machine,
                 actor_id=request.actor.actor_id,
                 session_id=request.actor.session_id,
             )
@@ -171,7 +149,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             waiting = record_host_wait(
                 conn,
                 execution,
-                machine=held.machine,
+                test_machine=held.test_machine,
                 rationale=f"lease {held.lease.id} held by {held.lease.session_id}",
             )
             contention = held.contention and held.contention.in_line(
@@ -183,7 +161,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             from yoke_core.domain.qa_host_turns import record_host_wait
 
             waiting = record_host_wait(
-                conn, execution, machine=unhealthy.machine, rationale=str(unhealthy)
+                conn, execution, test_machine=unhealthy.test_machine, rationale=str(unhealthy)
             )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
         from yoke_core.domain.qa_plan_execution_reentry import record_case_admitted
@@ -255,7 +233,7 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if (
             parsed.ordinal == int(execution["cursor_ordinal"])
-            and execution.get("machine_lease_id") != lease.id
+            and execution.get("test_machine_lease_id") != lease.id
         ):
             raise ValueError("plan case submission names the wrong machine lease")
         if len(parsed.results) != 1:

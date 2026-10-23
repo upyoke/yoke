@@ -1,0 +1,6 @@
+{
+  "machines": "Approve or deny machines waiting to connect.",
+  "machines approve": "Approve a waiting machine by its match code.",
+  "machines deny": "Deny a waiting machine by its match code.",
+  "machines pending": "List machines waiting to connect."
+}

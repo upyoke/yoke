@@ -30,7 +30,7 @@ def correction_subjects(conn, subject, snapshots, replaced_ids, *, projection):
         digest = target_digest(target)
         if digest not in projection.digests(stage, subject["member_item_id"]):
             raise QaPlanError(
-                "shared_plan_correction_scope: this member does not attach the failed group; select an attaching --member"
+                "shared_plan_correction_scope: this member does not attach the failed group; select an attaching --item"
             )
         group, keys = groups.setdefault(
             digest,

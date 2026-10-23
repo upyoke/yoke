@@ -31,10 +31,10 @@ from yoke_cli.commands.adapters.deployment_reads import (
 )
 
 DEPLOYMENT_FLOWS_GET_USAGE = (
-    "yoke deployment-flows get FLOW-ID [FIELD] [--session-id S] [--json]"
+    "yoke deployment-flows get FLOW-ID [FIELD] [--full] [--session-id S] [--json]"
 )
 DEPLOYMENT_FLOWS_STAGES_USAGE = (
-    "yoke deployment-flows stages FLOW-ID [--session-id S] [--json]"
+    "yoke deployment-flows stages FLOW-ID [--full] [--session-id S] [--json]"
 )
 DEPLOYMENT_FLOWS_SET_STATUS_USAGE = (
     "yoke deployment-flows set-status FLOW-ID active|disabled [--session-id S] [--json]"
@@ -47,7 +47,7 @@ DEPLOYMENT_RUNS_APPROVE_USAGE = (
 )
 DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
     "yoke deployment-runs resolve-target PROJECT FLOW "
-    "[--environment ENV] [--session-id S] [--json]"
+    "[--environment ENV] [--full] [--session-id S] [--json]"
 )
 
 
@@ -58,10 +58,18 @@ def _run_target(run_id: str) -> TargetRef:
 def deployment_flows_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-flows get",
-        description=DEPLOYMENT_FLOWS_GET_USAGE,
+        usage=DEPLOYMENT_FLOWS_GET_USAGE,
     )
-    parser.add_argument("flow_id")
-    parser.add_argument("field", nargs="?", default=None)
+    parser.add_argument(
+        "flow_id", metavar="FLOW-ID", help="Id of the deployment flow to read."
+    )
+    parser.add_argument(
+        "field",
+        nargs="?",
+        metavar="FIELD",
+        default=None,
+        help="One field to print; omit to print the whole flow.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_GET_USAGE)
@@ -84,9 +92,11 @@ def deployment_flows_get(args: List[str]) -> int:
 def deployment_flows_stages(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-flows stages",
-        description=DEPLOYMENT_FLOWS_STAGES_USAGE,
+        usage=DEPLOYMENT_FLOWS_STAGES_USAGE,
     )
-    parser.add_argument("flow_id")
+    parser.add_argument(
+        "flow_id", metavar="FLOW-ID", help="Id of the deployment flow to list."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_STAGES_USAGE)
@@ -109,14 +119,22 @@ def deployment_flows_stages(args: List[str]) -> int:
 def deployment_flows_set_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-flows set-status",
+        usage=DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
         description=(
             "Enable or disable a deployment flow without removing its "
             "definition or historical runs. Pinned items follow its same-target "
             "successor, start-for-item too; prior deliveries on it still close."
         ),
     )
-    parser.add_argument("flow_id")
-    parser.add_argument("status", choices=("active", "disabled"))
+    parser.add_argument(
+        "flow_id", metavar="FLOW-ID", help="Id of the deployment flow to change."
+    )
+    parser.add_argument(
+        "status",
+        choices=("active", "disabled"),
+        metavar="active|disabled",
+        help="New status: active or disabled.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_SET_STATUS_USAGE)
@@ -143,10 +161,18 @@ def deployment_runs_update(args: List[str]) -> int:
         description=UPDATE_DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("run_id")
-    parser.add_argument("field")
-    parser.add_argument("value")
-    parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "run_id", metavar="RUN-ID", help="Id of the deployment run to update."
+    )
+    parser.add_argument(
+        "field", metavar="FIELD", help="Name of the run field to set, such as status."
+    )
+    parser.add_argument("value", metavar="VALUE", help="New value for the field.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Operator override: skip stage and blocking-QA refusals on success.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_UPDATE_USAGE)
@@ -169,10 +195,15 @@ def deployment_runs_update(args: List[str]) -> int:
 def deployment_runs_approve(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs approve",
+        usage=DEPLOYMENT_RUNS_APPROVE_USAGE,
         description=APPROVE_COMMAND_DESCRIPTION,
     )
-    parser.add_argument("run_id")
-    parser.add_argument("--note", default=None)
+    parser.add_argument(
+        "run_id", metavar="RUN-ID", help="Id of the deployment run to approve."
+    )
+    parser.add_argument(
+        "--note", default=None, metavar="TEXT", help="Note to record with the approval."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_APPROVE_USAGE)
@@ -199,13 +230,22 @@ def deployment_runs_approve(args: List[str]) -> int:
 def deployment_runs_resolve_target(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs resolve-target",
+        usage=DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=RESOLVE_TARGET_DESCRIPTION,
         epilog=RELEASE_ROLE_RECIPE + "\n" + ITEMLESS_RELEASE_RECIPE,
     )
-    parser.add_argument("project")
-    parser.add_argument("flow")
-    parser.add_argument("--environment", dest="environment", default=None)
+    parser.add_argument("project", metavar="PROJECT", help="Project that owns the flow.")
+    parser.add_argument(
+        "flow", metavar="FLOW", help="Deployment flow to resolve a target for."
+    )
+    parser.add_argument(
+        "--environment",
+        dest="environment",
+        default=None,
+        metavar="ENV",
+        help="Registered environment to target; default: the flow's environment.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

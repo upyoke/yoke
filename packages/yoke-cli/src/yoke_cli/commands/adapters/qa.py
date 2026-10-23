@@ -44,18 +44,20 @@ QA_REQUIREMENT_UPDATE_USAGE = (
 def qa_requirement_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement update",
-        description=QA_REQUIREMENT_UPDATE_USAGE,
+        usage=QA_REQUIREMENT_UPDATE_USAGE,
     )
     parser.add_argument(
         "--requirement-id",
         dest="requirement_id",
         type=int,
         required=True,
-        help="Target qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id.",
     )
     parser.add_argument(
         "--field",
         required=True,
+        metavar="FIELD",
         help=(
             "Updatable field: success_policy, blocking_mode, target_env, "
             "capability_requirements, suite_id, qa_phase, "
@@ -69,11 +71,14 @@ def qa_requirement_update(args: List[str]) -> int:
         ),
     )
     value_group = parser.add_mutually_exclusive_group(required=True)
-    value_group.add_argument("--value", default=None, help="New value (string).")
+    value_group.add_argument(
+        "--value", default=None, metavar="VALUE", help="New value (string)."
+    )
     value_group.add_argument(
         "--content-file",
         dest="value_file",
         default=None,
+        metavar="PATH",
         help="Read the new value from a path.",
     )
     add_stdin_flag(value_group, help_text="Read the new value from stdin.")
@@ -137,7 +142,7 @@ def _write_waive_result(
 def qa_requirement_waive(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement waive",
-        description=QA_REQUIREMENT_WAIVE_USAGE,
+        usage=QA_REQUIREMENT_WAIVE_USAGE,
         epilog=(
             "Record the operator's decision with --source operator and its rationale. "
             "The recorder must hold the item work claim, a live steering seat covering "
@@ -155,7 +160,8 @@ def qa_requirement_waive(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="Target qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id.",
     )
     rationale_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -171,7 +177,7 @@ def qa_requirement_waive(args: List[str]) -> int:
         "--source",
         choices=("operator", "agent"),
         default="agent",
-        help="Waiver authority source.",
+        help="Who authorizes the waiver: operator or agent; default: agent.",
     )
     parser.add_argument(
         "--force", action="store_true", help="Required to waive a blocking requirement."
@@ -221,7 +227,7 @@ def qa_run_record_verdict(args: List[str]) -> int:
 
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
-        description=QA_RUN_RECORD_VERDICT_USAGE,
+        usage=QA_RUN_RECORD_VERDICT_USAGE,
         epilog=(
             "A pass on a blocking, unwaived requirement must name the tree it "
             "verified: --raw-result is JSON carrying "
@@ -239,29 +245,34 @@ def qa_run_record_verdict(args: List[str]) -> int:
         dest="requirement_id",
         type=int,
         required=True,
-        help="Target qa_requirements.id.",
+        metavar="N",
+        help="QA requirement id.",
     )
     parser.add_argument(
         "--performed-by",
         dest="performed_by",
         required=True,
+        metavar="WHO",
         help="Who or what ran the QA check.",
     )
     parser.add_argument(
         "--verdict",
         required=True,
         choices=VALID_VERDICTS,
-        help="One of the registered QA verdicts.",
+        metavar="VERDICT",
+        help=f"The QA verdict: {', '.join(VALID_VERDICTS)}.",
     )
     parser.add_argument(
         "--verdict-reason",
         dest="verdict_reason",
-        help="Reason for undetermined; see evidence rule below.",
+        metavar="REASON",
+        help="Why the verdict is undetermined; see below.",
     )
     parser.add_argument(
         "--raw-result",
         dest="raw_result",
         default=None,
+        metavar="JSON",
         help=(
             "Result payload. Required as JSON naming "
             "verification_tree.head_sha for a blocking pass; see below."
@@ -272,6 +283,7 @@ def qa_run_record_verdict(args: List[str]) -> int:
         dest="duration_ms",
         type=int,
         default=None,
+        metavar="N",
         help="Optional duration in milliseconds.",
     )
     add_session_arg(parser)

@@ -215,6 +215,26 @@ class TestEventsTail:
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
 
+    def test_project_filter_keeps_only_that_project(self, test_db):
+        insert_event(test_db, event_id="evt-y", event_name="YokeEvent")
+        insert_event(
+            test_db, event_id="evt-o", event_name="OtherEvent", project="other"
+        )
+        outcome = events_reads.handle_events_tail(
+            _request("events.tail.run", {"limit": 5, "project": "other"})
+        )
+        assert outcome.primary_success
+        names = [r["event_name"] for r in outcome.result_payload["rows"]]
+        assert names == ["OtherEvent"]
+        assert outcome.result_payload["project"] == "other"
+
+    def test_unknown_project_refuses(self, test_db):
+        outcome = events_reads.handle_events_tail(
+            _request("events.tail.run", {"project": "no-such-project"})
+        )
+        assert not outcome.primary_success
+        assert outcome.error.code == "payload_invalid"
+
 
 class TestEventsCount:
     def test_counts_with_filters(self, test_db):

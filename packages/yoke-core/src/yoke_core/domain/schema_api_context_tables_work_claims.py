@@ -47,7 +47,7 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             'steering={"project_id":N} or {"project_id":N,'
             '"document":SLUG}, migration_serialization='
             '{"project_id":N,"model":M,"item_id":N}, qa_admission='
-            '{"machine_id":ID}, or route_qualification={"project_id":N,'
+            '{"test_machine":NAME}, or route_qualification={"project_id":N,'
             '"grant_key":K}. deploy_serialization is a retired kind nothing '
             "takes any more; its remaining rows release by claim id. "
             "Domain validation requires "

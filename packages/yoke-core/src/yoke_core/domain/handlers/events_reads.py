@@ -99,10 +99,17 @@ class EventsQueryResponse(BaseModel):
 
 class EventsTailRequest(BaseModel):
     limit: int = Field(default=20, ge=1, le=1000)
+    project: Optional[str] = Field(
+        default=None,
+        description="Keep only this project's events (slug or id).",
+    )
 
 
 class EventsTailResponse(BaseModel):
     rows: List[Dict[str, Any]]
+    #: Echo of the applied project filter, so a client can tell a filtered
+    #: tail from one served by a build that ignored the filter.
+    project: Optional[str] = None
 
 
 class EventsCountRequest(EventsFilterRequest):
@@ -263,8 +270,17 @@ def handle_events_tail(request: FunctionCallRequest) -> HandlerOutcome:
     limit, limit_error = _validated_limit(request.payload or {}, default=20)
     if limit_error is not None:
         return limit_error
+    project = (request.payload or {}).get("project") or None
+    where, params, where_error = _where_from_payload(
+        request, {"project": project} if project else {}
+    )
+    if where_error is not None:
+        return where_error
     return HandlerOutcome(
-        result_payload={"rows": _select_rows("", [], limit)},
+        result_payload={
+            "rows": _select_rows(where, params, limit),
+            "project": None if project is None else str(project),
+        },
         primary_success=True,
     )
 

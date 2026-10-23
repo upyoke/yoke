@@ -22,14 +22,19 @@ RECORD_USAGE = (
 
 
 def release_pin_record(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke release-pin record")
-    parser.add_argument("--project", required=True)
+    parser = argparse.ArgumentParser(prog="yoke release-pin record", usage=RECORD_USAGE)
+    parser.add_argument(
+        "--project", required=True, metavar="NAME", help="Project to record the pin for."
+    )
     parser.add_argument(
         "--environment",
         required=True,
+        metavar="ENV",
         help="Deploy target name declared by the project's release_pin capability.",
     )
-    parser.add_argument("--pin", required=True)
+    parser.add_argument(
+        "--pin", required=True, metavar="VERSION", help="Release version to pin."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, RECORD_USAGE)

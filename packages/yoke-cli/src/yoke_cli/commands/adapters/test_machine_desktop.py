@@ -12,10 +12,11 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 from yoke_contracts.api.function_call import TargetRef
 
 DESKTOP_ACCESS_USAGE = (
-    "yoke test-machine desktop-access --project P --machine NAME [--view]"
+    "yoke test-machine desktop-access --project P --test-machine TEST_MACHINE [--view]"
 )
 
 
@@ -50,9 +51,22 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "seat and lease; authorization is audited in the holder's session history."
         ),
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", required=True)
-    parser.add_argument("--view", action="store_true")
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project that owns the test machine.",
+    )
+    parser.add_argument(
+        "--test-machine",
+        metavar="TEST_MACHINE",
+        required=True,
+        help="Test machine to open, by name.",
+    )
+    parser.add_argument(
+        "--view",
+        action="store_true",
+        help="Open the desktop in a visible FreeRDP viewer window.",
+    )
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args, DESKTOP_ACCESS_USAGE)
     if parsed is None:
@@ -61,7 +75,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
     response = call_dispatcher(
         function_id="test_machine.desktop_access",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project, "machine": parsed.machine},
+        payload={"project": parsed.project, "test_machine": parsed.test_machine},
         actor=build_actor(session_id=parsed.session_id),
     )
     if not response.success:
@@ -85,7 +99,14 @@ def test_machine_desktop_access(args: list[str]) -> int:
             )
             if operator_access.get("audit_recovery"):
                 print(operator_access["audit_recovery"], file=sys.stderr)
-        result = open_desktop_access(**route, view=parsed.view)
+        result = open_desktop_access(
+            project=route["project"],
+            test_machine=read_test_machine_field(
+                route, function_id="test_machine.desktop_access"
+            ),
+            settings=route["settings"],
+            view=parsed.view,
+        )
         if operator_access:
             result["operator_access"] = operator_access
         print(json.dumps(result))

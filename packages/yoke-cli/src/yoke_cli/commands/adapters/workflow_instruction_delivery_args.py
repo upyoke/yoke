@@ -19,7 +19,9 @@ def _delivery_args(parser: argparse.ArgumentParser) -> None:
         "--stage-bucket",
         action="append",
         dest="stage_buckets",
-        help="Stage target: idea, planning, refined, implementing, reviewing, implemented, release; repeatable.",
+        metavar="BUCKET",
+        help="Stage target: idea, planning, refined, implementing, reviewing, "
+        "implemented, release; repeatable.",
     )
     parser.add_argument(
         "--clear-stage-buckets",

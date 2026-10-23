@@ -1,23 +1,8 @@
 """Startup orientation for project and outside-project top-level sessions.
 
-A Yoke source checkout renders startup orientation from its own harness
-tree. A managed project has no such tree: its hooks relay every event to
-the server, and the server cannot see that machine's git state, working
-tree, or PATH — so the orientation policy is delegated back to the client
-and skipped server-side. Without a client-side renderer the top-level
-session of a managed project starts with no orientation at all, while its
-subagents (whose adapters ship pre-rendered) start fully oriented.
-
-This module closes that gap from the operator's own machine, using only
-the shipped core package. Two deliberate constraints follow from where it
-runs — inside a short-lived hook process on a machine that may have
-nothing but the wheels installed:
-
-* **No ``runtime.*`` imports.** That tree is the Yoke source repo and is
-  absent from every managed project.
-* **No database access here.** The client supplies optional setup facts through
-  its registered transport. The hook payload, filesystem and ``git`` still
-  orient a project whose control plane is unreachable.
+The client composes context from shipped packages, hook identity and local
+checkout facts. It needs neither runtime source imports nor database access,
+so orientation remains available when the control plane is unreachable.
 
 Orientation carries identity, checkout and machine advisories, then pointers
 for remaining questions. Full packets exceed harness inline budgets, causing
@@ -236,7 +221,10 @@ def _orientation_for_hook(
 ) -> Optional[str]:
     from yoke_core.domain.json_helper import loads_text
 
-    startup_event = session_orientation_event(cursor=cursor)
+    from yoke_harness.hooks.identity import detect_executor
+
+    executor = detect_executor()
+    startup_event = session_orientation_event(cursor=cursor, executor=executor)
     if event_name not in (
         startup_event,
         session_orientation_redelivery_event(cursor=cursor),
@@ -245,6 +233,9 @@ def _orientation_for_hook(
     payload = loads_text(stdin_data) if stdin_data else None
     if not isinstance(payload, dict):
         return None
+    if executor == "codex" and event_name == startup_event:
+        if payload.get("source") == "startup" and not payload.get("transcript_path"):
+            return None
     if cursor:
         from yoke_core.hooks.cursor_payload import (
             is_folded_cursor_session,

@@ -18,22 +18,55 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         "--project-mode",
         default=None,
         metavar="MODE",
+        help="How to set up the project, e.g. machine-only or local-checkout.",
     )
-    parser.add_argument("--checkout", dest="project_checkout", default=None)
-    parser.add_argument("--remote-url", dest="project_remote_url", default=None)
-    parser.add_argument("--project-slug", dest="project_slug", default=None)
-    parser.add_argument("--project-name", dest="project_name", default=None)
-    parser.add_argument("--project-org", dest="project_org", default=None)
-    parser.add_argument("--github-repo", dest="project_github_repo", default=None)
+    parser.add_argument(
+        "--checkout",
+        dest="project_checkout",
+        default=None,
+        help="Local checkout path for the project.",
+    )
+    parser.add_argument(
+        "--remote-url",
+        dest="project_remote_url",
+        default=None,
+        help="Git remote URL to clone or import.",
+    )
+    parser.add_argument(
+        "--project-slug",
+        dest="project_slug",
+        default=None,
+        help="Short project id, e.g. acme.",
+    )
+    parser.add_argument(
+        "--project-name",
+        dest="project_name",
+        default=None,
+        help="Display name for the project.",
+    )
+    parser.add_argument(
+        "--project-org",
+        dest="project_org",
+        default=None,
+        help="Organization that owns the project.",
+    )
+    parser.add_argument(
+        "--github-repo",
+        dest="project_github_repo",
+        default=None,
+        help="GitHub repo as owner/name.",
+    )
     parser.add_argument(
         "--default-branch",
         dest="project_default_branch",
         default=None,
+        help="Branch that changes merge into, e.g. main.",
     )
     parser.add_argument(
         "--public-item-prefix",
         dest="project_public_item_prefix",
         default=None,
+        help="Prefix for item ids, e.g. ACME for ACME-1.",
     )
     parser.add_argument(
         "--existing-yoke-layer",

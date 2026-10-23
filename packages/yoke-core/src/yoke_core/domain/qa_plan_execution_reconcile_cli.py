@@ -30,15 +30,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan reconcile", description=__doc__, epilog=EPILOG
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--execution-id", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project that owns the execution."
+    )
+    parser.add_argument(
+        "--execution-id",
+        required=True,
+        help="Id of the QA plan execution to reconcile.",
+    )
     parser.add_argument(
         "--reason",
         required=True,
         help=f"Why the owner cannot settle it, at most {ABORT_REASON_MAX_LENGTH} characters.",
     )
-    parser.add_argument("--session-id")
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--session-id", help="Session making the call.")
+    parser.add_argument("--json", action="store_true", help="Print the result as JSON.")
     parsed = parser.parse_args(argv)
     if len(parsed.reason) > ABORT_REASON_MAX_LENGTH:
         parser.error(

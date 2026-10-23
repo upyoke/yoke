@@ -1,0 +1,8 @@
+{
+  "config": "Read and set this machine's Yoke configuration.",
+  "config bind": "Bind this machine to an identity.",
+  "config bind actor": "Record which actor this machine works as.",
+  "config bind-actor": "Record which actor this machine works as.",
+  "config example": "Print an example machine config file.",
+  "config status": "Show this machine's connection and project setup."
+}

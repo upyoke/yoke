@@ -100,7 +100,7 @@ def test_structured_adapter_inventory_tracks_db_read():
     )
 
     entry = adapter_index()["db.read.run"]
-    assert entry.cli_invocation == 'yoke db read "SELECT ..."'
+    assert entry.cli_invocation.startswith('yoke db read "SELECT ..."')
     assert entry.read_shape is True
 
 

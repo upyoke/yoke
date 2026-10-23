@@ -132,6 +132,17 @@ def compose_run(
     if enroll_item_id is not None:
         # Item bindings lock before any run row, the order add-item uses.
         lock_item_workflow_bindings(conn, (int(enroll_item_id),))
+    if inherit_members_from and not create_request:
+        # ``retry_of`` is what marks a retry; an unkeyed one records it too.
+        create_request = idempotency.canonical_request(
+            {
+                "flow": flow,
+                "release_lineage": release_lineage,
+                "retry_of": inherit_members_from,
+                "artifact_identity": artifact_identity,
+                "created_by": created_by,
+            }
+        )
     inserted = insert_run(
         conn,
         run_id=run_id,

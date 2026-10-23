@@ -43,6 +43,7 @@ __all__ = [
     "ITEMS_SECTION_UPSERT_USAGE",
     "ITEMS_SECTION_GET_USAGE",
     "ITEMS_SECTION_DELETE_USAGE",
+    "ITEMS_PROGRESS_LOG_GET_USAGE",
     "STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE",
     "STRUCTURED_FIELD_SECTION_UPSERT_USAGE",
     "STRUCTURED_FIELD_SECTION_APPEND_USAGE",
@@ -78,31 +79,36 @@ def _add_content_group(
         )
 
 
-# ---------------------------------------------------------------------------
-# items.section.upsert / .get / .delete
-# ---------------------------------------------------------------------------
-
 ITEMS_SECTION_UPSERT_USAGE = (
     "yoke items section upsert <PREFIX-N> --section NAME "
     "(--content TEXT | --content-file PATH | --stdin) "
-    "[--ordering N] [--source S] [--session-id S] [--json]"
+    "[--ordering N] [--source TAG] [--project P] [--session-id S] [--json]"
 )
 
 
 def items_section_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section upsert",
-        description=ITEMS_SECTION_UPSERT_USAGE,
+        usage=ITEMS_SECTION_UPSERT_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
-        "--section", required=True, help="Section heading (e.g. 'Progress Log')."
+        "--section",
+        required=True,
+        metavar="NAME",
+        help="Section heading (e.g. 'Progress Log').",
     )
     _add_content_group(parser)
     parser.add_argument(
-        "--ordering", type=int, default=None, help="Optional section ordering rank."
+        "--ordering",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Optional section ordering rank.",
     )
-    parser.add_argument("--source", default=None, help="Optional source tag.")
+    parser.add_argument(
+        "--source", default=None, metavar="TAG", help="Optional source tag."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_UPSERT_USAGE)
@@ -129,17 +135,20 @@ def items_section_upsert(args: List[str]) -> int:
 
 
 ITEMS_SECTION_GET_USAGE = (
-    "yoke items section get <PREFIX-N> --section NAME [--session-id S] [--json]"
+    "yoke items section get <PREFIX-N> --section NAME [--full] [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
 def items_section_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section get",
-        description=ITEMS_SECTION_GET_USAGE,
+        usage=ITEMS_SECTION_GET_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--section", required=True, help="Section heading.")
+    parser.add_argument(
+        "--section", required=True, metavar="NAME", help="Section heading."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_GET_USAGE)
@@ -160,15 +169,21 @@ def items_section_get(args: List[str]) -> int:
     )
 
 
+ITEMS_PROGRESS_LOG_GET_USAGE = (
+    "yoke items progress-log get <PREFIX-N> [--full] [--project P] "
+    "[--session-id S] [--json]"
+)
+
+
 def items_progress_log_get(args: List[str]) -> int:
     """Read the canonical Progress Log section of one item."""
-    parser = argparse.ArgumentParser(prog="yoke items progress-log get")
-    parser.add_argument("item")
+    parser = argparse.ArgumentParser(
+        prog="yoke items progress-log get", usage=ITEMS_PROGRESS_LOG_GET_USAGE
+    )
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, "yoke items progress-log get PREFIX-N [--json]"
-    )
+    parsed = parse_or_usage_error(parser, args, ITEMS_PROGRESS_LOG_GET_USAGE)
     if parsed is None:
         return 2
 
@@ -185,17 +200,20 @@ def items_progress_log_get(args: List[str]) -> int:
 
 
 ITEMS_SECTION_DELETE_USAGE = (
-    "yoke items section delete <PREFIX-N> --section NAME [--session-id S] [--json]"
+    "yoke items section delete <PREFIX-N> --section NAME [--project P] "
+    "[--session-id S] [--json]"
 )
 
 
 def items_section_delete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section delete",
-        description=ITEMS_SECTION_DELETE_USAGE,
+        usage=ITEMS_SECTION_DELETE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--section", required=True, help="Section heading to delete.")
+    parser.add_argument(
+        "--section", required=True, metavar="NAME", help="Section heading to delete."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_DELETE_USAGE)
@@ -212,27 +230,27 @@ def items_section_delete(args: List[str]) -> int:
     )
 
 
-# ---------------------------------------------------------------------------
-# items.structured_field.append_addendum
-# ---------------------------------------------------------------------------
-
 STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE = (
     "yoke items structured-field append-addendum <PREFIX-N> --field FIELD "
     "--heading TEXT (--content TEXT | --content-file PATH | --stdin) "
-    "[--source S] [--session-id S] [--json]"
+    "[--source TAG] [--project P] [--session-id S] [--json]"
 )
 
 
 def items_structured_field_append_addendum(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field append-addendum",
-        description=STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE,
+        usage=STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--field", required=True, help="Structured field name.")
-    parser.add_argument("--heading", required=True, help="Addendum '## heading' text.")
+    parser.add_argument(
+        "--heading", required=True, metavar="TEXT", help="Addendum '## heading' text."
+    )
     _add_content_group(parser)
-    parser.add_argument("--source", default="", help="Optional source tag.")
+    parser.add_argument(
+        "--source", default="", metavar="TAG", help="Optional source tag."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE)
@@ -257,40 +275,42 @@ def items_structured_field_append_addendum(args: List[str]) -> int:
     )
 
 
-# ---------------------------------------------------------------------------
-# items.structured_field.section_upsert
-# ---------------------------------------------------------------------------
-
 from yoke_cli.commands.adapters.items_section_upsert import (  # noqa: E402
     STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
     items_structured_field_section_upsert,
 )
 
 
-# ---------------------------------------------------------------------------
-# items.structured_field.section_append
-# ---------------------------------------------------------------------------
-
 STRUCTURED_FIELD_SECTION_APPEND_USAGE = (
-    "yoke items structured-field section-append <PREFIX-N> --section TEXT "
+    "yoke items structured-field section-append <PREFIX-N> --section NAME "
     "--headline TEXT (--content TEXT | --content-file PATH | --stdin) "
-    "[--ordering N] [--source S] [--session-id S] [--json]"
+    "[--ordering N] [--source TAG] [--project P] [--session-id S] [--json]"
 )
 
 
 def items_structured_field_section_append(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field section-append",
-        description=STRUCTURED_FIELD_SECTION_APPEND_USAGE,
+        usage=STRUCTURED_FIELD_SECTION_APPEND_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--section", required=True, help="Section heading.")
-    parser.add_argument("--headline", required=True, help="Entry headline.")
+    parser.add_argument(
+        "--section", required=True, metavar="NAME", help="Section heading."
+    )
+    parser.add_argument(
+        "--headline", required=True, metavar="TEXT", help="Entry headline."
+    )
     _add_content_group(parser)
     parser.add_argument(
-        "--ordering", type=int, default=None, help="Optional section ordering rank."
+        "--ordering",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Optional section ordering rank.",
     )
-    parser.add_argument("--source", default=None, help="Optional source tag.")
+    parser.add_argument(
+        "--source", default=None, metavar="TAG", help="Optional source tag."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_SECTION_APPEND_USAGE)

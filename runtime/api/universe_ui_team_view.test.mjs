@@ -77,8 +77,8 @@ const panelTitles = (root) => byClass(root, "actors-panel")
 test("Team route groups people and machine accounts with readable grants", async () => {
   const { root, reads, mounted } = await mountTeam(() => ok(roster), "hosted");
   assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Team"]);
-  assert.deepEqual(panelTitles(root), ["People· 1", "Machine accounts· 1", "Invites· 0"]);
-  const [people, machines] = byClass(root, "actors-panel");
+  assert.deepEqual(panelTitles(root), ["Invites· 0", "People· 1", "Machine accounts· 1"]);
+  const [, people, machines] = byClass(root, "actors-panel");
   assert.deepEqual(headings(people), [
     "Actor", "State", "Org role", "Project access", "Member email", "API keys", "Action",
   ]);

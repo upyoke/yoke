@@ -45,7 +45,7 @@ def resolve_coordination_claim_project_context(
         active_filter = " AND released_at IS NULL" if payload.get("active_only") else ""
         row = conn.execute(
             "SELECT id FROM work_claims WHERE target_kind=%s AND "
-            f"{scope_text_sql(conn, 'scope', 'machine_id')}=%s{active_filter} "
+            f"{scope_text_sql(conn, 'scope', 'test_machine')}=%s{active_filter} "
             "ORDER BY claimed_at DESC, id DESC LIMIT 1",
             (TARGET_KIND_QA_ADMISSION, key[len(QA_HOST_KEY_PREFIX) :]),
         ).fetchone()

@@ -23,7 +23,6 @@ from yoke_core.domain.deployment_member_removal_notice import (
     removal_notice_body,
 )
 from yoke_core.domain.deployment_run_member_removal import remove_member_on
-from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_deployment_function_subject import resolve_run_qa_subject
 from yoke_core.domain.qa_deployment_run_settlement import settle_unsuccessful_run
 from yoke_core.domain.qa_plan_execution_abort_reason import (
@@ -52,7 +51,7 @@ def removed_inflight(test_db, tmp_path, monkeypatch):
     )  # The runner checked in: host work began.
     remove_member_on(test_db, RUN, MEMBER, reason="taken over by a newer run")
     test_db.commit()
-    return current["id"], int(current["machine_lease_id"])
+    return current["id"], int(current["test_machine_lease_id"])
 
 
 def _locked(conn, execution_id):
@@ -67,7 +66,7 @@ def test_removal_keeps_custody_and_heartbeat_under_a_recorded_abort(
     execution_id, lease_id = removed_inflight
     current = _locked(test_db, execution_id)
     assert current["state"] == "active"
-    assert current["machine_lease_id"] == lease_id
+    assert current["test_machine_lease_id"] == lease_id
     assert get_claim(test_db, lease_id).is_active
     assert member_removal_pending(current)
     # Its retracted case does not refuse the check-in; the abort is reported.
@@ -115,10 +114,14 @@ def test_the_runner_keeps_its_subject_after_membership_ends(test_db, removed_inf
     request = FunctionCallRequest(
         function="qa.plan_execution.heartbeat",
         actor=ActorContext(actor_id="1", session_id=SESSION),
-        target=TargetRef(kind="deployment_run", deployment_run_id=RUN),
+        target=TargetRef(kind="global", project_id="yoke"),
         payload={"execution_id": execution_id},
     )
-    assert resolve_run_qa_subject(test_db, request) == (1, "yoke", MEMBER)
+    from yoke_core.domain.qa_execution_request_identity import resolve_execution_request
+
+    assert resolve_run_qa_subject(
+        test_db, resolve_execution_request(test_db, request)
+    ) == (1, "yoke", MEMBER)
 
 
 def test_the_owner_notice_names_the_pending_host_cleanup():
@@ -126,7 +129,7 @@ def test_the_owner_notice_names_the_pending_host_cleanup():
         run_id=RUN,
         public_ref="YOK-1",
         reason="taken over",
-        removed_by=TAKEOVER_REMOVED_BY,
+        removed_by="steering",
         red=(),
         host_cleanup_pending=True,
     )

@@ -9,14 +9,15 @@ Use it only for the expected unsupported-host refusal or remote-core work
 whose own tools support that OS; upgrade the host or choose a supported Mac
 for local-mode success evidence. No custom PostgreSQL build is supported.
 
-Host preparation, sign-in, permissions, desktop access, save/restore and their
-recoveries have one authoritative procedure per OS in the Machine QA Pack:
+Yoke's [manual baseline inventory](test-machine-golden-baseline.md) owns its
+runtime preparation and proof. Complete it alongside the Machine QA Pack's
+ordered account, sign-in, permissions, desktop and save/restore procedures:
 
-- [macOS](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-See the [provisioning index](../../packs/machine-qa/versions/1.3.41/files/docs/packs/machine-qa/host-provisioning.md)
+See the [provisioning index](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md)
 for disk sizing (40 GiB minimum) and online disk growth. These procedures
 install at `docs/packs/machine-qa/`; installed files belong to the project.
 This page describes execution and evidence contracts.
@@ -47,7 +48,7 @@ mission operations update the last receipt; identical retries reuse evidence.
 Golden-capture contracts bind their destination and omit the baseline pointers
 they update, so recording a capture does not invalidate its submission retry.
 
-A local Command case that drives a host declares `method_config.machine`.
+A local Command case that drives a host declares `method_config.test_machine`.
 The plan acquires that machine through the existing host line before running
 the command, heartbeats the plan during execution, and retains custody until
 the plan settles. The command runs locally; this declaration grants host
@@ -98,7 +99,7 @@ receipt, and refuses another session's host lease. It streams stdout/stderr and
 keeps bounded failure diagnostics. `exec --admin` on macOS or Linux reads the
 named machine's stored `desktop_password` administrator credential and supplies
 it to sudo on private stdin. It redacts both streams and diagnostic tails; the
-command receives no stdin. Follow the Pack's [administrator-command setup](../../packs/machine-qa/versions/1.3.13/files/docs/packs/machine-qa/administrator-commands.md).
+command receives no stdin. Follow the Pack's [administrator-command setup](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/administrator-commands.md).
 Mission host commands instead run through
 the mission's retained lease; GUI-context commands use its declared GUI route.
 The remote shell interprets command text, so argv quoting remains significant.

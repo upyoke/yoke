@@ -133,8 +133,8 @@ def stage_recipe(obligation: Mapping[str, Any], public_ref: str) -> str:
     """The scoped run each owed stage credits, one per stage."""
     project = obligation.get("project") or "P"
     return "; ".join(
-        f"`yoke watch qa-plan -- --deployment-run-id RUN --stage {stage} "
-        f"--member {public_ref} --project {project}`"
+        f"`yoke watch qa-plan -- --item {public_ref} --stage {stage} "
+        f"--project {project}`"
         for stage in obligation.get("stages") or ()
     )
 

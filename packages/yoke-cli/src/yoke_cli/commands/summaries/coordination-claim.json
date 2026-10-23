@@ -1,0 +1,5 @@
+{
+  "coordination-claim": "Review and free claims on shared operations.",
+  "coordination-claim list": "List claims on shared operations.",
+  "coordination-claim release": "Free a shared-operation claim held by another session."
+}

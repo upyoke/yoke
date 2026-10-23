@@ -29,7 +29,7 @@ class MachineResetFailed(HostControlLocalError):
 
 
 def unstarted_reset_failure(
-    case, machine, reset, *, error_code="starting_state_reset_failed"
+    case, test_machine, reset, *, error_code="starting_state_reset_failed"
 ):
     from yoke_core.domain.machine_qa_case_result import MachineCaseResult
 
@@ -38,7 +38,7 @@ def unstarted_reset_failure(
         verdict="blocked",
         evidence={
             "runner_id": "host_control",
-            "machine": machine,
+            "test_machine": test_machine,
             "baseline": case.host_baseline
             if case.starting_state == "baseline"
             else None,

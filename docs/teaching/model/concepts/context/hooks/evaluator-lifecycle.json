@@ -4,6 +4,7 @@
  "status": "observed",
  "surface_refs": ["global-hooks", "command-feedback"],
  "sources": ["packages/yoke-cli/src/yoke_cli/hook_resident_lifecycle.py", "docs/hooks.md"],
+ "summary": "Revision changes re-exec into the current immutable CLI generation under the publication lock while retaining resident ownership; source development retains its interpreter. Pre-fix residents require one operator restart after installation.",
  "commands": ["yoke hook resident"],
  "position": 6
 }

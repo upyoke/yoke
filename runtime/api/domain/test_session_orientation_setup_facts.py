@@ -90,8 +90,8 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
             SimpleNamespace(payload={"session_id": "session"}), "/external", ""
         )
     elif harness == "codex":
-        body = source._render_codex_orientation(
-            "session", "/external", "", SessionModelFacts(), None
+        body = orientation.render_scoped_orientation(
+            {"session_id": "session"}, Path("/external")
         )
     else:
         body = source._render_claude_orientation(
@@ -166,8 +166,8 @@ def test_hook_scope_distinguishes_machine_state_from_project(
             SimpleNamespace(payload={"session_id": "session"}), str(cwd), ""
         )
     elif harness == "codex":
-        body = source._render_codex_orientation(
-            "session", str(cwd), "", SessionModelFacts(), None
+        body = orientation.render_scoped_orientation(
+            {"session_id": "session"}, cwd
         )
     else:
         body = source._render_claude_orientation(

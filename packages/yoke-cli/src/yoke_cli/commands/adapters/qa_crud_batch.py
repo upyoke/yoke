@@ -26,18 +26,18 @@ from yoke_cli.commands._helpers import (
 
 QA_REQUIREMENT_ADD_BATCH_USAGE = (
     "yoke qa requirement add-batch --item PREFIX-N "
-    "(--rows-file PATH | --stdin) [--session-id S] [--json]"
+    "(--rows-file PATH | --stdin) [--project P] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_ADD_BATCH_HELP_DEEP = """\
-Insert several qa_requirements rows for ONE item in one transaction.
-Claim-gated like `yoke qa requirement add`. Input is a JSON array of
-row objects with the same fields as the add flags (qa_kind or method_id,
+Add several QA requirements to ONE item in one transaction. Needs the
+same claim as `yoke qa requirement add`. Input is a JSON array of row
+objects with the same fields as the add flags (qa_kind or method_id,
 qa_phase, method case contract, target_env, blocking_mode,
 requirement_source, success_policy, capability_requirements, suite_id,
-workflow_transition_id).
-Rows may omit public_ref; a row naming
-a different item or any epic/deployment-run attachment is rejected.
+workflow_transition_id). Every row must name workflow_transition_id.
+Rows may omit public_ref; a row naming a different item or any
+epic/deployment-run attachment is rejected.
 
 Worked example:
 
@@ -46,16 +46,7 @@ Worked example:
   "method_config":{"steps":[{"action":"navigate","route":"/login"},
   {"action":"assert","selector":"form"}]},
   "workflow_transition_id":"reviewing-implementation"}]' |
-  yoke qa requirement add-batch --item YOK-N --stdin
-
-Flag matrix:
-
-  flag          required        value shape
-  --item        yes             PREFIX-N
-  --rows-file   yes (or stdin)  path to JSON array file
-  --stdin       yes (or file)   read the JSON array from stdin
-  --session-id  no              opaque session id (operator-debug)
-  --json        no              flag (typed envelope on stdout)
+  yoke qa requirement add-batch --item PREFIX-N --stdin
 
 The whole batch rolls back if any row fails validation; per-row
 QARequirementCreated events emit after commit. Exit codes: 0 success,
@@ -66,17 +57,19 @@ QARequirementCreated events emit after commit. Exit codes: 0 success,
 def qa_requirement_add_batch(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement add-batch",
-        description=(
-            f"{QA_REQUIREMENT_ADD_BATCH_USAGE}\n\n{_REQUIREMENT_ADD_BATCH_HELP_DEEP}"
-        ),
+        usage=QA_REQUIREMENT_ADD_BATCH_USAGE,
+        description=_REQUIREMENT_ADD_BATCH_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", required=True, help="Target item (PREFIX-N).")
+    parser.add_argument(
+        "--item", required=True, metavar="PREFIX-N", help="Target item (PREFIX-N)."
+    )
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
         "--rows-file",
         dest="rows_file",
         default=None,
+        metavar="PATH",
         help="Path to a JSON array of row objects.",
     )
     source_group.add_argument(

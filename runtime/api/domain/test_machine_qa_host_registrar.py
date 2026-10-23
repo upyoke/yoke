@@ -97,7 +97,7 @@ def test_registering_a_host_a_second_project_already_operates_is_refused() -> No
         settings=_settings("mac-studio-lab"),
         base_settings=None,
     )
-    assert host_claim_target("mac-studio-lab").machine_id == "mac-studio-lab"
+    assert host_claim_target("mac-studio-lab").test_machine == "mac-studio-lab"
 
 
 def test_re_saving_settings_for_an_own_host_is_not_a_duplicate_registration() -> None:
@@ -160,7 +160,7 @@ def test_one_physical_host_admits_one_execution_across_every_project() -> None:
         )
 
     for caught in (from_other_project, from_same_project):
-        assert caught.value.machine == SHARED_HOST
+        assert caught.value.test_machine == SHARED_HOST
         assert caught.value.lease.session_id == "yoke-session"
         assert caught.value.lease.key == host_claim_key(SHARED_HOST)
 

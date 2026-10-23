@@ -22,7 +22,7 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 
 - `yoke qa requirement add|add-batch|list|get|update|waive|transfer ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
-- `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` — `--plan` only for a stage that names no cases; one already naming its own refuses it. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the execution and owner; keep the claim and park for settlement credit or a wake.
+- `yoke qa plan run --item PREFIX-N --stage STAGE [--plan PLAN] --project P` — `--plan ID_OR_SLUG` selects an already admitted frozen plan without adding or refreshing obligations; a new plan fills only an empty stage. [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the execution and owner; keep the claim and park for settlement credit or a wake.
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
 - `yoke qa run add|complete|record-verdict|list|get ...`
 - `yoke qa artifact presign|add ...`
@@ -100,7 +100,7 @@ yoke qa run list --requirement-id 1
 # Name the stage the run is at, plus the member when that stage's scope is
 # item: a stage credits only requirements bound to both.
 yoke qa plan run \
- --deployment-run-id run-YYYYMMDD-NNN --stage item-qa --member PREFIX-N \
+ --item PREFIX-N --stage item-qa \
  --plan installer-campaign --project P
 
 # Attach an artifact
@@ -121,7 +121,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 |---|---|---|
 | `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]`, or `--deployment-run RUN --method-id M --qa-phase P [--deployment-stage STAGE [--deployment-member-item PREFIX-N]] [opts]` | Insert one requirement — bound to a QA-gated stage in the item's pinned workflow, or attached to a deployment run (authorized by the run's project scope, no workflow transition, refused on a finished run or a stage/member the run does not declare) |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
-| `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one run-wide plan (refused when the run pins any QA stage, since every stage counts only rows carrying its own name), or frozen stage/member obligations; each case stays on the shared QA authority. For a stage already naming admitted cases, a correction-only `--plan` is accepted when repeatable `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` names every plan case. Materialization and declaration commit together: the declaration immediately removes predecessor grading; the final effective corrected case blocks until its current attempt passes independent review and proof |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T`, internal run-level `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--item PREFIX-N --stage STAGE [--plan PLAN] --project P` | Materialize attached item plans, one run-wide plan (refused when the run pins any QA stage, since every stage counts only rows carrying its own name), or frozen stage/member obligations; each case stays on the shared QA authority. For a stage already naming admitted cases, a correction-only `--plan` is accepted when repeatable `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` names every plan case. Materialization and declaration commit together: the declaration immediately removes predecessor grading; the final effective corrected case blocks until its current attempt passes independent review and proof |
 | `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target; a run subject also accepts `--replaces` for the cases its `--plan` materializes |
 | `yoke qa requirement supersede` | `--requirement-id N --superseded-by-requirement-id N --rationale TEXT` | Discharge a failed case with a passing same-scope corrected case, or retire a post_deploy item source in favor of a corrected item requirement once a passing run case superseded one of its admitted copies (or no run the item still belongs to holds a copy, so the corrected requirement owes its own proof); later releases admit only the corrected body |
 | `yoke qa requirement supersede --declare-replacement` | `--requirement-id FAILED_ID --superseded-by-requirement-id CORRECTED_ID --rationale TEXT` | Declare an existing corrected case (a direct run case, or an item case of the same item, transition and phase) as the replacement of a failed one before it passes; the predecessor immediately leaves grading; the scoped runner grades the final corrected blocking case, and its current qualified pass records the passing-supersession audit. |

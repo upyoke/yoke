@@ -28,7 +28,8 @@ Two things enrollment deliberately does not do. It never invents attribution:
 an underivable carried set stays a refusal, because enrolling from an unknown
 set would waive coverage silently. Commits no item owns ship as recorded
 commits made outside Yoke. And
-it preserves membership a previous run already froze. An unused consumer
+a retry keeps the membership the run it retries already froze; a takeover
+keeps every moved member and still enrolls what it newly carries. An unused consumer
 refresh may admit newly carried members while retaining existing acceptance
 contracts and every other project's recorded source facts.
 """
@@ -48,7 +49,7 @@ from yoke_core.domain.deployment_run_carried_work import (
     carried_work_for_enrollment,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
-    inherited_frozen_membership,
+    is_frozen_retry,
     member_ids,
     requires_release_admission,
 )
@@ -90,8 +91,8 @@ def carried_enrollment_blocked(
         return "flow_without_delivery_custody"
     if not refreshing_bound_sources and has_frozen_composition(conn, run_id):
         return "composition_already_frozen"
-    if not refreshing_bound_sources and inherited_frozen_membership(conn, run_id):
-        return "membership_inherited_from_frozen_run"
+    if not refreshing_bound_sources and is_frozen_retry(conn, run_id):
+        return "retry_keeps_frozen_membership"
     return ""
 
 

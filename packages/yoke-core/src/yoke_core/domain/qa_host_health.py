@@ -29,17 +29,17 @@ HOST_WAIT_TEACHING = (
 )
 
 
-def host_heal_commands(machine: str) -> str:
+def host_heal_commands(test_machine: str) -> str:
     """Repair readiness without replacing the machine's sealed baseline."""
-    return f"`yoke test-machine verify --machine {machine} --project PROJECT`"
+    return f"`yoke test-machine verify --test-machine {test_machine} --project PROJECT`"
 
 
-def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:
+def host_unhealthy(conn: Any, test_machine: str) -> dict[str, Any] | None:
     """Return the failed verification that still bars *machine*, else None."""
     if not _table_exists(conn, "test_machine_verifications"):
         return None
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    capability = test_machine_capability_type(machine)
+    capability = test_machine_capability_type(test_machine)
     facts = [
         (parse_instant(row["checked_at"]), str(row["status"]), row["error_code"])
         for row in query_rows(
@@ -65,7 +65,7 @@ def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:
     if status != "error":
         return None
     return {
-        "machine": machine,
+        "test_machine": test_machine,
         "error_code": str(error_code or "unknown"),
         "checked_at": format_instant(checked_at),
     }
@@ -74,10 +74,10 @@ def host_unhealthy(conn: Any, machine: str) -> dict[str, Any] | None:
 def unhealthy_rationale(health: dict[str, Any]) -> str:
     """One sentence naming the failure and the operation that heals it."""
     return (
-        f"{HOST_UNHEALTHY_REASON}: QA must wait to acquire {health['machine']}: "
+        f"{HOST_UNHEALTHY_REASON}: QA must wait to acquire {health['test_machine']}: "
         f"its last verification failed ({health['error_code']} at "
         f"{health['checked_at']}). The operator must repair that failure and run "
-        f"{host_heal_commands(health['machine'])}; successful verification wakes "
+        f"{host_heal_commands(health['test_machine'])}; successful verification wakes "
         "the host line. Keep the sealed baseline unchanged"
     )
 

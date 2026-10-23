@@ -4,10 +4,11 @@ A mission is walked after its plan's other cases have run, so the Test
 Machine it needs is put in place when the walk begins, not when the plan
 recorded its docket: ``walk-start`` resets to the mission's declared
 baseline, restores its declared OS packages and stages its scratch.
-``walk-end`` first uninstalls every Yoke project the walk registered on the
-host (the control plane disposes of them before anything is restored), then
-removes the scratch, restores the declared baseline, and records that
-restore on the mission's run.
+``walk-end`` first reads the host's connected Machine id and uninstalls
+every Yoke project the walk registered on the host (the control plane
+disposes of them and retires the mission's connected Machine before
+anything is restored), then removes the scratch, restores the declared
+baseline, and records that restore on the mission's run.
 """
 
 from __future__ import annotations
@@ -51,18 +52,32 @@ def execute_agent_mission_project_uninstall(
     *,
     timeout_seconds: int = 60,
 ) -> dict[str, Any]:
-    """Uninstall every project the host registers, before any restore."""
+    """Uninstall every project the host registers, before any restore.
+
+    The host's connected Machine id is read first: the restore erases it.
+    """
+    from yoke_core.domain.agent_mission_connected_machine import (
+        ConnectedMachineRefusal,
+        host_machine_id,
+    )
+
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
     try:
+        connected_machine_id = host_machine_id(execution.control)
         fixture_projects = {
             "host_projects": uninstall_host_projects(
                 execution.control, timeout_seconds=timeout_seconds
             ),
             "error": None,
+            "connected_machine_id": connected_machine_id,
         }
-    except FixtureProjectDiscoveryError as exc:
-        fixture_projects = {"host_projects": [], "error": str(exc)}
+    except (FixtureProjectDiscoveryError, ConnectedMachineRefusal) as exc:
+        fixture_projects = {
+            "host_projects": [],
+            "error": str(exc),
+            "connected_machine_id": None,
+        }
     redacted = redact_machine_qa_value(
         fixture_projects, tuple(execution.material.secrets.values())
     )
@@ -88,7 +103,7 @@ def execute_agent_mission_walk_end(
         teardown[STARTING_STATE_RESTORE] = restore_chain_start(
             contract.cases[0],
             execution.reach_baseline,
-            machine=contract.settings["resource_name"],
+            test_machine=contract.settings["resource_name"],
         )
     redacted = redact_machine_qa_value(
         teardown,

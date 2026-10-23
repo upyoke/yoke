@@ -24,7 +24,7 @@ _FILTER_FLAGS = (
         "--session",
         "session_filter",
         "session_id",
-        "Filter rows by events.session_id (caller identity stays --session-id).",
+        "Only events from this session (--session-id names the caller).",
     ),
     (
         "--source-type",
@@ -61,19 +61,41 @@ _FILTER_FLAGS = (
 )
 
 
+_METAVARS = {
+    "--event-name": "NAME",
+    "--session": "S",
+    "--source-type": "T",
+    "--event-kind": "K",
+    "--agent": "A",
+    "--service": "SVC",
+    "--actor-id": "N",
+    "--trace-id": "T",
+    "--tool-use-id": "ID",
+    "--turn-id": "ID",
+    "--hook-event-name": "NAME",
+    "--min-severity": "LEVEL",
+    "--since": "WHEN",
+    "--until": "WHEN",
+}
+
+
 def _add_filter_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--item",
         default=None,
-        help="Filter by public item ref (PREFIX-N).",
+        metavar="PREFIX-N",
+        help="Filter by item (PREFIX-N).",
     )
     parser.add_argument(
         "--project",
         default=None,
-        help="Filter by project slug/id.",
+        metavar="P",
+        help="Filter by project slug or id.",
     )
     for flag, dest, _key, help_text in _FILTER_FLAGS:
-        parser.add_argument(flag, dest=dest, default=None, help=help_text)
+        parser.add_argument(
+            flag, dest=dest, default=None, metavar=_METAVARS[flag], help=help_text
+        )
     parser.add_argument(
         "--current-episode",
         dest="current_episode",
@@ -119,12 +141,13 @@ def _dispatch_filtered(
     with_limit: bool,
     default_limit: int = 50,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     _add_filter_args(parser)
     if with_limit:
         parser.add_argument(
             "--limit",
             default=str(default_limit),
+            metavar="N",
             help=f"Max rows returned, 1..1000 (default {default_limit}).",
         )
     add_session_arg(parser)

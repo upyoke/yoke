@@ -37,12 +37,13 @@ A wrong pre-release binding blocks admission and completion; rebind the
 existing row with `yoke qa requirement update --requirement-id N --field
 workflow_transition_id --value release`. The same creation rules apply.
 
-When item QA needs another item's shipped fix, record the wait on the existing
-dependency edge before retrying:
+When item QA needs another item's correction, follow
+[failed item QA recovery](failed-item-qa.md) and record the dependency before waiting.
+For a completion-only wait:
 
 ```text
 yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
-  --satisfaction status:done --rationale "QA requires the blocker's shipped fix"
+  --satisfaction status:done --rationale "QA requires the blocker's completion"
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use
@@ -63,8 +64,8 @@ refuses as `qa_abort_restore_required`: abort through the plan command, wait
 for the interrupted case's cleanup proof, then retry removal. A declared
 baseline requires restoration; an `as_is` case or chain without a baseline
 settles on its no-restore cleanup receipt. To clean
-an older removal's residue, a holder runs `yoke qa plan abort --deployment-run-id
-RUN --execution-id ID --reason TEXT --project P` (read its `--help` first). The
+an older removal's residue, a holder runs `yoke qa plan abort
+--execution-id ID --reason TEXT --project P` (read its `--help` first). The
 audited removal keeps abort authority under the member's item claim and
 execution ownership; it never authorizes continuing QA for a removed member.
 
@@ -150,23 +151,21 @@ either scope, refuses the run-wide form and names the binding invocation; a
 run whose flow pins no QA stage keeps it:
 
 ```text
-yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
-  --member <PREFIX-N> --project <project>
+yoke qa plan run --item <PREFIX-N> --stage <stage-name> --project <project>
 ```
 
 [Shared cursor waits](deployment-plan-execution.md#shared-plan-credit) name the
 execution and owner. Keep the claim and park; settlement credits shared
 evidence or wakes members still owing QA to retry their own member command.
 
-`--plan <plan-slug>` joins that line only for a stage that names no cases. One
-already naming its own — pinned, frozen, attached, admitted, directly
-authored, or materialized by an earlier selection — refuses `--plan`, because
-a plan there materializes a second set of obligations beside the ones the
-stage credits.
+`--plan <plan-id-or-slug>` selects one complete already admitted frozen plan
+for the exact run, stage, member or shared subject and target. It adds no
+obligations and never refreshes live plan content. A new plan fills an empty
+stage; a named stage refuses unrelated additions without explicit corrections.
 
-`yoke qa plan materialize` takes the same `--stage` / `--member` pair when
-only the requirement rows are wanted. A run-scoped stage takes `--stage`
-alone; `--member` without `--stage` is refused.
+`yoke qa plan materialize` takes the same `--item` / `--stage` pair when
+only requirement rows are wanted. Fresh item QA resolves its current delivery
+membership; run-level orchestration retains its internal run/stage context.
 
 Materialize and rematerialize read the whole run's plan groups first, without
 holding the run, then hold the `deployment_runs` row only for the writes.
@@ -192,7 +191,10 @@ a persistent target also freezes the Yoke release the deployed candidate pins
 `endpoints.release_version`. Channels and the environment's desired-pin leaf
 both move with later releases; the deployed commit does not. An install step
 passes `{{release_version}}` to the installer (`--version` or `YOKE_VERSION`)
-through the bound `installer_url`. Freezing refuses, each naming its recovery,
+through the bound `installer_url`. After a takeover, once the successor has a
+ready deploy receipt, the execution and mission views name the successor's pin
+instead; the stored target and its digest stay unchanged. Freezing refuses,
+each naming its recovery,
 as `deployment_qa_release_pin_missing` (no pin at that commit),
 `deployment_qa_release_pin_unreadable` (no checkout or GitHub binding can read
 it), or `deployment_qa_release_unpublished` (absent from the installer origin).
@@ -207,8 +209,9 @@ snapshot. Re-running the stage against the same receipt reuses the
 existing requirement rather than minting a second copy. When evidence
 exists but a caller still asks under a different digest, the refusal
 names the recorded requirement and that it is out of scope — never "no
-cases". Result-write validation still live-resolves against a named
-receipt so a replaced candidate on the same run row cannot be written over.
+cases". Result writes check the subject, tenant, project and endpoints; the
+release, source and receipt a target was frozen from are provenance, so a
+newer ready receipt or a takeover successor never refuses a write.
 
 A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that

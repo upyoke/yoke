@@ -18,7 +18,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 
 SHEPHERD_VERDICT_USAGE = (
     "yoke shepherd verdict --item PREFIX-N --transition T --worker W "
-    "--verdict V [--caveats TEXT] [--session-id S] [--json]"
+    "--verdict V [--caveats TEXT] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -36,21 +36,30 @@ def _write_verdict_id(
 def shepherd_verdict(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke shepherd verdict",
-        description=SHEPHERD_VERDICT_USAGE,
-    )
-    parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
-    parser.add_argument(
-        "--transition", required=True, help="Lifecycle transition being judged."
+        usage=SHEPHERD_VERDICT_USAGE,
+        description="Prints the new verdict's id.",
     )
     parser.add_argument(
-        "--worker", required=True, help="Worker name that produced the judged work."
+        "--item", required=True, metavar="PREFIX-N", help="Item id (PREFIX-N)."
+    )
+    parser.add_argument(
+        "--transition", required=True, metavar="T", help="Lifecycle transition being judged."
+    )
+    parser.add_argument(
+        "--worker",
+        required=True,
+        metavar="W",
+        help="Name of the worker that produced the judged work.",
     )
     parser.add_argument(
         "--verdict",
         required=True,
-        help="Boss verdict, e.g. READY, CAVEATS, BLOCKED, SKIPPED.",
+        metavar="V",
+        help="Gate verdict, e.g. READY, CAVEATS, BLOCKED, SKIPPED.",
     )
-    parser.add_argument("--caveats", default=None, help="Optional caveat text block.")
+    parser.add_argument(
+        "--caveats", default=None, metavar="TEXT", help="Caveat text, if any."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SHEPHERD_VERDICT_USAGE)
@@ -77,7 +86,7 @@ SHEPHERD_CAVEAT_DISPOSITION_USAGE = (
     "yoke shepherd caveat-disposition --item PREFIX-N --transition T "
     "--attempt N --caveat-num N --caveat-text TEXT "
     "--disposition RESOLVED|DEFERRED|ANALYZED "
-    "[--resolution-details TEXT] [--verdict-id N] [--session-id S] [--json]"
+    "[--resolution-details TEXT] [--verdict-id N] [--project P] [--session-id S] [--json]"
 )
 
 USAGE_BY_FUNCTION_ID = {
@@ -100,43 +109,53 @@ def _write_caveat_result(
 def shepherd_caveat_disposition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke shepherd caveat-disposition",
-        description=SHEPHERD_CAVEAT_DISPOSITION_USAGE,
-    )
-    parser.add_argument("--item", required=True, help="Target item id (PREFIX-N).")
-    parser.add_argument(
-        "--transition", required=True, help="Lifecycle transition being judged."
+        usage=SHEPHERD_CAVEAT_DISPOSITION_USAGE,
     )
     parser.add_argument(
-        "--attempt", type=int, required=True, help="Verdict attempt number."
+        "--item", required=True, metavar="PREFIX-N", help="Item id (PREFIX-N)."
+    )
+    parser.add_argument(
+        "--transition", required=True, metavar="T", help="Lifecycle transition being judged."
+    )
+    parser.add_argument(
+        "--attempt", type=int, required=True, metavar="N", help="Verdict attempt number."
     )
     parser.add_argument(
         "--caveat-num",
         dest="caveat_num",
         type=int,
         required=True,
-        help="1-based caveat number.",
+        metavar="N",
+        help="Caveat number, counting from 1.",
     )
     parser.add_argument(
-        "--caveat-text", dest="caveat_text", required=True, help="Original caveat text."
+        "--caveat-text",
+        dest="caveat_text",
+        required=True,
+        metavar="TEXT",
+        help="The caveat's original text.",
     )
     parser.add_argument(
         "--disposition",
         required=True,
         choices=("RESOLVED", "DEFERRED", "ANALYZED"),
-        help="Disposition for this caveat.",
+        metavar="RESOLVED|DEFERRED|ANALYZED",
+        help="How the caveat was handled.",
     )
     parser.add_argument(
         "--resolution-details",
         dest="resolution_details",
         default=None,
-        help="Optional resolution details.",
+        metavar="TEXT",
+        help="How it was resolved, if it was.",
     )
     parser.add_argument(
         "--verdict-id",
         dest="verdict_id",
         type=int,
         default=None,
-        help="Optional shepherd_verdicts.id.",
+        metavar="N",
+        help="Id of the verdict the caveat came from, as `yoke shepherd verdict` printed it.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

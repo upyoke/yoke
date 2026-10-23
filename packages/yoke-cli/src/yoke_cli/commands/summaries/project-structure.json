@@ -1,0 +1,12 @@
+{
+  "project-structure": "Read and change a project's structure map.",
+  "project-structure architecture-draft": "Draft an architecture map from project files.",
+  "project-structure architecture-draft get": "Propose an architecture map from the project's files.",
+  "project-structure architecture-health": "Check the project's architecture map.",
+  "project-structure architecture-health get": "Report architecture map coverage and rule breaks.",
+  "project-structure deploy-defaults": "Read the project's deployment defaults.",
+  "project-structure deploy-defaults get": "Show the project's default deployment flow.",
+  "project-structure get": "Show the project structure tree or one family.",
+  "project-structure patch": "Change the project structure map.",
+  "project-structure patch apply": "Apply a list of changes to the project structure."
+}

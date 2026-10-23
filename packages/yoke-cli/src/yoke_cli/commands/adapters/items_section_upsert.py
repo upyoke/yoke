@@ -19,7 +19,8 @@ from yoke_contracts.section_upsert_receipt import verify_field_receipt
 STRUCTURED_FIELD_SECTION_UPSERT_USAGE = (
     "yoke items structured-field section-upsert <PREFIX-N> --section TEXT "
     "(--content TEXT | --content-file PATH | --stdin) "
-    "[--field FIELD [--heading-level 2–6] | --ordering N] [--source S] [--session-id S] [--json]"
+    "[--field FIELD [--heading-level 2-6] | --ordering N] [--source SOURCE] "
+    "[--project P] [--session-id S] [--json]"
 )
 
 
@@ -31,19 +32,34 @@ def items_structured_field_section_upsert(args: List[str]) -> int:
 
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field section-upsert",
-        description=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
+        usage=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--section", required=True, help="Section heading.")
+    parser.add_argument("item", metavar="PREFIX-N", help="Item id (PREFIX-N).")
+    parser.add_argument(
+        "--section", required=True, metavar="TEXT", help="Section heading."
+    )
     _add_content_group(parser)
     parser.add_argument(
-        "--field", default=None, help="Target this stored structured field."
+        "--field", default=None, help="Write the section into this item text field."
     )
-    parser.add_argument("--heading-level", type=int, choices=range(2, 7), default=None)
     parser.add_argument(
-        "--ordering", type=int, default=None, help="Optional section ordering rank."
+        "--heading-level",
+        type=int,
+        choices=range(2, 7),
+        default=None,
+        metavar="2-6",
+        help="Markdown heading level for a new section, 2 to 6.",
     )
-    parser.add_argument("--source", default=None, help="Optional source tag.")
+    parser.add_argument(
+        "--ordering",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Position of the section among the item's sections.",
+    )
+    parser.add_argument(
+        "--source", default=None, help="Label for where the content came from."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_SECTION_UPSERT_USAGE)

@@ -37,12 +37,15 @@ __all__ = [
 
 
 def _epic_task_target_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--epic", required=True, metavar="PREFIX-N", help="Epic item id (PREFIX-N)."
+    )
     parser.add_argument(
         "--task-num",
         dest="task_num",
         type=int,
         required=True,
+        metavar="N",
         help="Task number within the epic (1-based).",
     )
 
@@ -65,7 +68,7 @@ EPIC_PROGRESS_NOTE_APPEND_USAGE = (
 def epic_progress_note_append(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-progress-note append",
-        description=EPIC_PROGRESS_NOTE_APPEND_USAGE,
+        usage=EPIC_PROGRESS_NOTE_APPEND_USAGE,
     )
     _epic_task_target_flags(parser)
     parser.add_argument(
@@ -73,6 +76,7 @@ def epic_progress_note_append(args: List[str]) -> int:
         dest="note_num",
         type=int,
         required=True,
+        metavar="N",
         help="1-based note number within the task.",
     )
     body_group = parser.add_mutually_exclusive_group(required=True)
@@ -90,7 +94,8 @@ def epic_progress_note_append(args: List[str]) -> int:
         "--commit-hash",
         dest="commit_hash",
         default="",
-        help="Optional binding commit SHA.",
+        metavar="SHA",
+        help="Optional commit SHA the note is bound to.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -124,18 +129,22 @@ def epic_progress_note_append(args: List[str]) -> int:
 
 EPIC_PROGRESS_NOTE_LIST_USAGE = (
     "yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num N "
-    "[--limit N] [--session-id S] [--json]"
+    "[--limit N] [--full] [--session-id S] [--json]"
 )
 
 
 def epic_progress_note_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-progress-note list",
-        description=EPIC_PROGRESS_NOTE_LIST_USAGE,
+        usage=EPIC_PROGRESS_NOTE_LIST_USAGE,
     )
     _epic_task_target_flags(parser)
     parser.add_argument(
-        "--limit", type=int, default=0, help="Optional max number of entries."
+        "--limit",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Most notes to show, newest first; default 0 shows all.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -151,15 +160,19 @@ def epic_progress_note_list(args: List[str]) -> int:
     )
 
 
-EPIC_TASKS_LIST_USAGE = "yoke epic-tasks list --epic PREFIX-N [--session-id S] [--json]"
+EPIC_TASKS_LIST_USAGE = (
+    "yoke epic-tasks list --epic PREFIX-N [--full] [--session-id S] [--json]"
+)
 
 
 def epic_tasks_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke epic-tasks list",
-        description=EPIC_TASKS_LIST_USAGE,
+        usage=EPIC_TASKS_LIST_USAGE,
     )
-    parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
+    parser.add_argument(
+        "--epic", required=True, metavar="PREFIX-N", help="Epic item id (PREFIX-N)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASKS_LIST_USAGE)

@@ -18,15 +18,15 @@ def test_a_host_command_without_a_machine_is_refused() -> None:
         validate_method_config("command", {"command": HOST_COMMAND})
 
     assert str(refused.value) == HOST_COMMAND_NEEDS_MACHINE
-    assert "method_config.machine" in str(refused.value)
+    assert "method_config.test_machine" in str(refused.value)
 
 
 def test_a_host_command_declaring_its_machine_is_accepted() -> None:
     config = validate_method_config(
-        "command", {"command": HOST_COMMAND, "machine": "linux-lab"}
+        "command", {"command": HOST_COMMAND, "test_machine": "linux-lab"}
     )
 
-    assert config["machine"] == "linux-lab"
+    assert config["test_machine"] == "linux-lab"
 
 
 def test_a_command_that_reaches_no_host_needs_no_machine() -> None:

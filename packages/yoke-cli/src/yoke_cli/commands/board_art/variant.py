@@ -91,7 +91,8 @@ def _display_name(parsed: argparse.Namespace, repo_root: Path) -> str:
 def board_art_variant_create(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke board art variant create",
-        description=f"{BOARD_ART_VARIANT_CREATE_USAGE}\n\n{_HELP_DEEP}",
+        usage=BOARD_ART_VARIANT_CREATE_USAGE,
+        description=_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -187,7 +188,9 @@ def board_art_variant_create(args: List[str]) -> int:
         action="store_true",
         help="Append the first generated variant without prompting.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, BOARD_ART_VARIANT_CREATE_USAGE)
     if parsed is None:
         return 2

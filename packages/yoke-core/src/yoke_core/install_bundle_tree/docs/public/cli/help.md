@@ -15,8 +15,10 @@ yoke session-control launch list --project example
 
 Yoke plans, builds, verifies and delivers software with people and agents.
 Root help lists immediate categories and actions, including `dash` and `task`.
-Category help lists immediate children once. Command help owns its supported
-recipe, arguments, options and prerequisites. Reading help performs no work.
+Category help lists immediate children once, each with a one-line summary.
+Command help opens with that summary, shows its usage once, and owns its
+supported recipe, arguments, options and prerequisites. Every argument has a
+short help line. Reading help performs no work.
 A command that also has children shows its children and its action options.
 Supported alternate spellings follow the same tree.
 
@@ -46,8 +48,9 @@ placement, model and registered-session columns. Read one launch with
 `yoke session-control launch get LAUNCH-ID --full`.
 
 An unusually large registered human read over 28,000 UTF-8 bytes refuses with
-`read_output_limit_exceeded` before printing any partial answer. Narrow its
-fields or page, or add `--full` to print the complete human reply. This safety
+`read_output_limit_exceeded` before printing any partial answer. Its hint names
+the field, filter, limit and paging flags that command really has; narrow with
+those, or add `--full` to print the complete human reply. This safety
 net does not apply to writes, JSON or deliberate machine formats.
 
 Suggested root/category/command targets of 40/80/120 lines and

@@ -27,7 +27,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
           ? {
               artifact_id: 4,
               disposition: "evidence_on_machine",
-              machine: "Test Machine",
+              test_machine: "Test Machine",
               detail: "Open this evidence from its capture machine.",
             }
           : {
@@ -133,7 +133,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     ),
     {
       function: "qa.activity.list",
-      payload: { project: "1", limit: 500 },
+      payload: { project: "1", limit: 500, detail: "full" },
     },
   );
   const text = visibleText(root, " ");

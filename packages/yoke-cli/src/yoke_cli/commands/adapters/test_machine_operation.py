@@ -23,6 +23,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.test_machine_operation_help import (
+    HOST_OPERATION_DESCRIPTIONS,
+)
 from yoke_cli.transport.dispatcher import (
     build_actor,
     call_dispatcher,
@@ -48,27 +51,15 @@ def run_host_operation(
         "Foreign holders refuse; ask the mission holder or wait for it to finish. "
         "Calls outside a mission acquire and release their own exclusive lease."
     )
-    if operation in {"reset", "verify"}:
-        parser.description = (
-            "Restore the declared baseline and clear owned Yoke/harness temporary artifacts. "
-            "Preserve the golden, live browser identities, restored home and live mission scratch. "
-            "The receipt reports temp_cleanup.freed_bytes; cleanup failures refuse with recovery."
-        )
-    if operation == "screenshot":
-        parser.description = (
-            "Capture the actual desktop as a validated PNG under the machine lease. "
-            "The receipt stores a durable QA artifact handle; artifact_path names a private local PNG. "
-            "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
-            "Linux reuses one XFCE display or starts it with the registered desktop_password; reports started/reused. "
-            "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; "
-            "repair the registered fixture secret or xrdp/XFCE and rerun if startup refuses. "
-            "Windows captures that same XFCE browser display inside the SSH user's default WSL2 distro. "
-            "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
-        )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine")
+    parser.description = HOST_OPERATION_DESCRIPTIONS.get(operation)
+    parser.add_argument(
+        "--project", required=True, help="Project that owns the test machine."
+    )
+    parser.add_argument(
+        "--test-machine", metavar="TEST_MACHINE", help="Name of the test machine to use."
+    )
     if with_baseline:
-        parser.add_argument("--baseline")
+        parser.add_argument("--baseline", help="Name of the baseline to restore.")
     if with_destination:
         parser.add_argument(
             "--destination",
@@ -98,7 +89,7 @@ def run_host_operation(
     return _execute(
         operation=operation,
         project=parsed.project,
-        machine=parsed.machine,
+        test_machine=parsed.test_machine,
         baseline=getattr(parsed, "baseline", None),
         destination=getattr(parsed, "destination", None),
         probes_document=probes_document,
@@ -111,7 +102,7 @@ def _execute(
     *,
     operation: str,
     project: str,
-    machine: str | None,
+    test_machine: str | None,
     baseline: str | None,
     destination: str | None,
     probes_document: str | None,
@@ -125,7 +116,7 @@ def _execute(
         target=TargetRef(kind="global"),
         payload={
             "project": project,
-            "machine": machine,
+            "test_machine": test_machine,
             "operation": operation,
             "baseline": baseline,
             "destination": destination,
