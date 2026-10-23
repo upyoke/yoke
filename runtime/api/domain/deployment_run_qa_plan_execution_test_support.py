@@ -95,7 +95,7 @@ def machine_plan(conn) -> int:
                 "method_id": "terminal-check",
                 "instructions": "Run one bounded release Terminal check.",
                 "expected_outcome": "The Terminal check passes.",
-                "method_config": _terminal_recipe(),
+                "method_config": {**_terminal_recipe(), "os": "macos"},
                 "entry_surface": "printf done",
                 "required_completion": "complete",
                 "host_baselines": ["fresh-host"],

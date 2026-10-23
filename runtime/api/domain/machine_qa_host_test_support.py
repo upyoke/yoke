@@ -204,9 +204,9 @@ def _plan_case(
         "instructions": "Exercise one bounded Machine QA host-control case.",
         "expected_outcome": "The registered host-control method passes.",
         "method_config": (
-            {"assertions": [{"argv": ["/usr/bin/true"]}]}
+            {"assertions": [{"argv": ["/usr/bin/true"]}], "os": "macos"}
             if machine_state
-            else _terminal_recipe()
+            else {**_terminal_recipe(), "os": "macos"}
         ),
         "host_baselines": [host_baseline],
         "entry_surface": None if machine_state else "printf done",

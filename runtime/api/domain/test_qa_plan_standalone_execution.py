@@ -87,10 +87,8 @@ def test_fresh_manual_runs_keep_order_and_never_acquire_gate_subjects():
         assert {case["requirement_id"] for case in fresh["roster"]}.isdisjoint(
             case["requirement_id"] for case in execution["roster"]
         )
-        assert (
-            conn.execute("SELECT COUNT(*) FROM qa_plan_item_attachments").fetchone()[0]
-            == 0
-        )
+        attachments = conn.execute("SELECT COUNT(*) FROM qa_plan_item_attachments")
+        assert attachments.fetchone()[0] == 0
 
 
 def test_manual_resume_keeps_snapshot_cursor_and_source_binding():
@@ -173,6 +171,7 @@ def _machine_chain(conn, plan_id, method="terminal-check"):
                 "required_completion": "done",
                 **start,
                 "method_config": {
+                    "os": "macos",
                     "steps": [{"key": "done", "expect": "done"}],
                     **(
                         {"capture_checkpoints": ["done"]}

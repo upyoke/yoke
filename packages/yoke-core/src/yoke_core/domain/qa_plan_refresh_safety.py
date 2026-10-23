@@ -94,10 +94,8 @@ def refresh_invocation(conn: Any, row: Any) -> str:
             if member
             else f"--deployment-run-id {row['deployment_run_id']}"
         )
-        return (
-            f"yoke qa plan rematerialize {subject} --stage {row['deployment_stage']}"
-            f" --plan {row['plan_id']}"
-        )
+        plan = f" --plan {row['plan_id']}" if row["plan_id"] is not None else ""
+        return f"yoke qa plan rematerialize {subject} --stage {row['deployment_stage']}{plan}"
     if row["item_id"]:
         return (
             "yoke qa plan rematerialize --item "

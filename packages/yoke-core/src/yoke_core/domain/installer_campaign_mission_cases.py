@@ -43,7 +43,7 @@ WELCOME_FRAME = {'position': 5,
                      'is expected only with the diagnosed uv installation refusal '
                      'and manual-install recovery. Keep evidence secret-free; no '
                      'Traceback or "Paste your Yoke API token." prompt.',
- 'method_config': {'executor': 'informed_subagent'}}
+ 'method_config': {'executor': 'informed_subagent', 'os': 'macos'}}
 
 COLD_START_HOSTED = {'position': 6,
  'case_key': 'cold-start-hosted',
@@ -94,7 +94,7 @@ COLD_START_HOSTED = {'position': 6,
                      'required, followed by "Next: bring your existing work into '
                      'Yoke." and "run /yoke onboard". Keep evidence secret-free; no '
                      'Traceback or "Paste your Yoke API token." prompt.',
- 'method_config': {'executor': 'informed_subagent'}}
+ 'method_config': {'executor': 'informed_subagent', 'os': 'macos'}}
 
 CONNECT_WAIT = {'position': 8,
  'case_key': 'connect-wait',
@@ -126,7 +126,7 @@ CONNECT_WAIT = {'position': 8,
                      'with authorization still pending; an exit or an approval does '
                      'not substitute for this frame. Keep evidence secret-free; no '
                      'Traceback or "Paste your Yoke API token." prompt.',
- 'method_config': {'executor': 'informed_subagent'}}
+ 'method_config': {'executor': 'informed_subagent', 'os': 'macos'}}
 
 REVIEW_FRAME = {'position': 10,
  'case_key': 'review-frame',
@@ -163,7 +163,7 @@ REVIEW_FRAME = {'position': 10,
                      'remains available; end before Apply. Keep evidence '
                      'secret-free; no Traceback or "Paste your Yoke API token." '
                      'prompt.',
- 'method_config': {'executor': 'informed_subagent'}}
+ 'method_config': {'executor': 'informed_subagent', 'os': 'macos'}}
 
 CONNECT_WAIT_PREPARE = terminal_case(
     7, "connect-wait-prepare", "terminal-check",
