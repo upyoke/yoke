@@ -90,8 +90,9 @@ def _completion_item_qa(
     """The item's QA standing on the run that closes it, as Shipping reads it.
 
     ``settling`` is the run's active settlement, the only authority for
-    "closing". ``None`` when no live run closes the item or the run has not
-    reached an item QA stage.
+    "closing". A finished run answers from the last item QA stage it passed,
+    so a delivered item still states its disposition. ``None`` when no run
+    closes the item or the run has not reached an item QA stage.
     """
     from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
 

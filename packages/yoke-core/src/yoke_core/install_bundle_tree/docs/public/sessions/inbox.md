@@ -105,7 +105,8 @@ Read decisions and delivery notices, then address messages to their intended rec
   to read its remaining done gates), **approved · closing** only while the
   run is settling, **approval rejected**, or **awaiting item completion**
   when no approval applies. The item page's **Delivery** panel adds the same
-  line under the release still closing the item
+  line under the release closing the item; once that release delivered it,
+  the line reads the QA disposition then **item completed**.
 - An item page lists its work approvals under **Approvals** once one was
   requested: the current request with the transition it moves, when it was
   asked, who can decide, and **Approve** and **Reject** for a reader who
