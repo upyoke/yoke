@@ -24,10 +24,9 @@ from yoke_core.domain.qa_activity_selection import (
     EXECUTABLE_REQUIREMENT,
     HAPPENED_AT,
     PROJECT_FILTER_COLUMN,
-    activity_query,
-    bound_groups,
     item_filter,
     run_group_filter,
+    select_activity,
 )
 
 
@@ -66,17 +65,15 @@ def _list_activity(
     """Return activity rows, and how an item-scoped read was bounded.
 
     Without ``item_ids`` the read is a recency page over the whole scope and
-    ``limit`` caps it. With ``item_ids`` that page would be a defect rather
-    than a page: one busy subject filling the cap would silently hide every
-    other requested subject, so a card would report an item as having no
-    evidence and no waiting review when it has both. There ``limit`` bounds
-    each item's checks WITHIN each deployment run they name, and its run-less
-    checks as their own group, so neither another item nor another release
-    can take the rows a given card needs. The second return value names the
-    cap and exactly which items hit it — measured by fetching one row past
-    the cap, never inferred from a full-looking page. What is dropped is an
-    item's older history inside one run group; a caller that must not lose a
-    current request joins those independently rather than through these rows.
+    ``limit`` caps it. With ``item_ids`` and no ``deployment_run_ids`` the
+    page is still capped at ``limit`` in total, newest first. With both, one
+    busy subject or release filling a shared cap would hide the rows another
+    card needs, so ``limit`` bounds each item's checks WITHIN each named run,
+    and its run-less checks as their own group. The second return value
+    names the cap and what it cut — measured by fetching one row past the
+    cap, never inferred from a full-looking page. A caller that must not
+    lose a current request joins those independently rather than through
+    these rows.
     """
     marker = _placeholder(conn)
     params: list[Any] = []
@@ -106,16 +103,15 @@ def _list_activity(
         if requirement_ids is not None
         else max(1, min(int(limit), 500))
     )
-    item_scoped = item_ids is not None
-    params.append(bounded + 1 if item_scoped else bounded)
-    rows = query_rows(
+    rows, selection = select_activity(
         conn,
-        activity_query(marker, where, item_scoped=item_scoped),
-        tuple(params),
+        marker,
+        where,
+        params,
+        bounded=bounded,
+        item_scoped=item_ids is not None,
+        per_run_group=deployment_run_ids is not None,
     )
-    selection: Optional[dict[str, Any]] = None
-    if item_scoped:
-        rows, selection = bound_groups(rows, bounded)
     # Actual attempts own their artifacts. A durable historical judgment
     # association may resolve its original capture through the shared reader;
     # an untrusted raw pointer cannot lend another attempt's evidence.

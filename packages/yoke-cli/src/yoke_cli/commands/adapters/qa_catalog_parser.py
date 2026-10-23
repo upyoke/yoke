@@ -131,7 +131,11 @@ def configure_activity_list(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=100,
         metavar="N",
-        help="Most rows to show; default: 100.",
+        help=(
+            "Most rows to show, newest first; default: 100. With --item, "
+            "item_selection says whether rows were cut and how many matched; "
+            "narrow with --deployment-run-id or raise --limit to see more."
+        ),
     )
 
 
