@@ -1,0 +1,11 @@
+{
+  "merge": "Land item work and check merge readiness.",
+  "merge audit": "Report which items are ready to merge, changing nothing.",
+  "merge item": "Land a verified item lane through the merge policy.",
+  "merge receipt": "Add facts to an item's merge receipt.",
+  "merge receipt commits": "Tie outside commits to an item's merge receipt.",
+  "merge receipt commits attest": "Credit a commit made outside Yoke to an item.",
+  "merge review": "Review merge candidates before they land.",
+  "merge review candidate": "Check whether a candidate commit may land.",
+  "merge review candidate evaluate": "Check whether a commit may land, and request review."
+}

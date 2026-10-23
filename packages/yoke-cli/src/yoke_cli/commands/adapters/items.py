@@ -52,17 +52,19 @@ __all__ = [
     "LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE",
 ]
 
-ITEMS_GET_USAGE = (
+ITEMS_GET_SYNOPSIS = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
-    '[--section "## Heading"] [--session-id S] [--json]. '
-    "Claim holder: yoke claims work holder-get <PREFIX-N>"
+    '[--section "## Heading"] [--session-id S] [--json]'
 )
+ITEMS_GET_CLAIM_NOTE = "Claim holder: yoke claims work holder-get <PREFIX-N>"
+ITEMS_GET_USAGE = f"{ITEMS_GET_SYNOPSIS}. {ITEMS_GET_CLAIM_NOTE}"
 
 
 def items_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items get",
-        description=ITEMS_GET_USAGE + "\n\n" + render_field_catalog(),
+        usage=ITEMS_GET_SYNOPSIS,
+        description=render_field_catalog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
@@ -160,7 +162,7 @@ PROGRESS_LOG_USAGE = (
 def items_progress_log_append(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items progress-log append",
-        description=PROGRESS_LOG_USAGE,
+        usage=PROGRESS_LOG_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--headline", required=True, help="One-line entry headline.")
@@ -212,7 +214,7 @@ STRUCTURED_FIELD_USAGE = (
 def items_structured_field_replace(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field replace",
-        description=STRUCTURED_FIELD_USAGE,
+        usage=STRUCTURED_FIELD_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--field", required=True, help="Structured field name.")
@@ -278,7 +280,7 @@ LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE = (
 def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke lifecycle skip record-recoverable-substrate",
-        description=LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
+        usage=LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     )
     configure_skip_arguments(parser)
     add_session_arg(parser)

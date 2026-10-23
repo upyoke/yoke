@@ -65,23 +65,42 @@ def _add_definition_options(
     include_name: bool,
 ) -> None:
     if include_name:
-        parser.add_argument("--name", required=True)
+        parser.add_argument(
+            "--name", required=True, help="Display name for the new flow."
+        )
     else:
-        parser.add_argument("--name", default=None)
-    parser.add_argument("--description", default=None)
+        parser.add_argument(
+            "--name", default=None, help="New display name for the flow."
+        )
+    parser.add_argument("--description", default=None, help="What the flow is for.")
     _add_stage_source(parser, required=stages_required)
-    parser.add_argument("--on-failure", choices=("halt", "continue"), default=None)
+    parser.add_argument(
+        "--on-failure",
+        choices=("halt", "continue"),
+        default=None,
+        help="What to do when a stage fails: halt or continue.",
+    )
     parser.add_argument(
         "--target-tier",
         choices=("persistent", "ephemeral", "none"),
         default=_UNSET,
+        help="Deploy target kind; none makes it merge-only and clears --environment.",
     )
-    parser.add_argument("--environment", default=None)
-    parser.add_argument("--done-description", default=None)
+    parser.add_argument(
+        "--environment",
+        default=None,
+        help="Registered environment a persistent flow deploys to.",
+    )
+    parser.add_argument(
+        "--done-description",
+        default=None,
+        help="Plain statement of what done means for this flow.",
+    )
     parser.add_argument(
         "--takes-delivery-custody",
         choices=("true", "false"),
         default=None,
+        help="Whether the flow takes delivery custody of its items.",
     )
 
 
@@ -113,7 +132,7 @@ def _flow_writer(response, stdout, stderr) -> None:
 
 def deployment_flows_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke deployment-flows update")
-    parser.add_argument("flow_id")
+    parser.add_argument("flow_id", help="Id of the deployment flow to update.")
     _add_definition_options(parser, stages_required=False, include_name=False)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -138,8 +157,12 @@ def deployment_flows_update(args: List[str]) -> int:
 
 def deployment_flows_reorder(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke deployment-flows reorder")
-    parser.add_argument("flow_id")
-    parser.add_argument("--order", required=True)
+    parser.add_argument(
+        "flow_id", help="Id of the deployment flow whose stages to reorder."
+    )
+    parser.add_argument(
+        "--order", required=True, help="Comma-separated stage names in their new order."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, REORDER_USAGE)
@@ -160,11 +183,24 @@ def deployment_flows_reorder(args: List[str]) -> int:
 
 def deployment_flows_validate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke deployment-flows validate")
-    parser.add_argument("--project", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project the stages would belong to."
+    )
     _add_stage_source(parser, required=True)
-    parser.add_argument("--target-tier", choices=("persistent", "ephemeral"))
-    parser.add_argument("--environment")
-    parser.add_argument("--status", choices=("active", "disabled"), default="disabled")
+    parser.add_argument(
+        "--target-tier",
+        choices=("persistent", "ephemeral"),
+        help="Deploy target kind to validate against; omit for merge-only.",
+    )
+    parser.add_argument(
+        "--environment", help="Registered environment to validate against."
+    )
+    parser.add_argument(
+        "--status",
+        choices=("active", "disabled"),
+        default="disabled",
+        help="Flow status to validate as; default: disabled.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, VALIDATE_USAGE)
@@ -206,10 +242,17 @@ def deployment_flows_version(args: List[str]) -> int:
             "source still closes them, and their stored pin is kept."
         ),
     )
-    parser.add_argument("source_flow_id")
-    parser.add_argument("new_flow_id")
+    parser.add_argument(
+        "source_flow_id", help="Id of the flow the new version replaces."
+    )
+    parser.add_argument("new_flow_id", help="Id for the new successor flow.")
     _add_definition_options(parser, stages_required=False, include_name=True)
-    parser.add_argument("--status", choices=("active", "disabled"), default="disabled")
+    parser.add_argument(
+        "--status",
+        choices=("active", "disabled"),
+        default="disabled",
+        help="Status of the new flow; default: disabled.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, VERSION_USAGE)

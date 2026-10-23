@@ -74,7 +74,7 @@ def packets_render(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke packets render",
-        description=PACKETS_RENDER_USAGE,
+        usage=PACKETS_RENDER_USAGE,
     )
     parser.add_argument(
         "--role",
@@ -137,7 +137,7 @@ def packets_check(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke packets check",
-        description=PACKETS_CHECK_USAGE,
+        usage=PACKETS_CHECK_USAGE,
     )
     parser.add_argument(
         "--target-root",
@@ -214,7 +214,7 @@ def packets_budget_get(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke packets budget get",
-        description=PACKETS_BUDGET_GET_USAGE,
+        usage=PACKETS_BUDGET_GET_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -268,7 +268,7 @@ def packets_startup_delivery_get(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke packets startup-delivery get",
-        description=PACKETS_STARTUP_DELIVERY_GET_USAGE,
+        usage=PACKETS_STARTUP_DELIVERY_GET_USAGE,
     )
     parser.add_argument(
         "--target-root",

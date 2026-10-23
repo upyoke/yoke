@@ -267,7 +267,9 @@ def self_host_import(args: List[str]) -> int:
         action="store_true",
         help="Consent to replacing the destination universe without a prompt.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON."
+    )
     parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
     if parsed is None:
         return 2

@@ -31,7 +31,7 @@ def item_worktrees_create(args: List[str]) -> int:
     """Register one explicit additional lane for local provisioning."""
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees create",
-        description=ITEM_WORKTREES_CREATE_USAGE,
+        usage=ITEM_WORKTREES_CREATE_USAGE,
     )
     parser.add_argument(
         "item",

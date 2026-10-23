@@ -76,7 +76,7 @@ EPIC_TASK_BODY_REPLACE_USAGE = (
 def epic_task_body_replace(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task body-replace",
-        description=EPIC_TASK_BODY_REPLACE_USAGE,
+        usage=EPIC_TASK_BODY_REPLACE_USAGE,
     )
     _epic_target_flags(parser)
     body_group = parser.add_mutually_exclusive_group(required=True)
@@ -129,7 +129,7 @@ EPIC_TASK_SPLIT_USAGE = (
 def epic_task_split(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task split",
-        description=EPIC_TASK_SPLIT_USAGE,
+        usage=EPIC_TASK_SPLIT_USAGE,
     )
     _epic_target_flags(parser)
     parser.add_argument(
@@ -171,7 +171,7 @@ EPIC_TASK_REASSIGN_USAGE = (
 def epic_task_reassign(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task reassign",
-        description=EPIC_TASK_REASSIGN_USAGE,
+        usage=EPIC_TASK_REASSIGN_USAGE,
     )
     _epic_target_flags(parser)
     parser.add_argument(
@@ -208,7 +208,7 @@ EPIC_TASK_ADD_USAGE = (
 def epic_task_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task add",
-        description=EPIC_TASK_ADD_USAGE,
+        usage=EPIC_TASK_ADD_USAGE,
     )
     parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     parser.add_argument("--title", required=True, help="New task title.")
@@ -271,7 +271,7 @@ EPIC_TASK_REMOVE_USAGE = (
 def epic_task_remove(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task remove",
-        description=EPIC_TASK_REMOVE_USAGE,
+        usage=EPIC_TASK_REMOVE_USAGE,
     )
     _epic_target_flags(parser)
     parser.add_argument("--reason", default="", help="Optional remove reason.")
@@ -302,7 +302,7 @@ EPIC_TASK_METADATA_UPDATE_USAGE = (
 def epic_task_metadata_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-task metadata-update",
-        description=EPIC_TASK_METADATA_UPDATE_USAGE,
+        usage=EPIC_TASK_METADATA_UPDATE_USAGE,
     )
     _epic_target_flags(parser)
     parser.add_argument(

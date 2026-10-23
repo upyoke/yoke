@@ -49,7 +49,7 @@ def deployment_flows_update_stages(args: List[str]) -> int:
             "guard once a deployment run references it."
         ),
     )
-    parser.add_argument("flow_id")
+    parser.add_argument("flow_id", help="Deployment flow to update.")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         group,
@@ -58,7 +58,7 @@ def deployment_flows_update_stages(args: List[str]) -> int:
         dest="stages_json",
     )
     group.add_argument("--stdin", action="store_true", help="Read stage JSON.")
-    parser.add_argument("--description")
+    parser.add_argument("--description", help="New description for the flow.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -104,7 +104,7 @@ def deployment_flows_describe(args: List[str]) -> int:
             "works on flows whose definition is frozen by run history."
         ),
     )
-    parser.add_argument("flow_id")
+    parser.add_argument("flow_id", help="Deployment flow to describe.")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         group,
@@ -159,12 +159,17 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
             "without one."
         ),
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--flow")
-    parser.add_argument("--environment")
-    parser.add_argument("--release-lineage")
-    parser.add_argument("--created-by")
+    parser.add_argument("item", help="Item to deliver, as PREFIX-N.")
+    parser.add_argument("--project", help="Project that owns the item.")
+    parser.add_argument("--flow", help="Flow to run; default: the item's own flow.")
+    parser.add_argument(
+        "--environment", help="Target environment; default: the flow's."
+    )
+    parser.add_argument(
+        "--release-lineage",
+        help="Commit to deliver; default for stage: the gate branch head.",
+    )
+    parser.add_argument("--created-by", help="Who opened the run; default: operator.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

@@ -54,16 +54,16 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
-        description=usage,
+        usage=usage,
         epilog=PLAN_MATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--transition")
-    parser.add_argument("--plan")
-    parser.add_argument("--project")
+    subject.add_argument("--item", help="Item whose cases to build, as PREFIX-N.")
+    subject.add_argument("--deployment-run-id", help="Deployment run to build for.")
+    parser.add_argument("--transition", help="Workflow transition the cases govern.")
+    parser.add_argument("--plan", help="QA plan to build cases from.")
+    parser.add_argument("--project", help="Project that owns the item or run.")
     parser.add_argument(
         "--stage",
         help=(
@@ -124,15 +124,15 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan rematerialize",
-        description=usage,
+        usage=usage,
         epilog=PLAN_REMATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--transition")
-    parser.add_argument("--project")
+    subject.add_argument("--item", help="Item whose cases to refresh, as PREFIX-N.")
+    subject.add_argument("--deployment-run-id", help="Deployment run to refresh.")
+    parser.add_argument("--transition", help="Workflow transition the cases govern.")
+    parser.add_argument("--project", help="Project that owns the item or run.")
     parser.add_argument(
         "--stage", help="The pinned deployment QA stage whose cases to refresh."
     )
@@ -189,10 +189,10 @@ def qa_artifact_read(args: List[str]) -> int:
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa artifact read",
-        description=usage,
+        usage=usage,
     )
-    parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--artifact-id", type=int, required=True)
+    parser.add_argument("--requirement-id", type=int, required=True, help="QA case id.")
+    parser.add_argument("--artifact-id", type=int, required=True, help="Artifact id.")
     parser.add_argument(
         "--output",
         help=(

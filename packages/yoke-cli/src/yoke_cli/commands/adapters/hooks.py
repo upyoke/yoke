@@ -107,7 +107,7 @@ def _dispatch_hook(args: List[str], stdin_data: str | None = None) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke hook evaluate",
-        description=HOOK_EVALUATE_USAGE,
+        usage=HOOK_EVALUATE_USAGE,
     )
     parser.add_argument(
         "event_name",

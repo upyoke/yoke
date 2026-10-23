@@ -1,0 +1,5 @@
+{
+  "release-pin": "Record and check the release version an environment runs.",
+  "release-pin record": "Record the release version pinned for an environment.",
+  "release-pin verify": "Check that an environment serves its pinned version."
+}

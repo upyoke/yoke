@@ -119,7 +119,7 @@ def _dispatch_filtered(
     with_limit: bool,
     default_limit: int = 50,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     _add_filter_args(parser)
     if with_limit:
         parser.add_argument(

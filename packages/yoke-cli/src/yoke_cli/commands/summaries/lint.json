@@ -1,0 +1,5 @@
+{
+  "lint": "Read the lint settings for a checkout.",
+  "lint config": "Read the lint settings for a checkout.",
+  "lint config show": "Show the lint settings and each check's mode."
+}

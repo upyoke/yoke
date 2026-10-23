@@ -62,9 +62,8 @@ surface; use the installed ``yoke qa browser screenshot`` command."""
 def qa_browser_screenshot(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser screenshot",
-        description=(
-            f"{QA_BROWSER_SCREENSHOT_USAGE}\n\n{_QA_BROWSER_SCREENSHOT_HELP_DEEP}"
-        ),
+        usage=QA_BROWSER_SCREENSHOT_USAGE,
+        description=_QA_BROWSER_SCREENSHOT_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("url", help="Absolute URL to capture.")
@@ -135,9 +134,9 @@ def qa_browser_step(args: List[str]) -> int:
         description=declared_schema_help(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--step-json", required=True)
-    parser.add_argument("--output-dir")
+    parser.add_argument("--base-url", required=True, help="Base URL for the step.")
+    parser.add_argument("--step-json", required=True, help="One step as a JSON object.")
+    parser.add_argument("--output-dir", help="Folder for files the step writes.")
     parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
     parser.add_argument("--identity", default=None, help=_IDENTITY_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)

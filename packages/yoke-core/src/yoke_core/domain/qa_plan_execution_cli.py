@@ -179,20 +179,20 @@ def run(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--deployment-run-id")
-    parser.add_argument("--stage")
-    parser.add_argument("--transition")
-    parser.add_argument("--plan")
-    parser.add_argument("--project")
-    parser.add_argument("--base-url", default="")
+    subject.add_argument("--item", help="Item whose attached plans to run.")
+    subject.add_argument("--deployment-run-id", help="Deployment run whose QA to run.")
+    parser.add_argument("--stage", help="Deployment stage to run QA for.")
+    parser.add_argument("--transition", help="Workflow transition of the item's plans.")
+    parser.add_argument("--plan", help="QA plan to run.")
+    parser.add_argument("--project", help="Project that owns the plan.")
+    parser.add_argument("--base-url", default="", help="Base URL the cases test.")
     parser.add_argument(
         "--machine",
         help="Pin Machine QA cases to one registered host matching every case. Resume commands omit this pin; the scheduler retains each platform’s recorded host. Corrected cases retain their failed attempt host through scheduling.",
     )
-    parser.add_argument("--expected-branch")
-    parser.add_argument("--expected-sha")
-    parser.add_argument("--timeout-seconds", type=int)
+    parser.add_argument("--expected-branch", help="Branch the checkout must be on.")
+    parser.add_argument("--expected-sha", help="Commit the checkout must be at.")
+    parser.add_argument("--timeout-seconds", type=int, help="Time limit in seconds.")
     parser.add_argument(
         "--checkout-path",
         help="Use this checkout; deployment cases check out their recorded candidate.",
@@ -219,7 +219,7 @@ def run(args: List[str]) -> int:
         help="Saved unknown-check-in receipt used to confirm a safe pause after connectivity returns.",
     )
     add_replaces_argument(parser)
-    parser.add_argument("--session-id")
+    parser.add_argument("--session-id", help="Session making the call.")
     parsed = parser.parse_args(args)
     if parsed.resume_execution_id and parsed.replaces:
         parser.error("--resume-execution-id cannot replace cases")

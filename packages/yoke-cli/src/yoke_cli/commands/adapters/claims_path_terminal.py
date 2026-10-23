@@ -25,7 +25,7 @@ def _terminal(args: list[str], action: str) -> int:
     usage = terminal_usage(action)
     parser = argparse.ArgumentParser(
         prog=f"yoke claims path {action}",
-        description=usage,
+        usage=usage,
         epilog=(
             "Requires the owning item's work claim. Release finished coverage; "
             "cancel abandoned coverage. Terminal claims cannot be reopened; "

@@ -23,7 +23,7 @@ LIFECYCLE_TRANSITION_USAGE = (
 def lifecycle_transition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke lifecycle transition",
-        description=LIFECYCLE_TRANSITION_USAGE,
+        usage=LIFECYCLE_TRANSITION_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(

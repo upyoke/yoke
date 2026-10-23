@@ -1,0 +1,5 @@
+{
+  "browser": "Sign project browser profiles in and check them.",
+  "browser authorize": "Sign a project browser identity in to its sites.",
+  "browser verify": "Check which sites a browser identity is signed in to."
+}

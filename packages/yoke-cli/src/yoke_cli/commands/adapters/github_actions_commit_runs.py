@@ -34,10 +34,14 @@ def github_actions_commit_runs(args: List[str]) -> int:
             "display title. --repo defaults to the project's bound repository."
         ),
     )
-    parser.add_argument("commit_sha")
-    parser.add_argument("--workflow", default="")
-    parser.add_argument("--repo", default="")
-    parser.add_argument("--project", required=True)
+    parser.add_argument("commit_sha", help="Full commit SHA the runs were built from.")
+    parser.add_argument(
+        "--workflow", default="", help="Only runs of the workflow with this name."
+    )
+    parser.add_argument(
+        "--repo", default="", help="Repository as owner/name; default: project's."
+    )
+    parser.add_argument("--project", required=True, help="Project to read runs for.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_ACTIONS_COMMIT_RUNS_USAGE)

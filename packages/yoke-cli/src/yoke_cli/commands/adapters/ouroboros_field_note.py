@@ -59,7 +59,7 @@ OUROBOROS_FIELD_NOTE_LIST_USAGE = (
 def ouroboros_field_note_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros field-note list",
-        description=OUROBOROS_FIELD_NOTE_LIST_USAGE,
+        usage=OUROBOROS_FIELD_NOTE_LIST_USAGE,
     )
     parser.add_argument(
         "--unreviewed",
@@ -127,7 +127,7 @@ OUROBOROS_FIELD_NOTE_GET_USAGE = (
 def ouroboros_field_note_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke ouroboros field-note get",
-        description=OUROBOROS_FIELD_NOTE_GET_USAGE,
+        usage=OUROBOROS_FIELD_NOTE_GET_USAGE,
     )
     parser.add_argument("entry_id", help="Field-note entry id (integer).")
     add_session_arg(parser)

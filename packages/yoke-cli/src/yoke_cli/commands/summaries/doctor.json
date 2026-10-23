@@ -1,0 +1,9 @@
+{
+  "doctor": "Check this machine, session and project for problems.",
+  "doctor last": "Read the result of the last doctor run.",
+  "doctor last run": "Read the result of the last doctor run.",
+  "doctor last run get": "Show the result of the last doctor run.",
+  "doctor last-run": "Read the result of the last doctor run.",
+  "doctor last-run get": "Show the result of the last doctor run.",
+  "doctor run": "Run health checks and optionally fix what fails."
+}

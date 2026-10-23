@@ -114,12 +114,18 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke direct-workflow worktree prepare",
     )
-    parser.add_argument("item")
-    parser.add_argument("--workflow", choices=("dash", "blitz"), required=True)
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Item to prepare a lane for, as PREFIX-N.")
+    parser.add_argument(
+        "--workflow",
+        choices=("dash", "blitz"),
+        required=True,
+        help="Direct workflow the item runs under.",
+    )
+    parser.add_argument("--project", help="Project that owns the item.")
     parser.add_argument(
         "--session-id",
         default=os.environ.get("YOKE_SESSION_ID", ""),
+        help="Session id; default: YOKE_SESSION_ID.",
     )
     parser.add_argument(
         "--json",

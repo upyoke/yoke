@@ -20,11 +20,12 @@ USAGE = "yoke advance preflight hard-blocks PREFIX-N [--gate-point POINT] [--jso
 
 def hard_blocks(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke advance preflight hard-blocks")
-    parser.add_argument("item")
+    parser.add_argument("item", help="Item to check, as PREFIX-N.")
     parser.add_argument(
         "--gate-point",
         choices=("all", "activation", "integration", "closure"),
         default="all",
+        help="Only check blocks at this gate point; default: all.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

@@ -1,0 +1,13 @@
+{
+  "conduct": "Record epic progress while conducting its tasks.",
+  "conduct epic": "Record decisions about a whole epic.",
+  "conduct epic proceed": "Hand off an epic after simulation review.",
+  "conduct epic proceed triage": "Hand off an epic after triaging simulation gaps.",
+  "conduct epic proceed triage handoff": "Record accepted simulation gaps and hand off the epic.",
+  "conduct epic proceed-triage-handoff": "Record accepted simulation gaps and hand off the epic.",
+  "conduct epic task": "Change one task inside an epic.",
+  "conduct epic task update": "Change one epic task's status.",
+  "conduct epic task update status": "Set an epic task's status with notes and syncing.",
+  "conduct epic-task": "Change one task inside an epic.",
+  "conduct epic-task update-status": "Set an epic task's status with notes and syncing."
+}

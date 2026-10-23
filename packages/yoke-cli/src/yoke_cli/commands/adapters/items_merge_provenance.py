@@ -91,7 +91,7 @@ Recovering the real timestamp: read the merge commit's date from git, e.g.
 def items_merge_provenance_operator_correct(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items merge-provenance operator-correct",
-        description=ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE,
+        usage=ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

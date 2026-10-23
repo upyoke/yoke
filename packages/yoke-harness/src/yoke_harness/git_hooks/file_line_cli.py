@@ -90,18 +90,22 @@ def print_verdict(
         )
 
 
+_JSON_HELP = "Print JSON output."
+_REPO_HELP = "Repository root; default: the current directory."
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yoke check file-line")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    report = sub.add_parser("report")
-    report.add_argument("--json", action="store_true")
-    report.add_argument("--repo", default=None)
-    check = sub.add_parser("check")
+    report = sub.add_parser("report", help="List authored files and their line counts.")
+    report.add_argument("--json", action="store_true", help=_JSON_HELP)
+    report.add_argument("--repo", default=None, help=_REPO_HELP)
+    check = sub.add_parser("check", help="Fail when a changed file is over the limit.")
     mode = check.add_mutually_exclusive_group()
-    mode.add_argument("--base", default=None)
-    mode.add_argument("--staged", action="store_true")
-    check.add_argument("--json", action="store_true")
-    check.add_argument("--repo", default=None)
+    mode.add_argument("--base", default=None, help="Merge target; default: main.")
+    mode.add_argument("--staged", action="store_true", help="Check staged files only.")
+    check.add_argument("--json", action="store_true", help=_JSON_HELP)
+    check.add_argument("--repo", default=None, help=_REPO_HELP)
     return parser
 
 

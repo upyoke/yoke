@@ -43,7 +43,8 @@ BROWSER_AUTHORIZE_USAGE = (
 def browser_authorize(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke browser authorize",
-        description=(f"{BROWSER_AUTHORIZE_USAGE}\n\n{AUTHORIZE_HELP}"),
+        usage=BROWSER_AUTHORIZE_USAGE,
+        description=AUTHORIZE_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -79,7 +80,9 @@ def browser_authorize(args: List[str]) -> int:
             "sign-in starts from an empty browser."
         ),
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, BROWSER_AUTHORIZE_USAGE)
     if parsed is None:
         return 2

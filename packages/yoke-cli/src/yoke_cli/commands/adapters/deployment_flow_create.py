@@ -61,28 +61,47 @@ def deployment_flows_create(args: List[str]) -> int:
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("flow_id")
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--name", required=True)
+    parser.add_argument("flow_id", help="Id for the new flow.")
+    parser.add_argument("--project", required=True, help="Project the flow belongs to.")
+    parser.add_argument("--name", required=True, help="Display name for the flow.")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         group, "--stages-json", "--stages-file", dest="stages_json",
     )
     group.add_argument("--stdin", action="store_true", help="Read stage JSON.")
-    parser.add_argument("--description", default="")
-    parser.add_argument("--on-failure", default="halt")
+    parser.add_argument("--description", default="", help="What the flow is for.")
     parser.add_argument(
-        "--target-tier", choices=("persistent", "ephemeral"), default=None,
+        "--on-failure",
+        default="halt",
+        help="What to do when a stage fails: halt or continue; default: halt.",
     )
-    parser.add_argument("--environment", default=None)
-    parser.add_argument("--done-description", default=None)
     parser.add_argument(
-        "--status", choices=("active", "disabled"), default="active",
+        "--target-tier",
+        choices=("persistent", "ephemeral"),
+        default=None,
+        help="Deploy target kind; omit for a merge-only flow.",
+    )
+    parser.add_argument(
+        "--environment",
+        default=None,
+        help="Registered environment a persistent flow deploys to.",
+    )
+    parser.add_argument(
+        "--done-description",
+        default=None,
+        help="Plain statement of what done means for this flow.",
+    )
+    parser.add_argument(
+        "--status",
+        choices=("active", "disabled"),
+        default="active",
+        help="Initial flow status; default: active.",
     )
     parser.add_argument(
         "--takes-delivery-custody",
         choices=("true", "false"),
         default=None,
+        help="Whether the flow takes delivery custody; default: schema behavior.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

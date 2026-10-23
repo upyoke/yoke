@@ -143,9 +143,9 @@ def _hold_locally(readiness: Dict[str, Any]) -> Any:
 
 def run(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github merge-queue hold")
-    parser.add_argument("item")
-    parser.add_argument("--project")
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("item", help="Item (PREFIX-N) whose pull request to hold.")
+    parser.add_argument("--project", help="Project the item belongs to.")
+    parser.add_argument("--json", action="store_true", help="Print JSON output.")
     parsed = parser.parse_args(argv)
 
     with machine_github_user_authority(), same_universe_control_plane_authority():

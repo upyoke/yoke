@@ -38,11 +38,21 @@ def actors_state_set(args: List[str]) -> int:
             "actors remain protected."
         ),
     )
-    parser.add_argument("actor_id", type=int)
+    parser.add_argument(
+        "actor_id", type=int, help="Id of the actor to enable or disable."
+    )
     state = parser.add_mutually_exclusive_group(required=True)
-    state.add_argument("--enable", action="store_true")
-    state.add_argument("--disable", action="store_true")
-    parser.add_argument("--confirm-system-retirement", action="store_true")
+    state.add_argument("--enable", action="store_true", help="Enable the actor.")
+    state.add_argument(
+        "--disable",
+        action="store_true",
+        help="Disable the actor and revoke its keys and browser sessions.",
+    )
+    parser.add_argument(
+        "--confirm-system-retirement",
+        action="store_true",
+        help="Confirm retiring a system actor; applies only to --disable.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ACTOR_STATE_SET_USAGE)
@@ -75,9 +85,20 @@ def actors_role_set(args: List[str]) -> int:
             "last active admin, machine-only roles, and system actors."
         ),
     )
-    parser.add_argument("actor_id", type=int, nargs="?")
-    parser.add_argument("--member", dest="member_email")
-    parser.add_argument("--role", required=True)
+    parser.add_argument(
+        "actor_id",
+        type=int,
+        nargs="?",
+        help="Id of the actor whose role to set; or use --member.",
+    )
+    parser.add_argument(
+        "--member",
+        dest="member_email",
+        help="Email of the org member whose linked actor to update.",
+    )
+    parser.add_argument(
+        "--role", required=True, help="Role to set: admin, operator, or viewer."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ACTOR_ROLE_SET_USAGE)

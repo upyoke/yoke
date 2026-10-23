@@ -25,7 +25,7 @@ PATH_CLAIMS_CONFLICTS_LIST_USAGE = (
 def path_claims_conflicts_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke path-claims conflicts list",
-        description=PATH_CLAIMS_CONFLICTS_LIST_USAGE,
+        usage=PATH_CLAIMS_CONFLICTS_LIST_USAGE,
     )
     parser.add_argument(
         "--integration-target",

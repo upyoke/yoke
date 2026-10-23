@@ -65,7 +65,7 @@ EPIC_PROGRESS_NOTE_APPEND_USAGE = (
 def epic_progress_note_append(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-progress-note append",
-        description=EPIC_PROGRESS_NOTE_APPEND_USAGE,
+        usage=EPIC_PROGRESS_NOTE_APPEND_USAGE,
     )
     _epic_task_target_flags(parser)
     parser.add_argument(
@@ -131,7 +131,7 @@ EPIC_PROGRESS_NOTE_LIST_USAGE = (
 def epic_progress_note_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-progress-note list",
-        description=EPIC_PROGRESS_NOTE_LIST_USAGE,
+        usage=EPIC_PROGRESS_NOTE_LIST_USAGE,
     )
     _epic_task_target_flags(parser)
     parser.add_argument(
@@ -157,7 +157,7 @@ EPIC_TASKS_LIST_USAGE = "yoke epic-tasks list --epic PREFIX-N [--session-id S] [
 def epic_tasks_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke epic-tasks list",
-        description=EPIC_TASKS_LIST_USAGE,
+        usage=EPIC_TASKS_LIST_USAGE,
     )
     parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     add_session_arg(parser)

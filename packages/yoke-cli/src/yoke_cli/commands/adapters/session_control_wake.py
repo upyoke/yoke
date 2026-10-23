@@ -74,7 +74,12 @@ def session_wake(args: List[str]) -> int:
             "available, unknown or stale does not refuse the wake."
         ),
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")
+    parser.add_argument(
+        "target_session_id",
+        metavar="SESSION-ID",
+        nargs="?",
+        help="Session to wake; or use --item.",
+    )
     parser.add_argument(
         "--item",
         default=None,

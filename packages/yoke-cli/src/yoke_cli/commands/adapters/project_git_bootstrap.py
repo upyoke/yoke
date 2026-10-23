@@ -74,7 +74,7 @@ def _parser():
             "to apply. Existing remotes are never replaced."
         ),
     )
-    parser.add_argument("checkout")
+    parser.add_argument("checkout", help="Path of the checkout to set up.")
     parser.add_argument(
         "--no-init", dest="init_repo", action="store_false",
         help="Do not git init; refuse if the checkout is not already a repo.",
@@ -84,15 +84,24 @@ def _parser():
         help="Skip GitHub repository creation, origin, push, and binding.",
     )
     add_project_arg(parser)
-    parser.add_argument("--owner", default=None)
-    parser.add_argument("--name", default=None)
+    parser.add_argument("--owner", default=None, help="GitHub owner of the new repo.")
+    parser.add_argument("--name", default=None, help="Name of the new GitHub repo.")
     parser.add_argument(
         "--default-branch", dest="default_branch", default="main",
+        help="Branch for the initial commit; default: main.",
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config", dest="config_path", default=None,
+        help="Machine config file to use; default: the standard one.",
+    )
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--yes", dest="apply", action="store_true")
-    mode.add_argument("--dry-run", dest="dry_run", action="store_true")
+    mode.add_argument(
+        "--yes", dest="apply", action="store_true", help="Apply the changes."
+    )
+    mode.add_argument(
+        "--dry-run", dest="dry_run", action="store_true",
+        help="Show the plan without changing anything (the default).",
+    )
     parser.set_defaults(
         init_repo=True, create_remote=True, apply=False, dry_run=False,
     )

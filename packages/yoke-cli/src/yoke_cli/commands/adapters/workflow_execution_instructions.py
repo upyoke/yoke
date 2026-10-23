@@ -45,6 +45,12 @@ def render_execution_instruction_block(instructions: List[Dict[str, Any]]) -> st
         lines.append("")
     return "\n".join(lines) + "\n"
 
+_DELIVERY_NOTE = (
+    "Select at least one delivery point; When entering stage requires a "
+    "stage bucket. Creation defaults to Before creation + On every read; "
+    "edits preserve omitted settings."
+)
+
 
 def _instruction_content(parsed: argparse.Namespace) -> str | None:
     if parsed.stdin:
@@ -60,12 +66,12 @@ def _dispatch(
     function_id: str,
     payload: Callable[[argparse.Namespace], dict],
     human_writer: Callable[[Any, Any, Any], None] | None = None,
+    description: str | None = None,
 ) -> int:
     usage = f"yoke {tokens} [--json]"
     parser = argparse.ArgumentParser(
         prog=f"yoke {tokens}",
-        description=usage
-        + "\nSelect at least one delivery point; When entering stage requires a stage bucket. Creation defaults to Before creation + On every read; edits preserve omitted settings.",
+        description=description,
     )
     if configure is not None:
         configure(parser)
@@ -100,6 +106,7 @@ def workflow_execution_instruction_create(args: List[str]) -> int:
         tokens="workflow execution-instruction create",
         configure=_content_args,
         function_id="workflow.execution_instruction.create",
+        description=_DELIVERY_NOTE,
         payload=lambda parsed: {
             "content": _instruction_content(parsed) or "",
             **_delivery_payload(parsed),
@@ -108,7 +115,7 @@ def workflow_execution_instruction_create(args: List[str]) -> int:
 
 
 def _update_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("instruction_id", type=int)
+    parser.add_argument("instruction_id", type=int, help="Instruction to update.")
     _content_args(parser)
 
 
@@ -118,6 +125,7 @@ def workflow_execution_instruction_update(args: List[str]) -> int:
         tokens="workflow execution-instruction update",
         configure=_update_args,
         function_id="workflow.execution_instruction.update",
+        description=_DELIVERY_NOTE,
         payload=lambda parsed: {
             "instruction_id": parsed.instruction_id,
             "content": _instruction_content(parsed) or "",
@@ -128,7 +136,7 @@ def workflow_execution_instruction_update(args: List[str]) -> int:
 
 def _set_scope_args(parser: argparse.ArgumentParser) -> None:
     _delivery_args(parser)
-    parser.add_argument("instruction_id", type=int)
+    parser.add_argument("instruction_id", type=int, help="Instruction to scope.")
     parser.add_argument(
         "--all-workflows",
         action="store_true",
@@ -162,6 +170,7 @@ def workflow_execution_instruction_set_scope(args: List[str]) -> int:
         tokens="workflow execution-instruction set-scope",
         configure=_set_scope_args,
         function_id="workflow.execution_instruction.set_scope",
+        description=_DELIVERY_NOTE,
         payload=lambda parsed: {
             "instruction_id": parsed.instruction_id,
             "applies_to_all_workflows": parsed.all_workflows,
@@ -184,8 +193,8 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
 
 
 def _resolve_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--workflow", required=True)
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--workflow", required=True, help="Workflow to resolve for.")
+    parser.add_argument("--project", required=True, help="Project to resolve for.")
     parser.add_argument(
         "--delivery-point",
         default="before_creation",
@@ -246,8 +255,7 @@ def workflow_execution_instruction_delete(args: List[str]) -> int:
         args,
         tokens="workflow execution-instruction delete",
         configure=lambda parser: parser.add_argument(
-            "instruction_id",
-            type=int,
+            "instruction_id", type=int, help="Instruction to delete."
         ),
         function_id="workflow.execution_instruction.delete",
         payload=lambda parsed: {"instruction_id": parsed.instruction_id},

@@ -35,10 +35,12 @@ DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE = (
 def deployment_flows_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-flows list",
-        description=DEPLOYMENT_FLOWS_LIST_USAGE,
+        usage=DEPLOYMENT_FLOWS_LIST_USAGE,
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--include-disabled", action="store_true")
+    parser.add_argument("--project", default=None, help="Project to list flows for.")
+    parser.add_argument(
+        "--include-disabled", action="store_true", help="Also list disabled flows."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_FLOWS_LIST_USAGE)
@@ -64,11 +66,11 @@ def deployment_flows_list(args: List[str]) -> int:
 def deployment_runs_find_by_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs find-by-item",
-        description=DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
+        usage=DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--status", default=None)
+    parser.add_argument("item", help="Item id (PREFIX-N) whose runs to find.")
+    parser.add_argument("--project", default=None, help="Project the item belongs to.")
+    parser.add_argument("--status", default=None, help="Only runs with this status.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE)
@@ -91,9 +93,9 @@ def deployment_runs_find_by_item(args: List[str]) -> int:
 def deployment_runs_stages(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs stages",
-        description=DEPLOYMENT_RUNS_STAGES_USAGE,
+        usage=DEPLOYMENT_RUNS_STAGES_USAGE,
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_STAGES_USAGE)
@@ -123,7 +125,7 @@ def deployment_runs_failure_trace(args: List[str]) -> int:
             "preserving every reached run URL and any partial-stop reason."
         ),
     )
-    parser.add_argument("run_id")
+    parser.add_argument("run_id", help="Deployment run id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

@@ -18,12 +18,16 @@ def main(argv: list[str] | None = None) -> int:
         "After adoption, review captured evidence with review-begin or resume the exact live execution.",
     )
     subject = parser.add_mutually_exclusive_group()
-    subject.add_argument("--item")
-    subject.add_argument("--project")
-    parser.add_argument("--execution-id", required=True)
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--session-id")
-    parser.add_argument("--json", action="store_true")
+    subject.add_argument("--item", help="Item that owns the execution, as PREFIX-N.")
+    subject.add_argument("--project", help="Project that owns the execution.")
+    parser.add_argument(
+        "--execution-id", required=True, help="Id of the QA plan execution to adopt."
+    )
+    parser.add_argument(
+        "--reason", required=True, help="Why this session adopts the execution."
+    )
+    parser.add_argument("--session-id", help="Session making the call.")
+    parser.add_argument("--json", action="store_true", help="Print the result as JSON.")
     parsed = parser.parse_args(argv)
     if parsed.item:
         prefix, sequence = parse_public_item_ref(parsed.item)

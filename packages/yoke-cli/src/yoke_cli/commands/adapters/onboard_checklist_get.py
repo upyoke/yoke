@@ -71,11 +71,27 @@ def render_lookup(response: FunctionCallResponse, stdout, stderr) -> None:
 
 def onboard_checklist_get(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke onboard checklist get")
-    parser.add_argument("--project")
-    parser.add_argument("--run-id")
-    parser.add_argument("--config", dest="config_path")
-    parser.add_argument("--checkout", dest="checkout_path")
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument("--project", help="Project whose setup run to read.")
+    parser.add_argument(
+        "--run-id",
+        help="Setup run id to read.",
+    )
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        help="Machine config file to read; default: the standard config path.",
+    )
+    parser.add_argument(
+        "--checkout",
+        dest="checkout_path",
+        help="Project checkout to read setup facts from.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print JSON instead of text.",
+    )
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_GET_USAGE)
     if parsed is None:
         return 2

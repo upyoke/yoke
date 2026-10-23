@@ -37,7 +37,7 @@ class TestGroupHelpWhereAGroupExists:
         registered token is the hyphenated `github-actions`."""
         assert cli_main(["github", "actions", "--help"]) == 0
         out = capsys.readouterr().out
-        assert "yoke github actions - subcommand group." in out
+        assert "Usage: yoke github actions <subcommand>" in out
         assert "yoke github actions poll" in out
 
     def test_parent_group_lists_its_hyphenated_members(self, capsys):
@@ -62,14 +62,14 @@ class TestGroupHelpWhereAGroupExists:
         assert cli_main(["sessions", "heartbeat"]) == 2
         err = capsys.readouterr().err
         assert "unknown subcommand" in err
-        assert "yoke sessions - subcommand group." in err
+        assert "Usage: yoke sessions <subcommand>" in err
         assert "yoke sessions checkpoint" in err
 
     def test_unknown_leaf_under_no_group_stays_terse(self, capsys):
         assert cli_main(["frobnicate", "widgets"]) == 2
         err = capsys.readouterr().err
         assert "unknown subcommand" in err
-        assert "subcommand group." not in err
+        assert "<subcommand> [arguments]" not in err
 
 
 class TestGroupTeachingNamesTheRealSurface:

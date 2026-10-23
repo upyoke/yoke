@@ -65,13 +65,16 @@ def _project_default_parser(
     prog: str,
     *,
     value_flag: str,
+    value_help: str,
     value_type: type = str,
 ) -> argparse.ArgumentParser:
     parser = _parser(prog)
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--workflow", required=True)
-    parser.add_argument(value_flag, required=True, type=value_type)
-    parser.add_argument("--apply-to-all", action="store_true")
+    parser.add_argument("--project", required=True, help="Project to set it for.")
+    parser.add_argument("--workflow", required=True, help="Workflow to set it on.")
+    parser.add_argument(value_flag, required=True, type=value_type, help=value_help)
+    parser.add_argument(
+        "--apply-to-all", action="store_true", help="Set it on every workflow instead."
+    )
     return parser
 
 
@@ -79,6 +82,7 @@ def workflows_testing_default_set(args: List[str]) -> int:
     parser = _project_default_parser(
         "yoke workflows testing-default set",
         value_flag="--plan-id",
+        value_help="QA plan id to use as the default.",
         value_type=int,
     )
     parsed = parse_or_usage_error(parser, args, TESTING_SET_USAGE)
@@ -96,6 +100,7 @@ def workflows_delivery_default_set(args: List[str]) -> int:
     parser = _project_default_parser(
         "yoke workflows delivery-default set",
         value_flag="--flow",
+        value_help="Deployment flow id to use as the default.",
     )
     parsed = parse_or_usage_error(parser, args, DELIVERY_SET_USAGE)
     if parsed is None:
@@ -110,8 +115,15 @@ def workflows_delivery_default_set(args: List[str]) -> int:
 
 def workflows_approval_defaults_publish(args: List[str]) -> int:
     parser = _parser("yoke workflows approval-defaults publish")
-    parser.add_argument("--workflow", required=True)
-    parser.add_argument("--expected-current-version", required=True, type=int)
+    parser.add_argument(
+        "--workflow", required=True, help="Workflow to publish defaults for."
+    )
+    parser.add_argument(
+        "--expected-current-version",
+        required=True,
+        type=int,
+        help="Current defaults version; the publish fails if it changed.",
+    )
     parser.add_argument(
         "--defaults-file",
         required=True,

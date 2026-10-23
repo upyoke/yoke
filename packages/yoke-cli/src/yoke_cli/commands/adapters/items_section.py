@@ -92,7 +92,7 @@ ITEMS_SECTION_UPSERT_USAGE = (
 def items_section_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section upsert",
-        description=ITEMS_SECTION_UPSERT_USAGE,
+        usage=ITEMS_SECTION_UPSERT_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
@@ -136,7 +136,7 @@ ITEMS_SECTION_GET_USAGE = (
 def items_section_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section get",
-        description=ITEMS_SECTION_GET_USAGE,
+        usage=ITEMS_SECTION_GET_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--section", required=True, help="Section heading.")
@@ -163,7 +163,7 @@ def items_section_get(args: List[str]) -> int:
 def items_progress_log_get(args: List[str]) -> int:
     """Read the canonical Progress Log section of one item."""
     parser = argparse.ArgumentParser(prog="yoke items progress-log get")
-    parser.add_argument("item")
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -192,7 +192,7 @@ ITEMS_SECTION_DELETE_USAGE = (
 def items_section_delete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section delete",
-        description=ITEMS_SECTION_DELETE_USAGE,
+        usage=ITEMS_SECTION_DELETE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--section", required=True, help="Section heading to delete.")
@@ -226,7 +226,7 @@ STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE = (
 def items_structured_field_append_addendum(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field append-addendum",
-        description=STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE,
+        usage=STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--field", required=True, help="Structured field name.")
@@ -281,7 +281,7 @@ STRUCTURED_FIELD_SECTION_APPEND_USAGE = (
 def items_structured_field_section_append(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field section-append",
-        description=STRUCTURED_FIELD_SECTION_APPEND_USAGE,
+        usage=STRUCTURED_FIELD_SECTION_APPEND_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument("--section", required=True, help="Section heading.")

@@ -18,24 +18,25 @@ from yoke_cli.commands.adapters.settings_store import SettingsStore, SettingsCal
 from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
 from yoke_contracts.settings_catalog import CATALOG, SCOPES, resolve_setting
 
-USAGES = {
+_SYNOPSES = {
     "list": "yoke settings list [--scope machine|project|org|universe] [--project P] [--json]",
     "get": "yoke settings get KEY [--project P] [--json]",
-    "set": "yoke settings set KEY VALUE [--project P] [--json] (VALUE - reads JSON from stdin)",
+    "set": "yoke settings set KEY VALUE [--project P] [--json]",
     "unset": "yoke settings unset KEY [--project P] [--json]",
 }
+USAGES = {**_SYNOPSES, "set": _SYNOPSES["set"] + " (VALUE - reads JSON from stdin)"}
 
 
 def run(args, operation):
     parser = argparse.ArgumentParser(
         prog=f"yoke settings {operation}",
-        description=USAGES[operation]
-        + "\nMachine writes stay local. Project writes require project admin; org and universe writes require org admin. Unset follows defaults. Structured capabilities, environment settings and secrets use their own surfaces.",
+        usage=_SYNOPSES[operation],
+        description="Machine writes stay local. Project writes require project admin; org and universe writes require org admin. Unset follows defaults. Structured capabilities, environment settings and secrets use their own surfaces.",
     )
     if operation == "list":
-        parser.add_argument("--scope", choices=SCOPES)
+        parser.add_argument("--scope", choices=SCOPES, help="List only this scope.")
     else:
-        parser.add_argument("key")
+        parser.add_argument("key", help="Setting key, as shown by yoke settings list.")
     if operation == "set":
         parser.add_argument(
             "value", help="Typed scalar or JSON document; - reads the value from stdin."

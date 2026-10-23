@@ -41,11 +41,14 @@ def run(args: List[str]) -> int:
             "See yoke qa plan run --help."
         ),
     )
-    parser.add_argument("--item")
-    parser.add_argument("--execution-id", required=True)
+    parser.add_argument("--item", help="Item whose QA execution to abort, as PREFIX-N.")
+    parser.add_argument("--execution-id", required=True, help="QA execution to abort.")
     parser.add_argument("--reason", required=True, help=REASON_HELP)
-    parser.add_argument("--project")
-    parser.add_argument("--session-id")
+    parser.add_argument("--project", help="Project that owns the execution.")
+    parser.add_argument(
+        "--session-id",
+        help="Override the detected session id (debugging only).",
+    )
     parsed = parser.parse_args(args)
     if len(parsed.reason) > ABORT_REASON_MAX_LENGTH:
         parser.error(

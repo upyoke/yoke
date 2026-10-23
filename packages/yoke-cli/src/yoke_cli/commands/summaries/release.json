@@ -1,0 +1,5 @@
+{
+  "release": "Record release pins for deploy targets.",
+  "release pin": "Record release pins for deploy targets.",
+  "release pin record": "Record the release a deploy target is pinned to."
+}

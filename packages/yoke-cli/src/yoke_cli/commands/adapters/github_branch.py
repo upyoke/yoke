@@ -39,9 +39,13 @@ def github_branch_head(args: List[str]) -> int:
             "not_descendant (the branch was rewritten or moved back)."
         ),
     )
-    parser.add_argument("branch")
-    parser.add_argument("--since", default="")
-    parser.add_argument("--project", required=True)
+    parser.add_argument("branch", help="Branch to read.")
+    parser.add_argument(
+        "--since", default="", help="Full commit sha to compare the head against."
+    )
+    parser.add_argument(
+        "--project", required=True, help="Project whose repository to read."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_BRANCH_HEAD_USAGE)

@@ -81,9 +81,15 @@ def hook_latency_benchmark(args: List[str]) -> int:
             "PostToolUse checks. This is on demand only and generates no load."
         ),
     )
-    parser.add_argument("--samples", type=int, default=5)
-    parser.add_argument("--compare", type=Path)
-    parser.add_argument("--json", action="store_true", dest="json_mode")
+    parser.add_argument(
+        "--samples", type=int, default=5, help="Times to run the command; default: 5."
+    )
+    parser.add_argument(
+        "--compare", type=Path, help="Earlier JSON report to compare this run against."
+    )
+    parser.add_argument(
+        "--json", action="store_true", dest="json_mode", help="Print JSON output."
+    )
     parsed = parser.parse_args(args)
 
     from yoke_cli.hook_latency_benchmark import (

@@ -57,7 +57,7 @@ def sessions_identity(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke sessions identity",
-        description=SESSIONS_IDENTITY_USAGE,
+        usage=SESSIONS_IDENTITY_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -76,10 +76,10 @@ def sessions_identity(args: List[str]) -> int:
 def sessions_touch(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions touch",
-        description=SESSIONS_TOUCH_USAGE,
+        usage=SESSIONS_TOUCH_USAGE,
     )
-    parser.add_argument("--mode", default=None, choices=sorted(SESSION_MODES))
-    parser.add_argument("--reason", default=None)
+    parser.add_argument("--mode", choices=sorted(SESSION_MODES), help="Mode to set.")
+    parser.add_argument("--reason", help="Why the session is in this mode.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_TOUCH_USAGE)
@@ -102,23 +102,27 @@ def sessions_touch(args: List[str]) -> int:
 def sessions_checkpoint(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions checkpoint",
-        description=SESSIONS_CHECKPOINT_USAGE,
+        usage=SESSIONS_CHECKPOINT_USAGE,
     )
-    parser.add_argument("--step", type=int, required=True)
-    parser.add_argument("--action", required=True)
-    parser.add_argument("--chainable", required=True)
+    parser.add_argument("--step", type=int, required=True, help="Chain step number.")
+    parser.add_argument("--action", required=True, help="Action the step ran.")
+    parser.add_argument(
+        "--chainable", required=True, help="true if the chain may continue."
+    )
     parser.add_argument(
         "--item",
         dest="public_ref",
         default=None,
         help="Complete public item ref (PREFIX-N).",
     )
-    parser.add_argument("--task-num", type=int, default=None)
-    parser.add_argument("--outcome", default="completed")
-    parser.add_argument("--status", default=None)
-    parser.add_argument("--required-path", default=None)
-    parser.add_argument("--pre-status", default=None)
-    parser.add_argument("--failure-class", default=None)
+    parser.add_argument("--task-num", type=int, help="Task number the step worked on.")
+    parser.add_argument(
+        "--outcome", default="completed", help="Step outcome; default: completed."
+    )
+    parser.add_argument("--status", help="Item status after the step.")
+    parser.add_argument("--required-path", help="Path the next step requires.")
+    parser.add_argument("--pre-status", help="Item status before the step.")
+    parser.add_argument("--failure-class", help="Failure class when the step failed.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_CHECKPOINT_USAGE)
@@ -155,7 +159,7 @@ def sessions_checkpoint(args: List[str]) -> int:
 def sessions_checkpoint_read(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions checkpoint-read",
-        description=SESSIONS_CHECKPOINT_READ_USAGE,
+        usage=SESSIONS_CHECKPOINT_READ_USAGE,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -201,20 +205,25 @@ def _resolve_begin_project_id(explicit: str | None, workspace: str):
 def sessions_begin(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions begin",
-        description=SESSIONS_BEGIN_USAGE,
+        usage=SESSIONS_BEGIN_USAGE,
     )
-    parser.add_argument("--executor", required=True)
-    parser.add_argument("--provider", required=True)
-    parser.add_argument("--requested-model", required=True)
-    parser.add_argument("--workspace", required=True)
+    parser.add_argument("--executor", required=True, help="Harness running it.")
+    parser.add_argument("--provider", required=True, help="Model provider.")
+    parser.add_argument("--requested-model", required=True, help="Model asked for.")
+    parser.add_argument("--workspace", required=True, help="Checkout path to work in.")
     parser.add_argument(
         "--project",
         metavar="ID",
         default=None,
         help="numeric project id; otherwise resolve the workspace mapping",
     )
-    parser.add_argument("--mode", default="wait", choices=sorted(SESSION_MODES))
-    parser.add_argument("--entrypoint", default=None)
+    modes = sorted(SESSION_MODES)
+    parser.add_argument(
+        "--mode", default="wait", choices=modes, help="Start mode; default: wait."
+    )
+    parser.add_argument(
+        "--entrypoint", help="App that launched it, such as codex-desktop."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_BEGIN_USAGE)
@@ -250,12 +259,25 @@ def sessions_begin(args: List[str]) -> int:
 def charge_schedule(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke charge schedule",
-        description=CHARGE_SCHEDULE_USAGE,
+        usage=CHARGE_SCHEDULE_USAGE,
     )
-    parser.add_argument("--project", default=None)
-    parser.add_argument("--wip-cap", type=int, default=None)
-    parser.add_argument("--item", default=None, help="bypass workspace-home filter")
-    parser.add_argument("--workspace", default=None)
+    parser.add_argument("--project", default=None, help="Project to schedule from.")
+    parser.add_argument(
+        "--wip-cap",
+        type=int,
+        default=None,
+        help="Most items in progress at once (1-100); default: project policy.",
+    )
+    parser.add_argument(
+        "--item",
+        default=None,
+        help="Schedule this item even if it belongs to another workspace.",
+    )
+    parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Checkout whose items to schedule; default: current directory.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CHARGE_SCHEDULE_USAGE)

@@ -215,7 +215,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("config", "bind-actor"): ("config.bind_actor.run", config_bind_actor),
     ("config", "example"): ("config.example.run", _adapters.config_example),
-    ("config", "status"): ("config.status.run", _adapters.status),
+    ("config", "status"): ("config.status.run", _adapters.config_status),
     ("status",): ("status.run", _adapters.status),
     ("onboard", "checklist", "init"): (
         "onboard.checklist.init",

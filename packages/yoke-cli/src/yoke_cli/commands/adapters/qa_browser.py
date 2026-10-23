@@ -50,7 +50,7 @@ QA_BROWSER_CONTEXT_GET_USAGE = (
 def qa_browser_context_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser-context get",
-        description=QA_BROWSER_CONTEXT_GET_USAGE,
+        usage=QA_BROWSER_CONTEXT_GET_USAGE,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item", help="Target item (PREFIX-N).")
@@ -120,7 +120,7 @@ QA_RUN_ADD_USAGE = (
 def qa_run_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run add",
-        description=QA_RUN_ADD_USAGE,
+        usage=QA_RUN_ADD_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument(
@@ -222,7 +222,7 @@ QA_RUN_COMPLETE_USAGE = (
 def qa_run_complete(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run complete",
-        description=QA_RUN_COMPLETE_USAGE,
+        usage=QA_RUN_COMPLETE_USAGE,
         epilog=AGENT_UNDETERMINED_HELP,
     )
     parser.add_argument(

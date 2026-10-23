@@ -31,7 +31,7 @@ VERIFY_USAGE = (
 
 def release_pin_verify(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke release-pin verify")
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help="Project whose pin to verify.")
     parser.add_argument(
         "--environment",
         required=True,

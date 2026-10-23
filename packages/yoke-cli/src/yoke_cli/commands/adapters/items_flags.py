@@ -76,7 +76,8 @@ Frozen items
 def _build_parser(prog: str, usage: str, description: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=prog,
-        description=f"{usage}\n{description}{_CLAIM_NOTE}",
+        usage=usage,
+        description=f"{description}{_CLAIM_NOTE}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")

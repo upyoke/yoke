@@ -25,7 +25,7 @@ USAGE_BY_FUNCTION_ID = {
 def overview_activation_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke overview activation get",
-        description=OVERVIEW_ACTIVATION_GET_USAGE,
+        usage=OVERVIEW_ACTIVATION_GET_USAGE,
     )
     parser.add_argument(
         "--machine-connected",

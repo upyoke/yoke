@@ -35,17 +35,22 @@ PROJECTS_GITHUB_BINDING_STATUS_USAGE = (
 PROJECTS_GITHUB_BINDING_CHECK_USAGE = (
     "yoke projects github-binding check --project NAME [--json]"
 )
+_PROJECT_HELP = "Project whose GitHub binding to use."
 
 
 def projects_github_binding_bind(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects github-binding bind",
-        description=PROJECTS_GITHUB_BINDING_BIND_USAGE,
+        usage=PROJECTS_GITHUB_BINDING_BIND_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--installation-id", required=True)
-    parser.add_argument("--repository-id", required=True)
-    parser.add_argument("--github-repo", required=True)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument(
+        "--installation-id", required=True, help="GitHub App installation id."
+    )
+    parser.add_argument(
+        "--repository-id", required=True, help="Numeric GitHub repository id."
+    )
+    parser.add_argument("--github-repo", required=True, help="Repo as OWNER/REPO.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -96,9 +101,9 @@ def projects_github_binding_bind(args: List[str]) -> int:
 def projects_github_binding_unbind(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects github-binding unbind",
-        description=PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
+        usage=PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -119,10 +124,15 @@ def projects_github_binding_unbind(args: List[str]) -> int:
 def projects_github_binding_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects github-binding status",
-        description=PROJECTS_GITHUB_BINDING_STATUS_USAGE,
+        usage=PROJECTS_GITHUB_BINDING_STATUS_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--field", choices=("github_repo",), default=None)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
+    parser.add_argument(
+        "--field",
+        choices=("github_repo",),
+        default=None,
+        help="Print only this field's value.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -146,10 +156,11 @@ def projects_github_binding_check(args: List[str]) -> int:
         prog="yoke projects github-binding check",
         description=(
             "Re-verify the project's GitHub App binding with GitHub and "
-            "refresh its last-checked time. " + PROJECTS_GITHUB_BINDING_CHECK_USAGE
+            "refresh its last-checked time."
         ),
+        usage=PROJECTS_GITHUB_BINDING_CHECK_USAGE,
     )
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", required=True, help=_PROJECT_HELP)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

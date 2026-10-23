@@ -69,7 +69,7 @@ def test_all_help_routes_are_inert_and_bounded(monkeypatch, tmp_path):
 def test_parent_help_does_not_expand_descendants(capsys):
     assert main(["items", "--help"]) == 0
     text = capsys.readouterr().out
-    assert "yoke items structured-field  --help" in text
+    assert "  yoke items structured-field " in text
     assert "yoke items structured-field replace" not in text
     assert main(["onboard", "checklist", "--help"]) == 0
     text = capsys.readouterr().out

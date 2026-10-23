@@ -302,7 +302,19 @@ __all__ = [
 
 def configure_attachment(parser) -> None:
     """Declare the attachment fields shared with its help contract."""
-    parser.add_argument("--plan-id", required=True, type=int)
-    parser.add_argument("--transition", required=True)
-    parser.add_argument("--qa-phase", default="verification")
-    parser.add_argument("--acknowledge-unreachable-target", action="store_true")
+    parser.add_argument(
+        "--plan-id", required=True, type=int, help="Id of the QA plan to attach."
+    )
+    parser.add_argument(
+        "--transition", required=True, help="Workflow transition where the plan blocks."
+    )
+    parser.add_argument(
+        "--qa-phase",
+        default="verification",
+        help="QA phase of the attachment; default: verification.",
+    )
+    parser.add_argument(
+        "--acknowledge-unreachable-target",
+        action="store_true",
+        help="Attach even though the plan's target looks unreachable here.",
+    )

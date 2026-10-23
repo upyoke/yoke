@@ -29,14 +29,16 @@ def universe_import(args: List[str]) -> int:
             "revoked, and the machine owner receives local admin authority."
         ),
     )
-    parser.add_argument("archive")
+    parser.add_argument("archive", help="Path of the universe archive to import.")
     parser.add_argument(
         "--yes",
         dest="assume_yes",
         action="store_true",
         help="Consent to replacing the active local universe without a prompt.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
     if parsed is None:
         return 2

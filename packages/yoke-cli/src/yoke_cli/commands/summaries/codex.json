@@ -1,0 +1,5 @@
+{
+  "codex": "Manage Codex settings that Yoke owns.",
+  "codex hook-trust": "Clean up Codex hook trust entries.",
+  "codex hook-trust sweep": "Remove Codex hook trust entries for paths that are gone."
+}

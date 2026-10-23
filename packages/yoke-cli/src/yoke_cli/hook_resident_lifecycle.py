@@ -205,7 +205,10 @@ def restart_resident() -> None:
 
 def resident_lifecycle(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke hook resident")
-    parser.add_argument("action", choices=("restart", "stop"))
+    parser.add_argument(
+        "action", choices=("restart", "stop"),
+        help="Restart or stop the resident hook process.",
+    )
     action = parser.parse_args(args).action
     try:
         if action == "restart":

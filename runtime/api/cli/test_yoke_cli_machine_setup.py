@@ -129,7 +129,7 @@ class TestMachineSetupRouting:
         assert cli_main(["onboard"]) == 0
         output = capsys.readouterr().out
         assert output.splitlines()[0] == "For machine setup, run `yoke setup`."
-        assert "subcommand group" in output
+        assert "Usage: yoke onboard <subcommand>" in output
         assert "yoke onboard project" in output
         assert "yoke onboard checklist" in output
         assert seen == []

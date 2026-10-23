@@ -1,0 +1,9 @@
+{
+  "board": "Rebuild the project board and print it.",
+  "board art": "Make art for the project board.",
+  "board art variant": "Make random art variants for the project board.",
+  "board art variant create": "Make one random board art variant and preview it.",
+  "board data": "Read the data behind the project board.",
+  "board data get": "Show the stored board snapshot, for debugging.",
+  "board rebuild": "Rebuild the board file from current items."
+}

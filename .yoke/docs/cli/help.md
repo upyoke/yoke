@@ -15,8 +15,10 @@ yoke session-control launch list --project example
 
 Yoke plans, builds, verifies and delivers software with people and agents.
 Root help lists immediate categories and actions, including `dash` and `task`.
-Category help lists immediate children once. Command help owns its supported
-recipe, arguments, options and prerequisites. Reading help performs no work.
+Category help lists immediate children once, each with a one-line summary.
+Command help opens with that summary, shows its usage once, and owns its
+supported recipe, arguments, options and prerequisites. Every argument has a
+short help line. Reading help performs no work.
 A command that also has children shows its children and its action options.
 Supported alternate spellings follow the same tree.
 

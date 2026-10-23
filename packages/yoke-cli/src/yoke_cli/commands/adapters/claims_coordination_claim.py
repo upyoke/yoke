@@ -70,7 +70,7 @@ def _print_claim(response: Any, stdout, _stderr) -> None:
 def claims_coordination_claim_acquire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims coordination-claim acquire",
-        description=CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE,
+        usage=CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE,
         epilog=(
             "Takes one shared-operation claim for this session. Deployment "
             "runs take none: a run occupies its target servers until its QA "
@@ -120,7 +120,7 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
 def claims_coordination_claim_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims coordination-claim release",
-        description=CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE,
+        usage=CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE,
         epilog=(
             "Releases a claim by the (project, key) that addresses it, or by "
             "row id. This is the holder's own release; freeing a claim "
@@ -171,7 +171,7 @@ def claims_coordination_claim_release(args: List[str]) -> int:
 def claims_coordination_claim_operator_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke coordination-claim release",
-        description=OPERATOR_RELEASE_USAGE,
+        usage=OPERATOR_RELEASE_USAGE,
         epilog=(
             "Operator recovery for a claim stranded by another session. "
             "Run it from a session holding a live steering seat on the "
@@ -228,7 +228,7 @@ def claims_coordination_claim_operator_release(args: List[str]) -> int:
 def claims_coordination_claim_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke coordination-claim list",
-        description=CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
+        usage=CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
         epilog="QA_HOST:<machine> keys are machine-scoped; --project does not filter them.",
     )
     parser.add_argument("--project", default=None, help="Project slug or id.")

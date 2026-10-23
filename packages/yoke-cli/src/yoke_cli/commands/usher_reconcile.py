@@ -26,9 +26,8 @@ evidence."""
 def usher_reconcile_github(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke usher reconcile-github",
-        description=(
-            f"{USHER_RECONCILE_GITHUB_USAGE}\n\n{_USHER_RECONCILE_GITHUB_HELP}"
-        ),
+        usage=USHER_RECONCILE_GITHUB_USAGE,
+        description=_USHER_RECONCILE_GITHUB_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item ref (PREFIX-N).")

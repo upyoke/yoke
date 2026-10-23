@@ -111,7 +111,7 @@ def session_launch_preview(args: List[str]) -> int:
         return listed
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch preview",
-        description=LAUNCH_PREVIEW_USAGE,
+        usage=LAUNCH_PREVIEW_USAGE,
     )
     _add_launch_selector(parser)
     add_session_arg(parser)
@@ -132,11 +132,15 @@ def session_launch_preview(args: List[str]) -> int:
 def _launch_create_parser(
     prog: str, usage: str, *, preview: bool
 ) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     _add_launch_selector(parser)
     if preview:
         mode = parser.add_mutually_exclusive_group(required=False)
-        mode.add_argument("--preview", action="store_true")
+        mode.add_argument(
+            "--preview",
+            action="store_true",
+            help="Show what would launch without starting a session.",
+        )
         mode.add_argument(
             "--stdin",
             action="store_true",
@@ -159,7 +163,11 @@ def _launch_create_parser(
         help="Replays the same launch; if its session ended, no new worker starts. "
         "Use a new key to relaunch.",
     )
-    parser.add_argument("--item", default=None)
+    parser.add_argument(
+        "--item",
+        default=None,
+        help="Work item the session works on, as PREFIX-N.",
+    )
     parser.add_argument(
         "--level-reason",
         default=None,
@@ -255,11 +263,16 @@ def _launch_by_id(args: List[str], operation: str) -> int:
     }[operation]
     parser = argparse.ArgumentParser(
         prog=f"yoke session-control launch {operation}",
-        description=LAUNCH_DESCRIPTIONS.get(operation, usage),
+        usage=usage,
+        description=LAUNCH_DESCRIPTIONS.get(operation),
     )
-    parser.add_argument("launch_id")
+    parser.add_argument("launch_id", help="Session launch id.")
     if operation == "reconcile":
-        parser.add_argument("--observed-native-id", default=None)
+        parser.add_argument(
+            "--observed-native-id",
+            default=None,
+            help="Native process id seen on the machine for this launch.",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)

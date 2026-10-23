@@ -74,7 +74,7 @@ DOCTOR_LAST_RUN_GET_USAGE = (
 def doctor_last_run_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke doctor last-run get",
-        description=DOCTOR_LAST_RUN_GET_USAGE,
+        usage=DOCTOR_LAST_RUN_GET_USAGE,
     )
     parser.add_argument(
         "--project",
@@ -104,7 +104,7 @@ def doctor_last_run_get(args: List[str]) -> int:
 def doctor_run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke doctor run",
-        description=DOCTOR_RUN_USAGE,
+        usage=DOCTOR_RUN_USAGE,
     )
     scope = parser.add_mutually_exclusive_group(required=True)
     scope.add_argument(

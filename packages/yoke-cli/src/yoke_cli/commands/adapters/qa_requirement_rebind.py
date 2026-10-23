@@ -78,7 +78,7 @@ def _write_rebind_result(
 def qa_requirement_rebind_target(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement rebind-target",
-        description=QA_REQUIREMENT_REBIND_TARGET_USAGE,
+        usage=QA_REQUIREMENT_REBIND_TARGET_USAGE,
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

@@ -1,0 +1,10 @@
+{
+  "harness": "Maintain agent harness settings on this machine.",
+  "harness lane-config": "Clean harness settings left by removed lanes.",
+  "harness lane-config sweep": "Remove harness settings for lanes that no longer exist.",
+  "harness machine": "Report this machine's agent harnesses.",
+  "harness machine report": "Report this machine's agent harnesses.",
+  "harness machine report upsert": "Save this machine's harness report for a project.",
+  "harness machine-report": "Report this machine's agent harnesses.",
+  "harness machine-report upsert": "Save this machine's harness report for a project."
+}

@@ -18,13 +18,17 @@ QA_REQUIREMENT_TRANSFER_USAGE = (
 def qa_requirement_transfer(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement transfer",
-        description=QA_REQUIREMENT_TRANSFER_USAGE,
+        usage=QA_REQUIREMENT_TRANSFER_USAGE,
         epilog="Hold both item work claims in one project. Only an unexecuted direct case can move; frozen plan/run cases and settled history retain their subject. A blocking case must retain an executable method or a destination with manual review credit. The receipt is recorded on both items; this command records no pass.",
     )
-    parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--to-item", required=True)
-    parser.add_argument("--workflow-transition", required=True)
-    parser.add_argument("--rationale", required=True)
+    parser.add_argument(
+        "--requirement-id", type=int, required=True, help="QA requirement to move."
+    )
+    parser.add_argument("--to-item", required=True, help="Item (PREFIX-N) to move to.")
+    parser.add_argument(
+        "--workflow-transition", required=True, help="Stage it gates on the new item."
+    )
+    parser.add_argument("--rationale", required=True, help="Why the case moves.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_TRANSFER_USAGE)

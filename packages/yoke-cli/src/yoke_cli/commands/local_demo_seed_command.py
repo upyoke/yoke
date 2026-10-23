@@ -46,7 +46,9 @@ def local_demo_seed(args: List[str]) -> int:
         default=None,
         help="Machine config path override.",
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parser.add_argument(
+        "--json", dest="json_mode", action="store_true", help="Print JSON output."
+    )
     parsed = parse_or_usage_error(parser, args, DEMO_SEED_USAGE)
     if parsed is None:
         return 2

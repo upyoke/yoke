@@ -37,9 +37,12 @@ SESSIONS_RECLAIM_STALE_DESCRIPTION = (
 def sessions_end_if_empty(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions end-if-empty",
-        description=SESSIONS_END_IF_EMPTY_USAGE,
+        usage=SESSIONS_END_IF_EMPTY_USAGE,
     )
-    parser.add_argument("--triggered-by", default="cli")
+    parser.add_argument(
+        "--triggered-by", default="cli",
+        help="What triggered the call; default: cli.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_END_IF_EMPTY_USAGE)
@@ -89,8 +92,14 @@ def sessions_reclaim_stale(args: List[str]) -> int:
         usage=SESSIONS_RECLAIM_STALE_USAGE,
         description=SESSIONS_RECLAIM_STALE_DESCRIPTION,
     )
-    parser.add_argument("--confirm", action="store_true", required=True)
-    parser.add_argument("--project-ids", default=None)
+    parser.add_argument(
+        "--confirm", action="store_true", required=True,
+        help="Required: confirm that stale sessions should be reclaimed.",
+    )
+    parser.add_argument(
+        "--project-ids", default=None,
+        help="Comma-separated project ids to limit the reclaim to.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_RECLAIM_STALE_USAGE)

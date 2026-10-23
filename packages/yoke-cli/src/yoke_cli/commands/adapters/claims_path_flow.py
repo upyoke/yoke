@@ -39,7 +39,7 @@ CLAIMS_PATH_BOUNDARY_PROVE_USAGE = (
 def claims_path_required_gate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path required-gate",
-        description=CLAIMS_PATH_REQUIRED_GATE_USAGE,
+        usage=CLAIMS_PATH_REQUIRED_GATE_USAGE,
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     add_session_arg(parser)
@@ -93,7 +93,7 @@ def claims_path_boundary_prove(args: List[str]) -> int:
     """Observe the recorded local lane and stamp a hosted-consumable proof."""
     parser = argparse.ArgumentParser(
         prog="yoke claims path boundary-prove",
-        description=CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
+        usage=CLAIMS_PATH_BOUNDARY_PROVE_USAGE,
     )
     parser.add_argument("--item", required=True, help="YOK-N or N.")
     add_session_arg(parser)

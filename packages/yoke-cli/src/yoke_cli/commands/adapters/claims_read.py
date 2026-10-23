@@ -50,7 +50,7 @@ CLAIMS_PATH_LIST_USAGE = (
 def claims_path_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path list",
-        description=CLAIMS_PATH_LIST_USAGE,
+        usage=CLAIMS_PATH_LIST_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -92,7 +92,7 @@ CLAIMS_PATH_GET_USAGE = "yoke claims path get CLAIM_ID [--session-id S] [--json]
 def claims_path_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path get",
-        description=CLAIMS_PATH_GET_USAGE,
+        usage=CLAIMS_PATH_GET_USAGE,
     )
     parser.add_argument("claim_id", help="Path-claim id (integer).")
     add_full_arg(parser, "targets, bindings and amendment history")
@@ -148,7 +148,7 @@ CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE = (
 def claims_path_coordination_decision_build(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path coordination-decision-build",
-        description=CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
+        usage=CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -202,7 +202,7 @@ def claims_work_holder_get(args: List[str]) -> int:
     """Fetch the active work-claim holder, by item or by path."""
     parser = argparse.ArgumentParser(
         prog="yoke claims work holder-get",
-        description=CLAIM_WORK_HOLDER_GET_USAGE,
+        usage=CLAIM_WORK_HOLDER_GET_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -273,7 +273,7 @@ def claims_work_current(args: List[str]) -> int:
     """
     parser = argparse.ArgumentParser(
         prog="yoke claims work current",
-        description=CLAIM_WORK_CURRENT_USAGE,
+        usage=CLAIM_WORK_CURRENT_USAGE,
     )
     parser.add_argument(
         "--item",
@@ -312,7 +312,7 @@ CLAIM_WORK_HOLDER_LIST_USAGE = (
 def claims_work_holder_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims work holder-list",
-        description=CLAIM_WORK_HOLDER_LIST_USAGE,
+        usage=CLAIM_WORK_HOLDER_LIST_USAGE,
     )
     parser.add_argument(
         "--item",

@@ -66,9 +66,8 @@ QARequirementCreated events emit after commit. Exit codes: 0 success,
 def qa_requirement_add_batch(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement add-batch",
-        description=(
-            f"{QA_REQUIREMENT_ADD_BATCH_USAGE}\n\n{_REQUIREMENT_ADD_BATCH_HELP_DEEP}"
-        ),
+        usage=QA_REQUIREMENT_ADD_BATCH_USAGE,
+        description=_REQUIREMENT_ADD_BATCH_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--item", required=True, help="Target item (PREFIX-N).")

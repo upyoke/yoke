@@ -23,10 +23,10 @@ CONFLICT_SURVEY_STATUS_USAGE = (
 def conflict_survey_status(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke direct-workflow conflict-survey status",
-        description=CONFLICT_SURVEY_STATUS_USAGE,
+        usage=CONFLICT_SURVEY_STATUS_USAGE,
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Item to read, as PREFIX-N.")
+    parser.add_argument("--project", help="Project that owns the item.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CONFLICT_SURVEY_STATUS_USAGE)

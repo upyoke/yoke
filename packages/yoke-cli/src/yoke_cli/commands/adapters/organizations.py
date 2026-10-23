@@ -140,8 +140,17 @@ def organizations_get(args: List[str]) -> int:
 
 def organizations_domain_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke organizations domain set")
-    parser.add_argument("domain", nargs="?", default=None)
-    parser.add_argument("--clear", action="store_true")
+    parser.add_argument(
+        "domain",
+        nargs="?",
+        default=None,
+        help="Domain to set for the organization, e.g. example.com.",
+    )
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Remove the organization's domain instead of setting one.",
+    )
     _add_org_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)

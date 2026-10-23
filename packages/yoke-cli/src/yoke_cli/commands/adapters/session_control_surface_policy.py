@@ -75,13 +75,15 @@ def _write_list(response: Any, stdout: TextIO, _stderr: TextIO) -> None:
 def session_surface_policy_disable(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy disable",
-        description=SURFACE_POLICY_DISABLE_USAGE,
+        usage=SURFACE_POLICY_DISABLE_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", dest="machine_id", required=True)
-    parser.add_argument("--surface", required=True)
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--evidence", default=None)
+    parser.add_argument("--project", required=True, help="Project the policy covers.")
+    parser.add_argument(
+        "--machine", dest="machine_id", required=True, help="Machine name or id."
+    )
+    parser.add_argument("--surface", required=True, help="Surface to turn off.")
+    parser.add_argument("--reason", required=True, help="Why it is turned off.")
+    parser.add_argument("--evidence", default=None, help="Evidence for the reason.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_DISABLE_USAGE)
@@ -108,11 +110,13 @@ def session_surface_policy_disable(args: List[str]) -> int:
 def session_surface_policy_enable(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy enable",
-        description=SURFACE_POLICY_ENABLE_USAGE,
+        usage=SURFACE_POLICY_ENABLE_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--machine", dest="machine_id", required=True)
-    parser.add_argument("--surface", required=True)
+    parser.add_argument("--project", required=True, help="Project the policy covers.")
+    parser.add_argument(
+        "--machine", dest="machine_id", required=True, help="Machine name or id."
+    )
+    parser.add_argument("--surface", required=True, help="Surface to turn back on.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_ENABLE_USAGE)
@@ -135,11 +139,15 @@ def session_surface_policy_enable(args: List[str]) -> int:
 def session_surface_policy_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control surface-policy list",
-        description=SURFACE_POLICY_LIST_USAGE,
+        usage=SURFACE_POLICY_LIST_USAGE,
     )
-    parser.add_argument("--machine", dest="machine_id", default=None)
-    parser.add_argument("--surface", default=None)
-    parser.add_argument("--include-cleared", action="store_true")
+    parser.add_argument(
+        "--machine", dest="machine_id", default=None, help="Only this machine."
+    )
+    parser.add_argument("--surface", default=None, help="Only this surface.")
+    parser.add_argument(
+        "--include-cleared", action="store_true", help="Also list cleared marks."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SURFACE_POLICY_LIST_USAGE)

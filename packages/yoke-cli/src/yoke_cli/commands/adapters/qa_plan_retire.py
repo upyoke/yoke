@@ -73,7 +73,7 @@ Exit codes: 0 retired or already retired; 1 refused or dispatch failure;
 def qa_plan_retire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan retire",
-        description=QA_PLAN_RETIRE_USAGE,
+        usage=QA_PLAN_RETIRE_USAGE,
         epilog=QA_PLAN_RETIRE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

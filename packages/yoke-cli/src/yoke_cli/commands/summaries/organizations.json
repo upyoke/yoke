@@ -1,0 +1,7 @@
+{
+  "organizations": "Create and read organizations.",
+  "organizations create": "Found a new hosted organization with you as admin.",
+  "organizations domain": "Set an organization's identity domain.",
+  "organizations domain set": "Set or clear an organization's identity domain.",
+  "organizations get": "Show an organization's slug, name and creation time."
+}

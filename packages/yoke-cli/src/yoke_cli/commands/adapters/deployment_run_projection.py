@@ -25,10 +25,18 @@ USAGE = (
 def deployment_runs_project_snapshot(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs project-snapshot",
-        description=USAGE,
+        usage=USAGE,
     )
-    parser.add_argument("--snapshot-file", required=True)
-    parser.add_argument("--expected-destination-digest", default=None)
+    parser.add_argument(
+        "--snapshot-file",
+        required=True,
+        help="JSON file holding one deployment-run snapshot object.",
+    )
+    parser.add_argument(
+        "--expected-destination-digest",
+        default=None,
+        help="Digest of the run already stored; needed to update an existing run.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, USAGE)

@@ -77,9 +77,22 @@ def session_keepalive_hold(args: List[str]) -> int:
         usage=SESSION_KEEPALIVE_HOLD_USAGE,
         description=_HOLD_DESCRIPTION,
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID")
-    parser.add_argument("--reason", required=True)
-    parser.add_argument("--seconds", type=int, default=DEFAULT_KEEPALIVE_SECONDS)
+    parser.add_argument(
+        "target_session_id",
+        metavar="SESSION-ID",
+        help="Session to keep alive.",
+    )
+    parser.add_argument(
+        "--reason",
+        required=True,
+        help="Why the session must stay alive.",
+    )
+    parser.add_argument(
+        "--seconds",
+        type=int,
+        default=DEFAULT_KEEPALIVE_SECONDS,
+        help="How long to hold, in seconds; default: %(default)s.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_KEEPALIVE_HOLD_USAGE)
@@ -105,7 +118,11 @@ def session_keepalive_release(args: List[str]) -> int:
         usage=SESSION_KEEPALIVE_RELEASE_USAGE,
         description=_RELEASE_DESCRIPTION,
     )
-    parser.add_argument("target_session_id", metavar="SESSION-ID")
+    parser.add_argument(
+        "target_session_id",
+        metavar="SESSION-ID",
+        help="Session whose hold to release.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_KEEPALIVE_RELEASE_USAGE)

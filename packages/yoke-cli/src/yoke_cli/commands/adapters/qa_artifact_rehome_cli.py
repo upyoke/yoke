@@ -88,7 +88,7 @@ def _rehome_one(parsed: Any, artifact_id: int) -> tuple[int, Any]:
 
 
 def qa_artifact_rehome(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog=_PROG, description=QA_ARTIFACT_REHOME_USAGE)
+    parser = argparse.ArgumentParser(prog=_PROG, usage=QA_ARTIFACT_REHOME_USAGE)
     parser.add_argument(
         "--requirement-id",
         dest="requirement_id",

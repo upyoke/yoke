@@ -41,7 +41,7 @@ def item_landings_list(args: List[str]) -> int:
     """Read every landing an item has made, oldest first."""
     parser = argparse.ArgumentParser(
         prog="yoke item-landings list",
-        description=ITEM_LANDINGS_LIST_USAGE,
+        usage=ITEM_LANDINGS_LIST_USAGE,
     )
     parser.add_argument(
         "item",

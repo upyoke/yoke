@@ -61,13 +61,7 @@ def add_session_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--session-id",
         default=None,
-        help=(
-            "Operator-debug override for the ambient session id. Sessions "
-            "self-identify automatically (env chain, then the hook-written "
-            "process-anchor registry, then cursor-session-map); overrides "
-            "are recorded on the "
-            "dispatched event as session_override."
-        ),
+        help="Override the detected session id (debugging only).",
     )
 
 

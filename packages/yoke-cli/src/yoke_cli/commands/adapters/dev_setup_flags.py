@@ -29,24 +29,54 @@ def _looks_like_postgres_dsn(value: str) -> bool:
 
 
 def _add_secret_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--dsn", dest="dsn", default=None)
-    parser.add_argument("--dsn-file", dest="dsn_file", default=None)
-    parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
+    parser.add_argument("--dsn", dest="dsn", default=None, help="Admin DSN.")
+    parser.add_argument(
+        "--dsn-file", dest="dsn_file", default=None, help="File that holds the DSN."
+    )
+    parser.add_argument(
+        "--dsn-stdin",
+        dest="dsn_stdin",
+        action="store_true",
+        help="Read the DSN from standard input.",
+    )
 
 
 def _add_tunnel_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--tunnel-bastion", default=None)
-    parser.add_argument("--tunnel-identity-file", default=None)
-    parser.add_argument("--tunnel-remote-host", default=None)
-    parser.add_argument("--tunnel-remote-port", type=int, default=None)
+    parser.add_argument(
+        "--tunnel-bastion", default=None, help="SSH bastion, as USER@HOST."
+    )
+    parser.add_argument(
+        "--tunnel-identity-file", default=None, help="SSH key file for the bastion."
+    )
+    parser.add_argument(
+        "--tunnel-remote-host", default=None, help="Postgres host behind the bastion."
+    )
+    parser.add_argument(
+        "--tunnel-remote-port",
+        type=int,
+        default=None,
+        help="Postgres port behind the bastion.",
+    )
 
 
 def _add_authority_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--authority-kind", default=None)
-    parser.add_argument("--authority-infra-dir", default=None)
-    parser.add_argument("--authority-stack", default=None)
-    parser.add_argument("--authority-region", default=None)
-    parser.add_argument("--authority-database-name", default=None)
+    parser.add_argument(
+        "--authority-kind",
+        default=None,
+        help="Kind of infrastructure that owns the DSN.",
+    )
+    parser.add_argument(
+        "--authority-infra-dir", default=None, help="Infrastructure directory to read."
+    )
+    parser.add_argument(
+        "--authority-stack", default=None, help="Infrastructure stack name."
+    )
+    parser.add_argument(
+        "--authority-region", default=None, help="Cloud region of the stack."
+    )
+    parser.add_argument(
+        "--authority-database-name", default=None, help="Database name in the stack."
+    )
 
 
 def _postgres(parsed: argparse.Namespace) -> dict[str, Any]:

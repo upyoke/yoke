@@ -1,0 +1,5 @@
+{
+  "db-claim": "Change and check an item's database change claim.",
+  "db-claim amend": "Replace an item's database change claim, with a reason.",
+  "db-claim prose-check": "Find database changes described in an item's text."
+}

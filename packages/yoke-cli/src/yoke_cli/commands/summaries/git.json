@@ -1,0 +1,8 @@
+{
+  "git": "Git hooks that keep Yoke in step with this checkout.",
+  "git post-checkout": "Record the new branch head after a checkout.",
+  "git post-commit": "Record the new branch head after a commit.",
+  "git post-merge": "Record the new branch head after a merge or pull.",
+  "git post-rewrite": "Record the new branch head after a rebase.",
+  "git pre-commit": "Check staged files and block a commit that breaks rules."
+}

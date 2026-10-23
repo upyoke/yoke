@@ -1,0 +1,11 @@
+{
+  "events": "Record and read Yoke events and timings.",
+  "events anomalies": "List events that look wrong or unexpected.",
+  "events count": "Count events that match the filters.",
+  "events emit": "Record one event.",
+  "events performance": "Read timing measurements for Yoke operations.",
+  "events performance aggregate": "Summarize operation timings over a time range.",
+  "events performance detail": "List operation timings over a time range.",
+  "events query": "List events that match the filters.",
+  "events tail": "Show the most recent events."
+}

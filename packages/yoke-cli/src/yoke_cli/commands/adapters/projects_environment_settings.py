@@ -97,8 +97,15 @@ def projects_environment_settings_merge(args: List[str]) -> int:
 
 
 def _add_identity_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--environment", dest="environment", required=True)
+    parser.add_argument(
+        "--project", required=True, help="Project that owns the environment."
+    )
+    parser.add_argument(
+        "--environment",
+        dest="environment",
+        required=True,
+        help="Name of the registered environment.",
+    )
 
 
 def _dispatch(

@@ -9,17 +9,23 @@ from yoke_cli.commands._helpers import add_json_arg, add_session_arg, dispatch_a
 from yoke_contracts.api.function_call import TargetRef
 
 
+QA_ARTIFACT_GET_SYNOPSIS = "yoke qa artifact get ARTIFACT_ID --requirement-id N [--json]"
+QA_ARTIFACT_GET_NOTE = "Metadata only; use `yoke qa artifact read` for evidence."
 QA_ARTIFACT_GET_USAGE = (
-    "yoke qa artifact get ARTIFACT_ID --requirement-id N [--json] "
+    f"{QA_ARTIFACT_GET_SYNOPSIS} "
     "(metadata only; use `yoke qa artifact read` for evidence)"
 )
 
 
 def qa_artifact_get(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke qa artifact get", description=QA_ARTIFACT_GET_USAGE)
-    parser.add_argument("artifact", nargs="?", type=int)
-    parser.add_argument("--artifact-id", type=int)
-    parser.add_argument("--requirement-id", required=True, type=int)
+    parser = argparse.ArgumentParser(
+        prog="yoke qa artifact get", usage=QA_ARTIFACT_GET_SYNOPSIS, epilog=QA_ARTIFACT_GET_NOTE
+    )
+    parser.add_argument("artifact", nargs="?", type=int, help="QA artifact id.")
+    parser.add_argument("--artifact-id", type=int, help="QA artifact id, as a flag.")
+    parser.add_argument(
+        "--requirement-id", required=True, type=int, help="QA requirement the artifact belongs to."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_ARTIFACT_GET_USAGE)

@@ -36,15 +36,27 @@ def _write_grant(response: Any, stdout, _stderr) -> None:
 def session_qualification_open(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control qualification open",
-        description=QUALIFICATION_OPEN_USAGE,
+        usage=QUALIFICATION_OPEN_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--release-sha", required=True)
-    parser.add_argument("--run-id", required=True, dest="acceptance_run_id")
-    parser.add_argument("--surface", required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--operation", required=True)
-    parser.add_argument("--route", required=True, choices=("direct", "broker", "hook"))
+    parser.add_argument("--project", required=True, help="Project the grant covers.")
+    parser.add_argument(
+        "--release-sha", required=True, help="Full commit SHA being qualified."
+    )
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        dest="acceptance_run_id",
+        help="Acceptance run this grant belongs to.",
+    )
+    parser.add_argument("--surface", required=True, help="Surface being qualified.")
+    parser.add_argument("--version", required=True, help="Surface version qualified.")
+    parser.add_argument("--operation", required=True, help="Operation being qualified.")
+    parser.add_argument(
+        "--route",
+        required=True,
+        choices=("direct", "broker", "hook"),
+        help="How the operation reaches the session.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QUALIFICATION_OPEN_USAGE)

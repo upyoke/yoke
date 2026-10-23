@@ -63,11 +63,20 @@ def case_payload(parsed):
 def configure_case_replace(parser: argparse.ArgumentParser) -> None:
     parser.epilog = PLAN_CASES_REPLACE_EPILOG
     parser.formatter_class = argparse.RawDescriptionHelpFormatter
-    parser.add_argument("--plan-id", type=int, required=True)
+    parser.add_argument(
+        "--plan-id",
+        type=int,
+        required=True,
+        help="QA plan whose cases to replace.",
+    )
     parser.add_argument(
         "--source-revision",
         help="Full merged source SHA from the case exporter; binds release QA to this revision.",
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--cases-file")
-    source.add_argument("--stdin", action="store_true")
+    source.add_argument("--cases-file", help="JSON file with the full case list.")
+    source.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the case list JSON from stdin.",
+    )

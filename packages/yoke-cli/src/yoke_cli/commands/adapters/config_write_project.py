@@ -38,11 +38,34 @@ def project_register(args: List[str]) -> int:
             "Moving a project id already routed elsewhere needs --reassign."
         ),
     )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parser.add_argument("repo_root")
-    parser.add_argument("--project-id", dest="project_id", type=int, required=True)
-    parser.add_argument("--board-scope", dest="board_scope", default=None)
-    parser.add_argument("--board-render-path", dest="board_render_path", default=None)
+    parser.add_argument(
+        "--json",
+        dest="json_mode",
+        action="store_true",
+        help="Print the result as JSON.",
+    )
+    parser.add_argument(
+        "repo_root", help="Path to the project checkout on this machine."
+    )
+    parser.add_argument(
+        "--project-id",
+        dest="project_id",
+        type=int,
+        required=True,
+        help="Id of the project this checkout belongs to.",
+    )
+    parser.add_argument(
+        "--board-scope",
+        dest="board_scope",
+        default=None,
+        help="Board scope to record for this checkout.",
+    )
+    parser.add_argument(
+        "--board-render-path",
+        dest="board_render_path",
+        default=None,
+        help="Path where the board is rendered in this checkout.",
+    )
     parser.add_argument(
         "--reassign",
         action="store_true",
@@ -52,7 +75,12 @@ def project_register(args: List[str]) -> int:
             "seat on the project."
         ),
     )
-    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--config",
+        dest="config_path",
+        default=None,
+        help="Machine config file to write; default: the usual config file.",
+    )
     parsed = parse_or_usage_error(parser, args, PROJECT_REGISTER_USAGE)
     if parsed is None:
         return 2

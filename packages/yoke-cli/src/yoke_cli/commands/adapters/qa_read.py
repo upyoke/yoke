@@ -48,7 +48,8 @@ task_num client-side. Exit codes: 0 success, 1 dispatch failure, 2 usage.
 def qa_requirement_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement list",
-        description=(f"{QA_REQUIREMENT_LIST_USAGE}\n\n{_REQUIREMENT_LIST_HELP_DEEP}"),
+        usage=QA_REQUIREMENT_LIST_USAGE,
+        description=_REQUIREMENT_LIST_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--item", default=None, help="Filter to one item (PREFIX-N).")
@@ -115,7 +116,8 @@ Exit codes: 0 success, 1 not found / dispatch failure, 2 usage error.
 def qa_requirement_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement get",
-        description=(f"{QA_REQUIREMENT_GET_USAGE}\n\n{_REQUIREMENT_GET_HELP_DEEP}"),
+        usage=QA_REQUIREMENT_GET_USAGE,
+        description=_REQUIREMENT_GET_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -176,7 +178,7 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def qa_run_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run list",
-        description=f"{QA_RUN_LIST_USAGE}\n\n{_RUN_LIST_HELP_DEEP}",
+        usage=QA_RUN_LIST_USAGE, description=_RUN_LIST_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -222,7 +224,7 @@ _RUN_GET_HELP_DEEP = (
 def qa_run_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run get",
-        description=f"{QA_RUN_GET_USAGE}\n\n{_RUN_GET_HELP_DEEP}",
+        usage=QA_RUN_GET_USAGE, description=_RUN_GET_HELP_DEEP,
     )
     parser.add_argument(
         "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
@@ -284,7 +286,8 @@ any entry makes the summary unsatisfied. Exit codes: 0 success
 def qa_gate_summary(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa gate-summary",
-        description=f"{QA_GATE_SUMMARY_USAGE}\n\n{_GATE_SUMMARY_HELP_DEEP}",
+        usage=QA_GATE_SUMMARY_USAGE,
+        description=_GATE_SUMMARY_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--item", default=None, help="Target item (PREFIX-N).")

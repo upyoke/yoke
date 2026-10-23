@@ -1,0 +1,4 @@
+{
+  "check": "Run local checks on this checkout.",
+  "check file-line": "Check changed files against the 350-line file limit."
+}

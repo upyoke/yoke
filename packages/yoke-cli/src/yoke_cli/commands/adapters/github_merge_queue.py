@@ -45,8 +45,11 @@ def github_merge_queue_readiness(args: List[str]) -> int:
             "queue entry. Does not arm, enqueue, merge, or write state."
         ),
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -92,8 +95,11 @@ def github_merge_queue_hold(args: List[str]) -> int:
             "commit GitHub actually merged."
         ),
     )
-    parser.add_argument("item")
-    parser.add_argument("--project")
+    parser.add_argument("item", help="Work item, as PREFIX-N.")
+    parser.add_argument(
+        "--project",
+        help="Project that owns the item; default: resolved from the item.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, GITHUB_MERGE_QUEUE_HOLD_USAGE)

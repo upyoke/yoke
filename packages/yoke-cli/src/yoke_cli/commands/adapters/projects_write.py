@@ -70,9 +70,9 @@ def _projects_write(
     prog: str,
     allow_org: bool = False,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
-    parser.add_argument("--slug", required=True)
-    parser.add_argument("--name", required=True)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
+    parser.add_argument("--slug", required=True, help="Project slug (short name).")
+    parser.add_argument("--name", required=True, help="Display name for the project.")
     if allow_org:
         parser.add_argument(
             "--org",
@@ -80,9 +80,9 @@ def _projects_write(
             default=None,
             help="Owning organization slug or id for a newly created project.",
         )
-    parser.add_argument("--project-id", dest="project_id", type=int, default=None)
-    parser.add_argument("--default-branch", dest="default_branch", default=None)
-    parser.add_argument("--github-repo", dest="github_repo", default=None)
+    parser.add_argument("--project-id", type=int, help="Numeric project id.")
+    parser.add_argument("--default-branch", help="Main branch of the repository.")
+    parser.add_argument("--github-repo", help="GitHub repository, as OWNER/REPO.")
     parser.add_argument(
         "--public-item-prefix",
         dest="public_item_prefix",
@@ -201,7 +201,7 @@ def _infrastructure_create(
     prog: str,
     with_environment: bool = False,
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(prog=prog, usage=usage)
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument(
         "--site",
@@ -300,11 +300,11 @@ def projects_environment_create(args: List[str]) -> int:
 def projects_environment_update(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke projects environment update",
-        description=PROJECTS_ENVIRONMENT_UPDATE_USAGE,
+        usage=PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--environment", dest="environment", required=True)
-    parser.add_argument("--name", default=None)
+    parser.add_argument("--project", required=True, help="Project that owns it.")
+    parser.add_argument("--environment", required=True, help="Environment to update.")
+    parser.add_argument("--name", default=None, help="New name for the environment.")
     parser.add_argument(
         "--url",
         dest="url",

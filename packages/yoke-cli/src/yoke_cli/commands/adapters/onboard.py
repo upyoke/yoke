@@ -70,16 +70,17 @@ def _parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke setup"
     )
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--quick", action="store_true")
-    mode.add_argument("--advanced", action="store_true")
+    mode.add_argument("--quick", action="store_true", help="Quick setup (the default).")
+    mode.add_argument("--advanced", action="store_true", help="Ask about each choice.")
     onboard_destination_args.add_destination_args(parser)
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parser.add_argument("--non-interactive", action="store_true")
-    parser.add_argument("--config", dest="config_path", default=None, metavar="PATH")
-    parser.add_argument("--env", dest="env_name", default=None)
-    parser.add_argument("--api-url", dest="api_url", default=None)
+    add = parser.add_argument
+    add("--json", dest="json_mode", action="store_true", help="Print JSON output.")
+    add("--non-interactive", action="store_true", help="Never prompt; use flags only.")
+    add("--config", dest="config_path", metavar="PATH", help="Machine config file.")
+    add("--env", dest="env_name", default=None, help="Connection name to set up.")
+    add("--api-url", dest="api_url", default=None, help="Yoke API URL to connect to.")
     hosted_auth.add_token_arguments(parser)
-    parser.add_argument("--yes", dest="apply", action="store_true")
+    add("--yes", dest="apply", action="store_true", help="Apply instead of preview.")
     parser.add_argument(
         "--machine-github",
         choices=("connect", "disabled"),
@@ -90,6 +91,7 @@ def _parser() -> argparse.ArgumentParser:
         "--skip-identity-check",
         dest="skip_identity_check",
         action="store_true",
+        help="Skip confirming the signed-in identity after connecting.",
     )
     parser.add_argument(
         "--post-install",
@@ -103,7 +105,7 @@ def _parser() -> argparse.ArgumentParser:
         action="store_false",
         help=harness_unattended_posture.POSTURE_DECLINE_HELP,
     )
-    parser.add_argument("--resume", dest="resume_run_id", default=None)
+    add("--resume", dest="resume_run_id", help="Resume the setup run with this id.")
     parser.add_argument(
         "--use-different-folder",
         "--start-over",
