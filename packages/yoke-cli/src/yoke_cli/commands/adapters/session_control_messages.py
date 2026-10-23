@@ -232,14 +232,8 @@ def session_message_list(args: List[str]) -> int:
         help="Only show messages addressed to this exact session.",
     )
     parser.add_argument(
-        "--limit",
-        type=int,
-        default=50,
-        metavar="N",
-        help=(
-            "Settled messages per page (1..500, default 50). Every actionable "
-            "message is always listed on the first page, beyond this cap."
-        ),
+        "--limit", type=int, default=50, metavar="N",
+        help="Settled messages per page (default 50); actionable ones are all listed.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

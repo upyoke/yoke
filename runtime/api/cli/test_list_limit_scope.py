@@ -28,7 +28,7 @@ def _help_text(*argv: str) -> str:
         ),
         (
             ("messages", "list"),
-            ("Settled messages per page", "Every actionable message"),
+            ("Settled messages per page", "actionable ones are all listed"),
         ),
         (
             ("session-control", "launch", "list"),
