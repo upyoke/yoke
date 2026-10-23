@@ -332,7 +332,7 @@ def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
     assert not (repo / ".claude").exists()
 
 
-def test_uninstall_without_manifest_exits_nonzero(cfg, repo, capsys) -> None:
+def test_uninstall_without_registration_or_manifest_exits_nonzero(cfg, repo, capsys) -> None:
     rc = yoke_operations_cli.main(
         [
             "project",
@@ -344,4 +344,4 @@ def test_uninstall_without_manifest_exits_nonzero(cfg, repo, capsys) -> None:
     )
 
     assert rc == 1
-    assert "install-manifest" in capsys.readouterr().err
+    assert "project_uninstall_registration_missing" in capsys.readouterr().err
