@@ -22,8 +22,8 @@ from yoke_core.domain.machine_qa_host_selection import (
 @pytest.mark.parametrize(
     "case",
     [
-        {"instructions": "Run on a Linux Test Machine with the XFCE desktop."},
-        {"method_id": "linux-terminal-check"},
+        {"method_config": {"os": "linux"}},
+        {"method_config": {"platform": "linux"}},
         {"required_capability_kinds": ["linux-desktop"]},
         {
             "method_config": {
@@ -48,16 +48,34 @@ def test_linux_execution_inputs_require_linux(case):
     [("macos", "Inspect Safari on macOS."), ("windows", "Run PowerShell on Windows.")],
 )
 def test_other_platforms(os, instructions):
-    assert case_platform({"instructions": instructions}) == os
-
-
-def test_expected_screen_text_does_not_pin_a_portable_case():
     assert (
-        case_platform(
-            {"method_config": {"expected_text": ["Linux", "Windows", "macOS"]}}
-        )
-        is None
+        case_platform({"instructions": instructions, "method_config": {"os": os}}) == os
     )
+
+
+def test_undeclared_platform_names_the_field_to_set():
+    with pytest.raises(
+        CapabilityError, match="test_machine_platform_undeclared.*method_config.os"
+    ):
+        case_platform(
+            {
+                "instructions": "Run on Linux",
+                "method_config": {"expected_text": ["Linux", "Windows", "macOS"]},
+            }
+        )
+
+
+def test_negative_linux_instruction_uses_declared_mac():
+    from types import SimpleNamespace
+    from yoke_core.domain.machine_qa_case_platform import matching_platform_hosts
+
+    host = SimpleNamespace(settings={"resource_name": "test-mac", "os": "macos"})
+    case = {
+        "instructions": "Do not use linux-lab; do not run stat -c",
+        "method_config": {"machine": "test-mac"},
+    }
+    assert case_platform(case, {"test-mac": "macos"}) == "macos"
+    assert matching_platform_hosts([host], [case]) == [host]
 
 
 def _fleet():
@@ -83,7 +101,9 @@ def test_linux_case_never_leases_first_alphabetical_mac_host():
         operation="verify",
         checks=VERIFICATION_CHECKS,
         baselines=HOST_BASELINES,
-        host_cases=({"instructions": "Run on Linux", "method_config": {}},),
+        host_cases=(
+            {"instructions": "Run on Linux", "method_config": {"os": "linux"}},
+        ),
     )
     assert contract.settings["resource_name"] == "z-linux"
     with pytest.raises(FleetBusy):
@@ -93,7 +113,7 @@ def test_linux_case_never_leases_first_alphabetical_mac_host():
             session_id="linux-two",
             machine=None,
             select_any=True,
-            cases=({"instructions": "Run on Linux"},),
+            cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )
 
 
@@ -108,7 +128,7 @@ def test_explicit_mac_pin_cannot_override_linux_case():
             session_id="linux-one",
             operation="plan_case",
             machine="mac-mini-lab",
-            cases=({"instructions": "Run on Linux"},),
+            cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )
 
 
@@ -126,7 +146,7 @@ def test_no_matching_host_names_platform_and_recovery():
             session_id="linux-one",
             machine=None,
             select_any=True,
-            cases=({"instructions": "Run on Linux"},),
+            cases=({"instructions": "Run on Linux", "method_config": {"os": "linux"}},),
         )
 
 
@@ -137,4 +157,6 @@ def test_empty_fleet_still_names_the_required_platform_and_recovery():
         CapabilityError,
         match="test_machine_platform_unavailable.*Register and verify a linux",
     ):
-        matching_platform_hosts([], ({"instructions": "Run on Linux"},))
+        matching_platform_hosts(
+            [], ({"instructions": "Run on Linux", "method_config": {"os": "linux"}},)
+        )

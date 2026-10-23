@@ -62,7 +62,12 @@ def validate_machine_method_config(
         normalize_config_machine,
     )
 
+    from yoke_core.domain.machine_qa_case_platform import platform_config
+
     config = dict(config)
+    platform = platform_config(config)
+    for key in platform:
+        config.pop(key)
     try:
         machine = normalize_config_machine(
             str(definition["config_contract_id"]), config
@@ -83,6 +88,7 @@ def validate_machine_method_config(
     )
     return {
         **result,
+        **platform,
         **continuity,
         **({"machine": machine} if machine is not None else {}),
         **({"machines": machines} if machines is not None else {}),
@@ -340,11 +346,3 @@ def _assertion(raw: Any) -> dict[str, Any]:
     if required_context is not None:
         normalized[REQUIRED_SESSION_CONTEXT_FIELD] = GUI_SESSION_CONTEXT
     return normalized
-
-
-__all__ = [
-    "MACHINE_METHODS",
-    "MachineQaExecutionError",
-    "machine_method_definition",
-    "validate_machine_method_config",
-]

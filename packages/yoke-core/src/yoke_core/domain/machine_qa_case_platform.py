@@ -41,6 +41,7 @@ def _execution_text(value: Any) -> str:
                 "ready_text",
                 "completion_text",
                 "notes",
+                "instructions",
                 "expected_outcome",
             }
         )
@@ -49,13 +50,32 @@ def _execution_text(value: Any) -> str:
     return str(value or "")
 
 
-def case_platform(case: Mapping[str, Any]) -> str | None:
-    """Infer a single required OS, refusing contradictory execution inputs."""
+def platform_config(config: Mapping[str, Any]) -> dict[str, str]:
+    """Validate the platform metadata shared by machine method contracts."""
+    result = {key: config[key] for key in ("os", "platform") if key in config}
+    if any(
+        not isinstance(value, str) or value not in _PLATFORM_WORDS
+        for value in result.values()
+    ):
+        raise TestMachineCapabilityError(
+            "test_machine_platform_invalid: set method_config.os or "
+            "method_config.platform to linux, macos or windows"
+        )
+    if len(set(result.values())) > 1:
+        raise TestMachineCapabilityError(
+            "test_machine_platform_ambiguous: method_config.os and "
+            "method_config.platform disagree; set both to the same OS"
+        )
+    return result
+
+
+def case_platform(
+    case: Mapping[str, Any], hosts: Mapping[str, str] | None = None
+) -> str | None:
+    """Resolve declared execution inputs and registered machines to an OS."""
     config = case.get("method_config") or {}
     text = " ".join(
         [
-            str(case.get("method_id") or ""),
-            str(case.get("instructions") or ""),
             _execution_text(
                 case.get("required_capability_kinds")
                 or case.get("capability_requirements")
@@ -70,8 +90,8 @@ def case_platform(case: Mapping[str, Any]) -> str | None:
     }
     identifiers = _execution_text(
         [
-            case.get("method_id"),
             case.get("required_capability_kinds"),
+            case.get("capability_requirements"),
             config.get("os"),
             config.get("platform"),
         ]
@@ -88,11 +108,25 @@ def case_platform(case: Mapping[str, Any]) -> str | None:
             f"declares {', '.join(sorted(platforms))}; split platform-specific "
             "steps into separate cases before running QA"
         )
-    return next(iter(platforms), None)
+    if platforms:
+        return next(iter(platforms))
+    from yoke_core.domain.machine_qa_case_hosts import case_machines
+
+    declared = {hosts[name] for name in case_machines(case) if hosts and name in hosts}
+    if declared:
+        return next(iter(declared)) if len(declared) == 1 else None
+    raise TestMachineCapabilityError(
+        "test_machine_platform_undeclared: case "
+        f"{case.get('case_key') or case.get('requirement_id') or 'unknown'} "
+        "has no declared platform; set method_config.os to linux, macos or windows, "
+        "or set method_config.machine to a registered Test Machine with an os"
+    )
 
 
-def required_platform(cases: Sequence[Mapping[str, Any]]) -> str | None:
-    platforms = {platform for case in cases if (platform := case_platform(case))}
+def required_platform(
+    cases: Sequence[Mapping[str, Any]], hosts: Mapping[str, str] | None = None
+) -> str | None:
+    platforms = {platform for case in cases if (platform := case_platform(case, hosts))}
     if len(platforms) > 1:
         raise TestMachineCapabilityError(
             "test_machine_platform_conflict: one host cannot execute cases requiring "
@@ -105,7 +139,10 @@ def matching_platform_hosts(
     candidates: list[Any], cases: Sequence[Mapping[str, Any]]
 ) -> list[Any]:
     """Filter before taking any lease, including explicit machine selections."""
-    platform = required_platform(cases)
+    platform = required_platform(
+        cases,
+        {host.settings["resource_name"]: host.settings["os"] for host in candidates},
+    )
     matching = [
         host
         for host in candidates

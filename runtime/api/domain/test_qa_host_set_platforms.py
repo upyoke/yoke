@@ -17,6 +17,7 @@ def _seed_case(test_db, tmp_path, monkeypatch, *, simultaneous, instructions, li
     def with_instructions(conn, **kwargs):
         for case in kwargs["cases"]:
             case["instructions"] = instructions
+            case["method_config"]["os"] = "linux"
         return replace_cases(conn, **kwargs)
 
     monkeypatch.setattr(support, "replace_plan_cases", with_instructions)

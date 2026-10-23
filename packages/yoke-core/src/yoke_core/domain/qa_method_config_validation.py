@@ -90,6 +90,9 @@ def validate_method_config(
         config = dict(raw)
     else:
         raise QaMethodConfigError("method_config must be a JSON object")
+    from yoke_core.domain.machine_qa_case_platform import platform_config
+
+    platform_config(config)
     from yoke_contracts.qa_continuity_fingerprint import KEY, normalize_fingerprint
 
     if KEY in config:
@@ -237,6 +240,8 @@ def validate_method_config(
             or set(config)
             - {
                 "executor",
+                "os",
+                "platform",
                 "machine",
                 "machines",
                 "host_starting_state",
@@ -248,7 +253,7 @@ def validate_method_config(
             raise QaMethodConfigError(
                 "agent_mission_executor_invalid: set method_config.executor to "
                 "informed_subagent. Agent missions may also name machine, machines, "
-                "host_starting_state, browser_identities and continuity_fingerprint; remove other keys. "
+                "os, platform, host_starting_state, browser_identities and continuity_fingerprint; remove other keys. "
                 "Update the saved plan case and rematerialize affected requirements "
                 "before retrying."
             )

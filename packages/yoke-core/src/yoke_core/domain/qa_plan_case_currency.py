@@ -149,7 +149,7 @@ def _row(conn: Any, requirement_id: int) -> Any:
 
 def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
     """Compare one materialized row against its plan case, or return ``None``."""
-    if row["plan_id"] is None or row["deployment_run_id"] is not None:
+    if row["plan_id"] is None:
         return None
     plan_id = int(row["plan_id"])
     case_key = str(row["plan_case_key"] or "")
@@ -208,12 +208,11 @@ def plan_case_divergence(
 ) -> Optional[PlanCaseDivergence]:
     """How this row differs from its plan case, or ``None`` when it does not.
 
-    ``None`` also covers every row that cannot be behind a plan: one never
-    materialized from a plan, and an admitted deployment-stage copy, whose own
-    currency belongs to :mod:`qa_admitted_case_currency` one link further down.
+    ``None`` also covers rows never materialized from a plan. Admitted copies
+    without a plan link belong to :mod:`qa_admitted_case_currency`.
     """
     row = _row(conn, int(requirement_id))
-    if row is None or row["deployment_run_id"] is not None:
+    if row is None:
         return None
     return _divergence_for_row(conn, row)
 

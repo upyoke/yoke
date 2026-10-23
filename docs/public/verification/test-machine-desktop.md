@@ -22,6 +22,13 @@ running its host operations. A missing or expired lease requires fresh admission
 a released lease with an unknown receipt requires inspecting the retained
 capture, rather than repeating the operation.
 
+Machine QA chooses the required OS from `method_config.os` or `platform`,
+executable steps, capability requirements, or the registered `os` of declared
+`method_config.machine` / `machines`. Instructions never choose a platform:
+"Do not use linux-lab" does not require Linux. Cases without these declarations
+refuse with `test_machine_platform_undeclared`; set `method_config.os` to `linux`,
+`macos` or `windows`, or declare a registered machine with an `os`.
+
 Simultaneous machine-QA cases keep their declared driver and check platforms
 across the full host set; see [host-set authoring](exploration.md#authoring-shape).
 
