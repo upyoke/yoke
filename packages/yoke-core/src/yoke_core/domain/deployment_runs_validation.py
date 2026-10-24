@@ -48,14 +48,14 @@ from yoke_core.domain.deployment_run_proposed_membership import (
 from yoke_core.domain.deployment_run_reopened_members import (
     frozen_member_readiness,
 )
-from yoke_core.domain.deployment_run_skipped_candidates import skipped_candidate_notice
+from yoke_core.domain.deployment_run_stranded_dependents import (
+    skipped_candidate_verdict,
+)
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     resolve_candidate_custody,
 )
-from yoke_core.domain.deployment_runs_batch_compatibility import (
-    _not_delivery_ready,
-)
+from yoke_core.domain.deployment_runs_batch_compatibility import _not_delivery_ready
 from yoke_core.domain.deployment_source_reads import SourcePreparationChanged
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
@@ -73,6 +73,7 @@ def cmd_validate_composition(
     composition_result: dict[str, Any] | None = None,
     require_item_qa_members: bool = True,
     custody: CustodyResolution | None = None,
+    refuse_stranded_dependents: bool = False,
 ) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
@@ -153,6 +154,7 @@ def cmd_validate_composition(
             allow_pending_pair_merges=allow_pending_pair_merges,
             composition_result=composition_result,
             require_item_qa_members=require_item_qa_members,
+            refuse_stranding=refuse_stranded_dependents,
         )
         if enrollment is None or not enrollment.candidates:
             verdict = judge(
@@ -182,6 +184,7 @@ def judge_composition(
     allow_pending_pair_merges: bool,
     composition_result: dict[str, Any] | None,
     require_item_qa_members: bool,
+    refuse_stranding: bool = False,
 ) -> Tuple[bool, str]:
     """Every check after enrollment; membership is read through ``run_items``.
 
@@ -280,7 +283,10 @@ def judge_composition(
     errors.extend([item_qa] if item_qa else [])
     unadmitted = unadmitted_post_deploy_notice(conn, run_id)
     inert = inert_membership_notice(conn, run_id)
-    held = skipped_candidate_notice(conn, run_id, custody=custody, carried_work=carried)
+    stranding, held = skipped_candidate_verdict(
+        conn, run_id, custody=custody, carried_work=carried, refuse=refuse_stranding
+    )
+    errors.extend([stranding] if stranding else [])
 
     if errors:
         trailing = [note for note in (set_aside, held, inert, unadmitted) if note]

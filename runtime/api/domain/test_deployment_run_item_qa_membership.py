@@ -209,7 +209,7 @@ def _isolate_candidate_reads(monkeypatch: pytest.MonkeyPatch) -> None:
         ("unclosable_final_member_refusal", lambda *_a, **_k: ""),
         ("unadmitted_post_deploy_notice", lambda *_a, **_k: ""),
         ("inert_membership_notice", lambda *_a, **_k: ""),
-        ("skipped_candidate_notice", lambda *_a, **_k: ""),
+        ("skipped_candidate_verdict", lambda *_a, **_k: ("", "")),
     ):
         monkeypatch.setattr(validation, name, value)
 
