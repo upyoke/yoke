@@ -14,8 +14,8 @@ Repository-only rules; linked owners hold the detail.
 - `--local` is only a small targeted check expected to finish in about one minute; uncommitted
   work does not justify a slow local run. Both shapes inject xdist `-n auto`. Use `-- -n 0` for
   order-sensitive debugging.
-- The full gate is `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`. Run it once
-  through the attached case: `yoke qa requirement list --item PREFIX-N`, then
+- Full gate: plan `registered-command-full` (`command-ci`); a `worktree_run` copy refuses
+  `redundant_full_suite`. Run it once: `yoke qa requirement list --item PREFIX-N`;
   `yoke qa case run --requirement-id <id>`. Owner:
   [full-suite authority](testing-verification/full-suite-authority.md).
 - Post-deploy Command cases run `yoke watch pytest -- <paths>` directly; the runner binds the

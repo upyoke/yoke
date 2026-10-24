@@ -22,6 +22,7 @@ by hand or substitute a smaller one.
   yoke qa run add --requirement-id <id> --performed-by agent --qa-kind ac_verification --verdict pass --raw-result "<evidence>"
   ```
 
+- Outside-evidence pass: attach it with `yoke qa artifact add`.
 - Migration modules: `yoke migration rehearse PREFIX-N` before review.
   Exception modules calling `record_audit_fingerprint`: run their CLI on
   validation and authoritative surfaces yourself before review.

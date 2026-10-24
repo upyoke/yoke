@@ -237,7 +237,10 @@ def qa_run_record_verdict(args: List[str]) -> int:
             "capture already names its commit. "
             + AGENT_UNDETERMINED_HELP
             + " This one-shot command has no artifact surface, so it refuses "
-            "agent undetermined."
+            "agent undetermined. A deployment stage credits a pass only with "
+            "evidence on its run; attach it after recording: yoke qa artifact "
+            "add --requirement-id N --run-id RUN --artifact-type command_output "
+            "--content-file PATH. A bare pass refuses passed_without_evidence."
         ),
     )
     parser.add_argument(

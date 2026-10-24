@@ -216,22 +216,12 @@ def qa_plan_cases_replace(args: List[str]) -> int:
         "(--cases-file PATH | --stdin) [--source-revision FULL_SHA] "
         "[--session-id S] [--json]"
     )
-
-    def configure(parser: argparse.ArgumentParser) -> None:
-        _configure_case_replace(
-            parser,
-            source_revision_help=(
-                "Refused here: cases exported from source go through "
-                "yoke qa plan-cases sync."
-            ),
-        )
-
     return _global(
         args,
         prog="yoke qa plan-cases replace",
         usage=usage,
         function_id="qa.plan_cases.replace",
-        configure=configure,
+        configure=lambda parser: _configure_case_replace(parser, manual=True),
         payload=_case_payload,
     )
 
