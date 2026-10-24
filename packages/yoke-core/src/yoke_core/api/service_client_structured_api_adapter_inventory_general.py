@@ -36,7 +36,9 @@ GENERAL_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="lifecycle.repair_status.execute",
         cli_invocation=(
-            "yoke lifecycle repair-status <PREFIX-N> --to STATUS --reason TEXT [--from STATUS] [--dry-run] [--session-id S] [--json]"
+            "yoke lifecycle repair-status <PREFIX-N> --to STATUS "
+            "--reason TEXT [--from STATUS] [--dry-run] [--session-id S] "
+            "[--json] [--project P]"
         ),
         notes="steering-seat audited lifecycle reconciliation",
     ),
@@ -160,7 +162,9 @@ GENERAL_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="identity.link.set",
         cli_invocation=(
-            "yoke identity link set --actor ACTOR (--issuer I --subject S [--email E] | --email E) [--org ORG] [--json]"
+            "yoke identity link set --actor ACTOR (--issuer I --subject "
+            "S [--email E] | --email E) [--org ORG] [--json] "
+            "[--session-id S]"
         ),
         notes="issuer+subject links directly; --email alone pre-links a future sign-in",
     ),

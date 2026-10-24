@@ -48,7 +48,10 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="models.level_proposal.run",
-        cli_invocation="yoke models level-proposal [--stdin] [--levels-only] [--json]",
+        cli_invocation=(
+            "yoke models level-proposal [--stdin] "
+            "[--levels-only] [--json] [--session-id S]"
+        ),
         notes="Propose level changes from the catalog; approval stores the levels.",
     ),
     _read_entry(

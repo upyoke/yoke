@@ -13,7 +13,7 @@ ITEMS_ADAPTERS = [
         function_id="worktree.classify_dirty",
         cli_invocation=(
             "yoke worktree classify-dirty --project PROJECT "
-            "[--exclude-worktrees] [--json]"
+            "[--exclude-worktrees] [--json] [--session-id S]"
         ),
         notes="Machine-local dirty read; no Yoke source lane or work claim required.",
     ),
@@ -156,7 +156,10 @@ ITEMS_ADAPTERS = [
     ),
     read_entry(
         function_id="items.progress_log.get",
-        cli_invocation="yoke items progress-log get PREFIX-N [--json]",
+        cli_invocation=(
+            "yoke items progress-log get PREFIX-N [--json] "
+            "[--session-id S] [--project P]"
+        ),
     ),
     AdapterEntry(
         function_id="items.scalar.update",
@@ -224,14 +227,17 @@ ITEMS_ADAPTERS = [
     AdapterEntry(
         function_id="items.github_link",
         cli_invocation=(
-            "yoke items github-link <PREFIX-N> (--issue NUMBER | --unlink) "
-            "[--task-num N] [--json]"
+            "yoke items github-link <PREFIX-N> (--issue NUMBER | "
+            "--unlink) [--task-num N] [--json] [--session-id S] "
+            "[--project P]"
         ),
         notes="Claim-scoped item/task link repair; verifies the bound repository and leaves remote issues untouched.",
     ),
     AdapterEntry(
         function_id="items.github_sync",
-        cli_invocation=("yoke items github-sync <PREFIX-N> [--session-id S] [--json]"),
+        cli_invocation=(
+            "yoke items github-sync <PREFIX-N> [--session-id S] [--json] [--project P]"
+        ),
         notes=(
             "Backlog GitHub item/epic sync; registered agent surface is "
             "yoke items github-sync YOK-N."

@@ -25,7 +25,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 PULUMI_STACK_CONFIG_GET_USAGE = (
     "yoke projects pulumi-stack-config get --project NAME --stack STACK "
-    "--output FILE [--force]"
+    "--output FILE [--force] [--session-id S]"
 )
 
 
@@ -66,9 +66,10 @@ def projects_pulumi_stack_config_get(args: List[str]) -> int:
         materialized = load_pulumi_stack_config(parsed.project, parsed.stack)
     except Exception as exc:
         return _error(f"could not materialize stack config: {exc}", exit_code=1)
-    payload = json.dumps(
-        materialized, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8") + b"\n"
+    payload = (
+        json.dumps(materialized, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        + b"\n"
+    )
     try:
         _write_owner_only(target, payload, force=parsed.force)
     except OSError as exc:

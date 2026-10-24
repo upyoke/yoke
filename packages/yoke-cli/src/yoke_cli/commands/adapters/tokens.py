@@ -11,9 +11,9 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.admission_floor_recovery import admission_floor_hint
 from yoke_contracts.api.function_call import TargetRef
 
-CREATE_USAGE = "yoke tokens create --name LABEL [--json]"
-LIST_USAGE = "yoke tokens list [--json]"
-REVOKE_USAGE = "yoke tokens revoke TOKEN-ID [--json]"
+CREATE_USAGE = "yoke tokens create --name LABEL [--json] [--session-id S]"
+LIST_USAGE = "yoke tokens list [--json] [--session-id S]"
+REVOKE_USAGE = "yoke tokens revoke TOKEN-ID [--json] [--session-id S]"
 USAGE_BY_FUNCTION_ID = {
     "profile.token.create": CREATE_USAGE,
     "profile.get": LIST_USAGE,

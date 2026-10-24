@@ -26,6 +26,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.commands.adapters.strategy import strategy_target
+from yoke_cli.commands.adapters.strategy_surfaces_usage import USAGE_BY_FUNCTION_ID
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_contracts.work_processes import is_known_process, list_processes
@@ -39,7 +40,7 @@ def _global(
     function_id: str,
     payload: Callable[[argparse.Namespace], dict],
 ) -> int:
-    usage = f"yoke {tokens} [--project P] [--json]"
+    usage = USAGE_BY_FUNCTION_ID[function_id]
     parser = argparse.ArgumentParser(prog=f"yoke {tokens}")
     if configure is not None:
         configure(parser)
@@ -145,7 +146,7 @@ def _item(
     configure: Callable[[argparse.ArgumentParser], None] | None = None,
     payload: Callable[[argparse.Namespace], dict] = lambda _parsed: {},
 ) -> int:
-    usage = f"yoke {tokens} ITEM [--project P] [--json]"
+    usage = USAGE_BY_FUNCTION_ID[function_id]
     parser = argparse.ArgumentParser(prog=f"yoke {tokens}")
     parser.add_argument("item", metavar="ITEM", help="Item, as PREFIX-N.")
     parser.add_argument("--project", metavar="P", help="Project that owns the item.")
@@ -219,9 +220,13 @@ def strategy_claim_release(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "item", metavar="ITEM|PROCESS_KEY", help="Item or process whose claim to release."
+        "item",
+        metavar="ITEM|PROCESS_KEY",
+        help="Item or process whose claim to release.",
     )
-    parser.add_argument("--project", metavar="P", help="Project of the item or process.")
+    parser.add_argument(
+        "--project", metavar="P", help="Project of the item or process."
+    )
     parser.add_argument("--reason", metavar="TEXT", help="Why the claim is released.")
     add_session_arg(parser)
     add_json_arg(parser)
@@ -276,7 +281,10 @@ def strategy_claim_break_glass_release(args: List[str]) -> int:
         tokens="strategy claim break-glass-release",
         function_id="strategy.claim.break_glass_release",
         configure=lambda parser: parser.add_argument(
-            "--reason", required=True, metavar="TEXT", help="Why the claim must be broken now."
+            "--reason",
+            required=True,
+            metavar="TEXT",
+            help="Why the claim must be broken now.",
         ),
         payload=lambda parsed: {"reason": parsed.reason},
     )
@@ -315,33 +323,6 @@ def strategy_doc_claim_list(args: List[str]) -> int:
         function_id="strategy.doc_claim.list",
         payload=lambda parsed: {"active_only": not parsed.include_released},
     )
-
-
-USAGE_BY_FUNCTION_ID = {
-    "strategy.surface.list": "yoke strategy surface list --project P",
-    "strategy.surface.get": "yoke strategy surface get SLUG --project P",
-    "strategy.revision.diff": "yoke strategy revision diff SLUG --from-revision N --to-revision N --project P",
-    "strategy.revision.restore": "yoke strategy revision restore SLUG --revision N --base-updated-at TS [--summary TEXT] [--state TEXT] --project P",
-    "strategy.parent.set": "yoke strategy parent set SLUG --parent-slug PARENT --project P",
-    "strategy.coordination.append": "yoke strategy coordination append SLUG --section NAME --entry TEXT --project P",
-    "strategy.execution.get": "yoke strategy execution get ITEM --project P",
-    "strategy.execution.link": (
-        "yoke strategy execution link ITEM --slug SLUG "
-        "[--document-project P] --project P"
-    ),
-    "strategy.claim.acquire": "yoke strategy claim acquire ITEM --project P",
-    "strategy.claim.release": (
-        "yoke strategy claim release (ITEM | PROCESS_KEY) [--reason TEXT] --project P"
-    ),
-    "strategy.claim.break_glass_release": "yoke strategy claim break-glass-release ITEM --reason TEXT --project P",
-    "strategy.doc_claim.acquire": (
-        "yoke strategy doc-claim acquire SLUG [--reason TEXT] --project P"
-    ),
-    "strategy.doc_claim.release": (
-        "yoke strategy doc-claim release SLUG [--reason TEXT] --project P"
-    ),
-    "strategy.doc_claim.list": "yoke strategy doc-claim list [--all] --project P",
-}
 
 
 __all__ = ["USAGE_BY_FUNCTION_ID"] + [

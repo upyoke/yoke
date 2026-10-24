@@ -20,21 +20,19 @@ from yoke_cli.packs import (
 
 
 _CATALOG_USAGE = "[--catalog served|lane|commit:SHA] [--yoke-checkout PATH]"
-PACKS_LIST_USAGE = (
-    f"yoke packs list --project NAME {_CATALOG_USAGE} [--config PATH] [--json]"
-)
+PACKS_LIST_USAGE = f"yoke packs list --project NAME {_CATALOG_USAGE} [--config PATH] [--session-id S] [--json]"
 PACKS_GET_USAGE = (
     "yoke packs get PACK [REPO_ROOT] --project NAME [--version VERSION] "
-    f"{_CATALOG_USAGE} [--config PATH] [--apply] [--allow-missing-tools] [--json]"
+    f"{_CATALOG_USAGE} [--config PATH] [--apply] [--allow-missing-tools] [--session-id S] [--json]"
 )
 PACKS_UPDATE_USAGE = (
     "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
     f"[--accept-current PATH ...] {_CATALOG_USAGE} [--config PATH] [--apply] "
-    "[--allow-missing-tools] [--json]"
+    "[--allow-missing-tools] [--session-id S] [--json]"
 )
 PACKS_RELINK_USAGE = (
     "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH "
-    f"--to NEW_PATH {_CATALOG_USAGE} [--config PATH] [--apply] [--json]"
+    f"--to NEW_PATH {_CATALOG_USAGE} [--config PATH] [--apply] [--session-id S] [--json]"
 )
 
 

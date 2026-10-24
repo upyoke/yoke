@@ -31,7 +31,7 @@ from yoke_cli.transport.runner_fleet_token import (
 
 PULUMI_EXEC_USAGE = (
     "yoke pulumi exec --project NAME --stack STACK "
-    "[--bootstrap-local-authority] -- "
+    "[--bootstrap-local-authority] [--session-id S] -- "
     "<init|preview|refresh|import|up|stack output args>"
 )
 

@@ -11,7 +11,7 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 SESSION_ADAPTERS = [
     AdapterEntry(
         function_id="sessions.watcher_activity",
-        cli_invocation="yoke sessions watcher-activity [--json]",
+        cli_invocation=("yoke sessions watcher-activity [--json] [--session-id S]"),
     ),
     AdapterEntry(
         function_id="sessions.begin",

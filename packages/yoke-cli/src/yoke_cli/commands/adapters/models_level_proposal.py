@@ -17,7 +17,9 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 LEVEL_PROPOSAL_FUNCTION_ID = "models.level_proposal.run"
-LEVEL_PROPOSAL_USAGE = "yoke models level-proposal [--stdin] [--levels-only] [--json]"
+LEVEL_PROPOSAL_USAGE = (
+    "yoke models level-proposal [--stdin] [--levels-only] [--json] [--session-id S]"
+)
 
 
 def _option_text(option: Dict[str, Any]) -> str:

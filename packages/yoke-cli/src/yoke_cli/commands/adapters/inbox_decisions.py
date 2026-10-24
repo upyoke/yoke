@@ -21,7 +21,9 @@ DECISION_REQUESTS_RESOLVE_USAGE = (
     "yoke decision-requests resolve REQUEST_ID ACTION [--note TEXT] "
     "[--session-id S] [--json]"
 )
-DECISION_REQUESTS_GET_USAGE = "yoke decision-requests get REQUEST_ID [--json]"
+DECISION_REQUESTS_GET_USAGE = (
+    "yoke decision-requests get REQUEST_ID [--json] [--session-id S]"
+)
 DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
     "yoke decision-requests dispose-ended [--project-id N ...] "
     "[--session-id S] [--json]"

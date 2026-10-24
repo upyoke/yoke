@@ -23,7 +23,11 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 OPS_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="advance.preflight.hard_blocks",
-        cli_invocation="yoke advance preflight hard-blocks PREFIX-N [--gate-point POINT] [--json]",
+        cli_invocation=(
+            "yoke advance preflight hard-blocks PREFIX-N "
+            "[--gate-point POINT] [--json] [--session-id S] "
+            "[--project P]"
+        ),
     ),
     AdapterEntry(
         function_id="ouroboros.reflection.capture",
@@ -51,7 +55,9 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="decision_requests.get",
-        cli_invocation="yoke decision-requests get REQUEST_ID [--json]",
+        cli_invocation=(
+            "yoke decision-requests get REQUEST_ID [--json] [--session-id S]"
+        ),
     ),
     _read_entry(
         function_id=FUNCTION_ID,

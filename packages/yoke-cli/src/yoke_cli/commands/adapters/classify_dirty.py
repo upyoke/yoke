@@ -13,7 +13,10 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-USAGE = "yoke worktree classify-dirty --project PROJECT [--exclude-worktrees] [--json]"
+USAGE = (
+    "yoke worktree classify-dirty --project PROJECT "
+    "[--exclude-worktrees] [--json] [--session-id S]"
+)
 
 
 def classify_dirty(args: list[str]) -> int:

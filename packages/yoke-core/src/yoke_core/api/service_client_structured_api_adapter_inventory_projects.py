@@ -18,12 +18,14 @@ PROJECT_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="projects.retire",
-        cli_invocation=("yoke projects retire --project P --reason TEXT [--json]"),
+        cli_invocation=(
+            "yoke projects retire --project P --reason TEXT [--json] [--session-id S]"
+        ),
         notes="hides an obligation-free project while preserving history",
     ),
     AdapterEntry(
         function_id="projects.unretire",
-        cli_invocation=("yoke projects unretire --project P [--json]"),
+        cli_invocation=("yoke projects unretire --project P [--json] [--session-id S]"),
         notes="restores a retired project to active inventories",
     ),
     AdapterEntry(
@@ -63,7 +65,8 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.github_sync_mode.repair",
         cli_invocation=(
-            "yoke projects github-sync-mode repair [--project NAME] [--apply] [--json]"
+            "yoke projects github-sync-mode repair [--project NAME] "
+            "[--apply] [--json] [--session-id S]"
         ),
         notes=(
             "dry-runs by default; --apply normalizes effectively-enabled "
@@ -84,7 +87,9 @@ PROJECT_ADAPTERS = [
     ),
     _read_entry(
         function_id="projects.environment.list",
-        cli_invocation=("yoke projects environment list --project P [--json]"),
+        cli_invocation=(
+            "yoke projects environment list --project P [--json] [--session-id S]"
+        ),
     ),
     _read_entry(
         function_id="project_structure.get",

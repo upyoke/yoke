@@ -1,9 +1,4 @@
-"""QA-family adapter entries for the structured-API adapter inventory.
-
-Sibling of :mod:`service_client_structured_api_adapter_inventory` —
-split out so the main inventory module stays under the authored-file
-line cap. Concatenated into ``CLI_ADAPTERS`` by the parent module.
-"""
+"""QA-family CLI recipes and function bindings."""
 
 from __future__ import annotations
 
@@ -62,22 +57,30 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="qa.method.list",
-        cli_invocation=("yoke qa method list [--project P]"),
+        cli_invocation=("yoke qa method list [--project P] [--session-id S] [--json]"),
     ),
     _read_entry(
         function_id="qa.method.get",
-        cli_invocation=("yoke qa method get METHOD [--project P]"),
+        cli_invocation=(
+            "yoke qa method get METHOD [--project P] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.project_method.register",
         (
-            "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --runner worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT [--required-capability KIND ...]"
+            "yoke qa project-method register --project P --slug SLUG "
+            "--name NAME --description TEXT --runner worktree_run "
+            "--verdict-path automatic --verdict-contract TEXT "
+            "--evidence-contract TEXT [--required-capability KIND ...] "
+            "[--session-id S] [--json] [--concurrency-mode "
+            "{parallel,serial}] [--success-policy-params JSON]"
         ),
     ),
     _read_entry(
         function_id="qa.plan.list",
         cli_invocation=(
-            "yoke qa plan list --project P [--limit N] [--offset N] [--include-retired] [--full]"
+            "yoke qa plan list --project P [--limit N] [--offset N] "
+            "[--include-retired] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -95,7 +98,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.artifact.read",
         cli_invocation=(
-            "yoke qa artifact read --requirement-id N --artifact-id N [--output PATH] [--region x,y,w,h] [--scale N]"
+            "yoke qa artifact read --requirement-id N --artifact-id N "
+            "[--output PATH] [--region x,y,w,h] [--scale N] "
+            "[--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -105,7 +110,12 @@ QA_ADAPTERS: List[AdapterEntry] = [
         ),
     ),
     AdapterEntry(
-        "qa.plan.create", ("yoke qa plan create SLUG --project P --environment ENV")
+        "qa.plan.create",
+        (
+            "yoke qa plan create SLUG --project P "
+            "--environment ENV [--session-id S] [--json] "
+            "[--name NAME] [--description TEXT]"
+        ),
     ),
     AdapterEntry(
         "qa.plan.edit",
@@ -115,7 +125,11 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.plan_cases.replace",
-        "yoke qa plan-cases replace --project P --plan-id N --stdin",
+        (
+            "yoke qa plan-cases replace --project P --plan-id N (--stdin | "
+            "--cases-file PATH) [--source-revision FULL_SHA] [--session-id S] "
+            "[--json]"
+        ),
     ),
     AdapterEntry(
         "qa.plan_cases.sync",
@@ -126,31 +140,48 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         "qa.registered_command.set",
         (
-            "yoke qa registered-command set --project P --scope quick|full|e2e|smoke --command ARGV [--environment SITE/NAME|ENV_ID | --requires-base-url]"
+            "yoke qa registered-command set --project P --scope "
+            "quick|full|e2e|smoke --command ARGV [--environment "
+            "SITE/NAME|ENV_ID | --requires-base-url] [--session-id S] "
+            "[--json]"
         ),
     ),
     AdapterEntry(
         "qa.no_tests.attest",
         (
-            'yoke qa no-tests attest --project P --reason "why this project has no suite to bind"'
+            'yoke qa no-tests attest --project P --reason "why this '
+            'project has no suite to bind" [--session-id S] [--json]'
         ),
     ),
     AdapterEntry(
         "qa.no_tests.clear",
-        ('yoke qa no-tests clear --project P --reason "what changed"'),
+        (
+            'yoke qa no-tests clear --project P --reason "what changed" '
+            "[--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.project_default.set",
-        "yoke qa project-default set --project P --plan-id N --workflow W --transition T",
+        (
+            "yoke qa project-default set --project P --plan-id N --workflow "
+            "W --transition T [--session-id S] [--json] [--qa-phase PHASE] "
+            "[--acknowledge-unreachable-target]"
+        ),
     ),
     AdapterEntry(
         "qa.project_default.unset",
-        "yoke qa project-default unset --project P --plan-id N --workflow W --transition T",
+        (
+            "yoke qa project-default unset --project P --plan-id N "
+            "--workflow W --transition T [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.item_plan.attach",
         (
-            "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition T [--qa-phase post_deploy] [--acknowledge-unreachable-target]"
+            "yoke qa item-plan attach --item PREFIX-N --project P "
+            "--plan-id N --transition T [--qa-phase post_deploy] "
+            "[--acknowledge-unreachable-target] [--session-id S] "
+            "[--json]"
         ),
     ),
     AdapterEntry(
@@ -167,11 +198,21 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.plan.materialize",
-        ("yoke qa plan materialize --item PREFIX-N --transition T"),
+        (
+            "yoke qa plan materialize (--item PREFIX-N (--transition T | --stage "
+            "STAGE [--plan PLAN]) [--project P] | --deployment-run-id RUN --project "
+            "P (--plan PLAN [--stage STAGE] | --stage STAGE)) [--replaces "
+            "CASE_KEY=REQUIREMENT_ID ...] [--replaces-requirement REQUIREMENT_ID "
+            "...] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.plan.rematerialize",
-        ("yoke qa plan rematerialize --item PREFIX-N --transition T"),
+        (
+            "yoke qa plan rematerialize (--item PREFIX-N (--transition T | --stage "
+            "STAGE [--plan PLAN]) | --deployment-run-id RUN --stage STAGE [--plan "
+            "PLAN]) [--project P] [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         "qa.requirement.transfer",

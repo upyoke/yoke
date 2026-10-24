@@ -16,7 +16,8 @@ from yoke_cli.commands._helpers import (
 
 
 PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE = (
-    "yoke projects github-sync-mode repair [--project NAME] [--apply] [--json]"
+    "yoke projects github-sync-mode repair [--project NAME] [--apply] "
+    "[--json] [--session-id S]"
 )
 
 

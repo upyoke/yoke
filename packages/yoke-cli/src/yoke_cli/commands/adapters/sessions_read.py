@@ -122,7 +122,9 @@ def sessions_get(args: List[str]) -> int:
     parser.add_argument("session", help="Session id to read.")
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, "yoke sessions get SESSION [--json]")
+    parsed = parse_or_usage_error(
+        parser, args, "yoke sessions get SESSION [--session-id S] [--json]"
+    )
     if parsed is None:
         return 2
     forwarded = ["--session", parsed.session, "--full"]

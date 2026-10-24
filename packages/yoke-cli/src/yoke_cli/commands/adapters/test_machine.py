@@ -27,25 +27,38 @@ from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 from yoke_cli.transport.test_machine_response_field import read_test_machine_field
 
 
-LIST_USAGE = "yoke test-machine list --project P [--json]"
-GET_USAGE = "yoke test-machine get --project P [--test-machine TEST_MACHINE] [--json]"
-SETTINGS_REPLACE_USAGE = (
-    "yoke test-machine settings-replace --project P "
-    "[--test-machine TEST_MACHINE] --settings-file FILE "
-    "(--base AS_READ_JSON | --new) [--json]"
+LIST_USAGE = "yoke test-machine list --project P [--json] [--session-id S]"
+GET_USAGE = (
+    "yoke test-machine get --project P [--test-machine "
+    "TEST_MACHINE] [--json] [--session-id S]"
 )
-VERIFY_USAGE = "yoke test-machine verify --project P [--test-machine TEST_MACHINE] [--json]"
+SETTINGS_REPLACE_USAGE = (
+    "yoke test-machine settings-replace --project P [--test-machine "
+    "TEST_MACHINE] --settings-file FILE (--base AS_READ_JSON | --new) "
+    "[--json] [--session-id S]"
+)
+VERIFY_USAGE = (
+    "yoke test-machine verify --project P [--test-machine "
+    "TEST_MACHINE] [--json] [--session-id S]"
+)
 RESET_USAGE = (
     "yoke test-machine reset --project P [--test-machine TEST_MACHINE] "
-    "[--baseline fresh-host|shell-preconfigured] [--json]"
+    "[--baseline fresh-host|shell-preconfigured] [--json] [--session-id "
+    "S]"
 )
 GOLDEN_CAPTURE_USAGE = (
-    "yoke test-machine golden-capture --project P [--test-machine TEST_MACHINE] "
-    "[--destination /abs/path] [--probes-file FILE] [--json]"
+    "yoke test-machine golden-capture --project P [--test-machine "
+    "TEST_MACHINE] [--destination /abs/path] [--probes-file FILE] "
+    "[--json] [--session-id S]"
 )
-SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--test-machine TEST_MACHINE] [--json]"
+SCREENSHOT_USAGE = (
+    "yoke test-machine screenshot --project P "
+    "[--test-machine TEST_MACHINE] [--json] "
+    "[--session-id S]"
+)
 BRIDGE_DIAGNOSE_USAGE = (
-    "yoke test-machine bridge-diagnose --project P [--test-machine TEST_MACHINE] [--json]"
+    "yoke test-machine bridge-diagnose --project P [--test-machine "
+    "TEST_MACHINE] [--json] [--session-id S]"
 )
 
 

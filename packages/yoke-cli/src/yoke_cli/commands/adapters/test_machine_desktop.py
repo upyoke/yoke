@@ -16,7 +16,8 @@ from yoke_cli.transport.test_machine_response_field import read_test_machine_fie
 from yoke_contracts.api.function_call import TargetRef
 
 DESKTOP_ACCESS_USAGE = (
-    "yoke test-machine desktop-access --project P --test-machine TEST_MACHINE [--view]"
+    "yoke test-machine desktop-access --project P --test-machine "
+    "TEST_MACHINE [--view] [--session-id S]"
 )
 
 

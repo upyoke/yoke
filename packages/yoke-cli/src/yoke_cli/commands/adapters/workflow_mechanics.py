@@ -17,18 +17,19 @@ from yoke_cli.commands._helpers import (
 )
 
 
-GET_USAGE = "yoke workflows mechanics get [--json]"
+GET_USAGE = "yoke workflows mechanics get [--json] [--session-id S]"
 TESTING_SET_USAGE = (
     "yoke workflows testing-default set --project P --workflow W "
-    "--plan-id N [--apply-to-all] [--json]"
+    "--plan-id N [--apply-to-all] [--json] [--session-id S]"
 )
 DELIVERY_SET_USAGE = (
     "yoke workflows delivery-default set --project P --workflow W "
-    "--flow F [--apply-to-all] [--json]"
+    "--flow F [--apply-to-all] [--json] [--session-id S]"
 )
 APPROVAL_PUBLISH_USAGE = (
     "yoke workflows approval-defaults publish --workflow W "
-    "--expected-current-version N --defaults-file FILE [--json]"
+    "--expected-current-version N --defaults-file FILE [--json] "
+    "[--session-id S]"
 )
 
 
@@ -88,12 +89,16 @@ def workflows_testing_default_set(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, TESTING_SET_USAGE)
     if parsed is None:
         return 2
-    return _dispatch(parsed, "workflows.testing_default.set", {
-        "project": parsed.project,
-        "workflow_id": parsed.workflow,
-        "plan_id": parsed.plan_id,
-        "apply_to_all": parsed.apply_to_all,
-    })
+    return _dispatch(
+        parsed,
+        "workflows.testing_default.set",
+        {
+            "project": parsed.project,
+            "workflow_id": parsed.workflow,
+            "plan_id": parsed.plan_id,
+            "apply_to_all": parsed.apply_to_all,
+        },
+    )
 
 
 def workflows_delivery_default_set(args: List[str]) -> int:
@@ -105,12 +110,16 @@ def workflows_delivery_default_set(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DELIVERY_SET_USAGE)
     if parsed is None:
         return 2
-    return _dispatch(parsed, "workflows.delivery_default.set", {
-        "project": parsed.project,
-        "workflow_id": parsed.workflow,
-        "flow_id": parsed.flow,
-        "apply_to_all": parsed.apply_to_all,
-    })
+    return _dispatch(
+        parsed,
+        "workflows.delivery_default.set",
+        {
+            "project": parsed.project,
+            "workflow_id": parsed.workflow,
+            "flow_id": parsed.flow,
+            "apply_to_all": parsed.apply_to_all,
+        },
+    )
 
 
 def workflows_approval_defaults_publish(args: List[str]) -> int:
@@ -141,18 +150,20 @@ def workflows_approval_defaults_publish(args: List[str]) -> int:
     if parsed is None:
         return 2
     try:
-        defaults = json.loads(
-            Path(parsed.defaults_file).read_text(encoding="utf-8")
-        )
+        defaults = json.loads(Path(parsed.defaults_file).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         return usage_error(f"defaults file must be readable JSON: {exc}")
     if not isinstance(defaults, dict):
         return usage_error("defaults file root must be an object")
-    return _dispatch(parsed, "workflows.approval_defaults.publish", {
-        "workflow_id": parsed.workflow,
-        "expected_current_version": parsed.expected_current_version,
-        "approval_defaults": defaults,
-    })
+    return _dispatch(
+        parsed,
+        "workflows.approval_defaults.publish",
+        {
+            "workflow_id": parsed.workflow,
+            "expected_current_version": parsed.expected_current_version,
+            "approval_defaults": defaults,
+        },
+    )
 
 
 USAGE_BY_FUNCTION_ID = {

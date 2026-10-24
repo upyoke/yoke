@@ -15,7 +15,10 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 
-USAGE = "yoke advance preflight hard-blocks PREFIX-N [--gate-point POINT] [--json]"
+USAGE = (
+    "yoke advance preflight hard-blocks PREFIX-N [--gate-point "
+    "POINT] [--json] [--session-id S] [--project P]"
+)
 
 
 def hard_blocks(args: list[str]) -> int:

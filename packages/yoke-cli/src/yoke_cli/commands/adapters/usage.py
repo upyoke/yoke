@@ -209,8 +209,14 @@ ADAPTER_USAGE: Dict[str, str] = {
     "items.get.run": ITEMS_GET_USAGE,
     "items.list.run": ITEMS_LIST_USAGE,
     "items.search.run": ITEMS_SEARCH_USAGE,
-    "items.github_link": "yoke items github-link <PREFIX-N> (--issue NUMBER | --unlink) [--task-num N] [--json]",
-    "items.github_sync": "yoke items github-sync <PREFIX-N> [--session-id S] [--json]",
+    "items.github_link": (
+        "yoke items github-link <PREFIX-N> (--issue "
+        "NUMBER | --unlink) [--task-num N] [--json] "
+        "[--session-id S] [--project P]"
+    ),
+    "items.github_sync": (
+        "yoke items github-sync <PREFIX-N> [--session-id S] [--json] [--project P]"
+    ),
     "items.progress_log.append": PROGRESS_LOG_USAGE,
     "items.structured_field.replace": STRUCTURED_FIELD_USAGE,
     "items.scalar.update": ITEMS_SCALAR_UPDATE_USAGE,

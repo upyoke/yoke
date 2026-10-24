@@ -1,7 +1,6 @@
 # Source-dev doctrine — working on Yoke itself
 
-Rules for changing this repository. They are repo-internal and never ship in the install bundle.
-Each section names the owner that holds the detail.
+Repository-only rules; linked owners hold the detail.
 
 ## Run source and tests
 
@@ -99,6 +98,8 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
 ```
 
 ## Code rules for this repo
+
+- CLI usage: [authoring and checks](source-dev/cli-usage-contract.md).
 
 - Product code never branches on a project name. Read the declared fact instead.
   `HC-project-name-literal` enforces it; allowances live in

@@ -15,9 +15,9 @@ from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import FunctionError, TargetRef
 
-PENDING_USAGE = "yoke machines pending [--json]"
-APPROVE_USAGE = "yoke machines approve CODE [--json]"
-DENY_USAGE = "yoke machines deny CODE [--json]"
+PENDING_USAGE = "yoke machines pending [--json] [--session-id S]"
+APPROVE_USAGE = "yoke machines approve CODE [--session-id S] [--json]"
+DENY_USAGE = "yoke machines deny CODE [--session-id S] [--json]"
 USAGE_BY_FUNCTION_ID = {
     "machine_authorization.pending": PENDING_USAGE,
     "machine_authorization.get": APPROVE_USAGE,

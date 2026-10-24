@@ -44,7 +44,11 @@ ONBOARD_USAGE = (
     "local-checkout --checkout PATH [--remote-url URL] "
     "--project-slug SLUG --project-name NAME --default-branch BRANCH "
     "--public-item-prefix PREFIX [--github-repo OWNER/REPO] "
-    "[--github-adoption app-binding|disabled]]"
+    "[--github-adoption app-binding|disabled] [--project-org ORG] "
+    "[--publication-destination DESTINATION] "
+    "[--existing-yoke-layer keep|remove]] "
+    "[--admin-name NAME] [--post-install] [--skip-harness-permissions] "
+    "[--resume RUN_ID | --use-different-folder RUN_ID]"
 )
 
 
@@ -62,7 +66,9 @@ def onboard(args: List[str]) -> int:
         return 2
     if shell.name == onboard_agent.SHELL_AGENT:
         return onboard_agent.run(parsed, defaults=_parser().parse_args([]))
-    return _run_flags_or_wizard(parsed, force_wizard=shell.name == onboard_agent.SHELL_WIZARD)
+    return _run_flags_or_wizard(
+        parsed, force_wizard=shell.name == onboard_agent.SHELL_WIZARD
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
