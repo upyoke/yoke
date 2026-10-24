@@ -157,9 +157,14 @@ def cd_destination(argv: tuple[str, ...] | list[str]) -> str | None:
 
 
 def expand_home(path: str, *, home: str | None = None) -> str:
-    """Expand the current user's ``~`` against ``home`` (default: this machine)."""
+    """Expand the current user's ``~`` against ``home`` (default: this machine).
+
+    An empty ``home`` (the client sent none) leaves ``~`` unexpanded.
+    """
     if home is None:
         return os.path.expanduser(path)
+    if not home:
+        return path
     if path == "~":
         return home
     if path.startswith("~/"):

@@ -16,7 +16,6 @@ import tempfile
 from pathlib import PurePath
 from typing import Dict, List, Mapping, Optional, Tuple
 
-from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 _REGEX_METACHARS = re.compile(r"[?*{]")
@@ -217,98 +216,6 @@ def _mktemp_path(inner: str) -> Optional[str]:
     return os.path.join(tempfile.gettempdir(), _ANONYMOUS_TEMP_LEAF)
 
 
-# Shell control operators that separate one command invocation from the
-# next within a single statement. Statement boundaries themselves are a
-# quote-aware text-level split (``path_claim_bash_splitter``); this pass
-# catches the operators that survive it, notably a backgrounding ``&``.
-SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
-
-# Reserved words that open or punctuate a compound statement. None of them
-# is the command being run, so a segment starting with one hides the real
-# command name behind it — and with it every per-command operand rule. That
-# is how ``do curl -sS -w "%{http_code}" URL`` lost curl's write-out format
-# to the ``-w`` worktree-path flag, and how a copy in a loop body reached
-# the write walk as ``do`` and named no destination at all.
-COMPOUND_STATEMENT_KEYWORDS = frozenset(
-    {
-        "!",
-        "(",
-        ")",
-        "{",
-        "}",
-        "case",
-        "coproc",
-        "do",
-        "done",
-        "elif",
-        "else",
-        "esac",
-        "fi",
-        "then",
-        "time",
-        "until",
-        "while",
-    }
-)
-
-# ``for NAME in <words>`` and ``select NAME in <words>``. The words are the
-# loop variable's VALUES, carried for the body to consume — not operands any
-# command receives. Whether one of them names a path is decided by the body
-# that dereferences the variable, so the header itself names no target: a
-# loop over URL path components had every component read as an absolute
-# filesystem path the session held no claim on.
-WORD_LIST_KEYWORDS = frozenset({"for", "select"})
-
-
-def command_operand_tokens(tokens: List[str]) -> List[str]:
-    """Return the tokens a command actually receives, or ``[]`` for none.
-
-    Leading reserved words are dropped so the command name is the first
-    token, and a word-list header yields nothing because it invokes no
-    command. An empty result means this segment names no operands, which
-    every caller already reads as "no targets here".
-    """
-    out = list(tokens)
-    while out and out[0] in COMPOUND_STATEMENT_KEYWORDS:
-        out = out[1:]
-    if out and out[0] in WORD_LIST_KEYWORDS:
-        return []
-    return out
-
-
-def shell_command_segments(command: str) -> List[List[str]]:
-    """Return each command invocation in ``command`` as its own tokens.
-
-    Statement boundaries are the quote-aware text-level split; the
-    operators that survive it split the remaining tokens. Splitting the
-    text first is what makes the result trustworthy: ``shlex`` alone
-    glues an operator written without surrounding whitespace onto the
-    preceding word, so ``--target-root /lane; git ...`` hands back the
-    lane path with a ``;`` stuck to it and every containment test
-    against that path fails against the lane it names.
-    """
-    out: List[List[str]] = []
-    for statement in split_pipeline(command):
-        out.extend(split_command_segments(_safe_split(statement)))
-    return out
-
-
-def split_command_segments(tokens: List[str]) -> List[List[str]]:
-    """Split a token stream into per-invocation segments on shell operators."""
-    segments: List[List[str]] = []
-    current: List[str] = []
-    for tok in tokens:
-        if tok in SEGMENT_SEPARATORS:
-            if current:
-                segments.append(current)
-            current = []
-            continue
-        current.append(tok)
-    if current:
-        segments.append(current)
-    return segments
-
-
 def _safe_split(text: str) -> List[str]:
     try:
         return shlex.split(text)
@@ -316,31 +223,11 @@ def _safe_split(text: str) -> List[str]:
         return []
 
 
-def substitute_bound_variables(command: str) -> str:
-    """Replace bound ``$name`` / ``${name}``; leave unbound names as written."""
-    bindings = shell_variable_bindings(command)
-    if not bindings:
-        return command
-
-    def _replace(match: re.Match[str]) -> str:
-        name = match.group("braced") or match.group("bare")
-        return bindings.get(name, match.group(0))
-
-    return _VARIABLE_REFERENCE.sub(_replace, command)
-
-
 __all__ = [
-    "COMPOUND_STATEMENT_KEYWORDS",
-    "SEGMENT_SEPARATORS",
-    "WORD_LIST_KEYWORDS",
-    "command_operand_tokens",
     "expand_variables",
     "is_path_like",
     "path_target_from_token",
     "resolve_path_operands",
-    "shell_command_segments",
     "shell_variable_bindings",
-    "split_command_segments",
-    "substitute_bound_variables",
     "unwrap_cli_file_param",
 ]
