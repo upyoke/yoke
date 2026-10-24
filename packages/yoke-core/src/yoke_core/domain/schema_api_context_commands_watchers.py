@@ -160,8 +160,8 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
-            "step headers, errors, warnings, RESULT_FILE=). Use for any "
-            "merge or done_transition; never hand-author the filter. "
+            "step headers, errors, warnings). Use for any merge; never "
+            "hand-author the filter. "
             "A relay-launched session ignores --wait: its merge arms the "
             "landing, returns landing_pending=true naming the pull request, "
             "and the landing notice wakes it to re-run the same command for "

@@ -33,11 +33,8 @@ Close-out routes
 This is the ONE agent-facing close-out for a merging item. It merges the lane
 and records the evidence in the same call, so `--result` and `--verification`
 belong on it even when the merge queue already landed the branch. Do not
-substitute an internal done engine: `yoke lifecycle transition --to done` and
-`done-transition --skip-deploy` cannot restore the work claim close-out needs,
-and `--skip-deploy` records a selected-flow delivery as out-of-band, which is a
-false record and is refused when the item's flow already has a succeeded run
-covering its merge.
+substitute `yoke lifecycle transition --to done`: it cannot restore the work
+claim close-out needs.
 
 Which close-out applies depends on what the item's pinned deployment flow still
 owes, and the envelope says which one happened -- read `status` and the

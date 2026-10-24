@@ -13,7 +13,6 @@ from yoke_core.tools import watch_merge
 from yoke_core.tools._watch_runner import filter_match
 
 from runtime.api.tools.test_watch_merge import (
-    DONE_TRANSITION_FIXTURE_LINES,
     FAKE_ITEM,
     FAKE_ITEM_NUM,
     MERGE_WORKTREE_FIXTURE_LINES,
@@ -32,9 +31,9 @@ class TestLiveWrapperSmokeViaPython:
 
         ``watch_merge`` is sub-command-driven by design, but the underlying
         ``_watch_runner.run_watcher`` is a thin wrapper. We exercise the
-        full live path end-to-end by invoking ``watch_merge`` itself with a
-        fake ``done-transition`` shape, via a temporary engine module, so
-        the test does not depend on Yoke's real DB state.
+        full live path end-to-end with the merge classifier over a
+        temporary engine module, so the test does not depend on Yoke's real
+        DB state.
         """
         # Create a fake engine module on disk that prints lines matching
         # and not matching the merge progress pattern, then exits 0.
@@ -43,7 +42,7 @@ class TestLiveWrapperSmokeViaPython:
         (fake_pkg / "__init__.py").write_text("", encoding="utf-8")
         (fake_pkg / "fake_engine.py").write_text(
             "import sys\n"
-            f"print('=== Done transition: {FAKE_ITEM} ===')\n"
+            f"print('=== Merge: {FAKE_ITEM} ===')\n"
             "print('Title: ignored detail')\n"
             "print('ordinary diagnostic detail')\n"
             "print('Error: synthetic failure')\n"
@@ -96,7 +95,7 @@ class TestLiveWrapperSmokeViaPython:
         assert "ordinary diagnostic detail" not in progress_text
         # Routine progress stays in raw, while errors and the final result
         # reach the user-facing capture.
-        assert f"=== Done transition: {FAKE_ITEM} ===" not in progress_text
+        assert f"=== Merge: {FAKE_ITEM} ===" not in progress_text
         assert "Error: synthetic failure" in progress_text
         assert "# watch_merge outcome: completed successfully" in progress_text
         # Title detail is intentionally below the filter — appears only in raw.

@@ -1,18 +1,12 @@
 # Usher — delivery
 
 Merge-only stops here and keeps the claim at the delivery wait. Route A,
-only for a flow that delivers nothing (exit 7: use Route B):
+only for a flow that delivers nothing: re-enter the merge without
+`--skip-status` to close the item out. Its envelope `status` reads `done`; a
+`release_wait` block means the flow still owes delivery: use Route B.
 
 ```text
-yoke watch merge done-transition -- PREFIX-N --skip-deploy
-```
-
-Exit 8 (empty branch): prove exactly one active implementation lane is clean;
-the release is its attestation:
-
-```text
-git -C ABSOLUTE_REGISTERED_LANE status --porcelain --untracked-files=all
-yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery
+yoke merge item PREFIX-N --result "what shipped" --verification "<proof>"
 ```
 
 Route B: a steering seat or reserving mandate means report and stop. Read

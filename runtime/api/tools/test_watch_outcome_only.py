@@ -39,7 +39,7 @@ def test_direct_and_tail_streams_only_deliver_terminal_failure(
     tmp_path: Path, kind: str, classifier
 ) -> None:
     summary = (
-        "Branch already merged"
+        "YOKE_REPO_ROOT=/repo"
         if kind == "merge"
         else "Pipeline complete for run run-20260923-001"
     )
@@ -111,7 +111,7 @@ def test_success_summary_is_reported_only_after_zero_exit(
     tmp_path: Path, kind: str, classifier
 ) -> None:
     summary = (
-        "Branch already merged"
+        "YOKE_REPO_ROOT=/repo"
         if kind == "merge"
         else "Pipeline complete for run run-20260923-002"
     )
@@ -321,7 +321,7 @@ def test_wait_mode_changes_transport_not_outcome_policy(wait_mode, expected) -> 
     _watch_runner.print_wait_mode_invocation(
         kind="merge",
         wrapper_module="yoke_core.tools.watch_merge",
-        wrapper_args=["done-transition", "ITEM-1"],
+        wrapper_args=["merge-item", "ITEM-1", "--wait"],
         raw_capture=Path("/tmp/merge.raw"),
         progress_capture=Path("/tmp/merge.progress"),
         outcome_only=True,

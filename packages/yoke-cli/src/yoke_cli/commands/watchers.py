@@ -85,7 +85,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "args after `--`."
     ),
     "yoke watch merge": (
-        "Run done-transition, merge-item, or merge-worktree under the shared "
+        "Run merge-item or merge-worktree under the shared "
         "raw+progress watcher; merge-item enqueues and exits unless --wait is passed."
     ),
     "yoke watch deploy": (

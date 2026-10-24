@@ -1,8 +1,7 @@
 """Command-shaped watcher for Yoke's merge engines.
 
 Owns the merge line classifier so callers do not author a Monitor
-filter per invocation. It covers what
-``yoke_core.engines.done_transition`` and
+filter per invocation. It covers what ``yoke merge item`` and
 ``yoke_core.engines.merge_worktree`` emit; the class constants below
 carry the per-shape assignments, and every other line is ``NOISE``
 (raw capture only). Only terminal errors and the final result reach the
@@ -11,13 +10,13 @@ stream; the raw capture retains the complete child output.
 
 Usage::
 
-    yoke watch merge done-transition YOK-N
+    yoke watch merge merge-item -- YOK-N --result TEXT --verification TEXT
     yoke watch merge merge-worktree \\
         --branch YOK-N --target main
 
     # Print the ready-to-paste streaming pair:
     yoke watch merge --print-streaming-pair -- \\
-        done-transition YOK-N
+        merge-item YOK-N --wait --result TEXT --verification TEXT
 
 The wrapper preserves the underlying engine's exit code.
 """
@@ -53,7 +52,6 @@ DEFAULT_PROG = "watch_merge"
 # without it — visibly, as a credential refusal on any machine whose App
 # authority lives server-side.
 SUBCOMMAND_MODULES: dict[str, str] = {
-    "done-transition": "yoke_core.engines.done_transition",
     "merge-item": "yoke_cli.commands.merge_item_local_runtime",
     "merge-worktree": "yoke_cli.commands.merge_worktree_local_runtime",
 }
@@ -64,7 +62,6 @@ MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "ERROR:",
     "Warning:",
     "HARD STOP:",
-    "Merge halted:",
     "Merge lock error:",
     "fatal:",
 )
@@ -72,20 +69,13 @@ _MERGE_URGENT_WARNING_RE = re.compile(
     r"^Warning:(?!.*(?i:\b(?:transient|temporar(?:y|ily)|"
     r"retry(?:ing)?|try again)\b))"
 )
-# Terminal results and verdicts that end the merge before it starts.
-MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
-    "Branch already merged",
-    "Merge already completed",
-    "RESULT_FILE=",
-    "YOKE_REPO_ROOT=",
-)
+# Terminal results the merge engines print.
+MERGE_SUMMARY_PREFIXES: tuple[str, ...] = ("YOKE_REPO_ROOT=",)
 # Routine motion is retained in raw capture, not the user-facing stream.
 MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "===",
     "Merging branch:",
     "Worktree:",
-    "Resuming from step",
-    "Pre-flight:",
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
 # Queue poll observations remain classified as progress for diagnostics.
@@ -218,7 +208,6 @@ def _parse_args(
             f"  {prog} merge-item -- PREFIX-N --result TEXT --verification TEXT\n"
             f"  {prog} merge-item -- PREFIX-N --wait --result TEXT --verification TEXT\n"
             f"  {prog} merge-worktree -- PREFIX-N\n"
-            f"  {prog} done-transition -- PREFIX-N\n"
             "--wait holds the landing inline. Invoke it with\n"
             "--print-streaming-pair to print the safe shape without\n"
             "merging anything: a native idle-wake primitive gets the\n"

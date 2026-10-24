@@ -2,7 +2,6 @@
 
 Covers:
 - Filter regex against representative output fixtures captured from
-  ``yoke_core.engines.done_transition`` and
   ``yoke_core.engines.merge_worktree``.
 - Sub-command resolution and error reporting.
 - ``--print-streaming-pair`` emits an invocation pair using a known
@@ -33,24 +32,6 @@ FAKE_ITEM_NUM = 9
 FAKE_ITEM = f"YOK-{FAKE_ITEM_NUM}"
 
 # Representative output captured by hand from the engines.
-DONE_TRANSITION_FIXTURE_LINES: list[str] = [
-    "YOKE_REPO_ROOT=/repo",
-    "",
-    f"=== Done transition: {PRIMARY_ITEM} ===",
-    "Title: Some title",
-    "Old status: implementing",
-    "Type: issue",
-    "",
-    "Project: yoke (repo: /repo)",
-    "Pre-flight: merge already completed (no worktree), status is 'implemented'.",
-    "Resuming from step 6 (status update and post-merge steps).",
-    "Branch already merged — skipping merge step.",
-    f"Error: Merge of branch '{PRIMARY_ITEM}' failed.",
-    "Merge halted: agent resolution required.",
-    "HARD STOP: User-authored files at risk.",
-    "RESULT_FILE=/tmp/result.json",
-]
-
 MERGE_WORKTREE_FIXTURE_LINES: list[str] = [
     f"Merging branch: {PRIMARY_ITEM} → main",
     f"Worktree: /repo/.worktrees/{PRIMARY_ITEM}",
@@ -73,26 +54,6 @@ NOISE_LINES: list[str] = [
 
 
 class TestMergeFilterCoverage:
-    @pytest.mark.parametrize("line", DONE_TRANSITION_FIXTURE_LINES)
-    def test_done_transition_signal_lines_or_blank(self, line: str) -> None:
-        # Each non-blank fixture line is either a section header, status
-        # line, error/warning, or RESULT_FILE/YOKE_REPO_ROOT emission.
-        # Blank lines are not signal — the rest are.
-        if not line.strip():
-            assert not filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
-            return
-        # Pure context lines like "Title:", "Old status:", "Type:",
-        # "Project:" are NOT in the filter — they appear under the
-        # `=== Done transition: ===` banner that IS matched, and the
-        # banner is sufficient to anchor operator attention.
-        if any(
-            line.startswith(prefix)
-            for prefix in ("Title:", "Old status:", "Type:", "Project:")
-        ):
-            assert not filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
-            return
-        assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
-
     @pytest.mark.parametrize("line", MERGE_WORKTREE_FIXTURE_LINES)
     def test_merge_worktree_signal_lines(self, line: str) -> None:
         if line.startswith("Warning:"):
@@ -114,35 +75,13 @@ class TestMergeFilterCoverage:
     def test_noise_lines_do_not_match(self, noise: str) -> None:
         assert not filter_match(watch_merge.MERGE_PROGRESS_PATTERN, noise)
 
-    def test_done_transition_fixture_distinguishes_signal_from_noise(
-        self,
-    ) -> None:
-        signal = [
-            line
-            for line in DONE_TRANSITION_FIXTURE_LINES
-            if filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
-        ]
-        joined = "\n".join(signal)
-        assert "=== Done transition" in joined
-        assert "Pre-flight:" in joined
-        assert "Resuming from step" in joined
-        assert "Branch already merged" in joined
-        assert "Error:" in joined
-        assert "Merge halted:" in joined
-        assert "HARD STOP:" in joined
-        assert "RESULT_FILE=" in joined
-        assert "YOKE_REPO_ROOT=" in joined
-        # Detail lines that should be skipped:
-        assert "Title:" not in joined
-        assert "Old status:" not in joined
-
 
 class TestSubcommandResolution:
     def test_known_subcommand_returns_engine_module(self) -> None:
         module, rest = watch_merge._resolve_subcommand(
-            ["done-transition", PRIMARY_ITEM]
+            ["merge-worktree", PRIMARY_ITEM]
         )
-        assert module == "yoke_core.engines.done_transition"
+        assert module == "yoke_cli.commands.merge_worktree_local_runtime"
         assert rest == [PRIMARY_ITEM]
 
     def test_merge_item_runs_the_same_entrypoint_as_the_plain_command(
@@ -218,12 +157,12 @@ class TestStripSeparator:
 
 
 class TestPrintStreamingPair:
-    def test_print_streaming_pair_for_done_transition(
+    def test_print_streaming_pair_for_merge_item(
         self, capsys, monkeypatch, tmp_path
     ) -> None:
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         rc = watch_merge.main(
-            ["--print-streaming-pair", "--", "done-transition", PRIMARY_ITEM]
+            ["--print-streaming-pair", "--", "merge-item", PRIMARY_ITEM, "--wait"]
         )
         assert rc == 0
         out = capsys.readouterr().out
@@ -231,7 +170,7 @@ class TestPrintStreamingPair:
         assert f"{command_anchor} merge" in out
         assert "PYTHONPATH" not in out
         # Sub-command argv preserved in the printed Bash invocation.
-        assert "done-transition" in out
+        assert "merge-item" in out
         assert "Outcome-only stream" in out
         # Progress tail auto-exits via watch_tail; post-completion inspection
         # still uses tail -80 against the raw capture.

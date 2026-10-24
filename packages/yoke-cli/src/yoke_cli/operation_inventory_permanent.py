@@ -229,7 +229,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         REASON_OPERATOR_BREAK_GLASS,
     ),
     # Deployment pipeline — long-running command-shaped boundary (like the
-    # merge/done-transition watchers): usher drives it; not a quick typed
+    # merge watcher): usher drives it; not a quick typed
     # function call. Flow admin (delete) is operator break-glass.
     _p(
         "python3 -m yoke_core.domain.deploy_pipeline",

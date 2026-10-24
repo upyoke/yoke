@@ -15,10 +15,10 @@ merge-only flow; or **no flow**. Hosting deferred ⇒ last two only.
 
 **Refuse:** Usher Route B / `deployment-runs start-for-item` when no
 environment exists. Idea must not pass `--deployment-flow` when defaults are
-empty. If a persistent flow is set and `--skip-deploy` is used: exit 7
-(`usher/deploy.md`) — that refusal is correct **if** the flow was intentional.
+empty. If a persistent flow is set, close-out lands at its release wait instead
+of `done` (`usher/deploy.md`) — that hold is correct **if** the flow was intentional.
 
-**Instead:** Route A `yoke watch merge done-transition -- PREFIX-N --skip-deploy`
+**Instead:** Route A: re-enter `yoke merge item PREFIX-N --result ... --verification ...`
 for an empty/`-internal` flow or any registered flow whose `target_tier` is
 empty. Steering's filing omits `--deployment-flow` when `deploy-defaults get` prints
 nothing and attaches a configured merge-only default when it prints one.
