@@ -7,13 +7,7 @@ from difflib import get_close_matches
 from typing import Optional, Sequence, TextIO
 
 from yoke_cli.commands.command_summaries import summary_for
-from yoke_cli.commands.command_tree import child_lines
-from yoke_cli.commands.registry import (
-    SPACE_EXPANDED_ROUTE_REGISTRY,
-    SUBCOMMAND_ALIAS_REGISTRY,
-    SUBCOMMAND_REGISTRY,
-)
-from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS
+from yoke_cli.commands.command_tree import child_lines, listed_routes
 from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
@@ -152,12 +146,7 @@ def can_route_group(argv: Sequence[str]) -> bool:
         return False
     if prefix in GROUP_ROUTES or prefix in GUIDANCE_ROUTES:
         return True
-    all_tokens = (
-        tuple(SUBCOMMAND_REGISTRY)
-        + tuple(SUBCOMMAND_ALIAS_REGISTRY)
-        + tuple(SPACE_EXPANDED_ROUTE_REGISTRY)
-        + tuple(TOOL_SHAPED_SUBCOMMANDS)
-    )
+    all_tokens = tuple(listed_routes())
     return any(
         len(tokens) > len(prefix) and tokens[: len(prefix)] == prefix
         for tokens in all_tokens
@@ -169,12 +158,7 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
     stripped = [token for token in argv if token not in ("-h", "--help", "help")]
     if not stripped:
         return None
-    all_tokens = (
-        tuple(SUBCOMMAND_REGISTRY)
-        + tuple(SUBCOMMAND_ALIAS_REGISTRY)
-        + tuple(SPACE_EXPANDED_ROUTE_REGISTRY)
-        + tuple(TOOL_SHAPED_SUBCOMMANDS)
-    )
+    all_tokens = tuple(listed_routes())
     group = stripped[0]
     first_tokens = sorted({tokens[0] for tokens in all_tokens if tokens})
     # Sibling groups whose names differ from the typed one by a character
@@ -203,6 +187,10 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
     if not candidates:
         return None
     requested = " ".join(stripped)
+    # `sessions end` is the start of `sessions end-if-empty`, not a typo.
+    prefixed = sorted({c for c in candidates if c.startswith(requested + "-")})
+    if len(prefixed) == 1:
+        return f"Did you mean `yoke {prefixed[0]}`?"
     matches = get_close_matches(requested, candidates, n=1, cutoff=0.35)
     if not matches:
         return None

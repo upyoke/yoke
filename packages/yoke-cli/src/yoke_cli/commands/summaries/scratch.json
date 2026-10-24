@@ -1,6 +1,4 @@
 {
   "scratch": "Find scratch folders for agent work.",
-  "scratch dispatch": "Find the folder that holds dispatch inputs.",
-  "scratch dispatch inputs": "Create and print an item's dispatch inputs folder.",
   "scratch dispatch-inputs": "Create and print an item's dispatch inputs folder."
 }

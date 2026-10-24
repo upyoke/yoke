@@ -46,13 +46,24 @@ expected_outcome, and the method's own method_config. `position` is optional
 -- omit it and each case takes its place in the array, which is the order you
 wrote them in. Supply it only to state an order the array does not.
 
+Self-contained cases
+--------------------
+A case runs with only the access of the session that executes it, such as
+the item work claim for item QA. Bring the case's own access, fixtures and
+public surface; never rely on the runner's steering seat, claim or session.
+A command that needs another seat, such as `yoke steering report get`, can
+never pass there: prove the outcome with a read that runner can make.
+
 Source-authored plans
 --------------------
-Generated input is an object with source_revision and cases; qa plan-cases sync
-records its provenance atomically. qa plan-cases replace accepts manual arrays.
---source-revision FULL_SHA records the merged exporter commit with the cases.
-It must be an ancestor of the project's verified default branch. Once recorded,
-every replacement needs source provenance; interactive editing refuses. A sync
+qa plan-cases replace writes a manual case array. An exporter document or
+--source-revision refuses qa_plan_source_sync_required, and a source-bound plan
+refuses qa_plan_source_revision_required. qa plan-cases sync takes the
+exporter's document (an object with source_revision and cases), or an array
+with --source-revision FULL_SHA, and records that merged commit with the cases
+atomically. The commit must be an ancestor of the project's verified default
+branch. Once recorded, the plan is source-bound: replace and interactive
+editing refuse, so every change is a new sync. A sync
 moves only forward: the recorded revision itself or a descendant of it.
 An older source refuses qa_plan_source_revision_regression, and a recorded
 revision the repository cannot prove refuses qa_plan_source_ancestry_unverified;

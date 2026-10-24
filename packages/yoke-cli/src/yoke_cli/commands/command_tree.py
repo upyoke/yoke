@@ -6,6 +6,7 @@ from yoke_cli.commands.registry import (
     SUBCOMMAND_REGISTRY,
     SUBCOMMAND_ALIAS_REGISTRY,
     SPACE_EXPANDED_ROUTE_REGISTRY,
+    SPACED_GROUP_ROUTE_REGISTRY,
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS
 from yoke_cli.commands.help_labels import labeled_cli_form
@@ -23,10 +24,20 @@ def command_routes() -> dict:
     }
 
 
+def listed_routes() -> set[tuple[str, ...]]:
+    """Command spellings help lists; a split leaf resolves but is never listed."""
+    return {
+        *SUBCOMMAND_REGISTRY,
+        *SUBCOMMAND_ALIAS_REGISTRY,
+        *SPACED_GROUP_ROUTE_REGISTRY,
+        *TOOL_SHAPED_SUBCOMMANDS,
+    }
+
+
 def discovery_routes() -> set[tuple[str, ...]]:
     from yoke_cli.commands.group_help import GROUP_ROUTES, GUIDANCE_ROUTES
 
-    return set(command_routes()) | set(GROUP_ROUTES) | set(GUIDANCE_ROUTES)
+    return listed_routes() | set(GROUP_ROUTES) | set(GUIDANCE_ROUTES)
 
 
 def immediate_children(prefix: tuple[str, ...]) -> list[tuple[str, ...]]:

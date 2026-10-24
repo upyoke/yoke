@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from yoke_cli.commands._helpers import show_delegate_help
 from typing import Callable, Dict, List, Tuple
 
 
@@ -19,13 +18,12 @@ MERGE_ITEM_USAGE = (
 
 
 def merge_item(args: List[str]) -> int:
-    """Delegate local merge authority without importing engine internals."""
-    if show_delegate_help(
-        args,
-        MERGE_ITEM_USAGE,
-        "Requires a committed, verified item lane and its work claim. The project merge policy owns landing.",
-    ):
-        return 0
+    """Delegate local merge authority; help runs the engine's own parser in-process."""
+    before = args[: args.index("--")] if "--" in args else args
+    if any(arg in ("--help", "-h") for arg in before):
+        from yoke_cli.commands.merge_item_local_runtime import run
+
+        return run(args)
     completed = subprocess.run(
         [
             sys.executable,

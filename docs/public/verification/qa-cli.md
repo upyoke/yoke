@@ -89,6 +89,11 @@ yoke qa run add --requirement-id 1 --performed-by agent \
  --qa-kind ac_verification --verdict pass --head-sha FULL_COMMIT_SHA \
  --raw-result 'Evidence and result for every acceptance criterion'
 
+# A pass proven outside the run credits a deployment stage only with its
+# evidence attached to that run (else passed_without_evidence).
+yoke qa artifact add --requirement-id 1 --run-id 1 \
+ --artifact-type command_output --content-file /tmp/evidence.txt
+
 # Epic-task review verdicts use the workflow-item helper path
 yoke workflow-item epic-task review-insert \
  --epic PREFIX-833 --task-num 5 --verdict pass --body "Review passed"

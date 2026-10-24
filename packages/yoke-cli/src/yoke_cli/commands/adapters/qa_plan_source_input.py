@@ -60,9 +60,7 @@ def case_payload(parsed):
     return result
 
 
-def configure_case_replace(
-    parser: argparse.ArgumentParser, *, source_revision_help: str | None = None
-) -> None:
+def configure_case_replace(parser: argparse.ArgumentParser, *, manual: bool = False) -> None:
     parser.epilog = PLAN_CASES_REPLACE_EPILOG
     parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.add_argument(
@@ -75,9 +73,11 @@ def configure_case_replace(
     parser.add_argument(
         "--source-revision",
         metavar="FULL_SHA",
-        help=source_revision_help
-        or (
-            "Full SHA of the merged commit the cases were exported from; "
+        help=(
+            "Refused here (qa_plan_source_sync_required): source exports go "
+            "through yoke qa plan-cases sync."
+            if manual
+            else "Full SHA of the merged commit the cases were exported from; "
             "release QA is then tied to that commit."
         ),
     )
@@ -85,7 +85,11 @@ def configure_case_replace(
     source.add_argument(
         "--cases-file",
         metavar="PATH",
-        help="JSON file with the full case list, or the exporter's document.",
+        help=(
+            "JSON file with the full case array."
+            if manual
+            else "JSON file with the exporter's document, or a case array."
+        ),
     )
     source.add_argument(
         "--stdin",

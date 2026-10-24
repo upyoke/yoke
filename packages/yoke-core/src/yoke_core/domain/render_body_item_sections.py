@@ -18,6 +18,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.render_body_section import (
     extract_section,
+    normalise_heading,
     render_section_block as _render_section,
     section_has_content as _section_has_content,
 )
@@ -83,6 +84,33 @@ def append_late_item_sections(
     chunks: list[str], conn: Any, item_id: int,
 ) -> None:
     append_item_sections(chunks, conn, item_id, late=True)
+
+
+def body_slice_refusal(conn: Any, item_id: int, heading: str, content: Optional[str]) -> Optional[str]:
+    """Name the stored read when a body slice comes back empty for an item section.
+
+    A stored section such as Progress Log carries its own ``## `` entry
+    headings, so the body slice ends at its first entry. The stored row is
+    the read; ``None`` when the slice is not empty or no such row has content.
+    """
+    if content is None or content.strip() or not _schema_table_exists(conn, "item_sections"):
+        return None
+    name = normalise_heading(heading)
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT content FROM item_sections WHERE item_id = {p} AND section_name = {p}",
+        (item_id, name),
+    ).fetchone()
+    if row is None or not str(row[0] or "").strip():
+        return None
+    from yoke_core.domain.project_identity import render_item_ref
+
+    return (
+        f"item_section_read_required: {name!r} is a stored item section whose "
+        "entries carry their own '## ' headings, so the body slice ends before "
+        f"them. Read it with: yoke items section get {render_item_ref(conn, item_id)} "
+        f"--section {name!r}"
+    )
 
 
 def section_visible_in_rendered_body(

@@ -28,6 +28,7 @@ from yoke_core.domain.render_body_db_claim import (
 from yoke_core.domain.render_body_item_sections import (
     append_early_item_sections,
     append_late_item_sections,
+    body_slice_refusal,
 )
 from yoke_core.domain.render_body_section import (
     RENDERER_OWNED_BODY_HEADINGS,
@@ -270,6 +271,10 @@ def render_section(
             print(f"Error: item {render_item_ref(conn, item_id)} not found", file=err)
             return 1
         content = extract_section(body, section)
+        refusal = body_slice_refusal(conn, item_id, section, content)
+        if refusal:
+            print(f"Error: {refusal}", file=err)
+            return 1
         if content is None:
             print(
                 f"Advisory: section '{section}' not found on "

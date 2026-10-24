@@ -7,12 +7,14 @@ Yoke operations. Agents that reach for ``curl http://localhost:8765/v1/...``
 bypass the CLI adapter's claim-aware gates, telemetry, suppression-token
 audit, and structured help text.
 
-Detection: any Bash command that invokes ``curl`` with a URL pointing at the
-Yoke API host — ``localhost:8765``, ``127.0.0.1:8765``, ``0.0.0.0:8765``,
-or the ``YOKE_API`` env-var substitution.
+Detection: any Bash command that invokes ``curl`` with a URL on an API path
+(``/v1``, ``/api``) at ``localhost:8765``, ``127.0.0.1:8765`` or
+``0.0.0.0:8765``, or with the ``YOKE_API`` env-var substitution.
 
 Allowed shapes the lint stays out of:
 
+* ``curl http://127.0.0.1:8765/docs/x.html`` — a static file server on the
+  same port serves no Yoke operation.
 * ``curl https://api.github.com/...`` — unrelated host.
 * ``curl https://npm.example.com/...`` — unrelated host.
 * ``echo "curl $YOKE_API"`` — echo, not invocation.
@@ -43,13 +45,10 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 CHECK_ID = "lint-no-agent-curl-against-yoke-api"
 SUPPRESSION_TOKEN = "# lint:no-agent-curl-check"
 
-_YOKE_HOSTS = (
-    "localhost:8765",
-    "127.0.0.1:8765",
-    "0.0.0.0:8765",
-)
 _YOKE_API_VAR_RE = re.compile(r"\$\{?YOKE_API\}?")
-_HOST_RE = re.compile(r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0):8765\b")
+_API_URL_RE = re.compile(
+    r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):8765/(?:v1|api)(?:[/?#]|$)"
+)
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -71,14 +70,8 @@ def _read_mode(payload: object | None = None) -> str:
 
 
 def _arg_targets_yoke_api(arg: str) -> bool:
-    """Return ``True`` when ``arg`` is a URL/host pointing at Yoke's API."""
-    if _HOST_RE.search(arg):
-        return True
-    if _YOKE_API_VAR_RE.search(arg):
-        return True
-    if any(host in arg for host in _YOKE_HOSTS):
-        return True
-    return False
+    """Return ``True`` when ``arg`` names a Yoke API path or ``$YOKE_API``."""
+    return bool(_API_URL_RE.search(arg) or _YOKE_API_VAR_RE.search(arg))
 
 
 def _command_targets_yoke_api(command: str) -> bool:
@@ -108,7 +101,8 @@ def _command_targets_yoke_api(command: str) -> bool:
 
 def _format_reason(suppression_seen: bool, mode: str) -> str:
     body = (
-        "BLOCKED: `curl http://localhost:8765/...` (or `curl $YOKE_API/...`) "
+        "BLOCKED: `curl http://localhost:8765/v1/...` (or `/api/...`, or "
+        "`curl $YOKE_API/...`) "
         "is not the agent-facing shape for Yoke operations.\n\n"
         "The Yoke HTTP function-call surface is an infrastructure / debug "
         "surface — operator inspection, integration testing, programmatic "

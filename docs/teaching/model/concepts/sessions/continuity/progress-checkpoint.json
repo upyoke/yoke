@@ -2,8 +2,10 @@
  "id": "progress-checkpoint",
  "title": "Progress checkpoint",
  "status": "draft-copy",
- "commands": ["yoke items progress-log append", "yoke items progress-log get"],
- "functions": ["items.progress_log.append", "items.progress_log.get"],
+ "commands": ["yoke items progress-log append", "yoke items progress-log get", "yoke items section get"],
+ "functions": ["items.progress_log.append", "items.progress_log.get", "items.section.get"],
  "page": "sessions",
- "position": 0
+ "position": 0,
+ "summary": "Read the Progress Log with yoke items progress-log get or yoke items section get --section 'Progress Log'. Its entries carry their own '## ' headings, so yoke items get ITEM body --section 'Progress Log' refuses item_section_read_required and names that read instead of printing nothing.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/render_body_item_sections.py", "runtime/api/domain/test_render_body_item_section_slice.py"]
 }

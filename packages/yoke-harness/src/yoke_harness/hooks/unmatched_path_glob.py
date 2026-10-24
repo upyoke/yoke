@@ -6,6 +6,7 @@ import re
 
 from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
+    array_assignment_element,
     executing_shell,
     expanded_glob_path,
     glob_repair,
@@ -120,7 +121,7 @@ def _unmatched(command: str, cwd: str) -> tuple[str, str]:
         return "", ""
     for piece, base in glob_segment_bases(_strip_heredoc_bodies(command), cwd):
         for token in _unquoted_tokens(piece):
-            path = token
+            path = array_assignment_element(token)
             for prefix in _REDIRECT_PREFIXES:
                 if path.startswith(prefix):
                     path = path[len(prefix) :]

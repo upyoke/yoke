@@ -7,7 +7,5 @@
   "item worktrees get": "Show one field of an item's active lane.",
   "item worktrees inventory": "List every lane in a project with its item's state.",
   "item worktrees list": "List an item's active lanes.",
-  "item worktrees path": "Record the local folder for an item's lane.",
-  "item worktrees path record": "Record the local folder for an item's lane.",
   "item worktrees release": "Release every active lane of an unmerged item."
 }

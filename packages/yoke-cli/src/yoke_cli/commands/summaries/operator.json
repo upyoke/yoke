@@ -1,6 +1,4 @@
 {
   "operator": "Run operator repairs on stored data.",
-  "operator data": "Repair stored data with a reviewed document.",
-  "operator data repair": "Run one reviewed database row repair, with an audit record.",
   "operator data-repair": "Run one reviewed database row repair, with an audit record."
 }

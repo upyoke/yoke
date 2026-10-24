@@ -79,7 +79,8 @@ def items_get(args: List[str]) -> int:
         metavar="HEADING",
         help=(
             "Print only one '## Heading' block of a structured text or "
-            "body field; requires exactly one field argument."
+            "body field; requires exactly one field argument. Read a stored "
+            "item section such as Progress Log with yoke items section get."
         ),
     )
     add_full_arg(parser, "all item fields and operator instruction prose")

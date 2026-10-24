@@ -177,6 +177,18 @@ def _items_get_section(
 
     text = query_item(item_id, field)
     content = extract_section(text or "", section)
+    if field == "body":
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.render_body_item_sections import body_slice_refusal
+
+        with connect() as conn:
+            refusal = body_slice_refusal(conn, item_id, section, content)
+        if refusal:
+            code, message = refusal.split(": ", 1)
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(code=code, message=message),
+            )
     return HandlerOutcome(
         result_payload={
             "item_id": item_id,

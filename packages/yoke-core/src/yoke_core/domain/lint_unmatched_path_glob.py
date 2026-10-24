@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
+    array_assignment_element,
     executing_shell,
     expanded_glob_path,
     glob_repair,
@@ -111,7 +112,7 @@ def _find_unmatched(command: str, cwd: str) -> Optional[Tuple[str, str]]:
     stripped = strip_heredoc_body_lines(command)
     for piece, base in glob_segment_bases(stripped, cwd):
         for token in _unquoted_tokens(piece):
-            path = _strip_redir(token)
+            path = array_assignment_element(_strip_redir(token))
             if "/" not in path or not any(char in path for char in _GLOB_CHARS):
                 continue
             if path_glob_is_unmatched(path, base or ""):

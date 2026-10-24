@@ -21,7 +21,7 @@ from yoke_cli.commands.adapters.config import env_list
 from yoke_cli.commands.adapters.config_actor_binding import config_bind_actor
 from yoke_cli.commands.adapters.onboard_checklist_get import onboard_checklist_get
 from yoke_cli.commands.registry_render import RENDER_SUBCOMMAND_REGISTRY
-from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
+from yoke_cli.commands.registry_token_normalization import spaced_routes
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_epic_ops import EPIC_OPS_SUBCOMMAND_REGISTRY
@@ -281,9 +281,8 @@ SUBCOMMAND_ALIAS_REGISTRY.update(CLAIMS_SUBCOMMAND_ALIAS_REGISTRY)
 SUBCOMMAND_ALIAS_REGISTRY.update(
     _session_control.SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY
 )
-SPACE_EXPANDED_ROUTE_REGISTRY = expanded_hyphen_routes(
-    SUBCOMMAND_REGISTRY,
-    SUBCOMMAND_ALIAS_REGISTRY,
+SPACED_GROUP_ROUTE_REGISTRY, SPACE_EXPANDED_ROUTE_REGISTRY = spaced_routes(
+    SUBCOMMAND_REGISTRY, SUBCOMMAND_ALIAS_REGISTRY
 )
 _TOKEN_LENGTHS: Tuple[int, ...] = tuple(
     range(
@@ -342,6 +341,7 @@ __all__ = [
     "SUBCOMMAND_REGISTRY",
     "SUBCOMMAND_ALIAS_REGISTRY",
     "SPACE_EXPANDED_ROUTE_REGISTRY",
+    "SPACED_GROUP_ROUTE_REGISTRY",
     "AdapterFn",
     "resolve",
     "function_id_to_cli",
