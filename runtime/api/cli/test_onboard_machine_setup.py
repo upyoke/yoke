@@ -86,6 +86,7 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
         advanced=False,
         project_mode=None,
         project_checkout=None,
+        project_clone_outcome=None,
         apply=False,
         harness_posture=True,
         post_install=False,

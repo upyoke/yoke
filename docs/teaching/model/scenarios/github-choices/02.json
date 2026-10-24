@@ -8,7 +8,7 @@
  "disclosure": "current cue",
  "surface": "Project source / publish-or-keep-local step",
  "gap": "JOURNEYS 4–5 currently makes pushing to GitHub sound mandatory. That edge should be reviewed against the supported keep-local path.",
- "review": "Source behavior only; installed wizard/agent clone/adoption and genuine remote completion remain owed by the single shared installer mission case.",
+ "review": "Explicit CLI publication choices must survive adopting a checkout and setting up a separate project after an existing match. Duplicate collects visibility, owner and repository before Review; Review and Apply use that destination while retaining source identity. Installed Duplicate acceptance remains owed after the shared mission found this route skipped destination selection.",
  "plan_notes": ["JOURNEYS 4", "JOURNEYS 5"],
  "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_project_screens.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_publish.py", "runtime/api/cli/test_onboard_publish_defaults.py", "packages/yoke-cli/src/yoke_cli/config/project_publication_destination.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_clone_views.py", "packages/yoke-core/src/yoke_core/domain/worktree_preflight_upstream.py"],
  "position": 2

@@ -93,6 +93,7 @@ def init_setup_state(
     shell._stored_project_checkouts: list[machine_config.ConfiguredProject] = []
     shell._pending_stored_project_checkout = None
     shell._project_mode_preset = defaults.project_mode is not None
+    shell._publication_destination_preset = defaults.project_clone_outcome
     shell._project_preset_attempted = False
     shell._preset_dev_checkout = (
         defaults.project_checkout

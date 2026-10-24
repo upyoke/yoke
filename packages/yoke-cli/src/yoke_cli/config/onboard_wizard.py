@@ -275,9 +275,9 @@ class WizardDefaults:
     mode: str | None = None
     project_mode: str | None = None
     project_checkout: str | None = None
+    project_clone_outcome: str | None = None
     apply: bool = False
     harness_posture: bool = True
-    # Show installed-version status after an installer-launched wizard.
     post_install: bool = False
 
 
