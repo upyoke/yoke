@@ -36,10 +36,6 @@ def _module_args(tokens: List[str]) -> List[str]:
     return tokens[3:] if _is_python_module_call(tokens) else []
 
 
-def _has_help_flag(args: List[str]) -> bool:
-    return "--help" in args or "-h" in args
-
-
 def _classify_db_router(args: List[str]) -> Optional[str]:
     """``db_router`` read-only subcommands only."""
     if not args:
@@ -58,8 +54,6 @@ def _classify_db_router(args: List[str]) -> Optional[str]:
         return "db_router-items-get"
     if sub == "sections" and rest and rest[0] == "get":
         return "db_router-sections-get"
-    if _has_help_flag(args):
-        return "db_router-help"
     return None
 
 
@@ -68,8 +62,6 @@ def _classify_service_client(args: List[str]) -> Optional[str]:
     if not args:
         return None
     sub = args[0]
-    if _has_help_flag(args):
-        return "service_client-help"
     if sub.endswith("-list") or sub.endswith("-get") or sub.endswith("-conflicts"):
         return f"service_client-{sub}"
     if sub == "session-checkpoint-read":
@@ -78,11 +70,9 @@ def _classify_service_client(args: List[str]) -> Optional[str]:
 
 
 def _classify_harness_sessions(args: List[str]) -> Optional[str]:
-    """``yoke_core.hooks.sessions_cli who-claims`` and ``--help``."""
+    """``yoke_core.hooks.sessions_cli`` orientation reads."""
     if not args:
         return None
-    if _has_help_flag(args):
-        return "harness_sessions-help"
     if args[0] == "who-claims":
         return "harness_sessions-who-claims"
     if args[0] == "list":
@@ -228,15 +218,9 @@ def _classify_find(tokens: List[str]) -> Optional[str]:
     return None
 
 
-def _classify_help(tokens: List[str]) -> Optional[str]:
-    if tokens and _has_help_flag(tokens):
-        return "help"
-    return None
-
-
 def _classify_yoke(tokens: List[str]) -> Optional[str]:
     if tokens and tokens[0] == "yoke":
-        return "yoke-help" if _has_help_flag(tokens) else "yoke-adapter"
+        return "yoke-adapter"
     return None
 
 
@@ -251,8 +235,6 @@ def _classify_python_module(tokens: List[str]) -> Optional[str]:
         return _classify_service_client(args)
     if module == "yoke_core.hooks.sessions_cli":
         return _classify_harness_sessions(args)
-    if _has_help_flag(args):
-        return f"python-{module}-help"
     return None
 
 
@@ -294,7 +276,6 @@ _SIMPLE_CLASSIFIERS = (
     _classify_grep_like,
     _classify_find,
     _classify_yoke,
-    _classify_help,
     _classify_stdout_reporter,
     _classify_sed_read,
     _classify_single_arg_read,

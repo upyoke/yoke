@@ -104,3 +104,20 @@ def chain_for(event_name: str, matcher: str | None = None) -> list[str]:
 
     resolved = "_default" if matcher is None else matcher
     return ordered_pipeline_for(event_name, resolved)
+
+
+# Delivery, observation and guards that must inspect help opt out here.
+HELP_EXEMPTION_OPTOUTS = frozenset({
+    "yoke_core.hooks.session_message_delivery",
+    "yoke_core.hooks.session_launch_attestation",
+    "yoke_core.hooks.session_broker_wake",
+    "yoke_core.hooks.heartbeat",
+    "yoke_core.domain.observe_pre",
+})
+
+
+def help_only_chain(chain: list[str], event_name: str, help_only: bool) -> list[str]:
+    """Apply the runner's print-only exemption before any guard is invoked."""
+    if event_name != "PreToolUse" or not help_only:
+        return chain
+    return [module for module in chain if module in HELP_EXEMPTION_OPTOUTS]

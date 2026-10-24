@@ -28,7 +28,9 @@ from yoke_contracts.fleet_watcher_observation import (
 )
 from yoke_contracts.hook_runner import client_facts as cf
 from yoke_contracts.hook_runner import lint_policy
-from yoke_contracts.hook_runner.chain_registry import chain_for
+from yoke_cli.commands.help_invocation import is_help_only_command
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.chain_registry import chain_for, help_only_chain
 from yoke_contracts.hook_runner.guard_scope import applicable_chain
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.policy_home import client_facts_for
@@ -162,7 +164,11 @@ def event_chain(
 
     An unresolvable *project_scope* raises its own named refusal.
     """
-    chain = chain_for(event_name, tool_matcher(event_name, payload))
+    matcher = tool_matcher(event_name, payload)
+    chain = help_only_chain(
+        chain_for(event_name, matcher), event_name,
+        matcher == "Bash" and is_help_only_command(extract_command(payload)),
+    )
     if project_scope is not None:
         chain = applicable_chain(chain, project_scope.require_project_id())
     return chain

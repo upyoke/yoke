@@ -76,11 +76,6 @@ def test_non_claude_callers_start_a_first_session_and_are_allowed(
     assert run_hook(_payload(NESTING_COMMAND, caller)).outcome is Outcome.NOOP
 
 
-@pytest.mark.parametrize("flag", ["--help", "-h", "--version"])
-def test_sessionless_flags_are_allowed_even_from_a_claude_caller(
-    flag: str,
-) -> None:
-    assert run_hook(_payload(f"claude {flag}", "claude-code")).outcome is Outcome.NOOP
 
 
 def test_wrapped_and_absolute_paths_classify_on_the_same_caller() -> None:
@@ -106,10 +101,6 @@ def test_unknown_caller_stays_denied_and_names_the_override(
     assert NESTED_CLAUDE_CLI_GUARD in reason
 
 
-def test_unknown_caller_still_gets_the_sessionless_allowance(
-    unresolvable_caller: None,
-) -> None:
-    assert run_hook(_payload("claude --help")).outcome is Outcome.NOOP
 
 
 def test_guard_override_frees_the_canary_without_freeing_the_db_guard(

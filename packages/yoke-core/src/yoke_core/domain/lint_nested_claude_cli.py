@@ -41,9 +41,6 @@ from yoke_core.domain import lint_config
 #: Payload key carrying the calling harness family across the relay split.
 CALLER_HARNESS_PAYLOAD_KEY = "yoke_hook_caller_harness"
 
-#: Flags that make ``claude`` print and exit without starting a session.
-SESSIONLESS_FLAGS = frozenset({"-h", "--help", "--version"})
-
 _NESTING_CONSEQUENCE = "Nested claude processes crash Claude Code sessions."
 _AGENT_TOOL_RECOVERY = (
     "use the Agent tool for subagent dispatch. " + _NESTING_CONSEQUENCE
@@ -62,7 +59,7 @@ UNKNOWN_CALLER_CLAUDE_CLI_DENIAL = (
     "BLOCKED: claude CLI invoked from a caller Yoke cannot identify, so a "
     "nested Claude session cannot be ruled out. " + _NESTING_CONSEQUENCE + " "
     "Run it from a harness session Yoke registers, use a sessionless flag "
-    f"({', '.join(sorted(SESSIONLESS_FLAGS))}), or: " + _OVERRIDE_RECOVERY
+    "(-h, --help, --version), or: " + _OVERRIDE_RECOVERY
 )
 
 
@@ -127,14 +124,6 @@ def claude_invocations(command: str) -> list[list[str]]:
     return invocations
 
 
-def starts_no_session(words: Sequence[str]) -> bool:
-    """Return True when this ``claude`` invocation only prints and exits."""
-    arguments = [word for word in list(words)[1:] if word]
-    return bool(arguments) and all(
-        argument in SESSIONLESS_FLAGS for argument in arguments
-    )
-
-
 def nested_claude_cli_denial(
     words: Sequence[str],
     payload: object | None = None,
@@ -145,8 +134,6 @@ def nested_claude_cli_denial(
     invocation carries no nesting risk, or that the operator put this guard in
     ``warn``.
     """
-    if starts_no_session(words):
-        return None
     family = resolve_caller_family(payload)
     if family is not None and family != CLAUDE_FAMILY:
         return None
@@ -169,10 +156,8 @@ __all__ = [
     "NESTED_CLAUDE_CLI_CHECK_ID",
     "NESTED_CLAUDE_CLI_DENIAL",
     "NESTED_CLAUDE_CLI_GUARD",
-    "SESSIONLESS_FLAGS",
     "UNKNOWN_CALLER_CLAUDE_CLI_DENIAL",
     "claude_invocations",
     "nested_claude_cli_denial",
     "resolve_caller_family",
-    "starts_no_session",
 ]
