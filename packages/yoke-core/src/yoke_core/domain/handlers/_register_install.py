@@ -27,7 +27,6 @@ def register(registry) -> None:
             owner_module=__name__,
             target_kinds=["system"],
             side_effects=side_effects,
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=[],
             adapter_status="live",
             claim_required_kind=None,

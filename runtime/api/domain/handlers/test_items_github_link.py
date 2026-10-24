@@ -142,7 +142,8 @@ def test_registrar_installs_link_contract(monkeypatch):
         registry,
         "register",
         lambda **kwargs: entries.setdefault(
-            kwargs["function_id"], RegistryEntry(**kwargs)
+            kwargs["function_id"],
+            RegistryEntry(**{"emitted_event_names": (), **kwargs}),
         ),
     )
     _register_items_github_sync.register(registry)

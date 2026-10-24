@@ -84,7 +84,7 @@ def _entry(function_id: str, args: tuple, kwargs: dict) -> RegistryEntry:
         owner_module=kwargs["owner_module"],
         target_kinds=tuple(kwargs["target_kinds"]),
         side_effects=tuple(kwargs["side_effects"]),
-        emitted_event_names=tuple(kwargs["emitted_event_names"]),
+        emitted_event_names=tuple(kwargs.get("emitted_event_names", ())),
         guardrails=tuple(kwargs["guardrails"]),
         adapter_status=kwargs["adapter_status"],
         claim_required_kind=kwargs["claim_required_kind"],

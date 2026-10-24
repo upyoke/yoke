@@ -203,7 +203,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "epic_task_cascade",
         ],
         "emitted_event_names": [
-            "YokeFunctionCalled",
             "ClaimVerificationBypassed",
             "ItemStatusChanged",
         ],

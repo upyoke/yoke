@@ -288,7 +288,6 @@ def _kwargs(fid: str, h: Any, req: Any, resp: Any) -> Dict[str, Any]:
         "owner_module": "yoke_core.domain.handlers.workflow_item_epic_task",
         "target_kinds": ["epic_task"],
         "side_effects": ["render_body", "github_sync"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": "epic",

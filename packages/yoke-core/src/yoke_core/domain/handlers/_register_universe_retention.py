@@ -33,6 +33,5 @@ def register(registry):
             ambient_session_required=False,
             adapter_status="live",
             side_effects=["retention_delete"] if writes else [],
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=["org_admin", "handler_managed_idempotency"],
         )

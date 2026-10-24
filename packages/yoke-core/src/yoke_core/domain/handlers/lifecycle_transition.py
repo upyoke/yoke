@@ -287,10 +287,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "emit_item_status_changed",
             "epic_task_cascade",
         ],
-        "emitted_event_names": [
-            "YokeFunctionCalled",
-            "ItemStatusChanged",
-        ],
+        "emitted_event_names": ["ItemStatusChanged"],
         "guardrails": [
             "claim_required",
             "frozen_item_block",

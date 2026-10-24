@@ -123,7 +123,6 @@ def register(registry):
             "coordination_claim_heartbeat_or_release",
             "qa_plan_execution_reconciliation_write",
         ],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "steering_seat_required",
             "control_plane_operator_without_session",

@@ -237,10 +237,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "github_sync",
             "emit_item_status_changed",
         ],
-        "emitted_event_names": [
-            "YokeFunctionCalled",
-            "ItemStatusChanged",
-        ],
+        "emitted_event_names": ["ItemStatusChanged"],
         "guardrails": ["claim_required", "frozen_item_block"],
         "adapter_status": "live",
         "claim_required_kind": "item",

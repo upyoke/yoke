@@ -25,7 +25,10 @@ def register(registry) -> None:
         owner_module=_MODULE,
         target_kinds=["item"],
         side_effects=["item_merged_at_write"],
-        emitted_event_names=["YokeFunctionCalled", "OperatorMergedAtCorrection"],
+        emitted_event_names=[
+            "OperatorMergedAtCorrection",
+            "OperatorLandingPullRequestCorrection",
+        ],
         guardrails=[
             "human_only_no_hook_context",
             "terminal_item_required",

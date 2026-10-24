@@ -14,7 +14,6 @@ def register(registry) -> None:
         owner_module=handoff.__name__,
         target_kinds=["global"],
         side_effects=["machine_authorization_insert"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "service_token_required",
             "org_scope_exact",
@@ -39,7 +38,6 @@ def register(registry) -> None:
             "machine_register",
             "api_tokens_insert",
         ],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "service_token_required",
             "org_scope_exact",

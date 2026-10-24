@@ -15,7 +15,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.project_structure",
         target_kinds=["project_structure"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
@@ -26,7 +25,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.project_structure",
         target_kinds=["project_structure"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
@@ -37,7 +35,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.project_structure",
         target_kinds=["project_structure", "global"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
     registry.register(
@@ -48,7 +45,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.project_structure",
         target_kinds=["project_structure", "global"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
 

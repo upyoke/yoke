@@ -119,7 +119,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["workflow_run"],
-        emitted_event_names=["YokeFunctionCalled"],
         claim_required_kind=None,
         minimum_serving_version="next-release",
     )

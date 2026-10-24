@@ -329,7 +329,6 @@ for entry in REGISTRATIONS:
                 "strategy.checkpoint.record",
             }
             else [],
-            "emitted_event_names": ["YokeFunctionCalled"],
             "guardrails": [],
             "adapter_status": "live",
             "claim_required_kind": None,

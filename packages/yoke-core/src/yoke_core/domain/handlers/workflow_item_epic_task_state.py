@@ -288,7 +288,6 @@ def _kwargs(
         "owner_module": _OWNER_MODULE,
         "target_kinds": ["epic_task"],
         "side_effects": side_effects,
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": claim,

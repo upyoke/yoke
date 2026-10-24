@@ -145,7 +145,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.items_github_sync",
         "target_kinds": ["item"],
         "side_effects": ["github_sync"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "allow_unclaimed_ownership_guard",
             "project_github_auth_required",
@@ -165,7 +164,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.items_github_sync",
         "target_kinds": ["item"],
         "side_effects": ["github_sync"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "allow_unclaimed_ownership_guard",
             "project_github_auth_required",

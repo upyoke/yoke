@@ -16,7 +16,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.project_snapshot_sync",
         target_kinds=["global"],
         side_effects=["path_snapshot_write", "path_target_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
@@ -31,7 +30,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.project_snapshot_ensure_at",
         target_kinds=["global"],
         side_effects=["path_snapshot_write", "path_target_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         # Engine-relayed glue (post-merge / hook snapshot pre-warm), never an
         # agent CLI surface, so it carries no CLI adapter inventory row.

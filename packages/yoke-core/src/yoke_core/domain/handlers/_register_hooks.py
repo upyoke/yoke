@@ -15,7 +15,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.hooks",
         target_kinds=["global"],
         side_effects=["hook_evaluate"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,

@@ -278,7 +278,6 @@ for _entry in REGISTRATIONS:
             "owner_module": ("yoke_core.domain.handlers.direct_workflow_execution"),
             "target_kinds": ["item"],
             "side_effects": _SIDE_EFFECTS.get(_entry["function_id"], ["db_write"]),
-            "emitted_event_names": ["YokeFunctionCalled"],
             "guardrails": ["direct_workflow_only"],
             "adapter_status": "live",
             "claim_required_kind": (

@@ -155,10 +155,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "release_item_claim_for_execution",
             "emit_scheduler_offer_skipped",
         ],
-        "emitted_event_names": [
-            "YokeFunctionCalled",
-            "SchedulerOfferSkipped",
-        ],
+        "emitted_event_names": ["SchedulerOfferSkipped"],
         "guardrails": ["claim_required"],
         "adapter_status": "live",
         "claim_required_kind": "item",

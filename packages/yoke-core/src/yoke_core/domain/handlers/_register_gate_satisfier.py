@@ -24,7 +24,6 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["item_gate_satisfactions_upsert"],
         emitted_event_names=[
-            "YokeFunctionCalled",
             "GateSatisfierRungStamped",
             "GateSatisfierRefused",
         ],

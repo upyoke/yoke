@@ -13,7 +13,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.identity_invites",
         target_kinds=["global"], side_effects=["actor_invites_insert"],
-        emitted_event_names=["ActorInviteCreated", "YokeFunctionCalled"],
+        emitted_event_names=["ActorInviteCreated"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
         ambient_session_required=False,
     )
@@ -23,7 +23,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.identity_invites",
         target_kinds=["global"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
         ambient_session_required=False,
     )
@@ -33,7 +32,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.identity_invites",
         target_kinds=["global"], side_effects=["actor_invites_update"],
-        emitted_event_names=["ActorInviteRevoked", "YokeFunctionCalled"],
+        emitted_event_names=["ActorInviteRevoked"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
         ambient_session_required=False,
     )
@@ -45,7 +44,8 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=["actor_external_identities_insert", "actor_invites_insert"],
         emitted_event_names=[
-            "ExternalIdentityLinked", "ActorInviteCreated", "YokeFunctionCalled",
+            "ExternalIdentityLinked",
+            "ActorInviteCreated",
         ],
         guardrails=[], adapter_status="live", claim_required_kind=None,
         ambient_session_required=False,

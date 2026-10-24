@@ -54,7 +54,6 @@ def register(registry):
         target_kinds=["global"],
         minimum_serving_version="next-release",
         side_effects=["qa_plan_cases_replace"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["project_scope_required", "snapshot_preserved"],
         adapter_status="live",
         claim_required_kind=None,

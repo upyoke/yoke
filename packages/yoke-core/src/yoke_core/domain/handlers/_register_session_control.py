@@ -57,7 +57,7 @@ def _register(
     adapter_status="live",
     guardrails=None,
     claim_required_kind=None,
-    emitted_event_names=None,
+    emitted_event_names=(),
 ) -> None:
     registry.register(
         function_id,
@@ -68,7 +68,7 @@ def _register(
         owner_module=owner_module,
         target_kinds=["global"],
         side_effects=side_effects,
-        emitted_event_names=emitted_event_names or ["YokeFunctionCalled"],
+        emitted_event_names=emitted_event_names,
         guardrails=guardrails
         or ["verified_actor", "handler_enforced_project_authority"],
         adapter_status=adapter_status,
@@ -95,7 +95,7 @@ def register(registry) -> None:
             "verified_actor",
             "handler_enforced_operator_or_steering_authority",
         ],
-        emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TERMINATED],
+        emitted_event_names=[EVENT_SESSION_TERMINATED],
     )
     _register(
         registry,
@@ -216,7 +216,7 @@ def register(registry) -> None:
         ],
         owner_module=_relay.__name__,
         adapter_status="internal",
-        emitted_event_names=["YokeFunctionCalled", EVENT_RELAY_REPORT_QUARANTINED],
+        emitted_event_names=[EVENT_RELAY_REPORT_QUARANTINED],
     )
     _register(
         registry,
@@ -230,7 +230,7 @@ def register(registry) -> None:
         ],
         owner_module=_relay.__name__,
         adapter_status="internal",
-        emitted_event_names=["YokeFunctionCalled", EVENT_HARNESS_SESSION_ENDED],
+        emitted_event_names=[EVENT_HARNESS_SESSION_ENDED],
     )
     _register(
         registry,
@@ -241,7 +241,7 @@ def register(registry) -> None:
         side_effects=["harness_sessions_update"],
         owner_module=_relay.__name__,
         adapter_status="internal",
-        emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TURN_END_OBSERVED],
+        emitted_event_names=[EVENT_SESSION_TURN_END_OBSERVED],
     )
     _register(
         registry,
@@ -252,7 +252,7 @@ def register(registry) -> None:
         side_effects=[],
         owner_module=_idle_hosts.__name__,
         adapter_status="internal",
-        emitted_event_names=["YokeFunctionCalled", EVENT_NATIVE_HOST_RECLAIMED],
+        emitted_event_names=[EVENT_NATIVE_HOST_RECLAIMED],
     )
     _register(
         registry,

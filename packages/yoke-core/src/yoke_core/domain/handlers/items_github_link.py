@@ -119,7 +119,6 @@ REGISTRATIONS = [
         "request_model": GithubLinkRequest,
         "response_model": GithubLinkResponse,
         "stability": "stable",
-        "emitted_event_names": ["YokeFunctionCalled"],
         "owner_module": "yoke_core.domain.handlers.items_github_link",
         "target_kinds": ["item"],
         "side_effects": ["update_github_link"],

@@ -50,7 +50,6 @@ def register(registry) -> None:
             target_kinds=["item", "global"],
             minimum_serving_version="next-release",
             side_effects=["qa_plan_execution_write"],
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=[
                 "qa_subject_authority",
                 "actor_session_bound",
@@ -110,7 +109,6 @@ def register(registry) -> None:
                 "qa_plan_execution_write",
                 "coordination_claim_heartbeat_or_release",
             ],
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=[
                 "project_scope_required",
                 "qa_subject_authority",
@@ -154,7 +152,6 @@ def register(registry) -> None:
                 "decision_request_write_if_undetermined",
             ],
             emitted_event_names=[
-                "YokeFunctionCalled",
                 "QARunCompleted",
                 "DecisionRequestCreated",
             ],
@@ -178,7 +175,6 @@ def register(registry) -> None:
         target_kinds=["qa_requirement"],
         minimum_serving_version="next-release",
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "materialized_plan_case",
             "project_scope_required",
@@ -197,7 +193,7 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.qa_case_execution",
         target_kinds=["qa_requirement"],
         side_effects=["qa_requirements_update"],
-        emitted_event_names=["YokeFunctionCalled", "QARequirementWaived"],
+        emitted_event_names=["QARequirementWaived"],
         guardrails=[
             "project_permission",
             "operator_rationale",

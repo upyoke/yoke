@@ -18,7 +18,6 @@ def register(registry) -> None:
         owner_module=("yoke_core.domain.handlers.migration_content_identity_verify"),
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "fixed_control_plane_ledger",
             "candidate_digest_validation",

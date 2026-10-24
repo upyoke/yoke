@@ -15,7 +15,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.release_pin_record",
         target_kinds=["global"],
         side_effects=["environments_settings_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "configured_environment_only",
             "configured_scalar_path_only",

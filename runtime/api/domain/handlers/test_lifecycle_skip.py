@@ -212,7 +212,6 @@ class TestRegistrationDescriptor(unittest.TestCase):
     def test_advertised_event_names_include_offer_skipped(self):
         reg = lifecycle_skip.REGISTRATIONS[0]
         self.assertIn("SchedulerOfferSkipped", reg["emitted_event_names"])
-        self.assertIn("YokeFunctionCalled", reg["emitted_event_names"])
 
     def test_requires_item_work_claim(self):
         reg = lifecycle_skip.REGISTRATIONS[0]
