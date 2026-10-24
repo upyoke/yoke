@@ -1,23 +1,4 @@
-"""``yoke github-actions`` family adapters.
-
-Atlas-unified bearer-token GitHub Actions surfaces. Each adapter
-dispatches its function id, which calls into
-:mod:`yoke_core.domain.gh_rest_transport` using the project's stored
-GitHub App auth — no host GitHub CLI binary required:
-
-- ``check-ci`` -> ``github_actions.check_ci`` (main-branch advisory;
-  ``--wait`` / ``--timeout`` poll CLIENT-side until the run completes —
-  each poll is one single-shot dispatch, so the wait works identically
-  in-process and over the https relay).
-- ``secret set`` -> ``github_actions.secret.set`` (sealed-box repo
-  secret create-or-update; direct value by default, file/stdin optional).
-- ``secret delete`` -> ``github_actions.secret.delete`` (audited retirement).
-- ``variable get`` -> ``github_actions.variable.get`` (read-only
-  arming-gate probe)
-- ``variable set`` -> ``github_actions.variable.set`` (repo variable
-  upsert; plaintext value flag).
-- ``variable delete`` -> ``github_actions.variable.delete`` (audited retirement).
-"""
+"""GitHub Actions check, secret and variable command adapters."""
 
 from __future__ import annotations
 
@@ -54,7 +35,7 @@ __all__ = [
 
 GITHUB_ACTIONS_CHECK_CI_USAGE = (
     "yoke github-actions check-ci <repo-slug> <workflow-file> "
-    "[--branch BRANCH] [--head-sha SHA] [--wait] [--timeout SEC] --project P "
+    "[--branch BRANCH] [--head-sha SHA] [--main-factory] [--wait] [--timeout SEC] --project P "
     "[--session-id S] [--json]"
 )
 
@@ -88,6 +69,10 @@ def github_actions_check_ci(args: List[str]) -> int:
         help=(
             "Exact commit SHA to inspect; required when --branch is empty."
         ),
+    )
+    parser.add_argument(
+        "--main-factory", action="store_true",
+        help="Gate an exact main-push factory; rerun a cancelled first attempt once.",
     )
     parser.add_argument(
         "--wait", action="store_true",
@@ -127,6 +112,8 @@ def github_actions_check_ci(args: List[str]) -> int:
     }
     if parsed.head_sha:
         payload["head_sha"] = parsed.head_sha
+    if parsed.main_factory:
+        payload["main_factory"] = True
     if not parsed.wait:
         return dispatch_and_emit(
             function_id="github_actions.check_ci",
