@@ -3,6 +3,8 @@
 Harness-native startup, guardrails, telemetry and session end run through Python
 owners. Load this contributor reference when changing or diagnosing hooks.
 
+Print-only shell calls (`-h`, `--help`, `--version` as the only arguments) skip guards before dispatch; Yoke command words resolve through the CLI tree. Both relay halves use `chain_registry.help_only_chain`; guards that must inspect help opt out in `HELP_EXEMPTION_OPTOUTS`. Delivery and observation remain active. Operands, forwarding separators and compound shell bodies retain guards; guard authors add no local help check.
+
 ## Canonical owners
 
 | Surface | Owner |
@@ -308,7 +310,6 @@ runtime cache. The control-plane duties run on the server: registration through
 relay ensure-register, end-of-session cleanup and the stale-session reap through
 `yoke_core.hooks.remote_lifecycle`, and the slim resume block through the
 `yoke_core.hooks.session_resume_block` chain policy. The Codex start marker guards only in-process registration.
-
 ## Fleet delivery
 
 On a model-visible event, the hook leases pending messages for its session.
@@ -339,7 +340,6 @@ nothing attaches, `session_message_delivery_probe` records the refusal phase:
 reason identity folds repeated declines into the existing attempt row visible in
 `yoke messages get <id>`. Unresolved hook session and non-injectable harness event
 remain silent. Rationale: [undelivered envelope records its reason](archive/decisions/undelivered-envelope-records-its-reason.md).
-
 ## Parity and events
 
 Consult [hook parity](hook-parity-map.md) before assuming equivalent surfaces.

@@ -1,9 +1,7 @@
-"""Tokenizer + registry/help classifiers for the shell-quoted-function-payload lint.
+"""Tokenizer + registry classifiers for the shell-quoted-function-payload lint.
 
 Owns the small pure helpers that decide:
 
-* whether a Bash command is a ``--help`` invocation that should
-  short-circuit the lint (S1 / Class C),
 * how to tokenize the outer command body so the adapter-inventory
   scan happens on **command tokens only** (S9 / Class K),
 * how to extract the canonical subcommand path that follows
@@ -79,16 +77,6 @@ def strip_safe_cat_stdin_source(prefix: str) -> str:
 
 # Module-level cache for READ-shape lookups.
 _READ_SHAPE_CACHE: dict[str, Optional[bool]] = {}
-
-
-def is_help_invocation(command: str) -> bool:
-    """True iff ``command`` contains a standalone ``--help``/``-h`` token."""
-    if not command:
-        return False
-    for tok in tokenize_outer_command(command):
-        if tok in ("--help", "-h"):
-            return True
-    return False
 
 
 def tokenize_outer_command(command: str) -> List[str]:
@@ -317,7 +305,6 @@ from yoke_core.domain.lint_shell_quoted_function_payload_wrapping import (  # no
 __all__ = [
     "extract_subcommand_path",
     "is_best_effort_wrapping",
-    "is_help_invocation",
     "is_read_shape_function",
     "is_read_wrapping",
     "is_substantive_read_wrapping",

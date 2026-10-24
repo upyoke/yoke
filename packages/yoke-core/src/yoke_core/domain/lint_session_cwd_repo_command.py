@@ -108,8 +108,6 @@ def _render_git_command(
 ) -> str:
     if _has_git_target(args) or match_read_only_signature(command):
         return ""
-    if "--help" in args or "--version" in args:
-        return ""
     substantive = next((arg for arg in args if not arg.startswith("-")), "")
     if not substantive or substantive in _GIT_CWD_INDEPENDENT:
         return ""

@@ -158,8 +158,8 @@ class TestSuppressionToken(unittest.TestCase):
         self.assertIn("suppressed via token", decision.audit_fields["reason"])
 
 
-class TestHelpExemption(unittest.TestCase):
-    """S1 / Class C: ``--help`` and ``-h`` short-circuit the lint."""
+class TestDiscoveryWithoutPayload(unittest.TestCase):
+    """Discovery commands without a quoted payload have nothing to classify."""
 
     def test_help_invocations_allowed(self) -> None:
         for cmd in (

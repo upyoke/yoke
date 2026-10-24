@@ -44,7 +44,7 @@ class TestDbRouterSignatures:
             ),
             (
                 "python3 -m yoke_core.cli.db_router --help",
-                "db_router-help",
+                None,
             ),
         ],
     )
@@ -64,7 +64,7 @@ class TestServiceClientSignatures:
         [
             (
                 "python3 -m yoke_core.api.service_client --help",
-                "service_client-help",
+                None,
             ),
             (
                 "python3 -m yoke_core.api.service_client session-checkpoint-read",
@@ -97,10 +97,10 @@ class TestHarnessSessionsSignatures:
         cmd = "python3 -m yoke_core.hooks.sessions_cli who-claims YOK-1"
         assert match_read_only_signature(cmd) == "harness_sessions-who-claims"
 
-    def test_help_classifies(self):
+    def test_help_is_owned_by_runner(self):
         assert (
             match_read_only_signature("python3 -m yoke_core.hooks.sessions_cli --help")
-            == "harness_sessions-help"
+            is None
         )
 
     def test_mutation_subcommand_does_not_classify(self):
@@ -216,15 +216,15 @@ class TestNonReadOnlyCommands:
             is None
         )
 
-    def test_arbitrary_python_with_help_classifies(self):
-        # --help on any python -m module is read-only by definition.
+    def test_python_help_is_owned_by_runner(self):
+        # The runner owns help; this classifier does not bypass guards.
         assert (
             match_read_only_signature("python3 -m yoke_core.domain.foo --help")
-            == "python-yoke_core.domain.foo-help"
+            is None
         )
 
     def test_yoke_help_classifies(self):
-        assert match_read_only_signature("yoke sessions touch --help") == ("yoke-help")
+        assert match_read_only_signature("yoke sessions touch --help") == "yoke-adapter"
 
     def test_find_classifies(self):
         assert match_read_only_signature("find src -name '*.py'") == "find"

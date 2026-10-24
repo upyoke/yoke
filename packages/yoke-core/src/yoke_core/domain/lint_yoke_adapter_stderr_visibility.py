@@ -54,7 +54,7 @@ _MESSAGE_ACKS = frozenset({"ack", "acknowledge"})
 
 def _mutating_adapter_label(stage: str) -> Optional[str]:
     args = yoke_args(stage)
-    if not args or any(token in {"--help", "-h"} for token in args):
+    if not args:
         return None
     path: tuple[str, ...] = ()
     if args[0] in {"say", "dash"}:

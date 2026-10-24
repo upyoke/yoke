@@ -21,7 +21,6 @@ from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_shell_quoted_function_payload_classify import (
     extract_subcommand_path,
     is_best_effort_wrapping,
-    is_help_invocation,
     is_read_shape_function,
     is_read_wrapping,
     is_substantive_read_wrapping,
@@ -168,7 +167,7 @@ def _has_shell_choreography(command: str) -> bool:
 
 def evaluate_command(command: str) -> Optional[str]:
     """Return a denial reason when *command* matches a banned shape."""
-    if not command or _BYPASS_TOKEN in command or is_help_invocation(command):
+    if not command or _BYPASS_TOKEN in command:
         return None
     if _has_hand_quoted_json_payload(command):
         return build_payload_remediation()

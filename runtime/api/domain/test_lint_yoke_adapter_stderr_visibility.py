@@ -91,7 +91,6 @@ def test_named_mutating_adapter_families_are_denied(command: str):
         "yoke watch pytest -- runtime/api/domain/test_example.py",
         "pytest runtime/api/domain/test_example.py -k 'yoke say 2>/dev/null'",
         "git grep -n 'yoke say --stdin 2>/dev/null' -- tests",
-        "yoke say --help 2>/dev/null | tail -1",
         "yoke claims work acquire --item YOK-1 2>&1",
     ],
 )
@@ -180,8 +179,6 @@ def test_truncated_adapter_output_is_denied(command: str):
     [
         "yoke messages list",
         "yoke messages list --json",
-        "yoke messages list --help | head -60",
-        "yoke items get YOK-1 body -h | tail -20",
         "yoke watch tail /tmp/yoke-watch-capture.log",
         "git log --oneline | head -5",
         "tail -80 /tmp/yoke-cmd.abc123",
@@ -262,3 +259,12 @@ def test_unresolved_truncator_substitution_is_denied():
     result = _eval("yoke relay status | $p -4")
     assert result is not None
     assert result[1] == "denied"
+
+
+@pytest.mark.parametrize("command", [
+    "yoke say --help 2>/dev/null | tail -1",
+    "yoke messages list --help | head -60",
+    "yoke items get SAMPLE-1 body -h | tail -20",
+])
+def test_compound_help_keeps_shell_guards(command):
+    assert _eval(command) is not None

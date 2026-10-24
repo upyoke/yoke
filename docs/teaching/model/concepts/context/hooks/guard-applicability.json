@@ -3,7 +3,7 @@
  "title": "Machine, project and lane guard applicability",
  "status": "observed",
  "surface_refs": ["global-hooks", "project-hooks"],
- "note": "Candidate dispatch shares explicit guard scope and registered-checkout membership. Scope and authority failures refuse tool and prompt hooks, but lifecycle infrastructure failures warn and allow. The shared client brake prevents native Stop reentry and caps identical holds at three per five minutes using config-independent machine counters. Machine connection presence is not project membership. Source/unit evidence is not deployed harness proof.",
+ "note": "Candidate dispatch shares explicit guard scope and registered-checkout membership. Scope and authority failures refuse tool and prompt hooks, but lifecycle infrastructure failures warn and allow. The shared client brake prevents native Stop reentry and caps identical holds at three per five minutes using config-independent machine counters. Machine connection presence is not project membership. The shared runner exempts a single print-only help/version command before guards on both relay halves. CLI route words are distinct from operands; compound shell bodies and forwarded commands retain guards. chain_registry owns opt-outs and keeps delivery/observation active; guard authors add no help copies. Source/unit evidence is not deployed harness proof.",
  "sources": ["packages/yoke-core/src/yoke_core/hooks/runner.py", "packages/yoke-harness/src/yoke_harness/hooks/local_subset.py", "docs/public/agents/harness-discovery.md", "packages/yoke-contracts/src/yoke_contracts/hook_runner/safety.py"],
  "page": "context",
  "position": 5

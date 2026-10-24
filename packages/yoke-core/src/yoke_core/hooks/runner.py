@@ -24,7 +24,8 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
-from yoke_contracts.hook_runner.chain_registry import chain_for
+from yoke_cli.commands.help_invocation import is_help_only_command
+from yoke_contracts.hook_runner.chain_registry import chain_for, help_only_chain
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
 from yoke_contracts.hook_runner.degraded import infrastructure_reply
 from yoke_contracts.hook_runner.safety import stop_reentry
@@ -154,6 +155,10 @@ def run_event(
         chain_for(event_name, matcher),
         event_name=event_name,
         capability=capability,
+    )
+    chain = help_only_chain(
+        chain, event_name,
+        matcher == "Bash" and is_help_only_command(extract_payload_command(payload)),
     )
     context = build_context(
         event_name=event_name,

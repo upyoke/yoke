@@ -72,10 +72,6 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 
 _TRUNCATORS = frozenset({"tail", "head"})
 
-# Instant metadata/help modes do not start the long-running operation.
-_INSTANT_EXEMPTIONS = frozenset({"--print-streaming-pair", "--help", "-h"})
-
-
 def _stage_tokens(stage: str) -> List[str]:
     """Tokenize one pipeline stage, dropping leading env assignments/subshell parens."""
     try:
@@ -97,7 +93,7 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
     tokens = _stage_tokens(stage)
     if not tokens:
         return None
-    if any(token in _INSTANT_EXEMPTIONS for token in tokens):
+    if "--print-streaming-pair" in tokens:
         return None
     first = tokens[0].rsplit("/", 1)[-1]
     if first == "pytest":

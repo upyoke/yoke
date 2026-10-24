@@ -95,7 +95,7 @@ def find_truncation_violation(command: str) -> Optional[tuple[str, str]]:
     for stages in iter_pipeline_groups(command):
         for index, stage in enumerate(stages):
             args = yoke_args(stage)
-            if not args or any(token in {"--help", "-h"} for token in args):
+            if not args:
                 continue
             for later in stages[index + 1 :]:
                 if _is_truncator(later):

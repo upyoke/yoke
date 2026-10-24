@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import lint_subagent_fleet_messaging as lint
+from yoke_harness.hooks.client_facts import event_chain
 from yoke_core.hooks.types import HookContext, Outcome
 
 
@@ -71,5 +72,8 @@ def test_subagent_non_fleet_command_is_unchanged() -> None:
     ],
 )
 def test_subagent_help_is_not_a_fleet_mutation(command: str) -> None:
-    decision = lint.evaluate(_context(command, payload={"agent_type": "engineer"}))
-    assert decision.outcome is Outcome.NOOP
+    chain = event_chain("PreToolUse", {
+        "tool_name": "Bash", "tool_input": {"command": command},
+        "agent_type": "engineer",
+    })
+    assert "yoke_core.domain.lint_subagent_fleet_messaging" not in chain
