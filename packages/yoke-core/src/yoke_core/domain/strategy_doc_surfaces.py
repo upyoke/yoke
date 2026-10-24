@@ -25,10 +25,10 @@ from yoke_core.domain.strategy_execution import (
     StrategyExecutionLinkError,
     _active_item_claim,
     _marker,
-    _require_blitz_item,
     _row,
     active_strategy_doc_claim,
 )
+from yoke_core.domain.strategy_execution_state import BLITZ_WORKFLOW_ID, _item_row
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
@@ -221,10 +221,9 @@ def get_strategy_surface(
     }
 
 
-def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
-    """Return the thin Blitz shell entirely from persisted system facts."""
-    item = _require_blitz_item(conn, item_id)
-    runtime = load_item_workflow_runtime(conn, int(item_id))
+def get_execution_surface(conn: Any, item_id: int) -> dict[str, Any]:
+    """Return any item's linked document, with execution facts for Blitzes."""
+    item = _item_row(conn, item_id)
     marker = _marker(conn)
     link = _row(
         conn.execute(
@@ -234,7 +233,6 @@ def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
             (int(item_id),),
         )
     )
-    item_claim = _active_item_claim(conn, int(item_id))
     doc = (
         get_strategy_surface(
             conn,
@@ -244,13 +242,19 @@ def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
         if link is not None
         else None
     )
-    return {
+    surface = {
         "item": item,
-        "workflow_version": runtime.version,
-        "workflow_policies": dict(runtime.policies),
         "execution_document": doc,
         "execution_linked_at": link["linked_at"] if link else None,
-        "item_claim": item_claim,
+    }
+    if str(item["workflow_id"]) != BLITZ_WORKFLOW_ID:
+        return surface
+    runtime = load_item_workflow_runtime(conn, int(item_id))
+    return {
+        **surface,
+        "workflow_version": runtime.version,
+        "workflow_policies": dict(runtime.policies),
+        "item_claim": _active_item_claim(conn, int(item_id)),
         "worktree_lanes": list_item_worktrees(
             conn,
             int(item_id),
@@ -260,7 +264,7 @@ def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
 
 
 __all__ = [
-    "get_blitz_surface",
+    "get_execution_surface",
     "get_strategy_surface",
     "list_strategy_surfaces",
     "set_strategy_doc_parent",

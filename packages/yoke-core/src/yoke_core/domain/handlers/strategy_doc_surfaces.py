@@ -24,7 +24,7 @@ from yoke_core.domain.handlers.strategy_docs_claims import (
 )
 from yoke_core.domain.handlers.strategy_docs_project import resolve_request_project
 from yoke_core.domain.strategy_doc_surfaces import (
-    get_blitz_surface,
+    get_execution_surface,
 )
 from yoke_core.domain.strategy_docs import StrategyDocMissingError
 from yoke_core.domain.strategy_execution import (
@@ -131,9 +131,9 @@ def handle_execution_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     with connect() as conn:
         try:
-            execution = get_blitz_surface(conn, item_id)
+            execution = get_execution_surface(conn, item_id)
         except StrategyExecutionError as exc:
-            return _error("invalid_blitz", str(exc))
+            return _error("execution_read_refused", str(exc))
     return _execution_outcome(item_id, execution)
 
 
@@ -174,7 +174,7 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
             # answers with the link itself, because membership in a strategy
             # document is the whole fact it just recorded.
             execution = (
-                get_blitz_surface(conn, item_id)
+                get_execution_surface(conn, item_id)
                 if _is_blitz_item(conn, item_id)
                 else {"link": link}
             )
@@ -210,7 +210,7 @@ def handle_claim_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=_session_id(request),
                 actor_id=_actor_id(request),
             )
-            execution = get_blitz_surface(conn, item_id)
+            execution = get_execution_surface(conn, item_id)
         except StrategyDocClaimConflictError as exc:
             return _error("document_already_claimed", str(exc))
         except StrategyExecutionError as exc:
@@ -237,7 +237,7 @@ def handle_claim_release(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=_actor_id(request),
                 reason=payload.reason,
             )
-            execution = get_blitz_surface(conn, item_id)
+            execution = get_execution_surface(conn, item_id)
         except StrategyExecutionError as exc:
             return _error("document_claim_release_refused", str(exc))
     _emit(CLAIM_RELEASED_EVENT, request, execution["item"]["project_slug"], result)
@@ -268,7 +268,7 @@ def handle_claim_break_glass_release(
                 break_glass=True,
                 reason=payload.reason,
             )
-            execution = get_blitz_surface(conn, item_id)
+            execution = get_execution_surface(conn, item_id)
         except StrategyExecutionError as exc:
             return _error("document_claim_release_refused", str(exc))
     _emit(

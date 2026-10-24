@@ -27,7 +27,7 @@ from yoke_core.domain.strategy_coordination import (
     append_strategy_coordination,
     blitz_completion_evidence,
 )
-from yoke_core.domain.strategy_doc_surfaces import get_blitz_surface
+from yoke_core.domain.strategy_doc_surfaces import get_execution_surface
 from yoke_core.domain.strategy_execution import (
     StrategyDocClaimAuthorizationError,
     StrategyDocClaimConflictError,
@@ -179,7 +179,7 @@ def test_item_owned_claim_survives_session_handoff(tmp_db: str) -> None:
             slug="LIVE-PLAN",
             session_id="session-b",
         )
-        surface = get_blitz_surface(conn, 2001)
+        surface = get_execution_surface(conn, 2001)
         released = release_strategy_doc_claim(
             conn,
             item_id=2001,

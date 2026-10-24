@@ -2,6 +2,8 @@
  "id": "operation",
  "title": "Strategy operation",
  "status": "draft-copy",
+ "summary": "strategy execution get reads the linked document for any workflow; an unlinked item returns no document. Only Blitz reads include execution workflow, work claim and worktree details.",
+ "sources": ["docs/public/strategy/index.md"],
  "surface_refs": ["project-hub"],
  "commands": ["yoke strategy checkpoint latest", "yoke strategy checkpoint record", "yoke strategy execution get", "yoke strategy execution link"],
  "functions": ["strategy.checkpoint.latest", "strategy.checkpoint.record", "strategy.execution.get", "strategy.execution.link"],
