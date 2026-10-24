@@ -2,6 +2,8 @@
  "id": "08",
  "title": "current_claims_requiring_verification",
  "status": "observed",
- "claim": "Claude/Codex/Cursor permission modes, curl-pipe allowance, mid-session hook pickup, once-only orientation and real user/project hook merge/dedup.",
+ "observed_at": "2026-10-24",
+ "evidence_scope": "QA run 54451 (permission posture, headless only) and QA run 58580 artifacts 44350, 44356, 44368 (one macOS 12 host; Codex and Cursor started after the Claude install had written machine hooks; the same run found session-harness-unattended-posture passing while interactive Codex and Cursor still prompted for yoke).",
+ "claim": "Still unverified: Codex/Cursor mid-session pickup from a session with no Yoke hooks at start, and real user/project hook merge/dedup. Permission modes and curl-pipe allowance were settled by QA run 54451 (headless yoke allowed, unapproved curl refused in each restrictive default mode). Mid-session pickup was observed by installer-exploration QA run 58580 (requirement 57886, 2026-10-24, macOS): Claude Code 2.1.310 registered on the first prompt after an in-session install with no restart; Codex 0.164.0 and Cursor 2026.08.25 sessions that machine hooks had already registered stayed projectless through turns 5-6 and registered on the first prompt of a new session; each session received exactly one orientation.",
  "position": 7
 }
