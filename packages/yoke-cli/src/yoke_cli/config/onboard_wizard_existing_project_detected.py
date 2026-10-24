@@ -93,7 +93,27 @@ class ExistingProjectDetectedFlow:
     def _existing_project_view(self: _Shell):
         from yoke_cli.config.onboard_wizard_state import _View
 
-        return _View(self._existing_project_prompt(), self._on_existing_project_choice)
+        matched = {
+            key: getattr(self.result, key, None)
+            for key in (
+                "existing_project_id", "existing_project_match_source",
+                "existing_project_local_source", "project_slug", "project_name",
+                "project_github_repo", "project_default_branch",
+                "project_public_item_prefix", "project_github_adoption",
+                "project_github_adoption_preserve",
+            )
+        }
+        on_choice = self._existing_project_on_choice
+
+        def select(choice: str) -> None:
+            # Back restores the view, whose earlier separate-project answer
+            # cleared its match. Restore this view's identity before routing.
+            for key, value in matched.items():
+                setattr(self.result, key, value)
+            self._existing_project_on_choice = on_choice
+            self._on_existing_project_choice(choice)
+
+        return _View(self._existing_project_prompt(), select)
 
     def _existing_project_prompt(self: _Shell) -> SetupPrompt:
         repo = (
