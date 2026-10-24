@@ -222,6 +222,7 @@ def test_legacy_policy_migrates_once_without_changing_real_remote_urls(checkout,
         git(root, "remote", "add", "upstream", str(source))
     git(root, "config", "--add", f"remote.{remote}.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
     git(root, "config", "--add", f"remote.{remote}.pushurl", str(source))
+    destination.migrate_legacy(root)
     assert destination.read_only(root) is (remote == "origin")
     assert git(root, "remote", "get-url", "--push", "--all", remote) == str(source)
     after = (root / ".git/config").read_bytes()
@@ -258,5 +259,21 @@ def test_failed_policy_persistence_preserves_legacy_git_guard(checkout, monkeypa
 
     monkeypatch.setattr(writer_projects, "set_publication_read_only", fail)
     with pytest.raises(OSError, match="config unavailable"):
-        destination.read_only(root)
+        destination.migrate_legacy(root)
     assert (root / ".git/config").read_bytes() == before
+
+
+def test_legacy_policy_read_never_mutates_config(checkout, monkeypatch):
+    from yoke_cli.config import machine_config, writer_projects
+
+    root, _ = checkout
+    git(root, "config", "remote.origin.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
+    git_before = (root / ".git/config").read_bytes()
+    config = machine_config.config_path()
+    config_before = config.read_bytes()
+    monkeypatch.setattr(writer_projects, "set_publication_read_only",
+                        lambda *a, **kw: pytest.fail("policy reads must not write"))
+    assert destination.read_only(root)
+    assert destination.read_only(root)
+    assert (root / ".git/config").read_bytes() == git_before
+    assert config.read_bytes() == config_before

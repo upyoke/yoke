@@ -79,6 +79,11 @@ def run(
                 result.returncode, argv, output=result.stdout, stderr=result.stderr
             )
         return result
+    except subprocess.TimeoutExpired as exc:
+        return attribution.timeout_result(
+            argv, exc, timeout=timeout, check=check,
+            recovery=TRANSIENT_RECOVERY, exit_code=TIMEOUT_EXIT_CODE,
+        )
     except CredentialedGitError as exc:
         if check:
             raise subprocess.CalledProcessError(
@@ -314,24 +319,10 @@ def _run(
     try:
         return terminal_detached_process.run(argv, **kwargs)
     except subprocess.TimeoutExpired as exc:
-        partial = exc.stderr if isinstance(exc.stderr, str) else ""
-        detail = (
-            f"git {' '.join(argv[1:])} did not finish within {timeout}s. The "
-            "command runs non-interactively and cannot be waiting on a "
-            "prompt, so the remote is unreachable, slow, or refusing this "
-            f"machine's credential. {TRANSIENT_RECOVERY}"
+        return attribution.timeout_result(
+            argv, exc, timeout=timeout, check=check,
+            recovery=TRANSIENT_RECOVERY, exit_code=TIMEOUT_EXIT_CODE,
         )
-        # Preserve the child's evidence of where it stalled.
-        detail = f"{partial.rstrip()}\n{detail}" if partial.strip() else detail
-        if check:
-            raise subprocess.CalledProcessError(
-                TIMEOUT_EXIT_CODE,
-                argv,
-                output=exc.output,
-                stderr=detail,
-            ) from exc
-        output = exc.output if isinstance(exc.output, str) else ""
-        return subprocess.CompletedProcess(argv, TIMEOUT_EXIT_CODE, output, detail)
 
 
 __all__ = [

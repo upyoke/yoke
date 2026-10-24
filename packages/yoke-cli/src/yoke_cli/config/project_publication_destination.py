@@ -62,7 +62,10 @@ def migrate_legacy(root: str | Path, *, config_path=None) -> bool:
 
 
 def read_only(root: str | Path, remote: str = "origin") -> bool:
-    return migrate_legacy(root)
+    from yoke_cli.config import machine_config
+
+    entry = machine_config.project_entry(root)
+    return entry.get("publication_read_only", False) or LEGACY_READ_ONLY_PUSH_URL in push_urls(root)
 
 
 def recovery(remote: str = "origin") -> str:
