@@ -221,7 +221,7 @@ class TestTypedEvaluate(unittest.TestCase):
     def setUp(self):
         _subagent(self)
 
-    def test_deny_decision_carries_deny_envelope(self):
+    def test_deny_decision_carries_plain_reason(self):
         with patch.object(lint, "_read_lint_mode", return_value="deny"):
             ctx = _context(_payload("Monitor"))
             decision = lint.evaluate(ctx)
@@ -230,9 +230,7 @@ class TestTypedEvaluate(unittest.TestCase):
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertEqual(
             decision.audit_fields["reason"],
-            json.loads(decision.message)["hookSpecificOutput"][
-                "permissionDecisionReason"
-            ],
+            decision.message,
         )
         envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
