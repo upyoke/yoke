@@ -13,6 +13,7 @@ function name and keep their handling unchanged.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -126,6 +127,78 @@ def queue_lane_head(
     )
 
 
+@dataclass(frozen=True)
+class RouteAdmission:
+    """Whether a lane may take a landing route, and which one.
+
+    ``gate`` names the first refusing gate; ``review_head`` is the commit the
+    review answered; ``declares_queue`` selects the queue route.
+    """
+
+    gate: str = ""
+    refusal: str = ""
+    review_head: str = ""
+    declares_queue: bool = False
+
+
+def route_admission(
+    *,
+    item_id: int,
+    branch: str,
+    target: str,
+    repo_root: str,
+    project: str,
+    commit_sha: str = "",
+    public_ref: str = "",
+    resume_command: str = "",
+    dispatch: Callable[..., Any] = call_dispatcher,
+) -> RouteAdmission:
+    """Ask the gates every landing route shares. Reads only.
+
+    The landing asks this before choosing a route; ``yoke merge item --check``
+    asks the same function, so the two answers cannot drift.
+    """
+    dependency_refusal = integration_dependency_refusal(
+        item_id=item_id,
+        public_ref=public_ref,
+        resume_command=resume_command,
+        dispatch=dispatch,
+    )
+    if dependency_refusal:
+        return RouteAdmission("integration dependency", dependency_refusal)
+    # The head a review would be about, resolved before the route is chosen
+    # because the clearance is bound to it. The receipt fallback the queue
+    # route uses is deliberately not consulted: a receipt answers for a
+    # branch that already landed, and there is nothing left to review there.
+    review_head = str(commit_sha or "").strip() or git.head_of(repo_root, branch)
+    if review_head:
+        review_refusal = candidate_review_refusal(
+            item_id=item_id,
+            public_ref=public_ref or branch,
+            commit_sha=review_head,
+            branch=branch,
+            target=target,
+            repo_root=repo_root,
+            dispatch=dispatch,
+        )
+        if review_refusal:
+            return RouteAdmission("candidate review", review_refusal, review_head)
+    declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
+    if probe_error:
+        return RouteAdmission(
+            "merge queue",
+            f"merge-queue capability probe failed: {probe_error}. "
+            + undeclare_remedy(
+                MERGE_QUEUE_CAPABILITY_TYPE,
+                project=project,
+                consequence="this branch then lands through the "
+                "standalone merge engine",
+            ),
+            review_head,
+        )
+    return RouteAdmission(review_head=review_head, declares_queue=declared)
+
+
 def route_standalone_landing(
     *,
     item_id: int,
@@ -150,72 +223,35 @@ def route_standalone_landing(
     local engine for a project that may have declared the queue.
 
     ``resume_command`` is what the caller ran, quoted back verbatim when a
-    queue landing runs out of its record wait budget. Only the caller knows it, and a
-    resumable outcome that prints a command the operator can paste is the
-    difference between resuming and reconstructing.
+    queue landing runs out of its record wait budget.
 
-    A candidate the item's posture says a person must review is refused here,
-    before either route: arming a merge-when-ready pull request, enqueuing
-    one, and merging locally are all landings, so the review holds them all
-    from the one place that selects between them.
-
-    The integration dependency gate is asked here for the same reason: queue
-    admission only sees predecessors that are queue members, so a predecessor
-    still implementing would otherwise let the item enqueue.
+    :func:`route_admission` runs first. A candidate a person must review is
+    refused there, before either route, because arming, enqueuing and
+    merging locally are all landings; the integration dependency gate is
+    asked there because queue admission only sees queue members.
     """
-    dependency_refusal = integration_dependency_refusal(
+    admission = route_admission(
         item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        project=project,
+        commit_sha=commit_sha,
         public_ref=public_ref,
         resume_command=resume_command,
         dispatch=dispatch,
     )
-    if dependency_refusal:
+    review_head = admission.review_head
+    if admission.refusal:
         return StandaloneMergeOutcome(
             ok=False,
             exit_code=1,
             already_merged=False,
-            commit_sha=str(commit_sha or ""),
-            error=dependency_refusal,
+            # A dependency refusal answers before any head is resolved.
+            commit_sha=review_head or str(commit_sha or ""),
+            error=admission.refusal,
         )
-    # The head a review would be about, resolved before the route is chosen
-    # because the clearance is bound to it. The receipt fallback the queue
-    # route uses is deliberately not consulted: a receipt answers for a
-    # branch that already landed, and there is nothing left to review there.
-    review_head = str(commit_sha or "").strip() or git.head_of(repo_root, branch)
-    if review_head:
-        review_refusal = candidate_review_refusal(
-            item_id=item_id,
-            public_ref=public_ref or branch,
-            commit_sha=review_head,
-            branch=branch,
-            target=target,
-            repo_root=repo_root,
-            dispatch=dispatch,
-        )
-        if review_refusal:
-            return StandaloneMergeOutcome(
-                ok=False,
-                exit_code=1,
-                already_merged=False,
-                commit_sha=review_head,
-                error=review_refusal,
-            )
-    declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
-    if probe_error:
-        return StandaloneMergeOutcome(
-            ok=False,
-            exit_code=1,
-            already_merged=False,
-            error=(
-                f"merge-queue capability probe failed: {probe_error}. "
-                + undeclare_remedy(
-                    MERGE_QUEUE_CAPABILITY_TYPE,
-                    project=project,
-                    consequence="this branch then lands through the "
-                    "standalone merge engine",
-                )
-            ),
-        )
+    declared = admission.declares_queue
     if not declared:
         return merge_standalone_branch(
             item_id=item_id,
@@ -286,7 +322,9 @@ def route_standalone_landing(
 
 
 __all__ = [
+    "RouteAdmission",
     "project_declares_merge_queue",
     "queue_lane_head",
+    "route_admission",
     "route_standalone_landing",
 ]

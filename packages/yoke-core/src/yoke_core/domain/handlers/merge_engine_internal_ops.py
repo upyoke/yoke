@@ -11,10 +11,9 @@ Postgres):
   release-transition QA plan, then resolve a project-owned registered
   verification command).
 
-These handlers relay both touches server-side (dispatched in-process
-against a local Postgres connection, or over https server-side) while the
-merge engine keeps every git and filesystem operation — worktree removal,
-branch deletion, test execution — local.
+These handlers relay both touches server-side (in-process or over https)
+while the merge engine keeps every git and filesystem operation — worktree
+removal, branch deletion, test execution — local.
 
 The prune verdict wraps the fail-closed
 :func:`yoke_core.engines.merge_prune_authority.terminal_owner` /
@@ -68,6 +67,7 @@ class PruneAuthorityBatchResponse(BaseModel):
 
 class PostRebaseRequirementRequest(BaseModel):
     transition_id: str = Field(default="release", min_length=1)
+    materialize: bool = True  # False: `merge item --check` writes nothing.
 
 
 class PostRebaseRequirementResponse(BaseModel):
@@ -233,8 +233,8 @@ def _prune_verdict(conn: Any, lane: PruneAuthorityRequest) -> dict[str, Any]:
 def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutcome:
     """Resolve local verification for the item's integrated candidate tree.
 
-    Any QA plan attached to the supplied transition is materialized first
-    (checking avoids manufacturing a requirement where none is attached), then
+    Unless ``materialize`` is false, any QA plan attached to the supplied
+    transition is materialized first (only when one is attached), then
     the registered ``full`` command is preferred over ``quick``. Local and
     CI-routed Command cases keep this command in their immutable method
     configuration, so the merge engine can run it on the candidate tree.
@@ -281,7 +281,7 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
                 raise LookupError(ITEM_NOT_FOUND)
             project_id = int(item["project_id"])
             project = str(item["project"])
-            if has_attached_plans(
+            if body.materialize and has_attached_plans(
                 conn,
                 item_id=int(item_id),
                 transition_id=body.transition_id,
