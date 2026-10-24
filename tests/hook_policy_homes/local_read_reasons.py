@@ -237,7 +237,6 @@ LINT_CONFIG_WITHOUT_SNAPSHOT = (
     "the authority reaches this only for a request from an older client.",
     (
         "yoke_contracts.hook_runner.lint_policy:find_workspace_root",
-        "yoke_contracts.hook_runner.lint_policy:parse_file",
         _C + "lint_config:_normalize_root",
         _C + "worktree_paths:_resolve_context_cwd",
         _C + "worktree_paths:_resolve_root",
