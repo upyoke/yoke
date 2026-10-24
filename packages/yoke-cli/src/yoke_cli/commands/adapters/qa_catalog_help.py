@@ -222,4 +222,3 @@ Reading drift without two bodies
 `yoke qa requirement list` reports plan_currency per materialized row --
 current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
-
