@@ -188,6 +188,7 @@ def _worker(scenario: str, ready: int, config: Path, continue_read: int) -> int:
         advanced=False,
         project_mode=None,
         project_checkout=None,
+        project_clone_outcome=None,
         apply=False,
         harness_posture=True,
         post_install=False,
