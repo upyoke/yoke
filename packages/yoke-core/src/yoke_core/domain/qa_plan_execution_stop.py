@@ -7,6 +7,10 @@ same stop request an owner's host abort records; the runner reads it from
 its next case check-in or host heartbeat, stops, cleans up and settles the
 execution itself. Settling it here instead would leave the runner driving
 the host while Yoke treats that host as free.
+
+A mission walk is stopped the same way, by owner or steering: the request
+keeps its Test Machine lease and mission access for cleanup, and the
+original session's walk-end teardown settles the abort.
 """
 
 from __future__ import annotations
@@ -82,14 +86,16 @@ def request_steering_stop(
     """
     from yoke_core.domain.qa_plan_execution_abort_state import (
         abort_request,
+        mission_walk_owed,
         owed_host_abort,
         record_abort_request,
     )
 
+    mission = mission_walk_owed(conn, execution)
     request = abort_request(execution)
     if request is None:
         stop_reason = steering_stop_reason(session_id, reason)
-        owed = owed_host_abort(conn, execution, reason=stop_reason)
+        owed = owed_host_abort(conn, execution, reason=stop_reason) or mission
         last = max(len(execution.get("roster") or []) - 1, 0)
         ordinal = (
             int(owed["ordinal"])
@@ -119,6 +125,14 @@ def request_steering_stop(
         "owner_session_id": owner,
         "request": dict(request or {}),
         "next": (
+            f"Session {owner}'s walker keeps its Test Machine lease and mission "
+            "access for cleanup: it retires the fixture projects it created, "
+            "then runs its dispatched `yoke qa mission walk-end`, which removes "
+            "staged secrets, restores starting state, releases the host and "
+            "settles this execution as aborted with this reason."
+        )
+        if mission
+        else (
             f"Session {owner}'s runner stops this execution at its next case "
             "check-in or host heartbeat, cleans up its host and settles it as "
             "aborted with this reason. Nothing else is needed. If that session "
@@ -152,6 +166,11 @@ def stop_plan_execution(
     the reason a recorded stop request already names.
     """
     from yoke_core.domain.qa_deployment_execution_cleanup import abort_reason
+    from yoke_core.domain.qa_plan_execution_abort_state import (
+        abort_request,
+        mission_walk_owed,
+        record_abort_request,
+    )
     from yoke_core.domain.qa_plan_execution_authority import (
         plan_execution_is_abandoned,
     )
@@ -161,16 +180,27 @@ def stop_plan_execution(
     )
     from yoke_core.domain.qa_plan_execution_store import same_owner
 
-    steering = not same_owner(
+    abandoned = plan_execution_is_abandoned(conn, execution)
+    steering = not abandoned and not same_owner(
         execution, actor_id=actor_id, session_id=session_id
-    ) and not plan_execution_is_abandoned(conn, execution)
-    if steering and execution["state"] == RUNNER_DRIVEN_STATE:
+    )
+    mission = None if abandoned else mission_walk_owed(conn, execution)
+    if steering and (execution["state"] == RUNNER_DRIVEN_STATE or mission):
         stop = request_steering_stop(
             conn, execution, actor_id=actor_id, session_id=session_id, reason=reason
         )
         return {**plan_execution_view(conn, execution), "stop_request": stop}
     if steering:
         reason = steering_stop_reason(session_id, reason)
+    if mission and abort_request(execution) is None:
+        # The owner's own stop keeps the lease too; finishing below refuses
+        # with qa_abort_walk_end_required until its walk-end settles it.
+        record_abort_request(
+            conn,
+            execution,
+            {**mission, "reason": reason, "requested_by_session_id": session_id},
+        )
+        conn.commit()
     finish_plan_execution(
         conn,
         execution,

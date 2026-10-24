@@ -256,6 +256,14 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
         )
         heartbeat_plan_execution(conn, execution)
         run_id = _mission_run_id(conn, str(execution["id"]), parsed.requirement_id)
+        from yoke_core.domain.qa_plan_execution_abort_state import (
+            mission_abort_pending,
+            mission_stop_notice,
+        )
+
+        stop_notice = (
+            mission_stop_notice(execution) if mission_abort_pending(execution) else None
+        )
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
         return _failure("agent_mission_access_failed", str(exc))
@@ -268,6 +276,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             "requirement_id": parsed.requirement_id,
             "execution": contract.model_dump(mode="json"),
             "run_id": run_id,
+            "stop_notice": stop_notice,
         },
     )
 

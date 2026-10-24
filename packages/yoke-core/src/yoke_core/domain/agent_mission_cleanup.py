@@ -1,8 +1,8 @@
-"""Owner-only host custody after deployment membership or a run ends.
+"""Owner-only host custody after a walk is stopped or its run ends.
 
-Removal leaves a walk holding its machine live under a recorded abort; its
-walk-end teardown is the cleanup proof, so finishing it releases the host
-and settles that abort in one transaction.
+An abort or member removal leaves a walk holding its machine live under a
+recorded abort; its walk-end teardown is the cleanup proof, so finishing it
+releases the host and settles that abort in one transaction.
 """
 
 from __future__ import annotations
@@ -23,9 +23,12 @@ from yoke_core.domain.qa_plan_execution_store import same_owner
 def cleanup_execution(conn: Any, execution: dict) -> bool:
     from yoke_core.domain.qa_deployment_execution_cleanup import terminal_run_status
 
+    from yoke_core.domain.qa_plan_execution_abort_state import mission_abort_pending
+
     return (
         member_removed(execution)
         or member_removal_pending(execution)
+        or mission_abort_pending(execution)
         or bool(terminal_run_status(conn, execution))
     )
 
@@ -234,7 +237,7 @@ def handle_cleanup(request: Any, parsed: Any) -> HandlerOutcome | None:
         if not cleanup_execution(conn, execution):
             if parsed.cleanup == "finish":
                 raise ValueError(
-                    "mission_cleanup_not_ended: cleanup custody requires member removal or a terminal run; inspect the execution's deployment run"
+                    "mission_cleanup_not_ended: cleanup custody requires an abort, member removal or a terminal run; inspect the execution with yoke qa plan get"
                 )
             return None
         if not cleanup_authority(conn, request, execution):

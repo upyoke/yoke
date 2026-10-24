@@ -271,8 +271,9 @@ a committed abort or shared-stage settlement still succeeds. Inspect
 `yoke deployment-runs get RUN`; ask the control-plane operator to re-drive its QA stage.
 
 Owners can abort ended runs, recording run status; settled walks report state.
-A steering abort returns `stop_request`; the live owner stops at its next case or
-heartbeat. Without a seat, `qa_execution_stop_requires_steering` refuses.
+A steering abort returns `stop_request`; the live owner stops at its next case,
+heartbeat or [mission walk-end](exploration-evidence.md). Without a seat,
+`qa_execution_stop_requires_steering` refuses.
 
 An in-flight host abort first records cancellation. Until the interrupted
 case's cleanup proof is recorded, `qa_abort_restore_pending` retains custody.

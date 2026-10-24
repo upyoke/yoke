@@ -278,11 +278,17 @@ def mission_access_refusal(conn: Any, execution: Mapping[str, Any]) -> str:
     if state not in TERMINAL_PLAN_EXECUTION_STATES:
         return base
     if str(execution.get("release_reason") or "") != STALE_PLAN_EXECUTION_REASON:
+        from yoke_core.domain.qa_plan_execution_abort_state import (
+            SERVER_FIXTURE_CLEANUP,
+        )
+
         return (
-            f"{base}, so no walker can reach it. Walk nothing and return this "
-            "refusal: the main owner judges the missions recorded before the "
-            "stop from their evidence, through the dispatch that `yoke qa plan "
-            f"review-begin` prints with this walk's subject flag and --execution-id {execution['id']}"
+            f"{base}, so no walker can reach it. Walk nothing more and run no "
+            f"host command. {SERVER_FIXTURE_CLEANUP} Then return this refusal "
+            "with what is still present: the main owner judges the missions "
+            "recorded before the stop from their evidence, through the "
+            "dispatch that `yoke qa plan review-begin` prints with this walk's "
+            f"subject flag and --execution-id {execution['id']}"
         )
     return (
         f"{base} because the stale sweep settled it. The Test Machine still "

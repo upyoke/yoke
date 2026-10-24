@@ -74,6 +74,40 @@ def owed_host_abort(conn, execution, *, reason):
     return request or {"reason": reason, "ordinal": ordinal}
 
 
+MISSION_WALK_STATES = frozenset({"walking", "awaiting_walk_review"})
+
+
+def mission_walk_owed(conn, execution):
+    """Return the mission whose walk-end a stop still owes, or None.
+
+    A mission walk holding its machine lease without a recorded restore may
+    have staged secrets and fixtures; only its walk-end teardown frees it.
+    """
+    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
+
+    if (
+        execution["state"] not in MISSION_WALK_STATES
+        or not execution.get("test_machine_lease_id")
+        or mission_restores_recorded(conn, execution)
+    ):
+        return None
+    return next(
+        (
+            {"ordinal": ordinal}
+            for ordinal, case in enumerate(execution.get("roster") or [])
+            if case.get("runner_id") == "agent_mission"
+        ),
+        None,
+    )
+
+
+def mission_abort_pending(execution):
+    """Whether a stopped mission walk still holds its host for walk-end."""
+    return execution.get("state") in MISSION_WALK_STATES and bool(
+        abort_request(execution)
+    )
+
+
 def record_abort_request(conn, execution, request):
     """Record cancellation in the checkpoint; custody and state stay as they are."""
     from yoke_core.domain.qa_plan_execution_reentry import (
@@ -101,6 +135,31 @@ _MISSION_WALK_END = (
     "host starting state, then have the holder or a covering steering seat "
     "release the host claim; manual release cancels the execution."
 )
+
+
+#: Fixture cleanup that runs on the server, so it needs no Test Machine lease.
+SERVER_FIXTURE_CLEANUP = (
+    "Server cleanup needs no lease and is never handed to steering: retire "
+    "each project the walk created with `yoke --env ENV projects retire "
+    "--project SLUG --reason \"QA fixture cleanup\"`, retire each Machine its "
+    "connect registered with `yoke --env ENV machine retire MACHINE_ID "
+    "--confirm`, and delete its fixture repositories with `gh repo delete "
+    "OWNER/NAME --yes`. The walker report in the item's Progress Log lists "
+    "what the walk created."
+)
+
+
+def mission_stop_notice(execution):
+    """Tell a walker its walk was stopped and what cleanup it still owes."""
+    reason = (abort_request(execution) or {}).get("reason")
+    return (
+        f"mission_walk_stopped: execution {execution['id']} was stopped "
+        f"({reason}). Walk nothing more. Its Test Machine lease and mission "
+        "access stay for cleanup: uninstall what the walk installed through "
+        f"`yoke qa mission host-command`. {SERVER_FIXTURE_CLEANUP} Then run the "
+        "dispatched `yoke qa mission walk-end`; it releases the host and "
+        "settles the abort."
+    )
 
 
 def _ended_owner_recovery(conn, execution):

@@ -8,6 +8,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_abort_reason import MEMBER_REMOVED_REASON
 from yoke_core.domain.qa_plan_execution_abort_state import (
+    mission_walk_owed,
     owed_host_abort,
     record_abort_request,
 )
@@ -119,23 +120,9 @@ def removal_cleanup_request(conn: Any, execution: dict) -> dict | None:
     agent_mission walk holding its machine owes its walk-end teardown. An
     earlier cancellation keeps its time and case but now names the removal.
     """
-    from yoke_core.domain.agent_mission_restore import mission_restores_recorded
-
-    request = owed_host_abort(conn, execution, reason=MEMBER_REMOVED_REASON)
-    if (
-        request is None
-        and execution["state"] in {"walking", "awaiting_walk_review"}
-        and execution.get("test_machine_lease_id")
-        and not mission_restores_recorded(conn, execution)
-    ):
-        request = next(
-            (
-                {"ordinal": ordinal}
-                for ordinal, case in enumerate(execution.get("roster") or [])
-                if case.get("runner_id") == "agent_mission"
-            ),
-            None,
-        )
+    request = owed_host_abort(
+        conn, execution, reason=MEMBER_REMOVED_REASON
+    ) or mission_walk_owed(conn, execution)
     return None if request is None else {**request, "reason": MEMBER_REMOVED_REASON}
 
 
