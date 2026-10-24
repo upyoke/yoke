@@ -206,7 +206,6 @@ def _check_ci_gate(
     branch: str,
     head_sha: str = "",
     sd: Optional[str] = None,
-    main_factory: bool = False,
 ) -> Tuple[bool, str]:
     """Check CI for the exact release commit before deploying.
 
@@ -279,12 +278,6 @@ def _check_ci_gate(
     result = envelope.get("result")
     state = str(result.get("state") or "") if isinstance(result, dict) else ""
     if state == "passed":
-        if main_factory:
-            from yoke_core.domain.deploy_pipeline_factory_gate import check_main_factory
-            return check_main_factory(
-                github_repo, project, head_sha, timeout_sec,
-                github_actions=_github_actions, sd=sd,
-            )
         return True, f"  CI gate: {subject} CI passed"
     if state == "failed":
         return False, ci_recovery.failed_ci_message(subject)
