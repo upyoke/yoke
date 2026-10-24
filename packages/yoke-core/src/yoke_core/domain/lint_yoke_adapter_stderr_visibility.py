@@ -37,7 +37,7 @@ from yoke_core.domain.lint_yoke_adapter_output_truncation import (
     truncation_reason,
     yoke_args,
 )
-from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 

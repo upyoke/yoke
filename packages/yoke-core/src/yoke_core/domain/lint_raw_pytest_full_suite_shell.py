@@ -13,7 +13,7 @@ import shlex
 from typing import List, Optional
 
 from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 _HEREDOC_START = re.compile(
     r"<<-?\s*(?:'(?P<sq>[^']*)'|\"(?P<dq>[^\"]*)\"|(?P<bare>[A-Za-z_]\w*))"

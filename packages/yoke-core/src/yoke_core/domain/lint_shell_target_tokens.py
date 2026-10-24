@@ -16,7 +16,7 @@ import tempfile
 from pathlib import PurePath
 from typing import Dict, List, Mapping, Optional, Tuple
 
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 _REGEX_METACHARS = re.compile(r"[?*{]")

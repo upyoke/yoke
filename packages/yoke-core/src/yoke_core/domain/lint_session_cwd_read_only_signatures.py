@@ -305,7 +305,7 @@ def match_read_only_signature(command: str) -> Optional[str]:
     if not command or not command.strip():
         return None
     if _has_compound_separator(command):
-        from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+        from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
         segments = [part for part in split_pipeline(command) if part.strip()]
         if len(segments) == 1:

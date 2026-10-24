@@ -8,7 +8,7 @@ honoured.
 
 from __future__ import annotations
 
-from yoke_core.domain.path_claim_bash_splitter import (
+from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc,
     iter_pipeline_groups,
     split_pipeline,

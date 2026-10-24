@@ -28,7 +28,7 @@ from typing import Optional
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_command_extract import is_unresolved_command_token
-from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 
 TRUNCATORS = frozenset({"head", "tail"})
 

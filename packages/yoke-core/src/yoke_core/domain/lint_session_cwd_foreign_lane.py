@@ -88,7 +88,7 @@ def governed_targets(
     """
     from yoke_core.domain.lint_session_cwd_read_only_signatures import _match_simple
     from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
-    from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+    from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
     # The splitter does not descend into substitutions, including quoted ones.
     if any(mark in command for mark in (">", "<", "$(", "`")):

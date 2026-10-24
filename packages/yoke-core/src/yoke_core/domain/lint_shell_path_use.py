@@ -25,7 +25,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_syntax,
 )
 from yoke_core.domain.lint_session_cwd_remote_resources import remote_resource_indexes
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 class PathRole(str, Enum):

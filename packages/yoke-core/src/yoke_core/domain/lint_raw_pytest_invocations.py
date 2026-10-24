@@ -12,7 +12,7 @@ import shlex
 from collections.abc import Iterator
 
 from yoke_core.domain.lint_shell_target_tokens import command_operand_tokens
-from yoke_core.domain.path_claim_bash_splitter import (
+from yoke_contracts.hook_runner.shell_statements import (
     iter_pipeline_groups,
     split_pipeline,
 )

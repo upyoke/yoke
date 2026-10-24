@@ -44,7 +44,7 @@ from yoke_core.domain.lint_command_extract import (
     extract_command as _extract_command,
     is_unresolved_command_token,
 )
-from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-pipe-to-truncator"

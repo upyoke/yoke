@@ -37,7 +37,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_syntax,
 )
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})

@@ -30,7 +30,7 @@ from yoke_core.domain.lint_raw_pytest_invocations import (
     executable_argv,
     _piped_shell_sources,
 )
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
 
 

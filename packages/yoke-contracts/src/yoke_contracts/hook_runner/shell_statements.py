@@ -1,21 +1,9 @@
-"""Quote-aware pipeline splitter for the path-claim Bash guard.
+"""Quote-aware statement splitter shared by every Bash hook guard.
 
-Extracted from :mod:`yoke_core.domain.path_claim_bash_parser` so the
-parser stays under the 350-line cap and so quote-aware splitting has a
-single tested owner. The parser still owns segment classification,
-verb/target extraction, ``ambiguous`` synthesis, and heredoc/eval
-fail-closed handling — this module only owns the boundary split.
-
-The original splitter ignored quoting. That misclassified
-``db_router query -separator "|" "..."`` as a real shell pipeline and
-caused the path-claim Bash guard to deny it as ambiguous. This splitter honours single quotes,
-double quotes, and backslash escapes — the splittable forms a real
-shell would actually treat as pipeline boundaries.
-
-The mutation parser removes quoted heredoc inputs through
-``shell_expansion_scan.strip_literal_heredocs`` before splitting. Redirects
-and following commands stay visible. Unquoted heredocs retain conservative
-parser handling; other splitter consumers receive their original source.
+Quoted and backslash-escaped operators are literal: ``db_router query
+-separator "|" "..."`` is one statement, not a pipeline. ``shell_parse``
+builds the shared per-hook parse on this split; the path-claim parser also
+uses its pipeline grouping.
 """
 
 from __future__ import annotations

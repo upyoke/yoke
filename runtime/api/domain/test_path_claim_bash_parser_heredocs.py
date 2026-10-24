@@ -3,7 +3,7 @@
 import pytest
 
 from yoke_core.domain.path_claim_bash_parser import Mutation, extract_mutations
-from yoke_core.domain.shell_expansion_scan import strip_literal_heredocs
+from yoke_contracts.hook_runner.shell_expansion_scan import strip_literal_heredocs
 
 
 @pytest.mark.parametrize("marker", ["'EOF'", '"EOF"'])

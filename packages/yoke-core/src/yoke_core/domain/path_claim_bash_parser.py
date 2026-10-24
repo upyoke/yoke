@@ -8,7 +8,7 @@ yields an auditable sentinel. ``Mutation`` and ``extract_mutations`` are pure.
 
 from __future__ import annotations
 
-from yoke_core.domain.path_claim_bash_splitter import (
+from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc as _has_unquoted_heredoc,
     split_pipeline as _split_pipeline,
 )
@@ -26,7 +26,7 @@ from yoke_core.domain.path_claim_bash_temp_vars import (
     temp_file_vars,
 )
 from yoke_core.domain.lint_session_cwd_host_command import local_argv_text
-from yoke_core.domain.shell_expansion_scan import strip_literal_heredocs
+from yoke_contracts.hook_runner.shell_expansion_scan import strip_literal_heredocs
 from yoke_core.domain.path_claim_bash_parser_redirect import (
     extract_heredoc_redirect_target,
     tokenize_redirects,
