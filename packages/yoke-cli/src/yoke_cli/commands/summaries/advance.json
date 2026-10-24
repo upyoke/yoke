@@ -2,7 +2,5 @@
   "advance": "Move a claimed item into its next stage.",
   "advance implementation-entry": "Start or resume implementation of a claimed item.",
   "advance preflight": "Check what blocks an item before it moves on.",
-  "advance preflight hard": "Check what blocks an item before it moves on.",
-  "advance preflight hard blocks": "List the hard blocks that stop an item from moving on.",
   "advance preflight hard-blocks": "List the hard blocks that stop an item from moving on."
 }

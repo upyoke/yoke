@@ -1,7 +1,5 @@
 {
   "worktree": "Prepare and inspect worktrees for items.",
-  "worktree classify": "Sort a checkout's uncommitted files by who made them.",
-  "worktree classify dirty": "Sort a checkout's uncommitted files by who made them.",
   "worktree classify-dirty": "Sort a checkout's uncommitted files by who made them.",
   "worktree paths": "Show the registered main checkout path.",
   "worktree prepare": "Create the worktrees an item's claim needs."

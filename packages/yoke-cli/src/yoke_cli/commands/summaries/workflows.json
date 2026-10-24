@@ -12,7 +12,6 @@
   "workflows canon status list": "List workflows with their standard version state.",
   "workflows canon update": "Preview and take standard workflow updates.",
   "workflows canon update apply": "Take the newest standard version of one workflow.",
-  "workflows canon update apply all": "Take standard updates for several workflows at once.",
   "workflows canon update preview": "Preview what taking a standard update would change.",
   "workflows canon-follow": "Choose how a workflow takes standard updates.",
   "workflows canon-follow set": "Choose whether a workflow takes new versions by itself.",

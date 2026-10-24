@@ -2,7 +2,5 @@
   "db": "Run read-only SQL and manage item database claims.",
   "db claim": "Declare and check the database changes an item makes.",
   "db claim amend": "Change the database changes an item declares.",
-  "db claim prose": "Check item text against its declared database changes.",
-  "db claim prose check": "Check item text against its declared database changes.",
   "db read": "Run one read-only SQL query and print the result."
 }

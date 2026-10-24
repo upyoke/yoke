@@ -1,7 +1,5 @@
 {
   "shepherd": "Record quality gate results for an item.",
-  "shepherd caveat": "Record how quality gate caveats were handled.",
-  "shepherd caveat disposition": "Record how a quality gate caveat was handled.",
   "shepherd caveat-disposition": "Record how a quality gate caveat was handled.",
   "shepherd verdict": "Record a quality gate verdict for an item step."
 }

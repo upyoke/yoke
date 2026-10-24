@@ -90,13 +90,19 @@ def items_section_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items section upsert",
         usage=ITEMS_SECTION_UPSERT_USAGE,
+        description=(
+            "Writes a stored item section: a named block kept beside the item's "
+            "fields and rendered into its body, such as Progress Log. It never "
+            "edits text inside spec or another field; for a '## Heading' block "
+            "there, use yoke items structured-field section-upsert --field FIELD."
+        ),
     )
     parser.add_argument("item", help="Item id (PREFIX-N).")
     parser.add_argument(
         "--section",
         required=True,
         metavar="NAME",
-        help="Section heading (e.g. 'Progress Log').",
+        help="Stored section name (e.g. 'Progress Log').",
     )
     _add_content_group(parser)
     parser.add_argument(

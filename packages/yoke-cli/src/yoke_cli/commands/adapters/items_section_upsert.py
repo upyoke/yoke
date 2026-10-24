@@ -33,6 +33,11 @@ def items_structured_field_section_upsert(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items structured-field section-upsert",
         usage=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
+        description=(
+            "With --field, creates or replaces the '## Heading' block inside that "
+            "text field, such as spec. Without --field it writes a stored item "
+            "section beside the fields, as yoke items section upsert does."
+        ),
     )
     parser.add_argument("item", metavar="PREFIX-N", help="Item id (PREFIX-N).")
     parser.add_argument(
