@@ -9,7 +9,7 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
 
 @pytest.mark.parametrize(
     "artifact_type",
-    [None, "diagnostic", "starting_state_restore", "fixture_project_disposal"],
+    [None, "diagnostic", "starting_state_restore"],
 )
 @pytest.mark.parametrize("state", ["aborted", "error"])
 @pytest.mark.parametrize("bundle_exists", [False, True])

@@ -254,10 +254,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.plan_case.submit": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.mission.ready": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.mission.access": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
-    "test_machine.mission.dispose_projects": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
-    "test_machine.mission.record_connected_machine": AuthzSpec(
-        PROJECT, PERM_ITEMS_WRITE
-    ),
 }
 
 

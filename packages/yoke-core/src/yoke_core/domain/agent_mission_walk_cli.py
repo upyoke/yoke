@@ -1,11 +1,10 @@
 """Start and end one exploratory mission walk on its leased Test Machine.
 
 ``walk-start`` puts the machine in the mission's declared starting state
-before the walker's first host command. ``walk-end`` uninstalls and retires
-every Yoke project the walk created on the machine, retires the Yoke
-Machine the walk's connect registered, removes the mission's
+before the walker's first host command. ``walk-end`` removes the mission's
 owner-only secret staging, restores the declared starting state, and records
-that restore on the mission's run. Walk one mission at a time: every mission
+that restore on the mission's run. Whatever the walk created, the walker
+removes itself with the product's own commands before walk-end. Walk one mission at a time: every mission
 of a plan shares the plan's one Test Machine lease.
 """
 
@@ -31,7 +30,6 @@ from yoke_core.domain.machine_qa_chain_restore import (
 from yoke_core.domain.machine_qa_mission_scratch import (
     MissionScratchUnavailableError,
 )
-from yoke_core.domain.machine_qa_mission_walk import FIXTURE_PROJECTS
 
 PROG_START = "yoke qa mission walk-start"
 PROG_END = "yoke qa mission walk-end"
@@ -87,16 +85,9 @@ def run_end(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG_END,
         description=(
-            "Uninstall every Yoke project the walk registered on the Test "
-            "Machine, cancel its open items and retire it, retire the Yoke "
-            "Machine the walk's connect registered (never another one; a "
-            "retirement it cannot do names its recovery), remove the "
-            "mission's owner-only secret staging, restore the Test Machine "
-            "to the mission's declared starting state, and record that "
-            "restore and the fixture_project_disposal receipt on the "
-            "mission's run (--run-id). Unresolved disposal removes secret "
-            "staging but preserves the host and owner custody; resolve the "
-            "named cause and retry through the same owner's walk-end."
+            "Remove the mission's owner-only secret staging, restore the "
+            "Test Machine to the mission's declared starting state, and "
+            "record that restore on the mission's run (--run-id)."
         ),
     )
     add_mission_subject_arguments(parser)
@@ -110,79 +101,17 @@ def run_end(args: list[str]) -> int:
         return 2
     from yoke_core.api.service_client_structured_api_adapter import build_actor
     from yoke_core.domain.machine_qa_mission_walk import (
-        execute_agent_mission_project_uninstall,
         execute_agent_mission_walk_end,
         record_mission_restore,
     )
 
     result = None
     cleanup_error = None
-    # Disposal settles before anything is restored or released: a restore
-    # erases the host evidence, and a finished cleanup ends the execution.
-    disposal_failures: list[str] | None = None
     try:
         _register()
-        fixture_projects = execute_agent_mission_project_uninstall(
-            contract, timeout_seconds=parsed.timeout_seconds
-        )
-        disposal_failures, notices, recorded = _dispose_fixture_projects(
-            parsed, fixture_projects
-        )
-        if not recorded and not disposal_failures:
-            disposal_failures = [
-                "fixture_project_disposal_unrecorded: no receipt; retry walk-end"
-            ]
-        for notice in notices:
-            print(f"{PROG_END}: {notice}", file=sys.stderr)
-        if disposal_failures or not recorded:
-            for failure in disposal_failures:
-                print(f"{PROG_END}: {failure}", file=sys.stderr)
-            staging = {}
-            try:
-                staging = execute_agent_mission_walk_end(
-                    contract, timeout_seconds=parsed.timeout_seconds, restore_host=False
-                )
-            finally:
-                print(
-                    json.dumps(
-                        {FIXTURE_PROJECTS: fixture_projects, **staging}, sort_keys=True
-                    )
-                )
-            print(
-                f"{PROG_END}: "
-                f"{'fixture_project_disposal_unsettled' if recorded else 'fixture_project_disposal_unrecorded'}: the Test "
-                "Machine was left unrestored so a rerun can find its projects; "
-                "resolve the named cause under the existing owner and rerun "
-                "this same walk-end; do not reset the host",
-                file=sys.stderr,
-            )
-            for key, reason, path in (
-                ("removed", "mission_scratch_not_removed", staging["scratch_path"]),
-                (
-                    "stale_owner_marker_removed",
-                    "stale_owner_marker_not_removed",
-                    f"~/{STALE_OWNER_MARKER}",
-                ),
-            ):
-                if not staging[key]:
-                    print(
-                        f"{PROG_END}: {reason}: restore host write access to "
-                        f"{path} and rerun this walk-end",
-                        file=sys.stderr,
-                    )
-            if getattr(parsed, "cleanup_lease", False):
-                print(
-                    f"{PROG_END}: mission_cleanup_deferred: cleanup lease stays "
-                    "held; retry this walk-end. To give up the host, run "
-                    f"yoke claims work release --claim-id {contract['lease_id']} "
-                    "--reason 'fixture disposal unsettled'",
-                    file=sys.stderr,
-                )
-            return 3
         result = execute_agent_mission_walk_end(
             contract, timeout_seconds=parsed.timeout_seconds
         )
-        result[FIXTURE_PROJECTS] = fixture_projects
     except (MissionScratchIdentityError, MissionScratchUnavailableError) as exc:
         print(f"{PROG_END}: {exc}", file=sys.stderr)
         return 2
@@ -194,9 +123,7 @@ def run_end(args: list[str]) -> int:
         )
         return 2
     finally:
-        # A cleanup lease is released only once disposal settled, so a rerun
-        # still has a live execution to dispose of the remaining projects.
-        if getattr(parsed, "cleanup_lease", False) and disposal_failures == []:
+        if getattr(parsed, "cleanup_lease", False):
             try:
                 cleanup_error = _finish_cleanup(parsed, contract, result)
             except Exception as exc:
@@ -227,7 +154,7 @@ def run_end(args: list[str]) -> int:
             sort_keys=True,
         )
     )
-    failures = list(disposal_failures or [])
+    failures = []
     if not result["stale_owner_marker_removed"]:
         failures.append(
             f"stale_owner_marker_not_removed: ~/{STALE_OWNER_MARKER} is still "
@@ -253,39 +180,6 @@ def run_end(args: list[str]) -> int:
     for failure in failures:
         print(f"{PROG_END}: {failure}", file=sys.stderr)
     return 3 if failures else 0
-
-
-def _dispose_fixture_projects(
-    parsed, fixture_projects: dict
-) -> tuple[list[str], list[str], bool]:
-    """Dispose of the walk's projects; return failures, notices, and if recorded."""
-    if fixture_projects["error"]:
-        return [fixture_projects["error"]], [], False
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
-    from yoke_core.domain.agent_mission_host_command_cli import _target
-    from yoke_core.domain.agent_mission_project_disposal import (
-        request_project_disposal,
-    )
-
-    try:
-        return request_project_disposal(
-            target=_target(parsed),
-            actor=build_actor(session_id=parsed.session_id),
-            execution_id=parsed.execution_id,
-            requirement_id=parsed.requirement_id,
-            run_id=parsed.run_id,
-            host_projects=fixture_projects["host_projects"],
-            connected_machine_id=fixture_projects.get("connected_machine_id"),
-        )
-    except Exception as exc:
-        return (
-            [
-                f"fixture_project_disposal_failed ({type(exc).__name__}); restore "
-                "control-plane access and rerun this walk-end"
-            ],
-            [],
-            False,
-        )
 
 
 def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:

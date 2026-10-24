@@ -9,7 +9,6 @@ from yoke_core.domain.machine_registry import marker
 
 MACHINE_UNRESOLVED = "machine_unresolved"
 _LIST_COMMAND = "yoke machine list"
-_CONNECTED_MACHINE_COMMAND = "yoke qa mission connected-machine"
 _CANDIDATE_LIMIT = 10
 
 
@@ -117,7 +116,8 @@ def _refusal(conn: Any, value: str, candidates: dict[str, _Candidate]) -> str:
         lines.append(
             f"{value} is a test machine, reached only through its QA lease; it is "
             "not a launch target. To launch on the Yoke a mission installed there, "
-            f"pass the machine id `{_CONNECTED_MACHINE_COMMAND}` recorded."
+            f"pass the machine id that install registered, listed by `{_LIST_COMMAND}` "
+            "on the server it connected to."
         )
     return "\n".join(lines)
 
