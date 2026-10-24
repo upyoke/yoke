@@ -54,7 +54,7 @@ EVENTS_EMIT_USAGE = (
     "[--org-id ID] [--environment ENV] [--request-id ID] [--trace-id ID] "
     "[--parent-id ID] [--tool-use-id ID] [--turn-id ID] [--hook-event-name NAME] "
     "[--anomaly-flags FLAGS] [--duration-ms MS] [--exit-code CODE] "
-    "[--context JSON] [--error-context JSON] [--full] [--session-id S] [--json]"
+    "[--context JSON] [--error-context JSON] [--session-id S] [--json]"
 )
 
 _EMIT_FIELD_METAVARS = {

@@ -21,6 +21,28 @@ def test_read_catalog_matches_all_registrations():
     assert READ_FUNCTION_IDS == registered_read_ids()
 
 
+@pytest.mark.parametrize("function", ["events.emit", "organizations.create", "test_machine.reset"])
+def test_side_effecting_functions_are_not_reads(function):
+    assert function not in registered_read_ids()
+    assert function not in READ_FUNCTION_IDS
+
+
+def test_pure_items_get_is_a_read():
+    assert "items.get.run" in registered_read_ids()
+    assert "items.get.run" in READ_FUNCTION_IDS
+
+
+@pytest.mark.parametrize("function", ["events.emit", "organizations.create", "test_machine.reset"])
+def test_write_help_does_not_add_read_full_option(function):
+    import argparse
+    from yoke_cli.commands._helpers import parse_or_usage_error
+
+    parser = argparse.ArgumentParser(prog="write")
+    with read_output_scope([], function):
+        parse_or_usage_error(parser, [], "write")
+    assert "--full" not in parser.format_help()
+
+
 @pytest.mark.parametrize("size", [4_001, 28_001, 80_000])
 @pytest.mark.parametrize("function", ["qa.plan.list", "items.create"])
 def test_json_always_returns_complete_envelope(capsys, size, function):
@@ -31,9 +53,12 @@ def test_json_always_returns_complete_envelope(capsys, size, function):
     assert "saved_response" not in rendered
 
 
-def test_human_write_is_always_complete(capsys):
+@pytest.mark.parametrize(
+    "function", ["items.create", "events.emit", "organizations.create", "test_machine.reset"]
+)
+def test_human_write_is_always_complete(capsys, function):
     value = "m" * (REPLY_LIMIT_BYTES + 1)
-    assert emit_response(response("items.create", {"body": value}), json_mode=False) == 0
+    assert emit_response(response(function, {"body": value}), json_mode=False) == 0
     assert value in capsys.readouterr().out
 
 

@@ -8,7 +8,7 @@
  "location": "yoke help = yoke --help; group detail: yoke <group> --help",
  "basis": "Inspected delivered candidate help tree source",
  "note": "Root help is the overview; group help lists immediate children and command help owns the narrow recipe. The generated skill registry remains the full skill reference; no speculative full-catalog flag is assumed. yoke machines --help exposes pending, approve and deny for waiting machines; yoke machine --help manages registered machines.",
- "current": "Command help owns supported recipes. cli/help.md documents one global 4,000-byte UTF-8 ceiling for default human and JSON replies, saved complete evidence and deliberate machine contracts. Source observations do not prove a serving release.",
+ "current": "Command help owns supported recipes. cli/help.md defines reads as functions declaring no side effects, including no event emission, and documents the 28,000-byte human-read safety net with complete JSON and write replies. Source observations do not prove a serving release.",
  "desired": "Overview → immediate categories → command recipes. Complete teaching within file and reply budgets; smaller teaching targets remain advisory.",
  "commands": ["yoke tokens create", "yoke tokens list", "yoke tokens revoke", "yoke invite", "yoke invites list", "yoke invites revoke", "yoke invites reissue"],
  "text": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; narrow the read or use --full for complete human detail.",

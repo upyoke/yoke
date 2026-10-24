@@ -47,6 +47,9 @@ history rows, with full launch IDs and continuation cursors; `--full` adds
 placement, model and registered-session columns. Read one launch with
 `yoke session-control launch get LAUNCH-ID --full`.
 
+A function is a read only when its registry entry declares no side effects.
+Emitting an event is a side effect, so event-only functions are writes too.
+
 An unusually large registered human read over 28,000 UTF-8 bytes refuses with
 `read_output_limit_exceeded` before printing any partial answer. Its hint names
 the field, filter, limit and paging flags that command really has; narrow with

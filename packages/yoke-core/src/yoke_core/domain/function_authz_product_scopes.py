@@ -240,6 +240,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "test_machine.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "test_machine.settings_replace": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.verify": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "test_machine.screenshot": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.reset": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.golden_capture": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.bridge_diagnose": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
