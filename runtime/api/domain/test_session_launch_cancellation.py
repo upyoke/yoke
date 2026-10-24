@@ -123,3 +123,34 @@ def test_refused_session_ending_leaves_the_launch_uncancelled(monkeypatch) -> No
     assert refused.value.code == "launch_session_termination_refused"
     assert "TERMINATION_RESUME_IN_FLIGHT" in str(refused.value)
     assert get_launch(conn, launch.launch_id).state == "awaiting_registration"
+
+
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_cancel_settles_failed_unregistered_native_with_exit_evidence(exit_code):
+    conn = launch_connection()
+    add_relay(conn)
+    launch = assigned_launch(conn, key="cancel-exited")
+    evidence = '{"native_exit_at":"2026-08-22T12:00:00Z","exit_code":%d}' % exit_code
+    update_launch(
+        conn,
+        launch.launch_id,
+        state="failed",
+        result_code="native_exited_unregistered",
+        native_session_id="exited-native",
+        result_evidence=evidence,
+    )
+    conn.commit()
+
+    result = cancel_launch(
+        conn, launch_id=launch.launch_id, auth=authorization(), now=NOW
+    )
+
+    assert result.state == "cancelled"
+    assert result.result_code == "cancelled"
+    assert result.result_evidence == evidence
+    assert (
+        cancel_launch(
+            conn, launch_id=launch.launch_id, auth=authorization(), now=NOW
+        ).state
+        == "cancelled"
+    )

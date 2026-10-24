@@ -10,7 +10,9 @@ LAUNCH_CANCEL_DESCRIPTION = (
     "A launch whose instructions were already delivered is refused as "
     "launch_session_working, because that session may be working; end it "
     'deliberately with `yoke sessions terminate SESSION-ID --reason "<why>"`. '
-    "A launch whose native process exists but never registered moves to "
+    "A failed unregistered launch with recorded native exit evidence is settled "
+    "by cancel and leaves the steering report; its diagnostic evidence is retained. "
+    "A launch whose native process exists but has no recorded exit moves to "
     "outcome_unknown (cancellation_requires_reconciliation); resolve it with "
     "`yoke session-control launch reconcile LAUNCH-ID`. A cancelled launch is "
     "final: reconcile never revives it."

@@ -40,7 +40,7 @@ def _unregistered_line(entry: UnregisteredLaunch) -> str:
         # The machine that started this native watched it go, so the launch
         # is already closed: there is no binding left to reconcile.
         problem = "native exited before any session registered"
-        recovery = "worker never started — relaunch once the cause is fixed"
+        recovery = "relaunch once the cause is fixed"
     elif native and not died:
         # The native is up and answering; only the binding is missing.
         problem = f"registered session {native} exists; launch binding is absent"
@@ -67,6 +67,11 @@ def _unregistered_line(entry: UnregisteredLaunch) -> str:
     else:
         problem = f"{entry.state}, deadline overdue {minutes(entry.overdue_seconds)}"
         recovery = "inspect registration before retry"
+    if entry.state == "failed":
+        recovery += (
+            "; if resolved or no longer needed, settle it: "
+            f"`yoke session-control launch cancel {entry.launch_id}`"
+        )
     if entry.native_launch_pid and entry.native_launch_phase:
         problem += f", native pid {entry.native_launch_pid} {entry.native_launch_phase}"
     if entry.spawn_duration_ms is not None:

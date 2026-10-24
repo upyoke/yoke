@@ -96,3 +96,23 @@ def test_an_abandoned_launch_that_said_nothing_says_so() -> None:
     )[0]
 
     assert "exit 0, no output" in line
+
+
+def test_exited_unregistered_native_names_evidence_and_settlement():
+    line = unregistered_launch_lines(
+        (
+            _unregistered(
+                state="failed",
+                result_code="native_exited_unregistered",
+                exit_code=0,
+                native_launch_pid=123,
+                native_launch_phase="native_exited",
+            ),
+        )
+    )[0]
+
+    assert "native exited before any session registered" in line
+    assert "native pid 123 native_exited" in line
+    assert "exit 0" in line
+    assert "worker never started" not in line
+    assert "launch cancel launch-1" in line

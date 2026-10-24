@@ -83,6 +83,7 @@ def test_a_native_exit_without_registration_closes_the_launch_with_its_capture()
     closed = get_launch(conn, launch.launch_id)
     # Closed now, rather than at a registration deadline ten minutes out.
     assert closed.state == "failed"
+    assert closed.native_launch_phase == "native_exited"
     assert closed.result_code == NATIVE_EXITED_UNREGISTERED_CODE
     assert closed.completed_at == parse_instant("2026-08-22T12:00:45Z")
     evidence = json.loads(closed.result_evidence)

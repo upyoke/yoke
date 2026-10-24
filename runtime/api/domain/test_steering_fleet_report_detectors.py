@@ -229,3 +229,78 @@ def test_a_launch_the_deadline_sweep_already_closed_is_not_reported(fleet):
     fleet.commit()
 
     assert unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW) == ()
+
+
+@pytest.mark.parametrize("settlement", ["terminal", "replacement", "cancelled", "none"])
+def test_failed_launch_only_remains_visible_when_unsettled(fleet, settlement):
+    _launch(
+        fleet,
+        "failed-launch",
+        deadline=LONG_AGO,
+        state="failed",
+        result_code="native_exited_unregistered",
+    )
+    fleet.execute(
+        "UPDATE session_launches SET session_name='YOK-1: Some work', "
+        "native_launch_phase='native_running', result_evidence=%s "
+        "WHERE launch_id='failed-launch'",
+        (json.dumps({"native_exit_at": LONG_AGO, "exit_code": 0}),),
+    )
+    if settlement == "terminal":
+        fleet.execute("UPDATE items SET status='done' WHERE id=1")
+    elif settlement == "replacement":
+        _launch(fleet, "replacement", deadline=NOW)
+        fleet.execute(
+            "UPDATE session_launches SET session_name='YOK-1: Renamed work', "
+            "created_at=%s, registered_session_id=%s WHERE launch_id='replacement'",
+            (NOW, ANSWERER),
+        )
+    elif settlement == "cancelled":
+        fleet.execute(
+            "UPDATE session_launches SET state='cancelled' WHERE launch_id='failed-launch'"
+        )
+    fleet.commit()
+
+    gaps = unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert [entry.launch_id for entry in gaps] == (
+        ["failed-launch"] if settlement == "none" else []
+    )
+    if gaps:
+        assert gaps[0].native_launch_phase == "native_exited"
+
+
+@pytest.mark.parametrize(
+    "registered, later, name",
+    [
+        (False, True, "YOK-1: Work"),
+        (True, False, "YOK-1: Work"),
+        (True, True, "YOK-11: Other work"),
+    ],
+)
+def test_unregistered_older_or_other_item_launch_does_not_settle_failure(
+    fleet, registered, later, name
+):
+    _launch(
+        fleet,
+        "failed-launch",
+        deadline=LONG_AGO,
+        state="failed",
+        result_code="native_exited_unregistered",
+    )
+    _launch(fleet, "other-launch", deadline=NOW, state="expired")
+    fleet.execute(
+        "UPDATE session_launches SET session_name='YOK-1: Work' "
+        "WHERE launch_id='failed-launch'"
+    )
+    fleet.execute(
+        "UPDATE session_launches SET session_name=%s, created_at=%s, "
+        "registered_session_id=%s WHERE launch_id='other-launch'",
+        (name, NOW if later else BEFORE_THAT, ANSWERER if registered else None),
+    )
+    fleet.commit()
+
+    assert [
+        entry.launch_id
+        for entry in unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+    ] == ["failed-launch"]

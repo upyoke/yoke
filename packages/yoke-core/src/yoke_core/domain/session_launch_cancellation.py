@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_contracts.timestamps import parse_instant
 
+from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
     get_launch,
@@ -63,6 +64,16 @@ def cancel_launch(
             raise _working_refusal(launch)
         if launch.registered_session_id:
             result = _end_unworked_session(conn, launch, auth=auth, now=current)
+        elif launch.state == "failed" and json_helper.loads_text(
+            launch.result_evidence or "{}"
+        ).get("native_exit_at"):
+            result = update_launch(
+                conn,
+                launch_id,
+                state="cancelled",
+                completed_at=current,
+                result_code="cancelled",
+            )
         elif launch.native_session_id or launch.state in {
             "launching",
             "outcome_unknown",
