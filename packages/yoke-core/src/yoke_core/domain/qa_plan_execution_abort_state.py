@@ -143,9 +143,8 @@ SERVER_FIXTURE_CLEANUP = (
     "each project the walk created with `yoke --env ENV projects retire "
     "--project SLUG --reason \"QA fixture cleanup\"`, retire each Machine its "
     "connect registered with `yoke --env ENV machine retire MACHINE_ID "
-    "--confirm`, and delete its fixture repositories with `gh repo delete "
-    "OWNER/NAME --yes`. The walker report in the item's Progress Log lists "
-    "what the walk created."
+    "--confirm`, and delete its fixture repositories. The walker report in "
+    "the item's Progress Log lists what the walk created."
 )
 
 

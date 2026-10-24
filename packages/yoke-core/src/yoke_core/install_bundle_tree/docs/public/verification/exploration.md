@@ -109,7 +109,7 @@ restores the Test Machine; it never removes what the walk created elsewhere.
 Host cleanup, such as uninstalling a checkout on the Test Machine, needs the
 mission's lease and runs through `yoke qa mission host-command`. Server
 cleanup, such as `yoke --env ENV projects retire`, `yoke --env ENV machine
-retire` and `gh repo delete`, needs no lease. An aborted walk keeps its lease
+retire` and deleting fixture repositories, needs no lease. An aborted walk keeps its lease
 until walk-end, so it finishes both; if access is gone anyway, the walker still
 does the server cleanup the refusal names.
 
