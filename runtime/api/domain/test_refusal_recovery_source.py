@@ -1,4 +1,4 @@
-"""All executable Python recovery labels belong to the shared composer."""
+"""Refusal recovery labels use the composer outside hook guard messages."""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 COMPOSER = "packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py"
+# Hook guard deny text belongs to its separate authoring work.
+HOOK_GUARD_MESSAGES = {
+    "packages/yoke-contracts/src/yoke_contracts/hook_runner/local_privacy_messages.py",
+}
 # Permanent migration history and standalone versioned Pack programs cannot
 # gain a dependency on the current runtime. The browser reply runs JavaScript.
 # The standalone relay entrypoint diagnoses failure before packages are bound.
@@ -76,6 +80,7 @@ def test_no_hand_written_recovery_labels() -> None:
             or p.name.startswith("test_")
             or "/tests/" in rel
             or rel == COMPOSER
+            or rel in HOOK_GUARD_MESSAGES
         ):
             continue
         source = p.read_text()

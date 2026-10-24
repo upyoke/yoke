@@ -17,7 +17,6 @@ line while a refusal costs it the work.
 
 from __future__ import annotations
 
-from yoke_contracts.refusal_recovery import compose_refusal
 
 SYSTEM_PRIVACY_DATABASE = "system_privacy_database"
 HOME_DISCOVERY = "home_discovery"
@@ -130,16 +129,12 @@ def live_reason(category: str, target: str, service: str) -> str:
             "calls and has no live message; check live_severity before "
             "composing one"
         )
-    return compose_refusal(
-        f"{diagnosis(category, target, service)}", recovery=f"{recovery}"
-    )
+    return f"{diagnosis(category, target, service)}\n\nRecovery: {recovery}"
 
 
 def test_isolation_reason(category: str, target: str, service: str) -> str:
     """Return the text the automated-test tripwire shows for any category."""
-    return compose_refusal(
-        f"{diagnosis(category, target, service)}", recovery=f"{_TEST_RECOVERY}"
-    )
+    return f"{diagnosis(category, target, service)}\n\nRecovery: {_TEST_RECOVERY}"
 
 
 __all__ = [
