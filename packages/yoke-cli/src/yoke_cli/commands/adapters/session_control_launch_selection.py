@@ -88,8 +88,9 @@ def selector_payload(
                 payload["machine_id"] = parsed.machine_id
             return payload
         usage_error(
-            "launch_selection_missing: name --level LEVEL for Yoke to place the "
-            "launch, or --surface S to launch an exact selection"
+            "launch_selection_missing: name --item PREFIX-N to preview its stage "
+            "level route, --level LEVEL for Yoke to place a level, or --surface S "
+            "to preview an exact selection"
         )
         return None
     try:
@@ -108,6 +109,29 @@ def selector_payload(
         return None
 
 
+def preview_payload(parsed: argparse.Namespace) -> dict[str, Any] | None:
+    """A preview's selection; an item alone previews its stage level."""
+    payload = selector_payload(parsed, stage_default=bool(parsed.item))
+    if payload is None:
+        return None
+    # ``item`` carries the preview's own serving floor; the stage marker is a
+    # create argument.
+    payload.pop("use_stage_level", None)
+    if parsed.item:
+        payload["item"] = parsed.item
+    return payload
+
+
+def add_item_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--item",
+        default=None,
+        metavar="PREFIX-N",
+        help="Work item the session works on, as PREFIX-N. Without selection "
+        "flags its effective workflow stage level decides the route.",
+    )
+
+
 def add_launch_selector(parser: argparse.ArgumentParser) -> None:
     from yoke_contracts.session_control.model_selection import (
         parse_context_window_tokens,
@@ -119,30 +143,29 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--level",
         default=None,
-        help="Let Yoke choose the option and machine from this level "
-        "(`yoke settings get levels`). An item-bound create also records it as "
-        "the item's level for every stage, so the worker is not handed off at a "
-        "stage edge; a preview or itemless create places one launch only. "
-        "Omit it to launch at the item's effective stage level.",
+        help="Override: launch at this level instead of the item's effective "
+        "stage level (`yoke settings get levels`); Yoke still chooses the option "
+        "and machine. An item-bound create also records it as the item's level "
+        "for every stage (explain with --level-reason); a preview or itemless "
+        "create places one launch only.",
     )
     parser.add_argument(
         "--surface",
         default=None,
         dest="executor_surface",
         metavar="SURFACE",
-        help="Use this surface. On an item-bound create without --model, "
-        "choose an option at the item stage level on this surface; "
-        "omit effort/context knobs in that form. With --model, launch the "
-        "explicit selection as an override.",
+        help="Override: use this surface. With --item and no --model, choose "
+        "an option at the item stage level on this surface; omit effort/context "
+        "knobs in that form. With --model, launch that exact selection.",
     )
     parser.add_argument(
         "--machine",
         default=None,
         dest="machine_id",
         metavar="MACHINE_ID",
-        help="Registered Machine id (`yoke machine list`); a name resolves only "
-        "when one live Machine carries it. A test machine is not a Machine: it "
-        "is reached through its QA lease.",
+        help="Override: place on this registered Machine id (`yoke machine "
+        "list`); a name resolves only when one live Machine carries it. A test "
+        "machine is not a Machine: it is reached through its QA lease.",
     )
     parser.add_argument(
         "--model", default=None, metavar="MODEL", help="Model; needs --surface."
@@ -202,4 +225,10 @@ def maybe_list_models(args: List[str]) -> int | None:
     return 0
 
 
-__all__ = ["add_launch_selector", "maybe_list_models", "selector_payload"]
+__all__ = [
+    "add_item_arg",
+    "add_launch_selector",
+    "maybe_list_models",
+    "preview_payload",
+    "selector_payload",
+]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from typing import Any, List
 
 from yoke_cli.commands._helpers import (
@@ -17,12 +16,21 @@ from yoke_cli.commands.adapters.session_control_common import (
     read_stdin_payload,
     write_launch_result,
 )
+from yoke_cli.commands.adapters.session_control_launch_create_output import (
+    create_result_writer as _create_result_writer,
+)
 from yoke_cli.commands.adapters.session_control_launch_descriptions import (
+    LAUNCH_CREATE_DESCRIPTION,
+    LAUNCH_CREATE_EXAMPLES,
     LAUNCH_DESCRIPTIONS,
+    LAUNCH_PREVIEW_DESCRIPTION,
+    LAUNCH_PREVIEW_EXAMPLES,
 )
 from yoke_cli.commands.adapters.session_control_launch_selection import (
+    add_item_arg as _add_item_arg,
     add_launch_selector as _add_launch_selector,
     maybe_list_models as _maybe_list_models,
+    preview_payload as _preview_payload,
     selector_payload,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -34,7 +42,8 @@ _SELECTION_USAGE = (
     "[--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID]"
 )
 LAUNCH_PREVIEW_USAGE = (
-    f"yoke session-control launch preview --project P {_SELECTION_USAGE} "
+    "yoke session-control launch preview --project P [--item PREFIX-N] "
+    f"[{_SELECTION_USAGE}] "
     "[--list-models] [--full] [--session-id S] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
@@ -44,8 +53,9 @@ LAUNCH_CREATE_USAGE = (
     "[--session-id S] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
-    f"yoke sessions create --project P {_SELECTION_USAGE} "
-    "(--preview | --idempotency-key K [--item PREFIX-N [--level-reason TEXT]] "
+    f"yoke sessions create --project P [{_SELECTION_USAGE}] "
+    "(--preview [--item PREFIX-N] | --idempotency-key K "
+    "[--item PREFIX-N [--level-reason TEXT]] "
     "[--stdin] [--raw-instructions]) "
     "[--presentation MODE] [--list-models] [--session-id S] [--json]"
 )
@@ -83,36 +93,6 @@ def _dispatch_launch(
     )
 
 
-def _create_result_writer(payload: dict[str, Any]) -> Any:
-    """Name the gap when a server predating item levels recorded none.
-
-    A server that records the item level always echoes ``item_level`` for an
-    item-bound create at a named level; its absence means that server placed
-    this one launch only.
-    """
-    item, level = payload.get("item"), payload.get("level")
-
-    def write(response: Any, stdout: Any, stderr: Any) -> None:
-        write_launch_result(response, stdout, stderr)
-        result = response.result or {}
-        if (
-            item
-            and level
-            and not result.get("deduplicated")
-            and not result.get("item_level")
-        ):
-            pin = json.dumps({"min": level, "max": level, "reason": "<why>"})
-            print(
-                "warning: item_level_unrecorded: this server predates launch-time "
-                f"item levels, so --level {level} placed this launch only. Record "
-                f"it for every stage: yoke workflows item-posture amend {item} "
-                f"--key level --value '{pin}' --reason R",
-                file=stderr,
-            )
-
-    return write
-
-
 def session_launch_preview(args: List[str]) -> int:
     listed = _maybe_list_models(args)
     if listed is not None:
@@ -120,14 +100,18 @@ def session_launch_preview(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch preview",
         usage=LAUNCH_PREVIEW_USAGE,
+        description=LAUNCH_PREVIEW_DESCRIPTION,
+        epilog=LAUNCH_PREVIEW_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    _add_item_arg(parser)
     _add_launch_selector(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LAUNCH_PREVIEW_USAGE)
     if parsed is None:
         return 2
-    payload = selector_payload(parsed)
+    payload = _preview_payload(parsed)
     if payload is None:
         return 2
     return _dispatch_launch(
@@ -140,7 +124,14 @@ def session_launch_preview(args: List[str]) -> int:
 def _launch_create_parser(
     prog: str, usage: str, *, preview: bool
 ) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, usage=usage)
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        usage=usage,
+        description=LAUNCH_CREATE_DESCRIPTION,
+        epilog=LAUNCH_CREATE_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _add_item_arg(parser)
     _add_launch_selector(parser)
     if preview:
         mode = parser.add_mutually_exclusive_group(required=False)
@@ -176,12 +167,6 @@ def _launch_create_parser(
         "Use a new key to relaunch.",
     )
     parser.add_argument(
-        "--item",
-        default=None,
-        metavar="PREFIX-N",
-        help="Work item the session works on, as PREFIX-N.",
-    )
-    parser.add_argument(
         "--level-reason",
         default=None,
         metavar="TEXT",
@@ -209,18 +194,21 @@ def _create(args: List[str], *, alias: bool) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    selector = selector_payload(parsed, stage_default=not (alias and parsed.preview))
+    previewing = alias and parsed.preview
+    selector = (
+        _preview_payload(parsed)
+        if previewing
+        else selector_payload(parsed, stage_default=True)
+    )
     if selector is None:
         return 2
-    if parsed.level_reason and not (
-        parsed.level and parsed.item and not (alias and parsed.preview)
-    ):
+    if parsed.level_reason and not (parsed.level and parsed.item and not previewing):
         return usage_error(
             "level_reason_without_item_level: --level-reason explains the item "
             "level that a create with --level and --item records; a preview "
             "records nothing"
         )
-    if alias and parsed.preview:
+    if previewing:
         return _dispatch_launch(
             parsed,
             function_id="session_control.launch.preview",

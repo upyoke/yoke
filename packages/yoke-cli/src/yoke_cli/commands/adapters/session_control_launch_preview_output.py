@@ -119,6 +119,7 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         nonempty_rows(
             [
                 ("Outcome", humanize(result.get("outcome"))),
+                ("Item", result.get("item")),
                 *level_rows(result.get("level_placement")),
                 ("Requested surface", result.get("requested_surface")),
                 *selection_rows("Model", requested_model, carried_model),

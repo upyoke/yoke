@@ -1,9 +1,11 @@
 """Compose the launch preview a caller reads before it creates a launch.
 
-A level preview places the level the way a create would and reports the
-option and machine it chose with the placement evidence; an explicit preview
-places the exact selection the caller named. Both report the selection the
-launch would carry and where each knob came from.
+An item preview resolves the item's effective stage level exactly as an
+item-bound create does. A level preview places the level the way a create
+would and reports the option and machine it chose with the placement
+evidence; an explicit preview places the exact selection the caller named.
+Each reports the selection the launch would carry and where each knob came
+from.
 """
 
 from __future__ import annotations
@@ -28,23 +30,64 @@ from yoke_core.domain.session_launch_validation import (
     preview_model_selection_payload,
     validate_preview_model_selection,
 )
+from yoke_core.domain.workflow_stage_levels import default_launch_level
+
+
+def launch_preview_payload(
+    conn: Any,
+    *,
+    auth: LaunchAuthorization,
+    project_id: int,
+    parsed: LaunchPreviewRequest,
+    item: str | None,
+    surface_fallback_enabled: bool,
+) -> dict[str, Any]:
+    """Preview the route ``launch create`` takes for the same selection.
+
+    ``item`` is the canonical ref of ``parsed.item``. Without ``--level`` or an
+    exact model, the item's effective stage level decides, through the same
+    resolution an item-bound create uses.
+    """
+    ensure_operator(auth)
+    request = default_launch_level(
+        conn,
+        LaunchRequest(
+            project_id=project_id,
+            executor_surface=parsed.executor_surface or "",
+            instructions="",
+            idempotency_key="",
+            machine_id=parsed.machine_id,
+            model=parsed.model,
+            reasoning_effort=parsed.reasoning_effort,
+            context_window_tokens=parsed.context_window_tokens,
+            item=item,
+            level=parsed.level,
+        ),
+    )
+    if request.level:
+        payload = level_preview_payload(conn, auth=auth, request=request)
+    else:
+        payload = explicit_preview_payload(
+            conn,
+            auth=auth,
+            project_id=project_id,
+            parsed=parsed,
+            surface_fallback_enabled=surface_fallback_enabled,
+        )
+    if item:
+        payload["item"] = item
+    return payload
 
 
 def level_preview_payload(
-    conn: Any, *, auth: LaunchAuthorization, project_id: int, level: str
+    conn: Any, *, auth: LaunchAuthorization, request: LaunchRequest
 ) -> dict[str, Any]:
-    """Preview where a launch at ``level`` would go, and why."""
+    """Preview where a launch at ``request.level`` would go, and why."""
     ensure_operator(auth)
     placed, preview = preview_level_launch(
         conn,
         auth=auth,
-        request=LaunchRequest(
-            project_id=project_id,
-            executor_surface="",
-            instructions="",
-            idempotency_key="",
-            level=level,
-        ),
+        request=request,
         now=utc_now(),
         eligibility=derive_launch_eligibility,
     )
@@ -105,4 +148,8 @@ def explicit_preview_payload(
     return payload
 
 
-__all__ = ["explicit_preview_payload", "level_preview_payload"]
+__all__ = [
+    "explicit_preview_payload",
+    "launch_preview_payload",
+    "level_preview_payload",
+]
