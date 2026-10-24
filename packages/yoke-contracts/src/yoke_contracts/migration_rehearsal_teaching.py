@@ -23,8 +23,16 @@ PREFLIGHT_HELP_COMMAND = "yoke migration rehearse --help"
 
 #: Re-enters rehearsal through a claimed Yoke source lane so the patched
 #: package tree, rather than the installed main checkout, owns imports.
+#: ``--env`` belongs to the inner rehearse: the direct-database rule refuses
+#: a routine ``dev run`` launched under a database-admin connection.
 YOKE_SOURCE_REHEARSAL_RECIPE = (
-    "yoke --env <name> dev run -- yoke migration rehearse ITEM"
+    "yoke dev run -- yoke --env <name> migration rehearse ITEM"
+)
+
+#: The same re-entry when several lanes exist and one must be selected.
+YOKE_SOURCE_LANE_REHEARSAL_RECIPE = (
+    "yoke dev run --lane <registered-path> -- "
+    "yoke --env <name> migration rehearse ITEM"
 )
 
 #: Provisions, hydrates, and binds the disposable validation database.
@@ -58,13 +66,20 @@ preflight -- rehearsal needs three bindings, in this order:
 
    With several lanes, select the migration's worker explicitly:
 
-     yoke --env <name> dev run --lane <registered-path> -- yoke migration rehearse ITEM
+     {YOKE_SOURCE_LANE_REHEARSAL_RECIPE}
+
+   Keep `--env` on the inner rehearse, never before `dev run`: a routine
+   command under a database-admin connection is refused (use_https_env).
 
    Rehearsal uses that exact active lane only when it belongs to ITEM and
    the caller holds its matching item/task work claim. Invalid, missing or
    released bindings refuse with rehearsal_source_lane_invalid and claim
    recovery. Without a source binding, rehearsal keeps the item's ordinary
    registered lane default, regardless of the caller's working directory.
+
+   A DB claim's `rehearsal_commands` are the tests rehearsal runs against
+   the validation database (for example a focused pytest run). Never list
+   the rehearse command itself there: rehearsal would call itself and fail.
 
 2. Item universe. Rehearsal is item-bound: it reads the item's mutation
    profile and compatibility attestation from the selected connection's
@@ -95,5 +110,6 @@ __all__ = [
     "PREFLIGHT_HELP",
     "PREFLIGHT_HELP_COMMAND",
     "PROVISION_RECIPE",
+    "YOKE_SOURCE_LANE_REHEARSAL_RECIPE",
     "YOKE_SOURCE_REHEARSAL_RECIPE",
 ]

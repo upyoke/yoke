@@ -112,7 +112,7 @@ and the gates they wrap, because each of those runs its own child as
 
 ```bash
 yoke --env <name> dev run -- yoke watch qa-case -- --requirement-id <id>
-yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
+yoke dev run -- yoke --env <name> migration rehearse PREFIX-N
 ```
 
 Keep the `yoke watch <kind>` spelling inside that wrapper: the retired

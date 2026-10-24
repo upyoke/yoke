@@ -96,9 +96,11 @@ normally status:done when its required deployment and closeout must finish.
 Any status:<stage-id> must exist in that workflow; authoring refuses an
 unknown stage and lists the stages that workflow version has.
 
-Use fact:merged when the dependent only needs the blocker's code on trunk.
+Use fact:merged when the dependent only needs the blocker's code on trunk,
+including a fix that ships in the dependent's release or shared QA case.
 Reserve fact:deployed:<environment-name> for a dependent that needs that code running
-in a registered environment. It requires the blocker at done with durable
+in a registered environment before its own release; a blocker shipping in that
+same release cannot be delivered first, so composition skips the dependent. It requires the blocker at done with durable
 completion delivery attribution to that environment, run and candidate, including
 source-bound cross-project delivery. Merge or release status alone is insufficient.
 Later sibling failure or cancellation does not erase completed attribution.

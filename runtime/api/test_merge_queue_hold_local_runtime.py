@@ -118,6 +118,18 @@ class TestOwnershipIsReadBeforeAnythingElse:
 
         assert recorder.calls == [runtime._CLAIM_HOLDER_FUNCTION]
 
+    def test_an_item_without_a_pull_request_is_told_to_correct_without_a_hold(
+        self, plane
+    ) -> None:
+        plane(readbacks=[{**_readback(), "pr_number": ""}])
+
+        with pytest.raises(runtime.HoldRefused) as caught:
+            runtime.run([ITEM])
+
+        message = str(caught.value)
+        assert "no recorded pull request" in message
+        assert "commit in the lane without a hold" in message
+
 
 class TestTheHoldFunctionIsNeverAnAuthorizationProbe:
     def test_nothing_is_recorded_until_a_readback_shows_it_clear(

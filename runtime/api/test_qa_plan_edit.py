@@ -220,8 +220,8 @@ def test_empty_plan_cannot_attach_or_materialize() -> None:
     assert count == 0
 
 
-def test_materializing_again_adds_rows_for_cases_the_plan_gained() -> None:
-    """An existing row is confirmed, and a case added since gets its own row."""
+def test_materializing_again_keeps_the_snapshot_while_a_fresh_item_gets_current_cases() -> None:
+    """Plan edits apply to a fresh item without expanding an existing snapshot."""
     with test_database() as conn:
         first_item = insert_item(conn, id=42, workflow_id="issue")
         second_item = insert_item(conn, id=43, project_sequence=43, workflow_id="issue")
@@ -257,7 +257,7 @@ def test_materializing_again_adds_rows_for_cases_the_plan_gained() -> None:
         )
 
     assert len(first["created_requirement_ids"]) == 1
-    assert len(again["created_requirement_ids"]) == 1
+    assert again["created_requirement_ids"] == []
     assert again["existing_requirement_ids"] == first["created_requirement_ids"]
     assert len(fresh["created_requirement_ids"]) == 2
 

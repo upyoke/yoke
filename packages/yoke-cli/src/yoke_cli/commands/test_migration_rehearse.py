@@ -9,6 +9,7 @@ import pytest
 from yoke_cli.commands import migration_rehearse as subject
 from yoke_contracts.migration_rehearsal_teaching import (
     PROVISION_RECIPE,
+    YOKE_SOURCE_LANE_REHEARSAL_RECIPE,
     YOKE_SOURCE_REHEARSAL_RECIPE,
 )
 
@@ -44,7 +45,11 @@ def test_help_names_every_binding_rehearsal_needs(capsys) -> None:
     assert "YOKE_PG_DSN_VALIDATION" in rendered
     assert PROVISION_RECIPE in rendered
     assert YOKE_SOURCE_REHEARSAL_RECIPE in rendered
-    assert "dev run --lane <registered-path>" in rendered
+    assert YOKE_SOURCE_LANE_REHEARSAL_RECIPE in rendered
+    # --env before `dev run` is refused by the direct-database rule.
+    assert "--env <name> dev run -- yoke migration" not in rendered
+    assert "dev run --lane <registered-path> -- yoke --env <name>" in rendered
+    assert "rehearsal_commands" in rendered
     assert "rehearsal_source_lane_invalid" in rendered
 
 

@@ -47,8 +47,10 @@ yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use
-`fact:deployed:<environment-name>` when QA needs the blocker done with delivery
-attributed to that registered environment. Composition skips release items with an open
+`fact:merged` when the blocker ships in the same release or the same shared QA
+case proves both. Use `fact:deployed:<environment-name>` only when QA needs the
+blocker delivered to that registered environment before the dependent's own
+release. Composition skips release items with an open
 blocking edge to an unshipped item and names the blocker in its receipt; the
 first release after the blocker ships enrolls the waiting item automatically.
 A blocker the same run enrolls ships with its dependent, so both enroll together.
