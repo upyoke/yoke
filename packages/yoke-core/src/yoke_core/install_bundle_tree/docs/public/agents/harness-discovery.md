@@ -207,8 +207,11 @@ Malformed or unwritable files are preserved and named with recovery while
 other facets continue. Read without `--fix` to inspect without writing.
 The relay's `harness-setup-reconcile.json` records successful fingerprints and
 failed rows; failures retry after 15 minutes or immediately on another change.
-Doctor includes that durable failure and reports a Codex home without a CLI
-or desktop app, with instructions to remove an unintended home or open Codex.
+Doctor includes that durable failure only while its own inspection still
+finds a problem, so a relay pass that ran before an installer wrote project
+files cannot fail setup's install health. It also reports a Codex home
+without a CLI or desktop app, with instructions to remove an unintended home
+or open Codex.
 
 ## Retired lane settings
 
