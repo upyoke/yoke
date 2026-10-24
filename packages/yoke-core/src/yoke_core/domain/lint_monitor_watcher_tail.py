@@ -25,7 +25,6 @@ from yoke_core.domain.lint_long_command_polling_extract import (
 
 
 CHECK_ID = "lint-monitor-watcher-tail"
-HOOK_NAME = CHECK_ID
 GUARD_KEY = "lint_monitor_watcher_tail"
 SUPPRESSION_TOKEN = "# lint:no-monitor-watcher-tail-check"
 _FOLLOW_FLAGS = frozenset({"-f", "-F"})
@@ -95,34 +94,17 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, str]]:
     return mode, _format_reason(path, suppression_seen, mode), outcome
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Monitor",
-            check_id=CHECK_ID,
-            reason=f"[mode={mode}] {reason}" if mode == "warn" else reason,
-            session_id=str(payload.get("session_id") or ""),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=str(payload.get("tool_use_id") or ""),
-            turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        return
-
-
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
+    audit = {
+        "mode": mode,
+        "reason": f"[mode={mode}] {reason}" if mode == "warn" else reason,
+        "audit_outcome": outcome,
+    }
     if mode == "deny":
         envelope = json.dumps({
             "hookSpecificOutput": {

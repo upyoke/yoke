@@ -242,27 +242,13 @@ def _strip_safe_mktemp_assignments(
     )
 
 
-def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    _s = lambda v: v if isinstance(v, str) else ""  # noqa: E731
-    try:
-        emit_denial_event(
-            hook="lint-shell-quoted-function-payload",
-            tool="Bash",
-            check_id="shell_quoted_function_payload",
-            reason=reason,
-            session_id=_s(payload.get("session_id")),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=_s(payload.get("tool_use_id")),
-            turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
+def _audit_only(outcome: str, reason: str) -> HookDecision:
+    """Let the call through while the runner records ``outcome`` for it."""
+    return HookDecision(
+        outcome=Outcome.AUDIT_ONLY,
+        next=Next.CONTINUE,
+        audit_fields={"audit_outcome": outcome, "reason": reason},
+    )
 
 
 def evaluate(record: HookContext) -> HookDecision:
@@ -272,26 +258,25 @@ def evaluate(record: HookContext) -> HookDecision:
     mode = _resolve_mode(payload)
     if _BYPASS_TOKEN in command:
         if evaluate_command(command.replace(_BYPASS_TOKEN, "")):
-            _emit_denial(
-                payload,
+            return _audit_only(
+                "suppression_attempted",
                 "[outcome=suppression_attempted] shell-quoted function "
                 "payload lint suppressed via token",
-                outcome="suppression_attempted",
             )
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = evaluate_command(command)
     if reason is None:
         note = lifecycle_transition_note(command)
         if note:
-            _emit_denial(payload, note, outcome="warn")
             return HookDecision(
-                outcome=Outcome.WARN, message=note, audit_fields={"note": note}
+                outcome=Outcome.WARN,
+                message=note,
+                audit_fields={"note": note, "reason": note, "audit_outcome": "warn"},
             )
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-shell-quoted-function-payload")
     if mode == "warn":
-        _emit_denial(payload, reason, outcome="warn")
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+        return _audit_only("warn", reason)
     envelope = json.dumps(
         {
             "hookSpecificOutput": {
@@ -301,7 +286,6 @@ def evaluate(record: HookContext) -> HookDecision:
             }
         }
     )
-    _emit_denial(payload, reason)
     return HookDecision(
         outcome=Outcome.DENY,
         message=envelope,

@@ -12,9 +12,9 @@ import json
 import os
 import tempfile
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_python_runtime_import_in_tmp as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -216,23 +216,22 @@ class TestSuppressionToken(unittest.TestCase):
             "# lint:no-tmp-runtime-import-check\n"
             "from runtime.api import service_client\n"
         )
-        with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
+        decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(
             decision.audit_fields["audit_outcome"], "suppression_attempted"
         )
-        self.assertEqual(emit_mock.call_args.kwargs["outcome"], "suppression_attempted")
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
+        self.assertEqual(decision.audit_fields["check_id"], lint.CHECK_ID)
 
     def test_token_on_allowed_shape_stays_noop(self) -> None:
         content = "# lint:no-tmp-runtime-import-check\nprint('hi')\n"
-        with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
+        decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertIs(decision.next, Next.CONTINUE)
-        emit_mock.assert_not_called()
+        self.assertEqual(guard_audit_outcome(decision), "")
 
 
 class TestEvaluateTypedEntry(unittest.TestCase):
@@ -246,6 +245,10 @@ class TestEvaluateTypedEntry(unittest.TestCase):
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertEqual(
+            decision.audit_fields["check_id"], "python_runtime_import_in_tmp"
+        )
 
     def test_noop_for_allowed_shape(self) -> None:
         payload = _payload("/tmp/foo.md", "# heading\n")

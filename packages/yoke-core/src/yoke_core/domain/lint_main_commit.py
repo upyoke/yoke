@@ -135,32 +135,6 @@ def _build_deny_response(reason: str) -> dict:
     }
 
 
-def _emit_denial(payload: dict, reason: str) -> None:
-    """Emit a ``HarnessToolCallDenied`` audit event (fire and forget, fail-open)."""
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    session_id = payload.get("session_id") or ""
-    tool_use_id = payload.get("tool_use_id") or ""
-    turn_id = payload.get("turn_id") or payload.get("message_id") or ""
-    command_snippet = _extract_command(payload)
-    try:
-        emit_denial_event(
-            hook="lint-main-commit",
-            tool="Bash",
-            check_id="impl_on_main",
-            reason=reason,
-            session_id=session_id if isinstance(session_id, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
-            turn_id=turn_id if isinstance(turn_id, str) else "",
-            command_snippet=command_snippet,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate the staged commit against the worktree-discipline rule."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -169,7 +143,6 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = evaluate_payload(payload)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    _emit_denial(payload, reason)
     envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(
         outcome=Outcome.DENY,

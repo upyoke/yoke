@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest import mock
 
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_shell_backtick_search as lint
 
@@ -67,12 +68,12 @@ def test_non_bash_tool_allows():
 
 def test_suppression_is_audit_only():
     command = 'rg "uses `foo` here" docs/  # lint:no-backtick-search-check'
-    with mock.patch.object(lint, "_read_mode", return_value="deny"), \
-         mock.patch.object(lint, "_emit_audit_event") as emit_mock:
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
         decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
     body = json.loads(decision.message)
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert emit_mock.call_args.args[3] == "suppression_attempted"
+    assert guard_audit_outcome(decision) == "suppression_attempted"
+    assert "BLOCKED" in decision.audit_fields["reason"]

@@ -9,6 +9,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from yoke_core.domain import lint_write_path as mod
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -126,17 +127,22 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertIs(decision.next, Next.CONTINUE)
         self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "")
 
     def test_deny_carries_envelope_and_block(self) -> None:
         payload = _write("/tmp/foo.tmp.$$", "x")
-        with mock.patch.object(mod, "_emit_denial") as emit_mock:
-            decision = mod.evaluate(_record_for(payload))
+        decision = mod.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
         parsed = json.loads(decision.message)
         self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
-        emit_mock.assert_called_once()
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertEqual(decision.audit_fields["check_id"], "lint-write-path")
+        self.assertEqual(
+            decision.audit_fields["reason"],
+            parsed["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
 
 class TestMain(unittest.TestCase):
@@ -150,11 +156,7 @@ class TestMain(unittest.TestCase):
     def test_deny_prints_json(self) -> None:
         payload = json.dumps(_write("/tmp/foo.tmp.$$", "x"))
         buf = io.StringIO()
-        with (
-            mock.patch.object(mod, "_emit_denial"),
-            mock.patch("sys.stdin", io.StringIO(payload)),
-            redirect_stdout(buf),
-        ):
+        with mock.patch("sys.stdin", io.StringIO(payload)), redirect_stdout(buf):
             rc = mod.main()
         self.assertEqual(rc, 0)
         parsed = json.loads(buf.getvalue().strip())

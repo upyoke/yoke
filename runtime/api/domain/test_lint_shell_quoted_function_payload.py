@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_shell_quoted_function_payload as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -121,14 +122,12 @@ class TestEvaluateDenyMode(unittest.TestCase):
             "printf '{\"function\":\"x\"}' | python3 -m yoke_core.api.service_client"
             " functions-call --payload -"
         )
-        with (
-            mock.patch.object(lint, "_emit_denial"),
-            mock.patch.object(lint, "_resolve_mode", return_value="deny"),
-        ):
+        with mock.patch.object(lint, "_resolve_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
         decoded = json.loads(decision.message)
         self.assertEqual(
             decoded["hookSpecificOutput"]["permissionDecision"], "deny",
@@ -139,24 +138,20 @@ class TestEvaluateDenyMode(unittest.TestCase):
             "printf '{\"function\":\"x\"}' | python3 -m yoke_core.api.service_client"
             " functions-call --payload -"
         )
-        outcomes = []
-        with (
-            mock.patch.object(
-                lint,
-                "_emit_denial",
-                lambda _p, _r, *, outcome="denied": outcomes.append(outcome),
-            ),
-            mock.patch.object(lint, "_resolve_mode", return_value="warn"),
-        ):
+        with mock.patch.object(lint, "_resolve_mode", return_value="warn"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertIs(decision.outcome, Outcome.NOOP)
-        self.assertEqual(outcomes, ["warn"])
+        self.assertIs(decision.outcome, Outcome.AUDIT_ONLY)
+        self.assertFalse(decision.block)
+        self.assertIs(decision.next, Next.CONTINUE)
+        self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertIn("lint-shell-quoted-function-payload", decision.audit_fields["reason"])
 
     def test_evaluate_allows_safe_command(self) -> None:
-        with mock.patch.object(lint, "_emit_denial"):
-            decision = lint.evaluate(_record_for(_payload("git status")))
+        decision = lint.evaluate(_record_for(_payload("git status")))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertFalse(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "")
 
 
 class TestSuppressionToken(unittest.TestCase):
@@ -168,18 +163,13 @@ class TestSuppressionToken(unittest.TestCase):
             "functions-call --payload - "
             "# lint:no-shell-json-payload-check"
         )
-        outcomes = []
-        with (
-            mock.patch.object(
-                lint,
-                "_emit_denial",
-                lambda _p, _r, *, outcome="denied": outcomes.append(outcome),
-            ),
-            mock.patch.object(lint, "_resolve_mode", return_value="deny"),
-        ):
+        with mock.patch.object(lint, "_resolve_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertEqual(outcomes, ["suppression_attempted"])
-        self.assertIs(decision.outcome, Outcome.NOOP)
+        self.assertIs(decision.outcome, Outcome.AUDIT_ONLY)
+        self.assertFalse(decision.block)
+        self.assertIs(decision.next, Next.CONTINUE)
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
+        self.assertIn("suppressed via token", decision.audit_fields["reason"])
 
 
 class TestConfigModeResolution(unittest.TestCase):

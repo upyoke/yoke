@@ -1,4 +1,4 @@
-"""Output-side helpers for the polling lint: reasons, context, audit, deny.
+"""Output-side helpers for the polling lint: reasons, context, deny.
 
 Sibling of ``lint_long_command_polling`` (the hook entry point) and
 ``lint_long_command_polling_evaluate`` (the verdict logic). This module
@@ -7,16 +7,14 @@ isolates everything that builds output:
 - ``_format_sleep_reason`` /
   ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing reason text rendered with
   the verdict (``DENIED`` vs ``POLLING ANTI-PATTERN``).
-- ``_build_context`` — the structured context dict captured into the
-  audit event.
+- ``_build_context`` — the structured context dict returned with the
+  verdict.
 - ``_build_deny_response`` — the Claude PreToolUse JSON envelope used to
   signal ``permissionDecision=deny``.
-- ``_emit_audit_event`` — the ``HarnessToolCallDenied`` audit event with
-  mode-aware (``[mode=warn]`` vs ``[mode=deny]``) reason annotation.
 
 The formatters are pulled by ``evaluate_payload`` so the verdict tuple
-already carries the rendered reason. The remaining helpers are imported
-by the entry-point ``run()``.
+already carries the rendered reason. The entry point imports
+``_build_deny_response``.
 """
 
 from __future__ import annotations
@@ -24,11 +22,8 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.lint_long_command_polling_constants import (
-    CHECK_ID,
-    HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
 )
-from yoke_core.domain.lint_long_command_polling_extract import _extract_command
 
 
 def _raw_capture_hint(progress_capture: str) -> str:
@@ -161,51 +156,3 @@ def _build_deny_response(reason: str) -> dict:
             "permissionDecisionReason": reason,
         }
     }
-
-
-def _emit_audit_event(
-    payload: dict,
-    tool_name: str,
-    reason: str,
-    mode: str,
-    context: dict,
-    outcome: str = "denied",
-) -> None:
-    """Emit a ``HarnessToolCallDenied`` audit event with mode-aware context.
-
-    ``outcome`` selects the recorded event outcome. ``"denied"`` is the
-    default. ``"suppression_attempted"`` is used by audit-only suppression
-    tokens, such as duplicate-Monitor's token.
-
-    The ``[outcome=...]`` annotation is appended to ``reason`` only for
-    non-default outcomes so reviewers can grep distinguishable surfaces;
-    the legacy ``"denied"`` reason format is unchanged.
-    """
-    # Imported locally so module load does not depend on the harness package.
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-
-    session_id = payload.get("session_id") or ""
-    tool_use_id = payload.get("tool_use_id") or ""
-    turn_id = payload.get("turn_id") or payload.get("message_id") or ""
-    command_snippet = _extract_command(payload) or ""
-    annotated_reason = f"[mode={mode}] {reason}"
-    if outcome and outcome != "denied":
-        annotated_reason = f"[mode={mode}][outcome={outcome}] {reason}"
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool=tool_name or "Bash",
-            check_id=CHECK_ID,
-            reason=annotated_reason,
-            session_id=session_id if isinstance(session_id, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
-            turn_id=turn_id if isinstance(turn_id, str) else "",
-            command_snippet=command_snippet,
-            outcome=outcome or "denied",
-        )
-    except Exception:
-        pass

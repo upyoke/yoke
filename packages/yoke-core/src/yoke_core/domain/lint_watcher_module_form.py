@@ -22,7 +22,6 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 
 
 CHECK_ID = "lint-watcher-module-form"
-HOOK_NAME = CHECK_ID
 SUPPRESSION_TOKEN = "# lint:no-watcher-module-form-check"
 _PYTHON_NAMES = {"python", "python3"}
 
@@ -109,33 +108,12 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     return mode, reason, outcome
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=f"[mode={mode}] {reason}" if mode == "warn" else reason,
-            session_id=str(payload.get("session_id") or ""),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=str(payload.get("tool_use_id") or ""),
-            turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        return
-
-
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
         envelope = json.dumps(

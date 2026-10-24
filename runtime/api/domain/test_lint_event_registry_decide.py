@@ -83,15 +83,3 @@ class TestDecide:
     def test_all_payload_shapes_deny_unregistered(self, registry_db, shape):
         payload = _payload('sh emit-event.sh --name "Unknown"', shape=shape)
         assert decide(payload, registry_db).action == "deny"
-
-    def test_hook_meta_propagates(self, registry_db):
-        payload = _payload(
-            'sh emit-event.sh --name "Unknown"',
-            session_id="sid-xyz",
-            tool_use_id="tu-abc",
-            turn_id="tr-123",
-        )
-        d = decide(payload, registry_db)
-        assert d.hook_meta.session_id == "sid-xyz"
-        assert d.hook_meta.tool_use_id == "tu-abc"
-        assert d.hook_meta.turn_id == "tr-123"

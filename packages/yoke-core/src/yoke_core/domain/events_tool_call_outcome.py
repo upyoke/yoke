@@ -21,16 +21,16 @@ Core classifier outcomes (emitted by ``classify_tool_call_outcome``):
   variant of completed/failed, because downstream audit queries treat
   approval-gate exits as a distinct lifecycle event from real failures.
 
-Event-class-conditional outcomes (emitted only by ``HarnessToolCallDenied``
-lint guardrails via ``emit_denial_event``, never by the classifier):
+Event-class-conditional outcomes (recorded only on ``HarnessToolCallDenied``
+by the hook runner's ``yoke_core.hooks.guard_denial_record``, never by the
+classifier):
 
 * ``warn`` — warn-mode lint hit. The guardrail recorded an audit row but
   did not block. CLAUDE.md ``## Command Output — Hard Rule`` documents
   this as required audit-trail behavior.
 * ``suppression_attempted`` — operator placed a ``# lint:no-*-check``
-  suppression token on the command body. The guardrail still denied; the
-  token is honoured ONLY as audit evidence so reviewers can grep bypass
-  attempts. ``.yoke/docs/agents/rules/lanes-and-claims.md`` documents
+  suppression token on the command body. The token is honoured ONLY as
+  audit evidence so reviewers can grep bypass attempts. ``.yoke/docs/agents/rules/lanes-and-claims.md`` documents
   the symmetry.
 
 The classifier is a pure function: no I/O, no DB, no side effects. Neither
@@ -52,8 +52,8 @@ OUTCOME_DENIED: str = "denied"
 OUTCOME_INTERRUPTED: str = "interrupted"
 OUTCOME_STRUCTURED_EXIT: str = "structured_exit"
 
-# Event-class-conditional outcomes emitted by HarnessToolCallDenied lint
-# guardrails via emit_denial_event. Not produced by classify_tool_call_outcome.
+# Event-class-conditional outcomes the hook runner records on
+# HarnessToolCallDenied. Not produced by classify_tool_call_outcome.
 OUTCOME_WARN: str = "warn"
 OUTCOME_SUPPRESSION_ATTEMPTED: str = "suppression_attempted"
 

@@ -13,6 +13,7 @@ from yoke_contracts.hook_runner.main_commit import (
     CLIENT_GIT_COMMIT_FACTS_SCHEMA,
 )
 from yoke_core.domain import lint_main_commit
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
 TEST_ITEM_REF = "YOK-42"
@@ -215,7 +216,6 @@ class TestEvaluate(unittest.TestCase):
                 mock.patch.object(
                     lint_main_commit, "_active_worktree_items", return_value=["YOK-7|x"]
                 ),
-                mock.patch.object(lint_main_commit, "_emit_denial"),
             ):
                 decisions = [
                     lint_main_commit.evaluate(
@@ -242,7 +242,6 @@ class TestEvaluate(unittest.TestCase):
                 "_active_worktree_items",
                 return_value=["YOK-7|thing"],
             ),
-            mock.patch.object(lint_main_commit, "_emit_denial") as emit_mock,
         ):
             decision = lint_main_commit.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
@@ -253,7 +252,8 @@ class TestEvaluate(unittest.TestCase):
         self.assertIn(
             "BLOCKED", parsed["hookSpecificOutput"]["permissionDecisionReason"]
         )
-        emit_mock.assert_called_once()
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertIn("BLOCKED", decision.audit_fields["reason"])
 
     def test_non_dict_payload_returns_noop(self) -> None:
         record = HookContext(
@@ -296,7 +296,6 @@ class TestMain(unittest.TestCase):
                 "_active_worktree_items",
                 return_value=["YOK-7|thing"],
             ),
-            mock.patch.object(lint_main_commit, "_emit_denial"),
             mock.patch("sys.stdin", io.StringIO(json.dumps(payload))),
             redirect_stdout(buf),
         ):

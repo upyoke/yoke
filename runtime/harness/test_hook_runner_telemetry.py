@@ -2,7 +2,7 @@
 
 After the cutover the legacy ``session_hooks_*`` per-event
 sibling modules are deleted; telemetry re-exports now resolve to the
-new ``hook_runner.{denial,identity,service_client,stdin}`` siblings.
+new ``hook_runner.{identity,service_client,stdin}`` siblings.
 
 Same-object semantics matter: callers do
 ``mock.patch("yoke_core.hooks.telemetry.X", ...)`` and
@@ -20,7 +20,6 @@ from typing import Any
 import pytest
 
 
-import yoke_core.hooks.denial as denial
 import yoke_core.hooks.identity as identity
 import yoke_core.hooks.service_client as svc_client
 import yoke_core.hooks.session_model_attestation_write as model_attestation
@@ -38,9 +37,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 _CALLABLE_RE_EXPORTS: tuple[str, ...] = (
     "_classify_session_id_source",
     "bounded_stdin_read",
-    "build_denial_context",
-    "build_denial_payload",
-    "emit_denial_event",
     "emit_harness_session_sent_first_user_prompt_submit",
     "emit_session_hook_failed",
     "attest_served_model_facts",
@@ -53,17 +49,12 @@ _CALLABLE_RE_EXPORTS: tuple[str, ...] = (
 
 # Module-level constants the shim re-exports.
 _CONSTANT_RE_EXPORTS: tuple[str, ...] = (
-    "COMMAND_SNIPPET_MAX_BYTES",
     "STDIN_FALLBACK_MAX_BYTES",
     "STDIN_FALLBACK_TIMEOUT_SECONDS",
 )
 
 # Map every public name on telemetry to its authoritative owner module.
 _OWNER_FOR: dict[str, object] = {
-    "COMMAND_SNIPPET_MAX_BYTES": denial,
-    "build_denial_context": denial,
-    "build_denial_payload": denial,
-    "emit_denial_event": denial,
     "_classify_session_id_source": identity,
     "resolve_direct_session_id": identity,
     "resolve_session_id_from_env_and_payload": identity,

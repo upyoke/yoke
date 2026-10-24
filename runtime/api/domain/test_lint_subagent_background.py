@@ -13,6 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from yoke_core.domain import lint_subagent_background as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Outcome
 
 
@@ -65,16 +66,6 @@ def _context(payload, *, remote=False):
     )
 
 
-class _AuditEmitter:
-    """Stub for ``emit_denial_event`` that records calls."""
-
-    def __init__(self):
-        self.calls = []
-
-    def __call__(self, **kwargs):
-        self.calls.append(kwargs)
-
-
 class TestMainSessionFailsOpen(unittest.TestCase):
     def test_no_signal_no_op(self):
         # No --agent-type and no payload agent_type: the rule must not
@@ -95,11 +86,6 @@ class TestMainSessionFailsOpen(unittest.TestCase):
 class TestSubagentContextDenies(unittest.TestCase):
     def setUp(self):
         _subagent(self)
-        self._emit_patch = patch(
-            "yoke_core.hooks.telemetry.emit_denial_event",
-        )
-        self.emit_stub = self._emit_patch.start()
-        self.addCleanup(self._emit_patch.stop)
         self._mode_patch = patch.object(lint, "_read_lint_mode", return_value="deny")
         self._mode_patch.start()
         self.addCleanup(self._mode_patch.stop)
@@ -214,6 +200,19 @@ class TestWarnMode(unittest.TestCase):
             decision = lint.evaluate(ctx)
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertFalse(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertIn("Monitor", decision.audit_fields["reason"])
+
+    def test_warn_mode_suppression_token_records_suppression_attempt(self):
+        payload = _payload(
+            "Bash",
+            command="python3 -m foo " + lint.SUPPRESSION_TOKEN,
+            run_in_background=True,
+        )
+        with patch.object(lint, "_read_lint_mode", return_value="warn"):
+            decision = lint.evaluate(_context(payload))
+        self.assertIs(decision.outcome, Outcome.WARN)
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
 
 class TestTypedEvaluate(unittest.TestCase):
@@ -226,6 +225,10 @@ class TestTypedEvaluate(unittest.TestCase):
             decision = lint.evaluate(ctx)
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertEqual(decision.audit_fields["reason"], json.loads(
+            decision.message
+        )["hookSpecificOutput"]["permissionDecisionReason"])
         envelope = json.loads(decision.message)
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"],
@@ -237,15 +240,13 @@ class TestTypedEvaluate(unittest.TestCase):
         with patch.dict(os.environ, _STRAY_ENV):
             decision = lint.evaluate(_context(_payload("Monitor")))
         self.assertIs(decision.outcome, Outcome.NOOP)
+        self.assertEqual(guard_audit_outcome(decision), "")
 
     def test_verdict_is_the_same_locally_and_remotely(self):
         for agent_type, outcome in (("engineer", Outcome.DENY), (None, Outcome.NOOP)):
             _subagent(self, agent_type)
             payload = _payload("Monitor")
-            with (
-                patch.object(lint, "_read_lint_mode", return_value="deny"),
-                patch("yoke_core.hooks.telemetry.emit_denial_event"),
-            ):
+            with patch.object(lint, "_read_lint_mode", return_value="deny"):
                 local = lint.evaluate(_context(dict(payload), remote=False))
                 remote = lint.evaluate(_context(dict(payload), remote=True))
             self.assertIs(local.outcome, outcome)

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.hooks import mode_gate
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner import lint_policy
 
@@ -37,7 +38,6 @@ def _context(root: str | None) -> HookContext:
 def _registered(monkeypatch: pytest.MonkeyPatch, mode: str) -> None:
     monkeypatch.setattr(mode_gate.lint_config, "is_registered", lambda m: True)
     monkeypatch.setattr(mode_gate.lint_config, "resolve_mode", lambda m: mode)
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
 
 
 def test_non_blocking_decision_is_untouched(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,6 +67,25 @@ def test_warn_mode_downgrades_block_to_noop(monkeypatch: pytest.MonkeyPatch) -> 
     assert not out.block
     assert out.audit_fields.get("policy_mode") == "warn"
     assert out.audit_fields.get("downgraded_from") == Outcome.DENY.value
+    assert out.audit_fields.get("audit_outcome") == "warn"
+    assert guard_audit_outcome(out) == "warn"
+
+
+def test_warn_downgrade_keeps_a_guard_declared_audit_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _registered(monkeypatch, "warn")
+    declared = HookDecision(
+        outcome=Outcome.DENY,
+        message="blocked",
+        block=True,
+        next=Next.STOP,
+        audit_fields={"audit_outcome": "suppression_attempted"},
+    )
+    out = mode_gate.apply_mode(declared, "yoke_core.domain.lint_x")
+    assert not out.block
+    assert out.audit_fields.get("audit_outcome") == "suppression_attempted"
+    assert guard_audit_outcome(out) == "suppression_attempted"
 
 
 def test_context_target_root_warn_downgrades_even_when_ambient_denies(
@@ -76,7 +95,6 @@ def test_context_target_root_warn_downgrades_even_when_ambient_denies(
     externalwebapp = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(yoke))
     monkeypatch.chdir(yoke)
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
     out = mode_gate.apply_mode(
@@ -86,6 +104,7 @@ def test_context_target_root_warn_downgrades_even_when_ambient_denies(
     assert out.outcome is Outcome.WARN
     assert out.next is Next.CONTINUE
     assert not out.block
+    assert guard_audit_outcome(out) == "warn"
 
 
 def test_context_target_root_deny_keeps_block(
@@ -95,7 +114,6 @@ def test_context_target_root_deny_keeps_block(
     externalwebapp = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(externalwebapp))
     monkeypatch.chdir(externalwebapp)
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
     out = mode_gate.apply_mode(
@@ -113,7 +131,6 @@ def test_context_missing_or_unknown_target_root_fails_safe(
     ambient = _root_with_config(tmp_path, "externalwebapp", "lint_tc_label=warn\n")
     monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(ambient))
     monkeypatch.chdir(ambient)
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
     missing = mode_gate.apply_mode(
@@ -131,7 +148,6 @@ def test_context_missing_or_unknown_target_root_fails_safe(
 def test_payload_snapshot_warn_downgrades_without_server_checkout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     context = _context(None)
     context.payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = {
         "lint_tc_label": {"mode": "warn"},
@@ -150,7 +166,6 @@ def test_protected_guard_warn_without_allow_warn_stays_deny_with_explicit_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = _root_with_config(tmp_path, "externalwebapp", "lint_destructive_git=warn\n")
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
     mode_gate.lint_config.reset_cache()
 
     out = mode_gate.apply_mode(
@@ -200,13 +215,18 @@ def test_run_event_downgrades_warn_guard_and_chain_continues(
         "emit_hook_dispatch_telemetry",
     ):
         monkeypatch.setattr(runner_module._telemetry, name, lambda **k: None)
-    # Configure the (synthetic) guard to warn; silence the downgrade audit emit.
+    # Configure the (synthetic) guard to warn; capture the recorded audit row.
     monkeypatch.setattr("yoke_core.domain.lint_config.is_registered", lambda m: True)
     monkeypatch.setattr(
         "yoke_core.domain.lint_config.resolve_mode",
         lambda m, *, root=None: "warn",
     )
-    monkeypatch.setattr(mode_gate, "_emit_downgrade", lambda *a, **k: None)
+
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.denial.emit_denial_event",
+        lambda **kwargs: recorded.append(kwargs),
+    )
 
     capability = AdapterCapability(
         family="claude",
@@ -219,3 +239,6 @@ def test_run_event_downgrades_warn_guard_and_chain_continues(
 
     assert exit_code == 0, "a warn-configured guard must not block the command"
     assert _After.ran, "chain must continue past a downgraded deny"
+    assert [row["outcome"] for row in recorded] == ["warn"]
+    assert recorded[0]["hook"] == "mod.deny"
+    assert "downgraded deny->warn by .yoke/lint-config policy" in recorded[0]["reason"]

@@ -18,10 +18,11 @@ deny in ``deny`` mode.
 
 Modes (resolved from ``.yoke/lint-config`` via
 ``yoke_core.domain.lint_config``):
-- ``warn`` (default): emits a ``HarnessToolCallDenied`` audit event with
-  ``[mode=warn]`` in the reason but does NOT block the tool call.
-- ``deny``: emits the audit event and blocks via ``hookSpecificOutput``
-  ``permissionDecision=deny``.
+- ``warn`` (default): returns a non-blocking ``WARN`` decision whose
+  ``audit_fields`` declare the audit outcome; the hook runner records the
+  ``warn`` audit row. The tool call is NOT blocked.
+- ``deny``: returns a blocking decision via ``hookSpecificOutput``
+  ``permissionDecision=deny``; the hook runner records the denial row.
 
 Typed runner contract:
     ``evaluate(record: HookContext) -> HookDecision``
@@ -30,8 +31,8 @@ Behavior is byte-equivalent to the legacy stdin-driven hook. The
 decision carries the deny-envelope JSON in ``message`` for ``deny``
 outcomes; ``block=True`` is set on deny so the renderer (and any
 harness-specific consumer) sees the blocking semantic explicitly.
-Audit events still fire from inside ``evaluate`` so warn-mode and
-audit-evidence semantics are preserved.
+``audit_fields`` carry the reason, mode and audit outcome the hook runner
+records, so warn-mode and suppression evidence is preserved.
 
 The CLI ``__main__`` form is preserved for the registered shell hook
 entry (``python3 -m yoke_core.domain.lint_long_command_polling``):
@@ -41,14 +42,14 @@ is always ``0`` (fail-open).
 
 This module owns the hook entry point. Public constants
 (``DEFAULT_MODE``, ``VALID_MODES``, ``CHECK_ID``,
-``HOOK_NAME``, ``SUPPRESSION_TOKEN``, plus the cadence
+``SUPPRESSION_TOKEN``, plus the cadence
 thresholds) live in the leaf ``lint_long_command_polling_constants``
 sibling and are re-exported here. The
 machine-config reader lives in ``lint_long_command_polling_config`` and
 is also re-exported. The verdict logic lives in
 ``lint_long_command_polling_evaluate``; pure command introspection lives
-in ``lint_long_command_polling_extract``; the JSON-envelope and
-audit-event helpers live in ``lint_long_command_polling_decide``.
+in ``lint_long_command_polling_extract``; the reason and JSON-envelope
+helpers live in ``lint_long_command_polling_decide``.
 Splitting constants and config into leaf modules avoids the import cycle
 that would otherwise trigger under ``python -m`` invocation.
 """
@@ -61,7 +62,6 @@ import sys
 from yoke_core.domain.lint_long_command_polling_constants import (  # noqa: F401
     CHECK_ID,
     DEFAULT_MODE,
-    HOOK_NAME,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
     RECENT_EVENT_LOOKBACK_SECONDS,
     SLEEP_CADENCE_FLOOR_SECONDS,
@@ -78,7 +78,6 @@ from yoke_core.domain.lint_long_command_polling_extract import (  # noqa: F401
 )
 from yoke_core.domain.lint_long_command_polling_decide import (
     _build_deny_response,
-    _emit_audit_event,
 )
 from yoke_core.domain.lint_long_command_polling_evaluate import (
     evaluate_payload,
@@ -105,9 +104,9 @@ def evaluate(record: HookContext) -> HookDecision:
     - Returns ``HookDecision(outcome=NOOP)`` when ``evaluate_payload``
       surfaces no verdict (no polling anti-pattern, suppression token
       honored, etc.).
-    - When a verdict fires, the audit event still emits via
-      :func:`_emit_audit_event` (preserving warn-mode audit-only
-      behavior and ``suppression_attempted`` outcome stamping).
+    - When a verdict fires, ``audit_fields["audit_outcome"]`` carries the
+      verdict's outcome (``denied`` or ``suppression_attempted``) so the
+      hook runner records the row in both modes.
     - In ``warn`` mode the decision is ``WARN`` with no ``block`` and no
       message; the legacy stdout was empty so the renderer keeps stdout
       empty too.
@@ -115,7 +114,7 @@ def evaluate(record: HookContext) -> HookDecision:
       ``message`` carrying the JSON-encoded ``hookSpecificOutput``
       envelope the legacy entry printed verbatim. The
       ``audit_fields`` dict carries the structured reason / mode /
-      outcome for telemetry consumers.
+      outcome the hook runner records.
     """
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict_result = evaluate_payload(payload)
@@ -128,15 +127,6 @@ def evaluate(record: HookContext) -> HookDecision:
     outcome_label = (
         context.get("outcome", "denied") if isinstance(context, dict) else "denied"
     )
-    _emit_audit_event(
-        payload,
-        tool_name,
-        reason,
-        mode,
-        context,
-        outcome=outcome_label,
-    )
-
     audit_fields = {
         "mode": mode,
         "reason": reason,

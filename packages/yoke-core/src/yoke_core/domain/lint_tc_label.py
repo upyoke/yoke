@@ -248,40 +248,6 @@ def _build_deny_response(reason: str) -> dict:
     }
 
 
-def _emit_denial(payload: dict, reason: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    session_id = payload.get("session_id") or ""
-    tool_use_id = payload.get("tool_use_id") or ""
-    turn_id = payload.get("turn_id") or payload.get("message_id") or ""
-    tool = _tool_name(payload)
-    tool_input = _extract_tool_input(payload)
-    # Bash deniers surface the command; Write deniers surface the file_path.
-    command_snippet = ""
-    if tool == "Bash":
-        command_snippet = extract_command(payload)
-    else:
-        fp = tool_input.get("file_path")
-        if isinstance(fp, str):
-            command_snippet = fp
-    try:
-        emit_denial_event(
-            hook="lint-tc-label",
-            tool=tool if isinstance(tool, str) else "",
-            check_id="lint-tc-label",
-            reason=reason,
-            session_id=session_id if isinstance(session_id, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
-            turn_id=turn_id if isinstance(turn_id, str) else "",
-            command_snippet=command_snippet,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate Bash/Write payload for TC-label or numeric-HC violations."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -289,7 +255,6 @@ def evaluate(record: HookContext) -> HookDecision:
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-tc-label")
-    _emit_denial(payload, reason)
     envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(
         outcome=Outcome.DENY,

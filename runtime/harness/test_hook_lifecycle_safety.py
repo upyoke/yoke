@@ -61,6 +61,11 @@ def test_broken_scope_shared_runner_allows_loudly(
             "chain_for",
             lambda *_a: ["yoke_core.domain.lint_missing_guard_scope"],
         )
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.denial.emit_denial_event",
+        lambda **kwargs: recorded.append(kwargs),
+    )
     text, code = runner.run_event(
         event,
         capability=resolve_capability(executor),
@@ -69,7 +74,7 @@ def test_broken_scope_shared_runner_allows_loudly(
     )
     assert code == 0
     assert controls.final_outcome == "allow"
-    assert controls.denial_audit == {}
+    assert recorded == []
     if remote:
         # The client relay renders the failure marker as its warning.
         assert "hook_scope_unavailable" in controls.degraded[0]

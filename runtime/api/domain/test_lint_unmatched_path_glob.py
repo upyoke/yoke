@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import lint_unmatched_path_glob as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
 
 
@@ -128,13 +129,31 @@ def test_missing_cwd_does_not_deny() -> None:
 
 def test_evaluate_deny_decision_shape(tmp_path: Path) -> None:
     payload = _payload("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
-    with (
-        mock.patch.object(lint, "_read_mode", return_value="deny"),
-        mock.patch.object(lint, "_emit_audit_event"),
-    ):
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
         decision = lint.evaluate(lint._build_context_from_payload(payload))
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
+    assert guard_audit_outcome(decision) == "denied"
+    assert decision.audit_fields["check_id"] == lint.CHECK_ID
+    assert "rg --files" in decision.audit_fields["reason"]
+
+
+def test_evaluate_warn_mode_records_warn_row(tmp_path: Path) -> None:
+    payload = _payload("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
+    with mock.patch.object(lint, "_read_mode", return_value="warn"):
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.WARN
+    assert decision.block is False
+    assert guard_audit_outcome(decision) == "warn"
+    assert decision.audit_fields["mode"] == "warn"
+
+
+def test_evaluate_ripgrep_replace_reports_its_own_check_id(tmp_path: Path) -> None:
+    payload = _payload("rg -rn PAT docs", cwd=str(tmp_path))
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.DENY
+    assert decision.audit_fields["check_id"] == lint.RIPGREP_REPLACE_CHECK_ID
 
 
 def _tree_with_deploy(path: Path) -> Path:

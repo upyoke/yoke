@@ -35,7 +35,6 @@ def test_route_preserves_native_thread_id(monkeypatch) -> None:
                 degraded=(),
                 wait_ms=1,
                 outcome="completed",
-                denial_audit={},
             )
         ),
     )

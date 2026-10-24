@@ -90,32 +90,6 @@ def _deny_reason_from_output(output: str) -> Tuple[bool, str, str]:
     return True, str(reason), check_id
 
 
-def _emit_denial(payload: Dict[str, Any], reason: str, check_id: str) -> None:
-    """Emit HarnessToolCallDenied under the condition's registered id."""
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    session_id = payload.get("session_id") or ""
-    tool_use_id = payload.get("tool_use_id") or ""
-    turn_id = payload.get("turn_id") or payload.get("message_id") or ""
-    command_snippet = _extract_command(payload)
-    try:
-        emit_denial_event(
-            hook=check_id,
-            tool="Bash",
-            check_id=check_id,
-            reason=reason,
-            session_id=session_id if isinstance(session_id, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
-            turn_id=turn_id if isinstance(turn_id, str) else "",
-            command_snippet=command_snippet,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(
     record: HookContext,
     *,
@@ -145,7 +119,6 @@ def evaluate(
             }
         }
     )
-    _emit_denial(payload, reason, check_id)
     return HookDecision(
         outcome=Outcome.DENY,
         message=output,

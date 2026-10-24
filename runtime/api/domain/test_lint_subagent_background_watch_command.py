@@ -30,11 +30,6 @@ def _bash_payload(command: str) -> dict:
 
 class TestYokeWatchCommandSpelling(unittest.TestCase):
     def setUp(self):
-        self._emit_patch = patch(
-            "yoke_core.hooks.telemetry.emit_denial_event",
-        )
-        self._emit_patch.start()
-        self.addCleanup(self._emit_patch.stop)
         self._mode_patch = patch.object(
             lint,
             "_read_lint_mode",

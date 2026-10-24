@@ -167,10 +167,15 @@ def test_unknown_guard_scope_fails_open_in_remote_receipt(monkeypatch):
     monkeypatch.setattr(
         runner, "chain_for", lambda *_a: ["yoke_core.domain.lint_new_guard"]
     )
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.denial.emit_denial_event",
+        lambda **kwargs: recorded.append(kwargs),
+    )
     result = evaluate_remote("PreToolUse", "{}", "codex", None, 2000)
     # Scope failure is infrastructure: the call proceeds and the relay warns.
     assert result.outcome == "completed"
-    assert result.denial_audit == {}
+    assert recorded == []
     assert any("hook_guard_scope_missing" in marker for marker in result.degraded)
     assert any("declare machine" in marker for marker in result.degraded)
 

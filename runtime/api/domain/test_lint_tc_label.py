@@ -9,6 +9,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from yoke_core.domain import lint_tc_label as mod
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -174,13 +175,13 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertIs(decision.next, Next.CONTINUE)
         self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "")
 
     def test_deny_carries_envelope_and_block(self) -> None:
         payload = _write(
             ".agents/skills/yoke/scripts/tests/test-x.sh", "TC-1\n"
         )
-        with mock.patch.object(mod, "_emit_denial") as emit_mock:
-            decision = mod.evaluate(_record_for(payload))
+        decision = mod.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
@@ -188,7 +189,11 @@ class TestEvaluate(unittest.TestCase):
         self.assertEqual(
             parsed["hookSpecificOutput"]["permissionDecision"], "deny"
         )
-        emit_mock.assert_called_once()
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertEqual(
+            decision.audit_fields["reason"],
+            parsed["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
 
 class TestMain(unittest.TestCase):
@@ -212,8 +217,7 @@ class TestMain(unittest.TestCase):
             _write(".agents/skills/yoke/scripts/tests/test-x.sh", "TC-1\n")
         )
         buf = io.StringIO()
-        with mock.patch.object(mod, "_emit_denial"), \
-             mock.patch("sys.stdin", io.StringIO(payload)), \
+        with mock.patch("sys.stdin", io.StringIO(payload)), \
              redirect_stdout(buf):
             rc = mod.main()
         self.assertEqual(rc, 0)

@@ -14,6 +14,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_raw_pytest_full_suite as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -281,13 +282,13 @@ class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            with mock.patch.object(lint, "_emit_audit_event"):
-                decision = lint.evaluate(
-                    lint._build_context_from_payload(_payload(_anchor_sweep()))
-                )
+            decision = lint.evaluate(
+                lint._build_context_from_payload(_payload(_anchor_sweep()))
+            )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertIn("permissionDecision", decision.message)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
 
     def test_clean_command_continues(self):
         decision = lint.evaluate(

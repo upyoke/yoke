@@ -5,7 +5,7 @@
 Original module covered every flavor of the lint hook. It is now split across
 sibling files so each authored file stays under the 350-line limit:
 ``decide()`` cases live in ``test_lint_event_registry_decide``, and
-``emit_denial`` / ``run`` / canonical-fallback cases live in
+``evaluate`` / ``main`` / canonical-fallback cases live in
 ``test_lint_event_registry_run``. This file covers the small parsing and
 render-helper surfaces.
 """
@@ -17,12 +17,10 @@ import json
 from yoke_core.domain import db_backend
 from yoke_core.domain import lint_event_registry as lint_mod
 from yoke_core.domain.lint_event_registry import (
-    HookMeta,
     build_deny_json,
     build_deny_reason,
     extract_command,
     extract_event_name,
-    extract_hook_meta,
     lookup_event_registered,
     parse_payload,
 )
@@ -99,27 +97,6 @@ class TestExtractEventName:
 
     def test_non_string_command_returns_none(self):
         assert extract_event_name(None) is None  # type: ignore[arg-type]
-
-
-class TestExtractHookMeta:
-    def test_all_fields_present(self):
-        meta = extract_hook_meta(
-            {"session_id": "s1", "tool_use_id": "t1", "turn_id": "tr1"}
-        )
-        assert meta == HookMeta(session_id="s1", tool_use_id="t1", turn_id="tr1")
-
-    def test_turn_id_falls_back_to_message_id(self):
-        meta = extract_hook_meta({"session_id": "s1", "message_id": "m1"})
-        assert meta.turn_id == "m1"
-
-    def test_missing_fields_become_empty_strings(self):
-        meta = extract_hook_meta({})
-        assert meta.session_id == ""
-        assert meta.tool_use_id == ""
-        assert meta.turn_id == ""
-
-    def test_non_dict_returns_empty_meta(self):
-        assert extract_hook_meta(None) == HookMeta()  # type: ignore[arg-type]
 
 
 class TestLookupEventRegistered:

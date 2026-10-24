@@ -11,7 +11,7 @@ before the sibling has finished initializing.
 Hosting the shared constants here, with no back-reference to any
 sibling, eliminates the cycle. The entry-point re-exports each constant
 (``DEFAULT_MODE``, ``VALID_MODES``,
-``CHECK_ID``, ``HOOK_NAME``, ``SUPPRESSION_TOKEN``,
+``CHECK_ID``, ``SUPPRESSION_TOKEN``,
 ``MONITOR_DUPLICATE_SUPPRESSION_TOKEN``, ``BG_WAITER_SUPPRESSION_TOKEN``,
 and the cadence thresholds) so callers continue to import them from
 ``yoke_core.domain.lint_long_command_polling``.
@@ -26,6 +26,5 @@ SUPPRESSION_TOKEN = "# lint:no-polling-check"
 MONITOR_DUPLICATE_SUPPRESSION_TOKEN = "# lint:no-monitor-duplicate-check"
 BG_WAITER_SUPPRESSION_TOKEN = "# lint:no-bg-waiter-check"
 CHECK_ID = "long_command_polling"
-HOOK_NAME = "lint-long-command-polling"
 DEFAULT_MODE = "warn"
 VALID_MODES = ("warn", "deny")
