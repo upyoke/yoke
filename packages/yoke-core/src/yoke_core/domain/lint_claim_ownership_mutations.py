@@ -11,6 +11,8 @@ DB-unavailable recent-denial checks fail open.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import re
 import sys
@@ -246,16 +248,9 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, family = verdict
-    envelope = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
     return HookDecision(
         outcome=Outcome.DENY,
-        message=json.dumps(envelope),
+        message=reason,
         audit_fields={"reason": reason, "family": family},
         block=True,
         next=Next.STOP,
@@ -282,7 +277,7 @@ def main() -> int:
     )
     decision = evaluate(record)
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

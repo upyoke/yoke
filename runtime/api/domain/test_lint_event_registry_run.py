@@ -54,7 +54,7 @@ class TestEvaluate:
         assert decision.outcome is Outcome.DENY
         assert decision.next is Next.STOP
         assert decision.block is True
-        assert '"permissionDecision": "deny"' in decision.message
+        assert decision.message.startswith("BLOCKED:")
         assert decision.audit_fields["event_name"] == "Unknown"
         assert "Unknown" in decision.audit_fields["reason"]
         assert guard_audit_outcome(decision) == "denied"

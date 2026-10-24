@@ -54,7 +54,7 @@ class TestDecide:
         d = decide(payload, registry_db)
         assert d.action == "deny"
         assert d.event_name == "Unknown"
-        assert '"permissionDecision": "deny"' in d.deny_json
+        assert d.reason.startswith("BLOCKED:")
         assert "Unknown" in d.reason
         assert "event_catalog.py" in d.reason
 

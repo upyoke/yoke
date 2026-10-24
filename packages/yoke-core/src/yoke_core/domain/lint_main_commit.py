@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import sys
 from typing import Iterable, Optional
@@ -125,16 +127,6 @@ def evaluate_payload(payload: dict) -> Optional[str]:
     return _format_reason(non_bookkeeping, active_items)
 
 
-def _build_deny_response(reason: str) -> dict:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate the staged commit against the worktree-discipline rule."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -143,10 +135,9 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = evaluate_payload(payload)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(
         outcome=Outcome.DENY,
-        message=envelope,
+        message=reason,
         audit_fields={"reason": reason},
         block=True,
         next=Next.STOP,
@@ -178,7 +169,7 @@ def main() -> int:
         return 0
     decision = evaluate(_build_context_from_payload(payload))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

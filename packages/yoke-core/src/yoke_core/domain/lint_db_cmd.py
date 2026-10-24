@@ -15,7 +15,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_family_identity import nearest_harness_family
@@ -27,6 +27,7 @@ from yoke_contracts.hook_runner.lint_policy import (
     DB_COMMAND_STABLE_CHECK_ID,
     spec_for,
 )
+from yoke_core.hooks.decision_render import render_codex_decision
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -65,35 +66,10 @@ def _parse_payload(raw: str) -> Dict[str, Any]:
     return data
 
 
-def _deny_reason_from_output(output: str) -> Tuple[bool, str, str]:
-    """Return ``(is_deny, reason, check_id)`` for a hook output string."""
-    if not output:
-        return False, "", LEGACY_HOOK_ID
-    try:
-        data = json.loads(output)
-    except Exception:
-        return False, "", LEGACY_HOOK_ID
-    if not isinstance(data, dict):
-        return False, "", LEGACY_HOOK_ID
-    hook_specific = data.get("hookSpecificOutput")
-    if not isinstance(hook_specific, dict):
-        return False, "", LEGACY_HOOK_ID
-    if hook_specific.get("permissionDecision") != "deny":
-        return False, "", LEGACY_HOOK_ID
-    reason = hook_specific.get("permissionDecisionReason") or ""
-    candidate = hook_specific.get("check_id")
-    spec = spec_for("lint_db_cmd")
-    allowed = spec.report_check_ids if spec is not None else (LEGACY_HOOK_ID,)
-    check_id = (
-        candidate if isinstance(candidate, str) and candidate in allowed else allowed[0]
-    )
-    return True, str(reason), check_id
-
-
 def evaluate(
     record: HookContext,
     *,
-    run_hook_func: Callable[[str, str], str] | None = None,
+    run_hook_func: Callable[[str, str], HookDecision] | None = None,
     db_fallback_resolver: Callable[[], str] | None = None,
 ) -> HookDecision:
     """Typed entry. Wraps :func:`run_hook` with HookContext / HookDecision."""
@@ -103,30 +79,18 @@ def evaluate(
     runner = run_hook_func or run_hook
     fallback = db_fallback_resolver or _resolve_db_fallback
     yoke_db = os.environ.get("YOKE_DB", "") or fallback()
-    output = runner(raw, yoke_db)
-    if not output:
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    is_deny, reason, check_id = _deny_reason_from_output(output)
-    if not is_deny:
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = attach_check_id(reason, check_id=check_id)
-    output = json.dumps(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        }
-    )
+    decision = runner(raw, yoke_db)
+    if decision.outcome is not Outcome.DENY:
+        return decision
+    candidate = decision.audit_fields.get("check_id")
+    spec = spec_for("lint_db_cmd")
+    allowed = spec.report_check_ids if spec is not None else (LEGACY_HOOK_ID,)
+    check_id = candidate if candidate in allowed else allowed[0]
+    reason = attach_check_id(decision.message, check_id=check_id)
     return HookDecision(
         outcome=Outcome.DENY,
-        message=output,
-        audit_fields={
-            "check_id": check_id,
-            "denial_reason": reason,
-            "reason": reason,
-        },
+        message=reason,
+        audit_fields={"check_id": check_id, "denial_reason": reason, "reason": reason},
         block=True,
         next=Next.STOP,
     )
@@ -169,7 +133,7 @@ def _build_context_from_payload(payload: Dict[str, Any]) -> HookContext:
 
 def main(
     *,
-    run_hook_func: Callable[[str, str], str] | None = None,
+    run_hook_func: Callable[[str, str], HookDecision] | None = None,
     db_fallback_resolver: Callable[[], str] | None = None,
 ) -> int:
     """CLI entry: stdin -> evaluate -> emit deny envelope when denied."""
@@ -184,7 +148,7 @@ def main(
         db_fallback_resolver=db_fallback_resolver,
     )
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

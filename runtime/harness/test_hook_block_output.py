@@ -6,12 +6,12 @@ import pytest
 
 from yoke_harness.hooks.decision_render import write_hook_output
 from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
-from yoke_harness.hooks.local_policies import deny_stdout
+from yoke_harness.hooks.decision_render import deny_stdout
 
 
 @pytest.mark.parametrize("executor", ["claude", "claude-code", "claude-desktop"])
 @pytest.mark.parametrize("ending", ["", "\n"])
-def test_claude_local_envelope_emits_reason_on_stderr(executor, ending, capsys) -> None:
+def test_claude_local_reason_emits_on_stderr(executor, ending, capsys) -> None:
     text, exit_code = deny_stdout(
         f"BLOCKED: reason and recovery{ending}", "PreToolUse", executor
     )

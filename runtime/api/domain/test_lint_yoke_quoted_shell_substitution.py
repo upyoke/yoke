@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 from unittest import mock
 
@@ -99,7 +101,7 @@ def test_suppression_is_audit_only():
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
-    body = json.loads(decision.message)
+    body = json.loads(render_codex_decision([decision], "PreToolUse")[0])
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert guard_audit_outcome(decision) == "suppression_attempted"
 

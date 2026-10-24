@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -100,8 +102,7 @@ class TestScope(unittest.TestCase):
     def test_print_only_merge_pair_is_clean(self):
         self.assertIsNone(
             _eval(
-                "yoke watch merge --print-streaming-pair merge-item -- "
-                "YOK-4395 --wait"
+                "yoke watch merge --print-streaming-pair merge-item -- YOK-4395 --wait"
             )
         )
 
@@ -178,6 +179,6 @@ class TestModesAndEnvelope(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertEqual(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        envelope = json.loads(decision.message or "{}")
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         reason = envelope["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn(str(IN_TURN_WATCHER_TIMEOUT_MS), reason)

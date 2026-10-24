@@ -26,23 +26,15 @@ if "# lint:no-worktree-db-path-check" not in command_stripped:
         ):
             _db_candidate = _db_candidate.split("=", 1)[1]
         if _worktree_db_re.search(_db_candidate) or _pwd_db_re.search(_db_candidate):
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
-                        "BLOCKED: Yoke control-plane DB paths are resolved, "
+            result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Yoke control-plane DB paths are resolved, "
                         "never constructed. Do not use a worktree-local "
                         "`data/yoke.db` or `$PWD/data/yoke.db`. Use:\n"
                         "  yoke <subcommand> --help\n"
                         "  YOKE_PG_DSN / YOKE_PG_DSN_FILE for authority binding\n"
                         "Worktree-local DBs are validation surfaces only when "
                         "explicit env bindings surface them.\n"
-                        "Suppression: # lint:no-worktree-db-path-check"
-                    ),
-                }
-            }
-            print(json.dumps(result))
+                        "Suppression: # lint:no-worktree-db-path-check"), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 """

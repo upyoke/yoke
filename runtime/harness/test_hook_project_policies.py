@@ -2,6 +2,8 @@
 
 import pytest
 
+from yoke_contracts.field_note_text import DENIAL_FOOTER
+
 from runtime.harness.test_hook_project_scope import project_map as project_map
 from runtime.harness.test_hook_runner import _silence_telemetry
 from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
@@ -41,6 +43,9 @@ def test_real_chain_pretool_bash_sqlite3_denies(
         stdin_data="{}",
     )
 
-    # Claude renderer signals deny via exit code 2 with the narrative on stdout.
+    # The adapter returns Claude's plain blocking narrative with exit code 2.
     assert exit_code == 2, f"expected deny exit 2, got {exit_code}; text={text!r}"
-    assert "permissionDecision" in text or "deny" in text.lower()
+    assert text.startswith("BLOCKED: Do not call sqlite3 directly.")
+    assert DENIAL_FOOTER in text
+    assert text.endswith("Yoke check id: lint-sqlite-cmd")
+    assert "hookSpecificOutput" not in text

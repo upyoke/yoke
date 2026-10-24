@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import io
 import json
 import unittest
@@ -135,7 +137,7 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
-        parsed = json.loads(decision.message)
+        parsed = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertEqual(decision.audit_fields["check_id"], "lint-write-path")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 
@@ -201,7 +203,7 @@ class TestEvaluateContract(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
-        envelope = json.loads(decision.message)
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"],
             "deny",
@@ -210,9 +212,7 @@ class TestEvaluateContract(unittest.TestCase):
             decision.audit_fields.get("family"),
             "service-client/release-work-claim",
         )
-        self.assertIn(
-            "claim-boundary bypass attempt", decision.audit_fields["reason"]
-        )
+        self.assertIn("claim-boundary bypass attempt", decision.audit_fields["reason"])
         self.assertEqual(guard_audit_outcome(decision), "denied")
 
     def test_typed_evaluate_noop_on_allowed(self) -> None:

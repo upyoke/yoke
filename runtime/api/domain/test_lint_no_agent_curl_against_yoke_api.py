@@ -10,6 +10,8 @@ Covers the four canonical contracts:
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -44,8 +46,10 @@ class TestPositiveTrip(unittest.TestCase):
     """``curl`` shapes against the Yoke API that must deny."""
 
     def test_localhost_8765_denies(self):
-        cmd = ('curl -sS -X POST http://localhost:8765/v1/functions/call '
-               '-H "Content-Type: application/json" --data-binary @/tmp/x.json')
+        cmd = (
+            "curl -sS -X POST http://localhost:8765/v1/functions/call "
+            '-H "Content-Type: application/json" --data-binary @/tmp/x.json'
+        )
         result = _eval(cmd)
         self.assertIsNotNone(result)
         mode, reason, outcome = result
@@ -54,35 +58,37 @@ class TestPositiveTrip(unittest.TestCase):
         self.assertIn("BLOCKED", reason)
 
     def test_127_0_0_1_8765_denies(self):
-        result = _eval('curl http://127.0.0.1:8765/v1/items/1')
+        result = _eval("curl http://127.0.0.1:8765/v1/items/1")
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
     def test_zero_host_8765_denies(self):
-        result = _eval('curl http://0.0.0.0:8765/v1/health')
+        result = _eval("curl http://0.0.0.0:8765/v1/health")
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
     def test_yoke_api_env_var_denies(self):
-        result = _eval('curl $YOKE_API/v1/functions/call')
+        result = _eval("curl $YOKE_API/v1/functions/call")
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
     def test_yoke_api_env_var_braced_denies(self):
-        result = _eval('curl ${YOKE_API}/v1/items/1')
+        result = _eval("curl ${YOKE_API}/v1/items/1")
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
     def test_curl_with_flags_then_url_denies(self):
         # Flags interleaved between curl and URL — the URL still wins.
-        cmd = ('curl -sS -H "X-Foo: bar" -H "Content-Type: application/json" '
-               '--data-binary @/tmp/envelope.json http://localhost:8765/v1/items')
+        cmd = (
+            'curl -sS -H "X-Foo: bar" -H "Content-Type: application/json" '
+            "--data-binary @/tmp/envelope.json http://localhost:8765/v1/items"
+        )
         result = _eval(cmd)
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
 
     def test_chained_command_denies(self):
-        cmd = ('git status; curl -sS http://localhost:8765/v1/health')
+        cmd = "git status; curl -sS http://localhost:8765/v1/health"
         result = _eval(cmd)
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")
@@ -106,16 +112,15 @@ class TestFalsePositiveGuards(unittest.TestCase):
     """Allowed shapes that must NOT trigger the deny."""
 
     def test_unrelated_github_host_allowed(self):
-        self.assertIsNone(
-            _eval('curl https://api.github.com/repos/foo/bar/pulls'))
+        self.assertIsNone(_eval("curl https://api.github.com/repos/foo/bar/pulls"))
 
     def test_unrelated_npm_host_allowed(self):
-        self.assertIsNone(_eval('curl https://registry.npmjs.org/foo'))
+        self.assertIsNone(_eval("curl https://registry.npmjs.org/foo"))
 
     def test_unrelated_localhost_different_port_allowed(self):
         # Frontend dev servers on 3000/5173/etc. are not the Yoke API.
-        self.assertIsNone(_eval('curl http://localhost:3000/health'))
-        self.assertIsNone(_eval('curl http://localhost:5173/api/foo'))
+        self.assertIsNone(_eval("curl http://localhost:3000/health"))
+        self.assertIsNone(_eval("curl http://localhost:5173/api/foo"))
 
     def test_echo_mentioning_yoke_api_allowed(self):
         # ``echo`` with a substring is not a curl invocation.
@@ -132,8 +137,7 @@ class TestFalsePositiveGuards(unittest.TestCase):
 
     def test_python_string_with_localhost_allowed(self):
         # Python source code mentioning the URL — not a curl invocation.
-        self.assertIsNone(
-            _eval('python3 /tmp/script.py --url http://localhost:8765/'))
+        self.assertIsNone(_eval("python3 /tmp/script.py --url http://localhost:8765/"))
 
     def test_static_file_server_on_8765_allowed(self):
         # A local static server (python -m http.server 8765) is not the API.
@@ -144,26 +148,27 @@ class TestFalsePositiveGuards(unittest.TestCase):
         self.assertIsNone(_eval('curl http://localhost:8765/v1x/page.html'))
 
     def test_unrelated_command_allowed(self):
-        self.assertIsNone(_eval('git status'))
-        self.assertIsNone(_eval('ls -la /tmp'))
+        self.assertIsNone(_eval("git status"))
+        self.assertIsNone(_eval("ls -la /tmp"))
 
     def test_non_bash_tool_no_deny(self):
-        result = lint.evaluate_payload({
-            "tool_name": "Read",
-            "tool_input": {"command": 'curl http://localhost:8765/v1/x'},
-        })
+        result = lint.evaluate_payload(
+            {
+                "tool_name": "Read",
+                "tool_input": {"command": "curl http://localhost:8765/v1/x"},
+            }
+        )
         self.assertIsNone(result)
 
     def test_empty_command_no_deny(self):
-        self.assertIsNone(_eval(''))
+        self.assertIsNone(_eval(""))
 
 
 class TestSuppressionTokenAudit(unittest.TestCase):
     """Suppression token is recorded as audit evidence but does NOT unblock."""
 
     def test_token_records_attempt_still_denies(self):
-        cmd = ('curl http://localhost:8765/v1/health  '
-               '# lint:no-agent-curl-check')
+        cmd = "curl http://localhost:8765/v1/health  # lint:no-agent-curl-check"
         result = _eval(cmd)
         self.assertIsNotNone(result)
         mode, reason, outcome = result
@@ -172,8 +177,7 @@ class TestSuppressionTokenAudit(unittest.TestCase):
         self.assertIn("does NOT unblock", reason)
 
     def test_evaluate_still_denies_with_attempted_outcome(self):
-        cmd = ('curl http://localhost:8765/v1/health  '
-               '# lint:no-agent-curl-check')
+        cmd = "curl http://localhost:8765/v1/health  # lint:no-agent-curl-check"
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
@@ -184,7 +188,7 @@ class TestSuppressionTokenAudit(unittest.TestCase):
 
 class TestModePin(unittest.TestCase):
     def test_warn_mode_returns_warn_no_deny_envelope(self):
-        cmd = 'curl http://localhost:8765/v1/health'
+        cmd = "curl http://localhost:8765/v1/health"
         with mock.patch.object(lint, "_read_mode", return_value="warn"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.WARN)
@@ -195,19 +199,18 @@ class TestModePin(unittest.TestCase):
         self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
 
     def test_deny_mode_emits_envelope(self):
-        cmd = 'curl http://localhost:8765/v1/health'
+        cmd = "curl http://localhost:8765/v1/health"
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny")
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(
-            "BLOCKED",
-            envelope["hookSpecificOutput"]["permissionDecisionReason"])
+            "BLOCKED", envelope["hookSpecificOutput"]["permissionDecisionReason"]
+        )
 
 
 class TestFailOpen(unittest.TestCase):

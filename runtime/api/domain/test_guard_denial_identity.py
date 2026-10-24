@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from yoke_contracts.hook_runner.denial_identity import check_id_line
@@ -19,15 +17,7 @@ def _deny(check_id: str = "") -> HookDecision:
     audit = {"check_id": check_id} if check_id else {}
     return HookDecision(
         outcome=Outcome.DENY,
-        message=json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": "BLOCKED: representative guard. Recover here.",
-                }
-            }
-        ),
+        message="BLOCKED: representative guard. Recover here.",
         audit_fields=audit,
         block=True,
         next=Next.STOP,
@@ -74,6 +64,12 @@ def test_db_command_guard_accepts_registered_nested_claude_check_id() -> None:
 
 
 def test_compound_refusal_says_no_segment_ran() -> None:
-    spec = next(spec for spec in GUARD_CATALOG if spec.guard == "lint_unmatched_path_glob")
-    bound = bind(_deny(), spec.module, command="cat > output.txt <<'EOF'\nhello\nEOF\nrg PAT missing/*")
+    spec = next(
+        spec for spec in GUARD_CATALOG if spec.guard == "lint_unmatched_path_glob"
+    )
+    bound = bind(
+        _deny(),
+        spec.module,
+        command="cat > output.txt <<'EOF'\nhello\nEOF\nrg PAT missing/*",
+    )
     assert "Nothing in this invocation ran" in bound.message

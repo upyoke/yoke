@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import os
 import sys
@@ -219,17 +221,18 @@ class TestTypedEvaluate(unittest.TestCase):
     def setUp(self):
         _subagent(self)
 
-    def test_deny_decision_carries_deny_envelope(self):
+    def test_deny_decision_carries_plain_reason(self):
         with patch.object(lint, "_read_lint_mode", return_value="deny"):
             ctx = _context(_payload("Monitor"))
             decision = lint.evaluate(ctx)
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        self.assertEqual(decision.audit_fields["reason"], json.loads(
-            decision.message
-        )["hookSpecificOutput"]["permissionDecisionReason"])
-        envelope = json.loads(decision.message)
+        self.assertEqual(
+            decision.audit_fields["reason"],
+            decision.message,
+        )
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"],
             "deny",

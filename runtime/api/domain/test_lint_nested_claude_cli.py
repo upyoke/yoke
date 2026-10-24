@@ -18,6 +18,8 @@ from yoke_contracts.hook_runner.hook_guard_catalog import (
 )
 from yoke_core.domain import lint_config, lint_nested_claude_cli
 from yoke_core.domain.lint_db_cmd import run_hook
+from yoke_core.domain.lint_db_cmd_test_helpers import _decision
+from yoke_core.hooks.types import Outcome
 
 NESTING_COMMAND = 'claude -p "summarize this"'
 
@@ -30,11 +32,6 @@ def _payload(command: str, caller: str | None = None) -> str:
     if caller is not None:
         body[lint_nested_claude_cli.CALLER_HARNESS_PAYLOAD_KEY] = caller
     return json.dumps(body)
-
-
-def _decision(output: str) -> dict:
-    assert output, "expected hook output"
-    return json.loads(output)["hookSpecificOutput"]
 
 
 @pytest.fixture
@@ -76,21 +73,23 @@ def test_claude_caller_is_denied_with_the_registered_check_id() -> None:
 def test_non_claude_callers_start_a_first_session_and_are_allowed(
     caller: str,
 ) -> None:
-    assert run_hook(_payload(NESTING_COMMAND, caller)) == ""
+    assert run_hook(_payload(NESTING_COMMAND, caller)).outcome is Outcome.NOOP
 
 
 @pytest.mark.parametrize("flag", ["--help", "-h", "--version"])
 def test_sessionless_flags_are_allowed_even_from_a_claude_caller(
     flag: str,
 ) -> None:
-    assert run_hook(_payload(f"claude {flag}", "claude-code")) == ""
+    assert run_hook(_payload(f"claude {flag}", "claude-code")).outcome is Outcome.NOOP
 
 
 def test_wrapped_and_absolute_paths_classify_on_the_same_caller() -> None:
     absolute = "/Users/operator/.local/bin/claude"
 
-    assert run_hook(_payload(f"{absolute} --help", "codex")) == ""
-    assert run_hook(_payload(f"env=1 {absolute} -p 'x'", "codex")) == ""
+    assert run_hook(_payload(f"{absolute} --help", "codex")).outcome is Outcome.NOOP
+    assert (
+        run_hook(_payload(f"env=1 {absolute} -p 'x'", "codex")).outcome is Outcome.NOOP
+    )
 
     decision = _decision(run_hook(_payload(f"{absolute} -p 'x'", "claude-code")))
     assert decision["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
@@ -110,7 +109,7 @@ def test_unknown_caller_stays_denied_and_names_the_override(
 def test_unknown_caller_still_gets_the_sessionless_allowance(
     unresolvable_caller: None,
 ) -> None:
-    assert run_hook(_payload("claude --help")) == ""
+    assert run_hook(_payload("claude --help")).outcome is Outcome.NOOP
 
 
 def test_guard_override_frees_the_canary_without_freeing_the_db_guard(
@@ -119,7 +118,7 @@ def test_guard_override_frees_the_canary_without_freeing_the_db_guard(
 ) -> None:
     guard_config(f"{NESTED_CLAUDE_CLI_GUARD}=warn\n")
 
-    assert run_hook(_payload(NESTING_COMMAND)) == ""
+    assert run_hook(_payload(NESTING_COMMAND)).outcome is Outcome.NOOP
 
     db_decision = _decision(run_hook(_payload('sqlite3 "$YOKE_DB" "SELECT 1"')))
     assert db_decision["permissionDecision"] == "deny"
@@ -161,7 +160,7 @@ def test_caller_family_rides_the_payload_over_the_relay(
 def test_claude_named_only_as_text_or_path_argument_is_allowed(
     command: str,
 ) -> None:
-    assert run_hook(_payload(command, "claude-code")) == ""
+    assert run_hook(_payload(command, "claude-code")).outcome is Outcome.NOOP
 
 
 @pytest.mark.parametrize(

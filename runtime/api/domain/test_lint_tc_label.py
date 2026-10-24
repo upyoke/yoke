@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import io
 import json
 import unittest
@@ -72,10 +74,7 @@ class TestBashTool(unittest.TestCase):
         self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
 
     def test_write_redirect_with_tc_label_blocks(self) -> None:
-        cmd = (
-            'printf "TC-5" > '
-            ".agents/skills/yoke/scripts/tests/test-x.sh"
-        )
+        cmd = 'printf "TC-5" > .agents/skills/yoke/scripts/tests/test-x.sh'
         reason = mod.evaluate_payload(_bash(cmd))
         self.assertIsNotNone(reason)
         assert reason is not None
@@ -83,9 +82,7 @@ class TestBashTool(unittest.TestCase):
 
     def test_heredoc_tc_label_blocks(self) -> None:
         cmd = (
-            "cat > .agents/skills/yoke/scripts/tests/test-x.sh <<EOF\n"
-            "echo TC-3\n"
-            "EOF\n"
+            "cat > .agents/skills/yoke/scripts/tests/test-x.sh <<EOF\necho TC-3\nEOF\n"
         )
         reason = mod.evaluate_payload(_bash(cmd))
         self.assertIsNotNone(reason)
@@ -101,10 +98,7 @@ class TestBashTool(unittest.TestCase):
         self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
 
     def test_numeric_hc_filename_creation_blocks(self) -> None:
-        cmd = (
-            "touch "
-            ".agents/skills/yoke/scripts/tests/test-doctor-hc12.sh"
-        )
+        cmd = "touch .agents/skills/yoke/scripts/tests/test-doctor-hc12.sh"
         reason = mod.evaluate_payload(_bash(cmd))
         self.assertIsNotNone(reason)
         assert reason is not None
@@ -120,11 +114,7 @@ class TestBashTool(unittest.TestCase):
         self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
 
     def test_claude_compat_path_also_blocks(self) -> None:
-        cmd = (
-            "cat > .claude/skills/yoke/scripts/tests/test-y.sh <<EOF\n"
-            "TC-1\n"
-            "EOF\n"
-        )
+        cmd = "cat > .claude/skills/yoke/scripts/tests/test-y.sh <<EOF\nTC-1\nEOF\n"
         reason = mod.evaluate_payload(_bash(cmd))
         self.assertIsNotNone(reason)
 
@@ -178,17 +168,13 @@ class TestEvaluate(unittest.TestCase):
         self.assertEqual(guard_audit_outcome(decision), "")
 
     def test_deny_carries_envelope_and_block(self) -> None:
-        payload = _write(
-            ".agents/skills/yoke/scripts/tests/test-x.sh", "TC-1\n"
-        )
+        payload = _write(".agents/skills/yoke/scripts/tests/test-x.sh", "TC-1\n")
         decision = mod.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
-        parsed = json.loads(decision.message)
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        parsed = json.loads(render_codex_decision([decision], "PreToolUse")[0])
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertEqual(
             decision.audit_fields["reason"],
@@ -199,8 +185,10 @@ class TestEvaluate(unittest.TestCase):
 class TestMain(unittest.TestCase):
     def test_allow_produces_no_output(self) -> None:
         buf = io.StringIO()
-        with mock.patch("sys.stdin", io.StringIO(json.dumps(_bash("ls")))), \
-             redirect_stdout(buf):
+        with (
+            mock.patch("sys.stdin", io.StringIO(json.dumps(_bash("ls")))),
+            redirect_stdout(buf),
+        ):
             rc = mod.main()
         self.assertEqual(rc, 0)
         self.assertEqual(buf.getvalue(), "")
@@ -217,14 +205,11 @@ class TestMain(unittest.TestCase):
             _write(".agents/skills/yoke/scripts/tests/test-x.sh", "TC-1\n")
         )
         buf = io.StringIO()
-        with mock.patch("sys.stdin", io.StringIO(payload)), \
-             redirect_stdout(buf):
+        with mock.patch("sys.stdin", io.StringIO(payload)), redirect_stdout(buf):
             rc = mod.main()
         self.assertEqual(rc, 0)
         parsed = json.loads(buf.getvalue().strip())
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 if __name__ == "__main__":

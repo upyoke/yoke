@@ -21,14 +21,14 @@ Modes (resolved from ``.yoke/lint-config`` via
 - ``warn`` (default): returns a non-blocking ``WARN`` decision whose
   ``audit_fields`` declare the audit outcome; the hook runner records the
   ``warn`` audit row. The tool call is NOT blocked.
-- ``deny``: returns a blocking decision via ``hookSpecificOutput``
-  ``permissionDecision=deny``; the hook runner records the denial row.
+- ``deny``: returns a blocking decision with a plain reason; the hook runner
+  records the denial row and the shared renderer builds the harness output.
 
 Typed runner contract:
     ``evaluate(record: HookContext) -> HookDecision``
 
 Behavior is byte-equivalent to the legacy stdin-driven hook. The
-decision carries the deny-envelope JSON in ``message`` for ``deny``
+decision carries the plain deny reason in ``message`` for ``deny``
 outcomes; ``block=True`` is set on deny so the renderer (and any
 harness-specific consumer) sees the blocking semantic explicitly.
 ``audit_fields`` carry the reason, mode and audit outcome the hook runner
@@ -48,13 +48,14 @@ sibling and are re-exported here. The
 machine-config reader lives in ``lint_long_command_polling_config`` and
 is also re-exported. The verdict logic lives in
 ``lint_long_command_polling_evaluate``; pure command introspection lives
-in ``lint_long_command_polling_extract``; the reason and JSON-envelope
-helpers live in ``lint_long_command_polling_decide``.
+in ``lint_long_command_polling_extract``; the reason formatters live in ``lint_long_command_polling_decide``.
 Splitting constants and config into leaf modules avoids the import cycle
 that would otherwise trigger under ``python -m`` invocation.
 """
 
 from __future__ import annotations
+
+from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import sys
@@ -75,9 +76,6 @@ from yoke_core.domain.lint_long_command_polling_config import (  # noqa: F401
 from yoke_core.domain.lint_long_command_polling_extract import (  # noqa: F401
     _extract_command,
     _extract_tool_name,
-)
-from yoke_core.domain.lint_long_command_polling_decide import (
-    _build_deny_response,
 )
 from yoke_core.domain.lint_long_command_polling_evaluate import (
     evaluate_payload,
@@ -111,8 +109,7 @@ def evaluate(record: HookContext) -> HookDecision:
       message; the legacy stdout was empty so the renderer keeps stdout
       empty too.
     - In ``deny`` mode the decision is ``DENY`` with ``block=True`` and
-      ``message`` carrying the JSON-encoded ``hookSpecificOutput``
-      envelope the legacy entry printed verbatim. The
+      ``message`` carrying the plain deny reason. The
       ``audit_fields`` dict carries the structured reason / mode /
       outcome the hook runner records.
     """
@@ -134,10 +131,9 @@ def evaluate(record: HookContext) -> HookDecision:
         "audit_outcome": outcome_label,
     }
     if mode == "deny":
-        deny_envelope = json.dumps(_build_deny_response(reason))
         return HookDecision(
             outcome=Outcome.DENY,
-            message=deny_envelope,
+            message=reason,
             audit_fields=audit_fields,
             block=True,
             next=Next.STOP,
@@ -192,7 +188,7 @@ def main() -> int:
 
     decision = evaluate(_build_context_from_payload(payload))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

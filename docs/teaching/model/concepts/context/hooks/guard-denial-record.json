@@ -3,8 +3,8 @@
  "title": "How guard denials are recorded",
  "status": "observed",
  "surface_refs": ["global-hooks", "project-hooks"],
- "note": "Guards never emit HarnessToolCallDenied. Each guard returns a decision; the shared hook runner records one row per denial, and one per warn or suppression_attempted outcome a guard declares in audit_fields[\"audit_outcome\"], after the lint-config mode gate and check-id binding. The relay's client-local subset records through the denial-audit route; the hooks route records its own pre-dispatch refusals. Close-out counts these rows with yoke events query --event-name HarnessToolCallDenied. Source/unit evidence is not deployed harness proof.",
- "sources": ["packages/yoke-core/src/yoke_core/hooks/guard_denial_record.py", "packages/yoke-core/src/yoke_core/hooks/runner.py", "runtime/harness/test_hook_guard_denial_record.py", "docs/hooks.md"],
+ "note": "Guards never emit HarnessToolCallDenied. Each guard returns a plain deny reason in HookDecision.message and check identity in audit_fields[\"check_id\"]. guard_denial_identity binds the footer and registered id without parsing JSON; decision_render alone builds Claude, Codex and Cursor output. The shared hook runner records one row per denial, and one per warn or suppression_attempted outcome a guard declares in audit_fields[\"audit_outcome\"], after the lint-config mode gate and check-id binding. The relay's client-local subset records through the denial-audit route; the hooks route records its own pre-dispatch refusals. Close-out counts these rows with yoke events query --event-name HarnessToolCallDenied. Source/unit evidence is not deployed harness proof.",
+ "sources": ["packages/yoke-core/src/yoke_core/hooks/guard_denial_record.py", "packages/yoke-core/src/yoke_core/hooks/runner.py", "runtime/harness/test_hook_guard_denial_record.py", "docs/hooks.md", "packages/yoke-core/src/yoke_core/hooks/decision_render.py", "packages/yoke-core/src/yoke_core/hooks/guard_denial_identity.py"],
  "page": "context",
  "position": 11
 }

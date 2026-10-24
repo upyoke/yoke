@@ -1,4 +1,4 @@
-"""Reason formatter and deny envelope for the subagent-background lint.
+"""Reason formatter for the subagent-background lint.
 
 Split from :mod:`yoke_core.domain.lint_subagent_background` so the
 entry-point stays under the 350-line file cap (mirroring the
@@ -15,20 +15,8 @@ from yoke_core.domain.lint_subagent_background_constants import SUPPRESSION_TOKE
 
 
 __all__ = [
-    "build_deny_response",
     "format_reason",
 ]
-
-
-def build_deny_response(reason: str) -> dict:
-    """Return the Claude-shaped hookSpecificOutput deny envelope."""
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
 
 
 def format_reason(
@@ -40,7 +28,7 @@ def format_reason(
     suppressed: bool,
     mode: str,
 ) -> str:
-    """Render the operator-facing block that the deny envelope carries.
+    """Render the plain operator-facing deny reason.
 
     The text is intentionally long so a single deny event is enough to
     explain what fired, the architectural reason, the canonical

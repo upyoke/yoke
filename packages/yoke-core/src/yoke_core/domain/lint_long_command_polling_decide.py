@@ -9,12 +9,8 @@ isolates everything that builds output:
   the verdict (``DENIED`` vs ``POLLING ANTI-PATTERN``).
 - ``_build_context`` — the structured context dict returned with the
   verdict.
-- ``_build_deny_response`` — the Claude PreToolUse JSON envelope used to
-  signal ``permissionDecision=deny``.
 
-The formatters are pulled by ``evaluate_payload`` so the verdict tuple
-already carries the rendered reason. The entry point imports
-``_build_deny_response``.
+The formatters return plain reasons; decision_render owns harness output.
 """
 
 from __future__ import annotations
@@ -146,13 +142,3 @@ def _build_context(tool_name: str, command: str, capture_file: Optional[str]) ->
     if command:
         ctx["command_snippet"] = command[:256]
     return ctx
-
-
-def _build_deny_response(reason: str) -> dict:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }

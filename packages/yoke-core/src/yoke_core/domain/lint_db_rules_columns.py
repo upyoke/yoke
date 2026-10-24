@@ -20,18 +20,12 @@ if "# lint:no-column-check" not in command_stripped:
         for _old_name, _new_name in _RENAMED_TABLES:
             _tbl_pat = r"(?<![a-zA-Z_])" + re.escape(_old_name) + r"(?![a-zA-Z_])"
             if re.search(_tbl_pat, _qs_lower):
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
+                result = HookDecision(outcome=Outcome.DENY, message=((
                             "BLOCKED: Stale table name in SQL query.\n"
                             "  Table '%s' was renamed to '%s'.\n"
                             "  See db-reference.md for current schema."
-                        ) % (_old_name, _new_name),
-                    }
-                }
-                print(json.dumps(result))
+                        ) % (_old_name, _new_name)), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
 
 # --- Check 8: Wrong SQL column names ---
@@ -96,11 +90,7 @@ if "# lint:no-column-check" not in command_stripped:
             # Match: word boundary before, followed by non-alphanumeric or end
             _col_pat = r"(?<![a-zA-Z_])" + re.escape(_wrong) + r"(?![a-zA-Z_])"
             if re.search(_col_pat, _qs_for_match, re.IGNORECASE):
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
+                result = HookDecision(outcome=Outcome.DENY, message=((
                             "BLOCKED: Wrong column name in SQL query.\n"
                             "  Table %s%s%s has no column %s%s%s — use %s%s%s instead.\n"
                             "  See .yoke/docs/databases/reference.md § Common column mistakes to avoid in raw SQL."
@@ -108,10 +98,8 @@ if "# lint:no-column-check" not in command_stripped:
                             chr(39), _tbl, chr(39),
                             chr(39), _wrong, chr(39),
                             chr(39), _correct, chr(39),
-                        ),
-                    }
-                }
-                print(json.dumps(result))
+                        )), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
 
 """

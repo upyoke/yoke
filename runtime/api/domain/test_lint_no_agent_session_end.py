@@ -16,6 +16,8 @@ Covers the canonical contracts:
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -197,7 +199,7 @@ class TestModePin(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        envelope = json.loads(decision.message)
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(
             "BLOCKED", envelope["hookSpecificOutput"]["permissionDecisionReason"]

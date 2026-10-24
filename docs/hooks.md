@@ -10,7 +10,7 @@ owners. Load this contributor reference when changing or diagnosing hooks.
 | SessionStart hook (session registration, emits `HarnessSessionStarted`) | `yoke hook evaluate SessionStart` |
 | UserPromptSubmit hook (startup orientation and its re-delivery, emits `HarnessSessionSentFirstUserPromptSubmit`; idempotent re-registration safety net) | `yoke hook evaluate UserPromptSubmit` |
 | Session end (guarded end-if-empty; live claims or a resumable chain keep the session active) | `yoke hook evaluate SessionEnd` |
-| Pre-tool guardrail deniers (Bash / DB-command lint, policy deny). Guards only return a decision; the runner records each denial, and each warn or suppression outcome a guard declares in `audit_fields["audit_outcome"]`, as one `HarnessToolCallDenied` row (`yoke_core.hooks.guard_denial_record`). The row names the same registered check id the rendered denial shows. | `yoke_core.domain.lint_db_cmd` (DB-command branches retain `lint-sqlite-cmd`; nested-Claude branches use `lint-nested-claude-cli` — classified on the caller's harness family by `yoke_core.domain.lint_nested_claude_cli` and keyed to its own `lint_db_cmd_nested_claude_cli` setting — or `lint-remote-claude-cli`), `yoke_core.domain.lint_event_registry`, `yoke_core.domain.lint_main_commit`, `yoke_core.domain.lint_tc_label`, `yoke_core.domain.lint_write_path` |
+| Pre-tool guardrail deniers (Bash / DB-command lint, policy deny). Guards return a plain deny reason in `HookDecision.message` and check identity in `audit_fields["check_id"]`; `guard_denial_identity` binds the footer and registered id, and `decision_render` alone builds each harness envelope; the runner records each denial, and each warn or suppression outcome a guard declares in `audit_fields["audit_outcome"]`, as one `HarnessToolCallDenied` row (`yoke_core.hooks.guard_denial_record`). The row names the same registered check id the rendered denial shows. | `yoke_core.domain.lint_db_cmd` (DB-command branches retain `lint-sqlite-cmd`; nested-Claude branches use `lint-nested-claude-cli` — classified on the caller's harness family by `yoke_core.domain.lint_nested_claude_cli` and keyed to its own `lint_db_cmd_nested_claude_cli` setting — or `lint-remote-claude-cli`), `yoke_core.domain.lint_event_registry`, `yoke_core.domain.lint_main_commit`, `yoke_core.domain.lint_tc_label`, `yoke_core.domain.lint_write_path` |
 | Pre-tool observer (emits `HarnessToolCallStarted`, whose captured instant is the start endpoint PostToolUse measures `duration_ms` from) | `yoke_core.domain.observe_pre` |
 | Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, measures `duration_ms` between the two captured endpoints) | `yoke_core.domain.observe` for `PostToolUse` |
 | DB error annotation | `yoke_core.domain.db_error_hook` |
@@ -133,9 +133,8 @@ A computed deny survives expiry. Otherwise `degraded` includes
 
 Timeout, unreachable host, non-200 or invalid response degrades only the server
 half to that warned allow. Already-computed client allow context survives; a client deny never enters that path. Claude's output
-writer sends exit-2 denial reasons and guard/environment notices to stderr,
-reducing a local deny envelope to reason text. Codex/Cursor retain stdout verdict
-envelopes; allow context uses stdout.
+writer sends plain exit-2 denial reasons and guard/environment notices to stderr.
+Codex/Cursor retain stdout verdict envelopes; allow context uses stdout.
 
 ### Lifecycle deduplication and orientation
 

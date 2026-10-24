@@ -60,6 +60,8 @@ class HookContext:
 class HookDecision:
     """Typed output every policy returns.
 
+    Denials carry a plain reason in `message` and their registered check id in
+    `audit_fields["check_id"]`; only decision_render builds harness envelopes.
     `outcome` carries the closed `Outcome` value. `block` preserves Claude's
     blocking-vs-non-blocking semantics (orthogonal to outcome to keep the
     renderer side clean). `next` controls chain advancement.

@@ -10,6 +10,8 @@ category consults the operator's configured guard mode.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 from pathlib import Path
 import sys
@@ -80,18 +82,9 @@ def evaluate(record: HookContext) -> HookDecision:
         audit["additionalContext"] = reason
         return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
     if mode == "deny":
-        message = json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            }
-        )
         return HookDecision(
             outcome=Outcome.DENY,
-            message=message,
+            message=reason,
             audit_fields=audit,
             block=True,
             next=Next.STOP,
@@ -125,7 +118,7 @@ def main() -> int:
         return 0
     decision = evaluate(_context(payload))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

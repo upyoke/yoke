@@ -7,6 +7,8 @@ the typed :class:`HookDecision` instead.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 
@@ -216,8 +218,10 @@ class TestEvaluate(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        self.assertIn("lint-structured-field-transform-shell", decision.audit_fields["reason"])
-        decoded = json.loads(decision.message)
+        self.assertIn(
+            "lint-structured-field-transform-shell", decision.audit_fields["reason"]
+        )
+        decoded = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
             decoded["hookSpecificOutput"]["permissionDecision"],
             "deny",
