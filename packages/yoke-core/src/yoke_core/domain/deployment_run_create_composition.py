@@ -197,6 +197,8 @@ def compose_run(
             connection=conn,
             # An itemless create precedes add-item and start checks the count.
             require_item_qa_members=enroll_item_id is not None,
+            # Only creation refuses a run that would strand dependents.
+            refuse_stranded_dependents=True,
         )
 
 

@@ -29,7 +29,7 @@ run may not enroll at all, because then nothing was skipped.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, NamedTuple
 
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_enrollment_blocked,
@@ -47,6 +47,7 @@ from yoke_core.domain.deployment_run_dependency_readiness import (
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
 )
+from yoke_core.domain.dependency_types import GateResult
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
@@ -153,24 +154,33 @@ def _held_descriptions(
     return lines
 
 
-def skipped_candidate_notice(
+class SkippedCandidates(NamedTuple):
+    """What a run's composition left out, resolved once for every reader."""
+
+    held: tuple[HeldCandidate, ...]
+    removed: tuple[Mapping[str, Any], ...]
+    rework: tuple[tuple[int, str], ...]
+    blocked: list[tuple[int, int, GateResult]]
+
+
+def skipped_candidates(
     conn: Any,
     run_id: str,
     *,
     custody: CustodyResolution | None = None,
     carried_work: Mapping[str, Any] | None = None,
-) -> str:
-    """Name every carried item this run left out, including unshipped blockers.
+) -> SkippedCandidates | None:
+    """Every carried item this run leaves out, or ``None`` when it may not enroll.
 
     Pass *custody* and *carried_work* to reuse what composition already
     resolved; without *carried_work* the in-rework part is not reported,
     since deriving it again here would repeat a source walk.
     """
     if carried_enrollment_blocked(conn, run_id):
-        return ""
+        return None
     resolved = custody or resolve_candidate_custody(conn, run_id)
     held = resolved.held
-    removed = membership_removals(conn, run_id)
+    removed = tuple(membership_removals(conn, run_id))
     excluded = frozenset(record.item_id for record in held) | frozenset(
         int(entry["item_id"]) for entry in removed
     )
@@ -193,6 +203,14 @@ def skipped_candidate_notice(
         [item_id for item_id in candidates if item_id in required],
         member_ids=members,
     )
+    return SkippedCandidates(held, removed, rework, blocked)
+
+
+def describe_skipped(conn: Any, run_id: str, skipped: SkippedCandidates | None) -> str:
+    """The one notice naming every skipped carried item and why."""
+    if skipped is None:
+        return ""
+    held, removed, rework, blocked = skipped
     ref = render_item_ref_lookup(
         conn,
         [i for i, _ in rework]
@@ -239,4 +257,25 @@ def skipped_candidate_notice(
     )
 
 
-__all__ = ["carried_items_in_rework", "skipped_candidate_notice"]
+def skipped_candidate_notice(
+    conn: Any,
+    run_id: str,
+    *,
+    custody: CustodyResolution | None = None,
+    carried_work: Mapping[str, Any] | None = None,
+) -> str:
+    """Name every carried item this run left out, including unshipped blockers."""
+    return describe_skipped(
+        conn,
+        run_id,
+        skipped_candidates(conn, run_id, custody=custody, carried_work=carried_work),
+    )
+
+
+__all__ = [
+    "SkippedCandidates",
+    "carried_items_in_rework",
+    "describe_skipped",
+    "skipped_candidate_notice",
+    "skipped_candidates",
+]
