@@ -6,7 +6,7 @@ import pytest
 
 from runtime.api.cli.test_github_git_credential_install import _configured_repo, _git
 from yoke_cli.config import github_git_credentials, github_project_setup
-from yoke_cli.config.project_publication_destination import READ_ONLY_PUSH_URL
+from yoke_cli.config.project_publication_destination import LEGACY_READ_ONLY_PUSH_URL
 from yoke_cli.project_install import runner
 
 
@@ -57,11 +57,14 @@ def test_read_only_checkout_converges_helper_without_enabling_push(
 ):
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
-    _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
-    expected_push_urls = [READ_ONLY_PUSH_URL]
+    from runtime.api.cli.test_project_publication_settings import seed_project
+
+    seed_project(repo, config)
+    _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
+    expected_push_urls = ["git@github.com:octo/repo.git"]
     if extra_push_url:
         _git(repo, "config", "--add", "remote.origin.pushurl", extra_push_url)
-        expected_push_urls.append(extra_push_url)
+        expected_push_urls = [extra_push_url]
     monkeypatch.setattr(
         github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
     )
@@ -69,9 +72,9 @@ def test_read_only_checkout_converges_helper_without_enabling_push(
     report = github_project_setup.converge(repo, config_path=config)
 
     assert report["configured"] is True
-    assert report["changes"] == ["credential-helper", "origin-url"]
+    assert report["changes"] == ["credential-helper"]
     assert _git(repo, "remote", "get-url", "origin").stdout.strip() == (
-        "https://github.com/octo/repo.git"
+        "git@github.com:octo/repo.git"
     )
     assert _git(
         repo, "remote", "get-url", "--push", "--all", "origin"
@@ -87,7 +90,10 @@ def test_read_only_sentinel_does_not_bypass_other_push_url_validation(
 ):
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
-    _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
+    from runtime.api.cli.test_project_publication_settings import seed_project
+
+    seed_project(repo, config)
+    _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
     _git(repo, "config", "--add", "remote.origin.pushurl", push_url)
     before = (repo / ".git/config").read_bytes()
 
@@ -122,7 +128,10 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
     _git(repo, "remote", "add", "origin", "git@github.com:octo/repo.git")
     if read_only:
-        _git(repo, "config", "remote.origin.pushurl", READ_ONLY_PUSH_URL)
+        from runtime.api.cli.test_project_publication_settings import seed_project
+
+        seed_project(repo, config)
+        _git(repo, "config", "remote.origin.pushurl", LEGACY_READ_ONLY_PUSH_URL)
     monkeypatch.setattr(
         github_git_credentials, "_helper_site_dir", lambda: tmp_path / "site"
     )
@@ -153,11 +162,11 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
         if read_only:
             assert _git(
                 repo, "remote", "get-url", "--push", "origin"
-            ).stdout.strip() == READ_ONLY_PUSH_URL
+            ).stdout.strip() == "git@github.com:octo/repo.git"
         assert (
             _git(repo, "remote", "get-url", "origin")
             .stdout.strip()
-            .startswith("https://")
+            .startswith("git@" if read_only else "https://")
         )
         assert _git(
             repo,
@@ -171,7 +180,9 @@ def test_install_and_refresh_converge_before_upstream_and_publication(
     monkeypatch.setattr(runner, "_bring_branch_current", check_https)
     monkeypatch.setattr(runner.publication, "publish_installed_layer", check_https)
     report = getattr(runner, operation)(repo, config_path=config)
-    assert report["git_credentials"]["changes"] == ["credential-helper", "origin-url"]
+    assert report["git_credentials"]["changes"] == (
+        ["credential-helper"] if read_only else ["credential-helper", "origin-url"]
+    )
 
 
 @pytest.mark.parametrize(

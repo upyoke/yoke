@@ -10,6 +10,7 @@ from yoke_cli.config import credentialed_git_attribution as attribution
 from yoke_cli.config.credentialed_git_command import (
     contact_url,
     is_network_command,
+    split_git_args, command_cwd,
 )
 from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 from yoke_contracts import terminal_detached_process
@@ -115,11 +116,11 @@ def _decided_environment(
     if not is_network_command(args):
         yield non_interactive_git_env(base), attribution.LOCAL_COMMAND
         return
-    url = contact_url(args, cwd)
     from yoke_cli.config import project_publication_destination as destination
 
-    if url == destination.READ_ONLY_PUSH_URL:
+    if split_git_args(args)[1] == "push" and destination.read_only(command_cwd(args, cwd) or "."):
         raise CredentialedGitError(destination.recovery())
+    url = contact_url(args, cwd)
     web_url = configured_web_url()
     if not url or not is_configured_github(url, web_url):
         yield (

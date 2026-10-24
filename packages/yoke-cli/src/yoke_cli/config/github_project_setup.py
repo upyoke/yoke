@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from typing import Any
 
 from yoke_cli.config import github_git_credentials, github_repo_config
-from yoke_cli.config.project_publication_destination import READ_ONLY_PUSH_URL
+from yoke_cli.config import project_publication_destination as destination
 from yoke_contracts import github_origin
 
 
@@ -66,13 +66,15 @@ def converge(root: Path, *, config_path: str | Path | None) -> dict[str, Any]:
             github_origin.normalize_github_repository(url, web_url=web_url).casefold()
             != repository.casefold()
             for url in push_urls
-            if url != READ_ONLY_PUSH_URL
+            if url != destination.LEGACY_READ_ONLY_PUSH_URL
         ):
             raise GitHubProjectSetupError(
                 "github-push-target-mismatch: origin pushes to another repository; "
                 "inspect git remote get-url --push --all origin, then correct the "
                 "push target and rerun install"
             )
+        read_only = destination.migrate_legacy(root, config_path=config_path)
+        push_urls = [url for url in push_urls if url != destination.LEGACY_READ_ONLY_PUSH_URL]
         helper = github_git_credentials.configure_repo_helper(
             root, config_path=config_path
         )
@@ -84,7 +86,7 @@ def converge(root: Path, *, config_path: str | Path | None) -> dict[str, Any]:
         changes = []
         if helper["changed"]:
             changes.append("credential-helper")
-        if origins != [https_url]:
+        if not read_only and origins != [https_url]:
             github_repo_config.replace_values(
                 root,
                 "remote.origin.url",
@@ -94,7 +96,7 @@ def converge(root: Path, *, config_path: str | Path | None) -> dict[str, Any]:
             changes.append("origin-url")
         if (
             push_urls
-            and READ_ONLY_PUSH_URL not in push_urls
+            and not read_only
             and push_urls != [https_url]
         ):
             github_repo_config.replace_values(

@@ -101,4 +101,29 @@ def register_project(
     }
 
 
-__all__ = ["register_project"]
+@_serialized_mutation
+def set_publication_read_only(
+    repo_root: str | Path,
+    read_only: bool,
+    *,
+    path: str | Path | None = None,
+) -> None:
+    """Persist the checkout's publication choice on its selected connection."""
+    if type(read_only) is not bool:
+        raise MachineConfigWriteError("publication_read_only must be a boolean")
+    payload, cfg_path = _load_payload(path)
+    entry = contract.project_entry_for_checkout(payload, repo_root)
+    if not entry:
+        raise MachineConfigWriteError(
+            "project_publication_unmapped: register this checkout before selecting publication"
+        )
+    connection = contract.project_connection(payload)
+    projects = contract.projects_for_connection(payload)
+    for project in projects:
+        if project["project_id"] == entry["project_id"]:
+            project["publication_read_only"] = read_only
+    payload["connection_projects"][connection] = projects
+    _write_payload(payload, cfg_path)
+
+
+__all__ = ["register_project", "set_publication_read_only"]

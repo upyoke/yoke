@@ -123,6 +123,7 @@ class CloneApplyResult:
     clone_reused: bool = False
     repo_reused: bool = False
     origin_rehomed: bool = False
+    publication_read_only: bool | None = None
 
 
 def resumable_clone(
@@ -198,11 +199,7 @@ def apply_clone_outcome(
             "publication_destination_changed: the source origin changed after selection. "
             "Restore the selected source or re-run setup to review its actual destination."
         )
-    if plan.outcome == CLONE_OUTCOME_JUST_CLONE:
-        destination.prevent_push(root)
-    elif plan.outcome == CLONE_OUTCOME_SOURCE:
-        destination.allow_source_push(root)
-    elif plan.outcome == CLONE_OUTCOME_MAKE_IT_MINE and plan.publish is None:
+    if plan.outcome == CLONE_OUTCOME_MAKE_IT_MINE and plan.publish is None:
         raise ProjectOnboardError(
             "publication_destination_unresolved: Duplicate needs a selected "
             "writable repository. Re-run setup and select its destination."
@@ -278,6 +275,7 @@ def apply_clone_outcome(
         )
         return CloneApplyResult(
             github_repo=created["full_name"],
+            publication_read_only=False,
             branch=pushed_branch,
             clone_reused=clone_reused,
             repo_reused=bool(created.get("reused")),
@@ -318,6 +316,7 @@ def apply_clone_outcome(
         )
         return CloneApplyResult(
             github_repo=fork["full_name"],
+            publication_read_only=False,
             branch=git_current_branch(root),
             clone_reused=clone_reused,
             repo_reused=bool(fork.get("reused")),
@@ -325,6 +324,8 @@ def apply_clone_outcome(
     # The source remains available for fetches in both source outcomes.
     return CloneApplyResult(
         github_repo=None,
+        publication_read_only=(plan.outcome == CLONE_OUTCOME_JUST_CLONE)
+        if plan.outcome in (CLONE_OUTCOME_JUST_CLONE, CLONE_OUTCOME_SOURCE) else None,
         branch=git_current_branch(root),
         clone_reused=clone_reused,
     )

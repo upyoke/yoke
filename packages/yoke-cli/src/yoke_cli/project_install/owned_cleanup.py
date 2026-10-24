@@ -40,13 +40,20 @@ def scope_reason(root: Path, manifest: dict, config_path) -> str:
 
 def record_registration(root: Path, project_id: int, config_path) -> None:
     """Attach the exact mapping introduced by this install to its manifest."""
+    payload = machine_config.load_config(config_path)
+    checkout = main_checkout(root).resolve()
+    matching = [entry for entry in contract.projects_for_connection(payload)
+                if Path(entry["checkout"]).expanduser().resolve() == checkout
+                and entry["project_id"] == project_id]
+    if len(matching) != 1:
+        raise files.ProjectInstallError(
+            "registration_ownership_unproven: expected one exact checkout/project mapping"
+        )
     manifest = files.load_manifest(root)
     manifest[REGISTRATION_KEY] = {
         "config": str(machine_config.config_path(config_path).resolve()),
-        "connection": contract.project_connection(
-            machine_config.load_config(config_path)
-        ),
-        "entry": {"checkout": str(main_checkout(root)), "project_id": project_id},
+        "connection": contract.project_connection(payload),
+        "entry": dict(matching[0]),
     }
     files.write_manifest(root, manifest)
 

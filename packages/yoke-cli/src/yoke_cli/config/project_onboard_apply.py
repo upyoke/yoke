@@ -53,6 +53,13 @@ def finish_after_dispatch(
             progress, "project-checkout-register", str(root)
         ):
             register_project_mapping_if_needed(root, project_id, config_path)
+    if getattr(clone_outcome, "publication_read_only", None) is not None:
+        from yoke_cli.config import project_publication_destination as destination
+
+        if clone_outcome.publication_read_only:
+            destination.prevent_push(root, config_path=config_path)
+        else:
+            destination.allow_source_push(root, config_path=config_path)
     binding_result = (
         None
         if reuse_github_auth

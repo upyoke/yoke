@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+from yoke_contracts.git_hook_markers import HEAD_RECORDING_SKIP_ENV
+
 from yoke_cli.config import (
     onboard_apply_report,
     onboard_publication_receipts as receipts,
@@ -20,14 +22,20 @@ from runtime.api.cli.project_install_publication_test_support import (
 
 @pytest.fixture(autouse=True)
 def isolated_machine(tmp_path, monkeypatch):
+    monkeypatch.setenv(HEAD_RECORDING_SKIP_ENV, "1")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
 
 
 def setup_read_only(tmp_path, monkeypatch):
+    monkeypatch.setenv(HEAD_RECORDING_SKIP_ENV, "1")
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
+    from yoke_cli.project_install import harness_machine_persist
+
+    monkeypatch.setattr(harness_machine_persist, "persist_install_glue", lambda *args: None)
+    monkeypatch.setattr(runner, "sync_local_snapshot_for_write", lambda **kwargs: {})
     writer = onboard_apply_report.ApplyReportWriter.start(
         {},
         {
@@ -37,6 +45,9 @@ def setup_read_only(tmp_path, monkeypatch):
             "config_path": str(tmp_path / "config.json"),
         },
     )
+    from runtime.api.cli.test_project_publication_settings import seed_project
+
+    seed_project(world.checkout)
     destination.prevent_push(world.checkout)
     with receipts.recording(writer):
         install = runner.install(world.checkout, project_id=7)
@@ -164,6 +175,13 @@ def test_installer_proof_survives_later_install_failure(tmp_path, monkeypatch):
 
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch)
+    from yoke_cli.project_install import harness_machine_persist
+
+    monkeypatch.setattr(harness_machine_persist, "persist_install_glue", lambda *args: None)
+    monkeypatch.setattr(runner, "sync_local_snapshot_for_write", lambda **kwargs: {})
+    from runtime.api.cli.test_project_publication_settings import seed_project
+
+    seed_project(world.checkout)
     destination.prevent_push(world.checkout)
 
     def fail_after_commit(**kwargs):

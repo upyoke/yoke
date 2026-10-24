@@ -46,7 +46,7 @@ from yoke_cli.config.project_git_process import run_network_git
 from yoke_cli.config.project_publish_support import PublishRequest
 
 # The post-checkout outcomes the wizard offers. ``just-clone`` leaves origin
-# fetch-only on the source; ``make-it-mine`` re-homes onto a new private repo;
+# read-only for Yoke publication on the source; ``make-it-mine`` re-homes onto a new private repo;
 # ``fork`` forks the source and tracks it as upstream.
 CLONE_OUTCOME_JUST_CLONE = "just-clone"
 CLONE_OUTCOME_SOURCE = "source"
@@ -269,11 +269,9 @@ def rehome_to_new_origin(
 ) -> str:
     """Re-home onto the owned destination and push its live branch.
 
-    Preserve the source as fetch-only upstream when requested; resume against
+    Preserve the source as upstream when requested; resume against
     an already selected origin without changing its destination.
     """
-    from yoke_cli.config import project_publication_destination as destination
-
     branch = git_current_branch(root)
     if not origin_is(root, new_origin_url, web_url=github_web_url):
         if keep_upstream and not clone_resume.remote_url(root, "upstream"):
@@ -281,8 +279,6 @@ def rehome_to_new_origin(
         elif not keep_upstream:
             run_git(root, "remote", "remove", "origin")
         run_git(root, "remote", "add", "origin", new_origin_url)
-    if clone_resume.remote_url(root, "upstream"):
-        destination.prevent_push(root, "upstream")
     run_git(
         root,
         "push",
@@ -301,17 +297,13 @@ def set_fork_remotes(
     fork_url: str,
     github_web_url: str | None = None,
 ) -> None:
-    """Track the owned fork as origin and the fetch-only source as upstream."""
-    from yoke_cli.config import project_publication_destination as destination
-
+    """Track the owned fork as origin and the source as upstream."""
     if not origin_is(root, fork_url, web_url=github_web_url):
         if not clone_resume.remote_url(root, "upstream"):
             run_git(root, "remote", "rename", "origin", "upstream")
         elif clone_resume.remote_url(root, "origin"):
             run_git(root, "remote", "remove", "origin")
         run_git(root, "remote", "add", "origin", fork_url)
-    if clone_resume.remote_url(root, "upstream"):
-        destination.prevent_push(root, "upstream")
     branch = git_current_branch(root)
     run_git(root, "config", f"branch.{branch}.remote", "origin")
     run_git(root, "config", f"branch.{branch}.merge", f"refs/heads/{branch}")
