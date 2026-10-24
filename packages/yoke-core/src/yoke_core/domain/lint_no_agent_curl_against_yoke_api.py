@@ -35,11 +35,11 @@ from yoke_core.hooks.decision_render import render_codex_decision
 import json
 import os
 import re
-import shlex
 import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -57,27 +57,19 @@ def _arg_targets_yoke_api(arg: str) -> bool:
     return bool(_API_URL_RE.search(arg) or _YOKE_API_VAR_RE.search(arg))
 
 
-def _command_targets_yoke_api(command: str) -> bool:
+def _command_targets_yoke_api(command: str | ShellParse) -> bool:
     """Return ``True`` when the command shells out to ``curl`` with a Yoke URL.
 
-    Uses ``shlex.split`` so the curl token is recognised after shell
-    quoting; iterates each ``curl`` invocation in the (potentially
-    compound) command and inspects its non-flag args for Yoke-API URLs.
+    Walks each ``curl`` word in each segment of the shared parse and
+    inspects the rest of that segment for Yoke-API URLs.
     """
-    try:
-        tokens = shlex.split(command, posix=True)
-    except ValueError:
-        return False
-    n = len(tokens)
-    for i, tok in enumerate(tokens):
-        base = os.path.basename(tok)
-        if base != "curl":
-            continue
-        for j in range(i + 1, n):
-            arg = tokens[j]
-            if arg in (";", "&&", "||", "|", "&"):
-                break
-            if _arg_targets_yoke_api(arg):
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for segment in parsed.segments:
+        tokens = segment.tokens
+        for i, tok in enumerate(tokens):
+            if os.path.basename(tok) == "curl" and any(
+                _arg_targets_yoke_api(arg) for arg in tokens[i + 1 :]
+            ):
                 return True
     return False
 
@@ -115,16 +107,21 @@ def _format_reason(suppression_seen: bool) -> str:
     return attach_check_id(body, check_id="lint-no-agent-curl-against-yoke-api")
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Apply the rule; return ``(reason, audit_outcome)`` on a hit, else None."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit, else None.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    if not command:
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    if not parsed.command:
         return None
-    if not _command_targets_yoke_api(command):
+    if not _command_targets_yoke_api(parsed):
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     reason = _format_reason(suppression_seen)
     return reason, "suppression_attempted" if suppression_seen else "denied"
 
@@ -134,7 +131,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

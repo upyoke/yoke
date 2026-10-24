@@ -52,6 +52,17 @@ class TestParseGitInvocations(unittest.TestCase):
             [(["reset", "--hard"], "")],
         )
 
+    def test_env_command_prefix_and_heredoc_body(self):
+        self.assertEqual(
+            ldg._parse_git_invocations("env -i _X=1 git reset --hard"),
+            [(["reset", "--hard"], "")],
+        )
+        # A heredoc body is input to its reader, not a git command.
+        self.assertEqual(
+            ldg._parse_git_invocations("cat <<'EOF'\ngit reset --hard\nEOF"),
+            [],
+        )
+
     def test_non_git(self):
         self.assertEqual(ldg._parse_git_invocations("ls -la"), [])
 

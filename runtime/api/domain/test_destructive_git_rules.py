@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 from yoke_contracts.hook_runner import destructive_git_rules as rules
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_destructive_git as ldg
 from yoke_harness.hooks import local_policies
 from yoke_harness.hooks.local_policy_common import DENY, NOOP
@@ -50,7 +51,7 @@ def _core(command: str, cwd: Path) -> str | None:
 
 def _local(command: str, cwd: Path) -> str | None:
     payload = {"tool_name": "Bash", "cwd": str(cwd), "tool_input": {"command": command}}
-    result = local_policies.lint_destructive_git(payload)
+    result = local_policies.lint_destructive_git(payload, parse_shell(command))
     if result.outcome == NOOP:
         return None
     assert result.outcome == DENY

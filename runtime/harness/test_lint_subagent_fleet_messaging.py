@@ -77,3 +77,15 @@ def test_subagent_help_is_not_a_fleet_mutation(command: str) -> None:
         "agent_type": "engineer",
     })
     assert "yoke_core.domain.lint_subagent_fleet_messaging" not in chain
+
+
+def test_quoted_separator_in_an_argument_is_not_a_statement_boundary() -> None:
+    for command in (
+        "yoke say --session peer --text 'done; next | step'",
+        'echo "a; b" && yoke messages ack message-id',
+    ):
+        decision = lint.evaluate(_context(command, payload={"agent_type": "engineer"}))
+        assert decision.outcome is Outcome.DENY, command
+    quoted = "echo 'x; yoke say --session peer'"
+    decision = lint.evaluate(_context(quoted, payload={"agent_type": "engineer"}))
+    assert decision.outcome is Outcome.NOOP

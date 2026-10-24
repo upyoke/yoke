@@ -23,48 +23,35 @@ it allows every shape it cannot classify confidently.
 from __future__ import annotations
 
 import os
-import shlex
 from typing import Optional
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_command_extract import is_unresolved_command_token
-from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 
 TRUNCATORS = frozenset({"head", "tail"})
 
 
-def stage_tokens(stage: str) -> list[str]:
-    """Split one pipeline stage into tokens, tolerating unbalanced quotes."""
-    try:
-        tokens = shlex.split(stage, posix=True)
-    except ValueError:
-        return []
+def stage_tokens(stage: ShellSegment) -> list[str]:
+    """The stage's command words, with a glued subshell paren dropped."""
+    tokens = list(stage.argv)
     if tokens:
         tokens[0] = tokens[0].lstrip("({")
     return [token for token in tokens if token]
 
 
-def yoke_args(stage: str) -> list[str]:
+def yoke_args(stage: ShellSegment) -> list[str]:
     """Return arguments for a direct ``yoke`` stage, else an empty list.
 
-    Leading ``VAR=value`` assignments and an ``env`` prefix are skipped so
-    ``YOKE_X=1 env YOKE_Y=2 yoke ...`` classifies like a bare invocation,
-    and a leading ``--env NAME`` connection selector is dropped so the
-    caller's subcommand path starts at index zero.
+    The shared parse already drops leading ``VAR=value`` assignments and an
+    ``env`` prefix, so ``YOKE_X=1 env YOKE_Y=2 yoke ...`` classifies like a
+    bare invocation. A leading ``--env NAME`` connection selector is dropped
+    so the caller's subcommand path starts at index zero.
     """
     tokens = stage_tokens(stage)
-    if not tokens:
+    if not tokens or os.path.basename(tokens[0]) != "yoke":
         return []
-    index = 0
-    while index < len(tokens) and "=" in tokens[index]:
-        index += 1
-    if index < len(tokens) and os.path.basename(tokens[index]) == "env":
-        index += 1
-        while index < len(tokens) and "=" in tokens[index]:
-            index += 1
-    if index >= len(tokens) or os.path.basename(tokens[index]) != "yoke":
-        return []
-    args = tokens[index + 1 :]
+    args = tokens[1:]
     while args:
         if args[0] == "--env" and len(args) >= 2:
             args = args[2:]
@@ -82,7 +69,7 @@ def _adapter_label(args: list[str]) -> str:
     return "yoke " + " ".join(path) if path else "yoke"
 
 
-def _is_truncator(stage: str) -> bool:
+def _is_truncator(stage: ShellSegment) -> bool:
     tokens = stage_tokens(stage)
     if not tokens:
         return False
@@ -90,18 +77,28 @@ def _is_truncator(stage: str) -> bool:
     return first in TRUNCATORS or is_unresolved_command_token(first)
 
 
-def find_truncation_violation(command: str) -> Optional[tuple[str, str]]:
+def later_stages(parsed: ShellParse, index: int) -> list[ShellSegment]:
+    """The stages after segment ``index`` in the same ``|`` pipeline."""
+    pipeline = parsed.segments[index].pipeline
+    return [
+        segment
+        for segment in parsed.segments[index + 1 :]
+        if segment.pipeline == pipeline
+    ]
+
+
+def find_truncation_violation(
+    command: str | ShellParse,
+) -> Optional[tuple[str, str]]:
     """Return ``(adapter label, truncator)`` for a truncated ``yoke`` stage."""
-    for stages in iter_pipeline_groups(command):
-        for index, stage in enumerate(stages):
-            args = yoke_args(stage)
-            if not args:
-                continue
-            for later in stages[index + 1 :]:
-                if _is_truncator(later):
-                    return _adapter_label(args), os.path.basename(
-                        stage_tokens(later)[0]
-                    )
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for index, stage in enumerate(parsed.segments):
+        args = yoke_args(stage)
+        if not args:
+            continue
+        for later in later_stages(parsed, index):
+            if _is_truncator(later):
+                return _adapter_label(args), os.path.basename(stage_tokens(later)[0])
     return None
 
 
@@ -182,6 +179,7 @@ def truncation_reason(
 __all__ = [
     "TRUNCATORS",
     "find_truncation_violation",
+    "later_stages",
     "stage_tokens",
     "truncation_reason",
     "yoke_args",

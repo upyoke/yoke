@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import unittest
 
-from yoke_core.domain import lint_raw_pytest_full_suite_shell as shell
 from runtime.api.domain.test_lint_raw_pytest_full_suite import (
     _anchor_sweep,
     _eval,
@@ -12,73 +11,46 @@ from runtime.api.domain.test_lint_raw_pytest_full_suite import (
 )
 
 
-class TestStripHeredocBodies(unittest.TestCase):
-    def test_body_read_by_cat_is_removed_but_launch_line_survives(self):
-        command = "cat > out.json <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        stripped = shell.strip_heredoc_bodies(command)
-        self.assertIn("cat > out.json <<'EOF'", stripped)
-        self.assertNotIn("pytest", stripped)
+def _sweep() -> str:
+    return " ".join(f"{a}/" for a in lint.full_sweep_anchors())
 
-    def test_body_read_by_bash_is_left_scannable(self):
-        # A redirect is present, but bash is not in the positive reader
-        # admit list: it executes its heredoc body as commands.
-        command = "bash > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
-    def test_body_read_by_sh_is_left_scannable(self):
-        command = "sh > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+class TestHeredocBodiesAreInput(unittest.TestCase):
+    """A heredoc body is input; only a shell reading it runs it."""
 
-    def test_text_after_the_terminator_is_preserved(self):
-        command = "cat > out.txt <<EOF\nbody\nEOF\necho done\n"
-        stripped = shell.strip_heredoc_bodies(command)
-        self.assertIn("echo done", stripped)
-        self.assertNotIn("body", stripped)
+    def test_body_read_by_a_data_reader_is_not_scanned(self):
+        for launch, end in (
+            ("cat > out.json <<'EOF'", "EOF"),
+            ("cat <<'EOF'", "EOF"),
+            ("cat > out.txt <<-EOF", "\tEOF"),
+        ):
+            with self.subTest(launch=launch):
+                self.assertIsNone(_eval(f"{launch}\n\tpytest {_sweep()}\n{end}\n"))
 
-    def test_dash_variant_strips_leading_tabs_on_terminator(self):
-        command = "cat > out.txt <<-EOF\n\tpytest tests/\n\tEOF\n"
-        stripped = shell.strip_heredoc_bodies(command)
-        self.assertNotIn("pytest", stripped)
+    def test_text_after_the_terminator_is_still_a_command(self):
+        command = f"cat > out.txt <<EOF\nbody\nEOF\npytest {_sweep()}\n"
+        self.assertEqual(_eval(command)[1], "denied")
 
-    def test_here_string_is_left_untouched(self):
-        command = "python3 -m pytest <<< 'not a body'"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
-
-    def test_unterminated_heredoc_discards_the_remainder(self):
-        command = "cat > out.txt <<EOF\npytest tests/ runtime/api/"
-        stripped = shell.strip_heredoc_bodies(command)
-        self.assertNotIn("pytest", stripped)
-
-    def test_known_data_reader_needs_no_output_redirect(self):
-        # Printing text is still data, provided no pipe feeds it to a shell.
-        command = "cat <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        self.assertNotIn("pytest", shell.strip_heredoc_bodies(command))
-
-    def test_heredoc_piped_into_another_program_is_left_scannable(self):
-        # `cat` reads the heredoc, but its output feeds `bash`, which
-        # executes it -- no redirect on the launch line either.
-        command = "cat <<'EOF' | bash\npytest tests/ runtime/api/\nEOF\n"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
-
-    def test_launcher_wrapped_shell_heredoc_is_left_scannable(self):
-        # `env` forwards to `bash`; the reading-program admit list
-        # excludes "env" regardless of the redirect gate.
-        command = "env bash <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
-
-    def test_launcher_wrapped_shell_heredoc_with_redirect_is_left_scannable(self):
-        # A redirect alone is not proof of an inert reader: `env` still
-        # forwards to `bash`, which executes the heredoc body.
-        command = "env bash > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+    def test_unterminated_heredoc_body_stays_input(self):
+        self.assertIsNone(_eval(f"cat > out.txt <<EOF\npytest {_sweep()}"))
 
     def test_operator_inside_a_quoted_string_is_not_a_heredoc(self):
-        command = 'grep -n "python3 - <<" file.py'
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+        self.assertIsNone(_eval('grep -n "python3 - <<" file.py'))
 
-    def test_no_heredoc_is_a_no_op(self):
-        command = "python3 -m pytest tests/ runtime/api/"
-        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+    def test_quoted_body_with_unbalanced_quotes_is_not_shell(self):
+        # A typed item writer behind a global option, with prose that
+        # names a sweep and leaves a quote open, is data, not a command.
+        command = (
+            "yoke --env prod items structured-field replace YOK-1 --field spec "
+            "--stdin <<'EOF'\nDon't run pytest runtime/ tests/ by \"hand.\nEOF"
+        )
+        self.assertIsNone(_eval(command))
+
+    def test_quoted_body_fed_to_an_unknown_reader_is_input(self):
+        self.assertIsNone(_eval(f"mystery <<'EOF'\npytest {_sweep()}\nEOF"))
+
+    def test_env_cleared_module_invocation_is_still_raw_pytest(self):
+        self.assertEqual(_eval(f"env -i X=1 python3 -m pytest {_sweep()}")[1], "denied")
 
 
 class TestExecutableShellCoverage(unittest.TestCase):
@@ -184,7 +156,6 @@ class TestNestedExecution(unittest.TestCase):
 
     def test_unknown_or_malformed_execution_does_not_gain_admission(self):
         self.assertIsNotNone(_eval("bash -c 'pytest tests/"))
-        self.assertIsNotNone(_eval("mystery <<'EOF'\npytest tests/\nEOF"))
 
     def test_launcher_wrapped_shell_heredoc_still_denies(self):
         # A compound form: `env` only forwards to bash -- the body is

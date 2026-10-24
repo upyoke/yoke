@@ -19,6 +19,7 @@ from typing import Optional, Tuple
 from yoke_contracts.hook_runner import destructive_git_messages as messages
 from yoke_contracts.hook_runner import destructive_git_rules as rules
 from yoke_contracts.hook_runner import recursive_rm_guard
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain import lint_config
 from yoke_core.domain import lint_destructive_git_commands as command_checks
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
@@ -53,7 +54,9 @@ def _config_note(root: str) -> str:
     return lint_config.describe_config_source(GUARD_KEY, lint_config.DENY, root=root)
 
 
-def _parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
+def _parse_git_invocations(
+    command: str | ShellParse,
+) -> list[Tuple[list[str], str]]:
     return command_checks.parse_git_invocations(command)
 
 
@@ -88,16 +91,21 @@ def _check_threat(shape: str, worktree: str, args: list[str]) -> Optional[list[s
     return threatened or None
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Apply rules; return ``(reason, audit_outcome)`` when denying."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Apply rules; return ``(reason, audit_outcome)`` when denying.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    if not command:
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    if not parsed.command:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     outcome = "suppression_attempted" if suppression_seen else "denied"
-    for args, repo_path in _parse_git_invocations(command):
+    for args, repo_path in _parse_git_invocations(parsed):
         worktree = _resolve_worktree(repo_path, payload)
         shape = _classify_shape(args, worktree)
         if shape is None:
@@ -110,7 +118,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
         )
         return reason, outcome
     cwd = _resolve_worktree("", payload)
-    refusal = recursive_rm_guard.recursive_rm_refusal(command, cwd)
+    refusal = recursive_rm_guard.recursive_rm_refusal(parsed, cwd)
     if refusal is not None:
         reason = messages.format_recursive_rm_reason(
             refusal.shape,
@@ -119,7 +127,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
             config_note=_config_note(cwd),
         )
         return reason, outcome
-    for targets in recursive_rm_guard.recursive_rm_invocations(command):
+    for targets in recursive_rm_guard.recursive_rm_invocations(parsed):
         resolved_targets = worktree_checks.resolve_rm_targets(targets, cwd)
         if not resolved_targets:
             continue
@@ -152,7 +160,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

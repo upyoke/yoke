@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import re
-import shlex
-
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
-_SHELL_BOUNDARY = re.compile(r"(?:&&|\|\||[;|\n])")
 _BLOCKED_PATHS = (
     ("yoke", "say"),
     ("yoke", "session-control", "message", "send"),
@@ -25,11 +22,8 @@ _BLOCKED_PATHS = (
 
 
 def _command_uses_fleet_mutation(command: str) -> bool:
-    for segment in _SHELL_BOUNDARY.split(command or ""):
-        try:
-            tokens = shlex.split(segment, posix=True)
-        except ValueError:
-            continue
+    for segment in parse_shell(command).segments:
+        tokens = segment.tokens
         for index, token in enumerate(tokens):
             if token != "yoke":
                 continue
@@ -43,6 +37,8 @@ def evaluate(context: HookContext) -> HookDecision:
     """Deny child message or qualification mutations before dispatch."""
     if not is_subagent_execution(context.payload, env={}):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    # The raw tool-input command, not the shared parse's variable-substituted
+    # text: this guard has always read ``command_body``.
     if not _command_uses_fleet_mutation(context.command_body or ""):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(

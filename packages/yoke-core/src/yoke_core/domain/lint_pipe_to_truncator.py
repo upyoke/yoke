@@ -34,7 +34,6 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-import shlex
 import sys
 from typing import List, Optional, Tuple
 
@@ -44,7 +43,7 @@ from yoke_core.domain.lint_command_extract import (
     extract_command as _extract_command,
     is_unresolved_command_token,
 )
-from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-pipe-to-truncator"
@@ -72,23 +71,12 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 
 _TRUNCATORS = frozenset({"tail", "head"})
 
-def _stage_tokens(stage: str) -> List[str]:
-    """Tokenize one pipeline stage, dropping leading env assignments/subshell parens."""
-    try:
-        tokens = shlex.split(stage, posix=True)
-    except ValueError:
-        tokens = stage.split()
-    tokens = [t.lstrip("({") for t in tokens]
-    if tokens and tokens[0].rsplit("/", 1)[-1] == "env":
-        tokens.pop(0)
-        while tokens and tokens[0].startswith("-"):
-            tokens.pop(0)
-    while tokens and ("=" in tokens[0] and not tokens[0].startswith("-")):
-        tokens.pop(0)
-    return [t for t in tokens if t]
+def _stage_tokens(stage: ShellSegment) -> List[str]:
+    """The stage's command words, with glued subshell parens dropped."""
+    return [t for t in (token.lstrip("({") for token in stage.argv) if t]
 
 
-def _stage_is_long_command(stage: str) -> Optional[str]:
+def _stage_is_long_command(stage: ShellSegment) -> Optional[str]:
     """Return a short label when *stage* invokes a known long command."""
     tokens = _stage_tokens(stage)
     if not tokens:
@@ -113,7 +101,7 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
     return None
 
 
-def _stage_is_truncator(stage: str) -> bool:
+def _stage_is_truncator(stage: ShellSegment) -> bool:
     tokens = _stage_tokens(stage)
     if not tokens:
         return False
@@ -121,23 +109,24 @@ def _stage_is_truncator(stage: str) -> bool:
     return first in _TRUNCATORS or is_unresolved_command_token(first)
 
 
-def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
+def _find_pipe_to_truncator(command: str | ShellParse) -> Optional[Tuple[str, str]]:
     """Return ``(long_command_label, truncator_stage)`` on a hit, else ``None``.
 
-    Pipeline boundaries come from quote-aware statement/pipe grouping so a
+    Pipeline boundaries come from the shared quote-aware parse, so a
     long-command token inside a quoted pattern or evidence string is not a
     live stage — only unquoted ``|`` joins a long command to a truncator.
     """
-    for stages in iter_pipeline_groups(command):
-        if len(stages) < 2:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    segments = parsed.segments
+    for idx, stage in enumerate(segments):
+        label = _stage_is_long_command(stage)
+        if label is None:
             continue
-        for idx, stage in enumerate(stages[:-1]):
-            label = _stage_is_long_command(stage)
-            if label is None:
-                continue
-            for later in stages[idx + 1 :]:
-                if _stage_is_truncator(later):
-                    return (label, later.strip())
+        for later in segments[idx + 1 :]:
+            if later.pipeline != stage.pipeline:
+                break
+            if _stage_is_truncator(later):
+                return (label, later.text)
     return None
 
 
@@ -170,18 +159,23 @@ def _format_reason(label: str, truncator: str, suppression_seen: bool) -> str:
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Apply the rule; return ``(reason, audit_outcome)`` on a hit."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    if not command:
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    if not parsed.command:
         return None
-    hit = _find_pipe_to_truncator(command)
+    hit = _find_pipe_to_truncator(parsed)
     if hit is None:
         return None
     label, truncator = hit
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     reason = _format_reason(label, truncator, suppression_seen)
     return reason, "suppression_attempted" if suppression_seen else "denied"
 
@@ -191,7 +185,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

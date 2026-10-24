@@ -14,6 +14,7 @@ import sys
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_raw_pytest_invocations import raw_pytest_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -94,7 +95,7 @@ def _pytest_paths(tokens: Sequence[str]) -> List[str]:
     return paths
 
 
-def _classify(command: str) -> Optional[Tuple[str, str]]:
+def _classify(command: str | ShellParse) -> Optional[Tuple[str, str]]:
     """Return ``(severity, detail)`` for a raw sweep, else ``None``.
 
     ``severity`` is ``"full"`` for a run covering every declared anchor
@@ -151,18 +152,15 @@ def _format_reason(
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def _verdict(payload: dict) -> Optional[Tuple[bool, str, str]]:
+def _verdict(parsed: ShellParse) -> Optional[Tuple[bool, str, str]]:
     """Return ``(blocks, reason, audit_outcome)`` on a hit, else None."""
-    if not isinstance(payload, dict):
+    if not parsed.command:
         return None
-    command = _extract_command(payload)
-    if not command:
-        return None
-    hit = _classify(command)
+    hit = _classify(parsed)
     if hit is None:
         return None
     severity, detail = hit
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     reason = _format_reason(severity, detail, suppression_seen)
     # Only the whole-surface shape is unambiguous enough to deny; a
     # narrower sweep is this guard's own advisory under every policy.
@@ -179,7 +177,9 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     for the guard's own advisory; either is ``suppression_attempted`` when
     the suppression token is present.
     """
-    verdict = _verdict(payload)
+    if not isinstance(payload, dict):
+        return None
+    verdict = _verdict(parse_shell(_extract_command(payload)))
     return None if verdict is None else verdict[1:]
 
 
@@ -187,8 +187,7 @@ def evaluate(record: HookContext) -> HookDecision:
     """Typed entry — pure shape parse, no subprocess fan-out."""
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = _verdict(payload)
+    verdict = _verdict(record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     blocks, reason, outcome = verdict

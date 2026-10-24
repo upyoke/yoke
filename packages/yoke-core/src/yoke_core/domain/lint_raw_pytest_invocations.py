@@ -1,8 +1,10 @@
 """Extract pytest argv from executable shell sources, never quoted data.
 
-Shared helpers own quote-aware boundaries and compound prefixes. This
-consumer only unwraps supported launchers and shell execution payloads;
-it does not interpret variables, Python, or arbitrary programs.
+The shared shell parse owns statement boundaries, assignments, ``env``
+prefixes and heredoc bodies. This consumer only unwraps supported launchers
+and shell execution payloads; it does not interpret variables, Python, or
+arbitrary programs. A heredoc body is input: only a shell reading it, or the
+substitutions an unquoted body expands, runs.
 """
 
 from __future__ import annotations
@@ -11,15 +13,14 @@ import re
 import shlex
 from collections.abc import Iterator
 
-from yoke_core.domain.lint_shell_target_tokens import command_operand_tokens
-from yoke_contracts.hook_runner.shell_statements import (
-    iter_pipeline_groups,
-    split_pipeline,
+from yoke_contracts.hook_runner.shell_parse import (
+    ASSIGNMENT,
+    ShellParse,
+    ShellSegment,
+    parse_shell,
 )
 from yoke_core.domain.path_claim_bash_substitution import executable_substitutions
-from yoke_core.domain.lint_raw_pytest_full_suite_shell import strip_heredoc_bodies
 
-_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _PYTHON = re.compile(r"python(?:\d+(?:\.\d+)*)?$")
 _SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
 _RUN_LAUNCHERS = frozenset({"uv", "poetry", "pdm", "rye"})
@@ -43,17 +44,30 @@ def _options(argv: list[str], values: set[str]) -> list[str]:
     return argv
 
 
-def executable_argv(argv: list[str]) -> list[str]:
-    """Strip assignments, compound punctuation and supported launchers."""
-    # time is both shell punctuation and a launcher with value-taking flags.
-    # Let the shared prefix classifier peel each preceding reserved word,
-    # preserving time for the same option handling as /usr/bin/time.
-    while argv and argv[0] != "time" and not command_operand_tokens(argv[:1]):
-        if len(argv) > 1 and argv[0] in {"for", "select"}:
-            return []
-        argv = argv[1:]
+def _split_string(segment: ShellSegment) -> list[str]:
+    """Words an ``env -S STRING`` prefix adds before the command word."""
+    prefix = segment.tokens[: len(segment.tokens) - len(segment.argv)]
+    for index, word in enumerate(prefix[:-1]):
+        if word == "-S":
+            return shlex.split(prefix[index + 1])
+    return []
+
+
+def executable_argv(segment: ShellSegment) -> list[str]:
+    """Strip compound punctuation, ``if`` and supported launchers."""
+    argv = [*_split_string(segment), *segment.argv]
+    # A shell comment ends the command; its words are not operands.
+    comment = next((i for i, word in enumerate(argv) if word.startswith("#")), None)
+    argv = argv[:comment]
+    if argv:
+        # A grouping brace or paren glued to the first or last word.
+        argv[0] = argv[0].lstrip("({")
+        argv[-1] = argv[-1].rstrip(")}")
+        argv = [word for word in argv if word]
+    # The shared parse drops the reserved word ``time`` but keeps its options.
+    argv = _options(argv, _VALUE_OPTIONS["time"])
     while argv:
-        if argv[0] == "if" or _ASSIGNMENT.match(argv[0]):
+        if argv[0] == "if" or ASSIGNMENT.match(argv[0]):
             argv = argv[1:]
             continue
         program = argv[0].rsplit("/", 1)[-1]
@@ -73,8 +87,6 @@ def executable_argv(argv: list[str]) -> list[str]:
             argv = _options(argv[1:], _VALUE_OPTIONS.get(program, set()))
         else:
             break
-        if argv and argv[0] != "time":
-            argv = command_operand_tokens(argv)
     return argv
 
 
@@ -101,33 +113,94 @@ def pytest_arguments(argv: list[str]) -> list[str] | None:
     return None
 
 
-def _piped_shell_sources(command: str) -> Iterator[str]:
-    """Inspect literal text emitted into a shell, without executing a pipe."""
-    for group in iter_pipeline_groups(
-        command, shell_comments=True, split_background=True
-    ):
-        if len(group) < 2:
-            continue
-        try:
-            receiver = executable_argv(shlex.split(group[-1], comments=True))
-            sender = executable_argv(shlex.split(group[-2], comments=True))
-        except ValueError:
-            continue  # The ordinary invocation walk records unresolved quoting.
-        if not receiver or receiver[0].rsplit("/", 1)[-1] not in _SHELLS or not sender:
-            continue
-        program = sender[0].rsplit("/", 1)[-1]
-        if program == "echo" and sender[1:] and not sender[1].startswith("-"):
-            yield " ".join(sender[1:])
-        elif program == "printf" and len(sender) >= 2:
-            if sender[1] in ("%s", "%s\\n"):
-                yield "\n".join(sender[2:])
-            elif "%" not in sender[1]:
-                yield sender[1].replace("\\n", "\n")
-            elif "pytest" in " ".join(sender):
-                yield "'unresolved printf shell source with pytest"
+def _is_shell(argv: list[str]) -> bool:
+    return bool(argv) and argv[0].rsplit("/", 1)[-1] in _SHELLS
 
 
-def raw_pytest_invocations(command: str, *, depth: int = 0) -> Iterator[list[str]]:
+def _piped_text(sender: list[str]) -> str | None:
+    """Literal text ``echo``/``printf`` emits into a receiving shell."""
+    program = sender[0].rsplit("/", 1)[-1] if sender else ""
+    if program == "echo" and sender[1:] and not sender[1].startswith("-"):
+        return " ".join(sender[1:])
+    if program == "printf" and len(sender) >= 2:
+        if sender[1] in ("%s", "%s\\n"):
+            return "\n".join(sender[2:])
+        if "%" not in sender[1]:
+            return sender[1].replace("\\n", "\n")
+        if "pytest" in " ".join(sender):
+            return "'unresolved printf shell source with pytest"
+    return None
+
+
+def _segment_starts(parsed: ShellParse) -> list[int]:
+    """Offset of each segment's text in ``parsed.code``."""
+    starts: list[int] = []
+    cursor = 0
+    for segment in parsed.segments:
+        found = parsed.code.find(segment.text, cursor)
+        starts.append(found if found >= 0 else cursor)
+        cursor = starts[-1] + len(segment.text)
+    return starts
+
+
+def shell_sources(parsed: ShellParse) -> list[str]:
+    """Shell source a parsed command runs besides its own segments.
+
+    Substitutions, a heredoc body a shell reads (directly or through a
+    later pipeline stage), the substitutions an unquoted body expands, and
+    literal text piped into a shell.
+    """
+    _, sources = executable_substitutions(parsed.code)
+    argvs = [executable_argv(segment) for segment in parsed.segments]
+    starts = _segment_starts(parsed)
+    for heredoc in parsed.heredocs:
+        owner = max(
+            (i for i, start in enumerate(starts) if start <= heredoc.operator_offset),
+            default=None,
+        )
+        fed_to_shell = owner is not None and any(
+            _is_shell(argvs[i])
+            for i, segment in enumerate(parsed.segments)
+            if segment.pipeline == parsed.segments[owner].pipeline
+            and segment.stage >= parsed.segments[owner].stage
+        )
+        if fed_to_shell:
+            sources.append(heredoc.body)
+        elif heredoc.expands:
+            sources.extend(executable_substitutions(heredoc.body, literal_quotes=True)[1])
+    last_stages = {segment.pipeline: i for i, segment in enumerate(parsed.segments)}
+    for receiver in last_stages.values():
+        sender = receiver - 1
+        if sender < 0 or parsed.segments[sender].pipeline != parsed.segments[receiver].pipeline:
+            continue
+        if _is_shell(argvs[receiver]):
+            text = _piped_text(argvs[sender])
+            if text is not None:
+                sources.append(text)
+    return sources
+
+
+def argv_shell_sources(argv: list[str]) -> list[str]:
+    """Shell source an ``eval``, ``sh -c`` or ``sh <<<`` argv runs."""
+    program = argv[0].rsplit("/", 1)[-1] if argv else ""
+    if program == "eval":
+        return [" ".join(argv[1:])]
+    if program not in _SHELLS:
+        return []
+    sources = []
+    if "<<<" in argv and argv.index("<<<") + 1 < len(argv):
+        sources.append(argv[argv.index("<<<") + 1])
+    for index, option in enumerate(argv[1:], 1):
+        if option.startswith("-") and not option.startswith("--") and "c" in option[1:]:
+            if index + 1 < len(argv):
+                sources.append(argv[index + 1])
+            break
+    return sources
+
+
+def raw_pytest_invocations(
+    command: str | ShellParse, *, depth: int = 0
+) -> Iterator[list[str]]:
     """Yield raw pytest argv; unresolved sources yield an advisory marker.
 
     Substitutions run even in a wrapper's arguments. Shell -c and eval
@@ -137,41 +210,16 @@ def raw_pytest_invocations(command: str, *, depth: int = 0) -> Iterator[list[str
     if depth > 20:
         yield ["unresolved shell nesting; use yoke watch pytest"]
         return
-    command = strip_heredoc_bodies(command)
-    outer, bodies = executable_substitutions(command)
-    for body in [*bodies, *_piped_shell_sources(outer)]:
-        yield from raw_pytest_invocations(body, depth=depth + 1)
-    for segment in split_pipeline(outer, split_background=True, shell_comments=True):
-        try:
-            argv = executable_argv(
-                shlex.split(segment.strip().lstrip("({").rstrip(")}"), comments=True)
-            )
-        except ValueError:
-            if "pytest" in segment:
-                yield ["unresolved shell quoting; use yoke watch pytest"]
-            continue
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for source in shell_sources(parsed):
+        yield from raw_pytest_invocations(source, depth=depth + 1)
+    if any("pytest" in statement for statement in parsed.unparsed):
+        yield ["unresolved shell quoting; use yoke watch pytest"]
+    for segment in parsed.segments:
+        argv = executable_argv(segment)
         args = pytest_arguments(list(argv))
         if args is not None:
             yield args
             continue
-        if not argv:
-            continue
-        program = argv[0].rsplit("/", 1)[-1]
-        if program == "eval":
-            yield from raw_pytest_invocations(" ".join(argv[1:]), depth=depth + 1)
-        elif program in _SHELLS:
-            if "<<<" in argv:
-                index = argv.index("<<<")
-                if index + 1 < len(argv):
-                    yield from raw_pytest_invocations(argv[index + 1], depth=depth + 1)
-            for index, option in enumerate(argv[1:], 1):
-                if (
-                    option.startswith("-")
-                    and "c" in option[1:]
-                    and not option.startswith("--")
-                ):
-                    if index + 1 < len(argv):
-                        yield from raw_pytest_invocations(
-                            argv[index + 1], depth=depth + 1
-                        )
-                    break
+        for source in argv_shell_sources(argv):
+            yield from raw_pytest_invocations(source, depth=depth + 1)
