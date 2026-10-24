@@ -1,0 +1,9 @@
+{
+ "id": "core-vocabulary",
+ "title": "The yoke-global first steps point new users to Concepts.",
+ "status": "observed",
+ "form": "Link",
+ "verification": "Inspected source; structural checks cover links and publication copies. Released receiving proof is not asserted.",
+ "topics": ["strategy/corpus", "strategy/operation/steer-a-current-plan", "workbench/destinations/team"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md"]
+}

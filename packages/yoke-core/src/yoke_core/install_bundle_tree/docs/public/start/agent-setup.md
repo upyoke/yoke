@@ -148,6 +148,8 @@ question or ask this during machine-only or no-GitHub setup.
 
 ## After setup
 
+For Yoke’s core words and first actions, read [Concepts](concepts.md).
+
 `done` lists the next steps. When shell files changed, the first one opens a
 new terminal. When this session already runs in the project folder, the last
 step is a readiness check here:

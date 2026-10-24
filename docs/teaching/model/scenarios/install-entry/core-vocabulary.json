@@ -1,0 +1,13 @@
+{
+ "id": "core-vocabulary",
+ "title": "Read the core words after setup",
+ "status": "observed",
+ "audience": "both",
+ "when": "Successful setup or first steps outside a project",
+ "need": "Find the Concepts page, then understand strategy docs, steering and Team before choosing work or checking access.",
+ "disclosure": "optional introduction",
+ "surface": "Successful setup detail and yoke-global first steps → Concepts → topic homes",
+ "review": "Source review and structural validation; no released user walk asserted.",
+ "sources": ["docs/public/start/concepts.md", "docs/public/start/agent-setup.md", "packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md"],
+ "topics": ["strategy/corpus", "strategy/operation/steer-a-current-plan", "workbench/destinations/team"]
+}

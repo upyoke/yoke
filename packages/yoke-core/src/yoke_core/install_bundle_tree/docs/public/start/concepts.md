@@ -29,6 +29,31 @@ Projects bind:
 - capabilities, packs, QA plans, delivery flows
 - strategy corpus
 
+## Strategy docs
+
+Strategy docs record why a project exists, where it should go and what to
+work on next. You meet them when adopting a project or choosing its next
+work: **MISSION** states its purpose, **VISION** its chosen future,
+**LANDSCAPE** the research, **MASTER-PLAN** the wider plan and
+**CURRENT-PLAN** the near-term focus.
+
+Try opening **Strategy** in the workbench and reading the project's current
+plan. See [Strategy](../strategy/index.md) for the document roles and how to
+write them with `/yoke strategize`.
+
+## Steering
+
+Steering turns a strategy doc into ongoing work: a steering agent staffs
+workers, tracks their progress and keeps the plan current. You meet it after
+agreeing what the project should pursue; each worker executes its own item
+through that item's workflow.
+
+With a strategy doc ready, try `/yoke steer` in a Claude Code or Cursor
+session opened in the project folder, or `$yoke steer` in Codex. It uses
+**CURRENT-PLAN** by default. See [Agents](../agents/index.md) for the skill
+entry points and [Strategy](../strategy/index.md#link-to-items-and-to-a-steering-seat)
+for the scope a steering seat covers.
+
 ## Items
 
 Work is an item with a public ref like `PREFIX-N`. Content lives in structured
@@ -49,6 +74,17 @@ Every item pins an immutable workflow version. Built-ins:
 | **Blitz** | Document-led plan as integrated slices |
 
 See [Workflows](../workflows/index.md) and [workflows/lifecycle.md](../workflows/lifecycle.md).
+
+## Team
+
+**Team** is the workbench page for people and machine accounts, their roles,
+access and invitations. You meet it when checking who can act in your
+universe or adding a teammate. It is available in local, self-hosted and
+Cloud modes; a local universe needs a team server before inviting people.
+
+Try opening **Settings → Team** and checking your role in **People**.
+See [Team, Billing, Universe settings](../projects/actors-members-billing.md#team)
+for roles, invitations and the differences between modes.
 
 ## Workbench destinations
 

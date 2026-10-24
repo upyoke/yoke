@@ -1,0 +1,9 @@
+{
+ "id": "core-vocabulary",
+ "title": "Concepts introduces strategy docs, steering and Team with one action and a link to each deep home.",
+ "status": "observed",
+ "form": "Teach",
+ "verification": "Inspected source; structural checks cover links and publication copies. Released receiving proof is not asserted.",
+ "topics": ["strategy/corpus", "strategy/operation/steer-a-current-plan", "workbench/destinations/team"],
+ "sources": ["docs/public/start/concepts.md"]
+}

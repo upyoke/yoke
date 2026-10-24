@@ -9,6 +9,7 @@ APPLYING_KEY = "review.applying"
 APPLY_FAILED_KEY = "review.apply_failed"
 APPLY_DIFFERENT_FOLDER_KEY = "review.different_folder"
 APPLY_DONE_KEY = "review.done"
+CONCEPTS_GUIDANCE = "Learn Yoke’s core words: https://upyoke.com/docs/start/concepts"
 APPLY_FAILURE_GUIDANCE_LINE = (
     "Choose the first recovery action below that applies. Completed work and "
     "the durable report are preserved."
@@ -154,7 +155,8 @@ def apply_success_prompt(report_path: str | None) -> SetupPrompt:
         step=STEP_FINISH,
         title="Setup complete.",
         message="Everything in the Review plan was applied.",
-        detail_lines=(f"Report: {report_path}",) if report_path else (),
+        detail_lines=((f"Report: {report_path}",) if report_path else ())
+        + (CONCEPTS_GUIDANCE,),
         choices=tuple(APPLY_SUCCESS_ROWS),
         tone=TONE_OK,
     )
