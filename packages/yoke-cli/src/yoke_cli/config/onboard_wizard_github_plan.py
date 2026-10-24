@@ -108,6 +108,9 @@ def build_clone_plan(result: Any) -> Any:
         fork_allowed=github_state.fork_ready(
             result, result.project_remote_url,
         ),
+        fork_unavailable_reason=github_state.fork_unavailable_reason(
+            result, result.project_remote_url,
+        ) if result.project_clone_outcome == CLONE_OUTCOME_FORK else "",
         existing_layer_decision=decision,
     )
 

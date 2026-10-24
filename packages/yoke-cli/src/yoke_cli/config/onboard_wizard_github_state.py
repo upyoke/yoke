@@ -156,10 +156,16 @@ def administration_allowed(result: Any) -> bool:
 def fork_ready(result: Any, remote_url: str | None) -> bool:
     """Whether App installation topology satisfies GitHub's fork API rules."""
 
-    if not connected(result) or not remote_url:
-        return False
+    return not fork_unavailable_reason(result, remote_url)
+
+
+def fork_unavailable_reason(result: Any, remote_url: str | None) -> str:
+    from yoke_cli.config import github_fork_access
+
+    if not connected(result):
+        return github_fork_access.UNVERIFIED
     config = machine_config.github_config(getattr(result, "config_path", None))
-    return fork_ready_from_config(config, remote_url)
+    return github_fork_access.unavailable_reason(config, remote_url)
 
 
 def fork_ready_from_config(
@@ -167,58 +173,9 @@ def fork_ready_from_config(
     remote_url: str | None,
 ) -> bool:
     """Whether cached topology satisfies GitHub's fork endpoint permissions."""
+    from yoke_cli.config import github_fork_access
 
-    if not remote_url:
-        return False
-    try:
-        if (
-            github_origin.validate_github_endpoint_pair(
-                str(config.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL),
-                str(config.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
-            ).deployment_kind
-            != "github_cloud"
-        ):
-            return False
-    except github_origin.GitHubApiOriginError:
-        return False
-    authorization = config.get("authorization")
-    login = str(
-        authorization.get("login") if isinstance(authorization, dict) else ""
-    ).casefold()
-    try:
-        source = github_origin.normalize_github_repository(
-            remote_url,
-            web_url=str(config.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
-        )
-    except github_origin.GitHubApiOriginError:
-        return False
-    installations = [
-        row
-        for row in config.get("installations") or []
-        if isinstance(row, dict) and not row.get("suspended")
-    ]
-    personal_all = any(
-        str(row.get("account_type") or "").casefold() == "user"
-        and str(row.get("account_login") or "").casefold() == login
-        and row.get("repository_selection") == "all"
-        and isinstance(row.get("permissions"), dict)
-        and row["permissions"].get("contents") == "write"
-        and row["permissions"].get("administration") == "write"
-        for row in installations
-    )
-    source_access = any(
-        str(repo.get("full_name") or "").casefold() == source.casefold()
-        and any(
-            row.get("installation_id") == repo.get("installation_id")
-            and isinstance(row.get("permissions"), dict)
-            and row["permissions"].get("contents") in {"read", "write"}
-            and row["permissions"].get("administration") == "write"
-            for row in installations
-        )
-        for repo in config.get("repositories") or []
-        if isinstance(repo, dict)
-    )
-    return personal_all and source_access
+    return not github_fork_access.unavailable_reason(config, remote_url)
 
 
 def endpoint_pair(result: Any) -> github_origin.GitHubEndpointPair:
@@ -237,6 +194,7 @@ __all__ = [
     "connected",
     "endpoint_pair",
     "fork_ready",
+    "fork_unavailable_reason",
     "fork_ready_from_config",
     "ready_from_report",
     "repository_access_url",
