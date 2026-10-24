@@ -85,8 +85,13 @@ class TestDispatchConnectionLoss(_DispatcherTestBase):
         assert "nothing was written" in response.error.message
         assert "yoke env list" in response.error.recovery_hint
 
-    @pytest.mark.parametrize("effects", [["db_write"], ["event_emit"]])
-    def test_write_is_never_resent(self, effects):
+    def test_database_write_is_never_resent(self):
+        self._assert_write_is_never_resent(["db_write"])
+
+    def test_event_write_is_never_resent(self):
+        self._assert_write_is_never_resent(["event_emit"])
+
+    def _assert_write_is_never_resent(self, effects):
         handler, calls = _dropping_handler(drops=1)
         register(
             "test.write",
