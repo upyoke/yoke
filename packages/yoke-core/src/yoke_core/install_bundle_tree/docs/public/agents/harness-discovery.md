@@ -148,8 +148,15 @@ context budget. Codex delivers early on `SessionStart` when its startup payload
 is ready (a `startup` without a transcript is suppressed); Claude delivers on
 `UserPromptSubmit`, and Cursor on `SessionStart`. A later Codex or Claude prompt,
 or Cursor tool result, retries missing or unconfirmed orientation, including
-hooks installed during a conversation. Only actual emitted valid context arms
-the existing delivered marker; registration success and composition do not.
+hooks installed during a conversation. A session's project scope is fixed by
+its first registration. Claude Code reads hooks installed mid-conversation and
+registers on the next prompt in the new project. A Codex or Cursor session open
+during the install keeps its earlier scope. When machine hooks had already
+registered it, `yoke sessions identity` shows no project, and
+`yoke doctor run --session` in the project folder fails
+`session-hook-registration` with `SESSION_HOOK_PROJECT_MISMATCH`. Open a new
+session in the project folder. Only actual emitted valid context arms the
+existing delivered marker; registration success and composition do not.
 A denied or interrupted emission remains eligible for recovery. Successful
 emission stops repeat orientation while registration/backfill, model facts,
 first-prompt telemetry and independently owned resume notices still run.

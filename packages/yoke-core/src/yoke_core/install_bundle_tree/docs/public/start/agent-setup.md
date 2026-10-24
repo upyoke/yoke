@@ -163,6 +163,13 @@ new session, a restart, a sign-in such as `claude auth login`, or a hook
 approval. Give the person that step, then rerun the check. When every check
 passes, follow the returned `next_action` command and deeper home.
 
+Whether the session that ran setup needs replacing depends on its harness.
+Claude Code picks up the new hooks and registers on the next prompt, so run
+the check there without a restart. Codex and Cursor keep the scope the session
+started with, so its `session-hook-registration` check fails: open a new
+session in the project folder and run the check there. Do not ask for a
+restart the check does not name.
+
 When this session runs elsewhere, `done` says to open Claude Code, Codex or
 Cursor in the project folder, run the same check there, then follow `next_action`.
 Yoke never opens a new session for the person. A
