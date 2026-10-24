@@ -49,7 +49,7 @@ PreToolUse Bash chain order rationale:
     same family as the shell-quoted payload lint above; keyed on the
     CLI-only-as-agent-interface doctrine.
 14. ``lint_no_agent_curl_against_yoke_api`` — block ``curl`` invocations
-    against ``localhost:8765`` / ``$YOKE_API``. Sibling shape-only
+    against ``localhost:8765/v1`` or ``/api`` / ``$YOKE_API``. Sibling shape-only
     denier sharing the agent-CLI-contract config mode key.
 15. ``lint_no_agent_session_end`` — block agent-dispatched
     ``service_client session-end`` / ``session-end-if-empty``. The

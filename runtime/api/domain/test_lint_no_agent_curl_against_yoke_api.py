@@ -2,7 +2,7 @@
 
 Covers the four canonical contracts:
 
-- Positive trip: ``curl http://localhost:8765/...`` and ``curl $YOKE_API/...`` deny.
+- Positive trip: ``curl`` at ``localhost:8765/v1`` or ``/api`` and ``curl $YOKE_API/...`` deny.
 - False-positive guards: unrelated hosts, echo-only mentions, YOKE_API in non-curl commands.
 - Suppression token is audit-only — the rule still denies in deny mode.
 - Warn mode emits a WARN decision, not a deny envelope.
@@ -88,6 +88,20 @@ class TestPositiveTrip(unittest.TestCase):
         self.assertEqual(result[0], "deny")
 
 
+class TestApiPathsOn8765(unittest.TestCase):
+    """Every Yoke API path on the port still denies."""
+
+    def test_api_and_v1_paths_deny(self):
+        for url in (
+            "http://localhost:8765/api/functions/call",
+            "http://127.0.0.1:8765/api/health",
+            "localhost:8765/v1/health",
+            "http://0.0.0.0:8765/v1",
+            "http://localhost:8765/v1?x=1",
+        ):
+            self.assertIsNotNone(_eval(f"curl -sS {url}"), url)
+
+
 class TestFalsePositiveGuards(unittest.TestCase):
     """Allowed shapes that must NOT trigger the deny."""
 
@@ -120,6 +134,14 @@ class TestFalsePositiveGuards(unittest.TestCase):
         # Python source code mentioning the URL — not a curl invocation.
         self.assertIsNone(
             _eval('python3 /tmp/script.py --url http://localhost:8765/'))
+
+    def test_static_file_server_on_8765_allowed(self):
+        # A local static server (python -m http.server 8765) is not the API.
+        self.assertIsNone(_eval(
+            'curl -sS http://127.0.0.1:8765/docs/teaching/views/explore/index.html'))
+        self.assertIsNone(_eval('curl http://127.0.0.1:8765/docs/ux/yoke-web-prototype.html'))
+        self.assertIsNone(_eval('curl -I http://localhost:8765/'))
+        self.assertIsNone(_eval('curl http://localhost:8765/v1x/page.html'))
 
     def test_unrelated_command_allowed(self):
         self.assertIsNone(_eval('git status'))
