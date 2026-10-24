@@ -148,7 +148,7 @@ SESSION_ADAPTERS = [
     _read_entry(
         function_id="session_control.launch.preview",
         cli_invocation=(
-            "yoke session-control launch preview --project P (--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID] [--list-models] [--full] [--session-id S] [--json]"
+            "yoke session-control launch preview --project P [--item PREFIX-N] [(--level LEVEL | --surface SURFACE [--model MODEL] [--reasoning-effort EFFORT] [--context-window TOKENS] [--allow-surface-fallback]) [--machine MACHINE_ID]] [--list-models] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
