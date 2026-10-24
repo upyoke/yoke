@@ -67,6 +67,10 @@ For a Blitz the same link also names the document the item executes, and that
 document's lock and the Blitz exclude each other. For every other workflow it
 is membership only and gates nothing.
 
+Read any item’s linked document with `yoke strategy execution get ITEM --project P`.
+Unlinked items return no document; only Blitz reads include execution workflow,
+work claim and worktree details.
+
 ## Link to frontier
 
 `/yoke feed` maintains frontier dependency facts and can materialize new ideas
