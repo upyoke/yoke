@@ -17,19 +17,17 @@ from __future__ import annotations
 
 import ast
 import posixpath
-import shlex
 from dataclasses import dataclass
 from pathlib import PurePath
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.free_paths import STATIC_FREE_PATH_PREFIXES
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    extract_heredoc_sections,
-    strip_env_prefixes,
-)
+from yoke_core.domain.lint_session_cwd_target_extract_shell import in_segment_cwd
 
 
+_PYTHON = frozenset({"python", "python3"})
 _PATH_WRITE_METHODS = frozenset({"write_text", "write_bytes", "touch", "mkdir"})
 # Receivers that read wrong without parentheses: ``WT / rel.write_text``
 # names a different expression than ``(WT / rel).write_text``.
@@ -47,21 +45,25 @@ class PythonWriteAnalysis:
 
 
 def analyze_python_heredoc_writes(
-    command: str, *, protected_roots: Tuple[str, ...] = ()
+    command: str | ShellParse,
+    *,
+    protected_roots: Tuple[str, ...] = (),
+    segment_cwds: Sequence[str] = (),
 ) -> PythonWriteAnalysis:
     """Parse executable Python heredoc bodies and return literal destinations."""
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     targets: List[str] = []
     unresolved: List[str] = []
     detected = False
     free_writes = False
-    for source in _python_sources(command):
+    for index, source in _python_sources(parsed):
         try:
             tree = ast.parse(source)
         except (SyntaxError, ValueError):
             continue
         visitor = _PythonWriteVisitor(protected_roots)
         visitor.visit(tree)
-        targets.extend(visitor.targets)
+        targets.extend(in_segment_cwd(visitor.targets, segment_cwds, index))
         unresolved.extend(visitor.unresolved_writes)
         detected = detected or visitor.detected
         free_writes = free_writes or visitor.free_writes
@@ -73,15 +75,27 @@ def analyze_python_heredoc_writes(
     )
 
 
-def _python_sources(command: str) -> List[str]:
-    sources: List[str] = []
-    for opener, body in extract_heredoc_sections(command):
-        try:
-            tokens = strip_env_prefixes(shlex.split(opener))
-        except ValueError:
+def _python_sources(parsed: ShellParse) -> List[Tuple[int, str]]:
+    """Return ``(segment index, body)`` for each heredoc a Python segment reads."""
+    spans: List[Tuple[int, int, int]] = []
+    cursor = 0
+    for index, segment in enumerate(parsed.segments):
+        start = parsed.code.find(segment.text, cursor)
+        if start >= 0:
+            cursor = start + len(segment.text)
+            spans.append((start, cursor, index))
+    sources: List[Tuple[int, str]] = []
+    for heredoc in parsed.heredocs:
+        index = next(
+            (i for start, end, i in spans if start <= heredoc.operator_offset < end),
+            None,
+        )
+        if index is None or parsed.segments[index].program not in _PYTHON:
             continue
-        if tokens and PurePath(tokens[0]).name in {"python", "python3"}:
-            sources += [body]
+        body = heredoc.body
+        if parsed.code.startswith("<<-", heredoc.operator_offset):
+            body = "\n".join(line.lstrip("\t") for line in body.split("\n"))
+        sources += [(index, body)]
     return sources
 
 

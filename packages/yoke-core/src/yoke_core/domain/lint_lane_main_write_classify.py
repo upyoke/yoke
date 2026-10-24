@@ -5,11 +5,11 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
-import shlex
-from typing import Any, List, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from yoke_contracts.hook_runner.client_facts import live_worktrees, write_target
 from yoke_contracts.hook_runner.session_cwd import client_machine_home
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 from yoke_core.domain import lint_lane_main_write_derivation as derivation
 from yoke_contracts.project_contract.file_line_policy import (
@@ -36,7 +36,6 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_payload_command,
     payload_has_embedded_python_write,
 )
-from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 _WRITE_TOOLS = frozenset({"Write", "Edit", "apply_patch"})
@@ -117,40 +116,12 @@ def item_label(claim: ClaimedWorktree) -> str:
     return ref
 
 
-def _safe_split(command: str) -> List[str]:
-    try:
-        return shlex.split(command)
-    except ValueError:
-        return []
-
-
-def _strip_env_prefixes(tokens: List[str]) -> List[str]:
-    out = list(tokens)
-    while out and "=" in out[0] and not out[0].startswith("-"):
-        head = out[0].split("=", 1)[0]
-        if head and head.replace("_", "").isalnum() and head[0].isalpha():
-            out = out[1:]
-            continue
-        break
-    return out
-
-
-def _segment_command_base(tokens: List[str]) -> str:
-    stripped = _strip_env_prefixes(tokens)
-    for tok in stripped:
-        if not tok.startswith("-"):
-            return tok.rsplit("/", 1)[-1]
-    return ""
-
-
-def is_yoke_adapter_command(command: str) -> bool:
+def is_yoke_adapter_command(command: str | ShellParse) -> bool:
     """True when every shell segment is a ``yoke`` CLI adapter invocation."""
-    if not command or not command.strip():
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if parsed.unparsed or not parsed.segments:
         return False
-    segments = shell_command_segments(command)
-    if not segments:
-        return False
-    return all(_segment_command_base(seg) == "yoke" for seg in segments)
+    return all(segment.program == "yoke" for segment in parsed.segments)
 
 
 def lane_path_exists_on_disk(
@@ -171,7 +142,9 @@ def lane_path_exists_on_disk(
     return raw in {path.rstrip("/") for path in live}
 
 
-def is_write_operation(tool_name: str, payload: dict) -> bool:
+def is_write_operation(
+    tool_name: str, payload: dict, shell: ShellParse | None = None
+) -> bool:
     """True only for direct filesystem write shapes into a path target.
 
     Registered ``yoke <subcommand>`` adapters are control-plane calls and
@@ -190,14 +163,15 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     command = extract_payload_command(payload)
     if not command:
         return False
-    if payload_has_embedded_python_write(payload):
+    parsed = shell if shell is not None else parse_shell(command)
+    if payload_has_embedded_python_write(payload, parsed):
         return True
-    analysis = analyze_payload_write_targets(payload)
+    analysis = analyze_payload_write_targets(payload, shell=parsed)
     if analysis.targets or analysis.unresolved_variable:
         return True
     from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
-    return analyze_shell_path_use(command).direct_write
+    return analyze_shell_path_use(parsed).direct_write
 
 
 def _client_target(
@@ -207,10 +181,11 @@ def _client_target(
 
     A relative operand resolves against ``fallback_cwd`` — the command's
     declared workdir, then its leading ``cd`` statements, newline-joined
-    included — the same answer the shell-path guard uses. The client's own
-    resolution (``~``, symlinks, its checkout's ignore rules; see
-    :func:`~yoke_contracts.hook_runner.client_facts.write_target`) is used
-    only when it names that same path, so a client that missed the
+    included — the same answer the shell-path guard uses. An operand in a
+    segment a later ``cd`` moved arrives already joined to that directory.
+    The client's own resolution (``~``, symlinks, its checkout's ignore
+    rules; see :func:`~yoke_contracts.hook_runner.client_facts.write_target`)
+    is used only when it names that same path, so a client that missed the
     command's directory cannot move the write onto main. An operand without
     an agreeing client answer is treated as tracked, so an unanswered
     question leaves the guard protecting.
@@ -241,6 +216,8 @@ def collect_main_write_targets(
     fallback_cwd: str,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
+    shell: ShellParse | None = None,
+    segment_cwds: Sequence[str] = (),
 ) -> list[derivation.MainWriteHit]:
     """Return the refusable targets plus the derivation behind each one.
 
@@ -249,10 +226,15 @@ def collect_main_write_targets(
     the hit records that fallback so the refusal can name it instead of
     presenting cwd as a path the call itself asked for.
     """
-    if not is_write_operation(tool_name, payload):
+    if not is_write_operation(tool_name, payload, shell):
         return []
 
-    analysis = analyze_payload_write_targets(payload, protected_roots=tuple(repo_roots))
+    analysis = analyze_payload_write_targets(
+        payload,
+        protected_roots=tuple(repo_roots),
+        shell=shell,
+        segment_cwds=segment_cwds,
+    )
     raw_targets = list(analysis.targets)
     fell_back_to_cwd = False
     if (

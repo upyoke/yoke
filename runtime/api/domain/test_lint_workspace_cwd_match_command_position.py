@@ -82,3 +82,26 @@ def test_cd_out_of_the_lane_is_still_refused(checkouts) -> None:
     lane, main = checkouts
     command = f"cd {main} && python3 -m pytest -q"
     assert evaluate_payload(_payload(command, lane)) is not None
+
+
+def test_env_prefixed_pytest_from_main_is_still_refused(checkouts) -> None:
+    _lane, main = checkouts
+    verdict = evaluate_payload(_payload("env -i FOO=1 pytest runtime/api", main))
+    assert verdict is not None
+    assert verdict[1] == "denied"
+
+
+def test_heredoc_body_line_starting_with_pytest_is_not_a_writer(checkouts) -> None:
+    _lane, main = checkouts
+    command = "python3 - <<'EOF'\npytest runtime/api\nEOF"
+    assert evaluate_payload(_payload(command, main)) is None
+
+
+def test_a_cd_after_an_earlier_command_moves_the_writer(checkouts) -> None:
+    lane, main = checkouts
+    into_lane = f"yoke qa plan list; cd {lane} && pytest runtime/api"
+    assert evaluate_payload(_payload(into_lane, main)) is None
+    out_of_lane = f"cd {lane} && yoke qa plan list; cd {main} && pytest runtime/api"
+    verdict = evaluate_payload(_payload(out_of_lane, lane))
+    assert verdict is not None
+    assert f"Current cwd:     {main.resolve()}" in verdict[0]

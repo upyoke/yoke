@@ -13,6 +13,8 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_lane_main_write
 from yoke_harness.hooks.client_write_targets import write_targets_fact
 
@@ -100,7 +102,7 @@ def _client_bash(command, *, cwd, client_home, monkeypatch):
     """Build the payload as the client would, with its home and write facts."""
     monkeypatch.setenv("HOME", str(client_home))
     payload = _bash("sid-lane", command, cwd=cwd)
-    payload.update(write_targets_fact(payload))
+    payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
     payload.update(client_machine_home_fact(str(client_home)))
     # The authority evaluating the payload has a different home of its own.
     monkeypatch.setenv("HOME", str(client_home.parent / "authority-home"))

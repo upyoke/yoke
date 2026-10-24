@@ -10,22 +10,20 @@ from __future__ import annotations
 import shlex
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping
+from typing import Mapping, Sequence
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
     resolve_path_operands,
-    shell_command_segments,
     shell_variable_bindings,
 )
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     _extract_segment_targets,
+    in_segment_cwd,
     is_fd_duplication_target,
-    strip_env_prefixes,
-    strip_heredoc_syntax,
+    without_heredoc_operators,
 )
 from yoke_core.domain.lint_session_cwd_remote_resources import remote_resource_indexes
-from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 class PathRole(str, Enum):
@@ -159,11 +157,12 @@ def _state_move(tokens: list[str], command: str) -> bool:
 
 
 def analyze_shell_path_use(
-    command: str,
+    command: str | ShellParse,
     *,
     bindings: Mapping[str, str] | None = None,
+    segment_cwds: Sequence[str] = (),
 ) -> ShellPathUse:
-    """Retain operand roles while projecting existing local/write semantics."""
+    """Retain operand roles; ``segment_cwds`` moves relative operands per segment."""
     from yoke_core.domain.lint_session_cwd_read_only_signatures import (
         GIT_MUTATING_SUBS,
         _match_simple,
@@ -177,94 +176,96 @@ def analyze_shell_path_use(
         extract_gh_repo_selector_targets,
     )
 
-    if not isinstance(command, str) or not command.strip():
+    if not isinstance(command, ShellParse):
+        command = parse_shell(command if isinstance(command, str) else "")
+    parsed = command
+    if not parsed.command.strip():
         return ShellPathUse(())
-    bindings = shell_variable_bindings(command) if bindings is None else bindings
-    sanitized = strip_heredoc_syntax(command)
-    writes, unresolved_writes = resolve_shell_write_operands(command, bindings=bindings)
+    if bindings is None:
+        bindings = shell_variable_bindings(parsed.command)
+    writes, unresolved_writes = resolve_shell_write_operands(
+        parsed, bindings=bindings, segment_cwds=segment_cwds
+    )
     uses = [
         PathUse(path, PathRole.UNKNOWN)
-        for path in extract_gh_repo_selector_targets(sanitized)
+        for path in extract_gh_repo_selector_targets(parsed.code)
     ]
     local_targets = [use.path for use in uses]
     unresolved = unresolved_writes
     mutation = bool(writes) or unresolved_writes
     direct_write = mutation
-    capacity_segments = []
-    unsupported = False
-    for segment in split_pipeline(sanitized):
-        segments = shell_command_segments(segment)
-        if not segments:
+    capacity_segments = [False for _statement in parsed.unparsed]
+    unsupported = bool(parsed.unparsed)
+    for index, segment in enumerate(parsed.segments):
+        tokens = without_heredoc_operators(segment.argv)
+        if not tokens:
             capacity_segments.append(False)
             unsupported = True
             continue
-        for raw_tokens in segments:
-            tokens = strip_env_prefixes(command_operand_tokens(raw_tokens))
-            if not tokens:
-                capacity_segments.append(False)
-                unsupported = True
-                continue
-            base = tokens[0].rsplit("/", 1)[-1]
-            direct_write = (
-                direct_write
-                or base in SHELL_WRITE_COMMAND_BASES
-                or (base == "git" and git_subcommand(tokens) in GIT_MUTATING_SUBS)
+        base = tokens[0].rsplit("/", 1)[-1]
+        direct_write = (
+            direct_write
+            or base in SHELL_WRITE_COMMAND_BASES
+            or (base == "git" and git_subcommand(tokens) in GIT_MUTATING_SUBS)
+        )
+        remote = remote_resource_indexes(base, tokens)
+        uses.extend(PathUse(tokens[i], PathRole.REMOTE) for i in sorted(remote))
+        targets, unknown = _extract_segment_targets(tokens, bindings)
+        targets = in_segment_cwd(targets, segment_cwds, index)
+        local_targets.extend(targets)
+        unresolved = unresolved or unknown
+        capacity = _capacity_operands(tokens, segment.text, bindings)
+        if capacity is not None:
+            capacity = in_segment_cwd(capacity, segment_cwds, index)
+        capacity_settled = capacity is not None and not any(
+            any(mark in path for mark in "*?{[") for path in capacity
+        )
+        capacity_segments.append(capacity_settled)
+        state_move = (
+            _git_state_move(tokens)
+            if base == "git"
+            else _state_move(tokens, shlex.join(tokens))
+        )
+        if state_move:
+            writes.extend(targets)
+        lane_move = state_move or _state_move(tokens, shlex.join(tokens))
+        mutation = mutation or lane_move
+        direct_write = direct_write or state_move
+        role = (
+            PathRole.READ if _match_simple(shlex.join(tokens)) else PathRole.UNKNOWN
+        )
+        if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
+            role = PathRole.READ
+        if state_move:
+            role = PathRole.WRITE
+        # A read with no settled operands cannot borrow a preceding df exemption.
+        unsupported = (
+            unsupported
+            or (
+                capacity is None
+                and not targets
+                and base not in SHELL_WRITE_COMMAND_BASES
             )
-            remote = remote_resource_indexes(base, tokens)
-            uses.extend(PathUse(tokens[i], PathRole.REMOTE) for i in sorted(remote))
-            targets, unknown = _extract_segment_targets(raw_tokens, bindings)
-            local_targets.extend(targets)
-            unresolved = unresolved or unknown
-            capacity = _capacity_operands(tokens, segment, bindings)
-            capacity_settled = capacity is not None and not any(
-                any(mark in path for mark in "*?{[") for path in capacity
+            or (
+                capacity is None
+                and role == PathRole.UNKNOWN
+                and base not in SHELL_WRITE_COMMAND_BASES
             )
-            capacity_segments.append(capacity_settled)
-            state_move = (
-                _git_state_move(tokens)
-                if base == "git"
-                else _state_move(tokens, shlex.join(tokens))
-            )
-            if state_move:
-                writes.extend(targets)
-            lane_move = state_move or _state_move(tokens, shlex.join(tokens))
-            mutation = mutation or lane_move
-            direct_write = direct_write or state_move
-            role = (
-                PathRole.READ if _match_simple(shlex.join(tokens)) else PathRole.UNKNOWN
-            )
-            if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
-                role = PathRole.READ
-            if state_move:
-                role = PathRole.WRITE
-            # A read with no settled operands cannot borrow a preceding df exemption.
-            unsupported = (
-                unsupported
-                or (
-                    capacity is None
-                    and not targets
-                    and base not in SHELL_WRITE_COMMAND_BASES
+        )
+        for target in targets:
+            target_role = PathRole.WRITE if target in writes else role
+            if capacity_settled and target in capacity and target not in writes:
+                target_role = PathRole.CAPACITY
+            uses.append(PathUse(target, target_role))
+        if capacity is not None:
+            uses.extend(
+                PathUse(
+                    path,
+                    PathRole.CAPACITY if capacity_settled else PathRole.UNKNOWN,
                 )
-                or (
-                    capacity is None
-                    and role == PathRole.UNKNOWN
-                    and base not in SHELL_WRITE_COMMAND_BASES
-                )
+                for path in capacity
             )
-            for target in targets:
-                target_role = PathRole.WRITE if target in writes else role
-                if capacity_settled and target in capacity and target not in writes:
-                    target_role = PathRole.CAPACITY
-                uses.append(PathUse(target, target_role))
-            if capacity is not None:
-                uses.extend(
-                    PathUse(
-                        path,
-                        PathRole.CAPACITY if capacity_settled else PathRole.UNKNOWN,
-                    )
-                    for path in capacity
-                )
-                local_targets.extend(path for path in capacity if path not in targets)
+            local_targets.extend(path for path in capacity if path not in targets)
     uses.extend(PathUse(path, PathRole.WRITE) for path in writes)
     local_targets.extend(path for path in writes if path not in local_targets)
     if unsupported or unresolved:

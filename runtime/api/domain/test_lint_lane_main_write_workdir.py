@@ -22,8 +22,13 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.hook_runner.client_facts import WRITE_TARGETS_KEY, client_fact
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_lane_main_write
-from yoke_core.domain.command_workdir import command_execution_cwd
+from yoke_core.domain.command_workdir import (
+    command_execution_cwd,
+    command_segment_cwds,
+)
 from yoke_harness.hooks.client_write_targets import execution_cwd
 from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
 
@@ -216,7 +221,7 @@ def test_client_walks_a_leading_cd_across_every_separator(tmp_path, separator):
         "cwd": "/session",
         "tool_input": {"command": f"cd {tmp_path}{separator}{RELATIVE_HEREDOC}"},
     }
-    assert execution_cwd(payload) == str(tmp_path.resolve())
+    assert execution_cwd(payload, parse_shell(extract_command(payload))) == str(tmp_path.resolve())
 
 
 def test_real_codex_rollout_workdir_reaches_the_guard(lane_repo, tmp_path):
@@ -263,3 +268,42 @@ def test_temporary_computed_write_from_main_allows(lane_repo, body):
     main_write = f"\nPath({str(repo / 'source.py')!r}).write_text('x')"
     mixed = f"python3 - <<'PY'\n{body}{main_write}\nPY"
     assert not _evaluate(mixed, cwd=repo).allow
+
+
+def test_relative_write_after_an_in_command_cd_to_scratch_allows(lane_repo, tmp_path):
+    """The write lands where the ``cd`` before it moved, not in the call's cwd."""
+    repo, _lane = lane_repo
+    scratch = tmp_path / "yok-ci"
+    command = (
+        "yoke messages acknowledge M; "
+        f"mkdir -p {scratch} && cd {scratch} && gh run view 1 > job.log"
+    )
+    verdict = _evaluate(command, cwd=repo)
+    assert verdict.allow is True, verdict.reason
+
+
+def test_relative_write_after_an_in_command_cd_to_main_denies(lane_repo):
+    repo, lane = lane_repo
+    command = f"yoke messages acknowledge M; cd {repo} && gh run view 1 > job.log"
+    verdict = _evaluate(command, cwd=lane)
+    assert verdict.allow is False
+    assert verdict.attempted_path == str(repo.resolve() / "job.log")
+
+
+def test_python_write_follows_the_cd_before_its_segment(lane_repo, tmp_path):
+    repo, lane = lane_repo
+    body = "python3 - <<'PY'\nopen('out.txt', 'w').write('x')\nPY"
+    assert _evaluate(f"echo start; cd {tmp_path} && {body}", cwd=repo).allow
+    assert not _evaluate(f"echo start; cd {repo} && {body}", cwd=lane).allow
+
+
+def test_segment_cwds_name_only_directories_a_later_cd_moved(tmp_path):
+    payload = {
+        "cwd": str(tmp_path),
+        "tool_input": {"command": "touch a; cd sub && touch b; cd $X; touch c"},
+    }
+    cwd, segment_cwds = command_segment_cwds(payload)
+    assert cwd == str(tmp_path.resolve())
+    sub = str((tmp_path / "sub").resolve())
+    # The ``cd $X`` itself runs in sub; after it the directory is unknown.
+    assert segment_cwds == ["", "", sub, sub, ""]

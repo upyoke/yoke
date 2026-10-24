@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import re
-import shlex
-from typing import List, Mapping, Optional, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_shell_script_arguments import non_path_argument_indexes
 
 from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
@@ -18,10 +19,8 @@ from yoke_core.domain.lint_session_cwd_remote_resources import (
     remote_resource_indexes as _remote_resource_indexes,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
     path_target_from_token,
     resolve_path_operands,
-    shell_command_segments,
     shell_variable_bindings,
 )
 
@@ -40,7 +39,7 @@ FLAG_EQUALS_PREFIXES = (
 
 
 def resolve_operand_targets(
-    command: str,
+    command: str | ShellParse,
     *,
     bindings: Optional[Mapping[str, str]] = None,
 ) -> Tuple[List[str], bool]:
@@ -50,16 +49,18 @@ def resolve_operand_targets(
     argv is omitted; shell redirects stay local. Unresolved operands report
     uncertainty instead of manufacturing a cwd target.
     """
-    sanitized = strip_heredoc_body_lines(command)
-    if not _safe_split(sanitized):
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if parsed.unparsed or not parsed.segments:
         return [], False
     if bindings is None:
-        bindings = shell_variable_bindings(command)
+        bindings = shell_variable_bindings(parsed.command)
 
-    out: List[str] = extract_gh_repo_selector_targets(sanitized)
+    out: List[str] = extract_gh_repo_selector_targets(parsed.code)
     unresolved = False
-    for segment in shell_command_segments(sanitized):
-        targets, segment_unresolved = _extract_segment_targets(segment, bindings)
+    for segment in parsed.segments:
+        targets, segment_unresolved = _extract_segment_targets(
+            list(segment.argv), bindings
+        )
         out.extend(targets)
         unresolved = unresolved or segment_unresolved
     return out, unresolved
@@ -80,6 +81,31 @@ def extract_command_targets(
 ) -> List[str]:
     """Return only the target paths :func:`resolve_command_targets` reads."""
     return resolve_command_targets(command, bindings=bindings)[0]
+
+
+def in_segment_cwd(
+    paths: Sequence[str], segment_cwds: Sequence[str], index: int
+) -> List[str]:
+    """Join relative ``paths`` to segment ``index``'s moved directory, if any."""
+    cwd = segment_cwds[index] if index < len(segment_cwds) else ""
+    return [
+        os.path.normpath(os.path.join(cwd, path))
+        if cwd and path and not os.path.isabs(path) and not path.startswith("~")
+        else path
+        for path in paths
+    ]
+
+
+def without_heredoc_operators(tokens: Sequence[str]) -> List[str]:
+    """Drop heredoc operator words (``<<EOF``, ``<< 'EOF'``); bodies are input."""
+    out: List[str] = []
+    skip = False
+    for token in tokens:
+        opens = token.startswith("<<") and not token.startswith("<<<")
+        if not skip and not opens:
+            out.append(token)
+        skip = opens and token in ("<<", "<<-")
+    return out
 
 
 _SEARCH_COMMANDS = frozenset(
@@ -159,8 +185,7 @@ def _extract_segment_targets(
     tokens: List[str],
     bindings: Mapping[str, str],
 ) -> Tuple[List[str], bool]:
-    """Extract target paths from a single command segment."""
-    tokens = strip_env_prefixes(command_operand_tokens(tokens))
+    """Extract target paths from one segment's argv (``ShellSegment.argv``)."""
     if not tokens:
         return [], False
 
@@ -235,102 +260,13 @@ def _extract_segment_targets(
     return out, unresolved
 
 
-def _safe_split(command: str) -> List[str]:
-    try:
-        return shlex.split(command)
-    except ValueError:
-        return []
-
-
-_HEREDOC_OPENER_RE = re.compile(
-    r"""<<(?P<dash>-?)\s*"""
-    r"""(?:'(?P<sq>[^']*)'"""
-    r"""|\"(?P<dq>[^\"]*)\""""
-    r"""|\\?(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"""
-)
-
-
-def _partition_heredocs(command: str) -> Tuple[str, List[Tuple[str, str]]]:
-    """Return shell syntax plus ``(opener, body)`` heredoc sections."""
-    lines = command.splitlines()
-    out: List[str] = []
-    sections: List[Tuple[str, str]] = []
-    pending_tag: Optional[str] = None
-    dash_form: bool = False
-    opener = ""
-    body: List[str] = []
-    for line in lines:
-        if pending_tag is None:
-            out.append(line)
-            tag, dash = _scan_heredoc_opener(line)
-            if tag is not None:
-                pending_tag = tag
-                dash_form = dash
-                opener = line
-                body = []
-            continue
-        candidate = line.lstrip("\t") if dash_form else line
-        if candidate.strip() == pending_tag:
-            sections.append((opener, "\n".join(body)))
-            pending_tag = None
-            dash_form = False
-            opener = ""
-            body = []
-            continue
-        body.append(line.lstrip("\t") if dash_form else line)
-    if pending_tag is not None:
-        sections.append((opener, "\n".join(body)))
-    return "\n".join(out), sections
-
-
-def strip_heredoc_body_lines(command: str) -> str:
-    """Drop heredoc body lines (and closing-tag lines) from ``command``."""
-    return _partition_heredocs(command)[0]
-
-
-def extract_heredoc_sections(command: str) -> List[Tuple[str, str]]:
-    """Return heredoc opener/body pairs without interpreting body text."""
-    return _partition_heredocs(command)[1]
-
-
-def strip_heredoc_syntax(command: str) -> str:
-    """Drop heredoc bodies and opener operators, preserving other commands."""
-    shell, sections = _partition_heredocs(command)
-    for opener, _body in sections:
-        cleaned = _HEREDOC_OPENER_RE.sub("", opener, count=1)
-        shell = shell.replace(opener, cleaned, 1)
-    return shell
-
-
-def _scan_heredoc_opener(line: str) -> Tuple[Optional[str], bool]:
-    match = _HEREDOC_OPENER_RE.search(line)
-    if match is None:
-        return None, False
-    tag = match.group("sq") or match.group("dq") or match.group("bare")
-    return tag, bool(match.group("dash"))
-
-
-def strip_env_prefixes(tokens: List[str]) -> List[str]:
-    """Drop leading ``FOO=bar`` env-assignment tokens prepended to a command."""
-    out = list(tokens)
-    while out and "=" in out[0] and not out[0].startswith("-"):
-        head = out[0].split("=", 1)[0]
-        if head and head.replace("_", "").isalnum() and head[0].isalpha():
-            out = out[1:]
-            continue
-        break
-    return out
-
-
 __all__ = [
     "FLAG_BINARY",
     "FLAG_EQUALS_PREFIXES",
     "REDIRECT_OPERATORS",
     "STDOUT_REPORTERS",
     "extract_command_targets",
-    "extract_heredoc_sections",
+    "in_segment_cwd",
     "resolve_command_targets",
-    "strip_heredoc_body_lines",
-    "strip_env_prefixes",
-    "strip_heredoc_syntax",
+    "without_heredoc_operators",
 ]

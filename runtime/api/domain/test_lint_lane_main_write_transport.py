@@ -17,6 +17,8 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item_claim,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_lane_main_write
 from yoke_harness.hooks.client_write_targets import write_targets_fact
 
@@ -151,7 +153,7 @@ class TestStrandedAdvisoryBounds:
             "tool_name": "Write",
             "tool_input": {"file_path": str(target)},
         }
-        payload.update(write_targets_fact(payload))
+        payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
         with mock.patch.object(
             lint_lane_main_write,
             "emit_stranded_lane_advisory",
