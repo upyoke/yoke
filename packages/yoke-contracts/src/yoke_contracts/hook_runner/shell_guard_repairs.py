@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import glob
 import os
-import shlex
 import re
+import shlex
 import subprocess
 from itertools import islice
 from pathlib import Path
+
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 
 NOTHING_RAN = "Nothing in this invocation ran. Retry the repaired command."
 RIPGREP_REPLACE_CHECK_ID = "lint-ripgrep-replace"
 STEM_MATCH_LIMIT = 8
-_HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
 _ARRAY_ASSIGNMENT_OPEN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=\(")
+_GLOB_CHARS = frozenset("*?[")
+_REDIRECT_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
 
 
 def executing_shell(payload: dict) -> str:
@@ -34,57 +37,20 @@ def executing_shell(payload: dict) -> str:
     ).name
 
 
-def without_heredoc_bodies(command: str) -> str:
-    """Drop heredoc body lines and join the remaining lines with ``;``."""
-    kept: list[str] = []
-    delimiter = ""
-    for line in command.splitlines():
-        if delimiter:
-            if line.strip() == delimiter:
-                delimiter = ""
-            continue
-        kept.append(line)
-        match = _HEREDOC.search(line)
-        if match:
-            delimiter = match.group(1)
-    return ";".join(kept)
-
-
-def shell_segments(command: str) -> list[list[str]]:
-    """Split shell operators without treating quoted text as an operator."""
-    try:
-        lexer = shlex.shlex(
-            without_heredoc_bodies(command), posix=True, punctuation_chars=";&|"
-        )
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        return []
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token and all(char in ";&|" for char in token):
-            segments.append([])
-        else:
-            segments[-1].append(token)
-    return [segment for segment in segments if segment]
-
-
-def is_compound(command: str) -> bool:
-    return len(shell_segments(command)) > 1
-
-
-def ripgrep_replace_repair(command: str) -> str | None:
+def ripgrep_replace_repair(command: str | ShellParse) -> str | None:
     """Return `rg -n` when `-r` was used as a search flag; `-r '$1'` replaces."""
-    for segment in shell_segments(command):
-        if not segment or segment[0].rsplit("/", 1)[-1] != "rg":
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for segment in parsed.segments:
+        if segment.program != "rg":
             continue
-        repaired = list(segment)
+        argv = segment.argv
+        repaired = list(argv)
         found = False
-        for index, token in enumerate(segment[1:], 1):
+        for index, token in enumerate(argv[1:], 1):
             if token == "--":
                 break
             if token.startswith("-") and not token.startswith("--") and "r" in token[1:]:
-                value = token[1:].split("r", 1)[1] or "".join(segment[index + 1:index + 2])
+                value = token[1:].split("r", 1)[1] or "".join(argv[index + 1:index + 2])
                 if "$" in value:
                     continue
                 found = True
@@ -102,106 +68,15 @@ def ripgrep_replace_repair(command: str) -> str | None:
                 for token in repaired[1:]
             ):
                 repaired.insert(1, "-n")
-            return shlex.join(repaired)
+            prefix = segment.tokens[:len(segment.tokens) - len(argv)]
+            return shlex.join([*prefix, *repaired])
     return None
-
-
-_CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@"})
 
 
 def expanded_glob_path(token: str, cwd: str) -> Path:
     """Expand the executing user's home before resolving relative operands."""
     path = Path(os.path.expanduser(token))
     return path if path.is_absolute() else Path(os.path.expanduser(cwd)) / path
-
-
-def _plain_cd_destination(segment: list[str]) -> str | None:
-    """Operand of a plain ``cd DIR``, ignoring ``-L``/``-P``/``-e``/``-@``."""
-    if not segment or segment[0] != "cd":
-        return None
-    operands = [token for token in segment[1:] if token not in _CD_OPTIONS]
-    if len(operands) != 1:
-        return None
-    return operands[0]
-
-
-def _advance_glob_base(base: str | None, destination: str) -> str | None:
-    """Directory after ``cd destination``, or None when that target is unreadable."""
-    if "$" in destination or "`" in destination or destination == "-":
-        return None
-    expanded = os.path.expanduser(destination)
-    if expanded.startswith("~"):
-        return None
-    if not os.path.isabs(expanded):
-        if not base:
-            return None
-        expanded = os.path.join(base, expanded)
-    try:
-        return str(Path(expanded).resolve())
-    except (OSError, ValueError):
-        return None
-
-
-def _split_command_pieces(command: str) -> list[str]:
-    """Split on unquoted shell separators, including newlines as ``;``."""
-    text = ";".join(command.splitlines())
-    pieces: list[str] = []
-    buf: list[str] = []
-    in_single = in_double = escaped = False
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if escaped:
-            buf.append(char)
-            escaped = False
-            index += 1
-            continue
-        if char == "\\" and not in_single:
-            buf.append(char)
-            escaped = True
-            index += 1
-            continue
-        if char == "'" and not in_double:
-            buf.append(char)
-            in_single = not in_single
-            index += 1
-            continue
-        if char == '"' and not in_single:
-            buf.append(char)
-            in_double = not in_double
-            index += 1
-            continue
-        if not in_single and not in_double and char in ";&|":
-            piece = "".join(buf).strip()
-            if piece:
-                pieces.append(piece)
-            buf = []
-            while index < len(text) and text[index] in ";&|":
-                index += 1
-            continue
-        buf.append(char)
-        index += 1
-    piece = "".join(buf).strip()
-    if piece:
-        pieces.append(piece)
-    return pieces
-
-
-def glob_segment_bases(command: str, cwd: str) -> list[tuple[str, str | None]]:
-    """Pair each command piece with the directory its globs resolve against.
-
-    A plain ``cd DIR`` moves the base for later pieces. ``$``, a backtick, or
-    ``cd -`` makes that base unknown so later globs are not denied.
-    """
-    base: str | None = cwd or None
-    located: list[tuple[str, str | None]] = []
-    for piece in _split_command_pieces(command):
-        located.append((piece, base))
-        parsed = shell_segments(piece)
-        destination = _plain_cd_destination(parsed[0] if len(parsed) == 1 else [])
-        if destination is not None:
-            base = _advance_glob_base(base, destination)
-    return located
 
 
 def _brace_alternatives(token: str):
@@ -238,18 +113,83 @@ def path_glob_is_unmatched(token: str, cwd: str) -> bool:
         return False
 
 
-def glob_repair(command: str, token: str, cwd: str) -> tuple[str, list[str]] | None:
+def _unquoted_words(text: str) -> list[str]:
+    """Words of ``text`` built only from its unquoted characters.
+
+    zsh never glob-expands quoted characters, and the shared parse's words
+    no longer show which characters were quoted, so this reads the raw text.
+    """
+    words: list[str] = []
+    current: list[str] = []
+    in_single = in_double = escaped = False
+    for char in text.replace("\\\n", " "):
+        if escaped:
+            if not in_single and not in_double:
+                current.append(char)
+            escaped = False
+            continue
+        if char == "\\" and not in_single:
+            escaped = True
+            continue
+        if char == "'" and not in_double:
+            in_single = not in_single
+            continue
+        if char == '"' and not in_single:
+            in_double = not in_double
+            continue
+        if in_single or in_double:
+            continue
+        if char.isspace() or char in ";|&":
+            if current:
+                words.append("".join(current))
+                current = []
+            continue
+        current.append(char)
+    if current:
+        words.append("".join(current))
+    return words
+
+
+def find_unmatched_path_glob(
+    command: str | ShellParse, cwd: str
+) -> tuple[str, str] | None:
+    """Return the first unquoted path glob that matches nothing, with its base.
+
+    Each segment's globs resolve against the directory its earlier ``cd``
+    steps lead to; heredoc bodies are input and never scanned.
+    """
+    if not cwd:
+        return None
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for segment, base in zip(parsed.segments, parsed.segment_cwds(cwd)):
+        for word in _unquoted_words(segment.text):
+            path = word
+            for prefix in _REDIRECT_PREFIXES:
+                if path.startswith(prefix):
+                    path = path[len(prefix):]
+                    break
+            path = array_assignment_element(path)
+            if "/" not in path or not _GLOB_CHARS & set(path):
+                continue
+            if path_glob_is_unmatched(path, base):
+                return path, base
+    return None
+
+
+def glob_repair(
+    command: str | ShellParse, token: str, cwd: str
+) -> tuple[str, list[str]] | None:
     """Repair a simple search/list command, or keep the safe manual recipe.
 
     Parsed words retain brace groups and nested patterns. Shell programs and
     redirections cannot be faithfully rebuilt by joining their argument words.
     """
-    if any(char in command for char in "<>$`();&|#\\\n"):
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if any(char in parsed.command for char in "<>$`();&|#\\\n"):
         return None
-    segments = shell_segments(command)
-    if len(segments) != 1:
+    if len(parsed.segments) != 1 or parsed.unparsed:
         return None
-    segment = segments[0]
+    segment = list(parsed.segments[0].tokens)
     name = segment[0].rsplit("/", 1)[-1]
     if name not in {"rg", "ls"} or segment.count(token) != 1 or segment[-1] != token:
         return None
@@ -338,11 +278,8 @@ __all__ = [
     "array_assignment_element",
     "executing_shell",
     "expanded_glob_path",
-    "glob_segment_bases",
-    "path_glob_is_unmatched",
+    "find_unmatched_path_glob",
     "glob_repair",
-    "is_compound",
+    "path_glob_is_unmatched",
     "ripgrep_replace_repair",
-    "shell_segments",
-    "without_heredoc_bodies",
 ]

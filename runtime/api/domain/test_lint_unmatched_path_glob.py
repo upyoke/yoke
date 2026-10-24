@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_unmatched_path_glob as lint
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
@@ -31,6 +33,13 @@ def _payload(
     }
     payload.update(extra)
     return payload
+
+
+def _client(payload: dict):
+    """Run the client evaluator the way the local subset does: with one parse."""
+    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+
+    return lint_unmatched_path_glob(payload, parse_shell(extract_command(payload)))
 
 
 def _eval(
@@ -199,7 +208,6 @@ def test_glob_guard_uses_command_shell_on_both_hook_paths(
     explicit,
     denied,
 ):
-    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
     from yoke_harness.hooks.local_policy_common import DENY
 
     monkeypatch.setenv("SHELL", default)
@@ -208,7 +216,7 @@ def test_glob_guard_uses_command_shell_on_both_hook_paths(
     if explicit is not None:
         payload["tool_input"]["shell"] = explicit
     assert (lint.evaluate_payload(payload) is not None) is denied
-    assert (lint_unmatched_path_glob(payload).outcome == DENY) is denied
+    assert (_client(payload).outcome == DENY) is denied
 
 
 @pytest.mark.parametrize("hook", ["core", "client"])
@@ -218,7 +226,6 @@ def test_path_globs_use_the_executing_filesystem(
     tmp_path: Path, monkeypatch, hook: str, operand: str, matching: bool
 ) -> None:
     from yoke_harness.hooks.local_policy_common import DENY
-    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 
     home = tmp_path / "home"
     downloads = home / "Downloads"
@@ -240,7 +247,7 @@ def test_path_globs_use_the_executing_filesystem(
         denied = result is not None
         reason = result[0] if result else ""
     else:
-        result = lint_unmatched_path_glob(payload)
+        result = _client(payload)
         denied = result.outcome == DENY
         reason = result.message
     assert denied is not matching
@@ -255,7 +262,6 @@ def test_home_glob_does_not_match_a_literal_tilde_directory(
     tmp_path: Path, monkeypatch, hook: str
 ) -> None:
     from yoke_harness.hooks.local_policy_common import DENY
-    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 
     home = tmp_path / "home"
     home.mkdir()
@@ -268,9 +274,7 @@ def test_home_glob_does_not_match_a_literal_tilde_directory(
         assert _eval("ls ~/Downloads/Meeting*", cwd=cwd) is not None
     else:
         assert (
-            lint_unmatched_path_glob(
-                _payload("ls ~/Downloads/Meeting*", cwd=cwd)
-            ).outcome
+            _client(_payload("ls ~/Downloads/Meeting*", cwd=cwd)).outcome
             == DENY
         )
 
@@ -292,7 +296,6 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
 
 def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None:
     from yoke_harness.hooks.local_policy_common import DENY
-    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 
     other = tmp_path / "other"
     (other / "infra").mkdir(parents=True)
@@ -319,7 +322,7 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
                 denied = result is not None
                 reason = result[0] if result else ""
             else:
-                verdict = lint_unmatched_path_glob(_payload(command, cwd=str(tmp_path)))
+                verdict = _client(_payload(command, cwd=str(tmp_path)))
                 denied = verdict.outcome == DENY
                 reason = verdict.message
             assert denied is not allowed, command

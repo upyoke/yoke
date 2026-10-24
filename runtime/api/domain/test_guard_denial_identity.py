@@ -73,3 +73,12 @@ def test_compound_refusal_says_no_segment_ran() -> None:
         command="cat > output.txt <<'EOF'\nhello\nEOF\nrg PAT missing/*",
     )
     assert "Nothing in this invocation ran" in bound.message
+
+
+@pytest.mark.parametrize("command", ["rg PAT missing/* 2>&1", "ls >out.txt 2>&1"])
+def test_simple_command_with_fd_redirect_is_not_called_compound(command: str) -> None:
+    spec = next(
+        spec for spec in GUARD_CATALOG if spec.guard == "lint_unmatched_path_glob"
+    )
+    bound = bind(_deny(), spec.module, command=command)
+    assert "Nothing in this invocation ran" not in bound.message

@@ -175,3 +175,19 @@ def test_claude_invocations_returns_each_binary_with_its_own_words() -> None:
     assert lint_nested_claude_cli.claude_invocations(
         "A=1 claude --help | claude -p 'x y'"
     ) == [["claude", "--help"], ["claude", "-p", "x y"]]
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [
+        ("cat > /tmp/note <<'EOF'\nclaude -p hi\nEOF\nls", []),
+        ("cat <<EOF | wc -l\nclaude -p hi\nEOF", []),
+        ("ls 2>&1 | claude -p x", [["claude", "-p", "x"]]),
+        ("env -i claude -p x", [["claude", "-p", "x"]]),
+        ("_X=1 claude -p x", [["claude", "-p", "x"]]),
+        ("(FOO=1 claude -p hi)", [["claude", "-p", "hi"]]),
+        ("echo $(claude -p hi)", [["claude", "-p", "hi"]]),
+    ],
+)
+def test_claude_invocations_read_the_shared_parse(command, expected) -> None:
+    assert lint_nested_claude_cli.claude_invocations(command) == expected

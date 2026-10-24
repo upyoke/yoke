@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import shlex
-
 from yoke_contracts.hook_runner.hook_guard_catalog import (
     REMOTE_CLAUDE_CLI_CHECK_ID,
 )
+from yoke_contracts.hook_runner.shell_parse import parse_shell, strip_env_prefix
 from yoke_core.domain import lint_config
 
 REMOTE_CLAUDE_DENIAL = (
@@ -20,13 +19,22 @@ def remote_claude_cli_state(
     command: str,
     payload: object | None = None,
 ) -> tuple[bool, bool]:
-    """Return ``(seen_remote_claude, softened_by_lint_config)``."""
-    claude_segments = [
-        segment for segment in _top_level_shell_segments(command) if "claude" in segment
+    """Return ``(seen_remote_claude, softened_by_lint_config)``.
+
+    ``command`` is the rule text's quote-blanked command, so it is parsed
+    here rather than reusing the hook call's parse of the original text.
+    Blanking can unbalance ``'\\''`` quoting; a statement shlex cannot read
+    is then named by its first plain word.
+    """
+    parsed = parse_shell(command)
+    programs = [
+        segment.program for segment in parsed.segments if "claude" in segment.text
+    ] + [
+        (strip_env_prefix(statement.split()) or [""])[0].rsplit("/", 1)[-1]
+        for statement in parsed.unparsed
+        if "claude" in statement
     ]
-    is_remote = bool(claude_segments) and all(
-        _command_basename(segment) == "ssh" for segment in claude_segments
-    )
+    is_remote = bool(programs) and all(program == "ssh" for program in programs)
     if not is_remote:
         return False, False
     try:
@@ -37,58 +45,6 @@ def remote_claude_cli_state(
     except Exception:
         mode = lint_config.DENY
     return True, mode == lint_config.WARN
-
-
-def _top_level_shell_segments(text: str) -> list[str]:
-    segments: list[str] = []
-    buf: list[str] = []
-    quote = None
-    escaped = False
-    for ch in text:
-        if escaped:
-            buf.append(ch)
-            escaped = False
-            continue
-        if ch == "\\":
-            buf.append(ch)
-            escaped = True
-            continue
-        if quote:
-            buf.append(ch)
-            if ch == quote:
-                quote = None
-            continue
-        if ch in ("'", '"'):
-            buf.append(ch)
-            quote = ch
-            continue
-        if ch in ";&|\n":
-            _append_segment(segments, buf)
-            buf = []
-            continue
-        buf.append(ch)
-    _append_segment(segments, buf)
-    return segments
-
-
-def _append_segment(segments: list[str], buf: list[str]) -> None:
-    segment = "".join(buf).strip()
-    if segment:
-        segments.append(segment)
-
-
-def _command_basename(segment: str) -> str:
-    try:
-        words = shlex.split(segment, posix=True)
-    except Exception:
-        words = segment.split()
-    idx = 0
-    while idx < len(words) and "=" in words[idx] and not words[idx].startswith("="):
-        idx += 1
-    if idx >= len(words):
-        return ""
-    first = words[idx]
-    return first.rsplit("/", 1)[-1] if "/" in first else first
 
 
 __all__ = [

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_unmatched_path_glob as lint
 from yoke_harness.hooks.local_policy_common import DENY
 from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
@@ -19,7 +21,8 @@ def _denied(command: str, cwd: Path) -> tuple[bool, bool]:
         "session_id": "sess-test",
     }
     core = lint.evaluate_payload(payload) is not None
-    return core, lint_unmatched_path_glob(payload).outcome == DENY
+    client = lint_unmatched_path_glob(payload, parse_shell(extract_command(payload)))
+    return core, client.outcome == DENY
 
 
 def _lint_tree(root: Path) -> Path:
