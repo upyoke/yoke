@@ -9,8 +9,6 @@ EXECUTION_FUNCTIONS = EXECUTION_SUBJECT_FUNCTIONS | {
     "test_machine.plan_case.submit",
     "test_machine.mission.ready",
     "test_machine.mission.access",
-    "test_machine.mission.dispose_projects",
-    "test_machine.mission.record_connected_machine",
 }
 
 

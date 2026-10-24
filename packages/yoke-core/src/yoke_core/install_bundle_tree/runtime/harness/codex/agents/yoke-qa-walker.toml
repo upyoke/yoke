@@ -65,14 +65,6 @@ it applies the declared golden-home/OS-package baseline or `as_is` state.
 `--continue-mission` preserves the held walk. All package changes use leased
 host-command so its journal includes direct/transitive packages outside golden home.
 
-Right after a connect step on the Test Machine succeeds, run the dispatch's
-exact `yoke qa mission connected-machine`. It records the Yoke Machine that
-connect registered on the mission's docket and prints its `machine_id`; add
-`--test-machine NAME` when the connect ran on a declared companion host. A
-session launch's `--machine` takes that registered Machine id. A Test Machine
-is reached only through its lease and is never a launch target; a mission that
-connected no install has no launch target. Walk-end retires the recorded Machine.
-
 A held walk can survive its execution. A park protects the owner; once its
 session expires, settlement can mark the capture error while host state remains.
 For `agent_mission_access_failed`, read the refusal. A swept execution names
@@ -128,9 +120,8 @@ is distinct from native receipt. Resolve paths and compare bodies as taught in
 Pipe secrets to the consuming command's stdin where supported. Required secret
 files live only in dispatch's owner-only staging directory for this lease, never
 loose `/tmp`/home files. Before returning run exact `yoke qa mission walk-end`:
-it removes staging, retires the Machine the walk's connect registered, restores
-declared starting state and records restore. Report both, and any
-`connected_machine_not_retired` line with its recovery. Failure leaves credentials/state behind and review-submit refuses; report
+it removes staging, restores declared starting state and records restore.
+Report both. Failure leaves credentials/state behind and review-submit refuses; report
 it as a finding against this walk.
 
 Display capture failure, forbidden audit-session switch, or expired keychain
@@ -166,19 +157,17 @@ Screenshots prove a finding/gate, not progress. No credentials in reports.
 Native windows/dialogs/Terminal/keychain/app handoffs require actual visible
 GUI-session state and configured dispatch desktop control. Never infer it from SSH.
 
-## Fixture repositories and teardown
+## Cleanup
 
-Create mission-owned GitHub fixture repositories as private with
-`gh repo create OWNER/NAME --private`, including repositories created from
-cloned public history. Record every exact `OWNER/NAME` as cleanup debt when
-created. At teardown delete each with `gh repo delete OWNER/NAME --yes`;
-walk-end does not delete external GitHub repositories. Never delete upstream
-or pre-existing repositories. Repositories the product creates during the
-mission, such as onboarding or install Apply creating `OWNER/yoke-qa-*-source`,
-are mission-owned too: record and delete them yourself at teardown, and never
-hand repository deletion to steering. If deletion is refused, report the refusal,
-recovery and every exact `OWNER/NAME` still present as external cleanup debt
-for the main agent's final verdict.
+Clean up everything the walk creates, such as repositories, accounts and
+records the product registered, with the product's own commands before
+walk-end, even when the walk stops early. Walk-end removes only staging and
+restores the host. Create GitHub fixture repositories as private with
+`gh repo create OWNER/NAME --private`, record every exact `OWNER/NAME` when
+created, including one the product creates, and delete each with
+`gh repo delete OWNER/NAME --yes`. Never delete upstream or pre-existing
+resources, and never hand cleanup to steering. Report every refusal, its
+recovery and everything still present for the main agent's final verdict.
 
 ## Perception Is Not Evidence
 

@@ -1,10 +1,9 @@
-"""Failed onboarding retains the exact checkout mapping for teardown and retry."""
+"""Failed onboarding retains the exact checkout mapping for cleanup and retry."""
 
 import pytest
 
 from yoke_cli.config import machine_config, writer, project_onboard_apply
 from yoke_cli.project_install.files import ProjectInstallError
-from yoke_core.domain.machine_qa_fixture_projects import discover_host_projects
 
 
 @pytest.mark.parametrize("failure", ["binding", "install"])
@@ -44,12 +43,5 @@ def test_failed_setup_keeps_project_discoverable(tmp_path, monkeypatch, failure)
             reuse_github_auth=False,
         )
 
-    class Host:
-        home = str(config.parent.parent)
-
-        def read_text(self, path):
-            assert path == str(config)
-            return config.read_text()
-
-    assert discover_host_projects(Host()) == [{"checkout": str(root), "project_id": 7}]
+    assert machine_config.project_id(root, config) == 7
     assert not (root / ".yoke").exists()

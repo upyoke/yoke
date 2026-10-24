@@ -185,6 +185,8 @@ customized project. [Operation contracts](testing-verification/test-machine-oper
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
 explain what the evidence establishes. For a case that needs a real
 self-hosted server, use the [temporary self-hosted server fixture](testing-verification/self-host-fixture.md).
+A Yoke QA case removes the Machine, projects and repositories its test created
+with [QA fixture cleanup](testing-verification/qa-fixture-cleanup.md).
 
 Secret values never belong in settings, workflow definitions, item bodies,
 prompts, logs, captures or artifacts. Capability-owned machine-local secrets

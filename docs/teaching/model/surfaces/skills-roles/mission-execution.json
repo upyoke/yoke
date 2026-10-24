@@ -3,7 +3,7 @@
  "title": "Bounded mission work",
  "status": "observed",
  "form": "Do",
- "verification": "Source guidance only; runtime speedup remains unproven. Fixture teaching requires private GitHub repositories, exact OWNER/NAME cleanup debt on creation (including repositories the product creates during the mission, such as install Apply's OWNER/yoke-qa-*-source), teardown deletion with gh repo delete OWNER/NAME --yes, and exact remaining names plus refusal/recovery in the report and final verdict if deletion refuses. Walk-end does not delete external repositories, and the walker or controller deletes them itself rather than handing deletion to steering; installed proof remains unverified.",
+ "verification": "Source guidance only; runtime speedup remains unproven. Cleanup teaching is project-agnostic: the walker removes everything the walk creates (repositories, accounts, records the product registered) with the product's own commands, creates GitHub fixture repositories as private, records each exact OWNER/NAME when created (including one the product creates) and deletes it with gh repo delete OWNER/NAME --yes, never hands cleanup to steering, and reports every refusal, recovery and remaining resource for the final verdict. Walk-end only removes staging and restores the host. Yoke-specific Machine, project and repository cleanup lives in docs/testing-verification/qa-fixture-cleanup.md; installed proof remains unverified.",
  "topics": ["agents/roles/qa-walker", "qa-methods/extended/exploratory-missions"],
  "sources": ["runtime/agents/qa-walker.md", "docs/public/verification/exploration.md", "docs/public/verification/case-attachment.md", ".agents/skills/yoke/steer/loop.md"]
 }

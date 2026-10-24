@@ -99,64 +99,22 @@ Cursor renders `readonly: false`; a stale adapter refuses as
 Unsupported executors refuse as `agent_mission_executor_invalid`: update the
 saved case to `informed_subagent` and rematerialize affected requirements.
 
-## Fixture repositories and teardown
+## Cleanup
+
+A mission cleans up everything it creates, such as repositories, accounts and
+records the product registered, using the product's own commands, and reports
+anything it could not remove. Walk-end removes only the mission's staging and
+restores the Test Machine; it never removes what the walk created elsewhere.
 
 Create every mission-owned GitHub fixture repository as private, using
 `gh repo create OWNER/NAME --private`, including a repository created from
-cloned public history. Record each exact `OWNER/NAME` as cleanup debt when
-created; never delete an upstream or pre-existing repository. A repository the
-product creates during the mission, such as onboarding or install Apply creating
-`OWNER/yoke-qa-*-source`, is mission-owned too: the walker or controller deletes
-it at teardown and never hands repository deletion to steering.
-
-At teardown, delete every repository the mission created with
-`gh repo delete OWNER/NAME --yes`. The printed walk-end command cleans up
-mission projects and host state; it does not delete external GitHub repositories.
-If deletion is refused, record the refusal and its recovery and list every
-exact `OWNER/NAME` still present as external cleanup debt in the walker report
-and the main agent's final verdict. Do not report that external cleanup is complete.
-
-## Connected Yoke Machines
-
-A mission that connects its Test Machine's Yoke install to this control plane,
-such as a hosted cold start, registers a new Yoke Machine. Right after that
-connect step succeeds, the walker runs the dispatch's exact command:
-
-```text
-yoke qa mission connected-machine --item PREFIX-N --execution-id ID \
-  --requirement-id N --run-id N [--test-machine TEST_MACHINE]
-```
-
-Pass `--test-machine` when the connect ran on a declared companion host; the
-command then reads that host's config through the same mission access path
-host-command uses. Omitted, it reads the driver host.
-
-It reads `machine_id` from the host's `$HOME/.yoke/config.json` through the
-mission's lease, records that Machine on the mission's docket as
-`connected_machine`, and prints its `machine_id` with a launch hint. A session
-launch's `--machine` takes that registered Machine id. A Test Machine is
-reached only through its lease and is never a launch target; a mission that
-connected no install has no launch target. The command refuses by name:
-
-- `connected_machine_absent` — the host's config has no `machine_id`, so the
-  install never connected.
-- `connected_machine_unregistered` — the id is not a live Machine on this
-  control plane: the install connected to another Yoke, and launches from here
-  cannot target it.
-- `connected_machine_predates_mission` — the Machine was registered before the
-  mission's docket, so this mission did not create it; it is never recorded or
-  retired.
-
-Walk-end reads the driver host's `machine_id` before its restore erases it,
-records it when the walker did not, and retires exactly the docket's
-`connected_machine` with the walking actor's authority, including a Machine
-recorded from a companion host. It never retires
-another Machine, including a live one with the same name. When that actor
-neither owns nor administers the Machine, walk-end still finishes, prints
-`connected_machine_not_retired` with the recovery: the Machine's owner runs
-`yoke machine retire MACHINE_ID --confirm`. The
-[evidence receipt](exploration-evidence.md#connected-machine-retirement) names
-every outcome.
+cloned public history. Record each exact `OWNER/NAME` when created, including a
+repository the product creates during the mission, and delete each with
+`gh repo delete OWNER/NAME --yes` before walk-end. Never delete an upstream or
+pre-existing repository, and never hand cleanup to steering. When a removal is
+refused, record the refusal and its recovery and list everything still present
+in the walker report and the main agent's final verdict. Do not report that
+cleanup is complete.
 
 ## Execution and Review
 

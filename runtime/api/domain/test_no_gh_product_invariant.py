@@ -61,26 +61,27 @@ def _iter_targets(root: Path):
 
 # QA fixtures are external test resources; their operator-authored recipes do
 # not add a GitHub CLI dependency to the product's GitHub operations.
-_FIXTURE_RECIPE_PATHS = frozenset({
-    "docs/public/verification/exploration.md",
-    "runtime/harness/claude/agents/yoke-qa-walker.md",
-    "runtime/harness/codex/agents/yoke-qa-walker.toml",
-    "runtime/harness/cursor/agents/yoke-qa-walker.md",
-})
+_FIXTURE_RECIPE_SECTIONS = {
+    "docs/public/verification/exploration.md": "## Cleanup",
+    "docs/testing-verification/qa-fixture-cleanup.md": "## Delete the test's repositories",
+    "runtime/harness/claude/agents/yoke-qa-walker.md": "## Cleanup",
+    "runtime/harness/codex/agents/yoke-qa-walker.toml": "## Cleanup",
+    "runtime/harness/cursor/agents/yoke-qa-walker.md": "## Cleanup",
+}
 _FIXTURE_COMMAND = re.compile(
     r"`gh repo (?:create OWNER/NAME --private|delete OWNER/NAME --yes)`"
 )
 
 
 def _has_product_dependency(rel: str, section: str, line: str) -> bool:
-    if rel in _FIXTURE_RECIPE_PATHS and section == "## Fixture repositories and teardown":
+    if section == _FIXTURE_RECIPE_SECTIONS.get(rel):
         line = _FIXTURE_COMMAND.sub("", line)
     return bool(_FORBIDDEN.search(line))
 
 
 def test_fixture_recipes_do_not_allow_other_github_cli_dependencies() -> None:
     rel = "docs/public/verification/exploration.md"
-    section = "## Fixture repositories and teardown"
+    section = "## Cleanup"
     for command in ("create OWNER/NAME --private", "delete OWNER/NAME --yes"):
         line = f"`gh repo {command}`"
         assert not _has_product_dependency(rel, section, line)

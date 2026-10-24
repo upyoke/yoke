@@ -15,7 +15,6 @@ from yoke_core.domain.agent_mission_browser_identities import (
     mission_browser_settings,
     walker_identity_dispatch,
 )
-from yoke_core.domain.agent_mission_connected_machine import walker_connected_machine
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_mission_stop_settlement import stopped_mission_guidance
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
@@ -107,7 +106,6 @@ def _walker_dispatch(
     walk_start_command = f"yoke qa mission walk-start {walk_flags}"
     run_id = int(case["capture_run_id"])
     walk_end_command = f"yoke qa mission walk-end {walk_flags} --run-id {run_id}"
-    connected_command, connected_clause = walker_connected_machine(walk_flags, run_id)
     browser_intro = (
         "For named browser identities, use the managed browser. Set it up with "
         if identities
@@ -118,12 +116,11 @@ def _walker_dispatch(
         f"Before any other host command, run `{walk_start_command}`: it puts "
         "the Test Machine in this mission's declared starting state. If it "
         "fails, walk nothing and return its error as your blocker. "
-        "Walk this mission atomically. Create Yoke projects only by "
-        "installing them on the Test Machine: walk-end uninstalls every "
-        "project the host registers, cancels its open items and retires it, "
-        "and records a fixture_project_disposal receipt on the run. List "
-        "them in `created_projects`, and run walk-end even when the walk "
-        f"stops early. {connected_clause}Choose the sequence and use every "
+        "Walk this mission atomically. Clean up everything the walk creates "
+        "(repositories, accounts, records the product registered) with the "
+        "product's own commands, even when the walk stops early, and report "
+        "anything you could not remove. Run walk-end even when the walk "
+        "stops early. Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
         "return a ranked findings report as the primary deliverable to the "
         "main mission owner. If another item holds a required host, do nothing "
@@ -182,7 +179,6 @@ def _walker_dispatch(
         "scratch_path": scratch_path,
         "walk_start_command": walk_start_command,
         "walk_end_command": walk_end_command,
-        "connected_machine_command": connected_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
         "browser_identities": identities,
@@ -192,9 +188,11 @@ def _walker_dispatch(
         "prompt": prompt,
         "result_schema": {
             "walk_status": "COMPLETE|HUMAN_GATE|HOST_WAIT|UNDETERMINED",
-            "report": "ranked findings and unverified areas",
+            "report": (
+                "ranked findings, unverified areas, and anything the walk "
+                "created but could not remove"
+            ),
             "host_wait": "test machine name and holder evidence for HOST_WAIT",
-            "created_projects": "slug of every Yoke project the walk created",
             "needed_action": "required for HUMAN_GATE",
             "resume_state": "required for HUMAN_GATE",
         },
