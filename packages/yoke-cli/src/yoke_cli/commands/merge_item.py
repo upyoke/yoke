@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
@@ -19,12 +18,12 @@ MERGE_ITEM_USAGE = (
 
 
 def merge_item(args: List[str]) -> int:
-    """Delegate local merge authority; help prints the engine's own parser in-process."""
+    """Delegate local merge authority; help runs the engine's own parser in-process."""
     before = args[: args.index("--")] if "--" in args else args
     if any(arg in ("--help", "-h") for arg in before):
-        parser = importlib.import_module("yoke_core.domain.standalone_item_merge_cli_parser")
-        parser.build_parser().print_help()
-        return 0
+        from yoke_cli.commands.merge_item_local_runtime import run
+
+        return run(args)
     completed = subprocess.run(
         [
             sys.executable,
