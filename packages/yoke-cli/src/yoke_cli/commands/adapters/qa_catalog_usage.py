@@ -122,14 +122,12 @@ the plan is a correction the case that actually runs never received.
 #: plan that already has rows, and where an amended row goes instead.
 PLAN_MATERIALIZE_EPILOG = """Materializing a plan that already has rows
 ------------------------------------------
-Materialization is convergent for added cases: every case the plan has
-gained since the last call gets its row, and every row already there is
-confirmed, never rewritten. A row whose case has since been amended keeps
-its old body here; `yoke qa plan rematerialize` is what brings it current.
-On an item, a live row whose case the plan no longer carries (the case was
-replaced or removed) refuses qa_plan_rows_orphaned before any write, naming
-each row: rematerialize retires it, superseding a replaced post_deploy row
-with its successor or waiving a removed one.
+For an item transition, each attached plan is snapshotted once. Later
+materialize calls and transition or merge gates read its existing rows without
+adding, matching or refreshing cases, even after plan edits. A newly attached
+plan gets its own snapshot. Use `yoke qa plan rematerialize` explicitly to
+apply edits, add cases or retire removed cases. Deployment-run materialization
+keeps its run-scoped behavior.
 
 --replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
 replacement of a failed one. A case it names gets no second, automatic
@@ -144,7 +142,8 @@ its exact baseline. Other baselines keep their own obligations and evidence.
 PLAN_REMATERIALIZE_EPILOG = """Bringing live rows to the plan's current text
 ---------------------------------------------
 This is the supported way to correct a materialized case. It refreshes
-matching rows in place, retains their QA run history, creates cases the plan
+matching rows in place, retains their QA run history and operator waivers,
+clears only system waivers, creates cases the plan
 has gained, and retires cases it has lost. It reaches every executable column,
 instructions and expected_outcome included -- which `yoke qa requirement
 update` cannot write at all -- because it rewrites the derivation whole rather

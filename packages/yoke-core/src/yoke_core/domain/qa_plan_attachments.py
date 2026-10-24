@@ -6,15 +6,11 @@ from typing import Any, Optional
 
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
-from yoke_core.domain.qa_plan_orphaned_rows import require_no_orphaned_item_rows
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
-    require_existing_target,
-    require_requirement_id_target,
 )
 from yoke_core.domain.qa_deployment_member_attached_plans import attachments_still_owed
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
@@ -204,7 +200,7 @@ def materialize_for_item(
     transition_id: str,
     commit: bool = True,
 ) -> dict:
-    """Snapshot every attached case into idempotent QA requirements."""
+    """Snapshot each attached plan once for this item and transition."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
     attachments = _owed_attachments(conn, item_id, transition_id)[0]
@@ -219,47 +215,30 @@ def materialize_for_item(
         attachments=attachments,
     )
     marker = _placeholder(conn)
-    subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
     created: list[int] = []
     existing: list[int] = []
     now = utc_now()
-    # Validate first; a row whose case left the plan refuses (see rematerialize).
-    snapshots: list[tuple[int, Any, dict, list[tuple[Any, str | None, dict]]]] = []
+    snapshots: list[tuple[Any, dict, list[tuple[Any, str | None, dict]]]] = []
     for plan_id, attachment in attachments.items():
+        rows = query_rows(
+            conn,
+            "SELECT id FROM qa_requirements "
+            f"WHERE item_id={marker} AND plan_id={marker} "
+            f"AND workflow_transition_id={marker} AND deployment_run_id IS NULL ORDER BY id",
+            (item_id, plan_id, transition_id),
+        )
+        if rows:
+            existing.extend(int(row["id"]) for row in rows)
+            continue
         cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
         plan = _plan_row(conn, plan_id)
-        variants = case_variants(conn, plan=plan, cases=cases)
-        for case, target_env, execution_target in variants:
-            existing.extend(
-                require_existing_target(
-                    query_rows(
-                        conn,
-                        "SELECT id,execution_target_json,execution_target_digest FROM qa_requirements "
-                        f"WHERE item_id={marker} AND plan_id={marker} AND workflow_transition_id={marker} "
-                        f"AND plan_case_key={marker} AND COALESCE(target_env,'')={marker} ORDER BY id",
-                        (
-                            item_id,
-                            plan_id,
-                            transition_id,
-                            case["case_key"],
-                            target_env or "",
-                        ),
-                    ),
-                    execution_target=execution_target,
-                    subject=subject,
-                    conn=conn,
-                )
-            )
-        snapshots.append((plan_id, plan, attachment, variants))
-    require_no_orphaned_item_rows(
-        conn, item_id=item_id, transition_id=transition_id, plan_ids=list(attachments)
-    )
+        snapshots.append((plan, attachment, case_variants(conn, plan=plan, cases=cases)))
 
-    for plan_id, plan, attachment, variants in snapshots:
+    for plan, attachment, variants in snapshots:
         for case, target_env, execution_target in variants:
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 requirement_id = insert_requirement(
@@ -275,27 +254,13 @@ def materialize_for_item(
                     execution_target=execution_target,
                     target_env=target_env,
                 )
-                if requirement_id is not None:
-                    created.append(requirement_id)
-                    continue
-                requirement_id = existing_requirement_id(
-                    conn,
-                    item_id=item_id,
-                    plan_id=plan_id,
-                    case_key=str(case["case_key"]),
-                    baseline=baseline,
-                    transition_id=transition_id,
-                    target_env=target_env,
-                )
-                if requirement_id is not None and requirement_id not in existing:
-                    existing.append(
-                        require_requirement_id_target(
-                            conn,
-                            requirement_id=requirement_id,
-                            execution_target=execution_target,
-                            subject=subject,
-                        )
+                if requirement_id is None:
+                    raise QaPlanError(
+                        "qa_plan_snapshot_insert_conflict: initial snapshot conflicted "
+                        "with an existing requirement. Inspect `yoke qa requirement "
+                        "list --item <item>` and retry materialization."
                     )
+                created.append(requirement_id)
     if commit:
         conn.commit()
     return _materialized(int(item_id), transition_id, attachments, created, existing)

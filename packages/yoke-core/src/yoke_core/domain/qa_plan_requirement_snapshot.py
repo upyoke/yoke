@@ -242,7 +242,11 @@ def refresh_requirement(
     assignments = ", ".join(f"{column}={marker}" for column in stored)
     conn.execute(
         f"UPDATE qa_requirements SET {assignments}, "
-        "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL "
+        "waived_at=CASE WHEN waiver_source='system' THEN NULL ELSE waived_at END, "
+        "waiver_rationale=CASE WHEN waiver_source='system' THEN NULL "
+        "ELSE waiver_rationale END, "
+        "waiver_source=CASE WHEN waiver_source='system' THEN NULL "
+        "ELSE waiver_source END "
         f"WHERE id={marker}",
         (*stored.values(), int(requirement_id)),
     )
