@@ -28,13 +28,10 @@ target it named.
 
 from __future__ import annotations
 
-import shlex
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain.lint_shell_target_tokens import (
-    shell_command_segments,
-    unwrap_cli_file_param,
-)
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_core.domain.lint_shell_target_tokens import unwrap_cli_file_param
 
 
 HOST_COMMAND_SUBCOMMAND = ("qa", "mission", "host-command")
@@ -157,15 +154,16 @@ def local_argv_text(segment: str) -> str:
     Redirects and substitutions still run here, so callers keep reading
     them from the full segment.
     """
-    try:
-        tokens = shlex.split(segment)
-    except ValueError:
+    parsed = parse_shell(segment)
+    if parsed.unparsed or len(parsed.segments) != 1:
         return segment
-    base = next((tok.rsplit("/", 1)[-1] for tok in tokens), "")
-    remote = remote_argv_indexes(base, tokens)
+    words = parsed.segments[0]
+    remote = remote_argv_indexes(words.program, words.argv)
     if not remote:
         return segment
-    return " ".join(tok for i, tok in enumerate(tokens) if i not in remote)
+    prefix = words.tokens[: len(words.tokens) - len(words.argv)]
+    local = [tok for i, tok in enumerate(words.argv) if i not in remote]
+    return " ".join([*prefix, *local])
 
 
 _AWS_VALUE_FLAGS = frozenset(
@@ -292,19 +290,16 @@ def aws_ssm_parameter_indexes(command_base: str, tokens: Sequence[str]) -> set[i
     return indexes
 
 
-def is_host_command(command: str) -> bool:
+def is_host_command(command: str | ShellParse) -> bool:
     """True when any invocation in ``command`` is a host-command call."""
-    for segment in shell_command_segments(command):
-        base = next(
-            (tok.rsplit("/", 1)[-1] for tok in segment if not tok.startswith("-")),
-            "",
-        )
-        if is_host_command_segment(base, segment):
-            return True
-    return False
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    return any(
+        is_host_command_segment(segment.program, segment.argv)
+        for segment in parsed.segments
+    )
 
 
-def host_command_exemption_note(command: str) -> str:
+def host_command_exemption_note(command: str | ShellParse) -> str:
     """Return the denial clause for a refused host-command call, else ``""``."""
     if not command or not is_host_command(command):
         return ""

@@ -11,16 +11,7 @@ supported pull step.
 
 from __future__ import annotations
 
-import os
-
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_env_prefixes,
-    strip_heredoc_syntax,
-)
-from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
-    shell_command_segments,
-)
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 WRAPPED_REMOTE_ARGV_NOTE = (
     "\nTest Machine path? `{target}` is in another user's home, and no "
@@ -43,28 +34,23 @@ def _home_owner(path: str) -> str:
     return ""
 
 
-def _invokes_yoke(command: str) -> bool:
-    for segment in shell_command_segments(strip_heredoc_syntax(command)):
-        tokens = strip_env_prefixes(command_operand_tokens(segment))
-        if tokens and os.path.basename(tokens[0]) == "yoke":
-            return True
-    return False
-
-
 def wrapped_remote_argv_note(
-    command: str, target: str, machine_home: str | None
+    command: str | ShellParse, target: str, machine_home: str | None
 ) -> str:
     """Return the direct-call hint for a refused other-user home target.
 
     ``machine_home`` is the client's relayed home fact; without it no target
     can be called another user's, so no hint is given.
     """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     owner = _home_owner(target)
-    if not machine_home or not command.strip() or not owner:
+    if not machine_home or not parsed.command.strip() or not owner:
         return ""
     if owner in _SHARED_HOME_DIRS:
         return ""
-    if _home_owner(machine_home.rstrip("/") + "/") == owner or _invokes_yoke(command):
+    if _home_owner(machine_home.rstrip("/") + "/") == owner:
+        return ""
+    if any(segment.program == "yoke" for segment in parsed.segments):
         return ""
     return WRAPPED_REMOTE_ARGV_NOTE.format(target=target)
 

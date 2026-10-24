@@ -26,9 +26,9 @@ uncommitted work.
 
 from __future__ import annotations
 
-import shlex
 from typing import Any, List, Mapping, Sequence
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_path_authority import (
     outside_worktree_lanes,
@@ -50,15 +50,24 @@ _SHELL_METACHARACTERS = (";", "&", "|", ">", "<", "$(", "`")
 _GIT_OUTPUT_FLAG = "--output"
 
 
-def is_read_only_git_inspection(command: str) -> bool:
-    """True when ``command`` is one plain Git call that cannot write."""
-    if not command or not command.strip():
+def is_read_only_git_inspection(command: str | ShellSegment) -> bool:
+    """True when ``command`` is one plain Git call that cannot write.
+
+    Metacharacters refuse even inside quotes, and any environment prefix
+    refuses too: ``GIT_EXTERNAL_DIFF=...`` or ``GIT_PAGER=...`` would run
+    another program from inside a read.
+    """
+    segment = command if isinstance(command, ShellSegment) else None
+    text = segment.text if segment is not None else str(command or "")
+    if not text.strip() or any(meta in text for meta in _SHELL_METACHARACTERS):
         return False
-    if any(meta in command for meta in _SHELL_METACHARACTERS):
-        return False
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
+    if segment is None:
+        parsed = parse_shell(text)
+        if parsed.unparsed or len(parsed.segments) != 1:
+            return False
+        segment = parsed.segments[0]
+    tokens = list(segment.tokens)
+    if segment.argv != segment.tokens:
         return False
     index = git_subcommand_index(tokens)
     if index is None:
@@ -78,7 +87,7 @@ def is_read_only_git_inspection(command: str) -> bool:
 def governed_targets(
     targets: Sequence[str],
     repo_roots: Sequence[str],
-    command: str,
+    command: str | ShellParse,
 ) -> List[str]:
     """Return the targets the session-cwd policy still decides on.
 
@@ -87,23 +96,17 @@ def governed_targets(
     ownership question and the authority question.
     """
     from yoke_core.domain.lint_session_cwd_read_only_signatures import _match_simple
-    from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
-    from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     # The splitter does not descend into substitutions, including quoted ones.
-    if any(mark in command for mark in (">", "<", "$(", "`")):
+    if any(mark in parsed.command for mark in (">", "<", "$(", "`")):
         return list(targets)
-    segments = [
-        tokens
-        for part in split_pipeline(command)
-        for tokens in shell_command_segments(part)
-    ]
-    if not segments:
+    if parsed.unparsed or not parsed.segments:
         return list(targets)
-    for tokens in segments:
-        segment = shlex.join(tokens)
+    for segment in parsed.segments:
         if is_read_only_git_inspection(segment):
             continue
+        tokens = segment.tokens
         if len(tokens) == 2 and tokens[0] == "cd" and not tokens[1].startswith("-"):
             continue
         # Broader orientation signatures (find, help, adapters) cannot grant

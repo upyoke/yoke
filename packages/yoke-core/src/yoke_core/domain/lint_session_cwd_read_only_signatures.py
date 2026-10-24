@@ -8,9 +8,9 @@ deny for calls that touch no file.
 from __future__ import annotations
 
 import re
-import shlex
 from typing import List, Mapping, Optional, Tuple
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     REDIRECT_OPERATORS,
     STDOUT_REPORTERS,
@@ -132,24 +132,19 @@ def git_subcommand(tokens: List[str]) -> Optional[str]:
 
 
 def git_write_targets(
-    segment: str,
+    segment: str | ShellSegment,
     *,
     bindings: Optional[Mapping[str, str]] = None,
 ) -> Tuple[List[str], bool]:
     """Write paths for one git segment, plus unresolved-operand status."""
     from yoke_core.domain.lint_session_cwd_target_extract_shell import (
         resolve_operand_targets,
-        strip_env_prefixes,
     )
 
-    try:
-        tokens = strip_env_prefixes(shlex.split(segment))
-    except ValueError:
+    parsed = _single_segment(segment)
+    if parsed is None or git_subcommand(list(parsed.argv)) not in GIT_MUTATING_SUBS:
         return [], False
-    sub = git_subcommand(tokens)
-    if sub not in GIT_MUTATING_SUBS:
-        return [], False
-    return resolve_operand_targets(segment, bindings=bindings)
+    return resolve_operand_targets(parsed.text, bindings=bindings)
 
 
 def _classify_git(tokens: List[str]) -> Optional[str]:
@@ -243,31 +238,17 @@ def _classify_python_module(tokens: List[str]) -> Optional[str]:
 # PYTHONPATH-equivalence rule (``lint_session_cwd_control_plane``) is the
 # canonical surface for resolving such commands and it operates on the
 # cwd-fallback branch.
-_MODULE_RESOLUTION_ENV_PREFIXES = frozenset({"PYTHONPATH", "PYTHONHOME"})
+_MODULE_RESOLUTION_ENV_PREFIXES = ("PYTHONPATH", "PYTHONHOME")
 
 
-def _strip_env_prefixes(tokens: List[str]) -> Optional[List[str]]:
-    """Strip ``FOO=bar`` env prefix tokens; return ``None`` when a
-    module-resolution override (``PYTHONPATH``, ``PYTHONHOME``) is
-    present so the caller refuses to classify the command as read-only.
-    """
-    out = list(tokens)
-    while out and "=" in out[0] and not out[0].startswith("-"):
-        head = out[0].split("=", 1)[0]
-        if head and head.replace("_", "").isalnum() and head[0].isalpha():
-            if head in _MODULE_RESOLUTION_ENV_PREFIXES:
-                return None
-            out = out[1:]
-            continue
-        break
-    return out
-
-
-_COMPOUND_RE = re.compile(r"[;&|]")
-
-
-def _has_compound_separator(command: str) -> bool:
-    return bool(_COMPOUND_RE.search(command))
+def _single_segment(segment: str | ShellSegment) -> Optional[ShellSegment]:
+    """``segment`` as one parsed simple command, or ``None`` if it is not one."""
+    if isinstance(segment, ShellSegment):
+        return segment
+    parsed = parse_shell(segment)
+    if parsed.unparsed or len(parsed.segments) != 1:
+        return None
+    return parsed.segments[0]
 
 
 _SIMPLE_CLASSIFIERS = (
@@ -282,14 +263,17 @@ _SIMPLE_CLASSIFIERS = (
 )
 
 
-def _match_simple(command: str) -> Optional[str]:
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
+def _match_simple(segment: str | ShellSegment) -> Optional[str]:
+    """Signature label for one simple command; a module-resolution
+    override (``PYTHONPATH``, ``PYTHONHOME``) refuses classification."""
+    parsed = _single_segment(segment)
+    if parsed is None or not parsed.argv:
         return None
-    tokens = _strip_env_prefixes(tokens)
-    if tokens is None or not tokens:
+    if any(
+        parsed.assignment(name) is not None for name in _MODULE_RESOLUTION_ENV_PREFIXES
+    ):
         return None
+    tokens = list(parsed.argv)
     for classifier in _SIMPLE_CLASSIFIERS:
         label = classifier(tokens)
         if label:
@@ -297,23 +281,20 @@ def _match_simple(command: str) -> Optional[str]:
     return None
 
 
-def match_read_only_signature(command: str) -> Optional[str]:
+def match_read_only_signature(command: str | ShellParse) -> Optional[str]:
     """Return a short signature label when ``command`` is read-only, else ``None``.
 
     A compound is read-only only when every segment matches on its own.
     """
-    if not command or not command.strip():
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    segments = parsed.segments
+    if parsed.unparsed or not segments:
         return None
-    if _has_compound_separator(command):
-        from yoke_contracts.hook_runner.shell_statements import split_pipeline
-
-        segments = [part for part in split_pipeline(command) if part.strip()]
-        if len(segments) == 1:
-            return _match_simple(segments[0])
-        if segments and all(_match_simple(part) for part in segments):
-            return "compound-read"
-        return None
-    return _match_simple(command)
+    if len(segments) == 1:
+        return _match_simple(segments[0])
+    if all(_match_simple(segment) for segment in segments):
+        return "compound-read"
+    return None
 
 
 __all__ = [

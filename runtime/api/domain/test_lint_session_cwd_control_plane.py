@@ -252,11 +252,12 @@ class TestPythonPathEquivalence:
         )
         assert verdict.allow is False
 
-    def test_override_skips_optional_cd_prefix(self, fake_yoke_root):
-        cmd = (
-            f"cd /tmp && PYTHONPATH={fake_yoke_root} python3 -m "
-            f"yoke_core.cli.db_router items get YOK-42 status"
-        )
+    @pytest.mark.parametrize(
+        "prefix",
+        ["cd /tmp && ", "cd /tmp;", "env -i _X=1 ", "cd /tmp; env -i _X=1 "],
+    )
+    def test_override_reads_the_first_non_cd_command(self, fake_yoke_root, prefix):
+        cmd = f"{prefix}PYTHONPATH={fake_yoke_root} python3 -m runtime.api.x"
         override = lint_session_cwd_control_plane.extract_pythonpath_yoke_cwd_override(
             cmd, str(fake_yoke_root)
         )

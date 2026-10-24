@@ -25,11 +25,11 @@ here instead of restating the rules.
 from __future__ import annotations
 
 import os
-import shlex
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.client_facts import yoke_source_root
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_host_command import (
     host_command_exemption_note,
 )
@@ -66,16 +66,18 @@ def is_under_yoke_control_plane(target: str, yoke_root: str) -> bool:
     return True
 
 
-def extract_pythonpath_yoke_cwd_override(command: str, yoke_root: str) -> Optional[str]:
+def extract_pythonpath_yoke_cwd_override(
+    command: str | ShellParse, yoke_root: str
+) -> Optional[str]:
     """Return the Yoke main root when ``command`` is a Yoke-internal
     Python invocation guarded by ``PYTHONPATH=<yoke-main-root>``.
 
-    Recognized shapes (after the optional ``cd ... &&`` prefix is
-    skipped)::
+    Recognized shapes (in the first segment that is not a plain
+    ``cd``)::
 
-        [other env...] PYTHONPATH=/path/to/yoke python3 -m runtime.api.X
-        [other env...] PYTHONPATH=/path/to/yoke python3 -m runtime.harness.X
-        [other env...] PYTHONPATH=/path/to/yoke python3 -c "...runtime.api..."
+        [env [-i]] [other env...] PYTHONPATH=/path/to/yoke python3 -m runtime.api.X
+        [env [-i]] [other env...] PYTHONPATH=/path/to/yoke python3 -m runtime.harness.X
+        [env [-i]] [other env...] PYTHONPATH=/path/to/yoke python3 -c "...runtime.api..."
 
     Returns ``None`` for any other shape (no ``PYTHONPATH``, foreign
     ``PYTHONPATH`` value, non-python head, or a python target that is
@@ -85,59 +87,18 @@ def extract_pythonpath_yoke_cwd_override(command: str, yoke_root: str) -> Option
     """
     if not command or not yoke_root:
         return None
-    root = yoke_root
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    segment = next((s for s in parsed.segments if s.argv[:1] != ("cd",)), None)
+    if segment is None:
         return None
-    if not tokens:
+    pythonpath_value = segment.assignment("PYTHONPATH")
+    if pythonpath_value is None or not segment.argv:
         return None
-
-    # Skip an optional ``cd <dir> &&`` prefix; shlex collapses ``&&``
-    # into a literal token between the two clauses, so the second
-    # clause starts after the first ``&&`` token in the stream.
-    idx = _skip_cd_prefix(tokens)
-
-    pythonpath_value: Optional[str] = None
-    while idx < len(tokens):
-        tok = tokens[idx]
-        if "=" not in tok or tok.startswith("-"):
-            break
-        head, value = tok.split("=", 1)
-        if not _looks_like_env_assignment_head(head):
-            break
-        if head == "PYTHONPATH":
-            pythonpath_value = value
-        idx += 1
-
-    if pythonpath_value is None:
+    if not _pythonpath_matches_yoke(pythonpath_value, yoke_root):
         return None
-    if idx >= len(tokens):
+    if not _is_yoke_internal_python_invocation(list(segment.argv)):
         return None
-    if not _pythonpath_matches_yoke(pythonpath_value, root):
-        return None
-    if not _is_yoke_internal_python_invocation(tokens[idx:]):
-        return None
-    return root
-
-
-def _skip_cd_prefix(tokens: List[str]) -> int:
-    """Return the index after an optional leading ``cd <dir> &&`` pair.
-
-    Anything that does not match the exact ``cd <dir> &&`` shape is
-    ignored — the caller starts at index 0 instead.
-    """
-    if len(tokens) >= 3 and tokens[0] == "cd" and tokens[2] == "&&":
-        return 3
-    return 0
-
-
-def _looks_like_env_assignment_head(head: str) -> bool:
-    if not head:
-        return False
-    if not head[0].isalpha() and head[0] != "_":
-        return False
-    return all(ch == "_" or ch.isalnum() for ch in head)
+    return yoke_root
 
 
 def _pythonpath_matches_yoke(value: str, yoke_root: str) -> bool:
@@ -250,7 +211,9 @@ def render_allowed_block(repo_roots: Sequence[str], *, yoke_root: str = "") -> s
     return "\n".join(lines) + "\n"
 
 
-def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
+def resolve_authority_cwd(
+    payload: Mapping[str, Any], *, shell: ShellParse | None = None
+) -> str:
     """Return the cwd used as the synthetic target for validation.
 
     Bash commands shaped as
@@ -259,6 +222,7 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
     the override substitutes the Yoke main root. Otherwise the declared
     call workdir wins, then a usable payload cwd or project root. A bare
     app-container root is ignored because it is not a filesystem target.
+    ``shell`` is the caller's parse of the payload command, when it has one.
     """
     from yoke_core.domain.lint_session_cwd_target_extract import (
         extract_payload_command,
@@ -268,7 +232,7 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
     command = extract_payload_command(payload) if isinstance(payload, Mapping) else ""
     if command:
         override = extract_pythonpath_yoke_cwd_override(
-            command, yoke_source_root(payload)
+            shell if shell is not None else command, yoke_source_root(payload)
         )
         if override:
             return override

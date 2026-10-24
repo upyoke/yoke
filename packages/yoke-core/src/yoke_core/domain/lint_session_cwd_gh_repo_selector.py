@@ -7,6 +7,7 @@ import shlex
 from pathlib import PurePath
 from typing import List
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 _REMOTE_SELECTOR_RE = re.compile(
     r"\$\(\s*git\s+-C\s+(?P<path>'[^']*'|\"[^\"]*\"|[^\s)]+)"
@@ -15,23 +16,19 @@ _REMOTE_SELECTOR_RE = re.compile(
 _SHELL_CONTROL = frozenset(";&|`")
 
 
-def _is_env_assignment(token: str) -> bool:
-    if "=" not in token or token.startswith("-"):
-        return False
-    name = token.split("=", 1)[0]
-    return bool(name) and name[0].isalpha() and name.replace("_", "").isalnum()
+def extract_gh_repo_selector_targets(command: str | ShellParse) -> List[str]:
+    """Return the checkout in one exact ``gh --repo $(git -C ...)`` shape.
 
-
-def extract_gh_repo_selector_targets(command: str) -> List[str]:
-    """Return the checkout in one exact ``gh --repo $(git -C ...)`` shape."""
-    if command.count("$(") != 1 or any(char in command for char in _SHELL_CONTROL):
+    The control-character check reads the raw text on purpose: a ``;``
+    or backtick inside the quoted ``$(...)`` selector still runs.
+    """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    code = parsed.code
+    if code.count("$(") != 1 or any(char in code for char in _SHELL_CONTROL):
         return []
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
+    if parsed.unparsed or len(parsed.segments) != 1:
         return []
-    while tokens and _is_env_assignment(tokens[0]):
-        tokens.pop(0)
+    tokens = parsed.segments[0].argv
     if not tokens or PurePath(tokens[0]).name != "gh":
         return []
 

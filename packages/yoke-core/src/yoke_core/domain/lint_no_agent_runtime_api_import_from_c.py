@@ -46,14 +46,7 @@ from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_messages import (
 from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
     is_read_only_import_probe,
 )
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_env_prefixes,
-    strip_heredoc_syntax,
-)
-from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
-    shell_command_segments,
-)
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -140,7 +133,7 @@ def _interpreter_index(tokens: List[str]) -> Optional[int]:
     return None
 
 
-def _iter_python_c_bodies(command: str):
+def _iter_python_c_bodies(command: str | ShellParse):
     """Yield ``(ordinal, interpreter, body)`` per ``python(3)? -c`` invocation.
 
     Only an interpreter in command position runs: the shared quote-aware
@@ -154,9 +147,10 @@ def _iter_python_c_bodies(command: str):
     ``ordinal`` counts interpreter invocations from 1 across the whole
     command, so a refusal can say which one of a compound command it means.
     """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     ordinal = 0
-    for segment in shell_command_segments(strip_heredoc_syntax(command)):
-        tokens = strip_env_prefixes(command_operand_tokens(segment))
+    for segment in parsed.segments:
+        tokens = list(segment.argv)
         i = _interpreter_index(tokens)
         if i is None:
             continue
@@ -213,8 +207,13 @@ def _format_reason(
     )
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Apply the rule; return ``(reason, audit_outcome)`` on a hit, else None."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit, else None.
+
+    ``shell`` is the hook call's shared parse of the same command.
+    """
     if not isinstance(payload, dict):
         return None
     command = _extract_command(payload)
@@ -224,7 +223,8 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     matched = ""
     ordinal = 0
     interpreter = ""
-    for ordinal, interpreter, body in _iter_python_c_bodies(command):
+    parsed = shell if shell is not None else parse_shell(command)
+    for ordinal, interpreter, body in _iter_python_c_bodies(parsed):
         if _body_imports_runtime(body) and not is_read_only_import_probe(body):
             hit = True
             matched = _matched_import(body)
@@ -243,7 +243,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_control_plane import (
     SCOPE_MISMATCH_TEMPLATE as SCOPE_MISMATCH_TEMPLATE,
@@ -88,8 +89,14 @@ def evaluate_pre_tool_use(
     watcher_capture_root: str = "",
     claude_job_tmp_root: str = "",
     machine_home: str | None = None,
+    shell: ShellParse | None = None,
 ) -> Verdict:
-    """Return the :class:`Verdict` for a PreToolUse payload."""
+    """Return the :class:`Verdict` for a PreToolUse payload.
+
+    ``shell`` is the hook call's shared parse of the Bash command; it is
+    used when it parsed the same text this guard reads (an apply_patch
+    payload carries patch text instead).
+    """
     session_id = session_id_from_hook_payload(payload)
     tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
     write_operation = is_write_operation(tool_name, dict(payload))
@@ -108,7 +115,12 @@ def evaluate_pre_tool_use(
     path_uses = extract_payload_path_uses(payload, machine_home=machine_home)
     targets = [use.path for use in path_uses if use.role != PathRole.REMOTE]
     command = extract_payload_command(payload)
-    fallback_cwd = resolve_authority_cwd(payload)
+    parsed = (
+        shell
+        if shell is not None and shell.command == command
+        else parse_shell(command)
+    )
+    fallback_cwd = resolve_authority_cwd(payload, shell=parsed)
 
     try:
         with _open_conn() as conn:
@@ -147,7 +159,7 @@ def evaluate_pre_tool_use(
 
     # Orientation with no operands may use its established read signature.
     if not targets:
-        signature = match_read_only_signature(command)
+        signature = match_read_only_signature(parsed)
         if signature:
             emit_mismatch_allowed_read_only(
                 session_id=outcome.session_id,
@@ -193,6 +205,7 @@ def evaluate(record: HookContext) -> HookDecision:
                 watcher_capture_root=client_scratch_root(payload),
                 claude_job_tmp_root=client_claude_job_tmp(payload),
                 machine_home=client_machine_home(payload),
+                shell=record.shell,
             )
         except Exception as exc:
             emit_fail_open(
