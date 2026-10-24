@@ -8,34 +8,27 @@ Use execution levels to place launched sessions, interpret their labels and conv
 
 ## Launching by level
 
-A create with no selector uses the item's live effective stage level, and
-Yoke chooses the option and machine; it records nothing. An explicit `--level`
-on an item-bound create also records that level as the item's override for
-every stage, `{"min": L, "max": L, "reason": R}`, in the launch's own
-transaction and with the launching seat's own authority (no claim is acquired
-or released). The worker is therefore not handed off at its first stage edge.
-`--level-reason R` states why (default `launch-time level`); the result's
-`item_level` (`level`, `reason`, `changed`, `previous`) echoes it, and a launch
-that fails records nothing. A pin that does not allow `level` refuses
-`item_level_not_recordable`; an item-bound create against a server that predates
-the recording prints `item_level_unrecorded`. A preview, an itemless create,
-and an exact surface place one launch only. A missing stage level without an
-explicit selector refuses as `stage_level_missing`, naming `--level` or the
-steering-seat workflow migration
-preview/apply prerequisite for an existing old pin. Select a compatible
-published version; new versions never move existing pins automatically.
-`HC-workflow-stage-level-pins` fails naming every non-terminal item pinned to a
-version with a level-less stage, with its exact
-`yoke workflows item migrate PREFIX-N --version N --preview` recipe:
+Preview, then create, naming only the item. Routing picks the level from the
+item's live workflow stage, then the surface, model, effort and machine:
 
 ```text
-yoke session-control launch preview --project P --level SENIOR [--machine MACHINE_ID] --json
+yoke session-control launch preview --project P --item PREFIX-N
 yoke session-control launch create --project P --item PREFIX-N --idempotency-key K
 yoke session-control launch list --project P --item PREFIX-N   # launches that staffed the item
 ```
 
-An item-bound launch names its session `PREFIX-N: title`; the list's ITEM
-column and `--item` filter read that prefix.
+The item preview resolves the effective stage level the same way the create
+does, so its `requested_level`, option and machine are the create's. A
+selector-free create records nothing on the item. An item-bound launch names
+its session `PREFIX-N: title`; the list's ITEM column and `--item` filter read
+that prefix.
+
+A missing stage level refuses as `stage_level_missing`, naming `--level` or the
+steering-seat workflow migration preview/apply prerequisite for an existing
+old pin. Select a compatible published version; new versions never move
+existing pins automatically. `HC-workflow-stage-level-pins` fails naming every
+non-terminal item pinned to a version with a level-less stage, with its exact
+`yoke workflows item migrate PREFIX-N --version N --preview` recipe.
 
 Placement expands each model row through its manifest's selection source at its minimum
 effort. Machine access, lane capacity and quota rules remain authoritative.
@@ -64,32 +57,75 @@ takes. Each pool shows quota left, headroom, the live workers drawing on it
 (`workers`) with the per-worker split (`share_percent`), and its reset in
 UTC; an option's `headroom_percent` is its binding pool's split. The
 stored launch keeps the level as its ask, and `launch retry` places the
-level again. `--machine` narrows placement to one registered Machine; pass
-its id. A retired Machine never matches, and a name shared by several live
-Machines refuses `machine_unresolved` listing each candidate id. A test
-machine is not a Machine: it is reached through its QA lease.
+level again.
 
-On an item-bound create, `--surface S` without `--model` uses the live
-effective stage level and restricts placement to S. It never records an item
-level override. Omit effort/context knobs with a surface-only request;
-name `--model` to customize them. A surface-only request with explicit effort
-or context refuses `launch_model_required` instead of discarding those values.
-The stored request and retries retain S; a replay with a
-different surface refuses `idempotency_conflict`. If no option qualifies,
-`level_no_capacity` names the blockers and the explicit launch flags
-`--surface S --model MODEL --reasoning-effort EFFORT`. A missing stage level
-refuses `launch_model_required` with the same flags.
+## Overrides
 
-An explicit `--surface` with `--model` (plus `--reasoning-effort`,
-`--context-window` as needed) still launches exactly as asked and is
-recorded as `selection: override`. A level and explicit knobs are exclusive
-(`level_selection_conflict`). `level` is a new argument of the launch
-functions: an HTTPS server older than its serving floor rejects it, and the
-CLI refuses as `function_argument_version_skew`, naming the floor and the
-explicit form that server still accepts. The CLI marks a selector-free create
-with `use_stage_level: true`, an argument with its own serving floor, so an
-older server names the unavailable stage default and the explicit selector
-recovery rather than silently launching another level.
+Selection flags are exceptions to the default route. `--level` with
+`--surface` (or any explicit model knob) refuses `level_selection_conflict`.
+
+### Level override
+
+Pass `--level LEVEL --level-reason R` only when the work needs a level other
+than the item's effective stage level. Configured levels are in
+`yoke settings get levels`; the item's stage level is in
+`yoke workflows item get PREFIX-N`. On an item-bound create, `--level` also
+records that level as the item's override for every stage,
+`{"min": L, "max": L, "reason": R}`, in the launch's own transaction and with
+the launching seat's own authority (no claim is acquired or released). The
+worker is therefore not handed off at its first stage edge. `--level-reason`
+defaults to `launch-time level`; the result's `item_level` (`level`, `reason`,
+`changed`, `previous`) echoes it, and a launch that fails records nothing. A
+pin that does not allow `level` refuses `item_level_not_recordable`; an
+item-bound create against a server that predates the recording prints
+`item_level_unrecorded`. A preview and an itemless create place one launch
+only; an itemless raw launch has no stage, so it must name `--level`.
+
+```text
+yoke session-control launch preview --project P --item PREFIX-N --level LEVEL
+yoke session-control launch create --project P --item PREFIX-N --level LEVEL --level-reason R --idempotency-key K
+```
+
+### Placement overrides
+
+Use `--surface`, `--model`, `--reasoning-effort`, `--context-window`,
+`--machine` or `--allow-surface-fallback` only when a refusal names one, the
+operator asks for a specific surface or machine, or a
+[capacity recovery](capacity-recovery.md) calls for it.
+
+- `--machine MACHINE_ID` narrows placement to one registered Machine; pass its
+  id. A retired Machine never matches, and a name shared by several live
+  Machines refuses `machine_unresolved` listing each candidate id. A test
+  machine is not a Machine: it is reached through its QA lease.
+- `--surface S` without `--model` on an item-bound create or preview uses the
+  live effective stage level and restricts placement to S. It never records
+  an item level override. Omit effort/context knobs in that form; a
+  surface-only request with explicit effort or context refuses
+  `launch_model_required` instead of discarding those values. The stored
+  request and retries retain S; a replay with a different surface refuses
+  `idempotency_conflict`. If no option qualifies, `level_no_capacity` names
+  the blockers and the explicit launch flags
+  `--surface S --model MODEL --reasoning-effort EFFORT`. A missing stage level
+  refuses `launch_model_required` with the same flags.
+- `--surface S --model M` (plus `--reasoning-effort`, `--context-window` as
+  needed) launches exactly as asked and is recorded as `selection: override`.
+- `--allow-surface-fallback` lets an explicit selection use another surface
+  when no relay serves the named one.
+
+```text
+yoke session-control launch preview --project P --item PREFIX-N --machine MACHINE_ID
+yoke session-control launch create --project P --item PREFIX-N --surface S --model M --reasoning-effort E --idempotency-key K
+```
+
+### Serving floors
+
+`level` is an argument of the launch functions with its own serving floor: an
+HTTPS server older than it rejects it, and the CLI refuses as
+`function_argument_version_skew`, naming the floor and the explicit form that
+server still accepts. The CLI marks a selector-free create with
+`use_stage_level: true`, and an item preview sends `item`; each has its own
+serving floor, so an older server names the unavailable stage default and the
+explicit `--level` recovery rather than silently placing another level.
 
 ## Glyph contract
 

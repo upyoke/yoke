@@ -11,14 +11,16 @@ from yoke_contracts.session_control.sender_surface import SenderSurface
 
 
 class LaunchPreviewRequest(BaseModel):
-    """Either a level for Yoke to place, or one exact selection to launch.
+    """An item's stage level, a level for Yoke to place, or one exact selection.
 
-    ``level`` lets Yoke choose the option and machine; an explicit
-    ``executor_surface`` (with any model knobs) launches exactly as asked.
-    The two are exclusive, and one of them is required.
+    With only ``item``, Yoke places the item's effective stage level, as an
+    item-bound create without selectors does. ``level`` lets Yoke choose the
+    option and machine; an explicit ``executor_surface`` (with any model
+    knobs) launches exactly as asked. Level and explicit knobs are exclusive.
     """
 
     project: str
+    item: Optional[str] = Field(default=None, min_length=1, max_length=64)
     level: Optional[str] = Field(default=None, min_length=1, max_length=64)
     executor_surface: Optional[str] = None
     machine_id: Optional[str] = None
@@ -62,11 +64,12 @@ class LaunchPreviewRequest(BaseModel):
         if (
             self.level is None
             and self.executor_surface is None
-            and (not isinstance(self, LaunchCreateRequest) or explicit)
+            and (explicit or not (self.item or isinstance(self, LaunchCreateRequest)))
         ):
             raise ValueError(
-                "launch_selection_missing: name a level for Yoke to place, or "
-                "an executor surface to launch exactly as asked"
+                "launch_selection_missing: name an item to use its stage level, "
+                "a level for Yoke to place, or an executor surface to launch "
+                "exactly as asked"
             )
         return self
 
@@ -80,7 +83,6 @@ class LaunchCreateRequest(LaunchPreviewRequest):
     """
 
     use_stage_level: bool = False
-    item: Optional[str] = Field(default=None, min_length=1, max_length=64)
     level_reason: Optional[str] = Field(default=None, min_length=1, max_length=500)
     instructions: str = ""
     compose_mandate: bool = True

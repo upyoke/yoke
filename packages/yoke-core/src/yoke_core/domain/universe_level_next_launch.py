@@ -22,6 +22,7 @@ from yoke_contracts.levels import Level
 from yoke_core.domain.session_launch_preview_payload import level_preview_payload
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
+    LaunchRequest,
     SessionLaunchError,
 )
 
@@ -75,7 +76,15 @@ def next_launches(
         for level in levels:
             try:
                 preview = level_preview_payload(
-                    conn, auth=auth, project_id=project_id, level=level.name
+                    conn,
+                    auth=auth,
+                    request=LaunchRequest(
+                        project_id=project_id,
+                        executor_surface="",
+                        instructions="",
+                        idempotency_key="",
+                        level=level.name,
+                    ),
                 )
             except SessionLaunchError as exc:
                 out[level.name].append(

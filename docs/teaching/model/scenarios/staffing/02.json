@@ -4,12 +4,12 @@
  "status": "draft-copy",
  "audience": "agent",
  "when": "Immediately before staffing an item or an itemless mandate",
- "need": "Use registered launch preview/create; the engine composes item mandates. Read the selected level, machine and blockers. An item-bound create with a surface but no model selects the best option at the item stage level on that surface; retry preserves the surface. Name a model to customize effort/context; a surface-only request never silently discards those knobs. If none qualifies, use the named --surface, --model and --reasoning-effort launch flags or repair the blocker. The opening hook binds through its launch-specific attestation, never folder/time proximity. An assigned worker must acknowledge and claim its own item before the deadline. Missing entry names launch_work_claim_missing and releases launch-only staffing. Read launch get for the exact session and recovery evidence.",
+ "need": "Preview, then create, naming only the item: routing picks the level from the item's workflow stage, then surface, model, effort and machine, and the item preview shows the route the create takes. Pass --level with --level-reason only when the work needs a level other than the item's effective stage level; placement flags only when a refusal names one, the operator asks, or a capacity recovery calls for it (level-launches Overrides). --level with --surface refuses level_selection_conflict. The engine composes item mandates. The opening hook binds through its launch-specific attestation, never folder/time proximity. An assigned worker must acknowledge and claim its own item before the deadline. Missing entry names launch_work_claim_missing and releases launch-only staffing. Read launch get for the exact session and recovery evidence.",
  "disclosure": "current cue",
- "surface": "Steer worker-launch and model-selection -> launch help/preview.",
+ "surface": "Steer worker-launch and model-selection -> launch help/preview -> level-launches Overrides.",
  "review": "Pending exact recipe proof.",
- "recipes": ["yoke session-control launch preview --help", "yoke session-control launch preview --project P --level SENIOR", "yoke session-control launch get LAUNCH_ID"],
+ "recipes": ["yoke session-control launch preview --help", "yoke session-control launch preview --project P --item PREFIX-N", "yoke session-control launch create --project P --item PREFIX-N --idempotency-key K", "yoke session-control launch get LAUNCH_ID"],
  "plan_notes": ["outside both"],
- "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/steer/model-selection.md", "docs/public/cli/machine-config.md"],
+ "sources": [".agents/skills/yoke/steer/worker-launch.md", ".agents/skills/yoke/steer/model-selection.md", "docs/public/cli/machine-config.md", "docs/public/agents/level-launches.md"],
  "position": 1
 }

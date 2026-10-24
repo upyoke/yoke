@@ -242,6 +242,10 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
         ),
+        "item": ArgumentFloor(
+            "next-release",
+            "--level LEVEL naming the level `yoke items detail get PREFIX-N` shows",
+        ),
     },
 }
 

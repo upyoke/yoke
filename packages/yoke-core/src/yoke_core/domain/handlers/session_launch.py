@@ -95,26 +95,21 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_preview_payload import (
-        explicit_preview_payload,
-        level_preview_payload,
+        launch_preview_payload,
     )
 
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
         auth = launch_authorization(conn, request, project_id)
-        if parsed.level:
-            payload = level_preview_payload(
-                conn, auth=auth, project_id=project_id, level=parsed.level
-            )
-        else:
-            payload = explicit_preview_payload(
-                conn,
-                auth=auth,
-                project_id=project_id,
-                parsed=parsed,
-                surface_fallback_enabled=SURFACE_FALLBACK,
-            )
+        payload = launch_preview_payload(
+            conn,
+            auth=auth,
+            project_id=project_id,
+            parsed=parsed,
+            item=_launch_item_ref(conn, parsed.item, project_id),
+            surface_fallback_enabled=SURFACE_FALLBACK,
+        )
         return HandlerOutcome(result_payload=payload)
     except Exception as exc:
         return _domain_error(exc)
