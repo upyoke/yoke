@@ -142,7 +142,7 @@ class TestNonMatches(unittest.TestCase):
 
     def test_help_argv_exempt_for_every_long_command_form(self):
         commands = (
-            "yoke watch merge done-transition --help 2>&1 | tail -25",
+            "yoke watch merge merge-item --help 2>&1 | tail -25",
             "yoke watch qa-plan -h | head -3",
             "python3 -m yoke_core.tools.watch_doctor --help | head -20",
             "pytest -h | tail -10",

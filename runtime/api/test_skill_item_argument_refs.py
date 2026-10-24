@@ -30,7 +30,6 @@ SKILL_PATHS = (
 LEGACY_ARGUMENT_PATTERNS = (
     re.compile(r"PREFIX-\{(?:N|id|item_id)\}"),
     re.compile(r"--item(?:-id)?\s+\{(?:N|id|item_id)\}"),
-    re.compile(r"done-transition[^\n`]*--\s+\{(?:N|id|item_id)\}"),
 )
 
 

@@ -13,7 +13,7 @@ from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND, designed_wa
 _JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
 _TERMINAL_LINE_RE = re.compile(
     r"^\s*(?:(?:\[tests\]\s*)?(?:Error:|ERROR:|fatal:|"
-    r"Step runner diagnostic:|Merge halted:|Merge lock error:|HARD STOP:|"
+    r"Step runner diagnostic:|Merge lock error:|HARD STOP:|"
     r"FAIL(?:ED)?\b|deploy driver source drift:)|.*(?:could not (?:copy|read)\b|"
     r"receipt was not recorded\b|release gate will still refuse\b))",
     re.IGNORECASE,

@@ -67,7 +67,7 @@ exit "$_rc"
 ```
 
 No tracked `.sh` test runners. For long checks use `yoke watch pytest -- <args>`;
-merge shapes `yoke watch merge --print-streaming-pair done-transition <args>` /
+merge shapes `yoke watch merge --print-streaming-pair merge-item -- <args>` /
 `merge-worktree <args>`, then execute printed command once. The selected harness
 wait shape governs: wrappers preserve complete raw output, print actionable
 terminal failures/results, and pytest streams progress. After exit inspect

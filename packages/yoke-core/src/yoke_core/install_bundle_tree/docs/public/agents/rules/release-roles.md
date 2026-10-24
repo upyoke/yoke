@@ -40,7 +40,7 @@ A run with members has two roles. Each `--help` carries the matrix:
 - An operator-wake surface (a desktop app) is re-entered by that operator or a steering seat,
   never by Yoke.
 - `yoke merge item` is the one close-out, at merge and at the release wait, with `--result` and
-  `--verification`. Never use `done-transition --skip-deploy` for a flow that delivers.
+  `--verification`.
 - After a takeover, continue your execution ID
   ([run members](../../deployments/model/run-members.md)).
 
