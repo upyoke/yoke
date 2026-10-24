@@ -13,6 +13,7 @@ from yoke_core.domain.merge_queue_landing_outcome import QueueLandingOutcome
 from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
 from yoke_core.tools.watch_merge import classify_merge_line
 from yoke_core.tools._watch_throttle import LineClass
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.mark.parametrize("as_json", [False, True])
@@ -46,6 +47,7 @@ def test_cli_and_watcher_keep_failed_run_and_recovery(
     )
     monkeypatch.setattr(cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(cli, "_resolve_checkout", lambda *_a: (tmp_path, "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)

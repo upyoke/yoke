@@ -34,6 +34,7 @@ from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +129,7 @@ def _wire_merge(monkeypatch: pytest.MonkeyPatch, repo: Path, item: dict) -> None
         "_resolve_checkout",
         lambda _item, target: (repo, "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
     monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
     monkeypatch.setattr(sim, "_run_merge_engine", integrate_candidate)

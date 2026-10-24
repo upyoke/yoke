@@ -217,7 +217,7 @@ class TestPostRebaseRelays:
         assert calls[1]["target"].kind == "item"
         assert calls[1]["target"].public_ref == "ITEM-42"
         assert calls[1]["target"].item_id is None
-        assert calls[1]["payload"] == {"transition_id": "release"}
+        assert calls[1]["payload"] == {"transition_id": "release", "materialize": True}
 
     def test_missing_command_response_blocks(self, monkeypatch):
         monkeypatch.setattr(

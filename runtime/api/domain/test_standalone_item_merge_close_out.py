@@ -24,6 +24,7 @@ from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -155,6 +156,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "_resolve_checkout",
         lambda item, target: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         verify,
@@ -281,6 +283,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,

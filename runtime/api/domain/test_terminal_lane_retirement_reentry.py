@@ -18,6 +18,7 @@ import pytest
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 CLAIM_MISSING = (
     "no active claim by session 'session-1' on item ITEM-1; acquire one "
@@ -71,6 +72,7 @@ def test_a_close_out_re_entered_after_its_claim_released_retires_lanes(
         "_resolve_checkout",
         lambda *_a: pytest.fail("the closed-out re-entry answers before checkout"),
     )
+    admit_route_gates(monkeypatch)
 
     exit_code = merge_cli.run(
         ["ITEM-1", "--result", "landed", "--verification", "suite green"]
@@ -100,6 +102,7 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "release")
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)

@@ -14,6 +14,7 @@ from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -34,6 +35,7 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(
         verify, "qa_preflight",
         lambda *_a, **_k: (LANE_SHA, ""),

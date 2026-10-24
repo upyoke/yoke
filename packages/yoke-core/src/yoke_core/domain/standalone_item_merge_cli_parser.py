@@ -16,9 +16,11 @@ Landing readiness
 -----------------
 Before anything lands or waits, the merge asks every landing question at
 once -- review stage, evidence flags, lane, work claim, stale lane,
-uncommitted lane files, blocking QA proof, post-deploy QA answer -- and
+uncommitted lane files, blocking QA proof, post-deploy QA answer,
+integration dependencies, candidate review, the merge-queue probe and, for
+a local landing, the project's registered verification command -- and
 refuses with every failing gate and its recovery in one message. Run the
-same report without side effects first:
+same report, from the same code, without side effects first:
 
   yoke merge item PREFIX-N --check
 

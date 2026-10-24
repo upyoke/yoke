@@ -9,10 +9,15 @@ same report and changes nothing.
 
 The questions, in report order: review stage, close-out evidence flags, lane
 resolution, checkout, stale unlanded work, work claim (including a pruned
-lane with nothing landed), uncommitted lane files, blocking QA proof for the merging commit, and the post-deploy QA
-answer. A lane that already landed skips the last two: nothing is left to
-prove before a landing that happened. So does a merge that must recover its
-claim first: the merge proves the recovered lane after recovery.
+lane with nothing landed), uncommitted lane files, blocking QA proof for the
+merging commit, the post-deploy QA answer, then the landing route's own gates
+(integration dependencies, candidate review, the merge-queue probe and, for
+the standalone engine, the project's verification command). Those route gates
+call the functions the landing itself calls, so ``--check`` and the merge
+cannot disagree. A lane that already landed skips everything after the clean
+tree: nothing is left to prove before a landing that happened. So does a
+merge that must recover its claim first: the merge proves the recovered lane
+after recovery.
 
 Two conditions are not blockers because the merge resolves them itself: an
 item one declared edge before review (the merge enters review), and QA
@@ -36,6 +41,8 @@ from yoke_core.domain.classify_dirty_files import classify_dirty_files
 from yoke_core.domain.close_out_evidence_gate import (
     terminal_transition_is_evidence_gated,
 )
+from yoke_core.domain.merge_queue_landing_timeout import merge_item_resume_command
+from yoke_core.domain.merge_queue_route_selection import route_admission
 from yoke_core.domain.merge_review_readiness import ReviewReadiness, review_readiness
 from yoke_core.domain.qa_item_stage_plan_gate import missing_item_qa_plan_refusal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
@@ -49,6 +56,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
 from yoke_core.domain.standalone_item_merge_release_status import (
     stale_mismatch_is_foreign,
 )
+from yoke_core.engines.merge_worktree_tests import resolve_verification
 
 
 @dataclass(frozen=True)
@@ -131,6 +139,33 @@ def _qa_gates(readiness: LandingReadiness, item: dict[str, Any], args: Any) -> N
     plan_refusal = missing_item_qa_plan_refusal(item, public_ref=readiness.public_ref)
     if plan_refusal:
         readiness.blockers.append(LandingBlocker("post-deploy QA", plan_refusal))
+
+
+def _route_gates(
+    readiness: LandingReadiness, item: dict[str, Any], args: Any, head: str
+) -> None:
+    """The landing route's own gates, asked through the code the landing runs."""
+    public_ref = readiness.public_ref
+    admission = route_admission(
+        item_id=str(item["public_ref"]),
+        branch=readiness.branch,
+        target=readiness.target,
+        repo_root=str(readiness.repo_root),
+        project=str((item.get("project") or {}).get("slug") or ""),
+        commit_sha=head,
+        public_ref=public_ref,
+        resume_command=merge_item_resume_command(public_ref, args),
+    )
+    if admission.refusal:
+        readiness.blockers.append(LandingBlocker(admission.gate, admission.refusal))
+    elif not admission.declares_queue:
+        # The standalone engine resolves this after its rebase; read-only here.
+        try:
+            resolve_verification(public_ref, materialize=False)
+        except RuntimeError as exc:
+            readiness.blockers.append(
+                LandingBlocker("verification command", f"{public_ref}: {exc}")
+            )
 
 
 def assess(
@@ -262,6 +297,7 @@ def assess(
     # changes the item the proof is read from, so the merge proves it after.
     if readiness.landed is None and not (missing_claim or pruned_lane):
         _qa_gates(readiness, item, args)
+        _route_gates(readiness, item, args, recorded_head)
     return readiness
 
 
