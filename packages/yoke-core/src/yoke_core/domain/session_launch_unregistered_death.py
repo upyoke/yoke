@@ -112,6 +112,7 @@ def _close(
         launch.launch_id,
         delivery_changed_at=now,
         state="failed",
+        native_launch_phase="native_exited",
         completed_at=now,
         result_code=NATIVE_EXITED_UNREGISTERED_CODE,
         result_evidence=merge_redacted_evidence(launch.result_evidence, recorded),

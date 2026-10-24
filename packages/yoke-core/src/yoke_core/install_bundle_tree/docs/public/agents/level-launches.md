@@ -127,6 +127,26 @@ server still accepts. The CLI marks a selector-free create with
 serving floor, so an older server names the unavailable stage default and the
 explicit `--level` recovery rather than silently placing another level.
 
+## Unregistered launch failures
+
+The steering report shows unregistered launch failures immediately, without an
+age cutoff. A failure leaves the report when its item reaches a terminal stage,
+a later launch for the same item registers a session, or an operator settles it.
+Item identity comes from the stored `PREFIX-N: title` session-name prefix, so a
+title change does not prevent replacement detection; itemless failures remain
+visible until settled explicitly.
+
+Inspect `yoke session-control launch get LAUNCH-ID --json` and its diagnostic
+reference before restaffing. A native that exited without registering is reported
+as `native_exited`, with its exit code and output; it may have run without ever
+binding a Yoke session. If the cause is fixed, relaunch the work. If the failure is
+resolved or no longer needs action, use `yoke session-control launch cancel
+LAUNCH-ID`: a failed unregistered launch with recorded native exit evidence is
+cancelled, retaining its diagnostics. A native with no recorded exit still needs
+`yoke session-control launch reconcile LAUNCH-ID` to establish its outcome before
+retry. Cancelling a session that already received its mandate remains refused;
+follow the command's named recovery.
+
 ## Glyph contract
 
 `yoke_contracts.glyph_contract` requires one `Emoji_Presentation=Yes` code point

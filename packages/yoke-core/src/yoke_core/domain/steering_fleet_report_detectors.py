@@ -21,6 +21,9 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_terminal_resources import item_is_terminal
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+from yoke_core.domain.session_launch_assignment import assignment_ref
 from yoke_core.domain.session_launch_delivery_state import (
     IN_FLIGHT_LAUNCH_STATES,
     QUEUED_LAUNCH_STATES,
@@ -156,7 +159,7 @@ def unregistered_launches(
                    l.assigned_machine_id, l.requested_machine_id, l.state,
                    l.deadline_at, l.result_code, l.native_session_id,
                    l.native_launch_pid, l.native_launch_phase, l.spawn_duration_ms,
-                   l.result_evidence,
+                   l.result_evidence, l.session_name, l.created_at,
                    s.session_id AS observed_session_id
               FROM session_launches l
               LEFT JOIN harness_sessions s
@@ -169,6 +172,7 @@ def unregistered_launches(
                AND s.terminated_at IS NULL
              WHERE l.registered_session_id IS NULL
                AND l.project_id = {p}
+               AND l.state <> 'cancelled'
                AND (l.state IN ({state_holes})
                     OR l.result_code IN ({failure_holes})
                     OR s.session_id IS NOT NULL)
@@ -178,6 +182,23 @@ def unregistered_launches(
     gaps = []
     for row in rows:
         record = dict(row)
+        reference = assignment_ref(record.get("session_name"))
+        item_id = (
+            resolve_item_ref_or_none(conn, reference, project=project_id)
+            if reference
+            else None
+        )
+        if item_id is not None:
+            if item_is_terminal(conn, item_id) is True:
+                continue
+            replacement = conn.execute(
+                "SELECT 1 FROM session_launches "
+                f"WHERE project_id={p} AND session_name LIKE {p} "
+                f"AND created_at>{p} AND registered_session_id IS NOT NULL LIMIT 1",
+                (project_id, f"{reference}: %", record["created_at"]),
+            ).fetchone()
+            if replacement is not None:
+                continue
         queued = record.get("state") in QUEUED_LAUNCH_STATES
         elapsed = 0 if queued else age_seconds(record.get("deadline_at"), now) or 0
         result_code = str(record.get("result_code") or "")
@@ -208,7 +229,9 @@ def unregistered_launches(
                 observed_session_id=observed_session_id,
                 native_launch_pid=record.get("native_launch_pid"),
                 native_launch_phase=(
-                    str(record.get("native_launch_phase") or "") or None
+                    "native_exited"
+                    if evidence.get("native_exit_at")
+                    else str(record.get("native_launch_phase") or "") or None
                 ),
                 spawn_duration_ms=record.get("spawn_duration_ms"),
                 native_stderr_tail=evidence_text(
