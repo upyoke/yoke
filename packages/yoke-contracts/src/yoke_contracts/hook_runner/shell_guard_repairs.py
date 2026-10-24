@@ -15,6 +15,7 @@ NOTHING_RAN = "Nothing in this invocation ran. Retry the repaired command."
 RIPGREP_REPLACE_CHECK_ID = "lint-ripgrep-replace"
 STEM_MATCH_LIMIT = 8
 _HEREDOC = re.compile(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?")
+_ARRAY_ASSIGNMENT_OPEN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?=\(")
 
 
 def executing_shell(payload: dict) -> str:
@@ -73,7 +74,7 @@ def is_compound(command: str) -> bool:
 
 
 def ripgrep_replace_repair(command: str) -> str | None:
-    """Return a safe `rg -n` command when `-r` was used as a search flag."""
+    """Return `rg -n` when `-r` was used as a search flag; `-r '$1'` replaces."""
     for segment in shell_segments(command):
         if not segment or segment[0].rsplit("/", 1)[-1] != "rg":
             continue
@@ -82,11 +83,10 @@ def ripgrep_replace_repair(command: str) -> str | None:
         for index, token in enumerate(segment[1:], 1):
             if token == "--":
                 break
-            if (
-                token.startswith("-")
-                and not token.startswith("--")
-                and "r" in token[1:]
-            ):
+            if token.startswith("-") and not token.startswith("--") and "r" in token[1:]:
+                value = token[1:].split("r", 1)[1] or "".join(segment[index + 1:index + 2])
+                if "$" in value:
+                    continue
                 found = True
                 flags = token[1:].replace("r", "")
                 repaired[index] = "-" + flags if flags else ""
@@ -217,6 +217,12 @@ def _brace_alternatives(token: str):
                            for choice in group[1].split(","))
 
 
+def array_assignment_element(token: str) -> str:
+    """Drop a zsh array assignment's ``NAME=(`` or ``)`` from one element."""
+    token = _ARRAY_ASSIGNMENT_OPEN.sub("", token, count=1)
+    return token[:-1] if token.endswith(")") and "(" not in token else token
+
+
 def path_glob_is_unmatched(token: str, cwd: str) -> bool:
     """Check home, absolute and cwd-relative globs on the executing machine.
 
@@ -329,6 +335,7 @@ def _repaired_glob_command(
 __all__ = [
     "NOTHING_RAN",
     "RIPGREP_REPLACE_CHECK_ID",
+    "array_assignment_element",
     "executing_shell",
     "expanded_glob_path",
     "glob_segment_bases",
