@@ -282,6 +282,7 @@ def test_every_github_token_check_blocks_quit_until_worker_completion(
     calls: list[dict] = []
 
     class _CaptureShell:
+        _publication_destination_preset = None
         result = SimpleNamespace(
             api_url="https://api.test",
             config_path="/tmp/config.json",
