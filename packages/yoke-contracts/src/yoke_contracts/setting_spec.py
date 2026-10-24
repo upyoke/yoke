@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import copy
 import json
+from dataclasses import dataclass
 from typing import Any
+
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 @dataclass(frozen=True)
@@ -20,22 +22,34 @@ class SettingSpec:
     def validate(self, key: str, value: Any) -> Any:
         if type(value) is not self.value_type:
             raise ValueError(
-                f"setting_value_invalid: {key} must be { {int: 'integer', list: 'JSON array'}.get(self.value_type, self.value_type.__name__) }. Recovery: yoke settings list"
+                compose_refusal(
+                    f"setting_value_invalid: {key} must be { {int: 'integer', list: 'JSON array'}.get(self.value_type, self.value_type.__name__) }.",
+                    recovery="yoke settings list",
+                )
             )
         if self.fields is not None:
             if set(value) != set(self.fields) or not all(
                 isinstance(v, str) for v in value.values()
             ):
                 raise ValueError(
-                    f"setting_value_invalid: {key} requires only {self.fields} string fields. Recovery: yoke settings unset {key}"
+                    compose_refusal(
+                        f"setting_value_invalid: {key} requires only {self.fields} string fields.",
+                        recovery=f"yoke settings unset {key}",
+                    )
                 )
         if self.minimum is not None and value < self.minimum:
             raise ValueError(
-                f"setting_value_invalid: {key} must be at least {self.minimum}. Recovery: yoke settings list"
+                compose_refusal(
+                    f"setting_value_invalid: {key} must be at least {self.minimum}.",
+                    recovery="yoke settings list",
+                )
             )
         if self.allowed_values is not None and value not in self.allowed_values:
             raise ValueError(
-                f"setting_value_invalid: {key} must be one of {self.allowed_values}. Recovery: yoke settings list"
+                compose_refusal(
+                    f"setting_value_invalid: {key} must be one of {self.allowed_values}.",
+                    recovery="yoke settings list",
+                )
             )
         return copy.deepcopy(value)
 
@@ -47,7 +61,10 @@ class SettingSpec:
                 value = json.loads(text)
             except ValueError as exc:
                 raise ValueError(
-                    f"setting_value_invalid: {key} requires JSON {self.value_type.__name__}. Recovery: yoke settings list"
+                    compose_refusal(
+                        f"setting_value_invalid: {key} requires JSON {self.value_type.__name__}.",
+                        recovery="yoke settings list",
+                    )
                 ) from exc
         return self.validate(key, value)
 

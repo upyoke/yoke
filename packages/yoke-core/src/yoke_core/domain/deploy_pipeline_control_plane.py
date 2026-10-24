@@ -7,19 +7,21 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-from yoke_core.domain.deployment_start_timing import emit_records
-from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
+
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.deploy_pipeline_unknown_outcome import (
+    UNKNOWN_CODES,
     DeploymentOutcomeUnknown,
     DeploymentRunStayedBusy,
-    UNKNOWN_CODES,
 )
+from yoke_core.domain.deployment_start_timing import emit_records
+from yoke_core.domain.function_connection_loss import CONNECTION_LOST_CODE
 from yoke_core.domain.function_lock_refusal import (
     LOCK_RETRY_DELAYS_SECONDS,
     RETRYABLE_LOCK_CODES,
 )
-from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
 
 class DeploymentControlPlaneError(RuntimeError):
@@ -91,19 +93,12 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
         error = response.error
         message = error.message if error else "request failed"
         if error and error.code == READ_DEADLINE_CODE:
-            message = (
-                f"{message} Every one of {len(retries) + 1} attempts expired; "
-                f"The slow composition was {function_id} with fields {payload}. "
-                "Nothing was written by this read. Recovery: inspect this run "
-                "with `yoke deployment-runs get "
-                f"{run_id} release_lineage` and `yoke deployment-runs get "
-                f"{run_id} project` field reads; "
-                "omit member_closure diagnostics. If these narrow reads also "
-                "expire, ask the control-plane operator to diagnose that reader "
-                "before rerunning the driver."
+            message = compose_refusal(
+                f"{message} Every one of {len(retries) + 1} attempts expired; The slow composition was {function_id} with fields {payload}. Nothing was written by this read.",
+                recovery=f"inspect this run with `yoke deployment-runs get {run_id} release_lineage` and `yoke deployment-runs get {run_id} project` field reads; omit member_closure diagnostics. If these narrow reads also expire, ask the control-plane operator to diagnose that reader before rerunning the driver.",
             )
         elif error and error.recovery_hint:
-            message = f"{message} Recovery: {error.recovery_hint}"
+            message = compose_refusal(f"{message}", recovery=f"{error.recovery_hint}")
         if error and error.code in UNKNOWN_CODES and function_id not in _READ_ONLY:
             raise DeploymentOutcomeUnknown(
                 run_id, function_id, response.request_id, message

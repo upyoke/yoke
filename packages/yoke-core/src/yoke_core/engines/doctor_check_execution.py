@@ -19,18 +19,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_contracts.doctor_budget import (
     CHECK_BUDGET_S,
     DoctorBudgetExhausted,
     check_budget,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 
-from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_database_budget import bounded_connection
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-
 
 INTERNAL_ERROR_CHECK_ID = "HC-internal-error"
 
@@ -90,9 +90,9 @@ def _run_isolated(
         try:
             _rollback_if_supported(conn)
         except Exception as exc:
-            recovery_detail = (
-                f" Transaction recovery failed: {exc}. "
-                "Recovery: restore the database connection and rerun Doctor."
+            recovery_detail = compose_refusal(
+                f" Transaction recovery failed: {exc}.",
+                recovery="restore the database connection and rerun Doctor.",
             )
         del rec.results[recorded_before:]
         retry = f"yoke watch doctor -- --only {health_check.slug}"
@@ -106,21 +106,22 @@ def _run_isolated(
             "HC-check-incomplete",
             health_check.name,
             "FAIL",
-            f"doctor_check_budget_exhausted: {health_check.slug} exceeded "
-            f"its {CHECK_BUDGET_S:g}s check budget; evidence is incomplete. "
-            f"Recovery: retry `{retry}` "
-            "after the named database or provider recovers; optimize "
-            "the check if the budget is exhausted again." + recovery_detail,
+            compose_refusal(
+                f"doctor_check_budget_exhausted: {health_check.slug} exceeded its {CHECK_BUDGET_S:g}s check budget; evidence is incomplete.",
+                recovery=f"retry `{retry}` after the named database or provider recovers; optimize the check if the budget is exhausted again.",
+            )
+            + recovery_detail,
         )
         return
     except RemoteControlPlaneConnectionError as exc:
-        detail = (
-            f"Control-plane locality refusal in {health_check.slug} "
-            f"({type(exc).__name__}): {exc} Recovery: reach control-plane "
-            "rows through a registered function-call read, or, only when "
-            "this check intentionally opens a separate local database it "
-            "owns, declare the connection call site with "
-            "yoke_contracts.control_plane_locality.local_authority_exempt()."
+        detail = compose_refusal(
+            f"Control-plane locality refusal in {health_check.slug} ({type(exc).__name__}): {exc}",
+            recovery=(
+                "reach control-plane rows through a registered function-call read, or, "
+                "only when this check intentionally opens a separate local database it "
+                "owns, declare the connection call site with "
+                "yoke_contracts.control_plane_locality.local_authority_exempt()."
+            ),
         )
         try:
             _rollback_if_supported(conn)

@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 #: The plan-bound environment snapshot (``qa_plans.target_environment_id``).
 ENVIRONMENT_TARGET_SCHEMA = 2
@@ -120,7 +121,7 @@ def case_target_recovery(
         stage = str(deployment_stage or "<stage>")
         member = f" --member {deployment_member}" if deployment_member else ""
         return (
-            "Recovery: a deployment stage binds the member project's observed target "
+            "a deployment stage binds the member project's observed target "
             "for member QA, or the run project's target for run QA, "
             "so re-materialize this case against it with `yoke qa plan "
             f"materialize --deployment-run-id {deployment_run_id} --stage "
@@ -130,20 +131,20 @@ def case_target_recovery(
         )
     if plan_id is None:
         return (
-            "Recovery: re-bind the case's own environment with `yoke qa "
+            "re-bind the case's own environment with `yoke qa "
             "requirement update` and name an environment this project has "
             "registered."
         )
     if standalone_execution_id:
         return (
-            f"Recovery: edit the plan target with `yoke qa plan edit --plan {plan_id}`, "
+            f"edit the plan target with `yoke qa plan edit --plan {plan_id}`, "
             f"abort its immutable snapshot with `yoke qa plan abort --project {project} "
             f"--execution-id {standalone_execution_id} --reason target-changed`, then "
             f"run `yoke qa plan run --plan {plan_id} --project {project}`."
         )
     transition = str(workflow_transition_id or "<transition>")
     return (
-        "Recovery: bind the plan's target environment with `yoke qa plan edit "
+        "bind the plan's target environment with `yoke qa plan edit "
         f"--plan {plan_id}`, then re-stamp the case with `yoke qa plan "
         f"rematerialize --item PREFIX-N --transition {transition}`."
     )
@@ -171,18 +172,18 @@ def require_case_execution_target(case: Any) -> None:
     if not problems:
         return
     raise MachineQaCaseTargetError(
-        "Machine QA execution target does not match its case authority "
-        f"(QA requirement {case.requirement_id}): "
-        + "; ".join(problems)
-        + ". "
-        + case_target_recovery(
-            project=case.project,
-            plan_id=case.plan_id,
-            deployment_run_id=case.deployment_run_id,
-            deployment_stage=case.deployment_stage,
-            deployment_member=case.deployment_member_public_ref,
-            workflow_transition_id=case.workflow_transition_id,
-            standalone_execution_id=case.standalone_execution_id,
+        compose_refusal(
+            "Machine QA execution target does not match its case authority "
+            f"(QA requirement {case.requirement_id}): " + "; ".join(problems),
+            recovery=case_target_recovery(
+                project=case.project,
+                plan_id=case.plan_id,
+                deployment_run_id=case.deployment_run_id,
+                deployment_stage=case.deployment_stage,
+                deployment_member=case.deployment_member_public_ref,
+                workflow_transition_id=case.workflow_transition_id,
+                standalone_execution_id=case.standalone_execution_id,
+            ),
         )
     )
 

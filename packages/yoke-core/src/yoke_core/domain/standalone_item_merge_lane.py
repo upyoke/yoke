@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 _ACTIVE = "active"
 _RELEASED = "released"
 
@@ -74,11 +76,13 @@ def lane_resolution_error(item: dict[str, Any]) -> str:
     return (
         "multiple active worktree lanes: "
         + ", ".join(labels)
-        + f"; none is at the queued pull-request head ({queued_head}) and "
-        "there is no single integration lane, so the merge source is not "
-        "chosen first-wins. Recovery: queue the landing pull request from the "
-        "lane that carries the work, or keep exactly one active integration "
-        "lane, then retry `yoke merge item`"
+        + compose_refusal(
+            f"; none is at the queued pull-request head ({queued_head}) and there is no single integration lane, so the merge source is not chosen first-wins.",
+            recovery=(
+                "queue the landing pull request from the lane that carries the work, or "
+                "keep exactly one active integration lane, then retry `yoke merge item`"
+            ),
+        )
     )
 
 

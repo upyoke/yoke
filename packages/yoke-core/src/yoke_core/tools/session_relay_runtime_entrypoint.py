@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import fcntl
 import os
-from pathlib import Path
 import sys
 import sysconfig
+from pathlib import Path
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 _RELEASE_HANDLE: int | None = None
 
@@ -49,9 +50,10 @@ def main() -> int:
         return int(cli_main(sys.argv[1:]) or 0)
     except Exception as exc:  # noqa: BLE001 - emit an operator-facing refusal
         print(
-            "relay_runtime_start_failed: "
-            f"{type(exc).__name__}: {exc}. Recovery: retry `yoke relay install` "
-            "for this environment.",
+            compose_refusal(
+                f"relay_runtime_start_failed: {type(exc).__name__}: {exc}.",
+                recovery="retry `yoke relay install` for this environment.",
+            ),
             file=sys.stderr,
         )
         return 1

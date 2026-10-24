@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_pr_queue import (
     QueueEntryResult,
@@ -150,11 +152,9 @@ def entry_checks_refusal(
     """Terminal red refusal: named checks, their runs, and the recovery."""
     sha = head_sha or "unreported"
     observed = narrative.strip() or f"pull request {pr_num}"
-    return (
-        f"entry-checks-failed: pull request {pr_num} head {sha} has "
-        f"required checks that already concluded red "
-        f"({describe_failed_checks(failed)}). GitHub will not enqueue it. "
-        f"Observed {observed}. Recovery: {_recovery(failed)}. {disarm_note}"
+    return compose_refusal(
+        f"entry-checks-failed: pull request {pr_num} head {sha} has required checks that already concluded red ({describe_failed_checks(failed)}). GitHub will not enqueue it. Observed {observed}.",
+        recovery=f"{_recovery(failed)}. {disarm_note}",
     )
 
 

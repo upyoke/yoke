@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import qa_case_ci_lane, verification_tree_binding
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -79,11 +81,15 @@ def require_source_agreement(
                 reason = f"checkout HEAD {actual_sha} differs from expected SHA {expected_sha}"
     if reason:
         raise QaCaseExecutionError(
-            f"qa_ci_source_mismatch: {reason}. No source was published. Recovery: "
-            "inspect the selected registered lane and its matching item/task claim, "
-            "then rerun the normal gate with that lane's --checkout-path, "
-            "--expected-branch and --expected-sha. If the lane contract is absent, "
-            "ask the control-plane operator to serve the source-lane correction "
-            "or use its sanctioned source-dev/admin authority. Preserve existing "
-            "branches; conflicting remote work needs registered reconciliation."
+            compose_refusal(
+                f"qa_ci_source_mismatch: {reason}. No source was published.",
+                recovery=(
+                    "inspect the selected registered lane and its matching item/task claim, "
+                    "then rerun the normal gate with that lane's --checkout-path, "
+                    "--expected-branch and --expected-sha. If the lane contract is absent, ask "
+                    "the control-plane operator to serve the source-lane correction or use its "
+                    "sanctioned source-dev/admin authority. Preserve existing branches; "
+                    "conflicting remote work needs registered reconciliation."
+                ),
+            )
         )

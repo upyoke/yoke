@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.api.function_call import FunctionCallRequest
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_READ,
     PermissionDenied,
@@ -14,6 +16,7 @@ from yoke_core.domain.actor_permissions import (
     require_permission,
 )
 from yoke_core.domain.actor_project_visibility import actor_project_ids_with_permission
+from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.control_plane_authority import require_control_plane_permission
 from yoke_core.domain.dispatch_actor_requirement import (
     missing_actor_refusal,
@@ -28,11 +31,6 @@ from yoke_core.domain.function_authz_scope import (
     classify,
     permission_key_for,
 )
-from yoke_core.domain.hosted_service_authority import (
-    HOSTED_SERVICE_FUNCTIONS,
-    hosted_service_scope_denial,
-    is_hosted_service_actor,
-)
 from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
@@ -40,14 +38,20 @@ from yoke_core.domain.function_target_resolution import (
 from yoke_core.domain.function_unresolved_project import (
     ProjectNotRegisteredError,
     unresolved_project_response,
+)
+from yoke_core.domain.function_unresolved_project import (
     permission_error_response as _error_response,
+)
+from yoke_core.domain.hosted_service_authority import (
+    HOSTED_SERVICE_FUNCTIONS,
+    hosted_service_scope_denial,
+    is_hosted_service_actor,
 )
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
 from yoke_core.domain.qa_deployment_function_subject import QaSubjectProjectError
 from yoke_core.domain.session_action_dispatch_permission import (
     session_action_dispatch_permission,
 )
-from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.yoke_function_permission_types import DispatchPermission
 from yoke_core.domain.yoke_function_permissions_by_function import (
     board_data_get_dispatch_permission,
@@ -237,8 +241,10 @@ def check_dispatch_permission(
             str(exc)
             if readable
             else (
-                "The target project is unavailable or not accessible. "
-                "Recovery: choose a project you may read or ask its administrator for access."
+                compose_refusal(
+                    "The target project is unavailable or not accessible.",
+                    recovery="choose a project you may read or ask its administrator for access.",
+                )
             )
         )
         return DispatchPermission(

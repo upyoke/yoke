@@ -3,10 +3,12 @@
 from datetime import timedelta
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_launch_types import LAUNCH_LEASE_SECONDS
 from yoke_core.domain.session_relay_storage import marker
-from yoke_core.domain.session_relay_types import SessionRelayError, WAKE_LEASE_SECONDS
+from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS, SessionRelayError
 
 
 def require_job_lease(
@@ -46,7 +48,10 @@ def require_job_lease(
     if row is None or relay is None or str(row[0]) != str(relay[0]):
         raise SessionRelayError(
             "relay_lease_mismatch",
-            "This relay does not own the job's machine. Recovery: report through the owning machine relay.",
+            compose_refusal(
+                "This relay does not own the job's machine.",
+                recovery="report through the owning machine relay.",
+            ),
         )
     deadline = parse_instant(row[1])
     if job_kind in {"launch", "wake"}:
@@ -58,5 +63,8 @@ def require_job_lease(
     if deadline <= parse_instant(now):
         raise SessionRelayError(
             "relay_lease_expired",
-            "This job's lease expired before its report. Recovery: inspect its settled outcome and native custody before retrying.",
+            compose_refusal(
+                "This job's lease expired before its report.",
+                recovery="inspect its settled outcome and native custody before retrying.",
+            ),
         )

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.deployment_run_compare_response import CONTAINING_STATUSES
 
 if TYPE_CHECKING:
@@ -46,9 +48,9 @@ def runs_by_commit(data: Any, branch: str) -> Dict[str, dict]:
 def gate_branch_tip(target: "CiGateTarget") -> str:
     """Read the current branch tip; an unreadable tip never selects history."""
     from yoke_core.domain.deployment_run_ci_tested_source import (
+        _FULL_SHA,
         UNVERIFIABLE,
         ReleaseSourceRefused,
-        _FULL_SHA,
         _read,
     )
 
@@ -66,9 +68,10 @@ def gate_branch_tip(target: "CiGateTarget") -> str:
         return tip
     raise ReleaseSourceRefused(
         UNVERIFIABLE,
-        f"GitHub named no valid tip for {target.repo}@{target.branch}. "
-        "Nothing was bound.\n  Recovery: confirm the gate branch exists "
-        "and GitHub is readable, then create again.",
+        compose_refusal(
+            f"GitHub named no valid tip for {target.repo}@{target.branch}. Nothing was bound.",
+            recovery="confirm the gate branch exists and GitHub is readable, then create again.",
+        ),
     )
 
 
@@ -141,10 +144,10 @@ def _compare_status(target: "CiGateTarget", base: str, head: str) -> str:
     if not isinstance(status, str) or not status:
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
-            f"{target.repo} gave no comparison of the previous release {base} "
-            f"with release commit {head}, so creation cannot confirm one "
-            "carries the other. Nothing was created.\n  Recovery: confirm "
-            f"{base} exists in {target.repo}, then create again.",
+            compose_refusal(
+                f"{target.repo} gave no comparison of the previous release {base} with release commit {head}, so creation cannot confirm one carries the other. Nothing was created.",
+                recovery=f"confirm {base} exists in {target.repo}, then create again.",
+            ),
         )
     return status
 
@@ -165,14 +168,10 @@ def require_descends_from_previous_release(target: "CiGateTarget", commit: str) 
     where = f" in {target.environment}" if target.environment else ""
     raise ReleaseSourceRefused(
         OFF_LINEAGE,
-        f"selected release commit {commit} on {target.repo}@{target.branch} "
-        f"does not descend from {lineage}, the lineage {run_id} last shipped "
-        f"for {target.project}{where} (GitHub compares them as {status}), so "
-        "this release would ship a divergence. Nothing was bound.\n"
-        "  Recovery: create with --project-repo-path CHECKOUT --source-ref "
-        f"COMMIT naming a tested commit that descends from {lineage}; if "
-        f"{lineage} is itself off {target.branch}, correct {run_id}'s lineage "
-        "first.",
+        compose_refusal(
+            f"selected release commit {commit} on {target.repo}@{target.branch} does not descend from {lineage}, the lineage {run_id} last shipped for {target.project}{where} (GitHub compares them as {status}), so this release would ship a divergence. Nothing was bound.",
+            recovery=f"create with --project-repo-path CHECKOUT --source-ref COMMIT naming a tested commit that descends from {lineage}; if {lineage} is itself off {target.branch}, correct {run_id}'s lineage first.",
+        ),
     )
 
 

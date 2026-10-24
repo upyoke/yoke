@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.project_github_auth_models import GitHubUnavailable
 
 _AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
@@ -46,12 +48,9 @@ def ci_adapter_failure_message(
             "the project's ci_workflow_file declaration.\n"
         )
     if code == GitHubUnavailable.code:
-        return (
-            "\nBLOCKED: Cannot deploy — CI could not be verified; "
-            f"the GitHub Actions adapter returned {failure}.\n\n"
-            "GitHub itself is failing; the App credentials are not the cause "
-            "and this is not a failing test conclusion.\n\n"
-            "Recovery: re-drive the deployment once GitHub recovers.\n"
+        return compose_refusal(
+            f"\nBLOCKED: Cannot deploy — CI could not be verified; the GitHub Actions adapter returned {failure}.\n\nGitHub itself is failing; the App credentials are not the cause and this is not a failing test conclusion.",
+            recovery="re-drive the deployment once GitHub recovers.\n",
         )
     if code in _AUTH_ADAPTER_CODES:
         kind = "an authorization failure"
@@ -140,32 +139,24 @@ def no_verdict_ci_message(
         except CommitRunAuthorityError:
             runs = []
     queue_note = merge_queue_same_tree_note(runs or [])
-    return (
-        f"\nBLOCKED: Cannot deploy — CI has no verdict for {subject} "
-        f"(conclusion {named}).\n\n"
-        "A cancelled, skipped, or otherwise unfinished run is not a test "
-        "failure.\n\n"
-        f"{queue_note}"
-        "Recovery:\n"
-        "  1. Obtain a CI verdict for this exact commit (re-run the declared "
-        "workflow on this SHA)\n"
-        "  2. Re-run the deployment pipeline\n"
+    return compose_refusal(
+        f"\nBLOCKED: Cannot deploy — CI has no verdict for {subject} (conclusion {named}).\n\nA cancelled, skipped, or otherwise unfinished run is not a test failure.\n\n{queue_note}",
+        recovery=(
+            "1. Obtain a CI verdict for this exact commit (re-run the declared "
+            "workflow on this SHA)\n  2. Re-run the deployment pipeline\n"
+        ),
     )
 
 
 def unverifiable_ci_target_message(*, github_repo: str, workflow: str) -> str:
     """Refuse a gate that named neither a branch nor a release commit."""
-    return (
-        "\nBLOCKED: Cannot deploy — CI cannot be verified: this run named "
-        f"neither a gate branch nor a release commit for declared workflow "
-        f"{workflow} in {github_repo}.\n\n"
-        "The newest run of a workflow proves nothing about an unnamed "
-        "commit, so the gate refuses rather than reading one.\n\n"
-        "Recovery:\n"
-        "  1. Give the run a release lineage so the gate resolves an exact "
-        "commit\n"
-        "  2. Or declare the target environment's deploy branch "
-        "(environments.settings.git.branch)\n"
+    return compose_refusal(
+        f"\nBLOCKED: Cannot deploy — CI cannot be verified: this run named neither a gate branch nor a release commit for declared workflow {workflow} in {github_repo}.\n\nThe newest run of a workflow proves nothing about an unnamed commit, so the gate refuses rather than reading one.",
+        recovery=(
+            "1. Give the run a release lineage so the gate resolves an exact commit\n  "
+            "2. Or declare the target environment's deploy branch "
+            "(environments.settings.git.branch)\n"
+        ),
     )
 
 
@@ -212,21 +203,9 @@ def missing_ci_run_message(
     points at by then, never this commit, so the gate dispatches nothing:
     the release moves to a commit that already has its own run.
     """
-    return (
-        "\nBLOCKED: Cannot deploy — no CI run exists for exact release commit "
-        f"{head_sha} on {branch} in declared workflow {workflow} "
-        f"({github_repo}).\n\n"
-        "A merge-queue push runs CI only on its newest commit, and "
-        "dispatching on the branch would test a different commit, so the "
-        "gate dispatches nothing and waives nothing.\n\n"
-        "Recovery:\n"
-        "  1. Create a new deployment run without --source-ref; creation "
-        f"binds the newest commit on {branch} that has its own {workflow} "
-        "run, or dispatches one on the branch when none has:\n"
-        f"       yoke --env <CONTROL-PLANE> deployment-runs create {project} "
-        "<FLOW> --environment <ENV> --idempotency-key <NEW-KEY>\n"
-        "  2. Cancel this run, and give its paired run the same new commit "
-        "with --source-ref\n"
+    return compose_refusal(
+        f"\nBLOCKED: Cannot deploy — no CI run exists for exact release commit {head_sha} on {branch} in declared workflow {workflow} ({github_repo}).\n\nA merge-queue push runs CI only on its newest commit, and dispatching on the branch would test a different commit, so the gate dispatches nothing and waives nothing.",
+        recovery=f"1. Create a new deployment run without --source-ref; creation binds the newest commit on {branch} that has its own {workflow} run, or dispatches one on the branch when none has:\n       yoke --env <CONTROL-PLANE> deployment-runs create {project} <FLOW> --environment <ENV> --idempotency-key <NEW-KEY>\n  2. Cancel this run, and give its paired run the same new commit with --source-ref\n",
     )
 
 

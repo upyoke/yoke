@@ -18,6 +18,8 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.deployment_run_skipped_candidates import (
     SkippedCandidates,
     describe_skipped,
@@ -70,12 +72,12 @@ def stranding_refusal(conn: Any, skipped: SkippedCandidates | None) -> str:
         + ", ".join(ref(dependent) for dependent in dependents)
         for root, dependents in stranded.items()
     )
-    return (
-        f"{STRANDING_REASON}: this candidate carries merged items not yet at "
-        "their release stage, and carried dependents need them, so this run "
-        f"would skip those dependents: {named}. Recovery: wait until each "
-        "named item reaches its release stage, then retry "
-        "`yoke deployment-runs create`."
+    return compose_refusal(
+        f"{STRANDING_REASON}: this candidate carries merged items not yet at their release stage, and carried dependents need them, so this run would skip those dependents: {named}.",
+        recovery=(
+            "wait until each named item reaches its release stage, then retry `yoke "
+            "deployment-runs create`."
+        ),
     )
 
 

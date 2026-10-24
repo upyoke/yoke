@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.db_helpers import instant_parameter
-
-from yoke_contracts.timestamps import parse_instant
-
 from datetime import datetime
-
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_native_progress import (
     native_attempt_pending,
@@ -79,7 +78,10 @@ def _settle_open_attempts(
         ):
             raise SessionLaunchError(
                 "relay_lease_active",
-                "Launch attempt still holds its lease. Recovery: wait for its own deadline and inspect native custody before reconciliation.",
+                compose_refusal(
+                    "Launch attempt still holds its lease.",
+                    recovery="wait for its own deadline and inspect native custody before reconciliation.",
+                ),
             )
 
     result_code = "native_created" if observed_native_id else "not_created"

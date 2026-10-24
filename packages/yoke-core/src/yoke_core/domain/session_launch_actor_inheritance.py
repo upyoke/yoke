@@ -27,16 +27,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_actor_binding import ActorBinding
-
 
 #: Refusal code. Uppercase to match the other session-registration codes,
 #: which operators and the function dispatcher both read.
 LAUNCH_ACTOR_UNRESOLVED = "SESSION_LAUNCH_ACTOR_UNRESOLVED"
 
 _RECOVERY = (
-    "Recovery: confirm the launch exists (`yoke session-control launch get "
+    "confirm the launch exists (`yoke session-control launch get "
     "<launch-id>`); a session started outside a launch must register without "
     "a launch id so it binds its own sign-in identity instead."
 )
@@ -49,10 +50,11 @@ def _p(conn: Any) -> str:
 def _unresolved(launch_id: str, cause: str) -> ActorBinding:
     return ActorBinding(
         code=LAUNCH_ACTOR_UNRESOLVED,
-        detail=(
+        detail=compose_refusal(
             f"launch {launch_id!r} {cause}, so the launched session has no "
             f"actor to inherit and must not fall back to the operating actor "
-            f"of the machine running it. {_RECOVERY}"
+            f"of the machine running it.",
+            recovery=_RECOVERY,
         ),
     )
 

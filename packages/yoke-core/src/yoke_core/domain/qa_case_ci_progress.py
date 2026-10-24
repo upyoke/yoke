@@ -7,6 +7,8 @@ import sys
 from collections.abc import Iterator
 from typing import TextIO
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.ci_job_outcome import CI_JOB_NOT_STARTED
 
 PROGRESS_PREFIX = "# qa case run:"
@@ -196,13 +198,9 @@ def announce_never_started_terminal(
     stream: TextIO | None = None,
 ) -> str:
     """Emit and return the named no-verdict after the replacement also stalls."""
-    message = (
-        f"requirement={requirement_id} {CI_JOB_NOT_STARTED} run={run_id} "
-        f"repo={repo}; the automatic redispatch also started no job, so there "
-        "is still no verdict. Recovery: re-dispatch — re-run the QA case, "
-        "which dispatches a fresh run on the same commit. If runs keep "
-        f"starting no job, open https://github.com/{repo}/actions to see why "
-        "(runner labels, pool capacity)"
+    message = compose_refusal(
+        f"requirement={requirement_id} {CI_JOB_NOT_STARTED} run={run_id} repo={repo}; the automatic redispatch also started no job, so there is still no verdict.",
+        recovery=f"re-dispatch — re-run the QA case, which dispatches a fresh run on the same commit. If runs keep starting no job, open https://github.com/{repo}/actions to see why (runner labels, pool capacity)",
     )
     _emit(message, stream=stream)
     return message

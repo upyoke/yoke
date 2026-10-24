@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import logging
+from dataclasses import replace
 from typing import Any, Mapping
 
-from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_contracts.model_reference import lookup_model_reference
 from yoke_contracts.model_reference_records import ModelReferenceError
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.session_control.models import LaunchCreateRequest
+from yoke_contracts.session_control.native_model_parsers import (
+    cursor_selector_without_effort,
+)
 from yoke_contracts.session_model_facts import (
     CLAUDE_CONTEXT_TIER_SUFFIX,
     is_placeholder_model,
 )
-from yoke_contracts.session_control.native_model_parsers import (
-    cursor_selector_without_effort,
-)
+
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.project_identity import placeholder, render_item_ref
 from yoke_core.domain.session_launch_store import get_launch_by_dedupe, value
@@ -37,9 +39,13 @@ def capacity_catalog(conn: Any, *, now: Any):
         raise SessionLaunchError(
             "capacity_recovery_catalog_unavailable",
             (
-                f"Effective model catalog is unavailable ({exc.code}: {exc}). "
-                "Recovery: ask the model-catalog operator to publish a valid revision "
-                "covering this time, then retry capacity recovery."
+                compose_refusal(
+                    f"Effective model catalog is unavailable ({exc.code}: {exc}).",
+                    recovery=(
+                        "ask the model-catalog operator to publish a valid revision covering this "
+                        "time, then retry capacity recovery."
+                    ),
+                )
             ),
         ) from exc
 
@@ -78,9 +84,10 @@ def capacity_recovery_state(conn: Any, state: dict[str, Any]) -> dict[str, Any]:
                 **state,
                 "status": "capacity_recovery_refused",
                 "reason": (
-                    f"capacity_successor_failed: launch {launch_id} {launch_state} "
-                    f"({value(row, 'result_code', 2)}). Recovery: inspect and reconcile "
-                    f"`yoke session-control launch get {launch_id} --json` before restaffing."
+                    compose_refusal(
+                        f"capacity_successor_failed: launch {launch_id} {launch_state} ({value(row, 'result_code', 2)}).",
+                        recovery=f"inspect and reconcile `yoke session-control launch get {launch_id} --json` before restaffing.",
+                    )
                 ),
             }
         return {
@@ -161,8 +168,10 @@ def relaunch_capacity_worker(
         if scope.project_id is None:
             raise SessionLaunchError(
                 "capacity_recovery_project_required",
-                "Item capacity recovery requires a project session. Recovery: "
-                "open a session in the project folder.",
+                compose_refusal(
+                    "Item capacity recovery requires a project session.",
+                    recovery="open a session in the project folder.",
+                ),
             )
         claims = conn.execute(
             f"SELECT id,target_kind,{claim_item_id} AS item_id FROM work_claims "
@@ -173,8 +182,10 @@ def relaunch_capacity_worker(
             raise SessionLaunchError(
                 "capacity_recovery_claim_scope",
                 (
-                    "Automatic capacity recovery requires exactly one item claim. "
-                    "Recovery: steering must checkpoint and restaff the session's holdings."
+                    compose_refusal(
+                        "Automatic capacity recovery requires exactly one item claim.",
+                        recovery="steering must checkpoint and restaff the session's holdings.",
+                    )
                 ),
             )
         if (
@@ -186,8 +197,10 @@ def relaunch_capacity_worker(
             raise SessionLaunchError(
                 "capacity_recovery_identity_missing",
                 (
-                    "Worker model, actor, level or machine is unresolved. Recovery: steering must "
-                    "correct the session identity before restaffing at its required level."
+                    compose_refusal(
+                        "Worker model, actor, level or machine is unresolved.",
+                        recovery="steering must correct the session identity before restaffing at its required level.",
+                    )
                 ),
             )
         ref = render_item_ref(conn, int(claims[0][2]), required=True)
@@ -243,8 +256,10 @@ def relaunch_capacity_worker(
             exc = SessionLaunchError(
                 "capacity_recovery_failed",
                 (
-                    f"Capacity recovery failed unexpectedly ({type(failure).__name__}); custody is retained. "
-                    "Recovery: steering must inspect server diagnostics and correct the failure before restaffing."
+                    compose_refusal(
+                        f"Capacity recovery failed unexpectedly ({type(failure).__name__}); custody is retained.",
+                        recovery="steering must inspect server diagnostics and correct the failure before restaffing.",
+                    )
                 ),
             )
         _record_refusal(conn, state, exc)

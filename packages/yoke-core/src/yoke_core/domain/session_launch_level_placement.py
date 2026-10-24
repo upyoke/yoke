@@ -17,24 +17,22 @@ excludes the refused model.
 
 from __future__ import annotations
 
-from datetime import datetime
 from dataclasses import replace
+from datetime import datetime
 from typing import Any, Sequence
 
 from yoke_contracts.levels import Level
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.model_selection import SURFACE_EFFORT_LEVELS
+from yoke_contracts.timestamps import as_utc
+
 from yoke_core.domain.level_native_selections import (
     NativeLevelSelection,
     catalog_supports,
     native_selections,
 )
-from yoke_core.domain.session_launch_machine_models import machine_native_models
-from yoke_core.domain.session_launch_machine_rejections import ineligible_reason
-from yoke_core.domain.session_model_catalog import current_model_records
-from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.machine_launch_access import filter_by_machine_access
 from yoke_core.domain.machine_registry import display_name, machine_names
-from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.quota_pool_order import pool_preference, read_pool_order
 from yoke_core.domain.session_launch_level_candidate import (
     LevelCandidate,
@@ -48,16 +46,19 @@ from yoke_core.domain.session_launch_level_pools import (
     live_workers,
     option_pools,
 )
+from yoke_core.domain.session_launch_machine_models import machine_native_models
 from yoke_core.domain.session_launch_machine_pin import (
     MACHINE_UNRESOLVED,
     resolve_launch_machine_pin,
 )
+from yoke_core.domain.session_launch_machine_rejections import ineligible_reason
 from yoke_core.domain.session_launch_types import (
     EligibleRelay,
     LaunchAuthorization,
     LaunchEligibilityPort,
     SessionLaunchError,
 )
+from yoke_core.domain.session_model_catalog import current_model_records
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.universe_levels import effective_levels
 
@@ -260,7 +261,6 @@ def _reason(chosen: LevelCandidate, rule: str, open_: list[LevelCandidate]) -> s
     if rule == RULE_SPREAD:
         return f"spread rule: no live worker draws on this pool; {chosen.label}, headroom {headroom}{window} above {int(SPREAD_HEADROOM_PERCENT)}%"
     return f"most headroom per worker: {chosen.label} at {headroom}{window}"
-
 
 
 def place_level(

@@ -21,11 +21,13 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import iso8601_now
+
 from yoke_cli.config import self_update
 from yoke_cli.config.path_state_contract import tool_bin_dir
 from yoke_cli.config.session_relay_instance import strip_relay_owned_python_state
 from yoke_cli.transport.installed_cli_staleness import update_recovery
-from yoke_contracts.timestamps import iso8601_now
 
 FOLLOW_RECORD_NAME = "operator-cli-follow.json"
 PROBE_TIMEOUT_SECONDS = 30
@@ -101,9 +103,10 @@ def _finish(record: dict[str, Any], state_dir: Path, outcome: str) -> dict[str, 
         )
     elif outcome == "update_failed":
         print(
-            f"OPERATOR-CLI-FOLLOW-FAILED: installed CLI {record.get('before')!r} "
-            f"could not be moved to served release {record['release']}: "
-            f"{record['error']}. Recovery: {record['recovery']}.",
+            compose_refusal(
+                f"OPERATOR-CLI-FOLLOW-FAILED: installed CLI {record.get('before')!r} could not be moved to served release {record['release']}: {record['error']}.",
+                recovery=f"{record['recovery']}.",
+            ),
             file=sys.stderr,
         )
     try:

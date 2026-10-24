@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.settings_catalog import resolve_setting
+
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import machine_config
 from yoke_cli.config.runtime_settings_write import write_setting
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.settings_catalog import resolve_setting
 
 
 class SettingsCallError(RuntimeError):
@@ -43,7 +45,10 @@ class SettingsStore:
     def project_document(self):
         if self.project is None:
             raise ValueError(
-                "settings_project_missing: select a checkout or pass --project P. Recovery: yoke settings list --project P"
+                compose_refusal(
+                    "settings_project_missing: select a checkout or pass --project P.",
+                    recovery="yoke settings list --project P",
+                )
             )
         if self._project_document is None:
             result = self.call(
@@ -54,7 +59,10 @@ class SettingsStore:
             self._project_document = json.loads(raw)
             if not isinstance(self._project_document, dict):
                 raise ValueError(
-                    "setting_document_invalid: project-policy must be an object. Recovery: ask the project admin to repair project-policy"
+                    compose_refusal(
+                        "setting_document_invalid: project-policy must be an object.",
+                        recovery="ask the project admin to repair project-policy",
+                    )
                 )
         return self._project_document
 
@@ -68,7 +76,10 @@ class SettingsStore:
             document = self._machine_document
             if not isinstance(document, dict):
                 raise ValueError(
-                    "setting_document_invalid: settings must be an object. Recovery: repair machine config, then retry"
+                    compose_refusal(
+                        "setting_document_invalid: settings must be an object.",
+                        recovery="repair machine config, then retry",
+                    )
                 )
             present = key in document
             value = spec.stored_value(key, document[key]) if present else spec.default
@@ -93,7 +104,13 @@ class SettingsStore:
             )
             if "source" not in result:
                 raise ValueError(
-                    "settings_source_unavailable: server does not report stored/default source; required serving floor: next-release. Recovery: ask the control-plane operator to upgrade the server"
+                    compose_refusal(
+                        (
+                            "settings_source_unavailable: server does not report stored/default "
+                            "source; required serving floor: next-release."
+                        ),
+                        recovery="ask the control-plane operator to upgrade the server",
+                    )
                 )
             value = result["levels" if key == "levels" else "pools"]
             present = result["source"] != "default"

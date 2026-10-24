@@ -5,15 +5,16 @@ from __future__ import annotations
 import time
 from typing import Callable, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.merge_github_authority import (
     classify_merge_authority,
     merge_reaches_github,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs
-from yoke_core.engines.merge_worktree_base import target_ref
 from yoke_core.domain.standalone_item_merge_git import has_remote
+from yoke_core.engines.merge_worktree_base import target_ref
 from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
-
+from yoke_core.engines.merge_worktree_prepare import MergeArgs
 
 # Exit code returned when the pre-acquire merge-lock retry budget is exhausted
 # and the block message is still present. Distinct from existing engine exit
@@ -191,11 +192,13 @@ def run(args: MergeArgs) -> int:
         )
         block_msg = _pre_acquire_check_with_retry(lambda: merge_lock.check(scope=scope))
         if block_msg:
-            _print(block_msg, err=True)
             _print(
-                "Recovery: retryable merge-lock condition "
-                "(pre-acquire retry budget exhausted). Rerun "
-                f"merge for branch '{args.branch}' once the holding lock clears.",
+                compose_refusal(
+                    block_msg,
+                    recovery="retryable merge-lock condition "
+                    "(pre-acquire retry budget exhausted). Rerun "
+                    f"merge for branch '{args.branch}' once the holding lock clears.",
+                ),
                 err=True,
             )
             return RECOVERABLE_MERGE_LOCK_EXIT_CODE

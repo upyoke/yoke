@@ -20,10 +20,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain.db_helpers import query_scalar
-from yoke_core.domain.time_sql import now_sql
+from yoke_contracts.refusal_recovery import compose_refusal
 
 import yoke_core.engines.doctor_report as _base
+from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.time_sql import now_sql
 from yoke_core.engines.doctor_event_family_pairing import (
     EVENT_FAMILY_JOIN_WINDOW_DAYS,
     EVENT_FAMILY_LIVENESS_PAIRS,
@@ -31,7 +32,6 @@ from yoke_core.engines.doctor_event_family_pairing import (
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_tree_scan import list_directory
-
 
 __all__ = (
     "hc_event_family_liveness",
@@ -76,9 +76,7 @@ def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for pair in EVENT_FAMILY_LIVENESS_PAIRS:
         if not _base._table_exists(conn, pair.durable_table):
             continue
-        if not _base._column_exists(
-            conn, pair.durable_table, pair.activity_column
-        ):
+        if not _base._column_exists(conn, pair.durable_table, pair.activity_column):
             continue
         checked += 1
         cutoff = now_sql(offset_days=-pair.join_window_days)
@@ -127,15 +125,17 @@ def hc_event_family_liveness(conn, args: DoctorArgs, rec: RecordCollector) -> No
             check_id,
             check_name,
             "WARN",
-            "Durable activity has no matching telemetry in the trailing "
-            f"{EVENT_FAMILY_JOIN_WINDOW_DAYS}-day join window:\n"
-            + "\n".join(dark_families)
-            + "\nRecovery: inspect emit_event durability for each named family "
-            "or write path. Rows written before a silent path began emitting "
-            "stay unpaired until they age out of the window; events are never "
-            "backfilled, because a fabricated event is worse evidence than an "
-            "honest gap. Product state remains authoritative in the durable "
-            "tables.",
+            compose_refusal(
+                "Durable activity has no matching telemetry in the trailing "
+                f"{EVENT_FAMILY_JOIN_WINDOW_DAYS}-day join window:\n"
+                + "\n".join(dark_families),
+                recovery="inspect emit_event durability for each named family "
+                "or write path. Rows written before a silent path began emitting "
+                "stay unpaired until they age out of the window; events are never "
+                "backfilled, because a fabricated event is worse evidence than an "
+                "honest gap. Product state remains authoritative in the durable "
+                "tables.",
+            ),
         )
         return
 

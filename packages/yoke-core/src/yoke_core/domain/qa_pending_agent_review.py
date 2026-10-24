@@ -20,9 +20,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.qa_constants import is_agent_reviewed_case
 from yoke_core.domain.qa_plan_execution_store import marker
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 _PENDING_REVIEW_SQL = (
     "SELECT e.id AS execution_id, e.session_id AS session_id, e.state AS state, "

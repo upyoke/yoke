@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.public_item_target import public_item_target
-
 import sys
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_contracts.machine_qa_failures import host_control_failure
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.golden_harness_refresh import refreshed_case_contract
+from yoke_core.domain.public_item_target import public_item_target
 
 
 class MachinePlanCaseDispatchError(RuntimeError):
@@ -26,7 +27,7 @@ class MachinePlanCaseDispatchError(RuntimeError):
         self.reason = message
         rendered = f"{message} ({error_code})" if error_code else message
         if recovery_hint:
-            rendered += f". Recovery: {recovery_hint}"
+            rendered += compose_refusal(".", recovery=f"{recovery_hint}")
         super().__init__(rendered)
         self.host_contact_possible = host_contact_possible
         self.error_code = error_code
@@ -172,11 +173,11 @@ def execute_plan_machine_case(
     submission = None
     uncertain = False
     try:
-        from yoke_core.domain.machine_qa_local_execution import (
-            execute_machine_case_contract,
-        )
         from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
+        )
+        from yoke_core.domain.machine_qa_local_execution import (
+            execute_machine_case_contract,
         )
 
         register_test_machine_host_control()
@@ -218,7 +219,10 @@ def execute_plan_machine_case(
     _require_restored(submission.payload)
     if result.get("error_code") == "qa_host_abort_requested":
         raise MachinePlanCaseDispatchError(
-            "qa_host_abort_requested: host work stopped; restore evidence recorded; inspect the execution before restarting"
+            (
+                "qa_host_abort_requested: host work stopped; restore evidence recorded; "
+                "inspect the execution before restarting"
+            )
         )
     return result
 
@@ -296,11 +300,11 @@ def execute_plan_agent_mission_case(
         begin=lambda: _begin(target, actor, request),
     )
     try:
-        from yoke_core.domain.machine_qa_local_execution import (
-            prepare_agent_mission_contract,
-        )
         from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
+        )
+        from yoke_core.domain.machine_qa_local_execution import (
+            prepare_agent_mission_contract,
         )
 
         register_test_machine_host_control()

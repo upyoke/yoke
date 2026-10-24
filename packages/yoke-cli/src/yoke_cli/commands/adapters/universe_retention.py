@@ -3,6 +3,13 @@
 import argparse
 import sys
 
+from yoke_contracts.api.function_call import (
+    FunctionCallResponse,
+    FunctionError,
+    TargetRef,
+)
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.commands._helpers import (
     add_full_arg,
     add_json_arg,
@@ -17,11 +24,6 @@ from yoke_cli.commands.adapters.universe_retention_output import (
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
-from yoke_contracts.api.function_call import (
-    FunctionCallResponse,
-    FunctionError,
-    TargetRef,
-)
 
 GET_USAGE = "yoke universe retention get [--json]"
 PRUNE_USAGE = "yoke universe prune [--dry-run | --apply] [--json]"
@@ -139,7 +141,16 @@ def universe_prune(args):
                 return _finish(
                     _failure(
                         "retention_response_version_skew",
-                        "Required prune response fields are absent (floor: next-release); counts above are what this pass reported. Recovery: ask the control-plane operator to serve the release carrying single-run universe prune, then rerun prune.",
+                        compose_refusal(
+                            (
+                                "Required prune response fields are absent (floor: next-release); counts "
+                                "above are what this pass reported."
+                            ),
+                            recovery=(
+                                "ask the control-plane operator to serve the release carrying single-run "
+                                "universe prune, then rerun prune."
+                            ),
+                        ),
                     ),
                     parsed,
                     run,
@@ -169,8 +180,10 @@ def universe_prune(args):
                 ):
                     response = _failure(
                         "retention_pass_outcome_unknown",
-                        f"{response.error.code}: {response.error.message}. The last pass was not acknowledged; its deletion count is unknown. Earlier acknowledged totals are shown. "
-                        "Committed batches remain committed. Recovery: restore the connection/authority and rerun universe prune.",
+                        compose_refusal(
+                            f"{response.error.code}: {response.error.message}. The last pass was not acknowledged; its deletion count is unknown. Earlier acknowledged totals are shown. Committed batches remain committed.",
+                            recovery="restore the connection/authority and rerun universe prune.",
+                        ),
                     )
                 return _finish(response, parsed, run)
             if not parsed.json_mode:
@@ -189,7 +202,13 @@ def universe_prune(args):
         _finish(
             _failure(
                 "retention_interrupted",
-                "Interrupted; the active pass's outcome is unknown. Earlier acknowledged totals are shown; committed batches remain committed. Recovery: rerun universe prune.",
+                compose_refusal(
+                    (
+                        "Interrupted; the active pass's outcome is unknown. Earlier acknowledged "
+                        "totals are shown; committed batches remain committed."
+                    ),
+                    recovery="rerun universe prune.",
+                ),
             ),
             parsed,
             run,

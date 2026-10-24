@@ -21,21 +21,23 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.browser_qa_case_target_identity import (
     credential_free_origin,
     prove_pre_merge_candidate_identity,
     verify_case_target_identity,
 )
-from yoke_core.domain.browser_qa_freshness_outcome import (
-    DEPLOYED_SHA_UNKNOWN,
-    DEPLOYMENT_RECORD_MISSING,
-    FreshnessFailure,
-    IDENTITY_CONFIG_UNREADABLE,
-    SHA_MISMATCH,
-)
 from yoke_core.domain.browser_qa_deployment_identity import (
     DeploymentUnderTest,
     validate_deployment_identity,
+)
+from yoke_core.domain.browser_qa_freshness_outcome import (
+    DEPLOYED_SHA_UNKNOWN,
+    DEPLOYMENT_RECORD_MISSING,
+    IDENTITY_CONFIG_UNREADABLE,
+    SHA_MISMATCH,
+    FreshnessFailure,
 )
 from yoke_core.domain.browser_qa_preview_identity import (
     PreviewIdentityTarget,
@@ -128,10 +130,12 @@ def _validate_reachability(base_url: str) -> Optional[str]:
     if location and origin_of(urllib.parse.urljoin(base_url, location)) != origin_of(
         base_url
     ):
-        return (
-            f"HTTP probe refused to follow an off-origin redirect for {display}. "
-            "Recovery: use a review URL whose login stays on the same origin; "
-            "credentials are never forwarded to another host."
+        return compose_refusal(
+            f"HTTP probe refused to follow an off-origin redirect for {display}.",
+            recovery=(
+                "use a review URL whose login stays on the same origin; credentials are "
+                "never forwarded to another host."
+            ),
         )
     if status >= 400:
         return f"HTTP probe failed for {display} (status: {status})"

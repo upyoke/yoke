@@ -20,14 +20,15 @@ boundary.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
+
+from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.tools.install_yoke_launcher_core import (
     LAUNCHER_FILENAME,
     TARGET_PRIORITY,
 )
-
 
 #: Refusal code for a local relay whose machine has no installed launcher.
 LOCAL_LAUNCHER_MISSING = "relay_local_launcher_missing"
@@ -78,9 +79,9 @@ def local_launcher_path() -> Path:
 
 def local_launcher_missing_message(launcher: Path) -> str:
     """Name what the local relay needs and how to supply it."""
-    return (
-        "the local universe relay runs this machine's installed Yoke, and no "
-        f"launcher is installed at {launcher}. Recovery: {LOCAL_LAUNCHER_RECOVERY}."
+    return compose_refusal(
+        f"the local universe relay runs this machine's installed Yoke, and no launcher is installed at {launcher}.",
+        recovery=f"{LOCAL_LAUNCHER_RECOVERY}.",
     )
 
 

@@ -54,9 +54,10 @@ from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema_connections import (
     operating_actor_binding,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.universe_identity import universe_fingerprint
-
 
 #: Refusal codes. Uppercase because :class:`SessionError` codes are the
 #: surface operators and the function dispatcher both read.
@@ -120,10 +121,10 @@ def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
         return ActorBinding(
             code=ACTOR_INVALID,
             detail=(
-                f"actor_id {actor_id!r} is not an integer, so no session "
-                "identity can be bound. Recovery: pass the numeric actor id "
-                f"(`{OPERATING_ACTOR_LIST_COMMAND}`), or omit it to bind "
-                "this universe's operating actor."
+                compose_refusal(
+                    f"actor_id {actor_id!r} is not an integer, so no session identity can be bound.",
+                    recovery=f"pass the numeric actor id (`{OPERATING_ACTOR_LIST_COMMAND}`), or omit it to bind this universe's operating actor.",
+                )
             ),
         )
     from yoke_core.domain.actors import validate_actor_id
@@ -136,10 +137,10 @@ def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
     return ActorBinding(
         code=ACTOR_INVALID,
         detail=(
-            f"actor_id {candidate} does not exist on this control plane, so "
-            "no session identity can be bound. Recovery: pass an actor this "
-            f"authority carries (`{OPERATING_ACTOR_LIST_COMMAND}`), or omit "
-            "it to bind this universe's operating actor."
+            compose_refusal(
+                f"actor_id {candidate} does not exist on this control plane, so no session identity can be bound.",
+                recovery=f"pass an actor this authority carries (`{OPERATING_ACTOR_LIST_COMMAND}`), or omit it to bind this universe's operating actor.",
+            )
         ),
     )
 
@@ -148,10 +149,14 @@ def _identity_unavailable() -> ActorBinding:
     return ActorBinding(
         code=ACTOR_IDENTITY_UNAVAILABLE,
         detail=(
-            "this control plane has no readable actors table, so no session "
-            "identity can be bound. Recovery: bring the database up to the "
-            "build serving it — a server converges its schema on boot; run "
-            "`yoke doctor run --quick` on a local universe — then retry."
+            compose_refusal(
+                "this control plane has no readable actors table, so no session identity can be bound.",
+                recovery=(
+                    "bring the database up to the build serving it — a server converges its "
+                    "schema on boot; run `yoke doctor run --quick` on a local universe — then "
+                    "retry."
+                ),
+            )
         ),
     )
 
@@ -169,11 +174,16 @@ def resolve_operating_actor(
         return ActorBinding(
             code=ACTOR_MISSING,
             detail=(
-                "this control plane carries no human actor, so a registering "
-                "session has no identity to bind (and could not register a "
-                "path claim later). Recovery: run `yoke setup` on this "
-                "machine — its universe step seeds the operating human "
-                "actor — then retry."
+                compose_refusal(
+                    (
+                        "this control plane carries no human actor, so a registering session has "
+                        "no identity to bind (and could not register a path claim later)."
+                    ),
+                    recovery=(
+                        "run `yoke setup` on this machine — its universe step seeds the operating "
+                        "human actor — then retry."
+                    ),
+                )
             ),
         )
 
@@ -206,35 +216,33 @@ def resolve_operating_actor(
         return ActorBinding(
             code=ACTOR_UNIVERSE_UNPROVEN,
             detail=(
-                f"the operating actor recorded for connection {selected!r} "
-                "names no universe, so there is no proof actor "
-                f"{actor_id} belongs to the one this connection reaches. "
-                "Recovery: re-record the binding against this universe with "
-                f"`{OPERATING_ACTOR_BIND_COMMAND}`."
+                compose_refusal(
+                    f"the operating actor recorded for connection {selected!r} names no universe, so there is no proof actor {actor_id} belongs to the one this connection reaches.",
+                    recovery=f"re-record the binding against this universe with `{OPERATING_ACTOR_BIND_COMMAND}`.",
+                )
             ),
         )
     if not live_universe:
         return ActorBinding(
             code=ACTOR_UNIVERSE_UNPROVEN,
             detail=(
-                f"this control plane does not answer for its own identity "
-                "(a universe carries exactly one organization identity card, "
-                "and this one carries none or several), so the operating "
-                f"actor recorded for connection {selected!r} cannot be proven "
-                "to belong to it. Recovery: bring the universe to one "
-                "organization — `yoke doctor run --quick` reports the shape — "
-                "then retry."
+                compose_refusal(
+                    f"this control plane does not answer for its own identity (a universe carries exactly one organization identity card, and this one carries none or several), so the operating actor recorded for connection {selected!r} cannot be proven to belong to it.",
+                    recovery=(
+                        "bring the universe to one organization — `yoke doctor run --quick` "
+                        "reports the shape — then retry."
+                    ),
+                )
             ),
         )
     if recorded_universe != live_universe:
         return ActorBinding(
             code=ACTOR_UNIVERSE_MISMATCH,
             detail=(
-                f"connection {selected!r} now reaches a different universe "
-                f"({live_universe}) than the one its recorded operating actor "
-                f"belongs to ({recorded_universe}), so actor {actor_id} may "
-                "name a different person here. Recovery: re-record the "
-                f"binding for this universe with `{OPERATING_ACTOR_BIND_COMMAND}`."
+                compose_refusal(
+                    f"connection {selected!r} now reaches a different universe ({live_universe}) than the one its recorded operating actor belongs to ({recorded_universe}), so actor {actor_id} may name a different person here.",
+                    recovery=f"re-record the binding for this universe with `{OPERATING_ACTOR_BIND_COMMAND}`.",
+                )
             ),
         )
 
@@ -244,11 +252,10 @@ def resolve_operating_actor(
     return ActorBinding(
         code=ACTOR_UNBOUND,
         detail=(
-            f"this machine's recorded operating actor for connection "
-            f"{selected!r} is actor {actor_id}, which this control plane no "
-            "longer carries. Recovery: re-record the binding with "
-            f"`{OPERATING_ACTOR_BIND_COMMAND}` "
-            f"(`{OPERATING_ACTOR_LIST_COMMAND}` lists the candidates)."
+            compose_refusal(
+                f"this machine's recorded operating actor for connection {selected!r} is actor {actor_id}, which this control plane no longer carries.",
+                recovery=f"re-record the binding with `{OPERATING_ACTOR_BIND_COMMAND}` (`{OPERATING_ACTOR_LIST_COMMAND}` lists the candidates).",
+            )
         ),
     )
 

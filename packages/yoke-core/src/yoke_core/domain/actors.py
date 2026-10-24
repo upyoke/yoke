@@ -11,9 +11,6 @@ Owns the read/write path for the ``actors`` table created in
    human-readable name and :func:`set_actor_name` writes it. Display-side
    rendering — one-line safety, set disambiguation — lives in
    :mod:`actor_render`, which reads names in one statement per set.
-   There is exactly one stored name per actor: a name is what we call someone,
-   and the same thing is true of them in the board, the CLI, a GitHub
-   attribution label, and a session message.
 3. **Name search.** :func:`resolve_actors_by_name` answers "who is
    called this?" for an operator who typed a name, and answers it as a
    list. It is deliberately not a resolution primitive: nothing that
@@ -33,14 +30,16 @@ mode the central helper exists to prevent.
 
 from __future__ import annotations
 
-import os
 import json
+import os
 from datetime import datetime
-from yoke_contracts.timestamps import utc_now
-from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, List, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import utc_now
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 
 #: Env var that injects the local human actor's name into canonical-human
 #: seeding. The environment-bootstrap init chain invokes each init module
@@ -289,8 +288,10 @@ def first_human_actor_id(conn: Any) -> int:
     actor_id = sole_human_actor_id(conn, oldest=True)
     if actor_id is None:
         raise ActorNotFound(
-            "universe_has_no_human_actor: no human actor exists to attribute "
-            "this to. Recovery: boot the universe so its birth seeds one."
+            compose_refusal(
+                "universe_has_no_human_actor: no human actor exists to attribute this to.",
+                recovery="boot the universe so its birth seeds one.",
+            )
         )
     return actor_id
 

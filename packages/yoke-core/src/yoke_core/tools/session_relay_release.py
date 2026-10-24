@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import subprocess
+import uuid
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
-import uuid
 
 from packaging.version import InvalidVersion, Version
 from yoke_cli import manifest
@@ -19,8 +19,9 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     resolve_relay_instance,
 )
-from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
+from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
 RELAY_LAUNCH_LINK_NAME = "venv"
 RELAY_RUNTIME_NAME = "runtime"
@@ -179,11 +180,10 @@ def fetch_served_build(
         # against a connection whose credential it cannot yet read.
         raise RelayReleaseError(
             RELAY_RELEASE_FETCH_FAILED,
-            f"environment {instance.environment!r} returned no manifest: its "
-            "https connection did not resolve, or the handshake failed. "
-            f"Recovery: confirm `yoke --env {instance.environment} status` "
-            "reaches the plane with a readable credential, then retry "
-            f"`yoke --env {instance.environment} relay install`.",
+            compose_refusal(
+                f"environment {instance.environment!r} returned no manifest: its https connection did not resolve, or the handshake failed.",
+                recovery=f"confirm `yoke --env {instance.environment} status` reaches the plane with a readable credential, then retry `yoke --env {instance.environment} relay install`.",
+            ),
         )
     build = (
         str(payload.get("server_engine_version") or "").strip()

@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.keepalive import (
     SessionKeepaliveHoldRequest,
     SessionKeepaliveReleaseRequest,
 )
+
 from yoke_core.domain.handlers.session_messages_common import (
     domain_error,
     failure,
@@ -24,11 +26,11 @@ from yoke_core.domain.sessions_analytics import SessionError
 def _authorized_target(conn: Any, request: FunctionCallRequest, session_id: str):
     """Return a locked target once its owner or scope policy allows keepalive."""
     from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
+    from yoke_core.domain.session_message_types import SessionMessageError
     from yoke_core.domain.session_scope_identity import (
         actor_may_operate_session,
         session_scope_of,
     )
-    from yoke_core.domain.session_message_types import SessionMessageError
     from yoke_core.domain.session_steering_authority import session_control_target
 
     target = session_control_target(conn, session_id)
@@ -41,8 +43,10 @@ def _authorized_target(conn: Any, request: FunctionCallRequest, session_id: str)
     ):
         raise SessionMessageError(
             "unauthorized_target",
-            "Session keepalive is not authorized for this actor. Recovery: use an "
-            "authorized connection or ask the project owner or org admin for access.",
+            compose_refusal(
+                "Session keepalive is not authorized for this actor.",
+                recovery="use an authorized connection or ask the project owner or org admin for access.",
+            ),
         )
     return target
 

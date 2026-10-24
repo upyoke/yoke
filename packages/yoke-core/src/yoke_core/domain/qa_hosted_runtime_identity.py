@@ -11,13 +11,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.environment_declared_facts import (
-    decode_settings,
     declared_text,
+    decode_settings,
     is_hosted_runtime,
 )
-
 
 CANONICAL_RUNTIME_SITE_NAME = "Yoke API"
 QA_HOSTED_RUNTIME_CONSUMER_PATH = "qa.hosted_runtime_consumer"
@@ -78,13 +79,10 @@ def require_plan_environment_access(
     result = _row_dict(cursor, row)
     if not _environment_allowed(result):
         raise ValueError(
-            f"environment {result['environment_name']!r} is not authorized for "
-            f"plan project {plan_project_id}. Recovery: target an environment "
-            "the plan project owns, or have the owning project share it from "
-            f"its {CANONICAL_RUNTIME_SITE_NAME!r} site by declaring "
-            "qa.hosted_runtime=true and "
-            f"{QA_HOSTED_RUNTIME_CONSUMER_PATH}={result['plan_project_slug']} "
-            "(`yoke projects environment-settings merge`)"
+            compose_refusal(
+                f"environment {result['environment_name']!r} is not authorized for plan project {plan_project_id}.",
+                recovery=f"target an environment the plan project owns, or have the owning project share it from its {CANONICAL_RUNTIME_SITE_NAME!r} site by declaring qa.hosted_runtime=true and {QA_HOSTED_RUNTIME_CONSUMER_PATH}={result['plan_project_slug']} (`yoke projects environment-settings merge`)",
+            )
         )
     return result
 

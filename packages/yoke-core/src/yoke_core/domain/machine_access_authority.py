@@ -10,12 +10,13 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.machine_config.machine_access import (
-    AccessDecision,
     USE_SETTING,
+    AccessDecision,
     access_permits,
 )
-from yoke_core.domain.machine_registry import get_machine, marker
+from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.domain.machine_registry import get_machine, marker
 
 REGISTRY_SETTING = "machines.registration"
 
@@ -81,8 +82,10 @@ def actor_may_use_machine(
         return AccessDecision(
             False,
             REGISTRY_SETTING,
-            f"machine {machine_id} is not registered in this control plane. "
-            "Recovery: run `yoke machine register` on that machine.",
+            compose_refusal(
+                f"machine {machine_id} is not registered in this control plane.",
+                recovery="run `yoke machine register` on that machine.",
+            ),
         )
     roles: tuple[str, ...] = ()
     declared_project = record.access["use"].get("project_id") or project_id

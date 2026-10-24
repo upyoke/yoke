@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.models import RecipientSelector
 
 from yoke_core.domain import db_backend
@@ -29,7 +30,6 @@ from yoke_core.domain.session_recovery_facts import (
     record_promised_work_hold,
 )
 from yoke_core.domain.turn_end_unfinished_work import recovery_for
-
 
 REASON_CAP_REACHED = "reinjection_cap_reached"
 REASON_RELAY_WAKE_QUEUED = "relay_continuation_wake_queued"
@@ -94,11 +94,10 @@ def _alarm_steering(
             sender_session_id=session_id,
             selector=RecipientSelector(steering=True),
             body=(
-                f"Relay worker {session_id} stopped holding {ref} with work "
-                f"left, and automatic continuation did not wake it: {failure}. "
-                f"{detail} Recovery: read `yoke session-control evidence get "
-                f"--session {session_id}`, then wake it with `yoke "
-                f"session-control session wake {session_id}` or restaff {ref}."
+                compose_refusal(
+                    f"Relay worker {session_id} stopped holding {ref} with work left, and automatic continuation did not wake it: {failure}. {detail}",
+                    recovery=f"read `yoke session-control evidence get --session {session_id}`, then wake it with `yoke session-control session wake {session_id}` or restaff {ref}.",
+                )
             ),
             idempotency_key=key,
             now=utc_now(),

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.shared_files import SHARED_FILES_STORAGE_KIND
 
 from yoke_core.domain.qa_artifact_handle import (
@@ -135,7 +136,11 @@ def _broker_refusal(exc: urllib.error.HTTPError) -> ArtifactBrokerError:
         remote_code = str(error.get("code") or "request_refused")
         message = str(error.get("message") or f"HTTP {exc.code}")
         recovery = str(error.get("recovery") or "").strip()
-        detail = f"{message} Recovery: {recovery}" if recovery else message
+        detail = (
+            compose_refusal(f"{message}", recovery=f"{recovery}")
+            if recovery
+            else message
+        )
         return ArtifactBrokerError(f"artifact_broker_{remote_code}", detail)
     return ArtifactBrokerError(
         "artifact_broker_request_refused",

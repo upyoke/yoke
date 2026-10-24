@@ -19,6 +19,8 @@ from yoke_contracts.qa_mission_scratch import (
     STALE_OWNER_MARKER,
     MissionScratchIdentityError,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.agent_mission_host_command_cli import (
     add_mission_subject_arguments,
     resolve_mission_contract,
@@ -73,9 +75,10 @@ def run_start(args: list[str]) -> int:
         return 0
     failure = preparation["evidence"]["preparation_failure"]
     print(
-        f"{PROG_START}: {preparation['error_code']}: {failure['diagnostic']}. "
-        f"Recovery: {failure['recovery']}. Do not walk this mission until "
-        "walk-start succeeds; report the failure as the walk's blocker.",
+        compose_refusal(
+            f"{PROG_START}: {preparation['error_code']}: {failure['diagnostic']}.",
+            recovery=f"{failure['recovery']}. Do not walk this mission until walk-start succeeds; report the failure as the walk's blocker.",
+        ),
         file=sys.stderr,
     )
     return 3

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import stat
+from pathlib import Path
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 SECRETS_DIR_NAME = "secrets"
 SECRETS_DIRECTORY_MODE = 0o700
@@ -144,10 +145,10 @@ def _assert_owner_controlled_bundle(descriptor: int, path: Path) -> None:
     info = os.fstat(descriptor)
     if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o022:
         raise SecureLayoutError(
-            "self-host bundle directory must be owned by the current user "
-            f"and not group/world writable: {path}. Recovery: run "
-            f"`chmod go-w {path}` as its owner, or pass --dir with a "
-            "directory you own, then retry."
+            compose_refusal(
+                f"self-host bundle directory must be owned by the current user and not group/world writable: {path}.",
+                recovery=f"run `chmod go-w {path}` as its owner, or pass --dir with a directory you own, then retry.",
+            )
         )
 
 

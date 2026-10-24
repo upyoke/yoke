@@ -9,13 +9,19 @@ either caller.
 
 from __future__ import annotations
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
-FROZEN_REQUIREMENT_MESSAGE = (
-    "frozen_requirement_immutable: a deployment-run requirement is a frozen "
-    "acceptance snapshot and cannot be corrected in place. Update the live "
-    "item requirement, then re-run it. Recovery: yoke qa requirement update "
-    "--requirement-id <live-id> --field method_config --value '<json>'"
+FROZEN_REQUIREMENT_MESSAGE = compose_refusal(
+    (
+        "frozen_requirement_immutable: a deployment-run requirement is a frozen "
+        "acceptance snapshot and cannot be corrected in place. Update the live "
+        "item requirement, then re-run it."
+    ),
+    recovery=(
+        "yoke qa requirement update --requirement-id <live-id> --field "
+        "method_config --value '<json>'"
+    ),
 )
 
 

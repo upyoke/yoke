@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import uuid
+from dataclasses import replace
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.model_selection import (
     LaunchModelSelection,
     LaunchModelSelectionError,
     validate_launch_model_selection,
 )
 from yoke_contracts.session_control.models import LaunchPreviewRequest
+from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
+
+from yoke_core.domain.session_launch_assignment import MAX_SESSION_NAME_LENGTH
 from yoke_core.domain.session_launch_types import (
-    LaunchRequest,
     MAX_LAUNCH_DEADLINE_SECONDS,
+    LaunchRequest,
     SessionLaunchError,
 )
-from yoke_core.domain.session_launch_assignment import MAX_SESSION_NAME_LENGTH
-from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
 
 
 def require_launch_id(launch_id: str) -> str:
@@ -34,9 +36,10 @@ def require_launch_id(launch_id: str) -> str:
     except ValueError:
         raise SessionLaunchError(
             "launch_id_invalid",
-            f"launch id {raw!r} is not a UUID; a launch id is 8-4-4-4-12 hex "
-            "(the value session_control.launch.create returns), not a fragment "
-            "or short hex string. Recovery: pass the full launch id.",
+            compose_refusal(
+                f"launch id {raw!r} is not a UUID; a launch id is 8-4-4-4-12 hex (the value session_control.launch.create returns), not a fragment or short hex string.",
+                recovery="pass the full launch id.",
+            ),
         ) from None
     return str(parsed)
 

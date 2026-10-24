@@ -14,6 +14,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -96,14 +98,10 @@ def _not_contained_refusal(
     detail = f" ({verdict.reason}: {verdict.recovery})" if verdict.reason else ""
     refs = [render_item_ref(conn, int(m["item_id"])) for m in moving]
     lines = [
-        f"run {old_id} on this flow and target is waiting "
-        f"only on item QA, and this candidate ({new_lineage or 'unpinned'}) is "
-        f"not known to contain its candidate ({old['release_lineage'] or 'unpinned'})"
-        f"{detail}. Taking it over would replace a build whose members this "
-        "candidate may not carry, so nothing was created or changed.",
-        "Recovery: create from a candidate that contains "
-        f"{old['release_lineage'] or 'the older run'}'s commit, or release its "
-        "waiting members by hand:",
+        compose_refusal(
+            f"run {old_id} on this flow and target is waiting only on item QA, and this candidate ({new_lineage or 'unpinned'}) is not known to contain its candidate ({old['release_lineage'] or 'unpinned'}){detail}. Taking it over would replace a build whose members this candidate may not carry, so nothing was created or changed.",
+            recovery=f"create from a candidate that contains {old['release_lineage'] or 'the older run'}'s commit, or release its waiting members by hand:",
+        ),
     ]
     if has_shared_gates(old["stages"]):
         lines.append(

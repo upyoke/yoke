@@ -6,7 +6,9 @@ import json
 from dataclasses import replace
 from typing import Any, Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.capabilities import capability_for_surface
+
 from yoke_core.domain.item_level_override import (
     LevelOverrideError,
     resolve_level_override,
@@ -44,9 +46,13 @@ def resolve_stage_level(
     except LevelOverrideError as exc:
         raise StageLevelError(
             "stage_level_invalid",
-            f"Stage {stage['id']} cannot resolve its effective level: {exc}. "
-            "Recovery: correct the item's level posture or publish a workflow "
-            "version naming an available project level.",
+            compose_refusal(
+                f"Stage {stage['id']} cannot resolve its effective level: {exc}.",
+                recovery=(
+                    "correct the item's level posture or publish a workflow version naming an "
+                    "available project level."
+                ),
+            ),
         ) from exc
     return {
         "stage_id": stage["id"],
@@ -94,7 +100,9 @@ __all__ = [
 
 def default_launch_level(conn: Any, request: Any) -> Any:
     """An exact model or level wins; surface-only staffing uses the live stage."""
-    if request.level or (request.executor_surface and (request.model or not request.item)):
+    if request.level or (
+        request.executor_surface and (request.model or not request.item)
+    ):
         return request
     capability = capability_for_surface(request.executor_surface)
     if request.executor_surface and (capability is None or capability.create == "none"):
@@ -103,14 +111,15 @@ def default_launch_level(conn: Any, request: Any) -> Any:
     from yoke_core.domain.session_launch_types import SessionLaunchError
 
     if request.executor_surface and (
-        request.reasoning_effort is not None or request.context_window_tokens is not None
+        request.reasoning_effort is not None
+        or request.context_window_tokens is not None
     ):
         raise SessionLaunchError(
             "launch_model_required",
-            "Surface-only staffing chooses the option's model, effort and context. "
-            f"Recovery: repeat launch create with --surface {request.executor_surface} "
-            "--model MODEL --reasoning-effort EFFORT to customize the selection, "
-            "or omit --reasoning-effort and --context-window to use the level option.",
+            compose_refusal(
+                "Surface-only staffing chooses the option's model, effort and context.",
+                recovery=f"repeat launch create with --surface {request.executor_surface} --model MODEL --reasoning-effort EFFORT to customize the selection, or omit --reasoning-effort and --context-window to use the level option.",
+            ),
         )
     item_id = (
         resolve_item_ref_or_none(conn, request.item, project=request.project_id)
@@ -124,15 +133,22 @@ def default_launch_level(conn: Any, request: Any) -> Any:
     if resolved is None and request.executor_surface:
         raise SessionLaunchError(
             "launch_model_required",
-            f"No item stage level can select a model on {request.executor_surface}. "
-            "Recovery: repeat launch create with --surface "
-            f"{request.executor_surface} --model MODEL --reasoning-effort EFFORT "
-            "using a qualifying model and effort from `yoke settings get levels`.",
+            compose_refusal(
+                f"No item stage level can select a model on {request.executor_surface}.",
+                recovery=f"repeat launch create with --surface {request.executor_surface} --model MODEL --reasoning-effort EFFORT using a qualifying model and effort from `yoke settings get levels`.",
+            ),
         )
     if resolved is None:
         raise SessionLaunchError(
             "stage_level_missing",
-            "Launch has neither an explicit level nor an item stage level. "
-            "Recovery: pass --level LEVEL, or ask the control-plane operator to preview and apply `yoke workflows item migrate ITEM --version N --preview` to a compatible version whose live stage declares a level. Existing pins never move automatically.",
+            compose_refusal(
+                "Launch has neither an explicit level nor an item stage level.",
+                recovery=(
+                    "pass --level LEVEL, or ask the control-plane operator to preview and "
+                    "apply `yoke workflows item migrate ITEM --version N --preview` to a "
+                    "compatible version whose live stage declares a level. Existing pins never "
+                    "move automatically."
+                ),
+            ),
         )
     return replace(request, level=resolved["level"])

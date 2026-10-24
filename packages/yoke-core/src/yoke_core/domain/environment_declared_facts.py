@@ -13,12 +13,13 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.environment_host_urls import (
     http_url_error,
     refuse_url_value,
 )
-from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.settings_cas import apply_key_path_assignments, read_key_path
 
 HOSTS_APP_PATH = "hosts.app"

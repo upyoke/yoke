@@ -28,6 +28,8 @@ from yoke_contracts.harness_machine_hooks import (
     HARNESS_MACHINE_HOOKS,
     HarnessMachineHooks,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_harness.hooks.machine_hooks_render import (
     is_machine_hook_entry,
     render_user_hook_entries,
@@ -74,9 +76,9 @@ def specs_for(harnesses: Optional[Iterable[str]]) -> list[HarnessMachineHooks]:
 
 
 def malformed_detail(path: Path, reason: str) -> str:
-    return (
-        f"{path} is not a hook config Yoke can edit: {reason}. Recovery: fix or "
-        "move the file, then run `yoke setup` again"
+    return compose_refusal(
+        f"{path} is not a hook config Yoke can edit: {reason}.",
+        recovery="fix or move the file, then run `yoke setup` again",
     )
 
 
@@ -182,9 +184,9 @@ def _trust(
                 hooks_path, config_path, is_owned=owned_command_check(spec)
             )
     except CodexHookTrustStoreError as exc:
-        return (
-            f"Codex hook trust was not written: {exc}. Recovery: fix "
-            f"{config_path}, then run `yoke setup` again"
+        return compose_refusal(
+            f"Codex hook trust was not written: {exc}.",
+            recovery=f"fix {config_path}, then run `yoke setup` again",
         )
     return ""
 

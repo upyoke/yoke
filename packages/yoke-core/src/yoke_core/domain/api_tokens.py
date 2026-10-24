@@ -9,20 +9,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.self_host_bootstrap_output import (
     TOKEN_BODY_LENGTH,
     TOKEN_PREFIX,
 )
-
-from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.timestamps import parse_instant, utc_now
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 from yoke_core.domain.api_token_audit import _metadata_json
 from yoke_core.domain.api_token_audit import record_token_audit as record_token_audit
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 from yoke_core.domain.hosted_service_authority import HOSTED_SERVICE_TOKEN_NAME
-
 
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
@@ -209,8 +209,10 @@ def verify_token(
                 diagnostic_metadata=diagnostic_metadata,
             )
             raise TokenMachineRetired(
-                "Machine credential belongs to a retired machine. Recovery: "
-                f"{RETIRED_MACHINE_RECOVERY}"
+                compose_refusal(
+                    "Machine credential belongs to a retired machine.",
+                    recovery=f"{RETIRED_MACHINE_RECOVERY}",
+                )
             )
     if status != TOKEN_STATUS_ACTIVE:
         record_token_audit(

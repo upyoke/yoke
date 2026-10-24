@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_queries import _row_to_dict
@@ -27,10 +29,9 @@ def session_control_target(conn: Any, session_id: str) -> dict[str, Any]:
 
 def steering_authority_message(project: int | str) -> str:
     """Name the required seat and its reachable recovery route."""
-    return (
-        f"requires a live steering seat for project {project}. "
-        f"Recovery: yoke claims steering acquire --project {project} "
-        '--reason "<intent>", or route via yoke say --steering.'
+    return compose_refusal(
+        f"requires a live steering seat for project {project}.",
+        recovery=f'yoke claims steering acquire --project {project} --reason "<intent>", or route via yoke say --steering.',
     )
 
 
@@ -93,9 +94,13 @@ def require_any_steering_seat(
     if seat is None:
         raise SessionError(
             error_code,
-            f"{action} requires a live steering seat on any project. "
-            "Recovery: yoke claims steering acquire --project PROJECT "
-            '--reason "<intent>", or route via yoke say --steering.',
+            compose_refusal(
+                f"{action} requires a live steering seat on any project.",
+                recovery=(
+                    'yoke claims steering acquire --project PROJECT --reason "<intent>", or '
+                    "route via yoke say --steering."
+                ),
+            ),
         )
     return seat
 

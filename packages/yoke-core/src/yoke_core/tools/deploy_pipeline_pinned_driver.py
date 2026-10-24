@@ -9,11 +9,13 @@ import sys
 from pathlib import Path
 from typing import Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project
+
 from yoke_core.domain.deploy_pipeline_pinned_source import (
-    DeployPinnedSourceError,
     PINNED_RELEASE_ENV,
     PINNED_SOURCE_ROOT_ENV,
+    DeployPinnedSourceError,
     PinnedDriverSource,
     prepare_self_deploy_driver,
 )
@@ -34,7 +36,9 @@ def environment_for_pinned_driver(
 
     def refuse(detail: str) -> None:
         raise DeployPinnedSourceError(
-            f"DEPLOY-DRIVER-ENVIRONMENT: {detail}. Recovery: {recovery}"
+            compose_refusal(
+                f"DEPLOY-DRIVER-ENVIRONMENT: {detail}.", recovery=f"{recovery}"
+            )
         )
 
     if not is_uv_project(root):

@@ -1,6 +1,8 @@
 """Readiness reporting and identity proof for AWS admin credentials."""
 
 from __future__ import annotations
+
+from yoke_contracts.refusal_recovery import compose_refusal
 from typing import Any, Dict, Optional
 
 _AWS_ADMIN_CAPABILITY = "aws-admin"
@@ -108,8 +110,4 @@ def _write_aws_admin_status(report: Dict[str, Any]) -> None:
         if report["missing"]
         else f"identity check failed · {verification['reason']}"
     )
-    print(f"  ready              no · {detail}")
-    print("")
-    print("Recovery:")
-    for command in report["remedy"]:
-        print(f"  {command}")
+    print(compose_refusal(f"  ready              no · {detail}", recovery="\n".join(report["remedy"])))

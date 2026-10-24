@@ -6,8 +6,8 @@ and uv check. Installed control-plane launchers never call this resolver.
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import shlex
 import subprocess
@@ -15,8 +15,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project
 from yoke_contracts.qa_case_environment import COMMAND_CASE_CANDIDATE_TREE_ENV
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project
+
 from yoke_core.domain.qa_environment_declaration import (
     TestEnvironmentDeclaration,
     load_declaration,
@@ -105,7 +107,9 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
     )
 
     def refuse(reason: str, detail: str) -> None:
-        raise SourceEnvironmentRefusal(f"{reason}: {detail}. Recovery: {recovery}")
+        raise SourceEnvironmentRefusal(
+            compose_refusal(f"{reason}: {detail}.", recovery=f"{recovery}")
+        )
 
     if not project.is_relative_to(root) or not is_uv_project(project):
         refuse(

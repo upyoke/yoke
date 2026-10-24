@@ -8,9 +8,9 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any
 
-from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain.deployment_stage_receipts import (
     deployment_stage_receipt_for_qa,
 )
@@ -18,7 +18,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     answer_for_item,
     member_post_deploy_answer,
 )
-
+from yoke_core.domain.project_identity import render_item_ref
 
 DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND = "deployment_stage_acceptance"
 
@@ -304,7 +304,10 @@ def require_prior_stage_acceptance(
         raise ValueError(
             "deployment QA stage cannot begin before prior scoped QA acceptance: "
             + "; ".join(refusals)
-            + ". Recovery: finish or explicitly waive every named prior stage subject."
+            + compose_refusal(
+                ".",
+                recovery="finish or explicitly waive every named prior stage subject.",
+            )
         )
 
 

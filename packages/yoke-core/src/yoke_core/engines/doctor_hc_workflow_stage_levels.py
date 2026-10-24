@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 from typing import Any, List
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
@@ -85,10 +87,10 @@ def hc_workflow_stage_level_pins(conn, args: DoctorArgs, rec: RecordCollector) -
             "definition_json": row["current_definition_json"],
         }
         findings.append(
-            f"- {ref} ({row['status']}): pinned to {row['workflow_id']} "
-            f"v{row['version']}, whose stages {', '.join(missing)} declare no "
-            "level, so a launch without --level refuses as "
-            f"stage_level_missing. Recovery: {_recovery(ref, current)}"
+            compose_refusal(
+                f"- {ref} ({row['status']}): pinned to {row['workflow_id']} v{row['version']}, whose stages {', '.join(missing)} declare no level, so a launch without --level refuses as stage_level_missing.",
+                recovery=f"{_recovery(ref, current)}",
+            )
         )
     if findings:
         rec.record(CHECK_ID, CHECK_NAME, "FAIL", "\n".join(findings))

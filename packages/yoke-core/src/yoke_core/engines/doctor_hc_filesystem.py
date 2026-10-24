@@ -6,19 +6,18 @@ import re
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain.strategy_docs_paths import strategy_view_path
-
-from yoke_core.domain import machine_config
+from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
 from yoke_contracts.machine_config.schema_project_validation import (
     validate_connection_projects,
     validate_projects,
 )
-from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
-from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.scratch_auto_prune import prune_stale_scratch
+from yoke_contracts.refusal_recovery import compose_refusal
 
 import yoke_core.engines.doctor_report as _base
-
+from yoke_core.domain import machine_config
+from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.scratch_auto_prune import prune_stale_scratch
+from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -126,13 +125,19 @@ def _settings_key_issues(settings: dict) -> List[str]:
             "machine copy — remove the key and set it on the capability"
         )
     for key in unrecognized_settings(settings):
-        issues.append(f"- settings.{key} has no reader. Recovery: yoke settings list")
+        issues.append(
+            compose_refusal(
+                f"- settings.{key} has no reader.", recovery="yoke settings list"
+            )
+        )
     for key, spec in MACHINE_SETTING_KEYS.items():
         if key in settings:
             try:
                 spec.stored_value(key, settings[key])
             except ValueError as exc:
-                issues.append(f"- {exc}; Recovery: yoke settings unset {key}")
+                issues.append(
+                    compose_refusal(f"- {exc};", recovery=f"yoke settings unset {key}")
+                )
     return issues
 
 
@@ -258,8 +263,8 @@ def hc_test_command_validity(conn, args: DoctorArgs, rec: RecordCollector) -> No
     # Imported lazily to avoid a hard import cycle between doctor.py and
     # projects.py during module import.
     from yoke_core.domain import qa_command_plans
-    from yoke_core.domain.projects import _validate_test_command
     from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+    from yoke_core.domain.projects import _validate_test_command
 
     rows = query_rows(
         conn,

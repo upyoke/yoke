@@ -6,12 +6,13 @@ import os
 import re
 import stat
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
-import tomllib
 from filelock import FileLock, Timeout
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 TRUSTED_HASH_KEY = "trusted_hash"
 CONFIG_LOCK_TIMEOUT_SECONDS = 10
@@ -29,13 +30,17 @@ def read_config(path: Path) -> tuple[str, dict[str, Any]]:
         document = tomllib.loads(text) if text.strip() else {}
     except OSError as exc:
         raise CodexHookTrustStoreError(
-            f"could not read Codex config {path}: {exc}. "
-            "Recovery: check the file permissions, then retry."
+            compose_refusal(
+                f"could not read Codex config {path}: {exc}.",
+                recovery="check the file permissions, then retry.",
+            )
         ) from exc
     except UnicodeError as exc:
         raise CodexHookTrustStoreError(
-            f"Codex config {path} is not UTF-8. "
-            "Recovery: repair the file encoding, then retry."
+            compose_refusal(
+                f"Codex config {path} is not UTF-8.",
+                recovery="repair the file encoding, then retry.",
+            )
         ) from exc
     except ValueError as exc:
         location = re.search(
@@ -43,7 +48,10 @@ def read_config(path: Path) -> tuple[str, dict[str, Any]]:
         )
         detail = f" {location.group()}" if location else ""
         raise CodexHookTrustStoreError(
-            f"{path} is not valid TOML{detail}. Recovery: repair the file, then retry."
+            compose_refusal(
+                f"{path} is not valid TOML{detail}.",
+                recovery="repair the file, then retry.",
+            )
         ) from exc
     return text, dict(document)
 
@@ -168,13 +176,17 @@ def mutate(
                 _record_lock_sidecar(lock_path)
     except Timeout as exc:
         raise CodexHookTrustStoreError(
-            f"Codex config is busy: {target}. Recovery: wait for the other "
-            "configuration update to finish, then retry."
+            compose_refusal(
+                f"Codex config is busy: {target}.",
+                recovery="wait for the other configuration update to finish, then retry.",
+            )
         ) from exc
     except OSError as exc:
         raise CodexHookTrustStoreError(
-            f"could not update {target}: {exc}. Recovery: check the directory "
-            "permissions and available space, then retry."
+            compose_refusal(
+                f"could not update {target}: {exc}.",
+                recovery="check the directory permissions and available space, then retry.",
+            )
         ) from exc
 
 
@@ -198,8 +210,10 @@ def _mutate_locked(
         tomllib.loads(updated)
     except ValueError as exc:
         raise CodexHookTrustStoreError(
-            f"refusing invalid Codex config update for {path}. Recovery: keep "
-            "the original file and report the writer failure."
+            compose_refusal(
+                f"refusing invalid Codex config update for {path}.",
+                recovery="keep the original file and report the writer failure.",
+            )
         ) from exc
     target = path
     mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o600
@@ -214,8 +228,10 @@ def _mutate_locked(
         os.chmod(temporary, mode)
         if target.exists() and target.read_text(encoding="utf-8") != text:
             raise CodexHookTrustStoreError(
-                f"codex_config_changed: {target} changed during the update. "
-                "Recovery: retry after Codex finishes writing its configuration."
+                compose_refusal(
+                    f"codex_config_changed: {target} changed during the update.",
+                    recovery="retry after Codex finishes writing its configuration.",
+                )
             )
         os.replace(temporary, target)
     except BaseException:

@@ -1,9 +1,10 @@
 """Registered admin-only retention read and one bounded prune pass."""
 
 from pydantic import ValidationError
-
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.universe_retention import PruneRequest, RetentionReadRequest
+
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
@@ -53,9 +54,15 @@ def _handle(request, prune):
                 if prune
                 else "retention_read_failed",
                 message=(
-                    f"The prune pass could not be acknowledged ({type(exc).__name__}); its outcome/count is unknown and any commits remain committed. Recovery: restore the database connection and rerun universe prune."
+                    compose_refusal(
+                        f"The prune pass could not be acknowledged ({type(exc).__name__}); its outcome/count is unknown and any commits remain committed.",
+                        recovery="restore the database connection and rerun universe prune.",
+                    )
                     if prune
-                    else f"The selected universe's retention/identity could not be read ({type(exc).__name__}). Recovery: restore its database connection and retry."
+                    else compose_refusal(
+                        f"The selected universe's retention/identity could not be read ({type(exc).__name__}).",
+                        recovery="restore its database connection and retry.",
+                    )
                 ),
             ),
         )

@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.liveness import ended_session_sql
-from yoke_core.domain.refusal_recovery import compose_refusal
+
 from yoke_core.domain.session_launch_store import (
     instruction_message,
     marker,

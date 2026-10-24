@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import pytest
-
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     unsettled_acceptance_blocker,
 )
 from yoke_core.domain.qa_plan_target_reuse_refusal import different_target_refusal
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def test_compose_refusal_requires_recovery_or_escalation() -> None:

@@ -5,19 +5,20 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
-from yoke_core.domain.domain_refusal import DomainRefusal
-from yoke_core.domain.deployment_run_target_resolution import (
-    coerce_target_environment_id,
+from yoke_core.domain.deployment_flow_policy import (
+    require_supported_definition_schema,
 )
 from yoke_core.domain.deployment_flow_target_support import (
     require_supported_stage_targets_for_flow,
 )
-from yoke_core.domain.deployment_flow_policy import (
-    require_supported_definition_schema,
+from yoke_core.domain.deployment_run_target_resolution import (
+    coerce_target_environment_id,
 )
+from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.schema_common import _table_exists
-
 
 FLOW_STATUS_ACTIVE = "active"
 FLOW_STATUS_DISABLED = "disabled"
@@ -31,9 +32,13 @@ class MergeOnlyRunRefused(DomainRefusal, ValueError):
 
     def __init__(self, flow_id: str) -> None:
         super().__init__(
-            f"Flow {flow_id!r} is merge-only (target_tier is null). "
-            "Recovery: finish the item's merge close-out; do not create a "
-            "release run. To deploy, select a flow with a deployment target."
+            compose_refusal(
+                f"Flow {flow_id!r} is merge-only (target_tier is null).",
+                recovery=(
+                    "finish the item's merge close-out; do not create a release run. To "
+                    "deploy, select a flow with a deployment target."
+                ),
+            )
         )
 
 

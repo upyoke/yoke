@@ -6,10 +6,11 @@ import os
 import sys
 from typing import Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_gate_definitions import GateResult, GateTarget
 from yoke_core.domain.schema_common import _table_exists
-
 
 QA_BYPASS_ENV = "YOKE_QA_GATE_BYPASS"
 QA_BYPASS_FORBIDDEN = "GATE_QA_BYPASS_FORBIDDEN"
@@ -45,10 +46,10 @@ def qa_bypass_result(*, requested: Optional[bool] = None) -> Optional[GateResult
     return GateResult(
         passed=False,
         errors=[
-            f"{QA_BYPASS_FORBIDDEN}: {QA_BYPASS_ENV}=1 is test-only; "
-            "production QA obligations cannot be bypassed.",
-            f"  Recovery: unset {QA_BYPASS_ENV}, satisfy or explicitly waive "
-            "each declared requirement, then retry the transition.",
+            compose_refusal(
+                f"{QA_BYPASS_FORBIDDEN}: {QA_BYPASS_ENV}=1 is test-only; production QA obligations cannot be bypassed.",
+                recovery=f"unset {QA_BYPASS_ENV}, satisfy or explicitly waive each declared requirement, then retry the transition.",
+            ),
         ],
     )
 
@@ -69,10 +70,13 @@ def qa_schema_result(
     return GateResult(
         passed=False,
         errors=[
-            f"{QA_SCHEMA_MISSING}: QA verification cannot run because required "
-            f"table(s) are missing: {', '.join(missing)}.",
-            "  Recovery: run this Yoke build's normal schema convergence "
-            "against the target control-plane database, then retry.",
+            compose_refusal(
+                f"{QA_SCHEMA_MISSING}: QA verification cannot run because required table(s) are missing: {', '.join(missing)}.",
+                recovery=(
+                    "run this Yoke build's normal schema convergence against the target "
+                    "control-plane database, then retry."
+                ),
+            ),
         ],
     )
 
@@ -108,15 +112,15 @@ def requirement_set_result(
     )
     if count:
         return None
+    from yoke_core.domain import db_backend
     from yoke_core.domain.qa_gate_requirement_teaching import (
         missing_verification_requirement_errors,
     )
+    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
     from yoke_core.domain.qa_workflow_binding_validation import (
         attachment_transition_for_item,
         optional_unattached_qa_permits_empty,
     )
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
     item_id = int(target.item_id) if target.item_id is not None else int(target.epic_id)
     if optional_unattached_qa_permits_empty(conn, item_id):
@@ -167,7 +171,6 @@ def browser_checkout_free_proof_result(
     from yoke_core.domain.qa_browser_checkout_free_proof import (
         checkout_bound_proof_findings,
     )
-
     from yoke_core.domain.qa_gate_helpers import BrowserCompletionIdentityUnavailable
 
     try:
@@ -184,15 +187,15 @@ def browser_checkout_free_proof_result(
     if not findings:
         return None
     errors = [
-        f"{QA_BROWSER_PROOF_NEEDS_CHECKOUT}: Cannot transition {name} to "
-        f"'{transition_name}' because {len(findings)} Browser requirement(s) "
-        "carry proof that cannot be read without a checkout of the project, "
-        "and this host has none.",
-        "  Recovery: re-run each named case through `yoke qa case run "
-        "--requirement-id <REQ_ID> --expected-branch <BRANCH> --expected-sha "
-        "<SHA>`, which records the exact revision and uploads its evidence to "
-        "durable storage; or run the transition from the project's own "
-        "checkout.",
+        compose_refusal(
+            f"{QA_BROWSER_PROOF_NEEDS_CHECKOUT}: Cannot transition {name} to '{transition_name}' because {len(findings)} Browser requirement(s) carry proof that cannot be read without a checkout of the project, and this host has none.",
+            recovery=(
+                "re-run each named case through `yoke qa case run --requirement-id "
+                "<REQ_ID> --expected-branch <BRANCH> --expected-sha <SHA>`, which records "
+                "the exact revision and uploads its evidence to durable storage; or run "
+                "the transition from the project's own checkout."
+            ),
+        ),
     ]
     errors.extend(
         f"  - Requirement #{requirement_id} ({method_id}): {reason}"

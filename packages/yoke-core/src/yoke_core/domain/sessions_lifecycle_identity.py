@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
 import uuid
+from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_model_facts import SessionModelFacts
 
-from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
 from yoke_core.domain.session_execution_level_write import (
     refresh_session_execution_level,
 )
+from yoke_core.domain.session_model_columns import MODEL_COLUMNS, changed_columns
 
 
 def resolve_session_actor_id(
@@ -88,14 +89,18 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     except (TypeError, ValueError):
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer. "
-            "Recovery: use the registered project's numeric id or request machine scope.",
+            compose_refusal(
+                "Session registration project_id must be a positive integer.",
+                recovery="use the registered project's numeric id or request machine scope.",
+            ),
         )
     if project_id <= 0:
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer. "
-            "Recovery: use the registered project's numeric id or request machine scope.",
+            compose_refusal(
+                "Session registration project_id must be a positive integer.",
+                recovery="use the registered project's numeric id or request machine scope.",
+            ),
         )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
@@ -106,14 +111,18 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     except db_backend.operational_error_types(conn):
         raise SessionError(
             "PROJECTS_TABLE_REQUIRED",
-            "Session registration requires the projects table. "
-            "Recovery: restore the authority's schema and retry.",
+            compose_refusal(
+                "Session registration requires the projects table.",
+                recovery="restore the authority's schema and retry.",
+            ),
         )
     if not found:
         raise SessionError(
             "PROJECT_NOT_FOUND",
-            f"Session registration project_id {project_id} was not found. "
-            "Recovery: register the project or start a new session outside any project folder.",
+            compose_refusal(
+                f"Session registration project_id {project_id} was not found.",
+                recovery="register the project or start a new session outside any project folder.",
+            ),
         )
     return project_id
 

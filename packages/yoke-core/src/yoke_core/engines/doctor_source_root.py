@@ -19,15 +19,16 @@ reset it in ``finally``, so each thread and task keeps its own value.
 
 from __future__ import annotations
 
+import subprocess
+import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator, Optional
-import subprocess
-import warnings
 
-from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.doctor_budget import remaining_seconds
+from yoke_contracts.install_binding import source_checkout_root
+from yoke_contracts.refusal_recovery import compose_refusal
 
 GIT_IDENTITY_TIMEOUT_S = 5
 
@@ -109,8 +110,10 @@ def preferred_source_checkout(mapped: Path) -> Path:
             return source
     except (OSError, subprocess.TimeoutExpired) as exc:
         warnings.warn(
-            f"doctor_source_checkout_fallback: {exc}; using mapped checkout {mapped}. "
-            "Recovery: restore Git access and rerun Doctor to verify the source lane.",
+            compose_refusal(
+                f"doctor_source_checkout_fallback: {exc}; using mapped checkout {mapped}.",
+                recovery="restore Git access and rerun Doctor to verify the source lane.",
+            ),
             RuntimeWarning,
             stacklevel=2,
         )

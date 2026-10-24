@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.json_helper import loads_text
 
 CHECKOUT_NOT_REFRESHED = "checkout_not_refreshed"
@@ -151,8 +153,10 @@ def attestation_warning_lines(raw: Any) -> list[str]:
     """Deploy-pipeline lines for attestation-changing carried-work warnings."""
     return [
         (
-            f"carried-work attestation: {item['reason']} — {item['cost']} "
-            f"Recovery: {item['recovery']}"
+            compose_refusal(
+                f"carried-work attestation: {item['reason']} — {item['cost']}",
+                recovery=f"{item['recovery']}",
+            )
         )
         for item in attestation_warnings(raw)
     ]

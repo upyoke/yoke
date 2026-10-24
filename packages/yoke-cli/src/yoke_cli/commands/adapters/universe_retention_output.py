@@ -1,9 +1,11 @@
 """Invocation totals, progress lines and the final prune summary."""
 
-from collections import Counter
 import json
 import sys
 import time
+from collections import Counter
+
+from yoke_contracts.refusal_recovery import compose_refusal
 
 # A table that hits its statement/lock limit with a full pass budget is tried
 # again on later cycles; it stops after this many limit hits in a row. A
@@ -116,8 +118,10 @@ def write_summary(result, out, full):
         print("Not finished:", file=out)
         for skip in result["unfinished"]:
             print(
-                f"  {skip['table']} ({skip['code']}, {skip['attempts']} attempts): "
-                f"{skip['reason']}. Recovery: {skip['recovery']}",
+                compose_refusal(
+                    f"  {skip['table']} ({skip['code']}, {skip['attempts']} attempts): {skip['reason']}.",
+                    recovery=f"{skip['recovery']}",
+                ),
                 file=out,
             )
     if full:

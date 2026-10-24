@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
-
+from yoke_contracts.refusal_recovery import compose_refusal
 
 #: The daemon's combined stdout and stderr, in the browser runtime home. Its
 #: stdout carries the startup phase lines (``Launching Chromium``, ``Browser
@@ -139,9 +139,10 @@ def wait_for_daemon_ready(
         try:
             proc.wait(timeout=0)
             log_content = _daemon_log(log_file)
+            reason = f"daemon process exited unexpectedly\n{log_content}"
+            recovery = _exit_recovery(log_content)
             raise RuntimeError(
-                f"daemon process exited unexpectedly\n{log_content}"
-                f"{_exit_recovery(log_content)}"
+                compose_refusal(reason, recovery=recovery) if recovery else reason
             )
         except subprocess.TimeoutExpired:
             pass
@@ -153,14 +154,14 @@ def wait_for_daemon_ready(
     proc.wait()
     log_content = _daemon_log(log_file)
     raise RuntimeError(
-        f"browser daemon (pid {proc.pid}) was still starting after "
-        f"{READINESS_TIMEOUT_SECONDS:g}s and was stopped; "
-        f"last readiness error: {last_readiness_error}\n"
-        f"daemon log ({log_file}) — its last line is the startup phase it "
-        f"reached:\n{log_content or '(empty: the daemon wrote nothing)'}\n"
-        "Recovery: a start stalled at `Launching Chromium` points at the "
-        "browser binary or its profile; check it with `yoke qa browser "
-        "status`, then retry with `yoke qa browser setup`."
+        compose_refusal(
+            f"browser daemon (pid {proc.pid}) was still starting after {READINESS_TIMEOUT_SECONDS:g}s and was stopped; last readiness error: {last_readiness_error}\ndaemon log ({log_file}) — its last line is the startup phase it reached:\n{log_content or '(empty: the daemon wrote nothing)'}",
+            recovery=(
+                "a start stalled at `Launching Chromium` points at the browser binary or "
+                "its profile; check it with `yoke qa browser status`, then retry with "
+                "`yoke qa browser setup`."
+            ),
+        )
     )
 
 
@@ -168,7 +169,7 @@ def _exit_recovery(log_content: str) -> str:
     if "EADDRINUSE" not in log_content:
         return ""
     return (
-        "\nRecovery: another process holds the daemon port. Name it with "
+        "another process holds the daemon port. Name it with "
         "`lsof -nP -iTCP -sTCP:LISTEN`; a browser daemon left by another "
         "runtime home or a test run exits on its own idle timeout, so stop it "
         "or wait it out, then retry with `yoke qa browser setup`."

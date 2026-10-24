@@ -6,17 +6,18 @@ stage and when it closes, so ``yoke deployment-runs timings RUN-ID`` answers
 from any machine.
 """
 
-from contextlib import contextmanager
-from contextvars import ContextVar, copy_context
-from functools import partial, wraps
 import json
 import os
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar, copy_context
+from functools import partial, wraps
 from pathlib import Path
-from time import monotonic
 from threading import Event, Thread
+from time import monotonic
 from uuid import uuid4
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import iso8601_now
 
 PREFIX = "Deployment start timing: "
@@ -84,12 +85,10 @@ def _persist(state):
         reason = _record_batch(run_id, state["batch_id"], first, batch)
         if reason:
             print(
-                f"{REFUSAL_PREFIX}run {run_id}: {reason}. The run is unaffected; "
-                "its `Deployment start timing:` lines remain in this capture and "
-                "the next stage retries them. "
-                f"Recovery: confirm `yoke deployment-runs timings {run_id}` is "
-                "served (`yoke env list` names the control plane), then attach "
-                "this capture to the evidence that needed the timings.",
+                compose_refusal(
+                    f"{REFUSAL_PREFIX}run {run_id}: {reason}. The run is unaffected; its `Deployment start timing:` lines remain in this capture and the next stage retries them.",
+                    recovery=f"confirm `yoke deployment-runs timings {run_id}` is served (`yoke env list` names the control plane), then attach this capture to the evidence that needed the timings.",
+                ),
                 file=sys.stderr,
                 flush=True,
             )

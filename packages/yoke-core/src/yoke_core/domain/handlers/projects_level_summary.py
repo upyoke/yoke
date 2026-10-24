@@ -11,13 +11,14 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
 from yoke_contracts.levels import LevelsError, levels_payload
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
@@ -66,10 +67,14 @@ def handle_level_summary_get(request: FunctionCallRequest) -> HandlerOutcome:
     except LevelsError as exc:
         return _failure(
             exc.code,
-            f"the stored levels no longer validate at {exc.field}: {exc.detail} "
-            "Recovery: rewrite the project override with `yoke projects "
-            "capability-settings set --cap-type session-routing`, or the "
-            "universe levels with `yoke settings set levels -`.",
+            compose_refusal(
+                f"the stored levels no longer validate at {exc.field}: {exc.detail}",
+                recovery=(
+                    "rewrite the project override with `yoke projects capability-settings set "
+                    "--cap-type session-routing`, or the universe levels with `yoke settings "
+                    "set levels -`."
+                ),
+            ),
             "$.payload.project",
         )
     except (UniverseLevelsError, ValueError) as exc:

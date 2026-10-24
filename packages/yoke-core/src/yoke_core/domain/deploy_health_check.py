@@ -5,6 +5,9 @@ from __future__ import annotations
 import sys
 import uuid as _uuid
 from typing import Any, Dict
+
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.deploy_cli_manifest_gate import verify_deployed_cli_manifest
 from yoke_core.tools import step_runners as _step_runners
 
@@ -128,12 +131,13 @@ def dispatch_health_check(
         print(manifest_gate.message)
         if not manifest_gate.checked:
             print(
-                "cli_manifest_gate_unverified: environment "
-                f"{environment_name!r} declares serving connection "
-                f"{env.serving_connection!r}, but this runner could not check "
-                "its CLI manifest. Recovery: configure that HTTPS connection "
-                "here (`yoke env list`) or run the deploy from a machine that "
-                "has it.",
+                compose_refusal(
+                    f"cli_manifest_gate_unverified: environment {environment_name!r} declares serving connection {env.serving_connection!r}, but this runner could not check its CLI manifest.",
+                    recovery=(
+                        "configure that HTTPS connection here (`yoke env list`) or run the deploy "
+                        "from a machine that has it."
+                    ),
+                ),
                 file=sys.stderr,
             )
             return 1, ""

@@ -1,28 +1,27 @@
-"""Reads and writes for the machine registry.
+"""Machine registry reads and writes.
 
-Registration is the moment an asserted machine id becomes a durable one: the
-host presents the id and human name, and the control plane records the row that
-every later relay poll is checked against. Credential minting and rotation live
-in :mod:`yoke_core.domain.machine_credentials`.
+Registration persists the asserted identity checked by relay polls;
+credential minting and rotation belong to machine_credentials.
 """
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Mapping, Sequence
-import uuid
 
+from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
 from yoke_contracts.machine_config.machine_access import (
     DEFAULT_ACCESS,
     normalize_access,
     validate_access,
 )
-from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant, temporal_wire
-from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain import db_backend, json_helper
 
+from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.db_helpers import instant_parameter
 
 MAX_NAME_LENGTH = 128
 
@@ -106,7 +105,6 @@ _SELECT = (
 
 
 def canonical_machine_id(value: Any) -> str:
-    """Return the canonical UUID form, refusing anything else by name."""
     try:
         parsed = str(uuid.UUID(str(value)))
     except (ValueError, TypeError, AttributeError) as exc:
@@ -137,13 +135,14 @@ def get_machine(conn: Any, machine_id: str) -> MachineRecord | None:
 
 
 def require_machine(conn: Any, machine_id: str) -> MachineRecord:
-    """Return the row, or refuse by name with the registration recovery."""
     record = get_machine(conn, machine_id)
     if record is None:
         raise MachineRegistryError(
             "machine_unregistered",
-            f"machine {machine_id} is not registered in this control plane. "
-            "Recovery: run `yoke machine register` on that machine.",
+            compose_refusal(
+                f"machine {machine_id} is not registered in this control plane.",
+                recovery="run `yoke machine register` on that machine.",
+            ),
         )
     return record
 
@@ -165,7 +164,6 @@ def list_machines(
 def machine_names(
     conn: Any, machine_ids: Sequence[str] | None = None
 ) -> dict[str, str]:
-    """Return registered names keyed by machine id, for surfaces people read."""
     wanted = {str(value) for value in machine_ids} if machine_ids is not None else None
     return {
         record.machine_id: record.name
@@ -175,7 +173,6 @@ def machine_names(
 
 
 def display_name(names: Mapping[str, str], machine_id: str) -> str:
-    """Name a machine for a reader, falling back to the id when unregistered."""
     return names.get(machine_id) or machine_id
 
 
@@ -202,15 +199,22 @@ def register_machine(
     if existing is not None and existing.retired_at is not None:
         raise MachineRegistryError(
             "machine_retired",
-            f"machine {canonical} is retired. Recovery: {RETIRED_MACHINE_RECOVERY}",
+            compose_refusal(
+                f"machine {canonical} is retired.",
+                recovery=f"{RETIRED_MACHINE_RECOVERY}",
+            ),
         )
     if existing is not None and int(existing.owner_actor_id) != int(actor_id):
         if not is_admin:
             raise MachineRegistryError(
                 "machine_owner_mismatch",
-                f"machine {canonical} is registered to another actor. Recovery: "
-                "its owner or an administrator retires this machine, then run "
-                "`yoke connect` again on this computer.",
+                compose_refusal(
+                    f"machine {canonical} is registered to another actor.",
+                    recovery=(
+                        "its owner or an administrator retires this machine, then run `yoke "
+                        "connect` again on this computer."
+                    ),
+                ),
             )
     document = normalize_access(
         access
@@ -260,7 +264,6 @@ def retire_machine(
     now: datetime | str,
     commit: bool = True,
 ) -> MachineRecord:
-    """Retire one machine without deleting any history."""
     record = require_machine(conn, canonical_machine_id(machine_id))
     if int(record.owner_actor_id) != int(actor_id) and not is_admin:
         raise MachineRegistryError(
@@ -293,7 +296,6 @@ def set_machine_access(
     is_admin: bool = False,
     now: datetime | str,
 ) -> MachineRecord:
-    """Replace the access document; the owner or an administrator may."""
     record = require_machine(conn, machine_id)
     if record.retired_at is not None:
         raise MachineRegistryError(
@@ -320,7 +322,6 @@ def set_machine_access(
 
 
 def touch_machine_seen(conn: Any, *, machine_id: str, now: datetime | str) -> None:
-    """Stamp liveness from the relay poll that just proved this machine."""
     p = marker(conn)
     conn.execute(
         f"UPDATE machines SET last_seen_at={p} WHERE machine_id={p}",

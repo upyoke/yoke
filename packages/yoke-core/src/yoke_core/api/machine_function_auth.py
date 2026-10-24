@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 MACHINE_CREDENTIAL_FUNCTIONS = frozenset(
     {
@@ -26,16 +27,20 @@ def machine_credential_refusal(
     if not machine_id:
         return (
             "machine_credential_required",
-            "This relay credential predates machine binding. Recovery: run the "
-            "installer again to reconnect this machine.",
+            compose_refusal(
+                "This relay credential predates machine binding.",
+                recovery="run the installer again to reconnect this machine.",
+            ),
         )
     payload = envelope.get("payload")
     claimed = payload.get("machine_id") if isinstance(payload, dict) else None
     if not claimed or str(claimed).strip() != machine_id:
         return (
             "machine_credential_mismatch",
-            "The relay request must name the machine authenticated by its "
-            "credential. Recovery: reconnect this machine with the installer.",
+            compose_refusal(
+                "The relay request must name the machine authenticated by its credential.",
+                recovery="reconnect this machine with the installer.",
+            ),
         )
     return None
 

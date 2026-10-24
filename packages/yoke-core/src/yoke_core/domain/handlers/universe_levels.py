@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -22,6 +21,8 @@ from yoke_contracts.levels import (
     parse_levels,
 )
 from yoke_contracts.model_reference_records import ModelReferenceError
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 GET_FUNCTION_ID = "universe.levels.get"
@@ -88,9 +89,13 @@ def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
     except (LevelsError, UniverseLevelsError) as exc:
         return _failure(
             getattr(exc, "code", "levels_document_invalid"),
-            f"{exc}. Recovery: store a valid document with "
-            "`yoke settings set levels -`, or follow shipped defaults "
-            "with `yoke settings unset levels`.",
+            compose_refusal(
+                f"{exc}.",
+                recovery=(
+                    "store a valid document with `yoke settings set levels -`, or follow "
+                    "shipped defaults with `yoke settings unset levels`."
+                ),
+            ),
         )
     result: Dict[str, Any] = {"source": source, "levels": levels_payload(levels)}
     if source == "universe":
@@ -140,10 +145,14 @@ def handle_universe_levels_capacity_get(request: FunctionCallRequest) -> Handler
     except LevelsError as exc:
         return _failure(
             exc.code,
-            f"stored levels no longer validate at {exc.field}: {exc.detail} "
-            "Recovery: rewrite the universe levels with `yoke settings "
-            "set levels --stdin`, or the project override with `yoke projects "
-            "capability-settings set --cap-type session-routing`.",
+            compose_refusal(
+                f"stored levels no longer validate at {exc.field}: {exc.detail}",
+                recovery=(
+                    "rewrite the universe levels with `yoke settings set levels --stdin`, or "
+                    "the project override with `yoke projects capability-settings set "
+                    "--cap-type session-routing`."
+                ),
+            ),
         )
     except UniverseLevelsError as exc:
         return _failure(exc.code, str(exc))

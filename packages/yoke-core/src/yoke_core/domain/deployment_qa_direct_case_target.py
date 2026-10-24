@@ -13,6 +13,8 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_admission_materialization import (
     ADMITTED_REQUIREMENT_CASE_PREFIX,
@@ -30,7 +32,6 @@ from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     target_digest,
 )
-
 
 INCOMPLETE_TARGET_REPAIR = (
     "a run-attached executable case needs a bindable target: name "
@@ -158,16 +159,21 @@ def bind_authored_deployment_requirement(
             )
         except (LookupError, TypeError, ValueError) as exc:
             if declared:
-                return (
-                    f"{exc}. Recovery: wait for the QA stage's source "
-                    "stage to have a ready receipt. Do not substitute "
-                    "--target-env for the stage's declared environment."
+                return compose_refusal(
+                    f"{exc}.",
+                    recovery=(
+                        "wait for the QA stage's source stage to have a ready receipt. Do not "
+                        "substitute --target-env for the stage's declared environment."
+                    ),
                 )
             if not named:
-                return (
-                    f"{exc}. Recovery: attach the case to a deployment QA stage "
-                    "after its source stage has a ready receipt, or name "
-                    "--target-env for a registered environment of this project."
+                return compose_refusal(
+                    f"{exc}.",
+                    recovery=(
+                        "attach the case to a deployment QA stage after its source stage has a "
+                        "ready receipt, or name --target-env for a registered environment of this "
+                        "project."
+                    ),
                 )
             project_id = _run_project_id(conn, run_id)
             if project_id is None:

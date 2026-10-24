@@ -10,12 +10,11 @@ it never becomes a confident empty snapshot.
 
 from __future__ import annotations
 
-from yoke_core.domain.domain_refusal import DomainRefusal
-
 from typing import Any, Callable, Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_candidate_containment import (
     CONTAINED,
     NOT_CONTAINED,
@@ -23,14 +22,16 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     CandidateContainment,
 )
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
-from yoke_core.domain.json_helper import dumps_compact, loads_text
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.deployment_run_containment_basis import (
-    candidate_containment_basis,
-    _basis_digest,
     CANDIDATE_CONTAINMENT_FIELD,
     CANDIDATE_CONTAINMENT_SCHEMA,
+    _basis_digest,
+    candidate_containment_basis,
 )
+from yoke_core.domain.domain_refusal import DomainRefusal
+from yoke_core.domain.json_helper import dumps_compact, loads_text
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _column_exists
 
 
 class CandidateContainmentRefusal(DomainRefusal, ValueError):
@@ -39,7 +40,7 @@ class CandidateContainmentRefusal(DomainRefusal, ValueError):
     def __init__(self, code: str, detail: str, recovery: str) -> None:
         self.code = code
         self.recovery = recovery
-        super().__init__(f"{code}: {detail}; Recovery: {recovery}")
+        super().__init__(compose_refusal(f"{code}: {detail};", recovery=f"{recovery}"))
 
 
 def _p(conn: Any) -> str:

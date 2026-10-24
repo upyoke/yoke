@@ -17,17 +17,18 @@ from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 from yoke_core.domain.session_ci_wait_observer import apply_received_wait
 from yoke_core.domain.session_ci_wait_schema import CI_WAIT_KINDS
-from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_types import utc_now
 
 
@@ -113,16 +114,21 @@ def handle_record_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
             if row is None:
                 return _err(
                     "session_not_found",
-                    f"session {session_id} is not registered. Recovery: run the "
-                    "check from a registered harness session.",
+                    compose_refusal(
+                        f"session {session_id} is not registered.",
+                        recovery="run the check from a registered harness session.",
+                    ),
                 )
             if row[0] is None:
                 return _err(
                     "session_outside_project",
-                    f"session {session_id} was started outside any project; CI "
-                    "waits belong to project item work. Recovery: run the check "
-                    "from a session opened in the project folder; sessions never "
-                    "switch projects.",
+                    compose_refusal(
+                        f"session {session_id} was started outside any project; CI waits belong to project item work.",
+                        recovery=(
+                            "run the check from a session opened in the project folder; sessions never "
+                            "switch projects."
+                        ),
+                    ),
                 )
             project_id = int(row[0])
             recorded = _insert(

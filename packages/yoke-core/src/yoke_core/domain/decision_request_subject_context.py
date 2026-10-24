@@ -5,14 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import decision_request_merge_candidate as _merge_candidate
-from yoke_core.domain.deployment_run_release_effect import CONSEQUENCES, DEPLOYS
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
     QA_NEEDS_REVIEW,
 )
-
+from yoke_core.domain.deployment_run_release_effect import CONSEQUENCES, DEPLOYS
 
 SUBJECT_CONTEXT_INVALID = "decision_request_subject_context_invalid"
 SUBJECT_CONTEXT_RECOVERY = (
@@ -25,7 +26,6 @@ APPROVAL_SOURCE_WORKFLOW_DEFAULT = "workflow_approval_default"
 
 
 def workflow_default_approval_source(stage: str) -> dict[str, str]:
-    """Identify the workflow policy entry that selected an approval."""
     return {
         "kind": APPROVAL_SOURCE_WORKFLOW_DEFAULT,
         "entry": f"approval_defaults.{stage}",
@@ -33,7 +33,6 @@ def workflow_default_approval_source(stage: str) -> dict[str, str]:
 
 
 def item_posture_approval_source() -> dict[str, str]:
-    """Identify the item posture entry that selected an approval."""
     return {
         "kind": APPROVAL_SOURCE_ITEM_POSTURE,
         "entry": "workflow_posture.approval_on_done",
@@ -48,8 +47,10 @@ class DecisionRequestSubjectContextError(ValueError):
 
 def _fail(kind: str, detail: str) -> NoReturn:
     raise DecisionRequestSubjectContextError(
-        f"{SUBJECT_CONTEXT_INVALID}: {kind} subject_context {detail}. "
-        f"Recovery: {SUBJECT_CONTEXT_RECOVERY}"
+        compose_refusal(
+            f"{SUBJECT_CONTEXT_INVALID}: {kind} subject_context {detail}.",
+            recovery=SUBJECT_CONTEXT_RECOVERY,
+        )
     )
 
 

@@ -22,8 +22,7 @@ import shlex
 from typing import Callable, Optional
 
 from yoke_contracts.api.function_call import ActorContext
-
-from yoke_core.domain.refusal_recovery import compose_refusal
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def _artifact_recovery(requirement_id: int, run_id: int, evidence_path: str) -> str:
@@ -95,13 +94,12 @@ def record_command_run(
         stage_recovery_copy,
     )
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError, recording_leg
-    from yoke_core.domain.qa_requirement_pass_currency import (
-        stamp_executed_method_config,
-    )
-
     from yoke_core.domain.qa_plan_execution_checkin import (
         QaPlanCommunicationUnknown,
         communication_unknown,
+    )
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
     )
 
     def retain_capture(error):

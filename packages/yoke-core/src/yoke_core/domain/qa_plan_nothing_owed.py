@@ -15,9 +15,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.qa_pending_agent_review import PendingAgentReview
 from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 NOTHING_OWED_CODE = "qa_plan_nothing_owed"
 

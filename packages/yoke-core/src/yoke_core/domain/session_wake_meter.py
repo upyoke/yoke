@@ -22,8 +22,10 @@ from datetime import datetime
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.model_billing_pools import pool_exhaustion
 from yoke_contracts.timestamps import format_instant, parse_instant
+
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
@@ -36,7 +38,6 @@ from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     load_plan_limits,
 )
-
 
 METER_EXHAUSTED_CODE = "meter_exhausted"
 ORG_METER_UNAVAILABLE_CODE = "wake_meter_org_limits_unavailable"
@@ -210,8 +211,10 @@ def meter_wall_for_session(
     if project_id is None:
         raise SessionMessageError(
             ORG_METER_UNAVAILABLE_CODE,
-            "Organization-scoped plan limits are unavailable. Recovery: open a session "
-            "in the project folder to use that project's published plan limits.",
+            compose_refusal(
+                "Organization-scoped plan limits are unavailable.",
+                recovery="open a session in the project folder to use that project's published plan limits.",
+            ),
         )
     rows = (
         limits

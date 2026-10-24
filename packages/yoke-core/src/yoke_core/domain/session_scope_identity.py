@@ -7,6 +7,8 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import actor_permissions, db_backend, db_helpers
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.external_identities import default_org_id
@@ -25,8 +27,10 @@ class SessionScope:
         if (self.project_id is None) == (self.org_id is None):
             raise SessionError(
                 "SESSION_SCOPE_AMBIGUOUS",
-                "A session requires exactly one project or organization scope. "
-                "Recovery: open a new session in a registered project folder or request machine scope.",
+                compose_refusal(
+                    "A session requires exactly one project or organization scope.",
+                    recovery="open a new session in a registered project folder or request machine scope.",
+                ),
             )
 
     @property
@@ -57,8 +61,10 @@ def resolve_registration_scope(
     if (project_id is not None) == bool(machine_scope):
         raise SessionError(
             "SESSION_SCOPE_AMBIGUOUS",
-            "Choose a project or machine scope, exclusively. Recovery: open a new "
-            "session in a registered project folder or request machine scope.",
+            compose_refusal(
+                "Choose a project or machine scope, exclusively.",
+                recovery="open a new session in a registered project folder or request machine scope.",
+            ),
         )
     if project_id is not None:
         return SessionScope(resolve_session_project_id(conn, project_id), None)
@@ -68,14 +74,18 @@ def resolve_registration_scope(
     except Exception as exc:
         raise SessionError(
             "SESSION_ORG_UNRESOLVED",
-            "The authority could not resolve this session's organization. Recovery: "
-            "reconnect with `yoke connection set` or ask an org admin for membership.",
+            compose_refusal(
+                "The authority could not resolve this session's organization.",
+                recovery="reconnect with `yoke connection set` or ask an org admin for membership.",
+            ),
         ) from exc
     if not member:
         raise SessionError(
             "SESSION_ORG_MEMBERSHIP_REQUIRED",
-            "Session registration requires membership in this authority's organization. "
-            "Recovery: reconnect with `yoke connection set` or ask an org admin for membership.",
+            compose_refusal(
+                "Session registration requires membership in this authority's organization.",
+                recovery="reconnect with `yoke connection set` or ask an org admin for membership.",
+            ),
         )
     return SessionScope(None, org_id)
 
@@ -155,7 +165,10 @@ class HookScopeDecision:
 
 HOOK_SCOPE_UNAVAILABLE = HookScopeDecision(
     denial_code="HOOK_SCOPE_AUTH_UNAVAILABLE",
-    reason="Hook scope authorization is unavailable. Recovery: restore the authority connection and retry.",
+    reason=compose_refusal(
+        "Hook scope authorization is unavailable.",
+        recovery="restore the authority connection and retry.",
+    ),
 )
 
 
@@ -187,7 +200,10 @@ def authorize_hook_request(
                 if session_ownership_refusal(conn, session_id, actor_id):
                     return HookScopeDecision(
                         denial_code="HOOK_SESSION_DENIED",
-                        reason="Hook session ownership denied. Recovery: relay through the connection whose actor owns the session.",
+                        reason=compose_refusal(
+                            "Hook session ownership denied.",
+                            recovery="relay through the connection whose actor owns the session.",
+                        ),
                     )
                 row = conn.execute(
                     "SELECT project_id,org_id,machine_id FROM harness_sessions "
@@ -201,7 +217,10 @@ def authorize_hook_request(
             if len(scopes) > 1:
                 return HookScopeDecision(
                     denial_code="HOOK_SESSION_DENIED",
-                    reason="Hook sessions have incompatible scopes. Recovery: send each session with its own scope.",
+                    reason=compose_refusal(
+                        "Hook sessions have incompatible scopes.",
+                        recovery="send each session with its own scope.",
+                    ),
                 )
             if scopes:
                 project_id = scopes.pop()
@@ -215,28 +234,43 @@ def authorize_hook_request(
                         )
                 return HookScopeDecision(
                     denial_code="HOOK_PROJECT_DENIED",
-                    reason="Hook project access denied. Recovery: use a connection with project membership.",
+                    reason=compose_refusal(
+                        "Hook project access denied.",
+                        recovery="use a connection with project membership.",
+                    ),
                 )
             if actor_id is None:
                 return HookScopeDecision(
                     denial_code="HOOK_SESSION_DENIED",
-                    reason="Hook actor authentication is required. Recovery: reconnect with `yoke connection set`.",
+                    reason=compose_refusal(
+                        "Hook actor authentication is required.",
+                        recovery="reconnect with `yoke connection set`.",
+                    ),
                 )
             if event_name:
                 if not authenticated_machine_id:
                     return HookScopeDecision(
                         denial_code="machine_credential_required",
-                        reason="Hook registration requires a machine-bound credential. Recovery: reconnect this machine with the installer.",
+                        reason=compose_refusal(
+                            "Hook registration requires a machine-bound credential.",
+                            recovery="reconnect this machine with the installer.",
+                        ),
                     )
                 if machine_id != authenticated_machine_id:
                     return HookScopeDecision(
                         denial_code="machine_credential_mismatch",
-                        reason="Hook machine does not match its authenticated credential. Recovery: reconnect this machine with the installer.",
+                        reason=compose_refusal(
+                            "Hook machine does not match its authenticated credential.",
+                            recovery="reconnect this machine with the installer.",
+                        ),
                     )
                 if any(row["machine_id"] != authenticated_machine_id for row in rows):
                     return HookScopeDecision(
                         denial_code="machine_credential_mismatch",
-                        reason="Hook machine identity differs from the session. Recovery: reconnect this machine with the installer.",
+                        reason=compose_refusal(
+                            "Hook machine identity differs from the session.",
+                            recovery="reconnect this machine with the installer.",
+                        ),
                     )
                 if event_name not in {"Stop", "SessionEnd", "SubagentStop"}:
                     retained = resolve_registration_scope(
@@ -248,7 +282,10 @@ def authorize_hook_request(
                     if any(row["org_id"] != retained.org_id for row in rows):
                         raise SessionError(
                             "SESSION_ORG_UNRESOLVED",
-                            "Session authority differs. Recovery: reconnect with `yoke connection set`.",
+                            compose_refusal(
+                                "Session authority differs.",
+                                recovery="reconnect with `yoke connection set`.",
+                            ),
                         )
             return HookScopeDecision()
     except SessionError as exc:

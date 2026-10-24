@@ -5,15 +5,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
 from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
-from yoke_core.domain.actors import actor_name
-from yoke_core.domain.actors import ActorError
+from yoke_contracts.refusal_recovery import compose_refusal
+
+from yoke_core.domain.actors import ActorError, actor_name
 from yoke_core.domain.machine_registry import (
     MachineRegistryError,
     list_machines,
@@ -124,8 +124,10 @@ def _project(document: Any, path: str) -> Any:
         if not isinstance(cursor, dict) or segment not in cursor:
             raise MachineRegistryError(
                 "machine_settings_path_unknown",
-                f"access document has no {path!r}. Recovery: read the whole "
-                "document with `yoke machine access get MACHINE-ID`.",
+                compose_refusal(
+                    f"access document has no {path!r}.",
+                    recovery="read the whole document with `yoke machine access get MACHINE-ID`.",
+                ),
             )
         cursor = cursor[segment]
     return cursor

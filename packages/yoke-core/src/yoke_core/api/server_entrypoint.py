@@ -1,16 +1,8 @@
 """Container-facing uvicorn entrypoint for the Yoke API service.
 
-Boot behavior branches on universe born-ness against the server's resolved
-DSN. A born database boots idempotently (core schema ensure + permission
-catalog reseed). An empty database is birthed in full before the first
-request is served — control-plane bootstrap, org identity card, the first
-admin actor named by ``YOKE_ADMIN_NAME`` with the org ``admin`` role, and a one-time admin token delivered to the
-bundle's owner-only token file (stdout only when no bundle provided one) —
-and any birth failure aborts the boot: the server never serves a half-born
-universe. Because the born-ness sentinel (the org identity card) commits
-early in the birth while the admin token mints at the very end, a boot that
-died in between leaves a database that reads born with no credential; the
-next boot detects that shape and re-enters the birth instead of serving.
+Boot converges a born universe or births an empty one, delivering the first
+admin token through its owner-only file. Birth failure aborts serving; a
+born database without a credential resumes birth on its next boot.
 """
 
 from __future__ import annotations
@@ -21,9 +13,11 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.self_host_bootstrap_output import (
     FIRST_BOOT_TOKEN_MARKER as FIRST_BOOT_TOKEN_MARKER,
 )
+
 from yoke_core.api.first_boot_admin_token_delivery import (
     deliver_first_boot_admin_token,
 )
@@ -33,7 +27,6 @@ from yoke_core.api.trusted_proxy import (
     parse_trusted_proxies,
     run_server,
 )
-
 
 _log = logging.getLogger("yoke.api.startup")
 
@@ -243,10 +236,10 @@ def first_admin_name() -> str:
         return admin.validate_admin_name(os.environ.get(admin.ADMIN_NAME_ENV))
     except admin.AdminNameError as exc:
         raise RuntimeError(
-            f"{admin.ADMIN_NAME_MISSING}: {admin.ADMIN_NAME_ENV} must name this "
-            f"universe's first admin ({exc}). Recovery: run `yoke setup` on this "
-            f"host, or set {admin.ADMIN_NAME_ENV}=<your name> in the bundle's .env "
-            "and run `yoke self-host init --dir PATH --protect-existing --start`"
+            compose_refusal(
+                f"{admin.ADMIN_NAME_MISSING}: {admin.ADMIN_NAME_ENV} must name this universe's first admin ({exc}).",
+                recovery=f"run `yoke setup` on this host, or set {admin.ADMIN_NAME_ENV}=<your name> in the bundle's .env and run `yoke self-host init --dir PATH --protect-existing --start`",
+            )
         ) from None
 
 

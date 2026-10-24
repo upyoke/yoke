@@ -6,17 +6,19 @@ import argparse
 import json
 import sys
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.settings_catalog import CATALOG, SCOPES, resolve_setting
+
 from yoke_cli.commands._helpers import (
+    add_json_arg,
     add_project_arg,
     add_session_arg,
-    add_json_arg,
     client_project_context,
     emit_response,
     usage_error,
 )
-from yoke_cli.commands.adapters.settings_store import SettingsStore, SettingsCallError
+from yoke_cli.commands.adapters.settings_store import SettingsCallError, SettingsStore
 from yoke_cli.config.machine_config_mutation import MachineConfigWriteError
-from yoke_contracts.settings_catalog import CATALOG, SCOPES, resolve_setting
 
 _SYNOPSES = {
     "list": "yoke settings list [--scope machine|project|org|universe] [--project P] [--session-id S] [--json]",
@@ -76,7 +78,7 @@ def run(args, operation):
     except SettingsCallError as exc:
         return emit_response(exc.response, json_mode=parsed.json_mode)
     except (ValueError, OSError, MachineConfigWriteError, RuntimeError) as exc:
-        return usage_error(f"{exc}. Recovery: yoke settings list")
+        return usage_error(compose_refusal(f"{exc}.", recovery="yoke settings list"))
     if parsed.json_mode:
         print(json.dumps({"success": True, "result": result}))
     else:

@@ -31,7 +31,7 @@
   `yoke dev run -- <command>`.
 - Use [narrow reads](../../cli/help.md). Human reads over 28,000 bytes refuse atomically: narrow
   the query or use `--full`. JSON and write replies stay complete.
-- Compose refusals through `yoke_core.domain.refusal_recovery.compose_refusal`: the
+- Compose refusals through `yoke_contracts.refusal_recovery.compose_refusal`: the
   true reason and reachable recovery or escalation owner. Show refusal, timeout and crash
   diagnosis and evidence where the affected person or agent looks. Report actual effects;
   silent failure is not success, and diagnosed refusals are not raw tracebacks.

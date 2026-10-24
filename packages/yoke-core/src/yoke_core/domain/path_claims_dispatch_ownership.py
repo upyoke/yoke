@@ -20,14 +20,16 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.path_claims_dispatch_io import print_error
-from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.project_identity import (
-    unresolved_item_ref,
-)
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.api.service_client_shared_session_resolver import (
     current_session_id as _current_session_id,
+)
+from yoke_core.domain import db_backend
+from yoke_core.domain.path_claims_dispatch_io import print_error
+from yoke_core.domain.project_identity import (
+    render_item_ref,
+    unresolved_item_ref,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -70,10 +72,9 @@ class OwnershipDenial(Exception):
             f'--item {self.public_ref} --reason "<intent>"'
         )
         inspect = f"yoke claims work holder-get {self.public_ref}"
-        return (
-            f"path-claims {self.action} requires the ambient session to "
-            f"hold item {self.public_ref}'s work claim. "
-            f"caller={caller}{who}. Recovery: {recovery}. Inspect: {inspect}."
+        return compose_refusal(
+            f"path-claims {self.action} requires the ambient session to hold item {self.public_ref}'s work claim. caller={caller}{who}.",
+            recovery=f"{recovery}. Inspect: {inspect}.",
         )
 
     def context(self) -> Dict[str, Any]:

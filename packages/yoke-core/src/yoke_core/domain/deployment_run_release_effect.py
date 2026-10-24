@@ -36,8 +36,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from yoke_core.domain.flow_validation import VALID_STEP_RUNNERS
+from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_core.domain.flow_validation import VALID_STEP_RUNNERS
 
 #: The step runners verified to mutate an environment. Each dispatch body was
 #: read: it rolls the serving container, stands up or destroys per-run preview
@@ -79,11 +80,14 @@ _MISCLASSIFIED = (
 ) | (ENVIRONMENT_MUTATING_STEP_RUNNERS & NON_DEPLOYING_STEP_RUNNERS)
 if _MISCLASSIFIED:
     raise RuntimeError(
-        f"step runner classification names {sorted(_MISCLASSIFIED)}, which the "
-        "flow vocabulary no longer defines or which appears in both sets. "
-        "Recovery: read the runner's dispatch body and put it in exactly one "
-        "of ENVIRONMENT_MUTATING_STEP_RUNNERS or NON_DEPLOYING_STEP_RUNNERS, "
-        "or leave it in neither so its flows classify unknown."
+        compose_refusal(
+            f"step runner classification names {sorted(_MISCLASSIFIED)}, which the flow vocabulary no longer defines or which appears in both sets.",
+            recovery=(
+                "read the runner's dispatch body and put it in exactly one of "
+                "ENVIRONMENT_MUTATING_STEP_RUNNERS or NON_DEPLOYING_STEP_RUNNERS, or leave "
+                "it in neither so its flows classify unknown."
+            ),
+        )
     )
 
 DEPLOYS = "deploys"

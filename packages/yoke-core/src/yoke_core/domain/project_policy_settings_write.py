@@ -11,14 +11,15 @@ from __future__ import annotations
 from yoke_contracts.project_contract.disposable_generated_paths_policy import (
     disposable_generated_paths_setting_error,
 )
+from yoke_contracts.project_contract.project_keys import (
+    DB_PROJECT_POLICY_KEYS,
+    RECOGNIZED_PROJECT_KEYS,
+)
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.settings_catalog import resolve_setting
 from yoke_contracts.title_policy import title_max_length_setting_error
 
 from yoke_core.domain import json_helper
-from yoke_contracts.project_contract.project_keys import (
-    RECOGNIZED_PROJECT_KEYS,
-    DB_PROJECT_POLICY_KEYS,
-)
-from yoke_contracts.settings_catalog import resolve_setting
 
 
 def validate_json_string(raw_json: str) -> str:
@@ -32,7 +33,10 @@ def validate_json_string(raw_json: str) -> str:
         if key not in DB_PROJECT_POLICY_KEYS:
             resolve_setting(key)  # supplies the closest-key recovery for unknown keys
             raise ValueError(
-                f"setting_scope_invalid: {key} is not project policy. Recovery: yoke settings list --scope project"
+                compose_refusal(
+                    f"setting_scope_invalid: {key} is not project policy.",
+                    recovery="yoke settings list --scope project",
+                )
             )
         RECOGNIZED_PROJECT_KEYS[key].validate(key, value)
     if "title_max_length" in payload:

@@ -37,6 +37,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict, Iterator, Tuple
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.config import repo_upstream_git as upstream_git
 
 # Deduplication is scoped to one preparation, never to the process. A
@@ -130,9 +132,7 @@ def refresh_base_branch(
     a scope — what a caller re-reading a remote that just moved needs.
     """
     if not repo_root:
-        return _unverified(
-            STATE_UNREADABLE, base_branch, "no checkout root was given"
-        )
+        return _unverified(STATE_UNREADABLE, base_branch, "no checkout root was given")
     if not base_branch:
         resolved, configured = (
             (remote, 1) if remote else upstream_git.resolve_remote(repo_root)
@@ -145,10 +145,10 @@ def refresh_base_branch(
             return _unverified(
                 STATE_UNREADABLE,
                 base_branch,
-                f"{remote} publishes no default branch for {repo_root}, and the "
-                "checked-out branch is not a substitute for one. Recovery: `git "
-                f"-C {repo_root} remote set-head {remote} --auto`, or name the "
-                "branch explicitly.",
+                compose_refusal(
+                    f"{remote} publishes no default branch for {repo_root}, and the checked-out branch is not a substitute for one.",
+                    recovery=f"`git -C {repo_root} remote set-head {remote} --auto`, or name the branch explicitly.",
+                ),
             )
     key = (repo_root, base_branch)
     scope = _SCOPE.get()
@@ -185,10 +185,10 @@ def _no_remote_or_unresolved(
     return _unverified(
         STATE_REMOTE_UNRESOLVED,
         base_branch,
-        f"none of the {configured} configured remotes is recorded as tracking "
-        f"{base_branch or 'the default branch'}, so no upstream could be read. "
-        f"Recovery: `git -C {repo_root} branch --set-upstream-to=<remote>/"
-        f"{base_branch or '<branch>'} {base_branch or '<branch>'}`.",
+        compose_refusal(
+            f"none of the {configured} configured remotes is recorded as tracking {base_branch or 'the default branch'}, so no upstream could be read.",
+            recovery=f"`git -C {repo_root} branch --set-upstream-to=<remote>/{base_branch or '<branch>'} {base_branch or '<branch>'}`.",
+        ),
     )
 
 
@@ -217,11 +217,10 @@ def _compare_and_update(
         return _unverified(
             STATE_FETCH_FAILED,
             base_branch,
-            f"could not fetch {remote} {base_branch}: "
-            f"{upstream_git.reason(fetched)}. Work does not start from the "
-            "local branch on a failed fetch, because there is no evidence it "
-            "is current. Recovery: restore network access or git credentials "
-            "and re-run.",
+            compose_refusal(
+                f"could not fetch {remote} {base_branch}: {upstream_git.reason(fetched)}. Work does not start from the local branch on a failed fetch, because there is no evidence it is current.",
+                recovery="restore network access or git credentials and re-run.",
+            ),
         )
     tracking = upstream_git.tracking_ref(remote, base_branch)
     upstream = upstream_git.git(repo_root, "rev-parse", tracking)
@@ -276,11 +275,10 @@ def _compare_and_update(
         lane_base_ref=upstream_sha,
         lane_base_is_current=True,
         note=(
-            f"{NOTE_PREFIX} {base_branch} is {behind} commit(s) behind "
-            f"{remote}/{base_branch} and was not updated: {refusal}. Nothing "
-            f"local was changed. Recovery: commit or stash the changes in "
-            f"{repo_root}, then re-run; a new lane started now is cut from the "
-            f"fetched {remote}/{base_branch} ({upstream_sha[:12]}) instead."
+            compose_refusal(
+                f"{NOTE_PREFIX} {base_branch} is {behind} commit(s) behind {remote}/{base_branch} and was not updated: {refusal}. Nothing local was changed.",
+                recovery=f"commit or stash the changes in {repo_root}, then re-run; a new lane started now is cut from the fetched {remote}/{base_branch} ({upstream_sha[:12]}) instead.",
+            )
         ),
         needs_attention=True,
         **observed,
@@ -293,9 +291,10 @@ def _local_commits_kept(repo_root: str, observed: dict) -> UpstreamFreshness:
     remote = observed["remote"]
     behind = observed["behind"]
     tail = (
-        f"and is {behind} commit(s) behind; not updated. Recovery: `git -C "
-        f"{repo_root} rebase {remote}/{base_branch} {base_branch}` (or merge), "
-        "then re-run."
+        compose_refusal(
+            f"and is {behind} commit(s) behind; not updated.",
+            recovery=f"`git -C {repo_root} rebase {remote}/{base_branch} {base_branch}` (or merge), then re-run.",
+        )
         if behind
         else "; nothing to fast-forward. Push them when they are ready."
     )

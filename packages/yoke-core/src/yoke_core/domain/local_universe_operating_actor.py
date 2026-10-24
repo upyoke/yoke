@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 
 def require_admin_name(value: Optional[str]) -> str:
     """The validated installer's name a new universe needs, or a named refusal."""
@@ -21,10 +23,13 @@ def require_admin_name(value: Optional[str]) -> str:
         return admin.validate_admin_name(value)
     except admin.AdminNameError as exc:
         raise RuntimeError(
-            f"{admin.ADMIN_NAME_MISSING}: creating a local universe needs your "
-            f"name for its first admin ({exc}). Recovery: rerun `yoke setup` "
-            "and enter your name (`--admin-name NAME` when non-interactive), or "
-            "run `yoke init --local --admin-name NAME`"
+            compose_refusal(
+                f"{admin.ADMIN_NAME_MISSING}: creating a local universe needs your name for its first admin ({exc}).",
+                recovery=(
+                    "rerun `yoke setup` and enter your name (`--admin-name NAME` when "
+                    "non-interactive), or run `yoke init --local --admin-name NAME`"
+                ),
+            )
         ) from None
 
 
