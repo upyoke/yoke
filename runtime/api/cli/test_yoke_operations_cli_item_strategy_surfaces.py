@@ -238,7 +238,7 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
 def test_strategy_claim_release_usage_advertises_optional_reason() -> None:
     expected = (
         "yoke strategy claim release (ITEM | PROCESS_KEY) "
-        "[--reason TEXT] --project P"
+        "[--reason TEXT] --project P [--session-id S] [--json]"
     )
     assert USAGE_BY_FUNCTION_ID["strategy.claim.release"] == expected
     inventory = {entry.function_id: entry.cli_invocation for entry in STRATEGY_ADAPTERS}
