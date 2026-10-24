@@ -102,16 +102,16 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
         notes="Point-in-time workflow-run attempt job count.",
     ),
-    _read_entry(
+    AdapterEntry(
         function_id="github_actions.check_ci",
         cli_invocation=(
-            "yoke github-actions check-ci <repo-slug> <workflow-file> [--branch BRANCH] [--head-sha SHA] [--wait] [--timeout SEC] --project P [--session-id S] [--json]"
+            "yoke github-actions check-ci <repo-slug> <workflow-file> [--branch BRANCH] [--head-sha SHA] [--main-factory] [--wait] [--timeout SEC] --project P [--session-id S] [--json]"
         ),
         notes=(
             "bearer-token branch and exact-commit CI gate via "
             "gh_rest_transport; "
             "single-shot handler. --wait/--timeout poll CLIENT-side in "
-            "the adapter, one dispatch per poll."
+            "the adapter, one dispatch per poll. --main-factory requires exact main-push success and permits one durable cancelled-run rerun."
         ),
     ),
     _read_entry(
