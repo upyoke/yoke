@@ -63,6 +63,8 @@ from __future__ import annotations
 
 import argparse
 import json
+
+from yoke_core.hooks.decision_render import render_codex_decision
 import re
 import sys
 from typing import Optional
@@ -77,7 +79,6 @@ from yoke_core.domain.lint_subagent_background_constants import (
     WATCHER_MODULE_NAMES,
 )
 from yoke_core.domain.lint_subagent_background_decide import (
-    build_deny_response,
     format_reason,
 )
 from yoke_core.hooks.types import (
@@ -249,7 +250,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if mode == "deny":
         return HookDecision(
             outcome=Outcome.DENY,
-            message=json.dumps(build_deny_response(reason)),
+            message=reason,
             audit_fields=audit_fields,
             block=True,
             next=Next.STOP,
@@ -304,7 +305,11 @@ def main() -> int:
         return 0
     mode, reason, _tool_name, _outcome = verdict
     if mode == "deny":
-        print(json.dumps(build_deny_response(reason)))
+        print(
+            render_codex_decision(
+                [HookDecision(Outcome.DENY, message=reason, block=True)], "PreToolUse"
+            )[0]
+        )
     return 0
 
 

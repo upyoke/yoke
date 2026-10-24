@@ -246,21 +246,13 @@ def extract_yoke_query_sql_payloads(text):
 
 for py_code in extract_python_payloads(original_command):
     if python_uses_literal_yoke_db(py_code):
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
-                    "BLOCKED: Do not open the Yoke DB from ad-hoc Python using a hardcoded or relative "
+        result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not open the Yoke DB from ad-hoc Python using a hardcoded or relative "
                     "path like yoke.db. Use the canonical DB router / Postgres authority instead:\n"
                     "Examples:\n"
                     "  yoke db read \"SELECT ...\"\n"
                     "  yoke items get PREFIX-N status\n"
-                    "See `.yoke/docs/agents/rules/databases.md`."
-                ),
-            }
-        }
-        print(json.dumps(result))
+                    "See `.yoke/docs/agents/rules/databases.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 def strip_heredoc_bodies(text):

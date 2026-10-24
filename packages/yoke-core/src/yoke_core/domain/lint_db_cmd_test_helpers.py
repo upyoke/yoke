@@ -7,36 +7,33 @@ import sqlite3
 from pathlib import Path
 
 from yoke_core.domain.lint_db_cmd import run_hook
+from yoke_core.hooks.types import HookDecision, Outcome
+from yoke_core.hooks.decision_render import render_codex_decision
 
 
 def _payload(command: str) -> str:
-    return json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    return json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "yoke_hook_caller_harness": "claude-code",
+        }
+    )
 
 
-def _decision(output: str) -> dict:
-    assert output, "expected hook output"
-    return json.loads(output)["hookSpecificOutput"]
+def _decision(output: HookDecision) -> dict:
+    assert output.outcome is Outcome.DENY, "expected denial"
+    rendered = json.loads(render_codex_decision([output], "PreToolUse")[0])
+    return {**rendered["hookSpecificOutput"], **output.audit_fields}
 
 
 def _assert_blocks(command: str, yoke_db: str = "") -> dict:
-    output = run_hook(_payload(command), yoke_db=yoke_db)
-    decision = _decision(output)
-    assert decision["permissionDecision"] == "deny", (
-        f"expected DENY for {command!r}, got: {output!r}"
-    )
-    return decision
+    return _decision(run_hook(_payload(command), yoke_db=yoke_db))
 
 
 def _assert_allows(command: str, yoke_db: str = "") -> None:
-    output = run_hook(_payload(command), yoke_db=yoke_db)
-    # Allow-path is either empty output (no decision) or an explicit "allow"
-    # advisory decision.
-    if not output:
-        return
-    decision = _decision(output)
-    assert decision["permissionDecision"] == "allow", (
-        f"expected ALLOW for {command!r}, got: {output!r}"
-    )
+    decision = run_hook(_payload(command), yoke_db=yoke_db)
+    assert decision.outcome is Outcome.NOOP, f"expected ALLOW: {decision!r}"
 
 
 def _fresh_live_db(tmp_path: Path) -> str:

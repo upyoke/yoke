@@ -30,19 +30,11 @@ _force_state_mutation_pat = re.compile(
     r"epic-db\.sh\s+\S+|done-transition\.sh\b)"
 )
 if _force_override_pat.search(command_stripped) and _force_state_mutation_pat.search(command_stripped):
-    result = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": (
-                "BLOCKED: Do not use YOKE_FORCE or YOKE_DONE_RECOVERY from assistant-issued commands.\n"
+    result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not use YOKE_FORCE or YOKE_DONE_RECOVERY from assistant-issued commands.\n"
                 "This is an operator override for manual recovery only.\n"
                 "Run the normal ceremony (/yoke usher or yoke lifecycle transition), "
-                "or ask the user to perform the override manually if recovery is truly required."
-            ),
-        }
-    }
-    print(json.dumps(result))
+                "or ask the user to perform the override manually if recovery is truly required."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
     sys.exit(0)
 
 if "status" in command and "done" in command and "# lint:no-done-check" not in command_stripped:
@@ -53,21 +45,15 @@ if "status" in command and "done" in command and "# lint:no-done-check" not in c
         r"\s+\S+\s+status\s+done\b"
     )
     if _done_pat.search(command_stripped):
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
+        result = HookDecision(outcome=Outcome.DENY, message=((
                     "BLOCKED: Do not set status=done directly.\n"
                     "Use: /yoke usher YOK-N\n"
                     "The done-transition ceremony handles merge, cleanup, deploy, "
                     "release notes, and GitHub sync.\n"
                     "Add %s# lint:no-done-check%s comment to suppress "
                     "if you understand the risks."
-                ) % (chr(39), chr(39)),
-            }
-        }
-        print(json.dumps(result))
+                ) % (chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 # Check 12 (block direct status=passed writes) removed — `passed` is
@@ -84,11 +70,7 @@ if "qa-db.sh" in command and "browser_substrate" in command and "# lint:no-brows
         r"qa-db\.sh\s+run-add\b.*--executor-type\s+[" + chr(39) + r"\"]?browser_substrate[" + chr(39) + r"\"]?"
     )
     if _browser_run_pat.search(command_stripped):
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
+        result = HookDecision(outcome=Outcome.DENY, message=((
                     "BLOCKED: Do not record browser_substrate runs directly via qa-db.sh.\n"
                     "Browser QA runs must come from the canonical orchestrator:\n"
                     "  python3 -m yoke_core.domain.browser_qa --item-id N ...\n"
@@ -96,10 +78,8 @@ if "qa-db.sh" in command and "browser_substrate" in command and "# lint:no-brows
                     "fabricate passing runs that bypass the QA gate.\n"
                     "Add %s# lint:no-browser-run-check%s comment to suppress if called from "
                     "yoke_core.domain.browser_qa or a test harness."
-                ) % (chr(39), chr(39)),
-            }
-        }
-        print(json.dumps(result))
+                ) % (chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 # --- Lifecycle table definitions (shared by Check 15 and Check 15b) ---
@@ -130,20 +110,14 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
         _dqs_upper = _dqs.upper()
         # Check for DML on the events table (all writes must go through the sanctioned emitter)
         if re.search(r"\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+" + _EVENT_TABLE + r"\b", _dqs, re.IGNORECASE):
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: Do not write to the events table via db_router query.\n"
                         "Events must go through the sanctioned emitter:\n"
                         "  python3 -m yoke_core.domain.emit_event --event-name <NAME> ...\n"
                         "Direct writes bypass event-registry validation, envelope structure, and audit trail.\n"
                         "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
-                    ) % (chr(39), chr(39)),
-                }
-            }
-            print(json.dumps(result))
+                    ) % (chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
         # Check for UPDATE/DELETE on lifecycle-owned tables touching status columns
         for _lt_table, _lt_cols in _LIFECYCLE_TABLES.items():
@@ -161,36 +135,24 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
                             if _lt_table == "items" else
                             "  python3 -m yoke_core.domain.epic task-update-status <epic-id> <task-num> <status>\n"
                         )
-                        result = {
-                            "hookSpecificOutput": {
-                                "hookEventName": "PreToolUse",
-                                "permissionDecision": "deny",
-                                "permissionDecisionReason": (
+                        result = HookDecision(outcome=Outcome.DENY, message=((
                                     "BLOCKED: Do not mutate %s.%s via db_router query.\n"
                                     "Lifecycle-sensitive columns must go through sanctioned mutators:\n%s"
                                     'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                                     "Direct writes bypass status validation, lifecycle events, and derived-view refresh.\n"
                                     "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
-                                ) % (_lt_table, _lc, _repair_hint, chr(39), chr(39)),
-                            }
-                        }
-                        print(json.dumps(result))
+                                ) % (_lt_table, _lc, _repair_hint, chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                         sys.exit(0)
             # Match DELETE FROM <table>
             if re.search(r"\bDELETE\s+FROM\s+" + _lt_table + r"\b", _dqs, re.IGNORECASE):
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
+                result = HookDecision(outcome=Outcome.DENY, message=((
                             "BLOCKED: Do not DELETE from %s via db_router query.\n"
                             "Row deletion on lifecycle-owned tables bypasses cleanup, events, and derived-view refresh.\n"
                             'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                             "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
-                        ) % (_lt_table, chr(39), chr(39)),
-                    }
-                }
-                print(json.dumps(result))
+                        ) % (_lt_table, chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
 
 # --- Check 15b: Block lifecycle-sensitive mutations in inline Python ---
@@ -211,20 +173,14 @@ for py_code in extract_python_payloads(original_command):
     _sql_text = py_code if _executed is None else "\n".join(_executed)
     for _lt_table in list(_LIFECYCLE_TABLES.keys()) + [_EVENT_TABLE]:
         if re.search(r"\b(UPDATE\s+" + _lt_table + r"|INSERT\s+INTO\s+" + _lt_table + r"|DELETE\s+FROM\s+" + _lt_table + r")\b", _sql_text, re.IGNORECASE):
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: Inline Python mutates lifecycle-owned table %s%s%s.\n"
                         "Lifecycle mutations must go through sanctioned mutators "
                         "(service_client backlog-cli update, domain.epic task-update-status, domain.emit_event).\n"
                         'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                         "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
-                    ) % (chr(39), _lt_table, chr(39), chr(39), chr(39)),
-                }
-            }
-            print(json.dumps(result))
+                    ) % (chr(39), _lt_table, chr(39), chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 """

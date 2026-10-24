@@ -10,6 +10,8 @@ Covers the four canonical contracts:
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -216,7 +218,7 @@ class TestModePin(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        envelope = json.loads(decision.message)
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(
             "BLOCKED", envelope["hookSpecificOutput"]["permissionDecisionReason"]
@@ -278,7 +280,7 @@ class TestRegisteredSourceRunWrapper(unittest.TestCase):
     def test_an_unwrapped_invocation_beside_a_wrapped_one_still_denies(self):
         verdict = _eval(
             'yoke dev run -- python3 -c "import yoke_core, yoke_contracts"'
-            " && python3 -c \"import yoke_core, yoke_harness\""
+            ' && python3 -c "import yoke_core, yoke_harness"'
         )
         self.assertIsNotNone(verdict)
 

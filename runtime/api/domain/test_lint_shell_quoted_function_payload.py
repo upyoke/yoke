@@ -7,6 +7,8 @@ attribution; the operator sees the registered subcommands listed).
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -35,7 +37,7 @@ class TestHandQuotedJsonPayload(unittest.TestCase):
 
     def test_printf_pipe_payload_blocks(self) -> None:
         cmd = (
-            "printf '{\"function\":\"items.scalar.update\",\"target\":{}}'"
+            'printf \'{"function":"items.scalar.update","target":{}}\''
             " | python3 -m yoke_core.api.service_client functions-call --payload -"
         )
         reason = lint.evaluate_command(cmd)
@@ -47,7 +49,7 @@ class TestHandQuotedJsonPayload(unittest.TestCase):
     def test_inline_json_payload_blocks(self) -> None:
         cmd = (
             "python3 -m yoke_core.api.service_client db-claim-amend "
-            "--item YOK-9001 --payload '{\"state\":\"declared\"}'"
+            '--item YOK-9001 --payload \'{"state":"declared"}\''
         )
         reason = lint.evaluate_command(cmd)
         self.assertIsNotNone(reason)
@@ -119,7 +121,7 @@ class TestEvaluateDenyMode(unittest.TestCase):
 
     def test_evaluate_blocks_in_deny_mode(self) -> None:
         cmd = (
-            "printf '{\"function\":\"x\"}' | python3 -m yoke_core.api.service_client"
+            'printf \'{"function":"x"}\' | python3 -m yoke_core.api.service_client'
             " functions-call --payload -"
         )
         with mock.patch.object(lint, "_resolve_mode", return_value="deny"):
@@ -128,14 +130,15 @@ class TestEvaluateDenyMode(unittest.TestCase):
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        decoded = json.loads(decision.message)
+        decoded = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
-            decoded["hookSpecificOutput"]["permissionDecision"], "deny",
+            decoded["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
 
     def test_evaluate_warns_only_in_warn_mode(self) -> None:
         cmd = (
-            "printf '{\"function\":\"x\"}' | python3 -m yoke_core.api.service_client"
+            'printf \'{"function":"x"}\' | python3 -m yoke_core.api.service_client'
             " functions-call --payload -"
         )
         with mock.patch.object(lint, "_resolve_mode", return_value="warn"):
@@ -145,7 +148,9 @@ class TestEvaluateDenyMode(unittest.TestCase):
         self.assertIs(decision.next, Next.CONTINUE)
         self.assertEqual(decision.message, "")
         self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertIn("lint-shell-quoted-function-payload", decision.audit_fields["reason"])
+        self.assertIn(
+            "lint-shell-quoted-function-payload", decision.audit_fields["reason"]
+        )
 
     def test_evaluate_allows_safe_command(self) -> None:
         decision = lint.evaluate(_record_for(_payload("git status")))
@@ -181,7 +186,9 @@ class TestConfigModeResolution(unittest.TestCase):
         from yoke_core.domain import lint_config as registry
 
         with mock.patch.object(
-            registry, "resolve_mode_for_payload", return_value="warn",
+            registry,
+            "resolve_mode_for_payload",
+            return_value="warn",
         ) as m:
             self.assertEqual(lint._resolve_mode(), "warn")
         m.assert_called_once_with("lint_shell_quoted_function_payload", None)
@@ -194,13 +201,10 @@ class TestHelpExemption(unittest.TestCase):
         for cmd in (
             "python3 -m yoke_core.api.service_client --help",
             "python3 -m yoke_core.cli.db_router items get --help",
-            "python3 -m yoke_core.cli.db_router epic "
-            "progress-note-insert --help",
+            "python3 -m yoke_core.cli.db_router epic progress-note-insert --help",
             "python3 -m yoke_core.cli.db_router items update -h",
         ):
-            self.assertIsNone(
-                lint.evaluate_command(cmd), f"expected allow for: {cmd}"
-            )
+            self.assertIsNone(lint.evaluate_command(cmd), f"expected allow for: {cmd}")
 
 
 class TestReadPipeTruncationAndScope(unittest.TestCase):
@@ -210,18 +214,14 @@ class TestReadPipeTruncationAndScope(unittest.TestCase):
     def test_read_pipe_and_capture_allowed(self) -> None:
         for cmd in (
             # Pipe to head/grep on items get (read-shape).
-            "python3 -m yoke_core.cli.db_router items get YOK-1700 spec "
-            "| head -200",
-            "python3 -m yoke_core.cli.db_router items get YOK-1700 spec "
-            "| grep '^##'",
+            "python3 -m yoke_core.cli.db_router items get YOK-1700 spec | head -200",
+            "python3 -m yoke_core.cli.db_router items get YOK-1700 spec | grep '^##'",
             # Adapter mentioned only inside a quoted commit message.
             "git -C /repo commit -m \"$(cat <<'EOF'\nUse "
-            "python3 -m yoke_core.engines.doctor --list\nEOF\n)\"",
-            "echo \"see python3 -m yoke_core.cli.db_router items get for details\"",
+            'python3 -m yoke_core.engines.doctor --list\nEOF\n)"',
+            'echo "see python3 -m yoke_core.cli.db_router items get for details"',
         ):
-            self.assertIsNone(
-                lint.evaluate_command(cmd), f"expected allow for: {cmd}"
-            )
+            self.assertIsNone(lint.evaluate_command(cmd), f"expected allow for: {cmd}")
 
     def test_other_project_ref_ends_the_sub_path(self) -> None:
         # Any project's ref is an argument, not a subcommand word.
@@ -278,10 +278,12 @@ class TestAdapterIndex(unittest.TestCase):
         # Spot-check that registered ``<module> <sub-path>`` pairs are
         # present in the new index shape.
         self.assertIn(
-            "yoke_core.cli.db_router items update", lint._ADAPTER_INDEX,
+            "yoke_core.cli.db_router items update",
+            lint._ADAPTER_INDEX,
         )
         self.assertIn(
-            "yoke_core.cli.db_router items get", lint._ADAPTER_INDEX,
+            "yoke_core.cli.db_router items get",
+            lint._ADAPTER_INDEX,
         )
         self.assertIn(
             "yoke_core.cli.db_router epic progress-note-list-unsynced",
@@ -300,15 +302,18 @@ class TestAdapterIndex(unittest.TestCase):
         # The bare-module fallback is gone. Each known module
         # appears only inside ``"<module> <sub-path>"`` keys.
         self.assertNotIn(
-            "yoke_core.cli.db_router", lint._ADAPTER_INDEX,
+            "yoke_core.cli.db_router",
+            lint._ADAPTER_INDEX,
         )
         self.assertNotIn(
-            "yoke_core.api.service_client", lint._ADAPTER_INDEX,
+            "yoke_core.api.service_client",
+            lint._ADAPTER_INDEX,
         )
 
     def test_registered_subs_by_module_populated(self) -> None:
         subs = lint._REGISTERED_SUBS_BY_MODULE.get(
-            "yoke_core.cli.db_router", [],
+            "yoke_core.cli.db_router",
+            [],
         )
         self.assertIn("items update", subs)
         self.assertIn("items get", subs)

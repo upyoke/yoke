@@ -287,7 +287,7 @@ class TestDecisionEnvelope(unittest.TestCase):
             )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
-        self.assertIn("permissionDecision", decision.message)
+        self.assertIn("BLOCKED:", decision.message)
         self.assertEqual(guard_audit_outcome(decision), "denied")
 
     def test_clean_command_continues(self):

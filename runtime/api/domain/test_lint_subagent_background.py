@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import os
 import sys
@@ -226,10 +228,13 @@ class TestTypedEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        self.assertEqual(decision.audit_fields["reason"], json.loads(
-            decision.message
-        )["hookSpecificOutput"]["permissionDecisionReason"])
-        envelope = json.loads(decision.message)
+        self.assertEqual(
+            decision.audit_fields["reason"],
+            json.loads(decision.message)["hookSpecificOutput"][
+                "permissionDecisionReason"
+            ],
+        )
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"],
             "deny",

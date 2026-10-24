@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.types import Outcome
+
 import pytest
 
 from yoke_core.domain.lint_db_cmd import run_hook
@@ -59,7 +61,7 @@ def test_all_direct_sqlite3_calls_blocked(command: str) -> None:
     "command",
     [
         'sqlite3 db.db "SELECT * FROM items WHERE id \\!= 5;"',
-        "sqlite3 -separator \"|\" db.db \"SELECT id FROM items WHERE status \\!= 'done';\"",
+        'sqlite3 -separator "|" db.db "SELECT id FROM items WHERE status \\!= \'done\';"',
     ],
 )
 def test_escaped_not_equal_in_sql_blocked(command: str) -> None:
@@ -147,17 +149,18 @@ def test_yok374_compound_and_bypass_attempts_blocked(command: str) -> None:
 
 
 def test_invalid_json_payload_allows() -> None:
-    assert run_hook("not json at all") == ""
+    assert run_hook("not json at all").outcome is Outcome.NOOP
 
 
 def test_empty_payload_allows() -> None:
-    assert run_hook("") == ""
+    assert run_hook("").outcome is Outcome.NOOP
 
 
 def test_missing_command_field_allows() -> None:
     import json
+
     payload = json.dumps({"tool_name": "Bash", "tool_input": {}})
-    assert run_hook(payload) == ""
+    assert run_hook(payload).outcome is Outcome.NOOP
 
 
 # ---------------------------------------------------------------------------

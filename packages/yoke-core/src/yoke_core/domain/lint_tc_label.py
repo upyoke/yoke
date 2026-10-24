@@ -22,6 +22,8 @@ preserved for the registered shell hook; exit code is always ``0``.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import functools
 import json
 import os
@@ -238,16 +240,6 @@ def evaluate_payload(payload: dict) -> Optional[str]:
     return None
 
 
-def _build_deny_response(reason: str) -> dict:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate Bash/Write payload for TC-label or numeric-HC violations."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -255,10 +247,9 @@ def evaluate(record: HookContext) -> HookDecision:
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-tc-label")
-    envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(
         outcome=Outcome.DENY,
-        message=envelope,
+        message=reason,
         audit_fields={"reason": reason},
         block=True,
         next=Next.STOP,
@@ -290,7 +281,7 @@ def main() -> int:
         return 0
     decision = evaluate(_build_context_from_payload(payload))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

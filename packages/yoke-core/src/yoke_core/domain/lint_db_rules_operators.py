@@ -24,20 +24,12 @@ if "sqlite3" in command and "|" in command:
             _ps_first = _ps.strip().split()[0] if _ps.strip().split() else ""
             _ps_first = _ps_first.rsplit("/", 1)[-1] if "/" in _ps_first else _ps_first
             if _ps_first in _PIPE_SHELL_EXECUTORS:
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
-                            "BLOCKED: Do not call sqlite3 directly. "
+                result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not call sqlite3 directly. "
                             "Use the Python DB router instead. Examples:\n"
                             "  yoke items get PREFIX-N status\n"
                             "  yoke db read \"SELECT ...\"\n"
-                            "See `.yoke/docs/agents/rules/databases.md`."
-                        ),
-                    }
-                }
-                print(json.dumps(result))
+                            "See `.yoke/docs/agents/rules/databases.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
 
 # --- Check 1: Direct sqlite3 calls ---
@@ -91,20 +83,12 @@ if "sqlite3" in command_stripped:
                 seg_first = seg.strip().split()[0] if seg.strip().split() else ""
                 seg_first = seg_first.rsplit("/", 1)[-1] if "/" in seg_first else seg_first
                 if seg_first in SHELL_EXECUTORS:
-                    result = {
-                        "hookSpecificOutput": {
-                            "hookEventName": "PreToolUse",
-                            "permissionDecision": "deny",
-                            "permissionDecisionReason": (
-                                "BLOCKED: Do not call sqlite3 directly. "
+                    result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not call sqlite3 directly. "
                                 "Use the Python DB router instead. Examples:\n"
                                 "  yoke items get PREFIX-N status\n"
                                 "  yoke db read \"SELECT ...\"\n"
-                                "See `.yoke/docs/agents/rules/databases.md`."
-                            ),
-                        }
-                    }
-                    print(json.dumps(result))
+                                "See `.yoke/docs/agents/rules/databases.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                     sys.exit(0)
 
         # Step 2: Split residual on compound operators to detect
@@ -167,20 +151,12 @@ if "sqlite3" in command_stripped:
         if not blocked:
             pass  # fall through to Check 2
         else:
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
-                        "BLOCKED: Do not call sqlite3 directly. "
+            result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not call sqlite3 directly. "
                         "Use the Python DB router instead. Examples:\n"
                         "  yoke items get PREFIX-N status\n"
                         "  yoke db read \"SELECT ...\"\n"
-                        "See `.yoke/docs/agents/rules/databases.md`."
-                    ),
-                }
-            }
-            print(json.dumps(result))
+                        "See `.yoke/docs/agents/rules/databases.md`."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 
@@ -204,37 +180,25 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-ddl-check" not in command
     for _dqs in re.findall(r"\"((?:[^\"\\]|\\.)*)\"", command):
         if _ddl_pat.search(_dqs):
             _ddl_match = _ddl_pat.search(_dqs).group(1)
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: DDL statement (%s) detected in db_router query.\n"
                         "DDL through the query escape hatch is denied.\n"
                         "All schema-modifying migrations must route through the governed\n"
                         "migration harness (yoke_core.domain.migration_harness).\n"
                         "Use python3 -m yoke_core.domain.schema init for registered migrations.\n"
                         "Suppression: %s# lint:no-ddl-check%s (emergency only)."
-                    ) % (_ddl_match, chr(39), chr(39)),
-                }
-            }
-            print(json.dumps(result))
+                    ) % (_ddl_match, chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
         if _pragma_pat.search(_dqs):
             _pragma_match = _pragma_pat.search(_dqs).group(0)
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: Dangerous PRAGMA (%s) detected in db_router query.\n"
                         "Disabling safety guarantees (foreign_keys, journal_mode, synchronous)\n"
                         "outside the governed migration harness is denied.\n"
                         "Suppression: %s# lint:no-ddl-check%s (emergency only)."
-                    ) % (_pragma_match, chr(39), chr(39)),
-                }
-            }
-            print(json.dumps(result))
+                    ) % (_pragma_match, chr(39), chr(39))), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 # --- Check 2: Dangerous SQL operators in raw DB query commands ---
@@ -258,20 +222,12 @@ RULE_TEXT_OPERATORS_CMP = r"""
 # Both bare != and \!= are blocked because zsh delivers \!= either way.
 for qs in quoted_strings:
     if re.search(r"\\?!=", qs):
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
-                    "BLOCKED: SQL contains != operator. "
+        result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: SQL contains != operator. "
                     "Use <> instead of != — zsh histexpand converts != "
                     "to \\!= which the SQL parser rejects as an invalid token. "
                     "The <> operator is SQL-standard and immune to zsh mangling.\n"
-                    "Example: WHERE status <> " + chr(39) + "done" + chr(39) + "  (not: WHERE status != " + chr(39) + "done" + chr(39) + ")"
-                ),
-            }
-        }
-        print(json.dumps(result))
+                    "Example: WHERE status <> " + chr(39) + "done" + chr(39) + "  (not: WHERE status != " + chr(39) + "done" + chr(39) + ")"), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 # --- Check 2b: Escaped comparison operators (\>=, \<=, \>, \<) ---
@@ -287,19 +243,13 @@ patterns = [
 for regex, display in patterns:
     for qs in quoted_strings:
         if re.search(regex, qs):
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: command contains escaped operator \"%s\". "
                         "Use unescaped operators (>=, <=, >, <) or <> for not-equal — "
                         "backslash is literal SQL text. "
                         "See `.yoke/docs/agents/rules/databases.md`."
-                    ) % display,
-                }
-            }
-            print(json.dumps(result))
+                    ) % display), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 sys.exit(0)

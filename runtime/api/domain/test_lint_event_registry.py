@@ -12,12 +12,9 @@ render-helper surfaces.
 
 from __future__ import annotations
 
-import json
-
 from yoke_core.domain import db_backend
 from yoke_core.domain import lint_event_registry as lint_mod
 from yoke_core.domain.lint_event_registry import (
-    build_deny_json,
     build_deny_reason,
     extract_command,
     extract_event_name,
@@ -130,14 +127,3 @@ class TestBuildDenyReason:
         reason = build_deny_reason("Foo")
         assert "event_catalog.py" in reason
         assert "python3 -m yoke_core.domain.event_catalog_render" in reason
-
-
-class TestBuildDenyJson:
-    def test_parseable_and_contains_deny(self):
-        raw = build_deny_json("Foo")
-        # The shell test suite greps for this exact substring.
-        assert '"permissionDecision": "deny"' in raw
-        payload = json.loads(raw)
-        assert payload["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
-        assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
-        assert "Foo" in payload["hookSpecificOutput"]["permissionDecisionReason"]

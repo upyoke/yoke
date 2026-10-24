@@ -9,18 +9,17 @@ or called programmatically without a subprocess.
 
 from __future__ import annotations
 
-import contextlib
 import io
 import sys
 
 from yoke_core.domain.lint_db_rules import HOOK_POLICY_SOURCE
+from yoke_core.hooks.types import HookDecision, Next, Outcome
 
 
-def run_hook(payload: str, yoke_db: str = "") -> str:
+def run_hook(payload: str, yoke_db: str = "") -> HookDecision:
     """Run the DB-command policy against a PreToolUse payload.
 
-    Returns the JSON denial/warning payload emitted by the historical inline
-    policy engine, or an empty string when the command is allowed.
+    Returns a plain decision from the rule fragments, or NOOP when allowed.
     """
     import os
 
@@ -33,15 +32,19 @@ def run_hook(payload: str, yoke_db: str = "") -> str:
         os.environ.pop("YOKE_DB", None)
 
     stdin = io.StringIO(payload)
-    stdout = io.StringIO()
+    namespace = {
+        "__name__": "__lint_db_cmd__",
+        "HookDecision": HookDecision,
+        "Outcome": Outcome,
+        "Next": Next,
+    }
     original_stdin = sys.stdin
     try:
         sys.stdin = stdin
-        with contextlib.redirect_stdout(stdout):
-            try:
-                exec(HOOK_POLICY_SOURCE, {"__name__": "__lint_db_cmd__"})
-            except SystemExit:
-                pass
+        try:
+            exec(HOOK_POLICY_SOURCE, namespace)
+        except SystemExit:
+            pass
     finally:
         sys.stdin = original_stdin
         if previous_db is None:
@@ -49,7 +52,7 @@ def run_hook(payload: str, yoke_db: str = "") -> str:
         else:
             os.environ["YOKE_DB"] = previous_db
 
-    return stdout.getvalue().rstrip("\n")
+    return namespace.get("result", HookDecision(outcome=Outcome.NOOP))
 
 
 __all__ = ("run_hook",)

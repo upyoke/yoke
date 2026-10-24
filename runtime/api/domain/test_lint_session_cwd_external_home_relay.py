@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 from pathlib import Path
 
@@ -176,9 +178,9 @@ def test_relayed_bare_cat_fails_closed_without_valid_client_home_evidence(
         client_home=client_home,
         home_metadata=home_metadata,
     )
-    reason = json.loads(decision.message)["hookSpecificOutput"][
-        "permissionDecisionReason"
-    ]
+    reason = json.loads(render_codex_decision([decision], "PreToolUse")[0])[
+        "hookSpecificOutput"
+    ]["permissionDecisionReason"]
 
     assert decision.outcome is Outcome.DENY
     assert "client machine-home metadata was missing or invalid" in reason

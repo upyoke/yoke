@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import sys
 from dataclasses import dataclass
@@ -181,16 +183,6 @@ def evaluate_pre_tool_use(
     )
 
 
-def _build_deny_response(reason: str) -> dict:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry; every machine-local root comes from a client fact."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -211,11 +203,10 @@ def evaluate(record: HookContext) -> HookDecision:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
         if verdict.allow:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-        envelope = json.dumps(_build_deny_response(verdict.reason))
         audit_fields = emit_deny_and_build_audit(verdict)
         return HookDecision(
             outcome=Outcome.DENY,
-            message=envelope,
+            message=verdict.reason,
             block=True,
             next=Next.STOP,
             audit_fields=audit_fields,
@@ -247,7 +238,7 @@ def main() -> int:
     )
     decision = evaluate(record)
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

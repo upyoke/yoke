@@ -31,18 +31,12 @@ if "awk" in command:
         bad = re.search(r"!([a-zA-Z_]\w*)", prog)
         if bad:
             varname = bad.group(1)
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
+            result = HookDecision(outcome=Outcome.DENY, message=((
                         "BLOCKED: awk program contains %s!%s%s — BSD awk (macOS) "
                         "does not support !variable as boolean negation. "
                         "Use %s%s==0%s instead of %s!%s%s."
-                    ) % (sq, varname, sq, sq, varname, sq, sq, varname, sq),
-                }
-            }
-            print(json.dumps(result))
+                    ) % (sq, varname, sq, sq, varname, sq, sq, varname, sq)), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
             sys.exit(0)
 
 # --- Check 3: Direct calls to guarded scripts ---
@@ -98,19 +92,13 @@ for script, alternative in guarded_scripts.items():
                 # Allow if suppression comment is present
                 if _skip_guard_check:
                     break
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
+                result = HookDecision(outcome=Outcome.DENY, message=((
                             "BLOCKED: Do not call %s directly. "
                             "Use %s instead.\n"
                             "Direct invocation bypasses skill-layer business logic "
                             "(dedup, lifecycle validation, worktree management)."
-                        ) % (script, alternative),
-                    }
-                }
-                print(json.dumps(result))
+                        ) % (script, alternative)), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
             # Only check command name and its immediate argument (sh script.sh)
             if _wi > _gi:
@@ -132,19 +120,11 @@ if "YOKE_SKILL_CONTEXT=" in command_stripped:
         # Check leading words for env var assignment pattern
         for _cword in _cw:
             if _cword.startswith("YOKE_SKILL_CONTEXT="):
-                result = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": (
-                            "BLOCKED: Do not set YOKE_SKILL_CONTEXT manually. "
+                result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not set YOKE_SKILL_CONTEXT manually. "
                             "This env var bypass was removed. "
                             "Use the skill layer (/yoke idea, /yoke implement, etc.) "
-                            "which routes through the correct entry points."
-                        ),
-                    }
-                }
-                print(json.dumps(result))
+                            "which routes through the correct entry points."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
                 sys.exit(0)
             # Stop checking once we hit a non-assignment word (the command itself)
             if "=" not in _cword or _cword.startswith("="):
@@ -171,15 +151,8 @@ if "claude" in command:
     )
     _remote_claude_seen, _remote_claude_allowed = remote_claude_cli_state(command_stripped, data)
     if _remote_claude_seen and not _remote_claude_allowed:
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": REMOTE_CLAUDE_DENIAL,
-                "check_id": REMOTE_CLAUDE_CLI_CHECK_ID,
-            }
-        }
-        print(json.dumps(result))
+        result = HookDecision(outcome=Outcome.DENY, message=(REMOTE_CLAUDE_DENIAL), audit_fields={"check_id": REMOTE_CLAUDE_CLI_CHECK_ID}, block=True, next=Next.STOP)
+
         sys.exit(0)
     for _claude_words in claude_invocations(command):
         if _remote_claude_allowed:
@@ -187,15 +160,8 @@ if "claude" in command:
         _nested_reason = nested_claude_cli_denial(_claude_words, data)
         if _nested_reason is None:
             continue
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": _nested_reason,
-                "check_id": NESTED_CLAUDE_CLI_CHECK_ID,
-            }
-        }
-        print(json.dumps(result))
+        result = HookDecision(outcome=Outcome.DENY, message=(_nested_reason), audit_fields={"check_id": NESTED_CLAUDE_CLI_CHECK_ID}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 """
@@ -214,20 +180,12 @@ if (
     )
     _body_match = _body_write_pat.search(command)
     if _body_match:
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
-                    "BLOCKED: Raw body writes are no longer supported.\n"
+        result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Raw body writes are no longer supported.\n"
                     "items.body is a rendered projection owned by the in-process render path.\n"
                     "Use the item's full public ref: yoke items structured-field replace PREFIX-N --field FIELD --content-file PATH\n"
                     "Valid structured fields: spec, design_spec, technical_plan, worktree_plan, shepherd_caveats, test_results, deploy_log.\n"
-                    "For supplemental sections: yoke items section upsert PREFIX-N --section NAME --content-file PATH"
-                ),
-            }
-        }
-        print(json.dumps(result))
+                    "For supplemental sections: yoke items section upsert PREFIX-N --section NAME --content-file PATH"), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 # --- Check 13b: Block ingest-body ---
@@ -235,19 +193,11 @@ if (
 if "ingest-body" in command_stripped:
     _ingest_pat = re.compile(r"(?:yoke-db\.sh\s+items\s+ingest-body|backlog-registry\.sh\s+ingest-body)")
     if _ingest_pat.search(command_stripped):
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
-                    "BLOCKED: ingest-body is no longer supported.\n"
+        result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: ingest-body is no longer supported.\n"
                     "items.body is a rendered projection. .md files are generated views.\n"
                     "Use structured field writes instead: "
-                    "yoke items structured-field replace PREFIX-N --field spec --content-file PATH"
-                ),
-            }
-        }
-        print(json.dumps(result))
+                    "yoke items structured-field replace PREFIX-N --field spec --content-file PATH"), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
+
         sys.exit(0)
 
 """

@@ -10,6 +10,8 @@ stash-arg-order lint family.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -227,7 +229,7 @@ class TestModesAndSuppression(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
-        envelope = json.loads(decision.message)
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertIn("BLOCKED", decision.audit_fields["reason"])

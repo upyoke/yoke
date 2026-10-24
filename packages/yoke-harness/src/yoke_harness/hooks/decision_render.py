@@ -14,6 +14,31 @@ from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
 HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
 
 
+def deny_stdout(reason: str, event_name: str, executor: str) -> tuple[str, int]:
+    family = canonical_harness_id(executor)
+    if family == "claude-code":
+        return reason.strip(), 2
+    if family == "cursor":
+        # Cursor reads its own JSON verdict shape on exit 0; the narrative
+        # travels in the message fields, never a nested envelope.
+        body = {
+            "permission": "deny",
+            "user_message": reason,
+            "agent_message": reason,
+        }
+        return json.dumps(body), 0
+    body = {
+        HOOK_SPECIFIC_OUTPUT_KEY: {
+            "hookEventName": "PreToolUse"
+            if event_name == "apply_patch"
+            else event_name,
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+    return json.dumps(body), 0
+
+
 def write_hook_output(
     text: str, exit_code: int, executor: str, *, event_name: str = "hook evaluate"
 ) -> None:
@@ -21,18 +46,6 @@ def write_hook_output(
     if not text:
         return
     if exit_code == 2 and canonical_harness_id(executor) == "claude-code":
-        # Local policies may supply a deny envelope, while the server supplies
-        # plain text. Claude ignores stdout on exit 2 in either case.
-        try:
-            payload = json.loads(text)
-        except (json.JSONDecodeError, TypeError):
-            payload = None
-        if isinstance(payload, dict):
-            inner = payload.get(HOOK_SPECIFIC_OUTPUT_KEY)
-            if isinstance(inner, dict) and inner.get("permissionDecision") == "deny":
-                reason = inner.get("permissionDecisionReason")
-                if isinstance(reason, str) and reason:
-                    text = reason
         text = format_hook_diagnostic(event_name, text)
         sys.stderr.write(text if text.endswith("\n") else f"{text}\n")
     else:
@@ -174,4 +187,5 @@ __all__ = [
     "merge_allow_stdout",
     "render_context_stdout",
     "write_hook_output",
+    "deny_stdout",
 ]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 from unittest import mock
 
@@ -46,7 +48,7 @@ done"""
 
 
 def test_if_compound_status_capture_after_semicolon_denies():
-    result = _eval('if build_image; then exit 0; fi; status=$?')
+    result = _eval("if build_image; then exit 0; fi; status=$?")
 
     assert result is not None
     assert result[0] == "deny"
@@ -77,19 +79,19 @@ fi
 
 
 def test_non_bash_tool_allows():
-    payload = _payload('if false; then echo ok; fi; rc=$?', tool_name="Read")
+    payload = _payload("if false; then echo ok; fi; rc=$?", tool_name="Read")
     with mock.patch.object(lint, "_read_mode", return_value="deny"):
         assert lint.evaluate_payload(payload) is None
 
 
 def test_suppression_is_audit_only():
-    command = 'if false; then echo ok; fi; rc=$? # lint:no-if-status-capture-check'
+    command = "if false; then echo ok; fi; rc=$? # lint:no-if-status-capture-check"
     with mock.patch.object(lint, "_read_mode", return_value="deny"):
         decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
-    body = json.loads(decision.message)
+    body = json.loads(render_codex_decision([decision], "PreToolUse")[0])
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert decision.audit_fields["reason"]
     assert guard_audit_outcome(decision) == "suppression_attempted"
@@ -99,7 +101,7 @@ def test_warn_mode_returns_warn():
     with mock.patch.object(lint, "_read_mode", return_value="warn"):
         decision = lint.evaluate(
             lint._build_context_from_payload(
-                _payload('if false; then echo ok; fi; rc=$?')
+                _payload("if false; then echo ok; fi; rc=$?")
             )
         )
 

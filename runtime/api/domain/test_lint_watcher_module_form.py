@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -30,9 +32,7 @@ def _eval(command: str, *, mode: str = "deny"):
 
 class TestLegacyForms(unittest.TestCase):
     def test_module_form_is_denied(self):
-        verdict = _eval(
-            "python3 -m yoke_core.tools.watch_pytest -- runtime/api/"
-        )
+        verdict = _eval("python3 -m yoke_core.tools.watch_pytest -- runtime/api/")
         assert verdict is not None
         mode, reason, outcome = verdict
         self.assertEqual(mode, "deny")
@@ -63,7 +63,9 @@ class TestLegacyForms(unittest.TestCase):
         self.assertIsNone(_eval("yoke watch pytest -- runtime/api/"))
 
     def test_unrelated_module_form_is_clean(self):
-        self.assertIsNone(_eval("python3 -m yoke_core.tools.module_source_path yoke_core"))
+        self.assertIsNone(
+            _eval("python3 -m yoke_core.tools.module_source_path yoke_core")
+        )
 
     def test_non_bash_tool_is_clean(self):
         payload = _payload("python3 -m yoke_core.tools.watch_pytest")
@@ -105,10 +107,8 @@ class TestModesAndEnvelope(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")
-        envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 if __name__ == "__main__":

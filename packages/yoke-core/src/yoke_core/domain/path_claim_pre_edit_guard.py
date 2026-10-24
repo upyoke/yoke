@@ -6,6 +6,8 @@ with an observable fallback to the process cwd.
 """
 
 from __future__ import annotations
+
+from yoke_core.hooks.decision_render import render_codex_decision
 from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
@@ -257,16 +259,6 @@ def decide_for_record(record: ToolEventRecord):
     )
 
 
-def _build_deny_response(reason: str) -> Dict[str, Any]:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Builds a :class:`ToolEventRecord` and dispatches to
     :func:`evaluate_payload`. NOOP when the tool is not Edit/Write/apply_patch
@@ -288,10 +280,9 @@ def evaluate(record: HookContext) -> HookDecision:
     verdict = evaluate_payload(tool_record)
     if verdict.outcome != "deny":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    envelope = json.dumps(_build_deny_response(verdict.narrative))
     return HookDecision(
         outcome=Outcome.DENY,
-        message=envelope,
+        message=verdict.narrative,
         block=True,
         next=Next.STOP,
         audit_fields={
@@ -322,7 +313,7 @@ def main() -> int:
     )
     decision = evaluate(record)
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

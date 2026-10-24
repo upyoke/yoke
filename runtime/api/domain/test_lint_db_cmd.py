@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from yoke_core.hooks.types import Outcome
+
 from yoke_contracts.hook_runner.hook_guard_catalog import (
     NESTED_CLAUDE_CLI_CHECK_ID,
     REMOTE_CLAUDE_CLI_CHECK_ID,
@@ -18,7 +20,7 @@ from yoke_core.domain.lint_db_cmd_test_helpers import (
 
 
 def test_invalid_payload_allows_by_default() -> None:
-    assert run_hook("{not-json") == ""
+    assert run_hook("{not-json").outcome is Outcome.NOOP
 
 
 def test_direct_sqlite_invocation_is_denied() -> None:
@@ -139,8 +141,8 @@ def test_postgres_json_path_with_blocked_column_name_allowed() -> None:
                 "\"SELECT NULLIF(envelope, '')::jsonb #>> '{context,pr_num}' "
                 "FROM events WHERE source_type='cli'\""
             )
-        )
-        == ""
+        ).outcome
+        is Outcome.NOOP
     )
     # Same idea with 'payload' — also a blocked events column name.
     assert (
@@ -150,8 +152,8 @@ def test_postgres_json_path_with_blocked_column_name_allowed() -> None:
                 "\"SELECT NULLIF(envelope, '')::jsonb #>> '{payload,branch}' "
                 'FROM events"'
             )
-        )
-        == ""
+        ).outcome
+        is Outcome.NOOP
     )
 
 

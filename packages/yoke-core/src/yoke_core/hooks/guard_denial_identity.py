@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from yoke_contracts.field_note_text import DENIAL_FOOTER
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
@@ -17,30 +15,6 @@ def _with_denial_footer(message: str) -> str:
         return message
     body = message.rstrip("\n")
     return f"{body}\n\n{DENIAL_FOOTER}"
-
-
-def _annotate_message(message: str, check_id: str) -> tuple[str, str]:
-    """Return ``(message, reason)`` with the denial footer and one check-id line."""
-    try:
-        parsed = json.loads(message)
-    except (json.JSONDecodeError, TypeError):
-        reason = attach_check_id(_with_denial_footer(message), check_id)
-        return reason, reason
-    if not isinstance(parsed, dict):
-        reason = attach_check_id(_with_denial_footer(message), check_id)
-        return reason, reason
-    inner = parsed.get("hookSpecificOutput")
-    if not isinstance(inner, dict):
-        reason = attach_check_id(_with_denial_footer(message), check_id)
-        return reason, reason
-    raw_reason = inner.get("permissionDecisionReason")
-    if not isinstance(raw_reason, str):
-        reason = attach_check_id(_with_denial_footer(message), check_id)
-        return reason, reason
-    reason = attach_check_id(_with_denial_footer(raw_reason), check_id)
-    rendered = dict(parsed)
-    rendered["hookSpecificOutput"] = {**inner, "permissionDecisionReason": reason}
-    return json.dumps(rendered), reason
 
 
 def bind(decision: HookDecision, module_id: str, *, command: str = "") -> HookDecision:
@@ -61,13 +35,13 @@ def bind(decision: HookDecision, module_id: str, *, command: str = "") -> HookDe
     check_id = candidate if candidate in spec.report_check_ids else spec.check_id
     if candidate and candidate != check_id:
         audit["reported_check_id_mismatch"] = candidate
-    message, reason = _annotate_message(decision.message, check_id)
+    reason = attach_check_id(_with_denial_footer(decision.message), check_id)
     if command and is_compound(command) and NOTHING_RAN not in reason:
-        message, reason = _annotate_message(f"{reason}\n\n{NOTHING_RAN}", check_id)
+        reason = attach_check_id(f"{reason}\n\n{NOTHING_RAN}", check_id)
     audit.update({"check_id": check_id, "denial_reason": reason})
     return HookDecision(
         outcome=decision.outcome,
-        message=message,
+        message=reason,
         audit_fields=audit,
         block=decision.block,
         next=decision.next,

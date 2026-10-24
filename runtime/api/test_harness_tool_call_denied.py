@@ -14,6 +14,8 @@ an isolated events DB — without mocking the emit path.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import dataclasses
 import json
 from pathlib import Path
@@ -60,7 +62,9 @@ def _fetch_denials(db_path: str) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def _record(module_id: str, decision: HookDecision, context: HookContext) -> HookDecision:
+def _record(
+    module_id: str, decision: HookDecision, context: HookContext
+) -> HookDecision:
     """Bind and record *decision* the way the hook runner does after a guard."""
     payload = context.payload if isinstance(context.payload, dict) else {}
     command = (payload.get("tool_input") or {}).get("command") or ""
@@ -216,7 +220,9 @@ class TestHarnessToolCallDeniedEndToEnd:
         )
 
         assert decision.audit_fields["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
-        rendered = json.loads(decision.message)["hookSpecificOutput"]
+        rendered = json.loads(render_codex_decision([decision], "PreToolUse")[0])[
+            "hookSpecificOutput"
+        ]
         reason = rendered["permissionDecisionReason"]
         assert f"Yoke check id: {NESTED_CLAUDE_CLI_CHECK_ID}" in reason
         assert "use the Agent tool for subagent dispatch" in reason

@@ -10,6 +10,8 @@ orientation, refinement, or verification.
 """
 
 from __future__ import annotations
+
+from yoke_core.hooks.decision_render import render_codex_decision
 from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
@@ -288,18 +290,9 @@ def evaluate(record: HookContext) -> HookDecision:
     verdict = evaluate_payload(payload)
     if verdict.outcome != "deny":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    envelope = json.dumps(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": verdict.narrative,
-            }
-        }
-    )
     return HookDecision(
         outcome=Outcome.DENY,
-        message=envelope,
+        message=verdict.narrative,
         block=True,
         next=Next.STOP,
         audit_fields={
@@ -331,7 +324,7 @@ def main() -> int:
     )
     decision = evaluate(record)
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

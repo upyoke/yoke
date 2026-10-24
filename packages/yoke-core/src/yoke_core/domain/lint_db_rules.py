@@ -9,9 +9,6 @@ The assembly consumes the focused ``lint_db_rules_*`` fragments directly.
 
 from __future__ import annotations
 
-# The denial emit site lives in ``yoke_core.domain.lint_db_cmd``, which
-# re-serializes the deny envelope with the reason text and resolved check
-# id, so every denial carries exactly one identity line.
 from yoke_core.domain.lint_db_rules_columns import (
     RULE_TEXT_COLUMNS,
 )

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from yoke_core.hooks.types import Outcome
+
 import pytest
 
 from yoke_contracts.hook_runner import lint_policy
@@ -120,7 +122,7 @@ def test_remote_ssh_claude_cli_payload_snapshot_allows(
         lint_config.REMOTE_CLAUDE_CLI_GUARD: {"mode": "warn"},
     }
 
-    assert run_hook(json.dumps(data)) == ""
+    assert run_hook(json.dumps(data)).outcome is Outcome.NOOP
 
 
 def test_yok367_remote_warn_does_not_allow_local_claude(
@@ -304,7 +306,7 @@ def test_heredoc_opener_preserves_later_checks(command: str) -> None:
     [
         "python3 - <<'PY'\nimport sqlite3\nconn = sqlite3.connect(\"yoke.db\")\nPY",
         'python3 -c "import sqlite3; sqlite3.connect(\\"yoke.db\\")"',
-        "python3 - <<'PY'\nimport os, sqlite3\ndb_path = os.path.join(\"/tmp\", \"yoke.db\")\nconn = sqlite3.connect(db_path)\nPY",
+        'python3 - <<\'PY\'\nimport os, sqlite3\ndb_path = os.path.join("/tmp", "yoke.db")\nconn = sqlite3.connect(db_path)\nPY',
     ],
 )
 def test_python_literal_yoke_db_blocked(command: str) -> None:

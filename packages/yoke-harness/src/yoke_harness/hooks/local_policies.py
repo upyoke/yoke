@@ -253,28 +253,6 @@ def db_error_advisory(payload: dict) -> PolicyResult:
     return PolicyResult(ADVISORY, additional_context="\n".join(messages))
 
 
-def deny_stdout(reason: str, event_name: str, executor: str) -> tuple[str, int]:
-    if executor.startswith("cursor"):
-        # Cursor reads its own JSON verdict shape on exit 0; the narrative
-        # travels in the message fields, never a nested envelope.
-        body = {
-            "permission": "deny",
-            "user_message": reason,
-            "agent_message": reason,
-        }
-        return json.dumps(body), 0
-    body = {
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": "PreToolUse"
-            if event_name == "apply_patch"
-            else event_name,
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-    return json.dumps(body), 0 if executor.startswith("codex") else 2
-
-
 def advisory_stdout(contexts: list[str], event_name: str) -> str:
     return json.dumps(
         {
@@ -290,7 +268,6 @@ __all__ = [
     "PolicyResult",
     "advisory_stdout",
     "db_error_advisory",
-    "deny_stdout",
     "hint_file_line",
     "lint_destructive_git",
     "lint_local_privacy",

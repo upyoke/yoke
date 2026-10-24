@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import os
 from pathlib import Path
@@ -142,7 +144,9 @@ class TestTypedEvaluateEntrypoint:
             )
         )
         assert decision.outcome is Outcome.DENY and decision.block is True
-        hook = json.loads(decision.message)["hookSpecificOutput"]
+        hook = json.loads(render_codex_decision([decision], "PreToolUse")[0])[
+            "hookSpecificOutput"
+        ]
         assert hook["hookEventName"] == "PreToolUse"
         assert hook["permissionDecision"] == "deny"
         assert (

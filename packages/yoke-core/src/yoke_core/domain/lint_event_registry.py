@@ -33,7 +33,7 @@ helpers live in :mod:`.lint_event_registry_render`. The public surface
 
 from __future__ import annotations
 
-import json
+from yoke_core.hooks.decision_render import render_codex_decision
 import os
 import sys
 from dataclasses import dataclass
@@ -49,7 +49,6 @@ from yoke_core.domain.lint_event_registry_extract import (
 )
 from yoke_core.domain.lint_event_registry_render import (
     CHECK_ID,
-    build_deny_json,
     build_deny_reason,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -57,7 +56,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 __all__ = [
     "CHECK_ID",
     "Decision",
-    "build_deny_json",
     "build_deny_reason",
     "decide",
     "decide_dict",
@@ -78,28 +76,14 @@ class Decision:
         action: ``"allow"`` or ``"deny"``. ``"allow"`` covers both "not
             interesting" (no emit-event.sh, no --name, missing DB, missing
             table) and "registered". ``"deny"`` means "unregistered — block
-            with deny JSON".
+            with a plain reason".
         event_name: The extracted ``--name`` value if any, otherwise ``""``.
-        deny_json: The serialized PreToolUse deny JSON for the block path.
         reason: The human-readable deny reason (also the audit reason).
     """
 
     action: str = "allow"
     event_name: str = ""
-    deny_json: str = ""
     reason: str = ""
-
-
-def _deny_json_with_reason(reason: str) -> str:
-    """Serialize a PreToolUse deny envelope around ``reason``."""
-    payload = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-    return json.dumps(payload, separators=(", ", ": "))
 
 
 def lookup_event_registered(db_path: str, event_name: str) -> tuple[bool, bool]:
@@ -171,7 +155,6 @@ def decide_dict(data: Optional[dict], db_path: str) -> Decision:
     return Decision(
         action="deny",
         event_name=event_name,
-        deny_json=_deny_json_with_reason(reason),
         reason=reason,
     )
 
@@ -189,7 +172,7 @@ def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: route a parsed PreToolUse payload through the registry rules.
 
     - ``allow`` → ``HookDecision(NOOP, CONTINUE)``
-    - ``deny`` → ``HookDecision(DENY, message=<deny_json>, block=True,
+    - ``deny`` → ``HookDecision(DENY, message=<reason>, block=True,
       next=STOP)`` whose ``audit_fields`` carry the deny reason.
 
     DB path is resolved from ``YOKE_DB`` first, then the canonical
@@ -200,10 +183,10 @@ def evaluate(record: HookContext) -> HookDecision:
     db_path = os.environ.get("YOKE_DB", "") or _resolve_db_fallback()
     decision = decide_dict(payload, db_path)
 
-    if decision.action == "deny" and decision.deny_json:
+    if decision.action == "deny" and decision.reason:
         return HookDecision(
             outcome=Outcome.DENY,
-            message=decision.deny_json,
+            message=decision.reason,
             audit_fields={"event_name": decision.event_name, "reason": decision.reason},
             block=True,
             next=Next.STOP,
@@ -255,7 +238,7 @@ def main() -> int:
         return 0
     decision = evaluate(_build_context_from_payload(data))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 

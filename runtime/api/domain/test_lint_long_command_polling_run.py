@@ -18,6 +18,8 @@ carry the audit outcome the hook runner records (warn-mode rows and
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -84,7 +86,7 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
-        parsed = json.loads(decision.message)
+        parsed = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(
             parsed["hookSpecificOutput"]["permissionDecision"],
             "deny",

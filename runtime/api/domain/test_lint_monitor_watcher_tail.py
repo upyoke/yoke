@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import unittest
 from unittest import mock
@@ -74,9 +76,7 @@ class TestModesSuppressionAndEnvelope(unittest.TestCase):
         self.assertIn("would block", verdict[1])
 
     def test_suppression_is_audited_but_does_not_unblock(self):
-        verdict = _eval(
-            f"tail -f {_PROGRESS} {lint.SUPPRESSION_TOKEN}"
-        )
+        verdict = _eval(f"tail -f {_PROGRESS} {lint.SUPPRESSION_TOKEN}")
         assert verdict is not None
         self.assertEqual(verdict[2], "suppression_attempted")
         self.assertIn("does NOT unblock", verdict[1])
@@ -87,10 +87,8 @@ class TestModesSuppressionAndEnvelope(unittest.TestCase):
             decision = lint.evaluate(lint._context(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
-        envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertIn("yoke watch tail", decision.audit_fields["reason"])
 

@@ -8,6 +8,8 @@ audit-only suppression token.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import json
 import os
 import tempfile
@@ -243,7 +245,7 @@ class TestEvaluateTypedEntry(unittest.TestCase):
         decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
-        envelope = json.loads(decision.message)
+        envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertEqual(

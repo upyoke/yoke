@@ -7,6 +7,8 @@ here, and collects the client facts the chain's server-run policies read.
 
 from __future__ import annotations
 
+from yoke_harness.hooks.decision_render import deny_stdout
+
 import json
 from dataclasses import dataclass
 from typing import Optional
@@ -35,7 +37,6 @@ from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.local_policies import (
     advisory_stdout,
     db_error_advisory,
-    deny_stdout,
     hint_file_line,
     lint_destructive_git,
     lint_local_privacy,

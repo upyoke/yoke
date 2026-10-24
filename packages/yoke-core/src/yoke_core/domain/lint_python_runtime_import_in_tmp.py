@@ -39,6 +39,8 @@ repo tree.
 
 from __future__ import annotations
 
+from yoke_core.hooks.decision_render import render_codex_decision
+
 import ast
 import json
 import os
@@ -219,16 +221,6 @@ def evaluate_payload(payload: dict) -> Optional[str]:
     return evaluate_fields(file_path, content)
 
 
-def _build_deny_response(reason: str) -> dict:
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Wraps :func:`evaluate_payload`; the bypass token is
     audit-only — the rule still denies."""
@@ -238,10 +230,9 @@ def evaluate(record: HookContext) -> HookDecision:
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     outcome = "suppression_attempted" if _BYPASS_TOKEN in content else "denied"
-    envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(
         outcome=Outcome.DENY,
-        message=envelope,
+        message=reason,
         audit_fields={
             "reason": reason,
             "audit_outcome": outcome,
@@ -276,7 +267,7 @@ def main() -> int:
         return 0
     decision = evaluate(_build_context_from_payload(payload))
     if decision.outcome is Outcome.DENY and decision.message:
-        print(decision.message)
+        print(render_codex_decision([decision], "PreToolUse")[0])
     return 0
 
 
