@@ -120,8 +120,6 @@ def _dispatch_github_actions_workflow(
         diagnostic = "github-actions-workflow wait_for_ci must be a boolean"
         print(f"Error: {diagnostic}", file=sys.stderr)
         return 1, diagnostic
-    from yoke_core.domain.hosted_promotion_receipt import HOSTED_BRIDGE_WORKFLOW
-
     ci_gate = None
     if wait_for_ci:
         ci_gate = partial(
@@ -132,7 +130,6 @@ def _dispatch_github_actions_workflow(
             branch=gate_branch,
             head_sha=project_head_sha,
             sd=sd,
-            main_factory=workflow == HOSTED_BRIDGE_WORKFLOW,
         )
     ready = readiness.await_dispatch_readiness(ci_gate, before_dispatch)
     if ready[0] != 0:
@@ -294,7 +291,8 @@ def _resolve_release_lineage_sha(
     project_repo_path: str,
     gate_branch: str,
 ) -> tuple[str, str]:
-    """Resolve lineage using this module's patchable command runner."""
+    """Thin wrapper passing this module's own patchable `_run_cmd` through
+    to `deploy_pipeline_github_workflow_lineage`, which owns the resolution."""
     return _lineage_resolve_release_lineage_sha(
         release_lineage,
         project_repo_path,

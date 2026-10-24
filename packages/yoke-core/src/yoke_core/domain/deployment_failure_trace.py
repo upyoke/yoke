@@ -141,7 +141,7 @@ def relay_signal(log: str, current: RunRef, *, run_conclusion=None) -> RelaySign
 
 def _error_score(text: str) -> tuple[int, int]:
     folded = text.casefold()
-    if "stale pair:" in folded or "main_artifact_promotion_refused:" in folded:
+    if "stale pair:" in folded:
         return 95, len(text)
     if re.search(r"\b" + re.escape(STALLED_DISPATCH_TOKEN) + r"\b", folded):
         return 95, len(text)

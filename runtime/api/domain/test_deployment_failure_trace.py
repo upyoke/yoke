@@ -322,21 +322,3 @@ def test_permission_refusal_preserves_the_unreadable_hop_url() -> None:
     ]
     assert "Actions logs are not visible" in result["stop_reason"]
     assert "restore Actions read/log permission" in result["recovery"]
-
-
-def test_main_artifact_promotion_refusal_keeps_cause_and_recovery():
-    refusal = (
-        "main_artifact_promotion_refused: main_factory_failed: inspect and rerun "
-        "yoke-build-artifacts.yml for " + "a" * 40
-        + "; tag publication does not rebuild; retry the failed publication job"
-    )
-    log = refusal + "\n##[error]Process completed with exit code 1."
-    assert terminal_error(log) == refusal
-    origin = github_run_ref("owner/product", "100")
-    result = walk_failure_chain(
-        origin,
-        inspect_run=lambda ref: _snapshot(ref.repo, ref.run_id, "1", "publish", log),
-        resolve_job=lambda repo, job: origin,
-    )
-    assert result["complete"]
-    assert result["terminal_error"] == refusal

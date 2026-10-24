@@ -16,10 +16,6 @@ GitHub Actions ``queued`` collapses into ``running`` by operator policy:
 pre-run and in-progress share one "work in flight"
 classification.
 
-The explicit main_factory mode additionally selects only main-push evidence,
-claims a durable Actions intent before one cancelled-first-attempt rerun, and
-names the newest successful main factory commit on refusal.
-
 This handler is deliberately SINGLE-SHOT: wait/poll semantics live
 client-side in the ``yoke github-actions check-ci --wait`` adapter
 (:mod:`yoke_cli.commands.adapters.github_actions`), which
@@ -47,7 +43,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-    GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.domain.github_actions_identifiers import WorkflowIdentifier
 from yoke_core.domain.handlers.github_actions_set import _auth_failed
@@ -57,9 +52,6 @@ _RUNNING_STATUSES = frozenset({"queued", "in_progress", "pending", "waiting"})
 
 
 class CheckCiRequest(BaseModel):
-    main_factory: bool = Field(
-        False, description="Gate an exact main-push factory; rerun cancellation once."
-    )
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     workflow: WorkflowIdentifier = Field(
         ..., description="Workflow file (e.g. ci.yml)."
@@ -93,9 +85,6 @@ class CheckCiResponse(BaseModel):
     html_url: Optional[str] = None
     status: Optional[str] = None
     conclusion: Optional[str] = None
-    main_factory_checked: bool = False
-    newest_successful_main_sha: Optional[str] = None
-    message: Optional[str] = None
 
 
 def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -208,10 +197,7 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         resolved = resolve_project_github_auth(
             payload.project,
-            required_permissions=(
-                GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS
-                if payload.main_factory else GITHUB_ACTIONS_READ_PERMISSION_LEVELS
-            ),
+            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
         )
     except ProjectGithubAuthError as exc:
         return _auth_failed(exc, payload.project)
@@ -220,10 +206,6 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             f"repo must match project binding {resolved.repo!r}",
             jsonpath="$.payload.repo",
         )
-
-    if payload.main_factory:
-        from yoke_core.domain.github_actions_factory_gate import check_main_factory
-        return check_main_factory(payload, token=resolved.token, request=request)
 
     try:
         run = latest_workflow_run(
@@ -260,9 +242,9 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "stability": "stable",
         "owner_module": "yoke_core.domain.handlers.github_actions_check_ci",
         "target_kinds": ["global"],
-        "side_effects": ["github_actions_cancelled_factory_rerun"],
+        "side_effects": [],
         "emitted_event_names": [],
-        "guardrails": ["project_auth_required", "handler_managed_idempotency"],
+        "guardrails": ["project_auth_required"],
         "adapter_status": "live",
         "claim_required_kind": None,
     },
