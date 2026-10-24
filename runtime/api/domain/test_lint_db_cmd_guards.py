@@ -166,6 +166,7 @@ def test_yok367_claude_in_strings_paths_allowed(command: str) -> None:
         'FOO=bar sh backlog-registry.sh add "item"',
         "echo done && sh sprint-db.sh start",
         'echo done; sh backlog-registry.sh add "item"',
+        'env -i sh backlog-registry.sh add "item"',
     ],
 )
 def test_yok491_guarded_scripts_blocked(command: str) -> None:
@@ -210,8 +211,16 @@ def test_yok849_suppression_is_scoped_to_guard_check() -> None:
     _assert_blocks("sh merge-worktree.sh YOK-9999")
 
 
-def test_yok491_env_var_bypass_blocked() -> None:
-    _assert_blocks('YOKE_SKILL_CONTEXT=idea sh backlog-registry.sh add "item"')
+@pytest.mark.parametrize(
+    "command",
+    [
+        'YOKE_SKILL_CONTEXT=idea sh backlog-registry.sh add "item"',
+        "env YOKE_SKILL_CONTEXT=idea yoke items list",
+        "env -i FOO=1 YOKE_SKILL_CONTEXT=idea yoke items list",
+    ],
+)
+def test_yok491_env_var_bypass_blocked(command: str) -> None:
+    _assert_blocks(command)
 
 
 @pytest.mark.parametrize(
@@ -305,6 +314,7 @@ def test_heredoc_opener_preserves_later_checks(command: str) -> None:
     "command",
     [
         "python3 - <<'PY'\nimport sqlite3\nconn = sqlite3.connect(\"yoke.db\")\nPY",
+        "cd /tmp; python3 - <<'PY'\nimport sqlite3\nconn = sqlite3.connect(\"yoke.db\")\nPY",
         'python3 -c "import sqlite3; sqlite3.connect(\\"yoke.db\\")"',
         'python3 - <<\'PY\'\nimport os, sqlite3\ndb_path = os.path.join("/tmp", "yoke.db")\nconn = sqlite3.connect(db_path)\nPY',
     ],

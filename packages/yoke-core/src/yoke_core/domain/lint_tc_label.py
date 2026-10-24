@@ -24,14 +24,14 @@ from __future__ import annotations
 
 from yoke_core.hooks.decision_render import render_codex_decision
 
-import functools
 import json
 import os
 import re
 import sys
-from typing import Iterator, Optional, Tuple
+from typing import Optional
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -50,18 +50,6 @@ NUMERIC_HC_WRITE_RE = re.compile(
     r"(?:>|>>|cp\s|mv\s|touch\s|cat\s*>|tee\s)\s*\S*test-doctor-hc\d+\.sh"
 )
 NUMERIC_HC_COPY_RE = re.compile(r"(?:cp|mv)\s+\S+\s+\S*test-doctor-hc\d+\.sh")
-
-_SQ = chr(39)
-HEREDOC_START_RE = re.compile(
-    r"(?P<prefix><<(?P<dash>-?)[ \t]*)["
-    + _SQ
-    + r"\""
-    + r"]?(?P<delim>\w+)["
-    + _SQ
-    + r"\""
-    + r"]?(?P<suffix>[^\n]*\n)"
-)
-
 
 DENY_NUMERIC_HC = (
     "BLOCKED: Numeric HC test filename detected.\n\n"
@@ -130,54 +118,6 @@ def writes_test_file(text: str) -> bool:
     return bool(TEST_FILE_WRITE_RE.search(text) or TEST_FILE_WRITE_CMD_RE.search(text))
 
 
-@functools.lru_cache(maxsize=64)
-def _heredoc_close_pattern(dash: str, delim: str) -> "re.Pattern[str]":
-    """Return (and cache) the closing-line regex for a heredoc delimiter."""
-    return re.compile(
-        r"(?m)^" + (r"\t*" if dash == "-" else "") + re.escape(delim) + r"\b"
-    )
-
-
-def iter_heredocs(text: str) -> Iterator[Tuple[str, str]]:
-    """Yield ``(opener_line, body)`` tuples for each heredoc in *text*."""
-    pos = 0
-    while True:
-        opener = HEREDOC_START_RE.search(text, pos)
-        if opener is None:
-            return
-        close_pat = _heredoc_close_pattern(opener.group("dash"), opener.group("delim"))
-        closer = close_pat.search(text, opener.end())
-        if closer is None:
-            return
-        line_start = text.rfind("\n", 0, opener.start()) + 1
-        line_end = text.find("\n", opener.end())
-        if line_end == -1:
-            line_end = len(text)
-        yield text[line_start:line_end], text[opener.end() : closer.start()]
-        pos = closer.end()
-
-
-def strip_heredoc_bodies(text: str) -> str:
-    """Replace heredoc bodies with a placeholder so they don't mask matches."""
-    parts: list[str] = []
-    pos = 0
-    while True:
-        opener = HEREDOC_START_RE.search(text, pos)
-        if opener is None:
-            parts.append(text[pos:])
-            return "".join(parts)
-        close_pat = _heredoc_close_pattern(opener.group("dash"), opener.group("delim"))
-        closer = close_pat.search(text, opener.end())
-        if closer is None:
-            parts.append(text[pos:])
-            return "".join(parts)
-        parts.append(text[pos : opener.start()])
-        parts.append(
-            opener.group("prefix") + "HEREDOC_STRIPPED" + opener.group("suffix")
-        )
-        pos = closer.end()
-
-
 def _extract_tool_input(payload: dict) -> dict:
     for key in ("tool_input", "toolInput", "input"):
         value = payload.get(key)
@@ -186,32 +126,38 @@ def _extract_tool_input(payload: dict) -> dict:
     return {}
 
 
+def evaluate_bash_command(command: str | ShellParse) -> Optional[str]:
+    """Return a denial reason for a Bash command, or None.
+
+    Heredoc bodies are input: the command-text rules read the parse's
+    ``code``, and a body is checked only when its opener line writes a
+    test file.
+    """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    text = parsed.command
+    if not text or "# lint:no-tc-label-check" in text:
+        return None
+    code = parsed.code
+    if NUMERIC_HC_ANY_RE.search(code):
+        if NUMERIC_HC_WRITE_RE.search(code) or NUMERIC_HC_COPY_RE.search(code):
+            return DENY_NUMERIC_HC
+    if writes_test_file(code) and is_sequential_tc(code):
+        return DENY_TC_BASH
+    for heredoc in parsed.heredocs:
+        line_start = text.rfind("\n", 0, heredoc.source_operator_start) + 1
+        line_end = text.find("\n", heredoc.source_operator_end)
+        opener_line = text[line_start : line_end if line_end >= 0 else len(text)]
+        if writes_test_file(opener_line) and is_sequential_tc(heredoc.body):
+            return DENY_TC_HEREDOC
+    return None
+
+
 def evaluate_payload(payload: dict, tool_name: Optional[str]) -> Optional[str]:
     """Apply the rules for ``tool_name``, returning a denial reason or None."""
     tool_input = _extract_tool_input(payload)
 
     if tool_name == "Bash":
-        command = extract_command(payload)
-        if not command:
-            return None
-        if "# lint:no-tc-label-check" in command:
-            return None
-
-        stripped = strip_heredoc_bodies(command)
-
-        if NUMERIC_HC_ANY_RE.search(stripped):
-            if NUMERIC_HC_WRITE_RE.search(stripped) or NUMERIC_HC_COPY_RE.search(
-                stripped
-            ):
-                return DENY_NUMERIC_HC
-
-        if writes_test_file(stripped) and is_sequential_tc(stripped):
-            return DENY_TC_BASH
-
-        for heredoc_line, heredoc_body in iter_heredocs(command):
-            if writes_test_file(heredoc_line) and is_sequential_tc(heredoc_body):
-                return DENY_TC_HEREDOC
-        return None
+        return evaluate_bash_command(extract_command(payload))
 
     if tool_name == "Write":
         file_path = tool_input.get("file_path", "")
@@ -234,7 +180,10 @@ def evaluate_payload(payload: dict, tool_name: Optional[str]) -> Optional[str]:
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate Bash/Write payload for TC-label or numeric-HC violations."""
     payload = record.payload if isinstance(record.payload, dict) else {}
-    reason = evaluate_payload(payload, record.tool_name)
+    if record.tool_name == "Bash":
+        reason = evaluate_bash_command(record.shell)
+    else:
+        reason = evaluate_payload(payload, record.tool_name)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-tc-label")

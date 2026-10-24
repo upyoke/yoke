@@ -71,22 +71,18 @@ for script, alternative in guarded_scripts.items():
         _gp = _gp.strip()
         if not _gp:
             continue
-        _gw = _gp.split()
+        # Skip leading env var assignments and an env prefix
+        # (e.g. VAR=val sh script.sh, env -i sh script.sh)
+        _gw = strip_env_prefix(_gp.split())
         if not _gw:
-            continue
-        # Skip leading env var assignments (e.g. VAR=val sh script.sh)
-        _gi = 0
-        while _gi < len(_gw) and "=" in _gw[_gi] and not _gw[_gi].startswith("="):
-            _gi += 1
-        if _gi >= len(_gw):
             continue
         # If the command word is a non-executing (read-only / VCS) command,
         # the guarded script name is a file argument, not an invocation.
-        _cmd_basename = _gw[_gi].rsplit("/", 1)[-1] if "/" in _gw[_gi] else _gw[_gi]
+        _cmd_basename = _gw[0].rsplit("/", 1)[-1]
         if _cmd_basename in _GUARD_SAFE_CMDS:
             continue
         # Check remaining words for exact basename match as invoked script
-        for _wi in range(_gi, len(_gw)):
+        for _wi in range(len(_gw)):
             _basename = _gw[_wi].rsplit("/", 1)[-1] if "/" in _gw[_wi] else _gw[_wi]
             if _basename == script:
                 # Allow if suppression comment is present
@@ -101,7 +97,7 @@ for script, alternative in guarded_scripts.items():
 
                 sys.exit(0)
             # Only check command name and its immediate argument (sh script.sh)
-            if _wi > _gi:
+            if _wi > 0:
                 break
 
 # Also block YOKE_SKILL_CONTEXT= env var bypass attempts.
@@ -114,11 +110,9 @@ if "YOKE_SKILL_CONTEXT=" in command_stripped:
         _cp = _cp.strip()
         if not _cp:
             continue
+        # Check the leading assignment and env-prefix words
         _cw = _cp.split()
-        if not _cw:
-            continue
-        # Check leading words for env var assignment pattern
-        for _cword in _cw:
+        for _cword in _cw[: len(_cw) - len(strip_env_prefix(_cw))]:
             if _cword.startswith("YOKE_SKILL_CONTEXT="):
                 result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not set YOKE_SKILL_CONTEXT manually. "
                             "This env var bypass was removed. "
@@ -126,9 +120,6 @@ if "YOKE_SKILL_CONTEXT=" in command_stripped:
                             "which routes through the correct entry points."), audit_fields={"check_id": 'lint-sqlite-cmd'}, block=True, next=Next.STOP)
 
                 sys.exit(0)
-            # Stop checking once we hit a non-assignment word (the command itself)
-            if "=" not in _cword or _cword.startswith("="):
-                break
 
 """
 RULE_TEXT_GUARDS_CLI = r"""

@@ -1,7 +1,7 @@
 """Preprocessing fragment for HOOK_POLICY_SOURCE.
 
-Holds RULE_TEXT_PREPROCESS — the imports, payload parsing, heredoc body
-stripping helpers (iter_heredocs, segment_uses_python, ...), inline-Python
+Holds RULE_TEXT_PREPROCESS — the imports, payload parsing, the shared shell
+parse (``shell``) whose ``code`` drops heredoc bodies, the inline-Python
 literal-DB block, and the quoted-string interior stripping. This is the
 prelude every check fragment relies on; concatenated first into
 HOOK_POLICY_SOURCE by lint_db_rules.
@@ -18,6 +18,7 @@ import sqlite3
 import ast
 import shlex
 
+from yoke_contracts.hook_runner.shell_parse import parse_shell, strip_env_prefix
 from yoke_core.domain.lint_command_extract import extract_command
 
 try:
@@ -38,67 +39,29 @@ if command == "":
 original_command = command
 
 # --- Preprocessing: Strip heredoc bodies ---
-# Heredoc body content (between <<DELIM ... DELIM) can contain references to
-# guarded scripts, sqlite3, YOKE_SKILL_CONTEXT, etc. as prose, examples,
-# or non-shell code (e.g., Python import sqlite3). These are not shell
-# invocations and must not trigger any check. The one exception is executed
-# Python payloads that call sqlite3.connect with a hardcoded Yoke DB path:
-# those are inspected before stripping and denied below.
-# Covers: <<EOF, << plus quoted-EOF, <<"EOF", <<-EOF (tab-stripping variant),
-# tab-indented closing delimiters for <<-, and opener lines with trailing shell
-# syntax (pipes, redirects, comments).
-# The replacement preserves the heredoc opener AND any same-line suffix so the
-# shell command structure remains intact for segment splitting and later checks
-# can still see pipeline/redirect commands on the opener line.
+# Heredoc body content can contain references to guarded scripts, sqlite3,
+# YOKE_SKILL_CONTEXT, etc. as prose, examples, or non-shell code (e.g., Python
+# import sqlite3). These are not shell invocations and must not trigger any
+# check. The one exception is executed Python payloads that call
+# sqlite3.connect with a hardcoded Yoke DB path: those are inspected before
+# stripping and denied below. The shared shell parse lifts every body out and
+# keeps each opener with its same-line suffix, so later checks still see
+# pipeline/redirect commands on the opener line.
 # Note: cannot use literal single quotes inside python3 -c string,
-# so build the regex with chr(39) for the single-quote character.
+# so build regexes with chr(39) for the single-quote character.
 _sq = chr(39)
-_heredoc_start_re = re.compile(
-    r"(?P<prefix><<(?P<dash>-?)[ \t]*)["
-    + _sq
-    + r"\"]?(?P<delim>\w+)["
-    + _sq
-    + r"\"]?(?P<suffix>[^\n]*\n)"
-)
+shell = parse_shell(original_command)
 
-def iter_heredocs(text):
-    pos = 0
-    while True:
-        opener = _heredoc_start_re.search(text, pos)
-        if opener is None:
-            return
-
-        close_pat = re.compile(
-            r"(?m)^"
-            + (r"\t*" if opener.group("dash") == "-" else "")
-            + re.escape(opener.group("delim"))
-            + r"\b"
-        )
-        closer = close_pat.search(text, opener.end())
-        if closer is None:
-            return
-
-        yield opener, text[opener.end():closer.start()]
-        pos = closer.end()
-
-def segment_uses_python(segment):
-    segment = segment.strip()
-    if not segment:
+def segment_uses_python(text):
+    segments = parse_shell(text).segments
+    words = segments[-1].argv if segments else ()
+    if not words:
         return False
-    try:
-        words = shlex.split(segment, posix=True)
-    except Exception:
-        words = segment.split()
-    idx = 0
-    while idx < len(words) and re.match(r"[A-Za-z_]\w*=.*", words[idx]):
-        idx += 1
-    if idx >= len(words):
-        return False
-    cmd_word = words[idx].rsplit("/", 1)[-1]
+    cmd_word = words[0].rsplit("/", 1)[-1]
     if cmd_word in ("python", "python3"):
         return True
-    if cmd_word == "uv" and idx + 2 < len(words) and words[idx + 1] == "run":
-        nested = words[idx + 2].rsplit("/", 1)[-1]
+    if cmd_word == "uv" and len(words) > 2 and words[1] == "run":
+        nested = words[2].rsplit("/", 1)[-1]
         return nested in ("python", "python3")
     return False
 
@@ -157,13 +120,13 @@ def python_uses_literal_yoke_db(py_code):
     _string_token = r"(?:[" + _sq + _dq + r"])(?:[^" + _sq + _dq + r"]*yoke\.db[^" + _sq + _dq + r"]*)(?:[" + _sq + _dq + r"])"
     return re.search(r"\bconnect\s*\([^)]*" + _string_token, py_code, flags=re.S) is not None
 
-def extract_python_payloads(text):
+def extract_python_payloads(parsed):
+    text = parsed.command
     payloads = []
-    for opener, body in iter_heredocs(text):
-        line_start = text.rfind("\n", 0, opener.start()) + 1
-        opener_line = text[line_start:opener.end()]
-        if segment_uses_python(opener_line):
-            payloads.append(body)
+    for heredoc in parsed.heredocs:
+        line_start = text.rfind("\n", 0, heredoc.source_operator_start) + 1
+        if segment_uses_python(text[line_start:heredoc.source_operator_start]):
+            payloads.append(heredoc.body)
 
     _dq = chr(34)
     inline_python_re = re.compile(
@@ -182,12 +145,9 @@ def uses_raw_query_escape_hatch(text):
     return "yoke_core.cli.raw_query" in text
 
 
-def extract_yoke_query_sql_payloads(text):
+def extract_yoke_query_sql_payloads(parsed):
     payloads = []
-    try:
-        words = shlex.split(text, posix=True)
-    except Exception:
-        return payloads
+    words = [word for segment in parsed.segments for word in segment.tokens]
 
     idx = 0
     while idx < len(words):
@@ -244,7 +204,7 @@ def extract_yoke_query_sql_payloads(text):
 
     return payloads
 
-for py_code in extract_python_payloads(original_command):
+for py_code in extract_python_payloads(shell):
     if python_uses_literal_yoke_db(py_code):
         result = HookDecision(outcome=Outcome.DENY, message=("BLOCKED: Do not open the Yoke DB from ad-hoc Python using a hardcoded or relative "
                     "path like yoke.db. Use the canonical DB router / Postgres authority instead:\n"
@@ -255,31 +215,7 @@ for py_code in extract_python_payloads(original_command):
 
         sys.exit(0)
 
-def strip_heredoc_bodies(text):
-    parts = []
-    pos = 0
-    while True:
-        opener = _heredoc_start_re.search(text, pos)
-        if opener is None:
-            parts.append(text[pos:])
-            return "".join(parts)
-
-        close_pat = re.compile(
-            r"(?m)^"
-            + (r"\t*" if opener.group("dash") == "-" else "")
-            + re.escape(opener.group("delim"))
-            + r"\b"
-        )
-        closer = close_pat.search(text, opener.end())
-        if closer is None:
-            parts.append(text[pos:])
-            return "".join(parts)
-
-        parts.append(text[pos:opener.start()])
-        parts.append(opener.group("prefix") + "HEREDOC_STRIPPED" + opener.group("suffix"))
-        pos = closer.end()
-
-command = strip_heredoc_bodies(command)
+command = shell.code
 
 # --- Preprocessing: Strip quoted string interiors ---
 # Quoted string content (titles, bodies, descriptions) can contain keywords that
