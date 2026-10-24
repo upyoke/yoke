@@ -36,7 +36,12 @@ VALIDATE_USAGE = (
 )
 VERSION_USAGE = (
     "yoke deployment-flows version SOURCE-FLOW NEW-FLOW --name NAME "
-    "[definition options] [--status active|disabled] [--session-id S] [--json]"
+    "[--status active|disabled] [--session-id S] "
+    "[--json] [--description DESCRIPTION] [--stages-json TEXT] "
+    "[--stages-file PATH] [--stdin] [--on-failure {halt,continue}] "
+    "[--target-tier {persistent,ephemeral,none}] [--environment "
+    "ENVIRONMENT] [--done-description DONE_DESCRIPTION] "
+    "[--takes-delivery-custody {true,false}]"
 )
 
 _UNSET = "__deployment_flow_unset__"

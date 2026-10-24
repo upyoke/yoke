@@ -30,7 +30,7 @@ GITHUB_MERGE_QUEUE_APPLY_USAGE = (
     "[--declaration PATH] [--preview] [--session-id S] [--json]"
 )
 GITHUB_MERGE_QUEUE_READINESS_USAGE = (
-    "yoke github merge-queue readiness ITEM [--project P] [--json]"
+    "yoke github merge-queue readiness ITEM [--project P] [--json] [--session-id S]"
 )
 GITHUB_MERGE_QUEUE_HOLD_USAGE = (
     "yoke github merge-queue hold ITEM [--project P] [--session-id S] [--json]"

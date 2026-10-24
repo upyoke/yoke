@@ -21,11 +21,13 @@ from yoke_contracts.api.function_call import TargetRef
 
 PULUMI_STATE_MIGRATE_USAGE = (
     "yoke projects pulumi-state migrate --project NAME --site NAME "
-    "--stack NAME [--stack NAME ...] [--apply] [--json]"
+    "--stack NAME [--stack NAME ...] [--apply] [--json] [--session-id "
+    "S]"
 )
 PULUMI_STATE_CHECKPOINT_IMPORT_USAGE = (
     "yoke projects pulumi-state checkpoint-import --project NAME "
-    "--stack NAME --checkpoint-file PATH [--apply] [--json]"
+    "--stack NAME --checkpoint-file PATH [--apply] [--json] "
+    "[--session-id S]"
 )
 _MAX_CHECKPOINT_BYTES = 16 * 1024 * 1024
 

@@ -22,8 +22,8 @@ __all__ = [
 
 
 IDENTITY_LINK_SET_USAGE = (
-    "yoke identity link set --actor ACTOR (--issuer I --subject S [--email E] "
-    "| --email E) [--org ORG] [--json]"
+    "yoke identity link set --actor ACTOR (--issuer I --subject S "
+    "[--email E] | --email E) [--org ORG] [--json] [--session-id S]"
 )
 IDENTITY_USAGE: Dict[str, str] = {
     "identity.link.set": IDENTITY_LINK_SET_USAGE,

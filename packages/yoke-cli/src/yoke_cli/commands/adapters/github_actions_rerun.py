@@ -14,7 +14,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 GITHUB_ACTIONS_RERUN_FAILED_USAGE = (
-    "yoke github-actions run rerun-failed ITEM RUN-ID [--session-id S] [--json]"
+    "yoke github-actions run rerun-failed ITEM RUN-ID [--session-id S] "
+    "[--json] [--project P]"
 )
 
 

@@ -78,28 +78,29 @@ WORKFLOW_ADAPTERS = [
     ),
     read_entry(
         function_id="workflows.mechanics.get",
-        cli_invocation="yoke workflows mechanics get [--json]",
+        cli_invocation=("yoke workflows mechanics get [--json] [--session-id S]"),
         notes="Reads project defaults and the named approver roster.",
     ),
     AdapterEntry(
         function_id="workflows.testing_default.set",
         cli_invocation=(
-            "yoke workflows testing-default set --project P --workflow W "
-            "--plan-id N [--apply-to-all] [--json]"
+            "yoke workflows testing-default set --project P --workflow "
+            "W --plan-id N [--apply-to-all] [--json] [--session-id S]"
         ),
     ),
     AdapterEntry(
         function_id="workflows.delivery_default.set",
         cli_invocation=(
-            "yoke workflows delivery-default set --project P --workflow W "
-            "--flow F [--apply-to-all] [--json]"
+            "yoke workflows delivery-default set --project P --workflow "
+            "W --flow F [--apply-to-all] [--json] [--session-id S]"
         ),
     ),
     AdapterEntry(
         function_id="workflows.approval_defaults.publish",
         cli_invocation=(
             "yoke workflows approval-defaults publish --workflow W "
-            "--expected-current-version N --defaults-file FILE [--json]"
+            "--expected-current-version N --defaults-file FILE [--json] "
+            "[--session-id S]"
         ),
         notes="Publishes a new immutable version with bounded approval defaults.",
     ),

@@ -100,7 +100,8 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="packs.list",
         cli_invocation=(
-            "yoke packs list --project NAME [--catalog served|lane|commit:SHA] [--yoke-checkout PATH] [--config PATH] [--json]"
+            "yoke packs list --project NAME [--catalog served|lane|commit:SHA] "
+            "[--yoke-checkout PATH] [--config PATH] [--session-id S] [--json]"
         ),
         notes="Shows available, installed, and stale Packs from the shipped catalog plus the project's last repository report.",
     ),
@@ -122,21 +123,28 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="packs.get.run",
         cli_invocation=(
-            "yoke packs get PACK [REPO_ROOT] --project NAME [--version VERSION] [--catalog served|lane|commit:SHA] [--yoke-checkout PATH] [--config PATH] [--apply] [--allow-missing-tools] [--json]"
+            "yoke packs get PACK [REPO_ROOT] --project NAME [--version VERSION] "
+            "[--catalog served|lane|commit:SHA] [--yoke-checkout PATH] [--config "
+            "PATH] [--apply] [--allow-missing-tools] [--session-id S] [--json]"
         ),
         notes="Client-local preview/apply boundary. Installs the selected Pack and missing dependencies, then writes the project-owned receipt.",
     ),
     AdapterEntry(
         function_id="packs.relink.run",
         cli_invocation=(
-            "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH --to NEW_PATH [--catalog served|lane|commit:SHA] [--yoke-checkout PATH] [--config PATH] [--apply] [--json]"
+            "yoke packs relink PACK [REPO_ROOT] --project NAME --from OLD_PATH --to "
+            "NEW_PATH [--catalog served|lane|commit:SHA] [--yoke-checkout PATH] "
+            "[--config PATH] [--apply] [--session-id S] [--json]"
         ),
         notes="Client-local preview/apply boundary. Records an explicit project-owned file move in an existing Pack receipt without copying, deleting, or overwriting project files.",
     ),
     AdapterEntry(
         function_id="packs.update.run",
         cli_invocation=(
-            "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] [--accept-current PATH ...] [--catalog served|lane|commit:SHA] [--yoke-checkout PATH] [--config PATH] [--apply] [--allow-missing-tools] [--json]"
+            "yoke packs update PACK [REPO_ROOT] --project NAME [--version VERSION] "
+            "[--accept-current PATH ...] [--catalog served|lane|commit:SHA] "
+            "[--yoke-checkout PATH] [--config PATH] [--apply] "
+            "[--allow-missing-tools] [--session-id S] [--json]"
         ),
         notes="Client-local three-way update against the old immutable Pack, the new version, and the customized checkout; it never prunes project-owned files.",
     ),
@@ -206,21 +214,26 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="projects.pulumi_state.migrate",
         cli_invocation=(
-            "yoke projects pulumi-state migrate --project NAME --site NAME --stack NAME [--stack NAME ...] [--apply] [--json]"
+            "yoke projects pulumi-state migrate --project NAME --site "
+            "NAME --stack NAME [--stack NAME ...] [--apply] [--json] "
+            "[--session-id S]"
         ),
         notes="Dry-run-default exact-set transactional move with a metadata-only receipt; sensitive Pulumi operator-state values never cross the function boundary.",
     ),
     AdapterEntry(
         function_id="projects.pulumi_state.checkpoint_import",
         cli_invocation=(
-            "yoke projects pulumi-state checkpoint-import --project NAME --stack NAME --checkpoint-file PATH [--apply] [--json]"
+            "yoke projects pulumi-state checkpoint-import --project "
+            "NAME --stack NAME --checkpoint-file PATH [--apply] "
+            "[--json] [--session-id S]"
         ),
         notes="Reads one owner-only Pulumi checkpoint locally and registers only its typed encrypted operator-state entry. Dry-run-default, conflict-refusing, and redacted on every output surface.",
     ),
     _read_entry(
         function_id="projects.pulumi_stack_config.get",
         cli_invocation=(
-            "yoke projects pulumi-stack-config get --project NAME --stack STACK --output FILE [--force]"
+            "yoke projects pulumi-stack-config get --project NAME "
+            "--stack STACK --output FILE [--force] [--session-id S]"
         ),
         notes="The registered result is a render-authorized receipt with no operator state; the CLI fetches the schema-v2 body through the dedicated no-store boundary, writes a new 0600 file, and emits only path, byte count, and digest.",
     ),

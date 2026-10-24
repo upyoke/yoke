@@ -14,7 +14,9 @@ from yoke_cli.commands._helpers import (
 )
 
 
-ITEMS_GITHUB_SYNC_USAGE = "yoke items github-sync <PREFIX-N> [--session-id S] [--json]"
+ITEMS_GITHUB_SYNC_USAGE = (
+    "yoke items github-sync <PREFIX-N> [--session-id S] [--json] [--project P]"
+)
 
 
 def items_github_sync(args: List[str]) -> int:
@@ -44,7 +46,11 @@ def items_github_sync(args: List[str]) -> int:
 __all__ = ["ITEMS_GITHUB_SYNC_USAGE", "items_github_sync"]
 
 
-ITEMS_GITHUB_LINK_USAGE = "yoke items github-link <PREFIX-N> (--issue NUMBER | --unlink) [--task-num N] [--json]"
+ITEMS_GITHUB_LINK_USAGE = (
+    "yoke items github-link <PREFIX-N> (--issue "
+    "NUMBER | --unlink) [--task-num N] [--json] "
+    "[--session-id S] [--project P]"
+)
 
 
 def items_github_link(args: List[str]) -> int:

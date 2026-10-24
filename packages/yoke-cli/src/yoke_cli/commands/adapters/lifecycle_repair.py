@@ -16,7 +16,8 @@ from yoke_cli.commands._helpers import (
 
 LIFECYCLE_REPAIR_STATUS_USAGE = (
     "yoke lifecycle repair-status <PREFIX-N> --to STATUS --reason TEXT "
-    "[--from STATUS] [--dry-run] [--session-id S] [--json]"
+    "[--from STATUS] [--dry-run] [--session-id S] [--json] [--project "
+    "P]"
 )
 
 

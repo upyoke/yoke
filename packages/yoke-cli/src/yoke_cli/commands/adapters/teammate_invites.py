@@ -15,10 +15,10 @@ from yoke_cli.config.local_reachability import LOCAL_REACHABILITY_NOTICE
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.api.function_call import FunctionError, TargetRef
 
-INVITE_USAGE = "yoke invite PERSON [--role ROLE] [--json]"
-LIST_USAGE = "yoke invites list [--include-used] [--json]"
-REVOKE_USAGE = "yoke invites revoke REF [--json]"
-REISSUE_USAGE = "yoke invites reissue REF [--json]"
+INVITE_USAGE = "yoke invite PERSON [--role ROLE] [--json] [--session-id S]"
+LIST_USAGE = "yoke invites list [--include-used] [--json] [--session-id S]"
+REVOKE_USAGE = "yoke invites revoke REF [--json] [--session-id S]"
+REISSUE_USAGE = "yoke invites reissue REF [--json] [--session-id S]"
 USAGE_BY_FUNCTION_ID = {
     "teammate_invites.create": INVITE_USAGE,
     "teammate_invites.list": LIST_USAGE,

@@ -21,6 +21,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.transport.test_machine_response_field import recorded_test_machine
 from yoke_cli.commands.adapters.qa_catalog_usage import (
+    USAGE_BY_FUNCTION_ID,
     PLAN_MATERIALIZE_EPILOG,
     PLAN_REMATERIALIZE_EPILOG,
 )
@@ -36,20 +37,12 @@ from yoke_contracts.qa_artifact_image_view import (
 )
 from yoke_contracts.qa_artifact_read import artifact_read_destination
 from yoke_contracts.qa_requirement_replacement import (
-    REPLACES_METAVAR,
     add_replaces_argument,
 )
 
 
 def qa_plan_materialize_for_item(args: List[str]) -> int:
-    usage = (
-        "yoke qa plan materialize "
-        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) "
-        "[--project P] | --deployment-run-id RUN --project P "
-        "(--plan PLAN [--stage STAGE] | --stage STAGE)) "
-        f"[--replaces {REPLACES_METAVAR} ...] "
-        "[--replaces-requirement REQUIREMENT_ID ...] [--session-id S] [--json]"
-    )
+    usage = USAGE_BY_FUNCTION_ID["qa.plan.materialize"]
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
         usage=usage,
@@ -57,7 +50,9 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument("--item", metavar="PREFIX-N", help="Item whose QA cases to build.")
+    subject.add_argument(
+        "--item", metavar="PREFIX-N", help="Item whose QA cases to build."
+    )
     subject.add_argument(
         "--deployment-run-id", metavar="RUN", help="Deployment run to build cases for."
     )
@@ -65,7 +60,9 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "--transition", metavar="T", help="Workflow transition the cases block."
     )
     parser.add_argument("--plan", metavar="PLAN", help="QA plan to build cases from.")
-    parser.add_argument("--project", metavar="P", help="Project that owns the item or run.")
+    parser.add_argument(
+        "--project", metavar="P", help="Project that owns the item or run."
+    )
     parser.add_argument(
         "--stage",
         metavar="STAGE",
@@ -119,12 +116,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
 
 
 def qa_plan_rematerialize(args: List[str]) -> int:
-    usage = (
-        "yoke qa plan rematerialize "
-        "(--item PREFIX-N (--transition T | --stage STAGE [--plan PLAN]) | "
-        "--deployment-run-id RUN --stage STAGE [--plan PLAN]) "
-        "[--project P] [--session-id S] [--json]"
-    )
+    usage = USAGE_BY_FUNCTION_ID["qa.plan.rematerialize"]
     parser = argparse.ArgumentParser(
         prog="yoke qa plan rematerialize",
         usage=usage,
@@ -141,7 +133,9 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     parser.add_argument(
         "--transition", metavar="T", help="Workflow transition the cases block."
     )
-    parser.add_argument("--project", metavar="P", help="Project that owns the item or run.")
+    parser.add_argument(
+        "--project", metavar="P", help="Project that owns the item or run."
+    )
     parser.add_argument(
         "--stage",
         metavar="STAGE",

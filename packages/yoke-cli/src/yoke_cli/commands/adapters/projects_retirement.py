@@ -13,8 +13,12 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 USAGE_BY_FUNCTION_ID = {
-    "projects.retire": "yoke projects retire --project P --reason TEXT [--json]",
-    "projects.unretire": "yoke projects unretire --project P [--json]",
+    "projects.retire": (
+        "yoke projects retire --project P --reason TEXT [--json] [--session-id S]"
+    ),
+    "projects.unretire": (
+        "yoke projects unretire --project P [--json] [--session-id S]"
+    ),
 }
 
 

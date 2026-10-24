@@ -11,81 +11,97 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 STRATEGY_ADAPTERS = [
     _read_entry(
         function_id="strategy.surface.list",
-        cli_invocation="yoke strategy surface list --project P",
+        cli_invocation=(
+            "yoke strategy surface list --project P [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="strategy.surface.get",
-        cli_invocation="yoke strategy surface get SLUG --project P",
+        cli_invocation=(
+            "yoke strategy surface get SLUG --project P [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="strategy.revision.diff",
         cli_invocation=(
             "yoke strategy revision diff SLUG --from-revision N "
-            "--to-revision N --project P"
+            "--to-revision N --project P [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.revision.restore",
         cli_invocation=(
             "yoke strategy revision restore SLUG --revision N "
-            "--base-updated-at TS [--summary TEXT] [--state TEXT] --project P"
+            "--base-updated-at TS [--summary TEXT] [--state TEXT] "
+            "--project P [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.parent.set",
         cli_invocation=(
-            "yoke strategy parent set SLUG --parent-slug PARENT --project P"
+            "yoke strategy parent set SLUG (--parent-slug PARENT | --clear) "
+            "--project P [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.coordination.append",
         cli_invocation=(
             "yoke strategy coordination append SLUG --section NAME "
-            "--entry TEXT --project P"
+            "--entry TEXT --project P [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="strategy.execution.get",
-        cli_invocation="yoke strategy execution get ITEM --project P",
+        cli_invocation=(
+            "yoke strategy execution get ITEM --project P [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="strategy.execution.link",
         cli_invocation=(
             "yoke strategy execution link ITEM --slug SLUG "
-            "[--document-project P] --project P"
+            "[--document-project P] --project P [--session-id S] "
+            "[--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.claim.acquire",
-        cli_invocation="yoke strategy claim acquire ITEM --project P",
+        cli_invocation=(
+            "yoke strategy claim acquire ITEM --project P [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="strategy.claim.release",
         cli_invocation=(
-            "yoke strategy claim release (ITEM | PROCESS_KEY) "
-            "[--reason TEXT] --project P"
+            "yoke strategy claim release (ITEM | PROCESS_KEY) [--reason "
+            "TEXT] --project P [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.doc_claim.acquire",
         cli_invocation=(
-            "yoke strategy doc-claim acquire SLUG [--reason TEXT] --project P"
+            "yoke strategy doc-claim acquire SLUG [--reason TEXT] "
+            "--project P [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(
         function_id="strategy.doc_claim.release",
         cli_invocation=(
-            "yoke strategy doc-claim release SLUG [--reason TEXT] --project P"
+            "yoke strategy doc-claim release SLUG [--reason TEXT] "
+            "--project P [--session-id S] [--json]"
         ),
     ),
     _read_entry(
         function_id="strategy.doc_claim.list",
-        cli_invocation="yoke strategy doc-claim list [--all] --project P",
+        cli_invocation=(
+            "yoke strategy doc-claim list [--all] --project P [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="strategy.claim.break_glass_release",
         cli_invocation=(
-            "yoke strategy claim break-glass-release ITEM --reason TEXT --project P"
+            "yoke strategy claim break-glass-release ITEM --reason TEXT "
+            "--project P [--session-id S] [--json]"
         ),
     ),
     _read_entry(

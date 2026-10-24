@@ -23,8 +23,10 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 
-GET_USAGE = "yoke universe retention get [--json]"
-PRUNE_USAGE = "yoke universe prune [--dry-run | --apply] [--json]"
+GET_USAGE = "yoke universe retention get [--json] [--session-id S] [--full]"
+PRUNE_USAGE = (
+    "yoke universe prune [--dry-run | --apply] [--json] [--session-id S] [--full]"
+)
 
 
 def _parser(prune):

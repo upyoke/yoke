@@ -38,7 +38,9 @@ USAGE_BY_FUNCTION_ID = {
     "worktree.classify_dirty": classify_dirty.USAGE,
     "workflows.version.publish": workflows_publication.WORKFLOWS_VERSION_PUBLISH_USAGE,
     **projects_retirement.USAGE_BY_FUNCTION_ID,
-    "items.progress_log.get": "yoke items progress-log get PREFIX-N [--json]",
+    "items.progress_log.get": (
+        "yoke items progress-log get PREFIX-N [--json] [--session-id S] [--project P]"
+    ),
     "item_landings.list": item_landings.ITEM_LANDINGS_LIST_USAGE,
     "workflows.current.set": workflows_read.WORKFLOWS_CURRENT_SET_USAGE,
     "workflows.definition.get": workflows_read.WORKFLOWS_DEFINITION_GET_USAGE,

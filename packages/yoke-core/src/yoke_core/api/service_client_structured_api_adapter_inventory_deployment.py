@@ -73,7 +73,14 @@ DEPLOYMENT_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="deployment_flows.version",
         cli_invocation=(
-            "yoke deployment-flows version SOURCE-FLOW NEW-FLOW --name NAME [definition options] [--status active|disabled] [--session-id S] [--json]"
+            "yoke deployment-flows version SOURCE-FLOW NEW-FLOW --name "
+            "NAME [--status active|disabled] "
+            "[--session-id S] [--json] [--description DESCRIPTION] "
+            "[--stages-json TEXT] [--stages-file PATH] [--stdin] "
+            "[--on-failure {halt,continue}] [--target-tier "
+            "{persistent,ephemeral,none}] [--environment ENVIRONMENT] "
+            "[--done-description DONE_DESCRIPTION] "
+            "[--takes-delivery-custody {true,false}]"
         ),
     ),
     AdapterEntry(

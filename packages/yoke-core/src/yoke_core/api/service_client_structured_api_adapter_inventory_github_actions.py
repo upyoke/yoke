@@ -28,7 +28,8 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     AdapterEntry(
         function_id="github_actions.run.rerun_failed",
         cli_invocation=(
-            "yoke github-actions run rerun-failed ITEM RUN-ID [--session-id S] [--json]"
+            "yoke github-actions run rerun-failed ITEM RUN-ID "
+            "[--session-id S] [--json] [--project P]"
         ),
         notes="Claimed-item CI recovery: current PR head and newest workflow run only; intent and outcome persist in the item Progress Log.",
     ),
@@ -228,7 +229,8 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     _read_entry(
         function_id="github.merge_queue.readiness",
         cli_invocation=(
-            "yoke github merge-queue readiness ITEM [--project P] [--json]"
+            "yoke github merge-queue readiness ITEM [--project P] "
+            "[--json] [--session-id S]"
         ),
         notes=(
             "Read-only landing liveness from the pull request plus the named "

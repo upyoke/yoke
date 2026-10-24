@@ -63,7 +63,9 @@ def projects_environment_list(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, "yoke projects environment list --project P [--json]"
+        parser,
+        args,
+        ("yoke projects environment list --project P [--json] [--session-id S]"),
     )
     if parsed is None:
         return 2
