@@ -59,49 +59,63 @@ class TestExecuteCloseDependencyReconciliation:
             }
         ]
 
-    def test_close_removes_absorbed_inbound_rows(self, tmp_db):
-        """Inbound rows where resolution_ref matches dependent are removed."""
-        _seed_item(tmp_db, id=1218, status="refined-idea")
+    def test_close_removes_every_inbound_row(self, tmp_db):
+        """Inbound rows (cancelled item as blocker) are removed and reported,
+        whether or not resolution_ref names the dependent."""
+        _seed_item(tmp_db, id=1269, status="refined-idea")
+        _seed_item(tmp_db, id=1270, status="refined-idea")
         _seed_item(tmp_db, id=1185, status="implementing")
         _seed_dependency(
             tmp_db,
-            dependent="YOK-1185",
-            blocking="YOK-1218",
+            dependent="YOK-1270",
+            blocking="YOK-1269",
             gate_point="integration",
             satisfaction="fact:merged",
+        )
+        _seed_dependency(
+            tmp_db,
+            dependent="YOK-1185",
+            blocking="YOK-1269",
+            gate_point="activation",
+            satisfaction="status:done",
         )
 
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(
-                1218, "duplicate", resolution_ref="YOK-1185", out=out
+                1269, "duplicate", resolution_ref="YOK-1185", out=out
             )
 
         assert result["success"] is True
-        assert _dependency_rows(tmp_db, blocking="YOK-1218") == []
+        assert _dependency_rows(tmp_db, blocking="YOK-1269") == []
         recon = result["dependency_reconciliation"]
-        assert recon["absorbed_inbound_removed"] == [
+        assert recon["inbound_removed"] == [
             {
                 "dependent_item": "YOK-1185",
+                "gate_point": "activation",
+                "satisfaction": "status:done",
+            },
+            {
+                "dependent_item": "YOK-1270",
                 "gate_point": "integration",
                 "satisfaction": "fact:merged",
-            }
+            },
         ]
-        assert recon["preserved_ambiguous"] == []
+        assert [n["delivery"] for n in recon["holder_notices"]] == [
+            "no_live_holder",
+            "no_live_holder",
+        ]
+        out_text = out.getvalue()
+        assert "removed 2 dependency row(s) where YOK-1269 was the blocker" in out_text
+        assert "  - YOK-1270 gate=integration satisfaction=fact:merged" in out_text
+        assert "Not notified: YOK-1185 has no live holder." in out_text
+        assert "Warning" not in out_text
 
     def test_close_keeps_a_bare_number_resolution_ref_as_free_text(
         self, tmp_db
     ):
-        """A bare number names no item, so it never absorbs a dependent row."""
+        """A bare number names no item and is stored as written."""
         _seed_item(tmp_db, id=1218, status="refined-idea")
-        _seed_item(tmp_db, id=1185, status="implementing")
-        _seed_dependency(
-            tmp_db,
-            dependent="YOK-1185",
-            blocking="YOK-1218",
-            gate_point="integration",
-            satisfaction="fact:merged",
-        )
 
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
@@ -111,46 +125,6 @@ class TestExecuteCloseDependencyReconciliation:
 
         assert result["success"] is True
         assert _item_field(tmp_db, 1218, "resolution_ref") == "1185"
-        assert _dependency_rows(tmp_db, blocking="YOK-1218") != []
-        assert result["dependency_reconciliation"]["absorbed_inbound_removed"] == []
-
-    def test_close_preserves_ambiguous_inbound_rows_and_warns(self, tmp_db):
-        """Inbound rows with no deterministic rule are preserved + warned."""
-        _seed_item(tmp_db, id=1269, status="refined-idea")
-        _seed_item(tmp_db, id=1270, status="refined-idea")
-        _seed_dependency(
-            tmp_db,
-            dependent="YOK-1270",
-            blocking="YOK-1269",
-            gate_point="integration",
-            satisfaction="fact:merged",
-        )
-
-        out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
-            result = backlog.execute_close(1269, "obsolete", out=out)
-
-        assert result["success"] is True
-        preserved = _dependency_rows(tmp_db, blocking="YOK-1269")
-        assert preserved == [(1270, 1269, "integration", "fact:merged")]
-
-        out_text = out.getvalue()
-        assert "Warning" in out_text
-        assert "YOK-1270 <- YOK-1269" in out_text
-        assert "gate=integration" in out_text
-        assert "satisfaction=fact:merged" in out_text
-        assert "resolution=obsolete" in out_text
-
-        recon = result["dependency_reconciliation"]
-        assert recon["preserved_ambiguous"] == [
-            {
-                "dependent_item": "YOK-1270",
-                "blocking_item": "YOK-1269",
-                "gate_point": "integration",
-                "satisfaction": "fact:merged",
-            }
-        ]
-        assert recon["absorbed_inbound_removed"] == []
 
     def test_close_with_no_dependency_rows_is_clean(self, tmp_db):
         """Close with zero dep rows emits no warning and no reconciliation."""
@@ -165,14 +139,14 @@ class TestExecuteCloseDependencyReconciliation:
         assert "Reconciled" not in out.getvalue()
         recon = result["dependency_reconciliation"]
         assert recon["outbound_removed"] == []
-        assert recon["absorbed_inbound_removed"] == []
-        assert recon["preserved_ambiguous"] == []
+        assert recon["inbound_removed"] == []
+        assert recon["holder_notices"] == []
 
     def test_close_mixed_outbound_and_inbound(self, tmp_db):
-        """Cancelling an item both unblocks itself and cleans absorbed inbound."""
+        """Cancelling an item both unblocks itself and frees its dependents."""
         _seed_item(tmp_db, id=50, status="refined-idea")
         _seed_item(tmp_db, id=60, status="refined-idea")  # outbound blocker
-        _seed_item(tmp_db, id=70, status="implementing")  # absorbed-self parent
+        _seed_item(tmp_db, id=70, status="implementing")  # dependent
         _seed_dependency(
             tmp_db,
             dependent="YOK-50",
@@ -201,9 +175,8 @@ class TestExecuteCloseDependencyReconciliation:
         recon = result["dependency_reconciliation"]
         assert len(recon["outbound_removed"]) == 1
         assert recon["outbound_removed"][0]["blocking_item"] == "YOK-60"
-        assert len(recon["absorbed_inbound_removed"]) == 1
-        assert recon["absorbed_inbound_removed"][0]["dependent_item"] == "YOK-70"
-        assert recon["preserved_ambiguous"] == []
+        assert len(recon["inbound_removed"]) == 1
+        assert recon["inbound_removed"][0]["dependent_item"] == "YOK-70"
 
     def test_close_reconciliation_and_status_commit_atomically(self, tmp_db):
         """Reconciliation and status change commit in one transaction.
