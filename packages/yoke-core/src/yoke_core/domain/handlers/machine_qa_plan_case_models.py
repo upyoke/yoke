@@ -91,6 +91,8 @@ class AgentMissionAccessResponse(BaseModel):
     cleanup_lease: bool = False
     #: The mission's capture run, which ``walk-end --run-id`` names.
     run_id: int | None = None
+    #: Set while a stopped walk keeps its host for cleanup: what it still owes.
+    stop_notice: str | None = None
 
 
 __all__ = [

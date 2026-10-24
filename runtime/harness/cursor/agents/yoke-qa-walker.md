@@ -71,7 +71,10 @@ session expires, settlement can mark the capture error while host state remains.
 For `agent_mission_access_failed`, read the refusal. A swept execution names
 `yoke qa plan run ... --continue-mission`; use that exact continuation and resume
 existing state. Never use an ordinary plan run: it resets baseline and wipes
-partial work. Report that a settled execution was continued and why.
+partial work. Report that a settled execution was continued and why. Another
+settled one names the server cleanup still owed; run it, then return.
+A `mission_walk_stopped` notice means the walk was aborted: walk nothing more,
+finish Cleanup on the still-held lease, then run walk-end.
 
 ## Exploratory Method
 
@@ -162,13 +165,17 @@ GUI-session state and configured dispatch desktop control. Never infer it from S
 
 Clean up everything the walk creates, such as repositories, accounts and
 records the product registered, with the product's own commands before
-walk-end, even when the walk stops early. Walk-end removes only staging and
-restores the host. Create GitHub fixture repositories as private with
+walk-end, even when the walk stops early or is aborted. Walk-end removes only
+staging and restores the host. Host cleanup, such as `yoke project uninstall`,
+needs the lease (host-command); server cleanup, such as `yoke --env ENV
+projects retire` and `yoke --env ENV machine retire`, needs none and runs
+even after access is lost. Create GitHub fixture repositories as private with
 `gh repo create OWNER/NAME --private`, record every exact `OWNER/NAME` when
 created, including one the product creates, and delete each with
 `gh repo delete OWNER/NAME --yes`. Never delete upstream or pre-existing
-resources, and never hand cleanup to steering. Report every refusal, its
-recovery and everything still present for the main agent's final verdict.
+resources, and never hand cleanup to steering. Report every fixture created,
+every refusal, its recovery and everything still present for the main agent's
+final verdict and Progress Log.
 
 ## Perception Is Not Evidence
 

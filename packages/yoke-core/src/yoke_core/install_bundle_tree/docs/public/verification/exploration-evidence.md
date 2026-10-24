@@ -97,6 +97,15 @@ ended, the refusal names
 [`yoke qa plan reconcile`](../functions/qa.md#reconcile-a-stranded-execution)
 for a steering seat instead.
 
+An abort of a walking mission keeps its Test Machine the same way, whether its
+owner or a steering seat (including a takeover's) runs `yoke qa plan abort`.
+The abort records cancellation and keeps the lease and mission access; a
+steering abort returns `stop_request`, and the owner's own abort refuses with
+`qa_abort_walk_end_required` once cancellation is recorded. Each mission access
+reply then carries a `mission_walk_stopped` notice naming the cleanup still
+owed. The walker finishes cleanup and runs `walk-end`, which releases the host
+and settles the execution aborted with the abort's reason.
+
 A release takeover preserves the execution, evidence and custody under its new
 owner; it does not request removal cleanup. Inherited QA also survives successor
 deployment failure and remains available for continuation and review. The same

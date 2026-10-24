@@ -4,8 +4,23 @@ Yoke's own QA cases install and connect Yoke on a Test Machine, so a walk can
 leave a registered Machine, Yoke projects and GitHub repositories behind. The
 QA platform tracks none of them and walk-end removes none of them: walk-end
 only removes the mission's staging and restores the Test Machine. The walker
-removes everything below itself, before walk-end, and reports anything it
-could not remove with the refusal and its recovery.
+removes everything below itself, before walk-end, and reports every fixture it
+created and anything it could not remove with the refusal and its recovery.
+
+Two kinds of cleanup differ in what they need:
+
+- **Host cleanup** changes the Test Machine, such as uninstalling a checkout.
+  It needs the mission's lease and runs through `yoke qa mission host-command`.
+- **Server cleanup** retires Machines and projects and deletes repositories.
+  It runs on the server and needs no lease.
+
+An abort, whether by the walk's owner or by steering, keeps the lease and
+mission access until walk-end: each access reply carries a
+`mission_walk_stopped` notice, the walker finishes both kinds of cleanup, then
+runs walk-end, which settles the abort. If mission access is gone anyway, the
+`agent_mission_access_failed` refusal names the server cleanup still owed; the
+walker runs it and reports what the lost lease left on the host. The walker
+never hands either kind to steering.
 
 Every server command here runs against the server the test's `yoke connect`
 reached: the hosted control plane, or a self-hosted server such as the
@@ -48,8 +63,9 @@ report the Machine id so its owner retires it.
 
 ## Uninstall and retire the test's projects
 
-For each project the test created, uninstall its checkout on the Test Machine,
-then retire the project on the server. Retirement refuses open items,
+For each project the test created, uninstall its checkout on the Test Machine
+(host cleanup), then retire the project on the server (server cleanup, even
+after the lease is gone). Retirement refuses open items,
 created or executing runs and held claims, so cancel the project's items and
 release its claims first:
 

@@ -106,6 +106,9 @@ def resolve_mission_contract(
         print(f"{prog}: {code}: {message}", file=sys.stderr)
         return None
     parsed.cleanup_lease = bool((response.result or {}).get("cleanup_lease"))
+    # A stopped walk keeps its host for cleanup; an older server omits this.
+    if (response.result or {}).get("stop_notice"):
+        print(f"{prog}: {response.result['stop_notice']}", file=sys.stderr)
     # An older server omits the run id; walk-start then prints without it.
     parsed.mission_run_id = (response.result or {}).get("run_id")
     contract = (response.result or {}).get("execution")
