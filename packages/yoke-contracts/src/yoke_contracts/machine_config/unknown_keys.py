@@ -58,7 +58,7 @@ def unknown_key_issues(payload: Mapping[str, Any]) -> list[ValidationIssue]:
     def check_projects(projects, prefix):
         if isinstance(projects, list):
             for index, entry in enumerate(projects):
-                check(entry, {"checkout", "project_id"}, f"{prefix}[{index}]")
+                check(entry, {"checkout", "project_id", "publication_read_only"}, f"{prefix}[{index}]")
 
     check_projects(payload.get("projects"), "projects")
     groups = payload.get("connection_projects")

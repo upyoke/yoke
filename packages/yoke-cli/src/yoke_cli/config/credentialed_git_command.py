@@ -89,11 +89,6 @@ def remote_url(repo: str | None, remote: str, *, push: bool = False) -> str:
         argv += ["-C", str(repo)]
     argv += ["remote", "get-url", *(["--push"] if push else []), remote]
     try:
-        if push and repo:
-            from yoke_cli.config import project_publication_destination as destination
-
-            if destination.read_only(repo, remote):
-                return destination.READ_ONLY_PUSH_URL
         result = terminal_detached_process.run(
             argv, capture_output=True, text=True, timeout=30
         )

@@ -93,7 +93,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
     assert git_output(checkout, "remote", "get-url", "origin") == str(remote)
     config_payload = json.loads(config.read_text(encoding="utf-8"))
     assert config_payload["connection_projects"]["prod"] == [
-        {"checkout": str(checkout.resolve()), "project_id": 42}
+        {"checkout": str(checkout.resolve()), "project_id": 42, "publication_read_only": True}
     ]
     assert (checkout / ".yoke/install-manifest.json").is_file()
 
@@ -155,7 +155,7 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
     assert api.function_call("projects.get")["payload"] == {"project": "37"}
     config_payload = json.loads(config.read_text(encoding="utf-8"))
     assert config_payload["connection_projects"]["prod"] == [
-        {"checkout": str(checkout.resolve()), "project_id": 37}
+        {"checkout": str(checkout.resolve()), "project_id": 37, "publication_read_only": True}
     ]
     assert (checkout / ".yoke/install-manifest.json").is_file()
 

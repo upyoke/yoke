@@ -74,8 +74,9 @@ then apply that reviewed plan with `--apply`. An installed Pack uses
 `docs/packs/webapp-scaffold/README.md` for boundaries and conflict recovery.
 
 When cloning or adopting an independently cloned folder, choose where Yoke
-publishes: **Read-only source** keeps fetching available and disables source
-pushes in Git's existing push URL configuration; **Use source for pushes** names
+publishes: **Read-only source** keeps fetching available and disables Yoke
+publication through the checkout's `publication_read_only` project setting in
+the machine config. Git remote URLs and native Git behavior stay unchanged; **Use source for pushes** names
 the source as the destination and states whether write access was confirmed or
 remains unverified; **Fork** and **Duplicate** select an owned destination through
 the available GitHub capabilities. A configured project's existing destination
@@ -83,7 +84,9 @@ stays selected. Review names the destination and branch before Apply.
 Read-only setup stays `publication-pending`; publication-required item work
 refuses with `publication_destination_read_only` before preparing its lane.
 Choose/configure an owned writable destination using the refusal's recovery,
-then retry setup and work preparation. Source fetching remains usable.
+then retry setup and work preparation. Source fetching remains usable. Existing
+legacy disabled push URLs migrate once into the Yoke setting and are removed;
+other fetch and push URLs remain intact.
 
 Review names the setup commit's remote and branch before Apply. With stored
 GitHub authorization, Apply commits Yoke setup and attempts to push it; an

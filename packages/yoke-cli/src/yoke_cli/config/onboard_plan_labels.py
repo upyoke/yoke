@@ -133,7 +133,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "project-rehome-push":
         return "Re-home onto the new repo and push"
     if action == "project-read-only-source":
-        return "Keep source fetch access and disable Yoke pushes in .git/config"
+        return "Keep source fetch access and disable Yoke publication in project settings"
     if action == "project-writable-source":
         return "Use the source as the publication destination; verify access during push"
     if action == "project-fork-remotes":

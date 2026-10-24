@@ -36,7 +36,7 @@ def push_eligibility(
     if destination.read_only(repo_root, remote):
         return outcome_layer.pending(
             repo_root, remote=remote, branch=branch,
-            detail="The source is configured for read-only fetching.",
+            detail="Yoke publication is disabled by this checkout's project setting.",
             recovery=destination.recovery(remote),
         )
     state = reconcile_layer.read_remote_state(

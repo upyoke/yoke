@@ -41,7 +41,7 @@ def project_entry_for_checkout(
     candidates = {_path_key(p) for p in checkout_path_candidates(repo_root)}
     for entry in projects_for_connection(payload):
         if _path_key(Path(entry["checkout"]).expanduser()) in candidates:
-            return {"project_id": entry["project_id"]}
+            return {key: value for key, value in entry.items() if key != "checkout"}
     return {}
 
 
@@ -100,7 +100,15 @@ def normalize_projects(projects: Any) -> list[dict[str, Any]]:
             f"{issue.code}: {issue.message}; {issue.hint or 'repair projects in machine config and retry'}"
         )
     return [
-        {"checkout": entry["checkout"].strip(), "project_id": int(entry["project_id"])}
+        {
+            "checkout": entry["checkout"].strip(),
+            "project_id": int(entry["project_id"]),
+            **(
+                {"publication_read_only": entry["publication_read_only"]}
+                if "publication_read_only" in entry
+                else {}
+            ),
+        }
         for entry in (projects or [])
     ]
 
@@ -129,13 +137,24 @@ def upsert_project_entry(
 ) -> list[dict[str, Any]]:
     """Set the project's single checkout, replacing an authorized move."""
     checkout_key = _path_key(Path(checkout).expanduser())
+    normalized = normalize_projects(projects)
+    policy = next(
+        (
+            {"publication_read_only": entry["publication_read_only"]}
+            for entry in normalized
+            if entry["project_id"] == int(project_id)
+            and _path_key(Path(entry["checkout"]).expanduser()) == checkout_key
+            and "publication_read_only" in entry
+        ),
+        {},
+    )
     kept = [
         entry
-        for entry in normalize_projects(projects)
+        for entry in normalized
         if entry["project_id"] != int(project_id)
         and _path_key(Path(entry["checkout"]).expanduser()) != checkout_key
     ]
-    return [*kept, {"checkout": checkout, "project_id": int(project_id)}]
+    return [*kept, {"checkout": checkout, "project_id": int(project_id), **policy}]
 
 
 def checkout_path_candidates(repo_root: str | Path) -> list[Path]:

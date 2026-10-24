@@ -88,7 +88,7 @@ def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:
             or (remote and destination.read_only(root, remote)
                 and not getattr(clone, "outcome", ""))):
         text = (
-            f"Keep source {url} fetch-only; setup publication pending. "
+            f"Keep source {url}; Yoke publication disabled; setup publication pending. "
             + destination.recovery(remote or "origin")
         )
     elif (getattr(clone, "outcome", "") == CLONE_OUTCOME_MAKE_IT_MINE
@@ -100,7 +100,7 @@ def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:
     elif getattr(clone, "outcome", "") == CLONE_OUTCOME_FORK:
         text = (
             "Commit Yoke setup and push to the fork selected by GitHub during Apply; "
-            "source stays fetch-only upstream. Fork authorization must be confirmed."
+            "source stays upstream. Fork authorization must be confirmed."
         )
     elif not count:
         text = "Commit locally (no remote)"
@@ -142,7 +142,7 @@ def _publish_target(
             from yoke_cli.config import project_publication_destination as destination
 
             urls = destination.push_urls(root, remote)
-            if destination.READ_ONLY_PUSH_URL in urls:
+            if destination.read_only(root, remote):
                 from yoke_cli.config.credentialed_git_command import remote_url
 
                 return remote, remote_url(str(root), remote), count

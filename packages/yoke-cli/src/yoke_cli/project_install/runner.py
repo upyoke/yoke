@@ -14,6 +14,7 @@ from yoke_contracts.machine_config.checkout import main_checkout
 
 from yoke_cli.config import github_project_setup
 from yoke_cli.config import machine_config
+from yoke_cli.config import project_publication_destination
 from yoke_cli.config import writer as machine_config_writer
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
@@ -141,6 +142,7 @@ def install(
     registered = _register_in_machine_config(
         root, resolved_id, config_path, explicit_given
     )
+    project_publication_destination.migrate_legacy(root, config_path=config_path)
     owned = registered or owns_registration
 
     def regenerate() -> Dict[str, Any]:
@@ -187,6 +189,9 @@ def install(
         skip=not commit,
         operation=operation,
     )
+    from yoke_cli.config import onboard_publication_receipts
+
+    onboard_publication_receipts.record_created(root, report["commit"])
     if commit:
         checkout_gate.assert_paths_committed(root, recovered_paths)
     # After the commit: a just-cloned empty repository has no HEAD to read

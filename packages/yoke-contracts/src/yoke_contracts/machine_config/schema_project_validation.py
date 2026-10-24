@@ -37,6 +37,17 @@ def validate_projects(projects: Any) -> list[ValidationIssue]:
                 )
             )
             continue
+        if (
+            "publication_read_only" in entry
+            and type(entry["publication_read_only"]) is not bool
+        ):
+            issues.append(
+                _error(
+                    "project_publication_read_only_invalid",
+                    "publication_read_only must be a boolean",
+                    path=f"{prefix}.publication_read_only",
+                )
+            )
         checkout = entry.get("checkout")
         project_id = normalize_project_id(entry.get("project_id"))
         if not _is_nonempty_str(checkout):

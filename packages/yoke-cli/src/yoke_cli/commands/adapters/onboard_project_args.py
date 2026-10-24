@@ -69,6 +69,14 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         help="Prefix for item ids, e.g. ACME for ACME-1.",
     )
     parser.add_argument(
+        "--publication-destination",
+        dest="project_clone_outcome",
+        choices=("source", "just-clone", "fork", "make-it-mine"),
+        default=None,
+        help="Publish to source, stay read-only (just-clone), fork, or duplicate "
+             "(make-it-mine). An explicit choice overrides a resumed setup choice.",
+    )
+    parser.add_argument(
         "--existing-yoke-layer",
         dest="project_existing_yoke_layer",
         choices=LAYER_DECISIONS,

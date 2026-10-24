@@ -1,4 +1,4 @@
-"""Read-only Git policy must survive setup, work entry, and governed pushes."""
+"""Read-only Yoke policy must survive setup, work entry, and governed pushes."""
 
 from pathlib import Path
 import subprocess
@@ -20,7 +20,9 @@ def git(root: Path, *args: str) -> str:
 
 
 @pytest.fixture
-def checkout(tmp_path):
+def checkout(tmp_path, monkeypatch):
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("YOKE_ENV", raising=False)
     source = tmp_path / 'source.git'
     source.mkdir()
     git(source, 'init', '--bare', '--initial-branch=main')
@@ -33,6 +35,9 @@ def checkout(tmp_path):
     git(root, 'add', 'README')
     git(root, 'commit', '-m', 'source')
     git(root, 'push', 'origin', 'main')
+    from runtime.api.cli.test_project_publication_settings import seed_project
+
+    seed_project(root)
     return root, source
 
 
@@ -40,10 +45,14 @@ def checkout(tmp_path):
 def test_read_only_preserves_fetch_and_refuses_all_publication(checkout, monkeypatch, reused):
     root, source = checkout
     original = git(source, 'rev-parse', 'main')
-    project_onboard._apply_clone_outcome(
+    outcome = project_onboard._apply_clone_outcome(
         root, remote_url=str(source), default_branch='main',
         plan=project_clone_support.ClonePlan(), clone_reused=reused,
     )
+    assert outcome.publication_read_only
+    before = (root / ".git/config").read_bytes()
+    destination.prevent_push(root)
+    assert (root / ".git/config").read_bytes() == before
     assert git(root, 'remote', 'get-url', 'origin') == str(source)
     git(root, 'fetch', 'origin')
     (root / 'work').write_text('must stay local\n')
@@ -71,10 +80,12 @@ def test_read_only_preserves_fetch_and_refuses_all_publication(checkout, monkeyp
 def test_explicit_source_selection_restores_push_without_changing_fetch(checkout):
     root, source = checkout
     destination.prevent_push(root)
-    project_onboard._apply_clone_outcome(
+    outcome = project_onboard._apply_clone_outcome(
         root, remote_url=str(source), default_branch='main',
         plan=project_clone_support.ClonePlan(outcome=project_clone_support.CLONE_OUTCOME_SOURCE),
     )
+    assert not outcome.publication_read_only
+    destination.allow_source_push(root)
     assert not destination.read_only(root)
     assert git(root, 'remote', 'get-url', 'origin') == str(source)
     (root / 'work').write_text('owned destination\n')
@@ -90,7 +101,7 @@ def test_read_only_review_does_not_offer_credential_fallback(checkout, tmp_path)
         'checkout': str(root), 'remote_url': str(source), 'default_branch': 'main',
         'clone': project_clone_support.ClonePlan(),
     }, tmp_path / 'config.json')
-    assert 'fetch-only' in step['target']
+    assert 'Yoke publication disabled' in step['target']
     assert 'publication pending' in step['target']
     assert 'try to push' not in step['target']
 
@@ -163,7 +174,7 @@ def test_governed_merge_refuses_read_only_before_integration(checkout):
     assert 'publication_destination_read_only' in message
     native_push = subprocess.run(['git', '-C', str(root), 'push', 'origin', 'main'],
                                  capture_output=True, text=True)
-    assert native_push.returncode != 0
+    assert native_push.returncode == 0
     assert git(source, 'rev-parse', 'main') == original
 
 
@@ -202,3 +213,67 @@ def test_changed_source_refuses_before_read_only_configuration(checkout):
             plan=project_clone_support.ClonePlan(),
         )
     assert not destination.read_only(root)
+
+
+@pytest.mark.parametrize("remote", ["origin", "upstream"])
+def test_legacy_policy_migrates_once_without_changing_real_remote_urls(checkout, remote):
+    root, source = checkout
+    if remote == "upstream":
+        git(root, "remote", "add", "upstream", str(source))
+    git(root, "config", "--add", f"remote.{remote}.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
+    git(root, "config", "--add", f"remote.{remote}.pushurl", str(source))
+    destination.migrate_legacy(root)
+    assert destination.read_only(root) is (remote == "origin")
+    assert git(root, "remote", "get-url", "--push", "--all", remote) == str(source)
+    after = (root / ".git/config").read_bytes()
+    assert destination.read_only(root) is (remote == "origin")
+    assert (root / ".git/config").read_bytes() == after
+    assert git(root, "remote", "get-url", remote) == str(source)
+
+
+def test_yoke_push_to_explicit_url_cannot_bypass_project_setting(checkout):
+    root, source = checkout
+    destination.prevent_push(root)
+    result = credentialed_git.run(["-C", str(root), "push", str(source), "main"])
+    assert result.returncode != 0
+    assert "publication_destination_read_only" in result.stderr
+
+
+def test_linked_lane_inherits_primary_checkout_setting(checkout):
+    root, _ = checkout
+    lane = root.parent / "lane"
+    git(root, "worktree", "add", "-b", "topic", str(lane))
+    destination.prevent_push(root)
+    assert destination.read_only(lane)
+
+
+def test_failed_policy_persistence_preserves_legacy_git_guard(checkout, monkeypatch):
+    from yoke_cli.config import writer_projects
+
+    root, _ = checkout
+    git(root, "config", "remote.origin.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
+    before = (root / ".git/config").read_bytes()
+
+    def fail(*args, **kwargs):
+        raise OSError("config unavailable")
+
+    monkeypatch.setattr(writer_projects, "set_publication_read_only", fail)
+    with pytest.raises(OSError, match="config unavailable"):
+        destination.migrate_legacy(root)
+    assert (root / ".git/config").read_bytes() == before
+
+
+def test_legacy_policy_read_never_mutates_config(checkout, monkeypatch):
+    from yoke_cli.config import machine_config, writer_projects
+
+    root, _ = checkout
+    git(root, "config", "remote.origin.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
+    git_before = (root / ".git/config").read_bytes()
+    config = machine_config.config_path()
+    config_before = config.read_bytes()
+    monkeypatch.setattr(writer_projects, "set_publication_read_only",
+                        lambda *a, **kw: pytest.fail("policy reads must not write"))
+    assert destination.read_only(root)
+    assert destination.read_only(root)
+    assert (root / ".git/config").read_bytes() == git_before
+    assert config.read_bytes() == config_before

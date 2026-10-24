@@ -10,6 +10,7 @@ from yoke_cli.config import credentialed_git_attribution as attribution
 from yoke_cli.config.credentialed_git_command import (
     contact_url,
     is_network_command,
+    split_git_args, command_cwd,
 )
 from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 from yoke_contracts import terminal_detached_process
@@ -78,6 +79,11 @@ def run(
                 result.returncode, argv, output=result.stdout, stderr=result.stderr
             )
         return result
+    except subprocess.TimeoutExpired as exc:
+        return attribution.timeout_result(
+            argv, exc, timeout=timeout, check=check,
+            recovery=TRANSIENT_RECOVERY, exit_code=TIMEOUT_EXIT_CODE,
+        )
     except CredentialedGitError as exc:
         if check:
             raise subprocess.CalledProcessError(
@@ -115,11 +121,11 @@ def _decided_environment(
     if not is_network_command(args):
         yield non_interactive_git_env(base), attribution.LOCAL_COMMAND
         return
-    url = contact_url(args, cwd)
     from yoke_cli.config import project_publication_destination as destination
 
-    if url == destination.READ_ONLY_PUSH_URL:
+    if split_git_args(args)[1] == "push" and destination.read_only(command_cwd(args, cwd) or "."):
         raise CredentialedGitError(destination.recovery())
+    url = contact_url(args, cwd)
     web_url = configured_web_url()
     if not url or not is_configured_github(url, web_url):
         yield (
@@ -313,24 +319,10 @@ def _run(
     try:
         return terminal_detached_process.run(argv, **kwargs)
     except subprocess.TimeoutExpired as exc:
-        partial = exc.stderr if isinstance(exc.stderr, str) else ""
-        detail = (
-            f"git {' '.join(argv[1:])} did not finish within {timeout}s. The "
-            "command runs non-interactively and cannot be waiting on a "
-            "prompt, so the remote is unreachable, slow, or refusing this "
-            f"machine's credential. {TRANSIENT_RECOVERY}"
+        return attribution.timeout_result(
+            argv, exc, timeout=timeout, check=check,
+            recovery=TRANSIENT_RECOVERY, exit_code=TIMEOUT_EXIT_CODE,
         )
-        # Preserve the child's evidence of where it stalled.
-        detail = f"{partial.rstrip()}\n{detail}" if partial.strip() else detail
-        if check:
-            raise subprocess.CalledProcessError(
-                TIMEOUT_EXIT_CODE,
-                argv,
-                output=exc.output,
-                stderr=detail,
-            ) from exc
-        output = exc.output if isinstance(exc.output, str) else ""
-        return subprocess.CompletedProcess(argv, TIMEOUT_EXIT_CODE, output, detail)
 
 
 __all__ = [

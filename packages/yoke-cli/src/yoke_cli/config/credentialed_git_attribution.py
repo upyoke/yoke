@@ -100,3 +100,21 @@ __all__ = [
     "attribution",
     "command_text",
 ]
+
+
+def timeout_result(argv, exc, *, timeout, check, recovery, exit_code):
+    """Keep timeout evidence from either policy/credential probes or Git itself."""
+    partial = exc.stderr if isinstance(exc.stderr, str) else ""
+    detail = (
+        f"git {' '.join(argv[1:])} did not finish within {timeout}s. The "
+        "command runs non-interactively and cannot be waiting on a "
+        "prompt, so the remote is unreachable, slow, or refusing this "
+        f"machine's credential. {recovery}"
+    )
+    detail = f"{partial.rstrip()}\n{detail}" if partial.strip() else detail
+    if check:
+        raise subprocess.CalledProcessError(
+            exit_code, argv, output=exc.output, stderr=detail,
+        ) from exc
+    output = exc.output if isinstance(exc.output, str) else ""
+    return subprocess.CompletedProcess(argv, exit_code, output, detail)
