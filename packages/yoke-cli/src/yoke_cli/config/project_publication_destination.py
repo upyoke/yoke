@@ -24,7 +24,9 @@ def read_only(root: str | Path, remote: str = "origin") -> bool:
 def recovery(remote: str = "origin") -> str:
     return (
         f"publication_destination_read_only: {remote} permits fetching only. "
-        "Re-run setup and choose a writable source, Fork or Duplicate, or "
+        "Re-run setup and choose a writable source, Fork or Duplicate. "
+        "For a saved run, pass `--publication-destination source` with "
+        "`yoke setup --resume <run-id>` after confirming source write access, or "
         f"restore pushes to this exact source with `git remote set-url --push "
         f"{remote} <source-repository-url>` only after confirming source write access. "
         "Select a different repository through setup so its project binding agrees. "

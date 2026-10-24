@@ -128,6 +128,7 @@ def _clone(value: Any) -> dict[str, Any] | None:
         return None
     return {
         "outcome": _text(getattr(value, "outcome", "")),
+        "existing_layer_decision": _text(getattr(value, "existing_layer_decision", "")),
         "keep_upstream": bool(getattr(value, "keep_upstream", True)),
         "use_machine_github": bool(getattr(value, "use_machine_github", False)),
         "fork_api_url": _text(getattr(value, "fork_api_url", "")),

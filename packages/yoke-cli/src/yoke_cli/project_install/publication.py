@@ -22,8 +22,9 @@ Two things it refuses to do on the operator's behalf. It never force-pushes,
 and it never publishes a commit it cannot show the installer wrote: a default
 branch carrying the operator's own unpushed work is reported with its
 recovery rather than pushed, because "publish the installed layer" is not
-permission to publish everything else sitting on the branch. The commit this
-run made is known by its sha; any other is measured against the paths the
+permission to publish everything else sitting on the branch. This run
+knows its created commit by sha; private setup receipts can prove earlier
+created commits in the same checkout. Others are measured against the paths the
 install owns, and a commit touching a file whose content the install and the
 operator merge together is reported rather than trusted.
 """
@@ -103,6 +104,8 @@ def publish_installed_layer(
                 "the install"
             ),
         )
+    from yoke_cli.config import onboard_publication_receipts
+
     return _publish_to_remote(
         repo_root,
         report,
@@ -114,7 +117,10 @@ def publish_installed_layer(
         territory=ownership.installer_territory(
             repo_root,
             report,
-            own_commits=(str(commit.get("sha") or ""),),
+            own_commits=(
+                str(commit.get("sha") or ""),
+                *onboard_publication_receipts.verified_commits(repo_root, branch),
+            ),
         ),
     )
 

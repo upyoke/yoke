@@ -94,6 +94,13 @@ def commit_board_art(
         [art_rel],
         message=BOARD_ART_COMMIT_MESSAGE,
     )
+    from yoke_cli.config import onboard_apply_late_steps, onboard_publication_receipts
+
+    report_path = apply_report_path(onboarding_report)
+    if report_path:
+        onboard_publication_receipts.record_created(
+            root, commit, writer=onboard_apply_late_steps._writer(report_path),
+        )
     install = install_report(onboarding_report)
     verified = [art_rel]
     # An install that did not commit (``--no-commit``, or a checkout git does

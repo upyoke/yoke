@@ -187,6 +187,9 @@ def install(
         skip=not commit,
         operation=operation,
     )
+    from yoke_cli.config import onboard_publication_receipts
+
+    onboard_publication_receipts.record_created(root, report["commit"])
     if commit:
         checkout_gate.assert_paths_committed(root, recovered_paths)
     # After the commit: a just-cloned empty repository has no HEAD to read

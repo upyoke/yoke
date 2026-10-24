@@ -102,6 +102,9 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     _restore_publish_defaults(parsed, project.get("publish"))
     clone = _mapping(project.get("clone"))
     _set_missing(parsed, "project_clone_outcome", clone.get("outcome"))
+    if (clone.get("existing_layer_decision") == "keep"
+            and getattr(parsed, "project_checkout", None) == project.get("checkout")):
+        _set_missing(parsed, "project_existing_yoke_layer", "keep")
     _set_bool_missing(
         parsed,
         "project_clone_keep_upstream",
@@ -119,6 +122,41 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     _set_missing(parsed, "machine_github_choice", machine_github.get("choice"))
     _set_missing(parsed, "machine_github_api_url", machine_github.get("api_url"))
     _restore_token_file(parsed, snapshot)
+
+
+def restore_owned_layer_choice(parsed: Any, payload: Mapping[str, Any]) -> None:
+    """Keep a layer created in the same verified checkout, never remove it."""
+    if getattr(parsed, "project_existing_yoke_layer", None):
+        return
+    from yoke_cli.config import onboard_publication_receipts as receipts
+
+    project = _mapping(_mapping(payload.get("input_snapshot")).get("project"))
+    root = Path(str(getattr(parsed, "project_checkout", "") or "")).expanduser()
+    branch = str(getattr(parsed, "project_default_branch", "") or "")
+    binding = receipts.checkout_binding(root, branch)
+    selected_id = getattr(parsed, "existing_project_id", None)
+    if selected_id and str(selected_id) != str(binding.get("project_id")):
+        return
+    if not binding or str(root.resolve()) != str(Path(str(project.get("checkout") or "")).expanduser().resolve()):
+        return
+    proven = set(receipts.verified_commits(root, branch))
+    if any(isinstance(row, Mapping) and row.get("binding") == binding
+           and row.get("sha") in proven for row in payload.get("created_commits", [])):
+        parsed.project_existing_yoke_layer = "keep"
+
+
+def restore_wizard_layer_choice(result: Any, payload: Mapping[str, Any]) -> None:
+    from types import SimpleNamespace
+
+    parsed = SimpleNamespace(
+        project_existing_yoke_layer=None,
+        project_checkout=result.project_checkout,
+        project_default_branch=getattr(result, "project_default_branch", ""),
+        existing_project_id=getattr(result, "existing_project_id", None),
+    )
+    restore_owned_layer_choice(parsed, payload)
+    if parsed.project_existing_yoke_layer:
+        result.project_clone_existing_layer_decision = parsed.project_existing_yoke_layer
 
 
 def preserve_checkout_for_new_target(

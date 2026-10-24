@@ -110,6 +110,7 @@ class ApplyReportWriter:
             "target_github_repo": _target_github_repo(safe_kwargs),
             "credential_sources": _credential_sources(safe_kwargs),
             "input_snapshot": onboard_apply_snapshot.build(safe_kwargs),
+            "created_commits": list((resume_payload or {}).get("created_commits", [])),
             "steps": steps,
             "final_status": None,
             "failed_step": None,
@@ -291,6 +292,8 @@ def _merge_resume_steps(
             continue
         if old.get("status") not in (STATUS_DONE, STATUS_SKIPPED):
             continue
+        if "detail" in old:
+            step["detail"] = old["detail"]
         step["status"] = old.get("status")
         for clock in ("started_at", "finished_at"):
             value = old.get(clock)

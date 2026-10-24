@@ -215,6 +215,13 @@ class ApplyFlow:
             return
         self._resume_run_id = run_id
         self._resume_payload = payload
+        onboard_apply_resume.restore_wizard_layer_choice(self.result, payload)
+        from yoke_cli.config import project_publication_destination as destination
+
+        root = Path(self.result.project_checkout or "").expanduser()
+        if root.is_dir() and destination.read_only(root):
+            self._goto_clone_outcome()
+            return
         self._start_apply()
 
     def _goto_apply_different_folder(self) -> None:

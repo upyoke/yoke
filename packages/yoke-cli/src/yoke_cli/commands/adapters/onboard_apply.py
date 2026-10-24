@@ -72,8 +72,11 @@ def _run_locked_apply(
         if tui_progress is not None:
             tui_progress(action, target, status)
 
+    from yoke_cli.config import onboard_publication_receipts
+
     try:
-        report = onboard_config.build_report(**report_kwargs, progress=progress)
+        with onboard_publication_receipts.recording(writer):
+            report = onboard_config.build_report(**report_kwargs, progress=progress)
     except Exception as exc:  # noqa: BLE001
         writer.fail(exc)
         summary = writer.summary()

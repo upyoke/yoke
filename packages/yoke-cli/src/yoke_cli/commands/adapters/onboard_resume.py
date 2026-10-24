@@ -36,6 +36,7 @@ def prepare_run(parsed: argparse.Namespace) -> PreparedRun:
             )
             snapshot = onboard_apply_resume.load_snapshot(parsed.resume_run_id)
             onboard_apply_resume.apply_defaults(parsed, snapshot)
+            onboard_apply_resume.restore_owned_layer_choice(parsed, parsed.resume_payload)
         except onboard_apply_resume.OnboardApplyResumeError as exc:
             return PreparedRun(error=str(exc))
     choice = onboard_destination_args.resolve_destination(parsed)

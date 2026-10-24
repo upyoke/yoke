@@ -9,9 +9,9 @@ A matching commit subject is not proof. The installer's message is a fixed
 prefix anyone can type, so a commit titled like an install but carrying a
 person's own work would, on subject alone, be eligible for replacement.
 
-The commit THIS RUN made is proven by identity: publication holds the sha its
-own commit step returned, and a commit that is that sha needs no inference at
-all. Every other commit the remote lacks must earn it positively, from the
+Created commits are proven by identity: publication holds the sha its commit
+step returned, plus exact earlier setup commits proven by private receipts
+bound to the same checkout. Those need no path inference. Every other commit the remote lacks must earn it positively, from the
 paths it touched: the subject must match AND every path must be one the
 install is sole author of, or a co-owned file the install can show it stayed
 inside. Where it cannot be shown — a foreign subject, a path outside
@@ -50,10 +50,9 @@ class InstallerTerritory:
     content from theirs, so a commit touching one is never proven by
     comparison.
 
-    ``own_commits`` are the shas this run's own commit step produced. Those
-    need no inference: publication made them from the report it just
-    generated, which is why an ordinary install still publishes the shared
-    files it legitimately merged into.
+    ``own_commits`` are exact shas from commit creation, either this run or
+    earlier setup runs with verified private receipts. They need no path
+    inference, including the shared files setup legitimately merged into.
     """
 
     whole_files: frozenset[str] = frozenset()
