@@ -64,12 +64,9 @@ project the test did not create.
 
 ## Delete the test's repositories
 
-Delete every repository the test created, including one the product created
-during the test, such as onboarding creating `OWNER/yoke-qa-*-source`:
-
-```text
-gh repo delete OWNER/NAME --yes
-```
+Delete every repository the test created with `gh repo delete OWNER/NAME --yes`,
+including one the product created during the test, such as onboarding creating
+`OWNER/yoke-qa-*-source`.
 
 Never delete an upstream or pre-existing repository. List every exact
 `OWNER/NAME` still present in the walker report and the final verdict.
