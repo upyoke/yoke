@@ -1,0 +1,9 @@
+{
+ "id": "core-vocabulary",
+ "title": "Successful setup points to Concepts in both terminal and agent completion detail.",
+ "status": "observed",
+ "form": "Link",
+ "verification": "Inspected source; structural checks cover links and publication copies. Released receiving proof is not asserted.",
+ "topics": ["strategy/corpus", "strategy/operation/steer-a-current-plan", "workbench/destinations/team"],
+ "sources": ["docs/public/start/agent-setup.md", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_apply_prompts.py", "packages/yoke-cli/src/yoke_cli/config/setup_agent_answering.py"]
+}

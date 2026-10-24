@@ -10,6 +10,9 @@ Yoke project. Item work (ideas, plans, code, reviews) happens in a session
 opened in the project's own folder; there the project's full `/yoke` skill
 takes over. This skill gets the user there.
 
+For a first introduction to Yoke’s core words and actions, point the user to
+<https://upyoke.com/docs/start/concepts>.
+
 ## 1. Check the machine
 
 ```text

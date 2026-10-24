@@ -226,7 +226,8 @@ class AnswerFlow:
                 next_steps.extend(setup["lines"])
         return {
             "next_action": setup["next_action"] if setup else None,
-            "detail": [f"Run report: {self.report_path}"] if self.report_path else [],
+            "detail": ([f"Run report: {self.report_path}"] if self.report_path else [])
+            + [apply_prompts.CONCEPTS_GUIDANCE],
             "report": summary if isinstance(summary, dict) else None,
             "install_health": report.get("install_health"),
             "changed_files": changed,
