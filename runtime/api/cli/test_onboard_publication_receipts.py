@@ -213,3 +213,18 @@ def test_active_setup_does_not_use_another_service_receipt(tmp_path, monkeypatch
     )
     with receipts.recording(other):
         assert receipts.verified_commits(world.checkout, "main") == ()
+
+
+def test_refresh_migrates_legacy_local_remote_after_registration(tmp_path, monkeypatch):
+    from yoke_cli.config import machine_config, writer_projects
+
+    world, _, _, _ = setup_read_only(tmp_path, monkeypatch)
+    writer_projects.set_publication_read_only(world.checkout, False)
+    git(world.checkout, "config", "remote.origin.pushurl", destination.LEGACY_READ_ONLY_PUSH_URL)
+    before = world.remote_tip()
+    report = runner.install(world.checkout, project_id=7, operation="refresh")
+    assert machine_config.project_entry(world.checkout)["publication_read_only"] is True
+    assert destination.LEGACY_READ_ONLY_PUSH_URL not in destination.push_urls(world.checkout)
+    assert git(world.checkout, "remote", "get-url", "origin").stdout.strip() == str(world.remote)
+    assert report["publication"]["status"] == "publication_pending"
+    assert world.remote_tip() == before
