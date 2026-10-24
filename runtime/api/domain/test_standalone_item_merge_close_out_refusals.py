@@ -20,6 +20,7 @@ from yoke_core.domain import (
     standalone_item_merge_close_out_transition as close_out_transition,
 )
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 def test_a_refused_step_stops_the_walk_and_reports_the_refusal(
@@ -85,6 +86,7 @@ def test_an_unresolved_delivery_clearance_refuses_rather_than_guesses(
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(

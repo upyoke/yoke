@@ -13,6 +13,7 @@ from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 LANE_SHA = "1" * 40
@@ -66,6 +67,7 @@ def test_pruned_lane_reconstructs_the_same_receipt_head(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     recovery_calls: list[dict] = []
@@ -122,6 +124,7 @@ def test_released_only_history_still_recovers_from_the_receipt(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
@@ -160,6 +163,7 @@ def test_live_branch_does_not_enter_receipt_recovery(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: False)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(

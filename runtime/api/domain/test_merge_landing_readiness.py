@@ -13,6 +13,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import standalone_item_merge_verify as verify
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 ITEM_SCOPED_QA = [{"name": "item-qa", "stage_kind": "qa", "scope": "item"}]
 
@@ -42,6 +43,7 @@ def merge(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (state["item"], ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *_a: (tmp_path, "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(stale_lane, "stale_unlanded_work", lambda **_k: "")

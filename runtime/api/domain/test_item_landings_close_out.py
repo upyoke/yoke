@@ -26,6 +26,7 @@ from yoke_core.domain.item_landings_schema import (
     ROUTE_STANDALONE,
 )
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -206,6 +207,7 @@ def _wire_merge_command(monkeypatch, landed_lane=None) -> list:
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: landed_lane)
     monkeypatch.setattr(
         stale_lane,

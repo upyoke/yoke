@@ -14,6 +14,7 @@ from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain.merge_queue_landing_outcome import QueueLandingOutcome
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 def test_pending_landing_exits_without_evidence_or_terminal_transition(
@@ -33,6 +34,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     observed_wait: list[bool] = []
@@ -91,6 +93,7 @@ def test_wait_flag_reaches_the_landing_route(monkeypatch):
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
 

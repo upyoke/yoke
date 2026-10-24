@@ -28,6 +28,7 @@ from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.merge_queue_close_out import QueueCloseOut
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 LANDED = {"pr_number": "42", "landed_at": "2026-09-03T10:00:00Z"}
@@ -206,6 +207,7 @@ def test_uncontained_candidate_from_release_does_not_advance_status(
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(
         stale_lane, "stale_unlanded_work", lambda **_k: "stale at release"
     )

@@ -11,6 +11,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
 from yoke_core.domain import standalone_item_merge_verify as verify
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 MERGING_SHA = "b" * 40
@@ -93,6 +94,7 @@ def test_pending_post_deploy_does_not_block_a_closing_merge(
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(
         merge_cli.close_out, "transition_to_done", lambda **_k: ("release", "")
     )

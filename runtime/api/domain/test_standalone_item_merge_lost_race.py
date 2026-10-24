@@ -34,6 +34,7 @@ from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.dash_execution import record_dash_evidence
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.fixture(autouse=True)
@@ -107,6 +108,7 @@ def _close_out_racing(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         "_resolve_checkout",
         lambda item, target: (repo, "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(
         close_out_transition,

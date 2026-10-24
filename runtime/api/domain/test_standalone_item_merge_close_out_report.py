@@ -19,6 +19,7 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -66,9 +67,8 @@ def _run_close_out(
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
-    monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
-    )
+    monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(

@@ -19,6 +19,7 @@ from yoke_core.domain.project_github_auth_models import (
 )
 from yoke_core.engines import merge_worktree_post_local as local_merge
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.fixture(autouse=True)
@@ -190,6 +191,7 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
         verify,
