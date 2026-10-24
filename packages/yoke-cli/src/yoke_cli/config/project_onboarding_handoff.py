@@ -21,6 +21,9 @@ from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 from yoke_cli.config.onboard_setup_facts import collect
 from yoke_contracts.onboard_checklist import SCHEMA_VERSION
 from yoke_contracts.harness_family_identity import nearest_harness_family
+from yoke_contracts.onboarding_invocation import (
+    onboard_command as render_onboard_command,
+)
 
 DispatchFn = Callable[[str, Mapping[str, Any], str | Path | None], Mapping[str, Any]]
 
@@ -182,13 +185,7 @@ def _agent_command(run_id: str) -> str:
 
 def onboard_command(arguments: str = "") -> str:
     """Name the installed router in this harness, or teach both native forms."""
-    suffix = f" {arguments}" if arguments else ""
-    family = nearest_harness_family()
-    if family == "codex":
-        return f"$yoke onboard{suffix}"
-    if family in ("claude-code", "cursor"):
-        return f"/yoke onboard{suffix}"
-    return f"Codex: $yoke onboard{suffix}; Claude Code/Cursor: /yoke onboard{suffix}"
+    return render_onboard_command(nearest_harness_family(), arguments)
 
 
 __all__ = ["create_handoff", "onboard_command"]

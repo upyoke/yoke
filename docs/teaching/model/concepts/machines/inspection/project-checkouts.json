@@ -1,7 +1,9 @@
 {
  "id": "project-checkouts",
  "title": "Project checkouts",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Machine detail lists visible project checkouts and their onboarding recovery. The installed yoke skill uses the target project's unambiguous live harness identity: Codex uses $yoke onboard; Claude Code and Cursor use /yoke onboard. Unknown or mixed receiving harnesses get explicitly labelled alternatives rather than the server's harness identity.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/machine_detail.py", "packages/yoke-contracts/src/yoke_contracts/onboarding_invocation.py"],
  "page": "machines",
  "position": 1
 }
