@@ -40,7 +40,7 @@
   "strategy doc-claim list": "List strategy document locks.",
   "strategy doc-claim release": "Release a strategy document lock.",
   "strategy execution": "Link items to the strategy documents they carry out.",
-  "strategy execution get": "Show any item’s linked strategy document, plus execution details for Blitz.",
+  "strategy execution get": "Read any item’s linked document and Blitz execution details.",
   "strategy execution link": "Link an item to a strategy document.",
   "strategy ingest": "Save edited local strategy files back to the server.",
   "strategy master": "Check the master plan for contradictions.",
