@@ -37,6 +37,7 @@ the recorded start time is compared and a reused pid reads as gone. The
 supervisor's own recorded exit settles it first: a background command the
 turn left in its process group is not a turn, and reading it as one held a
 gone Cursor worker's next message until steering terminated the session.
+A containment result that proved the exit settles it the same way.
 
 The process-anchor registry is deliberately not read here. An anchor names a
 process for any session, including an operator's own interactive one, where
@@ -56,7 +57,7 @@ import time
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_harness.session_process_custody import custody_state
+from yoke_harness.session_process_custody import SUCCESS_RESULTS, custody_state
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_harness.session_relay_native_capture_format import (
     NativeCapture,
@@ -136,6 +137,8 @@ def _capture(record: Mapping[str, Any]) -> NativeCapture | None:
 
 def _turn_running(record: Mapping[str, Any], start_time_of: StartTimeOf) -> bool:
     """A recorded exit ends the turn; otherwise the process identity decides."""
+    if record.get("containment_result") in SUCCESS_RESULTS:
+        return False
     capture = _capture(record)
     if capture is not None and capture.exited:
         return False
