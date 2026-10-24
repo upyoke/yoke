@@ -8,6 +8,7 @@ from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
 from yoke_contracts.harness_hook_approval import hook_approval
+from yoke_contracts.onboarding_invocation import onboard_command
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
 from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
@@ -195,10 +196,24 @@ def _projects(
                 None,
             ),
             "hook_reports": _project_reports(reports, int(row[0])),
-            "recovery": "Run /yoke onboard in this project checkout.",
+            "recovery": _onboarding_recovery(sessions, int(row[0])),
         }
         for row in rows
     ]
+
+
+def _onboarding_recovery(sessions: list[dict[str, Any]], project_id: int) -> str:
+    """A machine can have several harnesses; select only an unambiguous live one."""
+    executors = {
+        entry.get("executor")
+        for entry in sessions
+        if entry["project_id"] == project_id and entry.get("ended_at") is None
+    }
+    harness_id = next(iter(executors)) if len(executors) == 1 else None
+    return (
+        "In this project checkout, use the installed yoke skill: "
+        f"{onboard_command(harness_id)}."
+    )
 
 
 def machine_detail(
