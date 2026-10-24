@@ -65,7 +65,8 @@ def test_overrun_read_is_refused_without_tracing_the_handler(monkeypatch, thread
         run()
 
 
-def test_mutation_keeps_its_handler_without_a_read_budget():
+@pytest.mark.parametrize("effects", [("database",), ("event_emit",)])
+def test_mutation_keeps_its_handler_without_a_read_budget(effects):
     observed = []
 
     def handler(request):
@@ -74,7 +75,7 @@ def test_mutation_keeps_its_handler_without_a_read_budget():
 
     result = deadline.invoke_handler(
         SimpleNamespace(
-            side_effects=("database",),
+            side_effects=effects,
             function_id="items.create",
             handler=handler,
         ),

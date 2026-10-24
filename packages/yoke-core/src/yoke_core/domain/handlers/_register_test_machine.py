@@ -199,7 +199,7 @@ def register(registry) -> None:
             minimum_serving_version="next-release",
             owner_module=__name__,
             target_kinds=["global"],
-            side_effects=[],
+            side_effects=["coordination_claim", "qa_run_write"],
             guardrails=["credential_owning_client_required"],
             adapter_status="live",
             claim_required_kind=None,

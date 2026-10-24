@@ -88,7 +88,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.organizations_create",
         target_kinds=["global"],
-        side_effects=[],
+        side_effects=["organizations_create"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,

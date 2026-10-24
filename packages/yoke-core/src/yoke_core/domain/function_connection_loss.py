@@ -27,8 +27,8 @@ CONNECTION_LOST_CODE = "control_plane_connection_lost"
 
 
 def side_effect_free(entry: RegistryEntry) -> bool:
-    """True when the function only reads; telemetry events change no state."""
-    return not set(entry.side_effects) - {"event_emit"}
+    """True only when the function declares no side effects."""
+    return not entry.side_effects
 
 
 def retry_dropped_connection(call: Callable[[], T]) -> T:

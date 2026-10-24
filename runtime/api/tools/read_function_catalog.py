@@ -8,6 +8,7 @@ import textwrap
 
 
 def registered_read_ids() -> frozenset[str]:
+    from yoke_core.domain.function_connection_loss import side_effect_free
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_core.domain.yoke_function_registry import list_entries
 
@@ -15,7 +16,7 @@ def registered_read_ids() -> frozenset[str]:
     return frozenset(
         entry.function_id
         for entry in list_entries()
-        if not set(entry.side_effects) - {"event_emit"}
+        if side_effect_free(entry)
     )
 
 
