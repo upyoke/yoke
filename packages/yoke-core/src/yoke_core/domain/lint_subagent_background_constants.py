@@ -12,8 +12,6 @@ from yoke_contracts.session_identity import ACTOR_ROLE_ENV_VAR
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 
 
-DEFAULT_MODE = "warn"
-VALID_MODES = ("warn", "deny")
 SUPPRESSION_TOKEN = "# lint:no-subagent-background-check"
 AGENT_TYPE_ENV_VAR = ACTOR_ROLE_ENV_VAR
 

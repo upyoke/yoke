@@ -4,7 +4,6 @@ import glob
 from pathlib import Path
 import re
 import shlex
-from unittest import mock
 
 import pytest
 
@@ -59,14 +58,13 @@ def test_printed_repairs_select_intact_patterns(tmp_path, hook, invocation, patt
         "tool_name": "Bash", "cwd": str(tmp_path),
         "tool_input": {"command": f"{invocation} {pattern}", "shell": "/bin/zsh"},
     }
-    with mock.patch.object(core, "_read_mode", return_value="deny"):
-        if "{" in pattern:
-            reason = (core.evaluate_payload(payload)[1] if hook == "core"
-                      else lint_unmatched_path_glob(payload).message)
-            repaired = re.search(r"Repaired command: `([^`]+)`", reason)[1]
-        else:
-            repaired = glob_repair(payload["tool_input"]["command"], pattern,
-                                   str(tmp_path))[0]
+    if "{" in pattern:
+        reason = (core.evaluate_payload(payload)[0] if hook == "core"
+                  else lint_unmatched_path_glob(payload).message)
+        repaired = re.search(r"Repaired command: `([^`]+)`", reason)[1]
+    else:
+        repaired = glob_repair(payload["tool_input"]["command"], pattern,
+                               str(tmp_path))[0]
     assert _selected_files(repaired, tmp_path) == {(tree / name).resolve() for name in expected}
 
 
@@ -92,9 +90,8 @@ def test_unsafe_repairs_keep_manual_recipe(tmp_path: Path, command):
     (tmp_path / "docs").mkdir()
     payload = {"tool_name": "Bash", "cwd": str(tmp_path),
                "tool_input": {"command": command, "shell": "/bin/zsh"}}
-    with mock.patch.object(core, "_read_mode", return_value="deny"):
-        reasons = [core.evaluate_payload(payload)[1],
-                   lint_unmatched_path_glob(payload).message]
+    reasons = [core.evaluate_payload(payload)[0],
+               lint_unmatched_path_glob(payload).message]
     for reason in reasons:
         assert "Repaired command:" not in reason
         assert "rg --files" in reason
@@ -131,9 +128,8 @@ def test_brace_matching_checks_each_expanded_operand(tmp_path, hook, missing, pa
         (docs / "charlie.md").write_text("c")
     payload = {"tool_name": "Bash", "cwd": str(tmp_path),
                "tool_input": {"command": f"ls {pattern}", "shell": "/bin/zsh"}}
-    with mock.patch.object(core, "_read_mode", return_value="deny"):
-        denied = (core.evaluate_payload(payload) is not None if hook == "core"
-                  else lint_unmatched_path_glob(payload).outcome == "deny")
+    denied = (core.evaluate_payload(payload) is not None if hook == "core"
+              else lint_unmatched_path_glob(payload).outcome == "deny")
     assert denied is (missing != "none")
 
 

@@ -28,11 +28,6 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
 
 
 class TestEvaluatePayloadFromObservedCapture(CapturePairHelpers, unittest.TestCase):
-    def setUp(self) -> None:
-        patch = mock.patch.object(lint, "_read_lint_mode", return_value="deny")
-        patch.start()
-        self.addCleanup(patch.stop)
-
     def _peek_payload(self, raw: str) -> dict:
         command = f"tail -80 {raw}"
         roots = (os.path.dirname(raw),)

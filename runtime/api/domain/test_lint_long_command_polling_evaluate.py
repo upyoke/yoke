@@ -70,15 +70,6 @@ class TestExtractHelpers(unittest.TestCase):
 
 
 class TestEvaluatePayload(unittest.TestCase):
-    def setUp(self) -> None:
-        # Default: no DB, warn mode, no recent events. Each test overrides as
-        # needed via mock.patch.
-        self._mode_patch = mock.patch.object(
-            lint, "_read_lint_mode", return_value="warn"
-        )
-        self._mode_patch.start()
-        self.addCleanup(self._mode_patch.stop)
-
     def test_git_status_allowed(self) -> None:
         self.assertIsNone(lint.evaluate_payload(_bash_payload("git status")))
 

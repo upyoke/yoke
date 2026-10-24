@@ -10,7 +10,6 @@ for the guard's allow/deny behavior coverage.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -21,6 +20,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
+from yoke_core.hooks import mode_gate
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
@@ -52,7 +52,10 @@ def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013):
     return wt
 
 
-def _main_write_decision(repo, *, mode: str):
+MODULE_ID = "yoke_core.domain.lint_lane_main_write"
+
+
+def _main_write_decision(repo):
     target = repo / "runtime/api/foo.py"
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -68,28 +71,20 @@ def _main_write_decision(repo, *, mode: str):
         payload=payload,
         tool_name="Write",
         session_id="sid-lane",
+        target_root=str(repo),
     )
-    with mock.patch.object(lint_lane_main_write, "_read_mode", return_value=mode):
-        return target, lint_lane_main_write.evaluate(record)
+    return target, record, lint_lane_main_write.evaluate(record)
 
 
 def test_denial_decision_carries_reason_for_the_runner_audit_row(conn, repo):
     _seed_lane(conn, repo)
-    target, decision = _main_write_decision(repo, mode="deny")
+    target, record, decision = _main_write_decision(repo)
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
     assert decision.next is Next.STOP
-    assert decision.audit_fields["mode"] == "deny"
+    assert "mode" not in decision.audit_fields
     assert str(target) in decision.audit_fields["reason"]
+    assert "lint_lane_main_write=deny" in decision.message
     assert guard_audit_outcome(decision) == "denied"
-
-
-def test_warn_mode_lets_the_write_through_and_records_a_warn_row(conn, repo):
-    _seed_lane(conn, repo)
-    target, decision = _main_write_decision(repo, mode="warn")
-    assert decision.outcome is Outcome.AUDIT_ONLY
-    assert decision.block is False
-    assert decision.next is Next.CONTINUE
-    assert decision.message == ""
-    assert str(target) in decision.audit_fields["reason"]
-    assert guard_audit_outcome(decision) == "warn"
+    gated = mode_gate.apply_mode(decision, MODULE_ID, context=record)
+    assert gated.audit_fields["policy_mode"] == "deny"

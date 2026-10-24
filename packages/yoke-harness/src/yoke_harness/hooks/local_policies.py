@@ -63,7 +63,7 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
         return PolicyResult(
             DENY,
             destructive_git_messages.format_recursive_rm_reason(
-                refusal.shape, list(refusal.targets), suppression_seen, "deny"
+                refusal.shape, list(refusal.targets), suppression_seen
             ),
         )
     for args, repo_path in git_invocations(command):
@@ -77,10 +77,7 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
         return PolicyResult(
             DENY,
             destructive_git_messages.format_reason(
-                shape,
-                threatened,
-                suppression_seen,
-                "deny",
+                shape, threatened, suppression_seen
             ),
         )
     return PolicyResult(NOOP)

@@ -1,6 +1,6 @@
 """Verdict tests for the duplicate-Monitor PreToolUse rule. Covers:
 
-- identical re-arm denied (warn and deny modes)
+- identical re-arm denied
 - different-filter re-arm denied (capture-file equivalence)
 - foreign-capture allowed (different capture file is its own lane)
 - no client scratch roots allowed (no path is a capture)
@@ -62,15 +62,9 @@ _CAPTURE_Y = "/tmp/yoke-pytest.progress.BBBB"
 
 
 class _DuplicateMonitorBase(unittest.TestCase):
-    """Shared mode + armed-monitor patch helpers."""
+    """Shared armed-monitor patch helpers."""
 
     def setUp(self) -> None:
-        # Default to warn mode so test names alone signal mode-pinning.
-        self._mode_patch = mock.patch.object(
-            monitor_dup, "_read_lint_mode", return_value="warn"
-        )
-        self._mode_patch.start()
-        self.addCleanup(self._mode_patch.stop)
         # Avoid touching the real DB — tests inject the armed set directly.
         self._db_patch = mock.patch.object(
             monitor_dup, "_db_available", return_value=True
@@ -90,40 +84,20 @@ class _DuplicateMonitorBase(unittest.TestCase):
 class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
     """Capture-file equivalence drives the verdict; filter is irrelevant."""
 
-    def test_identical_rearm_denied_warn_mode(self) -> None:
-        # Identical re-arm denied. Verdict is the configured
-        # mode (warn here); ctx.outcome is "denied" and the reason names
-        # the prior tool_use_id for the TaskStop workaround.
+    def test_identical_rearm_denied(self) -> None:
+        # Identical re-arm denied: ctx.outcome is "denied" and the reason
+        # names the prior tool_use_id for the TaskStop workaround.
         with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
             result = lint.evaluate_payload(
                 _monitor_payload(f"python3 -m yoke_core.tools.watch_tail {_CAPTURE_X}")
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "warn")
+        reason, ctx = result
+        self.assertTrue(reason.startswith("DENIED"))
         self.assertEqual(ctx.get("outcome"), "denied")
         self.assertIn("tu-monitor-prior", reason)
         self.assertIn(_CAPTURE_X, reason)
-
-    def test_identical_rearm_denied_deny_mode(self) -> None:
-        # Deny mode: verdict is "deny" and reason carries DENIED verb.
-        with (
-            mock.patch.object(
-                monitor_dup,
-                "_read_lint_mode",
-                return_value="deny",
-            ),
-            self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]),
-        ):
-            result = lint.evaluate_payload(
-                _monitor_payload(f"python3 -m yoke_core.tools.watch_tail {_CAPTURE_X}")
-            )
-        self.assertIsNotNone(result)
-        assert result is not None
-        verdict, reason, _ctx = result
-        self.assertEqual(verdict, "deny")
-        self.assertIn("DENIED", reason)
 
     def test_different_filter_rearm_against_same_capture_denied(self) -> None:
         # Capture-file equivalence is the key, not filter equivalence.
@@ -135,8 +109,7 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "warn")
+        reason, ctx = result
         self.assertEqual(ctx.get("outcome"), "denied")
         self.assertIn(_CAPTURE_X, reason)
 
@@ -164,8 +137,7 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "warn")
+        reason, ctx = result
         self.assertEqual(ctx.get("outcome"), "denied")
         self.assertIn("tu-monitor-completed", reason)
         self.assertIn(_CAPTURE_X, reason)
@@ -218,15 +190,8 @@ class TestDuplicateMonitorSuppression(_DuplicateMonitorBase):
 
     def test_suppression_token_records_attempt_but_denies(self) -> None:
         # Token detection switches ctx.outcome to suppression_attempted
-        # but verdict still fires (mode-pinned).
-        with (
-            mock.patch.object(
-                monitor_dup,
-                "_read_lint_mode",
-                return_value="deny",
-            ),
-            self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]),
-        ):
+        # but verdict still fires.
+        with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
             result = lint.evaluate_payload(
                 _monitor_payload(
                     f"python3 -m yoke_core.tools.watch_tail {_CAPTURE_X}  "
@@ -235,8 +200,8 @@ class TestDuplicateMonitorSuppression(_DuplicateMonitorBase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        reason, ctx = result
+        self.assertTrue(reason.startswith("DENIED"))
         self.assertEqual(ctx.get("outcome"), "suppression_attempted")
         self.assertIn("recorded for audit", reason)
         self.assertIn("does NOT unblock", reason)

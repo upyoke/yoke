@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-from unittest import mock
 
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
@@ -25,16 +24,14 @@ def _payload(command: str, **extra: object) -> dict:
 
 
 def _eval(command: str):
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        return lint.evaluate_payload(_payload(command))
+    return lint.evaluate_payload(_payload(command))
 
 
 def test_rg_double_quoted_backticks_denies():
     result = _eval('rg "uses `foo` here" docs/')
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "Backticks still run command substitution" in reason
 
@@ -43,7 +40,7 @@ def test_grep_e_double_quoted_backticks_denies():
     result = _eval('grep -E "alpha|`whoami`" AGENTS.md')
 
     assert result is not None
-    assert result[0] == "deny"
+    assert result[1] == "denied"
 
 
 def test_pipeline_after_search_does_not_extend_search_segment():
@@ -64,14 +61,13 @@ def test_non_search_command_allows():
 
 def test_non_bash_tool_allows():
     payload = _payload('rg "uses `foo` here" docs/', tool_name="Read")
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert lint.evaluate_payload(payload) is None
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.NOOP
 
 
 def test_suppression_is_audit_only():
     command = 'rg "uses `foo` here" docs/  # lint:no-backtick-search-check'
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
+    decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP

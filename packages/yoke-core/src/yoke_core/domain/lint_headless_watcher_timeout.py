@@ -39,14 +39,6 @@ _CLAUDE_FAMILY = "claude"
 _WATCH_KINDS = frozenset(kind[-1] for kind in WATCH_CLI_TOKENS.values())
 
 
-def _extract_tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
-
-
 def _tool_timeout_ms(payload: dict) -> Optional[int]:
     for key in ("tool_input", "toolInput", "input"):
         value = payload.get(key)
@@ -101,16 +93,7 @@ def _is_watcher_command(command: str) -> bool:
     )
 
 
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_headless_watcher_timeout",
-        payload,
-    )
-
-
-def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str) -> str:
+def _format_reason(timeout_ms: Optional[int], suppression_seen: bool) -> str:
     if timeout_ms is None:
         observed = (
             "Observed timeout: omitted; the watcher call has no explicit "
@@ -139,9 +122,7 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str)
         "A moved call is not evidence that its lifetime is sufficient; "
         "never start a duplicate while it is running."
     )
-    if mode == "warn":
-        body += "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence but does NOT unblock this rule."
@@ -153,15 +134,13 @@ def evaluate_payload(
     payload: dict,
     *,
     executor_family: str = "",
-) -> Optional[Tuple[str, str, str]]:
+) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for a short watcher timeout, else None."""
     if not isinstance(payload, dict):
         return None
     if (executor_family or "").strip() != _CLAUDE_FAMILY:
         return None
     if not headless_launch(payload):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not _is_watcher_command(command):
@@ -170,17 +149,13 @@ def evaluate_payload(
     if timeout_ms is not None and timeout_ms >= IN_TURN_WATCHER_TIMEOUT_MS:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
-    mode = _read_mode(payload)
-    reason = _format_reason(timeout_ms, suppression_seen, mode)
-    outcome = (
-        "suppression_attempted"
-        if suppression_seen
-        else ("denied" if mode == "deny" else "warned")
-    )
-    return mode, reason, outcome
+    reason = _format_reason(timeout_ms, suppression_seen)
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(
         payload,
@@ -188,29 +163,27 @@ def evaluate(record: HookContext) -> HookDecision:
     )
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     command = _extract_command(payload)
     cwd = payload.get("cwd")
     session_id = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family=_CLAUDE_FAMILY,
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=command or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

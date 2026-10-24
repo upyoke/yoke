@@ -52,8 +52,7 @@ def test_guard_sources_and_helpers_cannot_construct_harness_envelopes(spec):
 
 
 @pytest.mark.parametrize("harness", ["claude", "codex", "cursor"])
-def test_converted_guard_renders_reason_footer_and_check_id(harness, monkeypatch):
-    monkeypatch.setattr(guard, "_read_mode", lambda payload: "deny")
+def test_converted_guard_renders_reason_footer_and_check_id(harness):
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": "git stash push -- file -m reason"},

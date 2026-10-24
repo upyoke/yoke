@@ -19,8 +19,9 @@ Reads, free-path scratch, generated-view writers, sessions with no
 recorded lane, and pre-implementation authoring on main stay
 unaffected.
 
-Mode resolves from ``.yoke/lint-config`` key ``lint_lane_main_write``
-(default ``deny``). Suppression token
+The guard always returns its natural deny; the hook runner's mode gate
+applies ``.yoke/lint-config`` key ``lint_lane_main_write`` (default
+``deny``). Suppression token
 ``# lint:no-lane-main-write-check`` is audit-only. Escape token
 ``# lint:allow-lane-main-write`` records ``LaneMainWriteEscapeUsed``
 and allows the call.
@@ -36,6 +37,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.hook_runner.session_cwd import client_machine_home
+from yoke_core.domain import lint_config
 from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
@@ -72,8 +74,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-lane-main-write"
 GUARD_KEY = "lint_lane_main_write"
-DEFAULT_MODE = "deny"
-VALID_MODES = ("warn", "deny")
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,6 @@ class Verdict:
     lane_equivalent: str = ""
     item_label: str = ""
     item_id: int = 0
-    mode: str = DEFAULT_MODE
     suppression_attempted: bool = False
     escape_used: bool = False
     derivation: Optional[TargetDerivation] = None
@@ -95,26 +94,6 @@ def _open_conn():
     from yoke_core.domain import db_helpers
 
     return db_helpers.connect()
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(GUARD_KEY, payload)
-
-
-def _config_note(mode: str, payload: Mapping[str, Any]) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.describe_config_source(GUARD_KEY, mode, payload=dict(payload))
-
-
-def _extract_tool_name(payload: Mapping[str, Any]) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
 
 
 def _extract_session_id(payload: Mapping[str, Any]) -> str:
@@ -127,12 +106,17 @@ def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
     return not is_pre_implementing_status(workflow, status)
 
 
-def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
+def evaluate_pre_tool_use(
+    payload: Mapping[str, Any], tool_name: Optional[str] = None,
+) -> Verdict:
+    """Judge one tool call; *tool_name* defaults to the payload's ``tool_name``."""
     session_id = _extract_session_id(payload)
     if not session_id:
         return Verdict(allow=True)
 
-    tool_name = _extract_tool_name(payload)
+    if tool_name is None:
+        raw_tool = payload.get("tool_name")
+        tool_name = raw_tool if isinstance(raw_tool, str) else ""
     if not tool_name:
         return Verdict(allow=True)
 
@@ -177,7 +161,6 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
     lane_path = claim.worktree_path
     equivalent = lane_equivalent_path(attempted_path, claim)
     label = item_label(claim)
-    mode = _read_mode(payload)
     command = extract_payload_command(payload_dict)
     suppression_seen = command_has_suppression_token(command)
 
@@ -195,7 +178,6 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             lane_equivalent=equivalent,
             item_label=label,
             item_id=claim.item_id,
-            mode=mode,
             escape_used=True,
             derivation=derivation,
         )
@@ -205,9 +187,11 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         lane_path=lane_path,
         attempted_path=attempted_path,
         lane_equivalent=equivalent,
-        mode=mode,
         suppression_seen=suppression_seen,
-        config_note=_config_note(mode, payload),
+        # The message renders only when the final decision is deny.
+        config_note=lint_config.describe_config_source(
+            GUARD_KEY, lint_config.DENY, payload=payload_dict
+        ),
         derivation=derivation,
         tool_name=tool_name,
     )
@@ -217,25 +201,9 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         lane_path=lane_path,
         lane_equivalent=equivalent,
         item_id=claim.item_id,
-        mode=mode,
         suppression_attempted=suppression_seen,
         derivation=derivation,
     )
-
-    if mode == "warn":
-        return Verdict(
-            allow=True,
-            reason=reason,
-            attempted_path=attempted_path,
-            lane_path=lane_path,
-            lane_equivalent=equivalent,
-            item_label=label,
-            item_id=claim.item_id,
-            mode=mode,
-            suppression_attempted=suppression_seen,
-            derivation=derivation,
-        )
-
     return Verdict(
         allow=False,
         reason=reason,
@@ -244,7 +212,6 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         lane_equivalent=equivalent,
         item_label=label,
         item_id=claim.item_id,
-        mode=mode,
         suppression_attempted=suppression_seen,
         derivation=derivation,
     )
@@ -252,25 +219,19 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
 
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_pre_tool_use(payload)
-    if verdict.allow and not verdict.reason:
+    verdict = evaluate_pre_tool_use(payload, record.tool_name or "")
+    if verdict.allow:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     audit = {
         "reason": verdict.reason,
+        "audit_outcome": (
+            "suppression_attempted" if verdict.suppression_attempted else "denied"
+        ),
         "attempted_path": verdict.attempted_path,
         "lane_path": verdict.lane_path,
-        "mode": verdict.mode,
         "suppression_attempted": verdict.suppression_attempted,
         "derivation_source": verdict.derivation.source if verdict.derivation else "",
     }
-    if verdict.suppression_attempted:
-        audit["audit_outcome"] = "suppression_attempted"
-    if verdict.allow:
-        # Warn mode lets the write through but still records the hit.
-        audit.setdefault("audit_outcome", "warn")
-        return HookDecision(
-            outcome=Outcome.AUDIT_ONLY, next=Next.CONTINUE, audit_fields=audit
-        )
     return HookDecision(
         outcome=Outcome.DENY,
         message=verdict.reason,
@@ -297,7 +258,7 @@ def main() -> int:
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=tool if isinstance(tool, str) else None,
+        tool_name=tool if isinstance(tool, str) and tool else None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,
     )
@@ -309,10 +270,8 @@ def main() -> int:
 
 __all__ = [
     "CHECK_ID",
-    "DEFAULT_MODE",
     "ESCAPE_TOKEN",
     "GUARD_KEY",
-    "VALID_MODES",
     "Verdict",
     "evaluate",
     "evaluate_pre_tool_use",

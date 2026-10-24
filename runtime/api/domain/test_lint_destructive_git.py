@@ -77,17 +77,14 @@ class TestEvaluatePayload(unittest.TestCase):
         _modify(repo, "a.txt", "v2\n")
         return repo
 
-    def _eval(self, command: str) -> tuple[str, str, str] | None:
-        # Force deny mode regardless of project config (tests stay deterministic).
+    def _eval(self, command: str) -> tuple[str, str] | None:
         with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
         ):
             return ldg.evaluate_payload(_payload(command))
 
-    def _eval_with_payload(self, payload: dict) -> tuple[str, str, str] | None:
+    def _eval_with_payload(self, payload: dict) -> tuple[str, str] | None:
         with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
         ):
             return ldg.evaluate_payload(payload)
@@ -101,8 +98,7 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} reset --hard HEAD~1")
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("a.txt", reason)
         self.assertIn("git stash", reason)
@@ -115,8 +111,8 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} checkout -- a.txt")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("a.txt", result[0])
 
     def test_AC3_checkout_path_unmodified_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n", "b.txt": "v1\n"})
@@ -128,28 +124,28 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         result = self._eval(f"echo preparing\ngit -C {repo} reset --hard HEAD~1")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("a.txt", result[0])
 
     def test_checkout_dot_modified_blocks(self):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} checkout .")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("a.txt", result[0])
 
     def test_checkout_ref_then_dot_modified_blocks(self):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} checkout HEAD .")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_checkout_existing_path_modified_blocks(self):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} checkout a.txt")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("a.txt", result[0])
 
     def test_checkout_branch_name_dirty_allows(self):
         repo = self._dirty()
@@ -159,7 +155,7 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} restore --worktree a.txt")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_AC3_restore_worktree_unmodified_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -170,7 +166,7 @@ class TestEvaluatePayload(unittest.TestCase):
         self.assertIsNone(self._eval(f"git -C {repo} checkout -f main"))
         _modify(repo, "a.txt", "v2\n")
         result = self._eval(f"git -C {repo} checkout -f main")
-        self.assertIn("a.txt", result[1])
+        self.assertIn("a.txt", result[0])
 
     def test_AC4_clean_force_with_untracked_blocks(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -182,7 +178,7 @@ class TestEvaluatePayload(unittest.TestCase):
         ):
             result = self._eval(cmd)
             self.assertIsNotNone(result, f"clean variant should block: {cmd}")
-            self.assertIn("junk.tmp", result[1])
+            self.assertIn("junk.tmp", result[0])
 
     def test_AC4_clean_force_no_untracked_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -194,8 +190,8 @@ class TestEvaluatePayload(unittest.TestCase):
         self.assertIsNone(self._eval(f"git -C {repo} clean -f target"))
         _modify(repo, "target/junk.tmp", "x")
         result = self._eval(f"git -C {repo} clean -f target")
-        self.assertIn("target/", result[1])
-        self.assertNotIn("other/junk.tmp", result[1])
+        self.assertIn("target/", result[0])
+        self.assertNotIn("other/junk.tmp", result[0])
 
     def test_AC4_clean_force_uses_git_dry_run_scope(self):
         repo = self._repo(initial_files={".gitignore": "ignored.tmp\n"})
@@ -212,8 +208,8 @@ class TestEvaluatePayload(unittest.TestCase):
         _git_run(repo, "stash", "push", "-m", "wip")
         result = self._eval(f"git -C {repo} stash drop")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("stash", result[1].lower())
+        self.assertEqual(result[1], "denied")
+        self.assertIn("stash", result[0].lower())
 
     def test_AC5_stash_clear_with_stashes_blocks(self):
         repo = self._dirty()
@@ -252,8 +248,8 @@ class TestEvaluatePayload(unittest.TestCase):
         repo = self._dirty()
         result = self._eval(f"git -C {repo} restore -S -W a.txt")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("a.txt", result[0])
 
     def test_worktree_remove_dirty_linked_worktree_blocks(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -263,9 +259,9 @@ class TestEvaluatePayload(unittest.TestCase):
         result = self._eval(f"git -C {repo} worktree remove {wt}")
 
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("git worktree remove", result[1])
-        self.assertIn("a.txt", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("git worktree remove", result[0])
+        self.assertIn("a.txt", result[0])
 
     def test_worktree_remove_clean_linked_worktree_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -284,9 +280,9 @@ class TestEvaluatePayload(unittest.TestCase):
         )
 
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("rm -rf .worktrees/<path>", result[1])
-        self.assertIn("ignored: cache/evidence.log", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("rm -rf .worktrees/<path>", result[0])
+        self.assertIn("ignored: cache/evidence.log", result[0])
 
     def test_rm_rf_clean_worktree_allows(self):
         repo = self._repo(initial_files={"a.txt": "v1\n"})
@@ -304,7 +300,6 @@ class TestEvaluatePayload(unittest.TestCase):
         threat = f"{wt} active claim session=sess item=42"
 
         with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[threat]),
         ):
             result = ldg.evaluate_payload(
@@ -312,4 +307,4 @@ class TestEvaluatePayload(unittest.TestCase):
             )
 
         self.assertIsNotNone(result)
-        self.assertIn("active claim", result[1])
+        self.assertIn("active claim", result[0])

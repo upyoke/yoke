@@ -11,7 +11,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_shell_quoted_function_payload as lint
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -116,16 +115,15 @@ class TestRegistryCoveredShellChoreography(unittest.TestCase):
         self.assertIsNone(lint.evaluate_command(""))
 
 
-class TestEvaluateDenyMode(unittest.TestCase):
-    """Deny mode emits a deny envelope."""
+class TestEvaluateDecision(unittest.TestCase):
+    """A hit emits a deny envelope."""
 
-    def test_evaluate_blocks_in_deny_mode(self) -> None:
+    def test_evaluate_blocks_a_hit(self) -> None:
         cmd = (
             'printf \'{"function":"x"}\' | python3 -m yoke_core.api.service_client'
             " functions-call --payload -"
         )
-        with mock.patch.object(lint, "_resolve_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -134,22 +132,6 @@ class TestEvaluateDenyMode(unittest.TestCase):
         self.assertEqual(
             decoded["hookSpecificOutput"]["permissionDecision"],
             "deny",
-        )
-
-    def test_evaluate_warns_only_in_warn_mode(self) -> None:
-        cmd = (
-            'printf \'{"function":"x"}\' | python3 -m yoke_core.api.service_client'
-            " functions-call --payload -"
-        )
-        with mock.patch.object(lint, "_resolve_mode", return_value="warn"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertIs(decision.outcome, Outcome.AUDIT_ONLY)
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(decision.message, "")
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertIn(
-            "lint-shell-quoted-function-payload", decision.audit_fields["reason"]
         )
 
     def test_evaluate_allows_safe_command(self) -> None:
@@ -168,30 +150,12 @@ class TestSuppressionToken(unittest.TestCase):
             "functions-call --payload - "
             "# lint:no-shell-json-payload-check"
         )
-        with mock.patch.object(lint, "_resolve_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.AUDIT_ONLY)
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
         self.assertIn("suppressed via token", decision.audit_fields["reason"])
-
-
-class TestConfigModeResolution(unittest.TestCase):
-    """Mode reads from machine config honor warn / deny / default."""
-
-    def test_resolve_mode_delegates_to_registry(self) -> None:
-        # Mode now resolves through the single lint_config registry; per-key /
-        # per-value parsing + the protected clamp are covered by test_lint_config.
-        from yoke_core.domain import lint_config as registry
-
-        with mock.patch.object(
-            registry,
-            "resolve_mode_for_payload",
-            return_value="warn",
-        ) as m:
-            self.assertEqual(lint._resolve_mode(), "warn")
-        m.assert_called_once_with("lint_shell_quoted_function_payload", None)
 
 
 class TestHelpExemption(unittest.TestCase):

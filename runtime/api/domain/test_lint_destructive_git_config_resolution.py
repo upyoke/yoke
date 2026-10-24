@@ -1,19 +1,15 @@
 """Config-source resolution for the destructive-git guard.
 
-Two behaviors are covered here, both about *which* ``.yoke/lint-config``
-decides a refusal:
-
-* the enforcement mode is read from the checkout the refused command
-  targets, so policy comes from the same tree whose state is judged;
-* the narrative names the resolved config file, so editing a different
-  copy is visible rather than presenting as an edit that did nothing.
-
-These tests deliberately do not stub ``_read_mode`` — the resolution path
-is the thing under test.
+The guard never reads its own mode: it always returns its natural deny, and
+:func:`yoke_core.hooks.mode_gate.apply_mode` applies the ``.yoke/lint-config``
+under the hook's target root. The deny message still names the config file
+under the targeted checkout, with the fixed deny value it renders under.
+These tests run the real resolution path (no stubbed mode).
 """
 
 from __future__ import annotations
 
+import dataclasses
 import pathlib
 import shutil
 import subprocess
@@ -23,7 +19,10 @@ from unittest import mock
 
 from yoke_core.domain import lint_config
 from yoke_core.domain import lint_destructive_git as ldg
+from yoke_core.hooks import mode_gate
+from yoke_core.hooks.types import Outcome
 
+MODULE_ID = "yoke_core.domain.lint_destructive_git"
 GUARD_LINE_DENY = "lint_destructive_git=deny\n"
 GUARD_LINE_WARN = "lint_destructive_git=warn # allow-warn\n"
 
@@ -69,40 +68,37 @@ class ConfigResolutionTest(unittest.TestCase):
         (pathlib.Path(root) / "junk.tmp").write_text("x")
         return root
 
-    def _evaluate_clean(self, repo: str):
-        return ldg.evaluate_payload(_payload(f"git -C {repo} clean -f"))
+    def _gated_clean(self, repo: str):
+        context = dataclasses.replace(
+            ldg._build_context_from_payload(_payload(f"git -C {repo} clean -f")),
+            target_root=repo,
+        )
+        decision = ldg.evaluate(context)
+        self.assertIs(decision.outcome, Outcome.DENY)
+        return mode_gate.apply_mode(decision, MODULE_ID, context=context)
 
-    def test_mode_comes_from_the_targeted_checkout(self):
-        """A checkout whose config says warn is not judged by another's deny."""
-        warn_repo = self._repo(GUARD_LINE_WARN)
-        result = self._evaluate_clean(warn_repo)
-        self.assertIsNotNone(result, "clean -f with untracked state should trip")
-        self.assertEqual(result[0], "warn")
+    def test_deny_config_keeps_the_block(self):
+        gated = self._gated_clean(self._repo(GUARD_LINE_DENY))
+        self.assertIs(gated.outcome, Outcome.DENY)
+        self.assertTrue(gated.block)
+        self.assertEqual(gated.audit_fields["policy_mode"], "deny")
 
-    def test_deny_checkout_still_denies(self):
-        deny_repo = self._repo(GUARD_LINE_DENY)
-        result = self._evaluate_clean(deny_repo)
-        self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-
-    def test_two_checkouts_resolve_independently(self):
-        """The guard reads each target's own config, not one shared root."""
-        warn_repo = self._repo(GUARD_LINE_WARN)
-        deny_repo = self._repo(GUARD_LINE_DENY)
-        self.assertEqual(self._evaluate_clean(warn_repo)[0], "warn")
-        self.assertEqual(self._evaluate_clean(deny_repo)[0], "deny")
+    def test_warn_config_downgrades_the_block(self):
+        gated = self._gated_clean(self._repo(GUARD_LINE_WARN))
+        self.assertIs(gated.outcome, Outcome.WARN)
+        self.assertFalse(gated.block)
+        self.assertEqual(gated.audit_fields["policy_mode"], "warn")
 
     def test_narrative_names_the_resolved_config_file(self):
         deny_repo = self._repo(GUARD_LINE_DENY)
-        reason = self._evaluate_clean(deny_repo)[1]
+        reason = ldg.evaluate_payload(_payload(f"git -C {deny_repo} clean -f"))[0]
         expected = str(pathlib.Path(deny_repo) / ".yoke" / "lint-config")
         self.assertIn(expected, reason)
         self.assertIn("lint_destructive_git=deny", reason)
 
-    def test_narrative_still_reports_threatened_state(self):
-        """The provenance line supplements the existing narrative, not replaces it."""
+    def test_narrative_reports_threatened_state(self):
         deny_repo = self._repo(GUARD_LINE_DENY)
-        reason = self._evaluate_clean(deny_repo)[1]
+        reason = ldg.evaluate_payload(_payload(f"git -C {deny_repo} clean -f"))[0]
         self.assertIn("junk.tmp", reason)
         self.assertIn("Remediation:", reason)
 

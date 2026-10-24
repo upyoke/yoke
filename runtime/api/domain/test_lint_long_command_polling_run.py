@@ -3,8 +3,8 @@
 Split out of ``test_lint_long_command_polling.py`` to keep authored files
 under the 350-line limit. ``evaluate(record)`` lives on the entry-point
 module (``lint``); the verdict logic it delegates to lives on the
-evaluate sibling (``lint_eval``). Patches that target ``_read_lint_mode``
-or any helper invoked inside ``evaluate_payload``
+evaluate sibling (``lint_eval``). Patches that target any helper invoked
+inside ``evaluate_payload``
 (``_db_available``,
 ``_recent_bash_commands``) must hit the evaluate sibling because that is
 where the function lookup happens at call time.
@@ -12,8 +12,8 @@ where the function lookup happens at call time.
 Per the epic the legacy stdin-driven ``run(stdin_data: str)``
 shape is gone; tests construct a :class:`HookContext` and assert against
 the typed :class:`HookDecision` instead. The decision's ``audit_fields``
-carry the audit outcome the hook runner records (warn-mode rows and
-``suppression_attempted`` stamping).
+carry the audit outcome the hook runner records (``denied`` or
+``suppression_attempted``).
 """
 
 from __future__ import annotations
@@ -67,22 +67,9 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
 
-    def test_warn_mode_returns_warn_decision_that_records_a_warn_row(self) -> None:
+    def test_hit_returns_deny_decision_with_envelope(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="warn"):
-            decision = lint.evaluate(_record_for(payload))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(decision.audit_fields.get("mode"), "warn")
-        self.assertIn("sleep", decision.audit_fields["reason"].lower())
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-
-    def test_deny_mode_returns_deny_decision_with_envelope(self) -> None:
-        payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(payload))
+        decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -95,7 +82,7 @@ class TestEvaluate(unittest.TestCase):
             "sleep",
             parsed["hookSpecificOutput"]["permissionDecisionReason"].lower(),
         )
-        self.assertEqual(decision.audit_fields.get("mode"), "deny")
+        self.assertNotIn("mode", decision.audit_fields)
         self.assertEqual(decision.audit_fields.get("tool_name"), "Bash")
         self.assertEqual(
             decision.audit_fields["reason"],
@@ -105,8 +92,7 @@ class TestEvaluate(unittest.TestCase):
 
     def test_schedule_wakeup_payload_allowed(self) -> None:
         payload = _non_bash_payload("ScheduleWakeup", turn_id="turn-9")
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(payload))
+        decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
         self.assertEqual(guard_audit_outcome(decision), "")
@@ -117,23 +103,21 @@ class TestEvaluate(unittest.TestCase):
             tool_input={"task_id": "bg-123"},
             turn_id="turn-5",
         )
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(payload))
+        decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
         self.assertEqual(guard_audit_outcome(decision), "")
 
 
 class TestSuppressedDenyPath(unittest.TestCase):
-    """Suppression token short-circuits the check even under deny mode."""
+    """Suppression token short-circuits the short-sleep and peek checks."""
 
     def test_suppression_under_deny_returns_noop(self) -> None:
         payload = _bash_payload(
             "tail -80 /tmp/foo.out  # lint:no-polling-check",
             turn_id="turn-1",
         )
-        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(payload))
+        decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
 

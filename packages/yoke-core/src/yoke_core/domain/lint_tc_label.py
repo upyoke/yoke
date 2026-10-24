@@ -186,17 +186,8 @@ def _extract_tool_input(payload: dict) -> dict:
     return {}
 
 
-def _tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str):
-            return value
-    return ""
-
-
-def evaluate_payload(payload: dict) -> Optional[str]:
-    """Apply the rules, returning a denial reason or None."""
-    tool_name = _tool_name(payload)
+def evaluate_payload(payload: dict, tool_name: Optional[str]) -> Optional[str]:
+    """Apply the rules for ``tool_name``, returning a denial reason or None."""
     tool_input = _extract_tool_input(payload)
 
     if tool_name == "Bash":
@@ -243,7 +234,7 @@ def evaluate_payload(payload: dict) -> Optional[str]:
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: evaluate Bash/Write payload for TC-label or numeric-HC violations."""
     payload = record.payload if isinstance(record.payload, dict) else {}
-    reason = evaluate_payload(payload)
+    reason = evaluate_payload(payload, record.tool_name)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-tc-label")
@@ -259,12 +250,13 @@ def evaluate(record: HookContext) -> HookDecision:
 def _build_context_from_payload(payload: dict) -> HookContext:
     """Build a minimal :class:`HookContext` for the legacy stdin entry."""
     cwd, sid = payload.get("cwd"), payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,

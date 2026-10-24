@@ -112,16 +112,16 @@ def main():
             )
 
         harmless, controlled = evaluate(search), evaluate(raw)
-        if harmless is not None or controlled is None or controlled[0] != "deny":
+        if harmless is not None or controlled is None or controlled[1] != "denied":
             raise SystemExit(
-                "raw_pytest_acceptance_failed: inspect candidate guard and project lint mode"
+                "raw_pytest_acceptance_failed: inspect candidate guard"
             )
         print(
             json.dumps(
                 {
                     "guard_module": candidate.__file__,
                     "search": "silent",
-                    "raw_tests": controlled[2],
+                    "raw_tests": controlled[1],
                     "tests_executed": False,
                 }
             )

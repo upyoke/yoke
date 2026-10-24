@@ -28,23 +28,6 @@ SUPPRESSION_TOKEN = "# lint:no-watcher-module-form-check"
 _PYTHON_NAMES = {"python", "python3"}
 
 
-def _extract_tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_watcher_module_form",
-        payload,
-    )
-
-
 def _legacy_forms(command: str) -> tuple[tuple[str, str], ...]:
     try:
         tokens = shlex.split(command, posix=True)
@@ -68,7 +51,6 @@ def _legacy_forms(command: str) -> tuple[tuple[str, str], ...]:
 def _format_reason(
     forms: tuple[tuple[str, str], ...],
     suppression_seen: bool,
-    mode: str,
 ) -> str:
     old = ", ".join(module for module, _ in forms)
     replacements = "\n".join(
@@ -79,9 +61,7 @@ def _format_reason(
         f"Found: {old}\n\n"
         f"Use the first-class yoke CLI adapter:\n{replacements}"
     )
-    if mode == "warn":
-        body += "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence but does NOT unblock this rule."
@@ -89,55 +69,47 @@ def _format_reason(
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for a legacy watcher form, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     forms = _legacy_forms(command)
     if not forms:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
-    mode = _read_mode(payload)
-    reason = _format_reason(forms, suppression_seen, mode)
-    outcome = (
-        "suppression_attempted"
-        if suppression_seen
-        else ("denied" if mode == "deny" else "warned")
-    )
-    return mode, reason, outcome
+    reason = _format_reason(forms, suppression_seen)
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     command = _extract_command(payload)
     cwd = payload.get("cwd")
     session_id = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=command or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

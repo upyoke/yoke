@@ -152,7 +152,7 @@ class TestApplyPatchGuidance:
     def test_apply_patch_denial_does_not_recommend_the_escape_token(self):
         text = format_denial(
             item_label="item", lane_path="/lane", attempted_path="/root/a.py",
-            lane_equivalent="/lane/a.py", mode="deny",
+            lane_equivalent="/lane/a.py",
             suppression_seen=False, tool_name="apply_patch",
         )
         assert f"add `{ESCAPE_TOKEN}`" not in text
@@ -162,7 +162,7 @@ class TestApplyPatchGuidance:
     def test_other_tools_keep_the_escape_recipe(self):
         text = format_denial(
             item_label="item", lane_path="/lane", attempted_path="/root/a.py",
-            lane_equivalent="/lane/a.py", mode="deny",
+            lane_equivalent="/lane/a.py",
             suppression_seen=False, tool_name="Write",
         )
         assert f"add `{ESCAPE_TOKEN}`" in text

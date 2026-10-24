@@ -190,7 +190,6 @@ class TestProjectAgnosticMessages:
             lane_path=supplied[1],
             attempted_path=supplied[0],
             lane_equivalent=supplied[2],
-            mode="deny",
             suppression_seen=False,
             derivation=TargetDerivation(
                 source=COMMAND_TOKEN,
@@ -218,7 +217,6 @@ class TestProjectAgnosticMessages:
             lane_path=supplied[1],
             attempted_path=supplied[3],
             lane_equivalent=supplied[1],
-            mode="deny",
             suppression_seen=False,
             derivation=TargetDerivation(
                 source=WORKING_DIRECTORY,

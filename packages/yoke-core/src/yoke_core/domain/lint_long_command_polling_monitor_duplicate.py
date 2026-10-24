@@ -6,10 +6,9 @@ its DB-touching helper (``_captures_targeted_in_session``). Lives in a
 dedicated module so the main evaluate file stays under the 350-line
 authored-file cap.
 
-The entry point :func:`evaluate_duplicate_monitor` is mode-pinned
-(``lint_polling_mode`` ``warn`` records audit only; ``deny`` blocks),
+The entry point :func:`evaluate_duplicate_monitor` always denies,
 honours the ``# lint:no-monitor-duplicate-check`` suppression token
-ONLY as audit evidence (the rule still denies in ``deny`` mode), and
+ONLY as audit evidence (the rule still denies), and
 is re-exported from ``yoke_core.domain.lint_long_command_polling`` so
 external callers can import it from that entry-point path.
 
@@ -44,7 +43,6 @@ from typing import Optional, Sequence
 from yoke_contracts.harness_wake_capability import wake_capability_for_mechanism
 from yoke_contracts.hook_runner.client_facts import capture_roots
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
     RECENT_EVENT_LOOKBACK_SECONDS,
 )
@@ -55,7 +53,6 @@ from yoke_core.domain.lint_long_command_polling_decide import (
 from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_command,
     _extract_monitor_capture_file,
-    _extract_tool_name,
     _has_monitor_duplicate_suppression,
 )
 
@@ -151,22 +148,19 @@ def _live_window_seconds(tool_name: str) -> int:
 
 def evaluate_duplicate_monitor(
     payload: dict,
-) -> Optional[tuple[str, str, dict]]:
-    """Verdict for the duplicate-Monitor PreToolUse rule.
+) -> Optional[tuple[str, dict]]:
+    """Verdict for the duplicate-Monitor PreToolUse rule on a Monitor call.
 
-    Returns ``(mode, reason, context)`` when the candidate ``Monitor``
+    Returns ``(reason, context)`` when the candidate ``Monitor``
     invocation targets a capture file that already has an armed Monitor
-    in the same session, or ``None`` when the rule does not fire.
+    in the same session, or ``None`` when the rule does not fire. The
+    caller dispatches only Monitor calls here.
 
-    Mode-pinned by ``lint_polling_mode`` (``warn`` records audit only;
-    ``deny`` blocks). The ``# lint:no-monitor-duplicate-check`` token
-    is honoured ONLY as audit evidence: when detected, the context's
-    ``outcome`` becomes ``suppression_attempted`` but the verdict still
-    fires.
+    The ``# lint:no-monitor-duplicate-check`` token is honoured ONLY as
+    audit evidence: when detected, the context's ``outcome`` becomes
+    ``suppression_attempted`` but the verdict still fires.
     """
-    tool_name = _extract_tool_name(payload)
-    if tool_name != "Monitor":
-        return None
+    tool_name = "Monitor"
     command = _extract_command(payload)
     if not command:
         return None
@@ -187,7 +181,6 @@ def evaluate_duplicate_monitor(
             break
     if not prior_tool_use_id:
         return None
-    mode = _read_lint_mode(payload)
     suppressed_attempt = _has_monitor_duplicate_suppression(command)
     ctx = _build_context(tool_name, command, candidate_capture)
     ctx["outcome"] = "suppression_attempted" if suppressed_attempt else "denied"
@@ -195,6 +188,5 @@ def evaluate_duplicate_monitor(
         candidate_capture,
         prior_tool_use_id,
         suppressed_attempt,
-        mode,
     )
-    return (mode, reason, ctx)
+    return reason, ctx

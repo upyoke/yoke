@@ -93,7 +93,6 @@ def emit_denied(
     lane_path: str,
     lane_equivalent: str,
     item_id: int,
-    mode: str,
     suppression_attempted: bool,
     derivation: Optional[TargetDerivation] = None,
 ) -> None:
@@ -107,7 +106,6 @@ def emit_denied(
             "lane_path": lane_path,
             "lane_equivalent": lane_equivalent,
             "item_id": int(item_id),
-            "mode": mode,
             "failure_class": "lane_main_write",
             **_derivation_context(derivation),
         },

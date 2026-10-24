@@ -7,8 +7,8 @@ Cover the four canonical shapes:
 - `-m` AFTER `--`            -> denied
 - `--message` AFTER `--`     -> denied (the YOK-1784 forensic shape)
 
-Plus the suppression-token audit-only and warn-mode contracts that mirror
-the destructive-git lint family.
+Plus the suppression-token audit-only contract that mirrors the
+destructive-git lint family. Warn mode is applied centrally by the mode gate.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_git_stash_arg_order as lsao
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -40,9 +39,8 @@ def _record_for(payload: dict) -> "lsao.HookContext":
     return lsao._build_context_from_payload(payload)
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lsao, "_read_mode", return_value=mode):
-        return lsao.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lsao.evaluate_payload(_payload(command))
 
 
 class TestIsStashPush(unittest.TestCase):
@@ -156,8 +154,7 @@ class TestEvaluatePayloadDenied(unittest.TestCase):
     def test_AC2_short_flag_after_dashdash_denies(self):
         result = _eval('git stash push -u -- a.txt b.txt -m "reason"')
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("`-m`", reason)
         self.assertIn("BEFORE `--`", reason)
@@ -171,8 +168,7 @@ class TestEvaluatePayloadDenied(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("--message", reason)
         # Safe shape suggestion must include the canonical reordering.
@@ -181,26 +177,26 @@ class TestEvaluatePayloadDenied(unittest.TestCase):
     def test_AC2_long_flag_equals_form_after_dashdash_denies(self):
         result = _eval("git stash push -u -- a.txt --message=reason")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertIn("--message=", result[1])
+        self.assertEqual(result[1], "denied")
+        self.assertIn("--message=", result[0])
 
     def test_AC2_bare_stash_with_misordered_message_denies(self):
         # `git stash` defaults to push; misorder applies the same way.
         result = _eval('git stash -- a.txt -m "reason"')
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_AC2_chained_invocations_inspected(self):
         cmd = 'git status && git stash push -u -- a.txt -m "reason"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_newline_separated_invocations_inspected(self):
         cmd = 'echo prep\ngit stash push -u -- a.txt -m "reason"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
 
 class TestSuppressionTokenAudit(unittest.TestCase):
@@ -210,39 +206,24 @@ class TestSuppressionTokenAudit(unittest.TestCase):
         cmd = 'git stash push -u -- a.txt -m "reason"  # lint:no-stash-arg-order-check'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
-        self.assertEqual(mode, "deny")
         self.assertIn("does NOT unblock", reason)
 
     def test_AC7_evaluate_still_denies_with_attempted_outcome(self):
         cmd = 'git stash push -u -- a.txt -m "reason"  # lint:no-stash-arg-order-check'
-        with mock.patch.object(lsao, "_read_mode", return_value="deny"):
-            decision = lsao.evaluate(_record_for(_payload(cmd)))
+        decision = lsao.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIn("does NOT unblock", decision.audit_fields["reason"])
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
 
-class TestModePin(unittest.TestCase):
-    def test_AC9_warn_mode_returns_warn_no_deny_envelope(self):
-        with mock.patch.object(lsao, "_read_mode", return_value="warn"):
-            decision = lsao.evaluate(
-                _record_for(_payload('git stash push -u -- a.txt -m "reason"'))
-            )
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertTrue(decision.audit_fields["reason"])
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-
-    def test_AC9_deny_mode_emits_envelope(self):
-        with mock.patch.object(lsao, "_read_mode", return_value="deny"):
-            decision = lsao.evaluate(
-                _record_for(_payload('git stash push -u -- a.txt -m "reason"'))
-            )
+class TestDenyDecision(unittest.TestCase):
+    def test_AC9_deny_emits_envelope(self):
+        decision = lsao.evaluate(
+            _record_for(_payload('git stash push -u -- a.txt -m "reason"'))
+        )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -262,13 +243,15 @@ class TestFailOpen(unittest.TestCase):
         self.assertFalse(decision.block)
 
     def test_non_bash_tool_no_deny(self):
-        result = lsao.evaluate_payload(
-            {
-                "tool_name": "Read",
-                "tool_input": {"command": "git stash push -- a.txt -m x"},
-            }
+        decision = lsao.evaluate(
+            _record_for(
+                {
+                    "tool_name": "Read",
+                    "tool_input": {"command": "git stash push -- a.txt -m x"},
+                }
+            )
         )
-        self.assertIsNone(result)
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_empty_command_no_deny(self):
         self.assertIsNone(_eval(""))

@@ -6,7 +6,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
@@ -27,30 +26,28 @@ def _payload(command: str, *, tool_name: str = "Monitor") -> dict:
     }
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 class TestWatcherCaptureDetection(unittest.TestCase):
     def test_tail_lowercase_follow_is_denied_with_exact_replacement(self):
         verdict = _eval(f"tail -f {_PROGRESS}")
         assert verdict is not None
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "denied")
         self.assertIn(f"yoke watch tail {_PROGRESS}", reason)
 
     def test_tail_uppercase_follow_on_raw_capture_is_denied(self):
         verdict = _eval(f"/usr/bin/tail -F {_RAW}")
         assert verdict is not None
-        self.assertIn(f"yoke watch tail {_RAW}", verdict[1])
+        self.assertIn(f"yoke watch tail {_RAW}", verdict[0])
 
     def test_quoted_watcher_path_preserves_safe_replacement(self):
         path = "/tmp/yoke scratch/watcher-captures/yoke-merge.progress.nonce.log"
         verdict = _eval(f"tail -f '{path}'")
         assert verdict is not None
-        self.assertIn(f"yoke watch tail '{path}'", verdict[1])
+        self.assertIn(f"yoke watch tail '{path}'", verdict[0])
 
     def test_non_watcher_log_is_untouched(self):
         self.assertIsNone(_eval("tail -f /var/log/example.log"))
@@ -62,29 +59,21 @@ class TestWatcherCaptureDetection(unittest.TestCase):
         self.assertIsNone(_eval(f"tail -f {_PROGRESS} | grep FAILED"))
 
     def test_non_monitor_tool_is_untouched(self):
-        self.assertIsNone(
-            lint.evaluate_payload(_payload(f"tail -f {_PROGRESS}", tool_name="Bash"))
-        )
+        payload = _payload(f"tail -f {_PROGRESS}", tool_name="Bash")
+        decision = lint.evaluate(lint._context(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
-class TestModesSuppressionAndEnvelope(unittest.TestCase):
-    def test_warn_mode_is_advisory(self):
-        verdict = _eval(f"tail -f {_PROGRESS}", mode="warn")
-        assert verdict is not None
-        self.assertEqual(verdict[0], "warn")
-        self.assertEqual(verdict[2], "warned")
-        self.assertIn("would block", verdict[1])
-
+class TestSuppressionAndEnvelope(unittest.TestCase):
     def test_suppression_is_audited_but_does_not_unblock(self):
         verdict = _eval(f"tail -f {_PROGRESS} {lint.SUPPRESSION_TOKEN}")
         assert verdict is not None
-        self.assertEqual(verdict[2], "suppression_attempted")
-        self.assertIn("does NOT unblock", verdict[1])
+        self.assertEqual(verdict[1], "suppression_attempted")
+        self.assertIn("does NOT unblock", verdict[0])
 
     def test_deny_decision_has_permission_envelope(self):
         payload = _payload(f"tail -f {_PROGRESS}")
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(lint._context(payload))
+        decision = lint.evaluate(lint._context(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(render_codex_decision([decision], "PreToolUse")[0])
@@ -92,20 +81,10 @@ class TestModesSuppressionAndEnvelope(unittest.TestCase):
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertIn("yoke watch tail", decision.audit_fields["reason"])
 
-    def test_warn_decision_records_warn_audit_row(self):
-        payload = _payload(f"tail -f {_PROGRESS}")
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(lint._context(payload))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
-
-    def test_suppressed_warn_decision_records_suppression_attempt(self):
+    def test_suppressed_decision_still_denies_and_records_attempt(self):
         payload = _payload(f"tail -f {_PROGRESS} {lint.SUPPRESSION_TOKEN}")
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(lint._context(payload))
-        self.assertFalse(decision.block)
+        decision = lint.evaluate(lint._context(payload))
+        self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
 

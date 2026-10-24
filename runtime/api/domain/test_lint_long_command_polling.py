@@ -4,15 +4,12 @@ The original module covered every flavor of the long-command polling lint. It
 is now split across siblings so each authored file stays under the 350-line
 limit. ``evaluate_payload`` cases live in ``test_lint_long_command_polling_evaluate``,
 and ``run`` cases live in ``test_lint_long_command_polling_run``. This file
-covers the smaller helper extraction, mode-config, recent-command lookup,
-client capture-state signal, and session-scoping checks.
+covers the smaller helper extraction, recent-command lookup, client
+capture-state signal, and session-scoping checks.
 
 Most extract/lookup helpers live on the evaluate sibling
 (``lint_long_command_polling_evaluate``) — the alias ``lint_eval`` points
-there. The machine-config reader lives on the config sibling
-(``lint_long_command_polling_config``) — the alias ``lint_config`` points
-there. The entry-point module re-exports both for the FR-5 contract; the
-alias ``lint_entry`` points to the entry-point.
+there.
 """
 
 from __future__ import annotations
@@ -27,7 +24,6 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
-from yoke_core.domain import lint_long_command_polling as lint_entry
 from yoke_core.domain import (
     lint_long_command_polling_evaluate as lint_eval,
 )
@@ -108,21 +104,6 @@ class TestExtractHelpers(unittest.TestCase):
             lint_eval._has_suppression("tail /tmp/x  # lint:no-polling-check")
         )
         self.assertFalse(lint_eval._has_suppression("tail /tmp/x"))
-
-
-class TestLintModeConfig(unittest.TestCase):
-    def test_read_lint_mode_delegates_to_registry(self) -> None:
-        # Mode now resolves through the single lint_config registry; per-key /
-        # per-value parsing + the protected clamp are covered by test_lint_config.
-        from yoke_core.domain import lint_config as registry
-
-        with mock.patch.object(
-            registry,
-            "resolve_mode_for_payload",
-            return_value="warn",
-        ) as m:
-            self.assertEqual(lint_entry._read_lint_mode(), "warn")
-        m.assert_called_once_with("lint_long_command_polling", None)
 
 
 class TestRecentCommandLookup(unittest.TestCase):

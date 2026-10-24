@@ -26,7 +26,6 @@ def format_reason(
     watcher: Optional[str],
     run_in_background: bool,
     suppressed: bool,
-    mode: str,
 ) -> str:
     """Render the plain operator-facing deny reason.
 
@@ -34,7 +33,6 @@ def format_reason(
     explain what fired, the architectural reason, the canonical
     workaround, and the suppression-token semantics.
     """
-    verb = "DENIED" if mode == "deny" else "SUBAGENT BACKGROUND PATTERN"
     if tool_name == "Monitor":
         body = (
             "Monitor is the wake-as-turn primitive — subagent dispatched "
@@ -89,7 +87,7 @@ def format_reason(
         "workaround. See `runtime/harness/claude/rules/session.md` "
         "`## Long commands and waits` for the full rule."
     )
-    text = f"{verb}: " + body + guidance
+    text = "DENIED: " + body + guidance
     if suppressed:
         text += (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` was detected "

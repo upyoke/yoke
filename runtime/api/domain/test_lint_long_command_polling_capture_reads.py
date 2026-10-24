@@ -15,7 +15,6 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
 @pytest.fixture(autouse=True)
 def capture_history():
     with (
-        mock.patch.object(lint, "_read_lint_mode", return_value="deny"),
         mock.patch.object(lint, "_db_available", return_value=True),
         mock.patch.object(lint, "_recent_bash_commands") as recent,
     ):
@@ -56,8 +55,8 @@ def test_short_sleep_before_registered_capture_read_refuses(
         _bash_payload(f"sleep 2 {separator} tail -80 /tmp/run.log")
     )
     assert result is not None
-    assert result[0] == "deny"
-    assert result[2]["capture_file"] == "/tmp/run.log"
+    assert result[0].startswith("DENIED")
+    assert result[1]["capture_file"] == "/tmp/run.log"
 
 
 @pytest.mark.parametrize(

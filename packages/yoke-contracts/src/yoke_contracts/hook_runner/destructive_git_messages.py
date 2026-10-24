@@ -96,9 +96,7 @@ def _threat_block(shape: str, threatened: list[str]) -> str:
     return f"{heading}:\n  {listed}"
 
 
-def _suffix(suppression_seen: bool, mode: str) -> str:
-    if mode == "warn":
-        return "\n\n[mode=warn] this hook would block in deny mode."
+def _suffix(suppression_seen: bool) -> str:
     if suppression_seen:
         return (
             f"\n\nThis check cannot be suppressed. Token `{SUPPRESSION_TOKEN}` "
@@ -112,12 +110,11 @@ def format_reason(
     shape: str,
     threatened: list[str],
     suppression_seen: bool,
-    mode: str,
     config_note: str = "",
 ) -> str:
-    """Render the full denial/warn narrative for a refused git shape.
+    """Render the full denial narrative for a refused git shape.
 
-    ``config_note`` names the config file that decided ``mode``; it is
+    ``config_note`` names the config file that decided the mode; it is
     rendered on its own line so an operator who edited a different copy of
     ``.yoke/lint-config`` sees immediately which one was actually read.
     """
@@ -128,7 +125,7 @@ def format_reason(
         f"Shape: {label}\n{_threat_block(shape, threatened)}\n\n"
         f"Remediation: {remediation}\n"
         f"Doctrine: `.yoke/docs/agents/rules/lanes-and-claims.md` → Destructive operation discipline"
-        f"{config_line}{_suffix(suppression_seen, mode)}",
+        f"{config_line}{_suffix(suppression_seen)}",
         check_id=RULE_ID,
     )
 
@@ -137,10 +134,9 @@ def format_recursive_rm_reason(
     shape: str,
     targets: list[str],
     suppression_seen: bool,
-    mode: str,
     config_note: str = "",
 ) -> str:
-    """Render the denial/warn narrative for a refused recursive ``rm``."""
+    """Render the denial narrative for a refused recursive ``rm``."""
     label, remediation = RM_SHAPES.get(shape, (shape, DEFAULT_REMEDIATION))
     listed = "\n  ".join(targets[:10])
     config_line = f"\n{config_note}" if config_note else ""
@@ -149,6 +145,6 @@ def format_recursive_rm_reason(
         f"create.\n\nShape: {label}\nTargets:\n  {listed}\n\n"
         f"Remediation: {remediation}\n"
         "Doctrine: `.yoke/docs/agents/rules/shell-and-cli.md` → Shell calls and path authority"
-        f"{config_line}{_suffix(suppression_seen, mode)}",
+        f"{config_line}{_suffix(suppression_seen)}",
         check_id=RULE_ID,
     )

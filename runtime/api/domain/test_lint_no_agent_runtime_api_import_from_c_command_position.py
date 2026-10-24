@@ -9,8 +9,6 @@ still refused.
 
 from __future__ import annotations
 
-from unittest import mock
-
 import pytest
 
 from yoke_core.domain import lint_no_agent_runtime_api_import_from_c as lint
@@ -20,8 +18,7 @@ REACH_IN = 'python3 -c "from yoke_core.domain.events import emit"'
 
 def _eval(command: str):
     payload = {"tool_name": "Bash", "tool_input": {"command": command}}
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        return lint.evaluate_payload(payload)
+    return lint.evaluate_payload(payload)
 
 
 def test_heredoc_prose_fed_to_a_yoke_command_is_data() -> None:
@@ -60,4 +57,4 @@ def test_echoed_one_liner_names_no_interpreter() -> None:
 def test_command_position_reach_in_is_still_refused(command: str) -> None:
     verdict = _eval(command)
     assert verdict is not None
-    assert "from yoke_core.domain.events import emit" in verdict[1]
+    assert "from yoke_core.domain.events import emit" in verdict[0]

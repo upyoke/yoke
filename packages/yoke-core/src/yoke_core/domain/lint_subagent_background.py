@@ -44,14 +44,9 @@ the deny path: each Bash-capable subagent's rendered adapter exports
 ``YOKE_HOOK_AGENT_TYPE=<role>`` on its hook command lines (composed by
 ``yoke_core.domain.agents_render_subagent_hooks``).
 
-Modes (resolved from ``.yoke/lint-config`` via
-``yoke_core.domain.lint_config``; an unconfigured guard resolves to
-``deny``):
-
-- ``warn``: return a WARN decision the hook runner records as a ``warn``
-  audit row, but do NOT block.
-- ``deny``: block via ``hookSpecificOutput``; the hook runner records the
-  denial.
+On a hit the guard always returns a blocking deny; the hook runner's mode
+gate applies ``.yoke/lint-config`` key ``lint_subagent_background``
+(registry default ``deny``) and downgrades to a ``warn`` row in warn mode.
 
 Suppression: ``# lint:no-subagent-background-check`` on the Bash command
 body or in the ``reason`` of a ``ScheduleWakeup`` payload. The token is
@@ -72,9 +67,7 @@ from typing import Optional
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_subagent_background_constants import (
     AGENT_TYPE_ENV_VAR,
-    DEFAULT_MODE,
     SUPPRESSION_TOKEN,
-    VALID_MODES,
     WAKE_LOSS_TOOLS,
     WATCHER_MODULE_NAMES,
 )
@@ -106,25 +99,11 @@ def _has_real_backgrounding_amp(command: str) -> bool:
 # regardless of which sibling defined them (matches polling-lint pattern).
 __all__ = [
     "AGENT_TYPE_ENV_VAR",
-    "DEFAULT_MODE",
     "SUPPRESSION_TOKEN",
-    "VALID_MODES",
     "evaluate",
     "evaluate_payload",
     "main",
 ]
-
-
-def _read_lint_mode(payload: object | None = None) -> str:
-    """Resolve enforcement mode from the single lint_config registry.
-
-    Sourced from ``.yoke/lint-config`` via ``lint_config``.
-    """
-    try:
-        from yoke_core.domain import lint_config
-    except Exception:
-        return DEFAULT_MODE
-    return lint_config.resolve_mode_for_payload("lint_subagent_background", payload)
 
 
 def _agent_type_from_payload(payload: dict) -> Optional[str]:
@@ -140,11 +119,6 @@ def _detect_agent_type(payload: dict, cli_agent_type: Optional[str]) -> Optional
     if cli_agent_type and cli_agent_type.strip():
         return cli_agent_type.strip()
     return _agent_type_from_payload(payload)
-
-
-def _extract_tool_name(payload: dict) -> str:
-    name = payload.get("tool_name")
-    return name if isinstance(name, str) else ""
 
 
 def _extract_run_in_background(payload: dict) -> bool:
@@ -183,11 +157,13 @@ def evaluate_payload(
     payload: dict,
     *,
     agent_type: Optional[str] = None,
-) -> Optional[tuple[str, str, str, str]]:
-    """Return ``(mode, reason, tool_name, outcome)`` when the rule fires.
+    tool_name: Optional[str] = None,
+) -> Optional[tuple[str, str, str]]:
+    """Return ``(reason, tool_name, outcome)`` when the rule fires.
 
-    Returns ``None`` for the fail-open path: not in subagent context, or
-    no protected surface invoked.
+    *tool_name* is the runner's tool name; ``None`` reads the payload's
+    ``tool_name``. Returns ``None`` for the fail-open path: not in subagent
+    context, or no protected surface invoked.
     """
     if not isinstance(payload, dict):
         return None
@@ -195,7 +171,9 @@ def evaluate_payload(
     if not detected:
         return None
 
-    tool_name = _extract_tool_name(payload)
+    if tool_name is None:
+        raw_tool = payload.get("tool_name")
+        tool_name = raw_tool if isinstance(raw_tool, str) else ""
     command = _extract_command(payload)
     run_in_background = _extract_run_in_background(payload)
     watcher = _command_invokes_watcher(command) if tool_name == "Bash" else None
@@ -214,7 +192,6 @@ def evaluate_payload(
     if not fires:
         return None
 
-    mode = _read_lint_mode(payload)
     outcome = "suppression_attempted" if suppressed else "denied"
     reason = attach_check_id(
         format_reason(
@@ -223,11 +200,10 @@ def evaluate_payload(
             watcher=watcher,
             run_in_background=run_in_background,
             suppressed=suppressed,
-            mode=mode,
         ),
         check_id="lint-subagent-background",
     )
-    return mode, reason, tool_name, outcome
+    return reason, tool_name, outcome
 
 
 def _allow_decision() -> HookDecision:
@@ -237,30 +213,20 @@ def _allow_decision() -> HookDecision:
 def evaluate(record: HookContext) -> HookDecision:
     """Run the lint against a typed :class:`HookContext`."""
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, tool_name=record.tool_name or "")
     if verdict is None:
         return _allow_decision()
-    mode, reason, tool_name, outcome = verdict
-    audit_fields = {
-        "mode": mode,
-        "reason": reason,
-        "tool_name": tool_name,
-        "audit_outcome": outcome,
-    }
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit_fields,
-            block=True,
-            next=Next.STOP,
-        )
+    reason, tool_name, outcome = verdict
     return HookDecision(
-        outcome=Outcome.WARN,
-        message="",
-        audit_fields=audit_fields,
-        block=False,
-        next=Next.CONTINUE,
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={
+            "reason": reason,
+            "tool_name": tool_name,
+            "audit_outcome": outcome,
+        },
+        block=True,
+        next=Next.STOP,
     )
 
 
@@ -303,13 +269,12 @@ def main() -> int:
     verdict = evaluate_payload(payload, agent_type=args.agent_type)
     if verdict is None:
         return 0
-    mode, reason, _tool_name, _outcome = verdict
-    if mode == "deny":
-        print(
-            render_codex_decision(
-                [HookDecision(Outcome.DENY, message=reason, block=True)], "PreToolUse"
-            )[0]
-        )
+    reason, _tool_name, _outcome = verdict
+    print(
+        render_codex_decision(
+            [HookDecision(Outcome.DENY, message=reason, block=True)], "PreToolUse"
+        )[0]
+    )
     return 0
 
 

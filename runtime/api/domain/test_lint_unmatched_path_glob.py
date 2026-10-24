@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -39,20 +38,17 @@ def _eval(
     *,
     cwd: str,
     working_directory: str | None = None,
-    mode: str = "deny",
 ):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(
-            _payload(command, cwd=cwd, working_directory=working_directory),
-        )
+    return lint.evaluate_payload(
+        _payload(command, cwd=cwd, working_directory=working_directory),
+    )
 
 
 def test_unmatched_path_glob_denies_and_names_rg_files(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     result = _eval("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "docs/deploy*" in reason
     assert "rg --files" in reason
@@ -63,7 +59,7 @@ def test_glob_denial_lists_bounded_stem_matches(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "deploy-guide.md").write_text("ok\n", encoding="utf-8")
-    reason = _eval("rg PAT docs/deploy*.py", cwd=str(tmp_path))[1]
+    reason = _eval("rg PAT docs/deploy*.py", cwd=str(tmp_path))[0]
     assert "docs/deploy-guide.md" in reason
     assert "git ls-files" in reason
 
@@ -71,8 +67,8 @@ def test_glob_denial_lists_bounded_stem_matches(tmp_path: Path) -> None:
 def test_ripgrep_replace_flag_refused_with_search_repair(tmp_path: Path) -> None:
     result = _eval("rg -rn PAT docs", cwd=str(tmp_path))
     assert result is not None
-    assert "rg -n PAT docs" in result[1]
-    assert "lint-ripgrep-replace" in result[1]
+    assert "rg -n PAT docs" in result[0]
+    assert "lint-ripgrep-replace" in result[0]
 
 
 def test_field_note_unquoted_test_glob_is_denied(tmp_path: Path) -> None:
@@ -81,7 +77,7 @@ def test_field_note_unquoted_test_glob_is_denied(tmp_path: Path) -> None:
         cwd=str(tmp_path),
     )
     assert result is not None
-    assert "rg --files" in result[1]
+    assert "rg --files" in result[0]
 
 
 def test_quoted_path_glob_is_allowed(tmp_path: Path) -> None:
@@ -104,7 +100,7 @@ def test_unquoted_glob_on_heredoc_opener_line_is_still_denied(
     command = "rg -n PATTERN docs/deploy* <<'EOF'\nbody\nEOF\n"
     result = _eval(command, cwd=str(tmp_path))
     assert result is not None
-    assert "docs/deploy*" in result[1]
+    assert "docs/deploy*" in result[0]
 
 
 def test_matching_path_glob_is_allowed(tmp_path: Path) -> None:
@@ -115,22 +111,20 @@ def test_matching_path_glob_is_allowed(tmp_path: Path) -> None:
 
 
 def test_missing_cwd_does_not_deny() -> None:
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert (
-            lint.evaluate_payload(
-                _payload(
-                    "rg -n PATTERN docs/deploy*",
-                    cwd="",
-                )
+    assert (
+        lint.evaluate_payload(
+            _payload(
+                "rg -n PATTERN docs/deploy*",
+                cwd="",
             )
-            is None
         )
+        is None
+    )
 
 
 def test_evaluate_deny_decision_shape(tmp_path: Path) -> None:
     payload = _payload("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(payload))
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
     assert guard_audit_outcome(decision) == "denied"
@@ -138,20 +132,9 @@ def test_evaluate_deny_decision_shape(tmp_path: Path) -> None:
     assert "rg --files" in decision.audit_fields["reason"]
 
 
-def test_evaluate_warn_mode_records_warn_row(tmp_path: Path) -> None:
-    payload = _payload("rg -n PATTERN docs/deploy*", cwd=str(tmp_path))
-    with mock.patch.object(lint, "_read_mode", return_value="warn"):
-        decision = lint.evaluate(lint._build_context_from_payload(payload))
-    assert decision.outcome is Outcome.WARN
-    assert decision.block is False
-    assert guard_audit_outcome(decision) == "warn"
-    assert decision.audit_fields["mode"] == "warn"
-
-
 def test_evaluate_ripgrep_replace_reports_its_own_check_id(tmp_path: Path) -> None:
     payload = _payload("rg -rn PAT docs", cwd=str(tmp_path))
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(payload))
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
     assert decision.outcome is Outcome.DENY
     assert decision.audit_fields["check_id"] == lint.RIPGREP_REPLACE_CHECK_ID
 
@@ -191,7 +174,7 @@ def test_denial_names_the_execution_tree_when_it_differs_from_payload_cwd(
         working_directory=str(execution),
     )
     assert result is not None
-    reason = result[1]
+    reason = result[0]
     assert "docs/deploy*" in reason
     assert str(execution) in reason
     assert "Checked tree:" in reason
@@ -224,8 +207,7 @@ def test_glob_guard_uses_command_shell_on_both_hook_paths(
     payload["tool_input"].pop("shell")
     if explicit is not None:
         payload["tool_input"]["shell"] = explicit
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert (lint.evaluate_payload(payload) is not None) is denied
+    assert (lint.evaluate_payload(payload) is not None) is denied
     assert (lint_unmatched_path_glob(payload).outcome == DENY) is denied
 
 
@@ -254,10 +236,9 @@ def test_path_globs_use_the_executing_filesystem(
         token = f"../home/Downloads/{stem}*"
     payload = _payload(f"ls {token}", cwd=str(cwd))
     if hook == "core":
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            result = lint.evaluate_payload(payload)
+        result = lint.evaluate_payload(payload)
         denied = result is not None
-        reason = result[1] if result else ""
+        reason = result[0] if result else ""
     else:
         result = lint_unmatched_path_glob(payload)
         denied = result.outcome == DENY
@@ -303,7 +284,7 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
     monkeypatch.setenv("HOME", str(home))
     cwd = tmp_path / "repository"
     cwd.mkdir()
-    reason = _eval("ls ~/Downloads/Meeting*.pdf", cwd=str(cwd))[1]
+    reason = _eval("ls ~/Downloads/Meeting*.pdf", cwd=str(cwd))[0]
     assert str(notes) in reason
     assert f"'{downloads}'" in reason
     assert "Checked pattern:" in reason
@@ -336,7 +317,7 @@ def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None
             if hook == "core":
                 result = _eval(command, cwd=str(tmp_path))
                 denied = result is not None
-                reason = result[1] if result else ""
+                reason = result[0] if result else ""
             else:
                 verdict = lint_unmatched_path_glob(_payload(command, cwd=str(tmp_path)))
                 denied = verdict.outcome == DENY

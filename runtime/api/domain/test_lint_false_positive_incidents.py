@@ -56,8 +56,7 @@ def _payload(command: str, **extra: object) -> dict:
 def test_narrow_search_and_process_filters_are_not_live_long_commands(
     command: str,
 ) -> None:
-    with mock.patch.object(pipe_guard, "_read_mode", return_value="deny"):
-        assert pipe_guard.evaluate_payload(_payload(command)) is None
+    assert pipe_guard.evaluate_payload(_payload(command)) is None
 
 
 @pytest.mark.parametrize(
@@ -69,8 +68,7 @@ def test_narrow_search_and_process_filters_are_not_live_long_commands(
     ],
 )
 def test_live_long_commands_still_refuse_truncating_pipes(command: str) -> None:
-    with mock.patch.object(pipe_guard, "_read_mode", return_value="deny"):
-        assert pipe_guard.evaluate_payload(_payload(command)) is not None
+    assert pipe_guard.evaluate_payload(_payload(command)) is not None
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -106,7 +104,6 @@ def test_exact_path_restore_names_patch_level_recovery_and_only_target(
 
     command = f"git -C {repo} restore -- generated-a.md generated-b.md"
     with (
-        mock.patch.object(destructive_git, "_read_mode", return_value="deny"),
         mock.patch.object(
             destructive_git, "_claimed_worktree_threats", return_value=[]
         ),
@@ -114,7 +111,7 @@ def test_exact_path_restore_names_patch_level_recovery_and_only_target(
         verdict = destructive_git.evaluate_payload(_payload(command))
 
     assert verdict is not None
-    reason = verdict[1]
+    reason = verdict[0]
     assert "apply_patch" in reason
     assert "git diff -- <path>" in reason
     assert "generated-a.md" in reason and "generated-b.md" in reason
@@ -124,13 +121,15 @@ def test_exact_path_restore_names_patch_level_recovery_and_only_target(
 def test_destructive_git_denial_names_the_config_file(tmp_path: Path) -> None:
     note = f"Policy source: {tmp_path}/.yoke/lint-config (lint_destructive_git=deny)."
     with (
-        mock.patch.object(destructive_git, "_config_note", return_value=note),
-        mock.patch.object(destructive_git, "_read_mode", return_value="deny"),
+        mock.patch.object(
+            destructive_git.lint_config, "describe_config_source", return_value=note
+        ) as describe,
         mock.patch.object(destructive_git, "_check_threat", return_value=["a.txt"]),
     ):
         verdict = destructive_git.evaluate_payload(_payload("git reset --hard"))
     assert verdict is not None
-    assert note in verdict[1]
+    assert note in verdict[0]
+    assert describe.call_args.args == ("lint_destructive_git", "deny")
 
 
 def test_test_fixture_authoring_with_lifecycle_sql_is_allowed() -> None:
@@ -166,8 +165,7 @@ def test_file_backed_inline_lifecycle_mutation_still_blocks() -> None:
     ],
 )
 def test_read_only_import_inspection_probes_are_allowed(command: str) -> None:
-    with mock.patch.object(import_guard, "_read_mode", return_value="deny"):
-        assert import_guard.evaluate_payload(_payload(command)) is None
+    assert import_guard.evaluate_payload(_payload(command)) is None
 
 
 def test_dispatch_import_probe_still_blocks() -> None:
@@ -175,8 +173,7 @@ def test_dispatch_import_probe_still_blocks() -> None:
         'python3 -c "from yoke_core.domain.yoke_function_dispatch import dispatch; '
         'dispatch(request)"'
     )
-    with mock.patch.object(import_guard, "_read_mode", return_value="deny"):
-        assert import_guard.evaluate_payload(_payload(command)) is not None
+    assert import_guard.evaluate_payload(_payload(command)) is not None
 
 
 def test_renderer_denial_names_a_lane_source_command_that_targets_the_worktree() -> (
@@ -191,5 +188,4 @@ def test_renderer_denial_names_a_lane_source_command_that_targets_the_worktree()
 
 def test_explicit_temp_capture_cleanup_is_not_destructive_git() -> None:
     command = "rm -f /tmp/yoke-validation-capture.log"
-    with mock.patch.object(destructive_git, "_read_mode", return_value="deny"):
-        assert destructive_git.evaluate_payload(_payload(command, cwd="/tmp")) is None
+    assert destructive_git.evaluate_payload(_payload(command, cwd="/tmp")) is None

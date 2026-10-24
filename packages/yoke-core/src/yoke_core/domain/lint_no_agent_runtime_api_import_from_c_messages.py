@@ -51,7 +51,6 @@ def format_reason(
     *,
     suppression_token: str,
     suppression_seen: bool,
-    mode: str,
     matched: str = "",
     ordinal: int = 0,
     interpreter: str = "",
@@ -59,9 +58,7 @@ def format_reason(
     body = STANDING_TEXT
     if matched:
         body = attribution(matched, ordinal, interpreter) + body
-    if mode == "warn":
-        body = body + "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body = (
             body + f"\n\nSuppression token `{suppression_token}` is recorded "
             "as audit evidence (outcome=suppression_attempted) but does NOT "

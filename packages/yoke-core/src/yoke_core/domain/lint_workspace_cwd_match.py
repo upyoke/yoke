@@ -11,9 +11,9 @@ Writer-class verbs caught today:
 - ``python3 -m yoke_core.domain.agents_render`` (the renderer CLI itself)
 - ``python3 -m yoke_core.tools.run_tests`` (Yoke's generic test runner)
 
-The mode (``warn`` audits without blocking, ``deny`` denies) is pinned by
-the ``lint_workspace_cwd_match_mode`` key in machine config. Yoke dogfood
-defaults to ``deny``. The suppression token ``# lint:no-workspace-cwd-check``
+The guard always returns a deny; the hook runner's mode gate applies the
+``.yoke/lint-config`` guard key ``lint_workspace_cwd_match`` (``warn``
+downgrades it to an audit-only row). The suppression token ``# lint:no-workspace-cwd-check``
 is declared as ``audit_outcome=suppression_attempted`` for the hook runner's
 audit row and does NOT unblock — symmetric with the path-claim guard's audit-only token shape.
 
@@ -66,21 +66,6 @@ _WRITER_VERBS = (
     ("python", "-m", "yoke_core.tools.run_tests"),
     ("python3", "-m", "yoke_core.tools.run_tests"),
 )
-
-
-def _extract_tool_name(payload: dict) -> str:
-    for k in ("tool_name", "toolName"):
-        v = payload.get(k)
-        if isinstance(v, str) and v:
-            return v
-    return ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    # Single surface: resolve via the lint_config registry (.yoke/lint-config).
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload("lint_workspace_cwd_match", payload)
 
 
 def _strip_env_prefix(tokens: list[str]) -> list[str]:
@@ -141,13 +126,10 @@ def _format_reason(
     cwd: str,
     statement_tokens: list[str],
     suppression_seen: bool,
-    mode: str,
 ) -> str:
     head = " ".join(statement_tokens[:6])
     suffix = ""
-    if mode == "warn":
-        suffix = "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         suffix = (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock — the "
@@ -168,12 +150,9 @@ def _format_reason(
     return attach_check_id(body, check_id="lint-workspace-cwd-match")
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
-    """Apply rules; return ``(mode, reason, outcome)`` when denying/warning."""
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+    """Apply rules; return ``(reason, audit_outcome)`` on a hit, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     # The hook payload names the session; the evaluating process's own
     # environment belongs to whichever machine runs the chain.
@@ -197,47 +176,44 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     for tokens in _statements(command):
         if not _matches_writer_verb(tokens):
             continue
-        mode = _read_mode(payload)
         reason = _format_reason(
             ", ".join(workspaces),
             cwd,
             tokens,
             suppression_seen,
-            mode,
         )
-        outcome = "suppression_attempted" if suppression_seen else "denied"
-        return (mode, reason, outcome)
+        return reason, "suppression_attempted" if suppression_seen else "denied"
     return None
 
 
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Reads active worktree claims through the live authority."""
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd = payload.get("cwd")
     sid = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,

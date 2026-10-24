@@ -88,16 +88,13 @@ class TestMainSessionFailsOpen(unittest.TestCase):
 class TestSubagentContextDenies(unittest.TestCase):
     def setUp(self):
         _subagent(self)
-        self._mode_patch = patch.object(lint, "_read_lint_mode", return_value="deny")
-        self._mode_patch.start()
-        self.addCleanup(self._mode_patch.stop)
 
     def test_denies_monitor_in_subagent_context(self):
         # Subagent attempt to use Monitor is denied.
         verdict = lint.evaluate_payload(_payload("Monitor"))
         self.assertIsNotNone(verdict)
-        mode, reason, tool_name, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, tool_name, outcome = verdict
+        self.assertTrue(reason.startswith("DENIED"))
         self.assertEqual(tool_name, "Monitor")
         self.assertIn("Monitor", reason)
         self.assertEqual(outcome, "denied")
@@ -105,7 +102,7 @@ class TestSubagentContextDenies(unittest.TestCase):
     def test_denies_schedule_wakeup(self):
         verdict = lint.evaluate_payload(_payload("ScheduleWakeup"))
         self.assertIsNotNone(verdict)
-        _, reason, tool_name, _ = verdict
+        reason, tool_name, _ = verdict
         self.assertEqual(tool_name, "ScheduleWakeup")
         self.assertIn("ScheduleWakeup", reason)
 
@@ -114,7 +111,7 @@ class TestSubagentContextDenies(unittest.TestCase):
             _payload("Bash", command="python3 -m foo", run_in_background=True),
         )
         self.assertIsNotNone(verdict)
-        _, reason, tool_name, _ = verdict
+        reason, tool_name, _ = verdict
         self.assertEqual(tool_name, "Bash")
         self.assertIn("run_in_background", reason)
 
@@ -128,7 +125,7 @@ class TestSubagentContextDenies(unittest.TestCase):
             ),
         )
         self.assertIsNotNone(verdict)
-        _, reason, _, _ = verdict
+        reason, _, _ = verdict
         self.assertIn("watch_pytest", reason)
 
     def test_allows_foreground_watcher_wrapper(self):
@@ -178,7 +175,7 @@ class TestSubagentContextDenies(unittest.TestCase):
             ),
         )
         self.assertIsNotNone(verdict)
-        _, reason, _, outcome = verdict
+        reason, _, outcome = verdict
         self.assertEqual(outcome, "suppression_attempted")
         self.assertIn(lint.SUPPRESSION_TOKEN, reason)
 
@@ -192,39 +189,12 @@ class TestSubagentContextDenies(unittest.TestCase):
         self.assertIsNotNone(verdict)
 
 
-class TestWarnMode(unittest.TestCase):
-    def setUp(self):
-        _subagent(self)
-
-    def test_warn_mode_does_not_block(self):
-        with patch.object(lint, "_read_lint_mode", return_value="warn"):
-            ctx = _context(_payload("Monitor"))
-            decision = lint.evaluate(ctx)
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertFalse(decision.block)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertIn("Monitor", decision.audit_fields["reason"])
-
-    def test_warn_mode_suppression_token_records_suppression_attempt(self):
-        payload = _payload(
-            "Bash",
-            command="python3 -m foo " + lint.SUPPRESSION_TOKEN,
-            run_in_background=True,
-        )
-        with patch.object(lint, "_read_lint_mode", return_value="warn"):
-            decision = lint.evaluate(_context(payload))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
-
-
 class TestTypedEvaluate(unittest.TestCase):
     def setUp(self):
         _subagent(self)
 
     def test_deny_decision_carries_plain_reason(self):
-        with patch.object(lint, "_read_lint_mode", return_value="deny"):
-            ctx = _context(_payload("Monitor"))
-            decision = lint.evaluate(ctx)
+        decision = lint.evaluate(_context(_payload("Monitor")))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "denied")
@@ -249,9 +219,8 @@ class TestTypedEvaluate(unittest.TestCase):
         for agent_type, outcome in (("engineer", Outcome.DENY), (None, Outcome.NOOP)):
             _subagent(self, agent_type)
             payload = _payload("Monitor")
-            with patch.object(lint, "_read_lint_mode", return_value="deny"):
-                local = lint.evaluate(_context(dict(payload), remote=False))
-                remote = lint.evaluate(_context(dict(payload), remote=True))
+            local = lint.evaluate(_context(dict(payload), remote=False))
+            remote = lint.evaluate(_context(dict(payload), remote=True))
             self.assertIs(local.outcome, outcome)
             self.assertIs(remote.outcome, outcome)
             self.assertEqual(local.message, remote.message)
@@ -269,14 +238,9 @@ class TestCliMain(unittest.TestCase):
         sys.argv = ["lint_subagent_background"]
         try:
             with patch("sys.stdin", StringIO(json.dumps(payload))):
-                with patch.object(
-                    lint,
-                    "_read_lint_mode",
-                    return_value="deny",
-                ):
-                    buf = StringIO()
-                    with redirect_stdout(buf):
-                        rc = lint.main()
+                buf = StringIO()
+                with redirect_stdout(buf):
+                    rc = lint.main()
         finally:
             sys.argv = argv_backup
         self.assertEqual(rc, 0)

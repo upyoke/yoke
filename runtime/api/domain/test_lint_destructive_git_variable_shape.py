@@ -79,7 +79,6 @@ class TestStashDropVariableShape(unittest.TestCase):
 
     def _eval(self, command: str):
         with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
             mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
         ):
             return ldg.evaluate_payload(_payload(command))
@@ -87,20 +86,19 @@ class TestStashDropVariableShape(unittest.TestCase):
     def test_literal_stash_selector_is_denied(self) -> None:
         result = self._eval(f'git -C {self.repo} stash drop "stash@{{1}}"')
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_loop_variable_stash_drop_is_denied(self) -> None:
         command = f'for n in 1; do git -C {self.repo} stash drop "stash@{{$n}}"; done'
         result = self._eval(command)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        self.assertEqual(result[2], "denied")
+        self.assertEqual(result[1], "denied")
 
     def test_unresolvable_selector_is_denied(self) -> None:
         result = self._eval(f'git -C {self.repo} stash drop "stash@{{$n}}"')
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
-        reason = result[1]
+        self.assertEqual(result[1], "denied")
+        reason = result[0]
         self.assertIn("stash@{0}", reason)
         self.assertIn("stash@{1}", reason)
         self.assertIn("stash@{2}", reason)
@@ -108,7 +106,7 @@ class TestStashDropVariableShape(unittest.TestCase):
     def test_named_selector_is_the_only_listed_target(self) -> None:
         result = self._eval(f'git -C {self.repo} stash drop "stash@{{1}}"')
         self.assertIsNotNone(result)
-        reason = result[1]
+        reason = result[0]
         self.assertIn("stash@{1}", reason)
         self.assertNotIn("stash@{0}", reason)
         self.assertNotIn("stash@{2}", reason)
@@ -116,7 +114,7 @@ class TestStashDropVariableShape(unittest.TestCase):
     def test_stash_refusal_does_not_advise_committing_the_stash(self) -> None:
         result = self._eval(f"git -C {self.repo} stash drop")
         self.assertIsNotNone(result)
-        reason = result[1].lower()
+        reason = result[0].lower()
         self.assertNotIn("stash or commit work", reason)
         self.assertNotIn("stash/commit", reason)
 
@@ -124,8 +122,7 @@ class TestStashDropVariableShape(unittest.TestCase):
         command = f"git -C {self.repo} stash drop  {messages.SUPPRESSION_TOKEN}"
         result = self._eval(command)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
         self.assertIn("cannot be suppressed", reason.lower())
         self.assertIn("does NOT unblock", reason)

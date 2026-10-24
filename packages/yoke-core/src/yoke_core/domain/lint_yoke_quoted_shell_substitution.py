@@ -15,10 +15,7 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_core.domain import shell_expansion_scan
-from yoke_core.domain.lint_shell_backtick_search import (
-    _extract_command,
-    _extract_tool_name,
-)
+from yoke_core.domain.lint_shell_backtick_search import _extract_command
 from yoke_core.domain.lint_yoke_quoted_shell_substitution_messages import (
     SUPPRESSION_TOKEN,
     format_reason,
@@ -29,15 +26,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 _YOKE_CMD_RE = re.compile(
     r"^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(?:\S*/)?yoke(?=\s|$)"
 )
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_yoke_quoted_shell_substitution",
-        payload,
-    )
 
 
 def _yoke_substitution_finding(command: str) -> Optional[Tuple[str, str]]:
@@ -66,11 +54,9 @@ def _yoke_substitution_finding(command: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for substituted yoke text, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not command:
@@ -80,39 +66,37 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return None
     kind, text = finding
     suppression_seen = SUPPRESSION_TOKEN in command
-    mode = _read_mode(payload)
-    reason = format_reason(kind, text, suppression_seen, mode, command=command)
-    outcome = "suppression_attempted" if suppression_seen else "denied"
-    return mode, reason, outcome
+    reason = format_reason(kind, text, suppression_seen, command=command)
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd = payload.get("cwd")
     session_id = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

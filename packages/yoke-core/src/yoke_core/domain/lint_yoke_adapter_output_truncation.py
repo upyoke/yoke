@@ -151,7 +151,6 @@ def truncation_reason(
     label: str,
     truncator: str,
     suppression_seen: bool,
-    mode: str,
     *,
     check_id: str,
     suppression_token: str,
@@ -172,9 +171,7 @@ def truncation_reason(
         '  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; '
         '_rc=$?; tail -80 "$_tmp"'
     )
-    if mode == "warn":
-        body += "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\n\nSuppression token `{suppression_token}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."

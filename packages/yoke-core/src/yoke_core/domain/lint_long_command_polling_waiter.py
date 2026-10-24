@@ -22,10 +22,9 @@ is true on a Bash call):
 4. ``yoke watch tail <tempdir-prefix>/<path>`` (or the module
    fallback) — duplicate follower.
 
-Mode-pinned by ``lint_polling_mode`` (``warn`` records audit only;
-``deny`` blocks). The ``# lint:no-bg-waiter-check`` token is honoured
-ONLY as audit evidence (recorded as ``outcome=suppression_attempted``);
-the rule still denies in ``deny`` mode.
+The ``# lint:no-bg-waiter-check`` token is honoured ONLY as audit
+evidence (recorded as ``outcome=suppression_attempted``); the rule still
+denies.
 
 The verdict only fires when the candidate's target capture matches an
 existing in-session signal — either the most recent kickoff's
@@ -43,7 +42,6 @@ from typing import Optional, Sequence
 
 from yoke_contracts.hook_runner.client_facts import capture_roots
 
-from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
     BG_WAITER_SUPPRESSION_TOKEN,
 )
@@ -52,7 +50,6 @@ from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_background_capture_files,
     _extract_command,
     _extract_tool_input,
-    _extract_tool_name,
     PEEK_VERB_ALT,
     capture_path_group,
 )
@@ -169,9 +166,7 @@ def _format_reason(
     shape: str,
     target_path: str,
     suppressed_attempt: bool,
-    mode: str,
 ) -> str:
-    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
     body = (
         f"Background-waiter Bash invocation: {shape}.\n\n"
         f"Target capture/sentinel: {target_path}\n\n"
@@ -196,28 +191,26 @@ def _format_reason(
     )
     if suppressed_attempt:
         return (
-            f"{verb}: "
+            "DENIED: "
             + body
             + f"\n\nSuppression token `{BG_WAITER_SUPPRESSION_TOKEN}` "
             "was detected on this command and recorded for audit, but it "
             "does NOT unblock this rule."
         )
-    return f"{verb}: " + body
+    return "DENIED: " + body
 
 
 def evaluate_bg_waiter(
     payload: dict,
-) -> Optional[tuple[str, str, dict]]:
-    """Verdict for the bg-waiter PreToolUse rule.
+) -> Optional[tuple[str, dict]]:
+    """Verdict for the bg-waiter PreToolUse rule on a Bash call.
 
-    Returns ``(mode, reason, context)`` when the candidate Bash invocation
+    Returns ``(reason, context)`` when the candidate Bash invocation
     is ``run_in_background=true`` and its body matches a waiter shape
     targeting a capture file or sentinel that is already being watched
-    in this session. Returns ``None`` otherwise.
+    in this session. Returns ``None`` otherwise. The caller dispatches
+    only Bash calls here.
     """
-    tool_name = _extract_tool_name(payload)
-    if tool_name and tool_name != "Bash":
-        return None
     if not _is_run_in_background(payload):
         return None
     command = _extract_command(payload)
@@ -229,10 +222,8 @@ def evaluate_bg_waiter(
         return None
     if target_path not in _existing_capture_files(payload, roots):
         return None
-    mode = _read_lint_mode(payload)
     suppressed_attempt = BG_WAITER_SUPPRESSION_TOKEN in command
-    ctx = _build_context(tool_name or "Bash", command, target_path)
+    ctx = _build_context("Bash", command, target_path)
     ctx["outcome"] = "suppression_attempted" if suppressed_attempt else "denied"
     ctx["waiter_shape"] = shape
-    reason = _format_reason(shape, target_path, suppressed_attempt, mode)
-    return (mode, reason, ctx)
+    return _format_reason(shape, target_path, suppressed_attempt), ctx

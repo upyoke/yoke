@@ -36,7 +36,6 @@ from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
     build_domain_remediation,
     build_payload_remediation,
     is_item_ref_token,
-    resolve_mode as _resolve_mode,
 )
 from yoke_core.domain.lint_shell_quoted_function_payload_skill import (
     lifecycle_transition_note,
@@ -257,7 +256,6 @@ def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Wraps :func:`evaluate_command` + bypass-token audit."""
     payload = record.payload if isinstance(record.payload, dict) else {}
     command = _extract_command(payload)
-    mode = _resolve_mode(payload)
     if _BYPASS_TOKEN in command:
         if evaluate_command(command.replace(_BYPASS_TOKEN, "")):
             return _audit_only(
@@ -277,8 +275,6 @@ def evaluate(record: HookContext) -> HookDecision:
             )
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason = attach_check_id(reason, check_id="lint-shell-quoted-function-payload")
-    if mode == "warn":
-        return _audit_only("warn", reason)
     return HookDecision(
         outcome=Outcome.DENY,
         message=reason,
