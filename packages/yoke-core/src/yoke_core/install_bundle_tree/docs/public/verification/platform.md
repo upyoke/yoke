@@ -115,11 +115,16 @@ GATE_QA_BYPASS_FORBIDDEN. Unset it and satisfy or explicitly waive obligations.
 ## Requirement Materialization
 
 Item requirements are attached by definition/seeded policy before review.
-materialize converges newly added cases and confirms existing rows unchanged;
-a live item row whose case left the plan refuses `qa_plan_rows_orphaned`
-before writing and names the rematerialize that retires it.
-rematerialize refreshes amended rows, retires removed cases, and reports all
-plan_ids reached, including already-answered plans (refresh without new rows).
+At the first transition that needs them, materialize snapshots each attached
+plan once for that item and transition. Later transition and merge gates read
+those rows without re-deriving, inserting or rewriting them, even if cases,
+environment labels or baselines change. A newly attached plan gets its own
+rows. Only an explicit `yoke qa plan rematerialize` applies later plan edits:
+it refreshes amended rows, creates added cases and retires removed cases.
+Refresh preserves operator waivers and clears only waivers with source
+`system`. It reports all plan_ids reached, including already-answered plans
+(refresh without new rows). Run-scoped copies and takeover keep their own
+snapshot behavior.
 A delivery answers a plan only when each current case variant has a run copy
 for the member that passed or was waived; a retracted copy (withdrawn from its
 run, as when the member left it) or a superseded one answers nothing, so a

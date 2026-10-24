@@ -72,7 +72,7 @@ def _materialize_command_plan(conn, *, item_id: int) -> dict:
     )
 
 
-def test_legacy_unbound_rows_are_not_silently_reused() -> None:
+def test_materialization_keeps_legacy_snapshot_without_rederiving_target() -> None:
     with test_database() as conn:
         result = _materialize_command_plan(conn, item_id=821)
         requirement_id = result["created_requirement_ids"][0]
@@ -83,18 +83,15 @@ def test_legacy_unbound_rows_are_not_silently_reused() -> None:
         )
         conn.commit()
 
-        with pytest.raises(
-            QaPlanError,
-            match="legacy QA requirement",
-        ):
-            materialize_for_item(
-                conn,
-                item_id=821,
-                transition_id="implemented",
-            )
+        again = materialize_for_item(
+            conn, item_id=821, transition_id="implemented"
+        )
+        assert again["created_requirement_ids"] == []
+        assert again["existing_requirement_ids"] == [requirement_id]
 
 
-def test_rows_bound_to_another_target_are_not_silently_reused() -> None:
+
+def test_materialization_keeps_snapshot_with_a_different_target() -> None:
     with test_database() as conn:
         result = _materialize_command_plan(conn, item_id=822)
         requirement_id = result["created_requirement_ids"][0]
@@ -118,15 +115,12 @@ def test_rows_bound_to_another_target_are_not_silently_reused() -> None:
         )
         conn.commit()
 
-        with pytest.raises(
-            QaPlanError,
-            match="different execution target",
-        ):
-            materialize_for_item(
-                conn,
-                item_id=822,
-                transition_id="implemented",
-            )
+        again = materialize_for_item(
+            conn, item_id=822, transition_id="implemented"
+        )
+        assert again["created_requirement_ids"] == []
+        assert again["existing_requirement_ids"] == [requirement_id]
+
 
 
 def test_matching_target_rows_are_reused_idempotently() -> None:
