@@ -37,6 +37,10 @@ def test_execution_read_returns_document_membership_for_any_workflow(
                 "WHERE id = %s", (workflow, version, item_id),
             )
             seed_strategy_doc(conn, "AREA-PLAN", "# Area plan\n")
+            expected_content = conn.execute(
+                "SELECT content FROM strategy_docs "
+                "WHERE project_id = 1 AND slug = %s", ("AREA-PLAN",),
+            ).fetchone()[0]
             conn.commit()
         finally:
             conn.close()
@@ -55,7 +59,7 @@ def test_execution_read_returns_document_membership_for_any_workflow(
         assert execution["item"]["workflow_id"] == workflow
         if linked:
             assert execution["execution_document"]["slug"] == "AREA-PLAN"
-            assert execution["execution_document"]["content"] == "# Area plan\n"
+            assert execution["execution_document"]["content"] == expected_content
             assert execution["execution_linked_at"]
         else:
             assert execution["execution_document"] is None
