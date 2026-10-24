@@ -62,6 +62,7 @@ def test_other_work_keeps_ordinary_guards(command):
 ])
 @pytest.mark.parametrize('command,help_only', [
     ('yoke watch pytest --help', True), ('yoke watch pytest -h', True),
+    ('yoke say --help', True), ('yoke messages ack -h', True),
     ('yoke watch pytest -- tests/', False),
 ])
 def test_runner_exempts_before_guards_and_retains_delivery(
@@ -92,6 +93,7 @@ def test_runner_exempts_before_guards_and_retains_delivery(
     payload = {
         'tool_name': 'Bash', 'tool_input': {'command': command},
         HEADLESS_LAUNCH_KEY: {"schema": 1, "value": True},
+        'agent_type': 'engineer',
     }
     capability = AdapterCapability(
         family=family, payload_parser=json.loads, decision_renderer=renderer,
