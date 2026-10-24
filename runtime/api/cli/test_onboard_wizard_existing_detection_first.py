@@ -79,6 +79,7 @@ class _DetectionShell(ExistingProjectDetectedFlow):
         self.continued = 0
         self.slug_prompts = 0
         self.folder_prompts = 0
+        self.destination_prompts = 0
 
     def _goto_existing_project_ready(self, *, on_choice=None) -> None:
         self.announced.append(on_choice)
@@ -88,6 +89,9 @@ class _DetectionShell(ExistingProjectDetectedFlow):
 
     def _goto_project_details(self) -> None:
         self.slug_prompts += 1
+
+    def _goto_checkout_destination(self) -> None:
+        self.destination_prompts += 1
 
     def _goto_clone_folder(self) -> None:
         self.folder_prompts += 1
@@ -125,7 +129,8 @@ def test_a_local_checkout_match_connects_or_names_a_new_project() -> None:
     declined._on_existing_project_detected(CHOICE_NEW_PROJECT)
 
     assert connected.continued == 1
-    assert declined.slug_prompts == 1
+    assert declined.destination_prompts == 1
+    assert declined.slug_prompts == 0
     assert declined.result.existing_project_id is None
 
 

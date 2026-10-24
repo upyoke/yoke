@@ -46,6 +46,11 @@ class CloneOutcomeFlow:
         )
 
     def _goto_clone_outcome(self: _Shell) -> None:
+        preset = getattr(self, "_publication_destination_preset", None)
+        if preset:
+            self._publication_destination_preset = None
+            self._on_clone_outcome(preset)
+            return
         source_repo = project_screens.default_repo(
             self.result.project_remote_url,
             web_url=github_state.clone_web_url(self.result),

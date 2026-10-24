@@ -50,6 +50,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     ) -> None: ...
     def _after_existing_project_ready(self) -> None: ...
     def _goto_project_details(self) -> None: ...
+    def _goto_checkout_destination(self) -> None: ...
     def _goto_clone_folder(self) -> None: ...
 
 
@@ -154,7 +155,7 @@ class ExistingProjectDetectedFlow:
         """A checkout already carrying project metadata: name the new one, or reuse."""
         if choice == CHOICE_NEW_PROJECT:
             onboard_existing_project.clear_match(self.result)
-            self._goto_project_details()
+            self._goto_checkout_destination()
             return
         self._after_existing_project_ready()
 
