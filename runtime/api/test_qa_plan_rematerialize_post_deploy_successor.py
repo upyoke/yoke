@@ -7,8 +7,6 @@ supersession says the corrected row now carries the obligation, so the
 corrected case's passing run copies close the item.
 """
 
-import pytest
-
 from runtime.api.domain.test_dash_post_deploy_done_consumption import _accept_member_qa
 from runtime.api.test_qa_case_environment_obligations import (
     CASE,
@@ -23,7 +21,7 @@ from yoke_core.domain.deployment_qa_source_obligation import (
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_attachments import materialize_for_item
-from yoke_core.domain.qa_plan_management import QaPlanError, replace_plan_cases
+from yoke_core.domain.qa_plan_management import replace_plan_cases
 from yoke_core.domain.qa_requirement_source_retirement import (
     admitted_source_correction,
 )
@@ -152,21 +150,19 @@ def test_case_dropped_from_one_environment_is_waived_there(test_db):
     assert result["waived_requirement_ids"] == [old["stage"]]
 
 
-def test_plain_materialize_after_replacement_refuses_and_names_rematerialize(test_db):
+def test_plain_materialize_after_replacement_keeps_the_snapshot_until_rematerialize(test_db):
     item, plan, _case = _setup(test_db)
     materialize_for_item(test_db, item_id=item["id"], transition_id="release")
     old = sorted(row["id"] for row in _requirements(test_db).values())
     replace_plan_cases(test_db, plan_id=plan["id"], cases=[CORRECTED])
 
-    with pytest.raises(QaPlanError) as refused:
-        materialize_for_item(test_db, item_id=item["id"], transition_id="release")
-    test_db.rollback()
-    message = str(refused.value)
-    assert message.startswith("qa_plan_rows_orphaned: live QA requirement(s) ")
-    assert all(str(row_id) in message for row_id in old)
-    assert "Nothing was written" in message
-    assert "yoke qa plan rematerialize" in message
-    assert _live_by_env(test_db) == {}
+    before = _rows(test_db, old)
+    unchanged = materialize_for_item(
+        test_db, item_id=item["id"], transition_id="release"
+    )
+    assert unchanged["created_requirement_ids"] == []
+    assert unchanged["existing_requirement_ids"] == old
+    assert _rows(test_db, old) == before
 
     result = rematerialize_for_item(test_db, item_id=ITEM_ID, transition_id="release")
     assert sorted(result["superseded_requirement_ids"]) == old
