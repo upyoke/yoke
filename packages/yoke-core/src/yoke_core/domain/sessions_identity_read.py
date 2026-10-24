@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant
 from typing import Any, List, Optional
 
@@ -28,7 +29,7 @@ def _p(conn: Any) -> str:
 #: a locally detected value.
 UNREGISTERED_RECOVERY = (
     "Sessions register at start through the harness hooks. Check this "
-    "project's hook installation with `yoke doctor run --quick`, or "
+    "project's hook installation with `yoke doctor run --only session-hook-registration`, or "
     "register explicitly with `yoke sessions begin --executor E "
     "--provider P --requested-model M --workspace W`."
 )
@@ -98,8 +99,10 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     if row is None:
         raise SessionError(
             "NO_SESSION",
-            f"No session row for '{session_id}' on this control plane. "
-            f"{UNREGISTERED_RECOVERY}",
+            compose_refusal(
+                f"No session row for '{session_id}' on this control plane.",
+                recovery=UNREGISTERED_RECOVERY,
+            ),
         )
     from yoke_core.domain.sessions_queries_lookup import (
         resolve_harness_capabilities,
