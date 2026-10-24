@@ -116,7 +116,7 @@ def test_success_returns_registered_command(
         "merge.tests.post_rebase_requirement",
     ]
     assert calls[1]["target"].public_ref == ITEM_REF
-    assert calls[1]["payload"] == {"transition_id": "release"}
+    assert calls[1]["payload"] == {"transition_id": "release", "materialize": True}
 
 
 def test_unknown_release_stage_falls_back_to_reviewing_implementation(

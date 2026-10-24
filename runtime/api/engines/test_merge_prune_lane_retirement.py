@@ -26,6 +26,7 @@ from yoke_core.domain.handlers import item_worktrees, merge_engine_internal_ops 
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines import merge_worktree_safe_prune as prune
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.mark.parametrize("absent", [False, True])
@@ -110,6 +111,7 @@ def test_pruned_worker_retires_row_and_surviving_worker_merges(
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *_a: (repo, "main"))
+    admit_route_gates(monkeypatch)
     calls = []
 
     def land(**kwargs):

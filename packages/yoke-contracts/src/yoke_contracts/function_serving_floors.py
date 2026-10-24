@@ -109,8 +109,6 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.plan_case.submit": "next-release",
     "test_machine.mission.ready": "next-release",
     "test_machine.mission.access": "next-release",
-    "test_machine.mission.dispose_projects": "next-release",
-    "test_machine.mission.record_connected_machine": "next-release",
     "strategy.doc.section_replace": "next-release",
     "strategy.ingest.run": "next-release",
     "strategy.revision.restore": "next-release",

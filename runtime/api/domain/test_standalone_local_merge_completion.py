@@ -29,6 +29,7 @@ from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain.handlers.lifecycle_transition import handle_transition
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.work_claim_targets import make_item_target
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.mark.parametrize("layout", ["tracking-ref", "unfetched-remote", "no-remote"])
@@ -85,6 +86,7 @@ def test_local_merge_item_closes_only_with_target_ancestry_proof(
     }
     monkeypatch.setattr(cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(cli, "_resolve_checkout", lambda *_a: (repo, "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(cli.close_out.terminal.recovery, "claim_error", lambda *_a: "")
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (source, ""))

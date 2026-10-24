@@ -157,7 +157,6 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
         for key in (
             "walk_start_command",
             "walk_end_command",
-            "connected_machine_command",
         ):
             command = walker.get(key)
             if isinstance(command, str) and command.startswith("yoke "):

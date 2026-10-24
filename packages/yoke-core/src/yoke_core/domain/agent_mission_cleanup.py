@@ -31,10 +31,6 @@ def cleanup_execution(conn: Any, execution: dict) -> bool:
 
 
 def cleanup_request(request: Any) -> bool:
-    from yoke_core.domain.agent_mission_project_disposal import FUNCTION_ID
-
-    if request.function == FUNCTION_ID:
-        return True
     return request.function == "test_machine.mission.access" and (
         request.payload or {}
     ).get("cleanup") in ("begin", "finish")

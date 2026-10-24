@@ -128,15 +128,14 @@ def _run_streaming(
 
 POST_REBASE_TRANSITION_ID = "release"
 # Older control-plane builds validate the transition against the pinned
-# workflow before the has_attached_plans skip. Dash (and other workflows
-# without a `release` stage) need a real stage; try these after `release`.
+# workflow first, so workflows without `release` try these real stages next.
 _POST_REBASE_TRANSITION_FALLBACKS = (
     "reviewing-implementation",
     "done",
 )
 
 
-def _resolve_requirement(item_id: int, transition_id: str):
+def _resolve_requirement(item_id: int, transition_id: str, materialize: bool = True):
     """Ask for the post-rebase verification command, degrading on skew.
 
     A wave whose own branch adds this function leaves the deployed plane
@@ -147,7 +146,7 @@ def _resolve_requirement(item_id: int, transition_id: str):
     return control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id="merge.tests.post_rebase_requirement",
         target=public_item_target(item_id),
-        payload={"transition_id": transition_id},
+        payload={"transition_id": transition_id, "materialize": materialize},
         announce=lambda message: _parent()._print(message),
         # This module's own binding, resolved per call, so the transport
         # seam every merge test substitutes stays the single one.
@@ -183,12 +182,10 @@ def _registered_verification_command(
 ) -> Optional[Tuple[str, str, list]]:
     """Return ``(scope, command, covering_runs)`` for the candidate tree.
 
-    The server resolves the project's registered ``full``/``quick`` Command
-    case after materializing any post-rebase QA plan. ``covering_runs`` lists
-    passing evidence (run id + covered head sha) that may waive a same-tree
-    re-execution. A project that attested no suite yields
-    ``NO_TESTS_ATTESTED`` with no command. Every dispatcher, materialization,
-    or response-shape failure is merge-blocking. Only an ad-hoc merge with no
+    The server materializes any post-rebase QA plan, then resolves the
+    registered ``full``/``quick`` command; ``covering_runs`` is passing
+    evidence that may waive a same-tree re-execution. A no-tests attestation
+    yields ``NO_TESTS_ATTESTED`` with no command. Only an ad-hoc merge with no
     item identity may use the legacy local runner detection below.
     """
     item_id_raw = getattr(ctx, "public_ref", None) or getattr(ctx, "item_id", None)
@@ -206,12 +203,30 @@ def _registered_verification_command(
             )
         return None
 
+    scope, command, covering = resolve_verification(item_id)
+    if scope != NO_TESTS_ATTESTED:
+        return scope, command, covering
+    _parent()._print(
+        f"[phase:tests] project attested no test suite ({command}); "
+        "no verification to run"
+    )
+    return NO_TESTS_ATTESTED, "", []
+
+
+def resolve_verification(
+    item_id: str, *, materialize: bool = True
+) -> Tuple[str, str, list]:
+    """``(scope, command, covering_runs)``, or ``(NO_TESTS_ATTESTED, reason, [])``.
+
+    A refusal raises ``RuntimeError`` with the server's reason and recovery;
+    ``materialize=False`` is the read-only form ``merge item --check`` asks.
+    """
     last_code = "unknown"
     last_message = ""
     last_recovery = ""
     for transition_id in _post_rebase_transition_candidates(item_id):
         try:
-            resp = _resolve_requirement(item_id, transition_id)
+            resp = _resolve_requirement(item_id, transition_id, materialize)
         except Exception as exc:  # noqa: BLE001 - resolver failure blocks merge.
             raise RuntimeError(
                 f"integration verification dispatcher failed: {exc}"
@@ -219,11 +234,7 @@ def _registered_verification_command(
         if resp.success:
             result = resp.result or {}
             if result.get("no_tests_reason"):
-                _parent()._print(
-                    "[phase:tests] project attested no test suite "
-                    f"({result['no_tests_reason']}); no verification to run"
-                )
-                return NO_TESTS_ATTESTED, "", []
+                return NO_TESTS_ATTESTED, str(result["no_tests_reason"]), []
             scope = str(result.get("scope") or "").strip()
             command = str(result.get("command") or "").strip()
             if scope not in {"full", "quick"} or not command:

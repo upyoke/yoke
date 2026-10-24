@@ -14,6 +14,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 MERGING_SHA = "b" * 40
@@ -97,6 +98,7 @@ def test_merge_refuses_before_invoking_git(
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
     merger = mock.Mock()
     monkeypatch.setattr(verify, "route_standalone_landing", merger)
 
@@ -116,6 +118,7 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
     outcome = merge_domain.StandaloneMergeOutcome(
         exit_code=0,
         ok=True,
@@ -158,6 +161,7 @@ def test_skip_status_defers_only_done_phase_qa(tmp_path: Path, monkeypatch):
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
     outcome = merge_domain.StandaloneMergeOutcome(
         exit_code=0,
         ok=True,
@@ -193,6 +197,7 @@ def test_closeout_still_blocks_on_done_phase_qa(tmp_path: Path, monkeypatch, cap
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
     merger = mock.Mock()
     monkeypatch.setattr(verify, "route_standalone_landing", merger)
 
@@ -262,6 +267,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
 
     def rerecord(requirement, commit_sha):
         requirement["recorded_head_sha"] = commit_sha

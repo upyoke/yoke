@@ -19,6 +19,7 @@ from runtime.api.domain.test_standalone_item_merge_qa import (
     _item,
     _requirement,
 )
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +42,7 @@ def _run_merge(
     monkeypatch.setattr(landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(
         commit_bound,
         "rerecord_hand_run",

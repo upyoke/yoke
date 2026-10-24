@@ -179,7 +179,8 @@ def test_test_machine_name_refusal_names_the_right_input() -> None:
     reason = str(pin.refusal_reason)
     assert "did not resolve to a live machine id" in reason
     assert "test-mac is a test machine" in reason
-    assert "yoke qa mission connected-machine" in reason
+    assert "connected-machine" not in reason
+    assert "listed by `yoke machine list` on the server it connected to" in reason
     assert not resolve_launch_machine_pin(conn, "missing-host").refusal_reason.count(
         "is a test machine"
     )

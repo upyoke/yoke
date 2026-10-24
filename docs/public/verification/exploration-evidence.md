@@ -108,72 +108,10 @@ scratch, records starting-state restore, releases its cleanup lease and settles
 a pending abort with the run status in the release reason. Other sessions
 cannot take over this cleanup path.
 
-A walk creates Yoke projects only by installing them on the Test Machine, and
-`walk-end` disposes of them on a finished or aborted walk, before it restores the host or releases a cleanup lease. It reads the host's
-`~/.yoke/config.json`, force-removes each mapped checkout's linked worktrees
-and runs `yoke project uninstall` there. Onboarding records the checkout
-mapping as soon as the project is created or selected, before binding or
-scaffold installation can fail. A failed install without an installed layer
-is still discovered: uninstall enforces a clean checkout and exclusive mapping
-before removing only that registration. It preserves source files and never
-infers ownership of an existing `.yoke` directory without a manifest. A checkout already removed from the
-host settles as `checkout_absent`; an existing but unreadable checkout still
-blocks cleanup. Then
-`test_machine.mission.dispose_projects`, which refuses an ended execution,
-records an intent receipt naming every candidate, keeps only projects created
-while the execution was live that the walking actor administers, releases
-their claims, cancels their open items, retires them and records the result.
-Both receipts are `fixture_project_disposal` artifacts on the run, so a retry
-still reaches previously reported candidates. Any other project is left
-untouched. A blocker exits non-zero with `fixture_projects_unreadable`,
-`fixture_project_uninstall_failed`, `fixture_project_not_disposed` or
-`fixture_project_disposal_failed`. Failed or unrecorded disposal removes
-owner-only secret staging independently but leaves the host unrestored,
-preserving fixture checkout, discovery and original failure for a real retry.
-Resolve only the named cause under existing owner authority, then retry the
-same owner's `walk-end`: it must actually uninstall and retire the fixture
-before restoring the baseline and recording cleanup success. Never bypass
-dirty-tree protection or reset around the refusal. An aborted walk keeps its
-cleanup lease (`mission_cleanup_deferred`) until disposal settles; that
-message names the `yoke claims work release --claim-id <lease>` command that
-gives up the host and aborts the execution when the blocker cannot be
-resolved. An id this control plane lacks settles as `not_found`. A project the
-walking actor does not administer settles too: walk-end names it in
-`fixture_project_left_for_administrator` with the `yoke projects retire`
-command an administrator runs.
-
-If a mission removes a fixture before `walk-end`, release its claims and
-dispose of its lanes before running `yoke project uninstall`, then retire the
-project.
-
-### Connected Machine retirement
-
-A walk that connects the Test Machine's Yoke install here registers a Yoke
-Machine. Right after the connect step, the walker's
-`yoke qa mission connected-machine` reads the host's `machine_id` and
-`test_machine.mission.record_connected_machine` stores it on the mission's
-docket as `connected_machine` (`machine_id`, `name`, `registered_at`,
-`recorded_at`). It records only a live Machine on this control plane that was
-registered at or after the docket, which proves this mission's connect created
-it. The command prints that `machine_id`: a session launch's `--machine`
-takes it, while the Test Machine itself is reached only through its lease.
-
-`walk-end` reads the host's `machine_id` before its restore erases it and
-passes it to `test_machine.mission.dispose_projects`. That function records
-the Machine when the walker did not, then retires exactly the docket's
-`connected_machine` with the walking actor's authority and revokes its
-credentials. The result `fixture_project_disposal` receipt names
-`connected_machine_retirement: {machine_id, outcome, recovery}`:
-
-- `retired` or `already_retired` — the mission's Machine is retired;
-- `none_recorded` — the walk connected no install;
-- `skipped_predates_mission` or `unregistered` — the Machine is older than the
-  mission or belongs to another control plane, so it is left untouched;
-- `forbidden` — the walking actor neither owns nor administers the Machine.
-  Cleanup continues; walk-end prints `connected_machine_not_retired` and the
-  Machine's owner runs `yoke machine retire MACHINE_ID --confirm`.
-
-No other Machine is touched, including a live Machine with the same name.
+Walk-end never removes what the walk created outside its staging, such as
+repositories, accounts or records the product registered: the walker removes
+them with the product's own commands before walk-end and reports anything it
+could not remove ([Cleanup](exploration.md#cleanup)).
 
 On macOS, append `--gui-session` when a command needs the login keychain or
 window server. Three apparently different failures share one diagnosis:

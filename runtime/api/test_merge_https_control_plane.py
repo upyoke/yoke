@@ -190,7 +190,7 @@ class TestVerificationResolution:
         monkeypatch.setattr(
             merge_worktree_tests,
             "_resolve_requirement",
-            lambda _item, _transition: _err(
+            lambda _item, _transition, _materialize: _err(
                 "function_version_skew",
                 "the active HTTPS env does not serve that function",
                 hint="rerun with `yoke --env prod-db-admin ...`",

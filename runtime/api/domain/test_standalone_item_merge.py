@@ -26,6 +26,7 @@ from runtime.api.domain.standalone_merge_simulation_support import (
 from runtime.api.domain.standalone_merge_simulation_support import (
     merge as _merge,
 )
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 @pytest.fixture(autouse=True)
@@ -207,6 +208,7 @@ class TestCloseOutOrdering:
             "_resolve_checkout",
             lambda item, target: (repo, "main"),
         )
+        admit_route_gates(monkeypatch)
 
         def _enter_release(**kwargs):
             stages = tuple(kwargs.get("stages") or ())
@@ -262,6 +264,7 @@ class TestCloseOutOrdering:
             "_resolve_checkout",
             lambda item, target: (repo, "main"),
         )
+        admit_route_gates(monkeypatch)
         monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
             close_out_transition,

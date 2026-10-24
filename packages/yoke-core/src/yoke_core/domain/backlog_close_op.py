@@ -2,7 +2,8 @@
 structured cancellation path: validates the resolution reason, refuses
 to cancel items past review unless an operator explicitly abandons merged
 work with durable resolution audit, releases the item's own worktree lanes as
-part of the same terminal close, reconciles `item_dependencies` rows,
+part of the same terminal close, removes every `item_dependencies` row
+that names the item, tells each dependent's live holder,
 writes the status + resolution payload, and posts the GitHub close +
 status comment.
 """
@@ -20,7 +21,6 @@ from yoke_core.domain.backlog_queries import (
 )
 from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.item_ref_columns import render_column_item_ref
-from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -28,6 +28,20 @@ def _p(conn) -> str:
     from yoke_core.domain import db_backend
 
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _notice_line(notice: dict) -> str:
+    """One receipt line per dependent: who was told, or why nobody was."""
+    dependent = notice["dependent_item"]
+    delivery = notice["delivery"]
+    if delivery == "no_live_holder":
+        return f"Not notified: {dependent} has no live holder."
+    if delivery == "cancelling_session":
+        return f"Not notified: {dependent} is held by this session."
+    return (
+        f"Notified {dependent}'s holder session {notice['holder_session_id']} "
+        f"({delivery})."
+    )
 
 
 def execute_close(
@@ -125,78 +139,52 @@ def execute_close(
                 ),
             }
 
-        # reconcile item_dependencies before writing the cancel.
-        # Outbound rows (where this item is the dependent) are always
-        # removed — a cancelled item is no longer progressing through
-        # gates. Inbound rows where resolution_ref names the dependent
-        # are absorbed-self rows and can be safely removed. Other
-        # inbound rows are preserved and reported as advisory warnings
-        # so the operator can triage them with existing dependency
-        # tooling. Deletion statements run on the same connection as
-        # `_update_item_multi` below so the status change and
-        # deterministic deletions commit atomically.
-        dependency_ref = render_column_item_ref(conn, item_id)
-        resolution_id = (
-            resolve_item_ref_or_none(conn, normalized_resolution_ref)
-            if normalized_resolution_ref
-            else None
-        )
+        # Reconcile item_dependencies before writing the cancel. A
+        # cancelled item can neither progress through gates nor satisfy
+        # one, so both its outbound rows (it is the dependent) and its
+        # inbound rows (it is the blocker) are removed. The deletes run on
+        # the same connection as `_update_item_multi` below so the status
+        # change and the deletions commit atomically.
         outbound_rows = conn.execute(
             "SELECT blocking_item_id, gate_point, satisfaction "
             f"FROM item_dependencies WHERE dependent_item_id = {p}",
             (item_id,),
         ).fetchall()
         inbound_rows = conn.execute(
-            "SELECT dependent_item_id, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE blocking_item_id = {p}",
+            "SELECT d.dependent_item_id, d.gate_point, d.satisfaction, "
+            "i.project_id FROM item_dependencies d "
+            "JOIN items i ON i.id = d.dependent_item_id "
+            f"WHERE d.blocking_item_id = {p} "
+            "ORDER BY d.dependent_item_id, d.gate_point",
             (item_id,),
         ).fetchall()
-
-        removed_outbound: list[dict] = []
-        for row in outbound_rows:
-            removed_outbound.append(
-                {
-                    "blocking_item": render_column_item_ref(conn, row[0]),
-                    "gate_point": row[1],
-                    "satisfaction": row[2],
-                }
-            )
-        if outbound_rows:
-            conn.execute(
-                f"DELETE FROM item_dependencies WHERE dependent_item_id = {p}",
-                (item_id,),
-            )
-
-        removed_absorbed: list[dict] = []
-        preserved_ambiguous: list[dict] = []
-        for row in inbound_rows:
-            dependent_id = int(row[0])
-            gate_point = row[1]
-            satisfaction = row[2]
-            dependent_item = render_column_item_ref(conn, dependent_id)
-            if resolution_id is not None and dependent_id == resolution_id:
-                conn.execute(
-                    "DELETE FROM item_dependencies "
-                    f"WHERE dependent_item_id = {p} AND blocking_item_id = {p} "
-                    f"AND gate_point = {p}",
-                    (dependent_id, item_id, gate_point),
-                )
-                removed_absorbed.append(
-                    {
-                        "dependent_item": dependent_item,
-                        "gate_point": gate_point,
-                        "satisfaction": satisfaction,
-                    }
-                )
-            else:
-                preserved_ambiguous.append(
-                    {
-                        "dependent_item": dependent_item,
-                        "blocking_item": dependency_ref,
-                        "gate_point": gate_point,
-                        "satisfaction": satisfaction,
-                    }
-                )
+        removed_outbound = [
+            {
+                "blocking_item": render_column_item_ref(conn, row[0]),
+                "gate_point": row[1],
+                "satisfaction": row[2],
+            }
+            for row in outbound_rows
+        ]
+        removed_inbound = [
+            {
+                "dependent_item": render_column_item_ref(conn, row[0]),
+                "gate_point": row[1],
+                "satisfaction": row[2],
+            }
+            for row in inbound_rows
+        ]
+        dependents = list(
+            {
+                int(row[0]): (int(row[0]), entry["dependent_item"], int(row[3]))
+                for row, entry in zip(inbound_rows, removed_inbound)
+            }.values()
+        )
+        conn.execute(
+            "DELETE FROM item_dependencies "
+            f"WHERE dependent_item_id = {p} OR blocking_item_id = {p}",
+            (item_id, item_id),
+        )
 
         old_status = status
         # Lazy shim-routed lookup: tests patch
@@ -242,35 +230,41 @@ def execute_close(
             receipt=effect_receipt,
             out=out,
         )
+        from yoke_core.domain.backlog_cancel_dependent_notice import (
+            notify_after_cancel,
+        )
+
+        holder_notices, notice_advisory = notify_after_cancel(
+            conn,
+            blocker_id=item_id,
+            blocker_ref=public_ref,
+            reason=reason,
+            replacement_ref=normalized_resolution_ref,
+            dependents=dependents,
+            canceller_session_id=session_id,
+        )
         if removed_outbound:
             print(
-                f"Reconciled: removed {len(removed_outbound)} outbound "
-                f"dependency row(s) where {public_ref} was the dependent_item.",
+                f"Reconciled: removed {len(removed_outbound)} dependency "
+                f"row(s) where {public_ref} was the dependent.",
                 file=out,
             )
-        if removed_absorbed:
+        if removed_inbound:
             print(
-                f"Reconciled: removed {len(removed_absorbed)} absorbed-self "
-                f"inbound row(s) where {public_ref} blocked {normalized_resolution_ref}.",
+                f"Reconciled: removed {len(removed_inbound)} dependency "
+                f"row(s) where {public_ref} was the blocker:",
                 file=out,
             )
-        if preserved_ambiguous:
-            print(
-                f"Warning: {len(preserved_ambiguous)} inbound dependency "
-                f"row(s) preserved — cancelled {public_ref} still listed as "
-                "blocker. Review with `yoke items dependency list` and "
-                "remove with `yoke items dependency remove` if stale:",
-                file=out,
-            )
-            for entry in preserved_ambiguous:
+            for entry in removed_inbound:
                 print(
-                    f"  - {entry['dependent_item']} <- {entry['blocking_item']}"
-                    f" gate={entry['gate_point']}"
-                    f" satisfaction={entry['satisfaction']}"
-                    f" resolution={reason}"
-                    f" resolution_ref={normalized_resolution_ref or ''}",
+                    f"  - {entry['dependent_item']} gate={entry['gate_point']}"
+                    f" satisfaction={entry['satisfaction']}",
                     file=out,
                 )
+        for notice in holder_notices:
+            print(_notice_line(notice), file=out)
+        if notice_advisory:
+            print(f"Warning: {notice_advisory}", file=out)
         # Lazy import: tests patch ``backlog_updates._is_dry_run``; looking
         # up the shim binding at call time preserves that contract.
         from yoke_core.domain import backlog_updates as _bu
@@ -289,8 +283,9 @@ def execute_close(
             "item_id": item_id,
             "dependency_reconciliation": {
                 "outbound_removed": removed_outbound,
-                "absorbed_inbound_removed": removed_absorbed,
-                "preserved_ambiguous": preserved_ambiguous,
+                "inbound_removed": removed_inbound,
+                "holder_notices": holder_notices,
+                "notice_advisory": notice_advisory,
             },
         }
     finally:

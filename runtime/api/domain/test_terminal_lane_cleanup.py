@@ -19,6 +19,7 @@ from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 from yoke_core.engines.merge_worktree_safe_prune import WorktreeSweep
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 LANE_SHA = "1" * 40
@@ -50,6 +51,7 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
+    admit_route_gates(monkeypatch)
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
         verify,

@@ -21,6 +21,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
 )
 from yoke_core.domain.item_merge_receipts import MergeReceipt
 from yoke_core.domain.standalone_item_merge_recovery import with_recorded_head
+from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
 
 RELEASED_SHA = "a" * 40
@@ -98,6 +99,7 @@ def _wire_cli(monkeypatch, item: dict, tmp_path: Path) -> mock.Mock:
         "_resolve_checkout",
         lambda *_a: (tmp_path, "main"),
     )
+    admit_route_gates(monkeypatch)
     outcome = merge_domain.StandaloneMergeOutcome(
         exit_code=0,
         ok=True,
