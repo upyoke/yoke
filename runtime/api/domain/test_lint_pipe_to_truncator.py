@@ -4,8 +4,8 @@ Covers the observed gap shape (foreground watcher piped to ``tail``),
 the bare/`-m` pytest shapes, the truncator-after-grep chain, separator
 boundaries (``;``/``&&``/``||``/newline do NOT join a pipe), the
 ``--print-streaming-pair`` instant exemption, short-adapter non-matches,
-and the warn-mode + suppression-token contracts shared with the
-stash-arg-order lint family.
+and the suppression-token contract shared with the stash-arg-order lint
+family. Warn mode is applied centrally by the mode gate.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_pipe_to_truncator as lptt
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -33,9 +32,8 @@ def _payload(command: str, **extra) -> dict:
     return p
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lptt, "_read_mode", return_value=mode):
-        return lptt.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lptt.evaluate_payload(_payload(command))
 
 
 class TestHitShapes(unittest.TestCase):
@@ -45,8 +43,7 @@ class TestHitShapes(unittest.TestCase):
             "python3 -m yoke_core.tools.watch_pytest -- runtime/api/ -q 2>&1 | tail -8"
         )
         self.assertIsNotNone(verdict)
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "denied")
         self.assertIn("watch_pytest", reason)
 
@@ -59,7 +56,7 @@ class TestHitShapes(unittest.TestCase):
         # The taught spelling must be caught the same as the module form.
         verdict = _eval("yoke watch pytest -- runtime/api/ -q 2>&1 | tail -8")
         self.assertIsNotNone(verdict)
-        _mode, reason, _outcome = verdict
+        reason, _outcome = verdict
         self.assertIn("yoke watch pytest", reason)
 
     def test_bare_pytest_piped_to_tail(self):
@@ -199,33 +196,23 @@ class TestNonMatches(unittest.TestCase):
     def test_non_bash_tool_ignored(self):
         payload = _payload("python3 -m pytest | tail -2")
         payload["tool_name"] = "Edit"
-        with mock.patch.object(lptt, "_read_mode", return_value="deny"):
-            self.assertIsNone(lptt.evaluate_payload(payload))
+        decision = lptt.evaluate(lptt._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
-class TestModesAndSuppression(unittest.TestCase):
-    def test_warn_mode_warns_not_denies(self):
-        verdict = _eval("python3 -m pytest -q | tail -2", mode="warn")
-        self.assertIsNotNone(verdict)
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "warn")
-        self.assertIn("[mode=warn]", reason)
-        self.assertEqual(outcome, "denied")
-
+class TestSuppressionAndDecision(unittest.TestCase):
     def test_suppression_token_audit_only(self):
         verdict = _eval(
             "python3 -m pytest -q | tail -2  # lint:no-pipe-truncator-check"
         )
         self.assertIsNotNone(verdict)
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "suppression_attempted")
         self.assertIn("does NOT unblock", reason)
 
     def test_evaluate_deny_decision_shape(self):
         payload = _payload("python3 -m pytest -q | tail -2")
-        with mock.patch.object(lptt, "_read_mode", return_value="deny"):
-            decision = lptt.evaluate(lptt._build_context_from_payload(payload))
+        decision = lptt.evaluate(lptt._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -233,15 +220,6 @@ class TestModesAndSuppression(unittest.TestCase):
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertIn("BLOCKED", decision.audit_fields["reason"])
-
-    def test_evaluate_warn_decision_shape(self):
-        payload = _payload("python3 -m pytest -q | tail -2")
-        with mock.patch.object(lptt, "_read_mode", return_value="warn"):
-            decision = lptt.evaluate(lptt._build_context_from_payload(payload))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertFalse(decision.block)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
 
     def test_noop_on_clean_command(self):
         decision = lptt.evaluate(
@@ -251,7 +229,7 @@ class TestModesAndSuppression(unittest.TestCase):
 
     def test_reason_names_both_hazards_and_correct_shape(self):
         verdict = _eval("python3 -m pytest -q | tail -2")
-        _, reason, _ = verdict
+        reason, _ = verdict
         self.assertIn("exit code", reason)
         self.assertIn("failure context", reason)
         self.assertIn("capture-first", reason)

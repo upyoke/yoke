@@ -12,7 +12,6 @@ from yoke_contracts.hook_runner.client_facts import (
 )
 
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
     RECENT_EVENT_LOOKBACK_SECONDS,
     SLEEP_CADENCE_FLOOR_SECONDS,
@@ -27,7 +26,6 @@ from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_command,
     _extract_sleep_cadence,
     _extract_sleep_capture_file,
-    _extract_tool_name,
     _has_suppression,
     _is_github_poll_loop,
 )
@@ -108,33 +106,30 @@ def _capture_registered_in_session(
     )
 
 
-def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
-    """Evaluate *payload*. Return ``(verdict, reason, context)`` or ``None``.
+def evaluate_payload(
+    payload: dict, tool_name: Optional[str] = None,
+) -> Optional[tuple[str, dict]]:
+    """Evaluate *payload*. Return ``(reason, context)`` or ``None``.
 
-    ``verdict`` is one of ``warn`` or ``deny``. The caller decides how to
-    surface each: ``deny`` emits ``hookSpecificOutput`` with
-    ``permissionDecision=deny``; ``warn`` emits the audit event only.
-
-    The returned context dict may carry an ``outcome`` key for rules with
-    audit-only suppression tokens.
+    *tool_name* is the runner's tool name; ``None`` reads the payload's
+    ``tool_name``. The returned context dict may carry an ``outcome`` key
+    for rules with audit-only suppression tokens.
     """
-    tool_name = _extract_tool_name(payload)
+    if tool_name is None:
+        raw_tool = payload.get("tool_name")
+        tool_name = raw_tool if isinstance(raw_tool, str) else ""
     command = _extract_command(payload)
 
     # A GitHub polling loop holds the turn a recorded CI wait would end;
     # checked before the suppression token, which does not unblock it.
     if tool_name in ("", "Bash") and command and _is_github_poll_loop(command):
-        mode = _read_lint_mode(payload)
         ctx = _build_context(tool_name or "Bash", command, None)
-        return (mode, _format_github_poll_loop_reason(mode), ctx)
+        return _format_github_poll_loop_reason(), ctx
 
     if command and _has_suppression(command):
         return None
 
-    mode = _read_lint_mode(payload)
-
     # Monitor: dispatch to the duplicate-Monitor verdict.
-    # Detection-only; mode follows lint_polling_mode (warn/deny).
     if tool_name == "Monitor":
         return evaluate_duplicate_monitor(payload)
 
@@ -167,4 +162,4 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
     if not _capture_registered_in_session(recent, capture_file, roots):
         return None
     ctx = _build_context(tool_name or "Bash", command, capture_file)
-    return (mode, _format_sleep_reason(cadence, mode), ctx)
+    return _format_sleep_reason(cadence), ctx

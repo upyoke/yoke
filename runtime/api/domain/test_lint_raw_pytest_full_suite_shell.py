@@ -90,8 +90,8 @@ class TestExecutableShellCoverage(unittest.TestCase):
             + " ".join(f"{a}/" for a in lint.full_sweep_anchors())
             + "\nEOF\n"
         )
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        _, outcome = _eval(command)
+        self.assertEqual(outcome, "denied")
 
     def test_sh_heredoc_running_a_real_sweep_still_denies(self):
         command = (
@@ -99,8 +99,8 @@ class TestExecutableShellCoverage(unittest.TestCase):
             + " ".join(f"{a}/" for a in lint.full_sweep_anchors())
             + "\nEOF\n"
         )
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        _, outcome = _eval(command)
+        self.assertEqual(outcome, "denied")
 
     def test_shell_dash_c_chained_pytest_is_still_flagged(self):
         anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
@@ -118,8 +118,8 @@ class TestNestedExecution(unittest.TestCase):
             f"echo '{source}' & rg harmless file | bash",
         ):
             self.assertIsNone(_eval(command))
-        self.assertEqual(_eval(f"env -S '{source}'")[0], "deny")
-        self.assertEqual(_eval(f"echo ok # ignored\n{source}")[0], "deny")
+        self.assertEqual(_eval(f"env -S '{source}'")[1], "denied")
+        self.assertEqual(_eval(f"echo ok # ignored\n{source}")[1], "denied")
 
     def test_minimized_recent_search_and_content_payloads(self):
         for command in (
@@ -158,7 +158,7 @@ class TestNestedExecution(unittest.TestCase):
             f"cat > /tmp/out <<EOF\n'$({source})'\nEOF",
         ):
             with self.subTest(command=command):
-                self.assertEqual(_eval(command)[0], "deny")
+                self.assertEqual(_eval(command)[1], "denied")
         for command in (
             f"echo '$({source})'",
             f"cat > /tmp/out <<'EOF'\n$({source})\nEOF",
@@ -178,8 +178,8 @@ class TestNestedExecution(unittest.TestCase):
                     + " <<EOF\n$(pytest "
                     + " ".join(lint.full_sweep_anchors())
                     + ")\nEOF"
-                )[0],
-                "deny",
+                )[1],
+                "denied",
             )
 
     def test_unknown_or_malformed_execution_does_not_gain_admission(self):
@@ -193,8 +193,8 @@ class TestNestedExecution(unittest.TestCase):
         for launch in ("env bash <<'EOF'", "env bash > out.log <<'EOF'"):
             with self.subTest(launch=launch):
                 command = f"{launch}\npytest {anchors}\nEOF\n"
-                mode, _, _ = _eval(command)
-                self.assertEqual(mode, "deny")
+                _, outcome = _eval(command)
+                self.assertEqual(outcome, "denied")
 
     def test_heredoc_piped_into_a_shell_still_denies(self):
         # Another compound form: the heredoc's own reader is `cat`, but
@@ -204,8 +204,8 @@ class TestNestedExecution(unittest.TestCase):
             + " ".join(f"{a}/" for a in lint.full_sweep_anchors())
             + "\nEOF\n"
         )
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        _, outcome = _eval(command)
+        self.assertEqual(outcome, "denied")
 
     def test_sink_redirect_chained_with_an_executable_statement_is_untouched(self):
         # A data-sink-with-redirect statement chained (via `;`) with a
@@ -240,7 +240,7 @@ class TestQuotedOperandsAndAdmission(unittest.TestCase):
             for operator in (";", "&&", "||", "|", "&", "\n"):
                 with self.subTest(prefix=prefix, operator=operator):
                     self.assertEqual(
-                        _eval(prefix + operator + _anchor_sweep())[0], "deny"
+                        _eval(prefix + operator + _anchor_sweep())[1], "denied"
                     )
 
     def test_launchers_and_compounds_preserve_real_admission(self):
@@ -261,7 +261,7 @@ class TestQuotedOperandsAndAdmission(unittest.TestCase):
             "(",
         ):
             with self.subTest(prefix=prefix):
-                self.assertEqual(_eval(prefix + " " + _anchor_sweep())[0], "deny")
+                self.assertEqual(_eval(prefix + " " + _anchor_sweep())[1], "denied")
 
     def test_python_script_argument_is_not_a_module_invocation(self):
         for command in (
@@ -272,7 +272,7 @@ class TestQuotedOperandsAndAdmission(unittest.TestCase):
             self.assertIsNone(_eval(command))
 
     def test_later_full_invocation_wins_over_earlier_advisory(self):
-        self.assertEqual(_eval("pytest tests/; " + _anchor_sweep())[0], "deny")
+        self.assertEqual(_eval("pytest tests/; " + _anchor_sweep())[1], "denied")
 
 
 if __name__ == "__main__":

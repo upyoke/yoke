@@ -24,7 +24,6 @@ def format_denial(
     lane_path: str,
     attempted_path: str,
     lane_equivalent: str,
-    mode: str,
     suppression_seen: bool,
     config_note: str = "",
     derivation: Optional[TargetDerivation] = None,
@@ -39,9 +38,7 @@ def format_denial(
     """
     config_line = f"\n{config_note}" if config_note else ""
     suffix = ""
-    if mode == "warn":
-        suffix = "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         suffix = (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."

@@ -7,8 +7,8 @@ Covers the canonical contracts:
 - False-positive guards: unrelated subcommands, docs paths, echo
   mentions, the positive primitive ``yoke claims work release
   --all-mine``.
-- Suppression token is audit-only — the rule still denies in deny mode.
-- Warn mode emits a WARN decision, not a deny envelope.
+- Suppression token is audit-only — the rule still denies.
+- A hit returns a blocking deny envelope (warn mode lives in mode_gate).
 - Fail-open: PreToolUse bypasses hook-runner-internal subprocess.run, so
   the lint only ever sees agent-dispatched Bash; no env-var detection
   needed.
@@ -20,7 +20,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_no_agent_session_end as lint
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -43,9 +42,8 @@ def _record_for(payload: dict):
     return lint._build_context_from_payload(payload)
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 class TestPositiveTrip(unittest.TestCase):
@@ -58,8 +56,7 @@ class TestPositiveTrip(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("BLOCKED", reason)
         self.assertIn("yoke claims work release --all-mine", reason)
@@ -67,7 +64,7 @@ class TestPositiveTrip(unittest.TestCase):
     def test_session_end_if_empty_denies(self):
         result = _eval("python3 -m yoke_core.api.service_client session-end-if-empty")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_session_end_with_force_release_claims_denies(self):
         cmd = (
@@ -76,19 +73,19 @@ class TestPositiveTrip(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_chained_command_denies(self):
         cmd = "git status && python3 -m yoke_core.api.service_client session-end"
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_legacy_script_path_denies(self):
         cmd = "python3 /repo/runtime/api/service_client.py session-end"
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
 
 class TestFalsePositiveGuards(unittest.TestCase):
@@ -133,15 +130,14 @@ class TestFalsePositiveGuards(unittest.TestCase):
         )
 
     def test_non_bash_tool_no_deny(self):
-        result = lint.evaluate_payload(
-            {
-                "tool_name": "Read",
-                "tool_input": {
-                    "command": ("python3 -m yoke_core.api.service_client session-end")
-                },
-            }
-        )
-        self.assertIsNone(result)
+        payload = {
+            "tool_name": "Read",
+            "tool_input": {
+                "command": ("python3 -m yoke_core.api.service_client session-end")
+            },
+        }
+        decision = lint.evaluate(_record_for(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_empty_command_no_deny(self):
         self.assertIsNone(_eval(""))
@@ -161,9 +157,8 @@ class TestSuppressionTokenAudit(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
-        self.assertEqual(mode, "deny")
         self.assertIn("does NOT unblock", reason)
 
     def test_evaluate_still_denies_with_attempted_outcome(self):
@@ -171,30 +166,17 @@ class TestSuppressionTokenAudit(unittest.TestCase):
             "python3 -m yoke_core.api.service_client session-end "
             "# lint:no-agent-session-end-check"
         )
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
         self.assertIn("does NOT unblock", decision.audit_fields["reason"])
 
 
-class TestModePin(unittest.TestCase):
-    def test_warn_mode_returns_warn_no_deny_envelope(self):
+class TestDenyDecision(unittest.TestCase):
+    def test_deny_emits_envelope(self):
         cmd = "python3 -m yoke_core.api.service_client session-end"
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
-
-    def test_deny_mode_emits_envelope(self):
-        cmd = "python3 -m yoke_core.api.service_client session-end"
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)

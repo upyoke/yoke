@@ -9,8 +9,6 @@ command still exempts nothing.
 
 from __future__ import annotations
 
-from unittest import mock
-
 import pytest
 
 from yoke_core.domain import lint_no_agent_runtime_api_import_from_c as lint
@@ -26,8 +24,7 @@ def _eval(command: str):
         "tool_use_id": "tu-test",
         "turn_id": "turn-test",
     }
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        return lint.evaluate_payload(payload)
+    return lint.evaluate_payload(payload)
 
 
 @pytest.mark.parametrize(

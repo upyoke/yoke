@@ -4,8 +4,8 @@ Covers the four canonical contracts:
 
 - Positive trip: ``python3 -c "from runtime..."`` denies.
 - False-positive guards: stdlib imports, ``-m`` invocations, unrelated scripts.
-- Suppression token is audit-only — the rule still denies in deny mode.
-- Warn mode emits a WARN decision, not a deny envelope.
+- Suppression token is audit-only — the rule still denies.
+- A hit returns a blocking deny envelope (warn mode lives in mode_gate).
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_no_agent_runtime_api_import_from_c as lint
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -37,9 +36,8 @@ def _record_for(payload: dict):
     return lint._build_context_from_payload(payload)
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 class TestPositiveTrip(unittest.TestCase):
@@ -52,8 +50,7 @@ class TestPositiveTrip(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("BLOCKED", reason)
 
@@ -63,7 +60,7 @@ class TestPositiveTrip(unittest.TestCase):
         cmd = 'python3 -c "from yoke_core.domain.events import emit"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        _mode, reason, _outcome = result
+        reason, _outcome = result
         self.assertIn("-m", reason)
         self.assertIn("module invocations", reason)
 
@@ -71,7 +68,7 @@ class TestPositiveTrip(unittest.TestCase):
         cmd = 'python3 -c "from yoke_core.hooks.sessions_cli import x"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_split_package_imports_deny(self):
         for package in ("yoke_cli", "yoke_harness"):
@@ -80,25 +77,25 @@ class TestPositiveTrip(unittest.TestCase):
                 result = _eval(cmd)
                 self.assertIsNotNone(result)
                 assert result is not None
-                self.assertEqual(result[0], "deny")
+                self.assertEqual(result[1], "denied")
 
     def test_bare_import_runtime_denies(self):
         cmd = "python3 -c \"import yoke_core.domain.session; print('ok')\""
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_python_unversioned_denies(self):
         cmd = 'python -c "from yoke_core.domain.events import emit"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_chained_invocation_denies(self):
         cmd = 'git status && python3 -c "from yoke_core.domain.events import emit"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
 
 class TestFalsePositiveGuards(unittest.TestCase):
@@ -158,13 +155,12 @@ class TestFalsePositiveGuards(unittest.TestCase):
         self.assertIsNone(_eval("python3 -c \"print('runtime.api is a string here')\""))
 
     def test_non_bash_tool_no_deny(self):
-        result = lint.evaluate_payload(
-            {
-                "tool_name": "Read",
-                "tool_input": {"command": 'python3 -c "from runtime.api import x"'},
-            }
-        )
-        self.assertIsNone(result)
+        payload = {
+            "tool_name": "Read",
+            "tool_input": {"command": 'python3 -c "from runtime.api import x"'},
+        }
+        decision = lint.evaluate(_record_for(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_empty_command_no_deny(self):
         self.assertIsNone(_eval(""))
@@ -180,9 +176,8 @@ class TestSuppressionTokenAudit(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
-        self.assertEqual(mode, "deny")
         self.assertIn("does NOT unblock", reason)
 
     def test_evaluate_still_denies_with_attempted_outcome(self):
@@ -190,30 +185,17 @@ class TestSuppressionTokenAudit(unittest.TestCase):
             'python3 -c "from yoke_core.domain.events import emit"  '
             "# lint:no-agent-runtime-import-check"
         )
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
         self.assertIn("does NOT unblock", decision.audit_fields["reason"])
 
 
-class TestModePin(unittest.TestCase):
-    def test_warn_mode_returns_warn_no_deny_envelope(self):
+class TestDenyDecision(unittest.TestCase):
+    def test_deny_emits_envelope(self):
         cmd = 'python3 -c "from yoke_core.domain.events import emit"'
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
-
-    def test_deny_mode_emits_envelope(self):
-        cmd = 'python3 -c "from yoke_core.domain.events import emit"'
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -317,7 +299,7 @@ class TestDenialNamesWhatItMatched(unittest.TestCase):
     def test_the_matched_import_is_quoted_in_the_reason(self):
         verdict = _eval(self.HEREDOC_EDIT_THEN_REACH_IN)
         self.assertIsNotNone(verdict)
-        reason = verdict[1]
+        reason = verdict[0]
         self.assertIn("from yoke_core.domain.surfaces import render", reason)
         self.assertNotIn("list_item_worktrees", reason)
 
@@ -331,8 +313,8 @@ class TestDenialNamesWhatItMatched(unittest.TestCase):
         self.assertIsNotNone(alone)
         self.assertIsNotNone(after_a_heredoc)
         self.assertNotEqual(
-            alone[1],
-            after_a_heredoc[1],
+            alone[0],
+            after_a_heredoc[0],
             "the reason must distinguish the invocation it matched",
         )
 

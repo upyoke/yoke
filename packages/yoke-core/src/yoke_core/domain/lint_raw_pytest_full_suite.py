@@ -51,23 +51,6 @@ _VALUE_FLAGS = frozenset(
 _REDIRECTION = re.compile(r"^\d*(?:&?>>?|<<?)")
 
 
-def _extract_tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_raw_pytest_full_suite",
-        payload,
-    )
-
-
 def full_sweep_anchors() -> tuple[str, ...]:
     """Return the project's declared full-sweep anchor paths.
 
@@ -136,7 +119,6 @@ def _format_reason(
     severity: str,
     detail: str,
     suppression_seen: bool,
-    mode: str,
 ) -> str:
     verb = "BLOCKED" if severity == "full" else "HEAVY"
     body = (
@@ -158,7 +140,7 @@ def _format_reason(
         "Admission is per invocation; quoted wrapper names do not exempt raw tests.\n"
         "Doctrine: `.yoke/docs/agents/rules/verification.md` → Testing"
     )
-    if mode == "warn" or severity != "full":
+    if severity != "full":
         body += "\n\n[advisory] narrow, deliberate sweeps are legitimate."
     elif suppression_seen:
         body += (
@@ -169,12 +151,9 @@ def _format_reason(
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
-    """Apply the rule; return ``(mode, reason, outcome)`` when denying/warning."""
+def _verdict(payload: dict) -> Optional[Tuple[bool, str, str]]:
+    """Return ``(blocks, reason, audit_outcome)`` on a hit, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not command:
@@ -184,49 +163,56 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return None
     severity, detail = hit
     suppression_seen = SUPPRESSION_TOKEN in command
+    reason = _format_reason(severity, detail, suppression_seen)
     # Only the whole-surface shape is unambiguous enough to deny; a
-    # narrower sweep advises regardless of the configured mode.
-    mode = _read_mode(payload) if severity == "full" else "warn"
-    reason = _format_reason(severity, detail, suppression_seen, mode)
-    outcome = (
-        "suppression_attempted"
-        if suppression_seen
-        else ("denied" if mode == "deny" else "warned")
-    )
-    return (mode, reason, outcome)
+    # narrower sweep is this guard's own advisory under every policy.
+    blocks = severity == "full"
+    if suppression_seen:
+        return blocks, reason, "suppression_attempted"
+    return blocks, reason, "denied" if blocks else "warn"
+
+
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit.
+
+    ``audit_outcome`` is ``denied`` for the whole-surface sweep and ``warn``
+    for the guard's own advisory; either is ``suppression_attempted`` when
+    the suppression token is present.
+    """
+    verdict = _verdict(payload)
+    return None if verdict is None else verdict[1:]
 
 
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry — pure shape parse, no subprocess fan-out."""
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = _verdict(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {
-        "mode": mode,
-        "reason": f"[mode={mode}] {reason}" if mode == "warn" else reason,
-        "audit_outcome": outcome,
-    }
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    blocks, reason, outcome = verdict
+    audit = {"reason": reason, "audit_outcome": outcome}
+    if not blocks:
+        return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields=audit,
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, session_id = payload.get("cwd"), payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

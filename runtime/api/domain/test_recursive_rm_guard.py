@@ -108,7 +108,7 @@ def test_wrapped_and_chained_rm_is_checked(roots):
 
 def test_reason_names_shape_targets_and_recovery():
     reason = format_recursive_rm_reason(
-        guard.UNRESOLVED_SHAPE, ["$(dirname $(mktemp -u))/tmp.*"], False, "deny"
+        guard.UNRESOLVED_SHAPE, ["$(dirname $(mktemp -u))/tmp.*"], False
     )
     assert "$(dirname $(mktemp -u))/tmp.*" in reason
     assert "trap 'rm -rf \"$T\"' EXIT" in reason
@@ -120,11 +120,9 @@ def _payload(command: str, cwd: str) -> dict:
     return {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd}
 
 
-def test_engine_guard_denies_incident(roots, monkeypatch):
-    monkeypatch.setattr(engine, "_read_mode", lambda *a, **k: "deny")
-    monkeypatch.setattr(engine, "_config_note", lambda *a, **k: "")
-    mode, reason, outcome = engine.evaluate_payload(_payload(INCIDENT, "/"))
-    assert (mode, outcome) == ("deny", "denied")
+def test_engine_guard_denies_incident(roots):
+    reason, outcome = engine.evaluate_payload(_payload(INCIDENT, "/"))
+    assert outcome == "denied"
     assert "recursive delete" in reason
 
 

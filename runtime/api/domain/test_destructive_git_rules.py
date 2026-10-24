@@ -42,11 +42,10 @@ def repo(tmp_path: Path) -> Path:
 def _core(command: str, cwd: Path) -> str | None:
     payload = {"tool_name": "Bash", "cwd": str(cwd), "tool_input": {"command": command}}
     with (
-        mock.patch.object(ldg, "_read_mode", return_value="deny"),
         mock.patch.object(ldg, "_claimed_worktree_threats", return_value=[]),
     ):
         verdict = ldg.evaluate_payload(payload)
-    return verdict[1] if verdict else None
+    return verdict[0] if verdict else None
 
 
 def _local(command: str, cwd: Path) -> str | None:

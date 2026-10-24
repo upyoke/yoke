@@ -5,8 +5,7 @@ Sibling of ``lint_long_command_polling`` (the hook entry point) and
 isolates everything that builds output:
 
 - ``_format_sleep_reason`` /
-  ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing reason text rendered with
-  the verdict (``DENIED`` vs ``POLLING ANTI-PATTERN``).
+  ``_format_github_poll_loop_reason`` / ``_format_monitor_duplicate_reason`` — operator-facing ``DENIED`` reason text.
 - ``_build_context`` — the structured context dict returned with the
   verdict.
 
@@ -37,20 +36,18 @@ def _raw_capture_hint(progress_capture: str) -> str:
     return progress_capture
 
 
-def _format_sleep_reason(cadence: int, mode: str) -> str:
-    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
+def _format_sleep_reason(cadence: int) -> str:
     return (
-        f"{verb}: sleep {cadence} followed by a registered capture read — progress polling with N < 60s.\n\n"
+        f"DENIED: sleep {cadence} followed by a registered capture read — progress polling with N < 60s.\n\n"
         f"Fallback cadence when no streaming surface exists is 60s -> 90s -> 120s -> max ~300s.\n"
         f"Never check faster than 60 seconds.\n\n"
         "In verified background-wake mode, await Monitor/completion; otherwise keep the original foreground wait active."
     )
 
 
-def _format_github_poll_loop_reason(mode: str) -> str:
-    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
+def _format_github_poll_loop_reason() -> str:
     return (
-        f"{verb}: shell loop polling GitHub for a CI run.\n\n"
+        "DENIED: shell loop polling GitHub for a CI run.\n\n"
         "A CI run Yoke dispatched for this session (`yoke watch pytest`, "
         "`yoke qa case run`, `yoke merge item`) has a recorded wait: its "
         "verdict wakes this session with the command that re-enters it. "
@@ -67,12 +64,11 @@ def _format_monitor_duplicate_reason(
     capture_file: str,
     prior_tool_use_id: str,
     suppressed_attempt: bool,
-    mode: str,
 ) -> str:
-    """Reason text for the duplicate-Monitor rule (mode-pinned warn/deny).
+    """Reason text for the duplicate-Monitor rule.
 
     ``# lint:no-monitor-duplicate-check`` is honoured ONLY as audit evidence
-    and the rule still denies in ``deny`` mode. ``prior_tool_use_id`` names
+    and the rule still denies. ``prior_tool_use_id`` names
     the earliest Monitor in
     this session that targeted the same capture; the prior Monitor may
     be still armed or already completed — either way, re-arming is the
@@ -123,16 +119,15 @@ def _format_monitor_duplicate_reason(
         f"is {limit // 60} minutes old, and arm with {deadline} so expiry "
         "and re-arm line up; never relaunch the wrapper"
     )
-    verb = "DENIED" if mode == "deny" else "POLLING ANTI-PATTERN"
     if suppressed_attempt:
         return (
-            f"{verb}: "
+            "DENIED: "
             + body
             + f"\n\nSuppression token `{MONITOR_DUPLICATE_SUPPRESSION_TOKEN}` "
             "was detected on this command and recorded for audit, but it "
             "does NOT unblock this rule."
         )
-    return f"{verb}: " + body
+    return "DENIED: " + body
 
 
 def _build_context(tool_name: str, command: str, capture_file: Optional[str]) -> dict:

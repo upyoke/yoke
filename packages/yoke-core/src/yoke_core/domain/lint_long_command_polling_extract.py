@@ -3,8 +3,8 @@
 Owns the regex constants and every helper that classifies a command
 string or PreToolUse payload without touching the filesystem, DB, or
 the audit-event surface. The evaluate sibling consumes these for its
-verdict logic; the entry-point ``run()`` consumes ``_extract_command``
-and ``_extract_tool_name`` for audit emission.
+verdict logic; the entry point consumes ``_extract_command`` to build
+its standalone hook context.
 
 Functions here are read-only over their inputs and have no side
 effects.
@@ -103,15 +103,6 @@ def _extract_tool_input(payload: dict) -> dict:
         if isinstance(value, dict):
             return value
     return {}
-
-
-def _extract_tool_name(payload: dict) -> str:
-    """Return the invoked tool name (``Bash``, ``ScheduleWakeup``, etc.)."""
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
 
 
 def _has_suppression(command: str) -> bool:

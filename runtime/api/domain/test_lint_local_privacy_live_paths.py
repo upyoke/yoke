@@ -22,8 +22,9 @@ import pytest
 
 from yoke_contracts.hook_runner.hook_guard_catalog import GUARD_CATALOG
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
-from yoke_contracts.hook_runner.local_privacy_messages import LIVE_ADVISORY
+from yoke_contracts.hook_runner import lint_policy
 from yoke_core.domain import lint_local_privacy
+from yoke_core.hooks import mode_gate
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
 from yoke_harness.hooks import local_policies, local_subset
@@ -80,41 +81,45 @@ def test_broad_discovery_advises_on_both_live_paths() -> None:
         product_verdict = local_policies.lint_local_privacy(payload)
 
     assert engine_verdict is not None
-    assert engine_verdict[2] == "advisory"
+    assert engine_verdict[1] == "advisory"
     assert decision.outcome is Outcome.WARN
     assert decision.block is False
-    assert decision.audit_fields["additionalContext"] == engine_verdict[1]
-    assert decision.audit_fields["reason"] == engine_verdict[1]
+    assert decision.audit_fields["additionalContext"] == engine_verdict[0]
+    assert decision.audit_fields["reason"] == engine_verdict[0]
     assert guard_audit_outcome(decision) == "warn"
     assert product_verdict.outcome == ADVISORY
-    assert product_verdict.additional_context in engine_verdict[1]
+    assert product_verdict.additional_context in engine_verdict[0]
 
 
 def test_an_operator_deny_setting_does_not_escalate_the_advisory() -> None:
     payload = _payload("find $HOME -maxdepth 4 -name python3")
+    payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = {"lint_local_privacy": {"mode": "deny"}}
+    context = lint_local_privacy._context(payload)
 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        with patch.object(lint_local_privacy, "_read_mode", return_value="deny"):
-            verdict = lint_local_privacy.evaluate_payload(payload)
+        decision = mode_gate.apply_mode(
+            lint_local_privacy.evaluate(context),
+            "yoke_core.domain.lint_local_privacy",
+            context=context,
+        )
 
-    assert verdict is not None
-    assert verdict[0] == LIVE_ADVISORY
-    assert verdict[2] == "advisory"
+    assert decision.outcome is Outcome.WARN
+    assert decision.block is False
+    assert decision.audit_fields["audit_outcome"] == "advisory"
 
 
 def test_privacy_database_still_denies_on_both_live_paths() -> None:
     payload = _payload("cat '/Library/Application Support/com.apple.TCC/TCC.db'")
 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        with patch.object(lint_local_privacy, "_read_mode", return_value="deny"):
-            engine_verdict = lint_local_privacy.evaluate_payload(payload)
+        engine_verdict = lint_local_privacy.evaluate_payload(payload)
     with patch.object(local_policies.Path, "home", return_value=HOME):
         product_verdict = local_policies.lint_local_privacy(payload)
 
     assert engine_verdict is not None
-    assert engine_verdict[0] == "deny"
+    assert engine_verdict[1] == "denied"
     assert product_verdict.outcome == DENY
-    assert product_verdict.message in engine_verdict[1]
+    assert product_verdict.message in engine_verdict[0]
 
 
 def test_engine_and_product_local_policy_share_safe_outcome() -> None:

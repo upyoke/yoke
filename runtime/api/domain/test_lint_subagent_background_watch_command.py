@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 import sys
 import unittest
-from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -29,21 +28,12 @@ def _bash_payload(command: str) -> dict:
 
 
 class TestYokeWatchCommandSpelling(unittest.TestCase):
-    def setUp(self):
-        self._mode_patch = patch.object(
-            lint,
-            "_read_lint_mode",
-            return_value="deny",
-        )
-        self._mode_patch.start()
-        self.addCleanup(self._mode_patch.stop)
-
     def test_denies_backgrounded_yoke_watch_command(self):
         verdict = lint.evaluate_payload(
             _bash_payload("yoke watch pytest -- runtime/api/ &"),
         )
         self.assertIsNotNone(verdict)
-        _, reason, _, _ = verdict
+        reason, _, _ = verdict
         self.assertIn("yoke watch pytest", reason)
 
     def test_allows_foreground_yoke_watch_command(self):

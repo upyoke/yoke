@@ -64,7 +64,6 @@ def format_reason(
     kind: str,
     text: str,
     suppression_seen: bool,
-    mode: str,
     command: str = "",
 ) -> str:
     preview = text if len(text) <= 160 else text[:157] + "..."
@@ -76,9 +75,7 @@ def format_reason(
         "Yoke receives is already substituted. "
         f"{recovery}\n"
     )
-    if mode == "warn":
-        body += "\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."

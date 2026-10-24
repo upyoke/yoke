@@ -29,20 +29,6 @@ _IF_STATUS_CAPTURE_RE = re.compile(
 )
 
 
-def _extract_tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload("lint_if_status_capture", payload)
-
-
 def _find_if_status_capture(command: str) -> Optional[str]:
     match = _IF_STATUS_CAPTURE_RE.search(command)
     if match is None:
@@ -50,7 +36,7 @@ def _find_if_status_capture(command: str) -> Optional[str]:
     return match.group("assignment")
 
 
-def _format_reason(assignment: str, suppression_seen: bool, mode: str) -> str:
+def _format_reason(assignment: str, suppression_seen: bool) -> str:
     body = (
         "BLOCKED: Bash command captures `$?` immediately after `fi`.\n\n"
         f"Detected: `{assignment}` after an `if` compound.\n\n"
@@ -67,9 +53,7 @@ def _format_reason(assignment: str, suppression_seen: bool, mode: str) -> str:
         "If you need an aggregate boolean from the whole conditional, assign an "
         "explicit value inside the branches instead of reading `$?` after `fi`."
     )
-    if mode == "warn":
-        body += "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
@@ -77,11 +61,8 @@ def _format_reason(assignment: str, suppression_seen: bool, mode: str) -> str:
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not command:
@@ -90,39 +71,37 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     if assignment is None:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
-    mode = _read_mode(payload)
-    reason = _format_reason(assignment, suppression_seen, mode)
-    outcome = "suppression_attempted" if suppression_seen else "denied"
-    return mode, reason, outcome
+    reason = _format_reason(assignment, suppression_seen)
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd = payload.get("cwd")
     session_id = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

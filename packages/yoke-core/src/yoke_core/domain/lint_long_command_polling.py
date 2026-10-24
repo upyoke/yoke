@@ -14,25 +14,17 @@ Capture reads need no suppression token. ``# lint:no-polling-check``
 suppresses the short-sleep rule. It does not unblock a GitHub polling loop: a CI run
 Yoke dispatched has a recorded wait whose verdict wakes the session. Monitor
 duplicate and background-waiter suppression tokens are audit-only and still
-deny in ``deny`` mode.
-
-Modes (resolved from ``.yoke/lint-config`` via
-``yoke_core.domain.lint_config``):
-- ``warn`` (default): returns a non-blocking ``WARN`` decision whose
-  ``audit_fields`` declare the audit outcome; the hook runner records the
-  ``warn`` audit row. The tool call is NOT blocked.
-- ``deny``: returns a blocking decision with a plain reason; the hook runner
-  records the denial row and the shared renderer builds the harness output.
+deny.
 
 Typed runner contract:
     ``evaluate(record: HookContext) -> HookDecision``
 
-Behavior is byte-equivalent to the legacy stdin-driven hook. The
-decision carries the plain deny reason in ``message`` for ``deny``
-outcomes; ``block=True`` is set on deny so the renderer (and any
-harness-specific consumer) sees the blocking semantic explicitly.
-``audit_fields`` carry the reason, mode and audit outcome the hook runner
-records, so warn-mode and suppression evidence is preserved.
+On a hit the guard always returns a blocking ``DENY`` whose ``message``
+carries the plain reason and whose ``audit_fields`` carry the reason, tool
+name and audit outcome (``denied`` or ``suppression_attempted``). The hook
+runner's mode gate applies ``.yoke/lint-config`` key
+``lint_long_command_polling`` (registry default ``deny``); in ``warn`` it
+downgrades the decision to a non-blocking warn row.
 
 The CLI ``__main__`` form is preserved for the registered shell hook
 entry (``python3 -m yoke_core.domain.lint_long_command_polling``):
@@ -40,17 +32,14 @@ entry (``python3 -m yoke_core.domain.lint_long_command_polling``):
 ``evaluate``, and prints the deny envelope on a deny outcome. Exit code
 is always ``0`` (fail-open).
 
-This module owns the hook entry point. Public constants
-(``DEFAULT_MODE``, ``VALID_MODES``, ``CHECK_ID``,
-``SUPPRESSION_TOKEN``, plus the cadence
-thresholds) live in the leaf ``lint_long_command_polling_constants``
-sibling and are re-exported here. The
-machine-config reader lives in ``lint_long_command_polling_config`` and
-is also re-exported. The verdict logic lives in
-``lint_long_command_polling_evaluate``; pure command introspection lives
-in ``lint_long_command_polling_extract``; the reason formatters live in ``lint_long_command_polling_decide``.
-Splitting constants and config into leaf modules avoids the import cycle
-that would otherwise trigger under ``python -m`` invocation.
+This module owns the hook entry point. Public constants (``CHECK_ID``,
+``SUPPRESSION_TOKEN``, plus the cadence thresholds) live in the leaf
+``lint_long_command_polling_constants`` sibling and are re-exported here.
+The verdict logic lives in ``lint_long_command_polling_evaluate``; pure
+command introspection lives in ``lint_long_command_polling_extract``; the
+reason formatters live in ``lint_long_command_polling_decide``. Splitting
+constants into a leaf module avoids the import cycle that would otherwise
+trigger under ``python -m`` invocation.
 """
 
 from __future__ import annotations
@@ -62,20 +51,14 @@ import sys
 
 from yoke_core.domain.lint_long_command_polling_constants import (  # noqa: F401
     CHECK_ID,
-    DEFAULT_MODE,
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
     RECENT_EVENT_LOOKBACK_SECONDS,
     SLEEP_CADENCE_FLOOR_SECONDS,
     SUPPRESSION_TOKEN,
-    VALID_MODES,
 )
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_core.domain.lint_long_command_polling_config import (  # noqa: F401
-    _read_lint_mode,
-)
 from yoke_core.domain.lint_long_command_polling_extract import (  # noqa: F401
     _extract_command,
-    _extract_tool_name,
 )
 from yoke_core.domain.lint_long_command_polling_evaluate import (
     evaluate_payload,
@@ -99,51 +82,31 @@ def _allow_decision() -> HookDecision:
 def evaluate(record: HookContext) -> HookDecision:
     """Run the polling lint against a typed :class:`HookContext`.
 
-    - Returns ``HookDecision(outcome=NOOP)`` when ``evaluate_payload``
-      surfaces no verdict (no polling anti-pattern, suppression token
-      honored, etc.).
-    - When a verdict fires, ``audit_fields["audit_outcome"]`` carries the
-      verdict's outcome (``denied`` or ``suppression_attempted``) so the
-      hook runner records the row in both modes.
-    - In ``warn`` mode the decision is ``WARN`` with no ``block`` and no
-      message; the legacy stdout was empty so the renderer keeps stdout
-      empty too.
-    - In ``deny`` mode the decision is ``DENY`` with ``block=True`` and
-      ``message`` carrying the plain deny reason. The
-      ``audit_fields`` dict carries the structured reason / mode /
-      outcome the hook runner records.
+    Returns ``NOOP`` when ``evaluate_payload`` surfaces no verdict, else a
+    blocking ``DENY`` whose ``audit_fields["audit_outcome"]`` carries the
+    verdict's outcome (``denied`` or ``suppression_attempted``).
     """
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict_result = evaluate_payload(payload)
+    tool_name = record.tool_name or ""
+    verdict_result = evaluate_payload(payload, tool_name)
     if verdict_result is None:
         return _allow_decision()
 
-    mode, reason, context = verdict_result
+    reason, context = verdict_result
     reason = attach_check_id(reason, check_id="lint-long-command-polling")
-    tool_name = _extract_tool_name(payload) or "Bash"
     outcome_label = (
         context.get("outcome", "denied") if isinstance(context, dict) else "denied"
     )
-    audit_fields = {
-        "mode": mode,
-        "reason": reason,
-        "tool_name": tool_name,
-        "audit_outcome": outcome_label,
-    }
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit_fields,
-            block=True,
-            next=Next.STOP,
-        )
     return HookDecision(
-        outcome=Outcome.WARN,
-        message="",
-        audit_fields=audit_fields,
-        block=False,
-        next=Next.CONTINUE,
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={
+            "reason": reason,
+            "tool_name": tool_name or "Bash",
+            "audit_outcome": outcome_label,
+        },
+        block=True,
+        next=Next.STOP,
     )
 
 
@@ -164,7 +127,7 @@ def _build_context_from_payload(payload: dict) -> HookContext:
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=tool_name if isinstance(tool_name, str) else None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=command_body,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

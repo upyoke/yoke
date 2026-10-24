@@ -29,6 +29,10 @@ def _write(file_path: str, content: str) -> dict:
     }
 
 
+def _check(payload: dict):
+    return mod.evaluate_payload(payload, payload["tool_name"])
+
+
 def _record_for(payload: dict):
     return mod._build_context_from_payload(payload)
 
@@ -64,18 +68,18 @@ class TestNumericHCFilename(unittest.TestCase):
 
 class TestBashTool(unittest.TestCase):
     def test_allow_unrelated_command(self) -> None:
-        self.assertIsNone(mod.evaluate_payload(_bash("ls -la")))
+        self.assertIsNone(_check(_bash("ls -la")))
 
     def test_suppression_comment_allows(self) -> None:
         cmd = (
             "cat > .agents/skills/yoke/scripts/tests/test-x.sh <<EOF\n"
             "# TC-7\nEOF\n# lint:no-tc-label-check"
         )
-        self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
+        self.assertIsNone(_check(_bash(cmd)))
 
     def test_write_redirect_with_tc_label_blocks(self) -> None:
         cmd = 'printf "TC-5" > .agents/skills/yoke/scripts/tests/test-x.sh'
-        reason = mod.evaluate_payload(_bash(cmd))
+        reason = _check(_bash(cmd))
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("Sequential TC", reason)
@@ -84,7 +88,7 @@ class TestBashTool(unittest.TestCase):
         cmd = (
             "cat > .agents/skills/yoke/scripts/tests/test-x.sh <<EOF\necho TC-3\nEOF\n"
         )
-        reason = mod.evaluate_payload(_bash(cmd))
+        reason = _check(_bash(cmd))
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("heredoc", reason)
@@ -95,27 +99,27 @@ class TestBashTool(unittest.TestCase):
             "echo TC-3-named-path\n"
             "EOF\n"
         )
-        self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
+        self.assertIsNone(_check(_bash(cmd)))
 
     def test_numeric_hc_filename_creation_blocks(self) -> None:
         cmd = "touch .agents/skills/yoke/scripts/tests/test-doctor-hc12.sh"
-        reason = mod.evaluate_payload(_bash(cmd))
+        reason = _check(_bash(cmd))
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("Numeric HC", reason)
 
     def test_numeric_hc_mere_reference_ok(self) -> None:
         cmd = "grep test-doctor-hc42.sh /dev/null"
-        self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
+        self.assertIsNone(_check(_bash(cmd)))
 
     def test_sequential_tc_without_test_write_ok(self) -> None:
         # Not writing to a test file — should allow
         cmd = "echo 'TC-1 is a placeholder'"
-        self.assertIsNone(mod.evaluate_payload(_bash(cmd)))
+        self.assertIsNone(_check(_bash(cmd)))
 
     def test_claude_compat_path_also_blocks(self) -> None:
         cmd = "cat > .claude/skills/yoke/scripts/tests/test-y.sh <<EOF\nTC-1\nEOF\n"
-        reason = mod.evaluate_payload(_bash(cmd))
+        reason = _check(_bash(cmd))
         self.assertIsNotNone(reason)
 
 
@@ -125,14 +129,14 @@ class TestWriteTool(unittest.TestCase):
             ".agents/skills/yoke/scripts/tests/test-x.sh",
             "TC-5\n# lint:no-tc-label-check\n",
         )
-        self.assertIsNone(mod.evaluate_payload(payload))
+        self.assertIsNone(_check(payload))
 
     def test_numeric_hc_write_blocks(self) -> None:
         payload = _write(
             ".agents/skills/yoke/scripts/tests/test-doctor-hc42.sh",
             "echo ok",
         )
-        reason = mod.evaluate_payload(payload)
+        reason = _check(payload)
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("Numeric HC", reason)
@@ -142,21 +146,21 @@ class TestWriteTool(unittest.TestCase):
             ".agents/skills/yoke/scripts/tests/test-x.sh",
             "# TC-1\necho hi\n# TC-2\n",
         )
-        reason = mod.evaluate_payload(payload)
+        reason = _check(payload)
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("Sequential TC", reason)
 
     def test_tc_label_in_non_test_path_allowed(self) -> None:
         payload = _write("runtime/api/domain/foo.py", "# TC-5 placeholder")
-        self.assertIsNone(mod.evaluate_payload(payload))
+        self.assertIsNone(_check(payload))
 
     def test_named_label_allowed(self) -> None:
         payload = _write(
             ".agents/skills/yoke/scripts/tests/test-x.sh",
             "# TC-1-slow-path\necho hi\n",
         )
-        self.assertIsNone(mod.evaluate_payload(payload))
+        self.assertIsNone(_check(payload))
 
 
 class TestEvaluate(unittest.TestCase):

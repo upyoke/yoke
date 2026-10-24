@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-from unittest import mock
 
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
@@ -25,16 +24,14 @@ def _payload(command: str, **extra: object) -> dict:
 
 
 def _eval(command: str):
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        return lint.evaluate_payload(_payload(command))
+    return lint.evaluate_payload(_payload(command))
 
 
 def test_double_quoted_backtick_in_yoke_arg_denies():
     result = _eval('yoke dash --title "run `yoke items get` next"')
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "double-quoted argument" in reason
     assert "--stdin" in reason
@@ -47,7 +44,7 @@ def test_double_quoted_dollar_paren_in_yoke_arg_denies():
     result = _eval('yoke dash --title "output $(whoami)"')
 
     assert result is not None
-    assert result[0] == "deny"
+    assert result[1] == "denied"
 
 
 def test_single_quoted_substitution_markers_allow():
@@ -88,33 +85,21 @@ def test_yoke_cli_binary_name_is_not_a_yoke_invocation():
 
 def test_non_bash_tool_allows():
     payload = _payload('yoke dash --title "run `whoami`"', tool_name="Read")
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert lint.evaluate_payload(payload) is None
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.NOOP
 
 
 def test_suppression_is_audit_only():
     command = (
         'yoke dash --title "run `whoami`"  # lint:no-yoke-quoted-substitution-check'
     )
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
+    decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
     body = json.loads(render_codex_decision([decision], "PreToolUse")[0])
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert guard_audit_outcome(decision) == "suppression_attempted"
-
-
-def test_warn_mode_records_warn_without_blocking():
-    payload = _payload('yoke dash --title "run `whoami`"')
-    with mock.patch.object(lint, "_read_mode", return_value="warn"):
-        decision = lint.evaluate(lint._build_context_from_payload(payload))
-
-    assert decision.outcome is Outcome.WARN
-    assert not decision.block
-    assert guard_audit_outcome(decision) == "warn"
-    assert decision.audit_fields["reason"]
 
 
 # The prose both denied commands carried, verbatim from the recorded denial up
@@ -174,8 +159,7 @@ def test_unquoted_heredoc_delimiter_denies_and_names_quoting_it():
     result = _eval(command)
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "unquoted" in reason
     assert "Heredoc body" in reason
@@ -206,8 +190,8 @@ def test_yoke_invocation_on_a_later_line_is_still_scanned():
     result = _eval(command)
 
     assert result is not None
-    assert result[0] == "deny"
-    assert "double-quoted argument" in result[1]
+    assert result[1] == "denied"
+    assert "double-quoted argument" in result[0]
 
 
 def test_yoke_named_inside_another_command_argument_allows():
@@ -223,7 +207,7 @@ def test_merge_item_denial_names_a_form_the_command_accepts():
     result = _eval('yoke merge item YOK-1 --result "ran `whoami`" --verification ok')
 
     assert result is not None
-    reason = result[1]
+    reason = result[0]
     assert "yoke merge item PREFIX-N --result" in reason
     assert "--verification" in reason
     assert "yoke dash --title TITLE --stdin" not in reason

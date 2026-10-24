@@ -4,8 +4,8 @@ Covers the four canonical contracts:
 
 - Positive trip: ``curl`` at ``localhost:8765/v1`` or ``/api`` and ``curl $YOKE_API/...`` deny.
 - False-positive guards: unrelated hosts, echo-only mentions, YOKE_API in non-curl commands.
-- Suppression token is audit-only — the rule still denies in deny mode.
-- Warn mode emits a WARN decision, not a deny envelope.
+- Suppression token is audit-only — the rule still denies.
+- A hit returns a blocking deny envelope (warn mode lives in mode_gate).
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_no_agent_curl_against_yoke_api as lint
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -37,9 +36,8 @@ def _record_for(payload: dict):
     return lint._build_context_from_payload(payload)
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 class TestPositiveTrip(unittest.TestCase):
@@ -52,30 +50,29 @@ class TestPositiveTrip(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
-        self.assertEqual(mode, "deny")
+        reason, outcome = result
         self.assertEqual(outcome, "denied")
         self.assertIn("BLOCKED", reason)
 
     def test_127_0_0_1_8765_denies(self):
         result = _eval("curl http://127.0.0.1:8765/v1/items/1")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_zero_host_8765_denies(self):
         result = _eval("curl http://0.0.0.0:8765/v1/health")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_yoke_api_env_var_denies(self):
         result = _eval("curl $YOKE_API/v1/functions/call")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_yoke_api_env_var_braced_denies(self):
         result = _eval("curl ${YOKE_API}/v1/items/1")
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_curl_with_flags_then_url_denies(self):
         # Flags interleaved between curl and URL — the URL still wins.
@@ -85,13 +82,13 @@ class TestPositiveTrip(unittest.TestCase):
         )
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
     def test_chained_command_denies(self):
         cmd = "git status; curl -sS http://localhost:8765/v1/health"
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        self.assertEqual(result[0], "deny")
+        self.assertEqual(result[1], "denied")
 
 
 class TestApiPathsOn8765(unittest.TestCase):
@@ -152,13 +149,12 @@ class TestFalsePositiveGuards(unittest.TestCase):
         self.assertIsNone(_eval("ls -la /tmp"))
 
     def test_non_bash_tool_no_deny(self):
-        result = lint.evaluate_payload(
-            {
-                "tool_name": "Read",
-                "tool_input": {"command": "curl http://localhost:8765/v1/x"},
-            }
-        )
-        self.assertIsNone(result)
+        payload = {
+            "tool_name": "Read",
+            "tool_input": {"command": "curl http://localhost:8765/v1/x"},
+        }
+        decision = lint.evaluate(_record_for(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_empty_command_no_deny(self):
         self.assertIsNone(_eval(""))
@@ -171,37 +167,23 @@ class TestSuppressionTokenAudit(unittest.TestCase):
         cmd = "curl http://localhost:8765/v1/health  # lint:no-agent-curl-check"
         result = _eval(cmd)
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
-        self.assertEqual(mode, "deny")
         self.assertIn("does NOT unblock", reason)
 
     def test_evaluate_still_denies_with_attempted_outcome(self):
         cmd = "curl http://localhost:8765/v1/health  # lint:no-agent-curl-check"
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
         self.assertIn("does NOT unblock", decision.audit_fields["reason"])
 
 
-class TestModePin(unittest.TestCase):
-    def test_warn_mode_returns_warn_no_deny_envelope(self):
+class TestDenyDecision(unittest.TestCase):
+    def test_deny_emits_envelope(self):
         cmd = "curl http://localhost:8765/v1/health"
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
-
-    def test_deny_mode_emits_envelope(self):
-        cmd = "curl http://localhost:8765/v1/health"
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)

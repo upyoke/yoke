@@ -26,8 +26,9 @@ def guard_audit_outcome(decision: HookDecision) -> str:
     when the guard saw its suppression token and still blocked. A decision
     that lets the call through records a row only when the guard declares
     ``audit_fields["audit_outcome"]``: ``suppression_attempted`` stays as
-    declared; any other declaration (a warn-mode hit, a lint-config
-    downgrade) records ``warn``.
+    declared; any other declaration (a lint-config downgrade by
+    :mod:`yoke_core.hooks.mode_gate`, or a guard's intrinsic advisory)
+    records ``warn``.
     """
     declared = (decision.audit_fields or {}).get("audit_outcome")
     if decision.outcome is Outcome.DENY or decision.block:

@@ -1,4 +1,4 @@
-"""Remediation builders + adapter index + mode resolver for the
+"""Remediation builders + adapter index for the
 shell-quoted-function-payload lint.
 
 Sibling module that owns the static heavy lifting so the lint hot path
@@ -11,10 +11,6 @@ stays under the 350-line authored-file budget. Surfaces:
 * :func:`build_payload_remediation` / :func:`build_choreography_remediation`
   / :func:`build_domain_remediation` — denial bodies for the three
   classified shapes (precise function id, domain-only, hand-quoted JSON).
-* :func:`resolve_mode` — read the lint-config value
-  (deny / warn). Lives here
-  rather than in the lint hot path so the parent module stays under
-  the line cap.
 
 All three remediation builders consume ``REMEDIATION_API_FIRST`` from the
 sibling messages module so the function-call surface naming stays in lock
@@ -46,21 +42,6 @@ _OVERRIDE_NOTE = (
     "Override `# lint:no-shell-json-payload-check` is audit-only; the rule "
     "still denies."
 )
-
-
-def resolve_mode(payload: object | None = None) -> str:
-    """Return ``deny`` (default) / ``warn`` from the single lint_config registry.
-
-    Sourced from ``.yoke/lint-config`` via ``lint_config`` so this guard shares
-    the one operator surface. Relayed hooks resolve from the client policy
-    snapshot in the payload; local hooks fall back to the checked-out file.
-    """
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_shell_quoted_function_payload",
-        payload,
-    )
 
 
 _ITEM_REF_TOKEN_RE = re.compile(r"[A-Z][A-Z0-9]*-(?:\d+|N)")
@@ -231,5 +212,4 @@ __all__ = [
     "build_choreography_remediation",
     "build_domain_remediation",
     "build_lifecycle_transition_note",
-    "resolve_mode",
 ]

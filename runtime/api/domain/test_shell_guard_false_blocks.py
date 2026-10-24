@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -19,8 +18,7 @@ def _denied(command: str, cwd: Path) -> tuple[bool, bool]:
         "cwd": str(cwd),
         "session_id": "sess-test",
     }
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        core = lint.evaluate_payload(payload) is not None
+    core = lint.evaluate_payload(payload) is not None
     return core, lint_unmatched_path_glob(payload).outcome == DENY
 
 

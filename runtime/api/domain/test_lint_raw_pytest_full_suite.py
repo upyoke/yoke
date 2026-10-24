@@ -4,8 +4,8 @@ Covers the deny shape (a raw sweep naming every declared anchor), the
 advisory shape (any other directory sweep, including a bare rootdir
 run), the shapes that must stay silent (file-scoped runs, and any
 invocation that already arbitrates for the admission slot), and the
-warn-mode plus suppression-token contracts shared with the sibling
-long-command lints.
+suppression-token contract shared with the sibling long-command lints.
+Policy warn mode is applied centrally by ``mode_gate``.
 """
 
 from __future__ import annotations
@@ -30,9 +30,8 @@ def _payload(command: str, **extra) -> dict:
     return payload
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 def _anchor_sweep() -> str:
@@ -60,8 +59,7 @@ class TestDenyShape(unittest.TestCase):
     def test_whole_surface_sweep_denies(self):
         verdict = _eval(_anchor_sweep())
         self.assertIsNotNone(verdict)
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "denied")
         self.assertIn("yoke watch pytest", reason)
         self.assertIn("admission slot", reason)
@@ -72,45 +70,56 @@ class TestDenyShape(unittest.TestCase):
         # `-n auto` and `-k expr` must not be mistaken for path operands,
         # and their presence must not hide the anchors either.
         command = _anchor_sweep() + " -n auto -k 'not slow' --tb=short"
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        _, outcome = _eval(command)
+        self.assertEqual(outcome, "denied")
 
     def test_bare_pytest_binary_is_matched(self):
         anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
-        mode, _, _ = _eval(f"pytest {anchors}")
-        self.assertEqual(mode, "deny")
-
-    def test_warn_mode_downgrades_without_unblocking_the_advice(self):
-        mode, reason, outcome = _eval(_anchor_sweep(), mode="warn")
-        self.assertEqual(mode, "warn")
-        self.assertEqual(outcome, "warned")
-        self.assertIn("yoke watch pytest", reason)
+        _, outcome = _eval(f"pytest {anchors}")
+        self.assertEqual(outcome, "denied")
 
     def test_suppression_token_is_audited_not_honored(self):
         command = _anchor_sweep() + "  # lint:no-raw-pytest-check"
-        mode, reason, outcome = _eval(command)
-        self.assertEqual(mode, "deny")
+        reason, outcome = _eval(command)
         self.assertEqual(outcome, "suppression_attempted")
         self.assertIn("does NOT unblock", reason)
 
 
 class TestAdvisoryShape(unittest.TestCase):
     def test_single_directory_sweep_advises(self):
-        mode, reason, outcome = _eval("python3 -m pytest runtime/api/domain/")
-        self.assertEqual(mode, "warn")
-        self.assertEqual(outcome, "warned")
+        reason, outcome = _eval("python3 -m pytest runtime/api/domain/")
+        self.assertEqual(outcome, "warn")
+        self.assertIn("[advisory]", reason)
         self.assertIn("runtime/api/domain", reason)
 
     def test_pathless_run_sweeps_the_rootdir(self):
-        mode, reason, _ = _eval("uv run --frozen python3 -m pytest -q")
-        self.assertEqual(mode, "warn")
+        reason, outcome = _eval("uv run --frozen python3 -m pytest -q")
+        self.assertEqual(outcome, "warn")
         self.assertIn("the whole rootdir", reason)
 
-    def test_a_directory_sweep_never_denies_even_in_deny_mode(self):
+    def test_a_directory_sweep_is_a_non_blocking_advisory(self):
         # Only the unambiguous whole-surface shape is deniable; a narrow
         # sweep may be a deliberate investigation.
-        mode, _, _ = _eval("pytest tests/", mode="deny")
-        self.assertEqual(mode, "warn")
+        decision = lint.evaluate(
+            lint._build_context_from_payload(_payload("pytest tests/"))
+        )
+        self.assertIs(decision.outcome, Outcome.WARN)
+        self.assertFalse(decision.block)
+        self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertIn("[advisory]", decision.audit_fields["reason"])
+
+
+    def test_suppressed_directory_sweep_stays_an_advisory_recording_the_attempt(self):
+        command = "pytest tests/  # lint:no-raw-pytest-check"
+        reason, outcome = _eval(command)
+        self.assertEqual(outcome, "suppression_attempted")
+        self.assertIn("[advisory]", reason)
+        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
+        self.assertIs(decision.outcome, Outcome.WARN)
+        self.assertFalse(decision.block)
+        self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
 
 class TestSilentShapes(unittest.TestCase):
@@ -147,7 +156,8 @@ class TestSilentShapes(unittest.TestCase):
     def test_non_bash_tool_is_not_matched(self):
         payload = _payload(_anchor_sweep())
         payload["tool_name"] = "Read"
-        self.assertIsNone(lint.evaluate_payload(payload))
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
 class TestRedirectionIsNotAPath(unittest.TestCase):
@@ -185,14 +195,14 @@ class TestRedirectionIsNotAPath(unittest.TestCase):
     def test_a_captured_directory_sweep_still_advises(self):
         verdict = _eval('python3 -m pytest runtime/api/ >"$_tmp" 2>&1')
         assert verdict is not None
-        _mode, reason, _outcome = verdict
+        reason, _outcome = verdict
         self.assertIn("runtime/api", reason)
         self.assertNotIn("2>&1", reason)
 
     def test_a_captured_pathless_run_is_still_a_rootdir_sweep(self):
         verdict = _eval('python3 -m pytest -q >"$_tmp" 2>&1')
         assert verdict is not None
-        self.assertIn("the whole rootdir", verdict[1])
+        self.assertIn("the whole rootdir", verdict[0])
 
 
 class TestNonPytestCommandsNamingTestFiles(unittest.TestCase):
@@ -275,16 +285,15 @@ class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
             + "\nEOF\n"
             + _anchor_sweep()
         )
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        _, outcome = _eval(command)
+        self.assertEqual(outcome, "denied")
 
 
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(
-                lint._build_context_from_payload(_payload(_anchor_sweep()))
-            )
+        decision = lint.evaluate(
+            lint._build_context_from_payload(_payload(_anchor_sweep()))
+        )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertIn("BLOCKED:", decision.message)

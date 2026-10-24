@@ -8,7 +8,6 @@ import json
 import shutil
 import tempfile
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_destructive_git as ldg
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
@@ -23,8 +22,8 @@ from runtime.api.domain.destructive_git_test_helpers import (
 )
 
 
-class TestModePinAndSuppression(unittest.TestCase):
-    """Mode-pin verdict + AC-T3 suppression-token audit-only semantics."""
+class TestDenyAndSuppression(unittest.TestCase):
+    """Deny verdict + suppression-token audit-only semantics."""
 
     def setUp(self):
         self.repo = _make_repo(initial_files={"a.txt": "v1\n"})
@@ -33,25 +32,22 @@ class TestModePinAndSuppression(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.repo, ignore_errors=True)
 
-    def test_AC8_token_records_attempt_still_denies(self):
+    def test_token_records_attempt_still_denies(self):
         cmd = (
             f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
         )
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"):
-            result = ldg.evaluate_payload(_payload(cmd))
+        result = ldg.evaluate_payload(_payload(cmd))
         self.assertIsNotNone(result)
-        mode, reason, outcome = result
+        reason, outcome = result
         self.assertEqual(outcome, "suppression_attempted")
-        self.assertEqual(mode, "deny")
         self.assertIn("does NOT unblock", reason)
 
-    def test_AC8_evaluate_token_still_denies_with_attempted_outcome(self):
-        # AC-T3: suppression-token is audit-only; evaluate(record) still denies.
+    def test_evaluate_token_still_denies_with_attempted_outcome(self):
+        # The suppression token is audit-only; evaluate(record) still denies.
         cmd = (
             f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
         )
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"):
-            decision = ldg.evaluate(_record_for(_payload(cmd)))
+        decision = ldg.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(
@@ -60,24 +56,10 @@ class TestModePinAndSuppression(unittest.TestCase):
         self.assertIn("does NOT unblock", decision.audit_fields["reason"])
         self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
-    def test_AC9_warn_mode_returns_warn_no_deny_envelope(self):
-        with mock.patch.object(ldg, "_read_mode", return_value="warn"):
-            decision = ldg.evaluate(
-                _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
-            )
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertEqual(decision.message, "")
-        self.assertFalse(decision.block)
-        self.assertIs(decision.next, Next.CONTINUE)
-        self.assertEqual(decision.audit_fields["mode"], "warn")
-        self.assertTrue(decision.audit_fields["reason"])
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-
-    def test_AC9_deny_mode_emits_envelope(self):
-        with mock.patch.object(ldg, "_read_mode", return_value="deny"):
-            decision = ldg.evaluate(
-                _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
-            )
+    def test_deny_emits_envelope(self):
+        decision = ldg.evaluate(
+            _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
+        )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -97,10 +79,12 @@ class TestFailOpen(unittest.TestCase):
         self.assertFalse(decision.block)
 
     def test_non_bash_tool_no_deny(self):
-        result = ldg.evaluate_payload(
-            {"tool_name": "Read", "tool_input": {"command": "git reset --hard"}}
+        decision = ldg.evaluate(
+            _record_for(
+                {"tool_name": "Read", "tool_input": {"command": "git reset --hard"}}
+            )
         )
-        self.assertIsNone(result)
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_non_git_repo_no_deny(self):
         d = tempfile.mkdtemp(prefix="ldg-non-git-")

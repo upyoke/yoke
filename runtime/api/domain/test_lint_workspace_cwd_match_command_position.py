@@ -28,10 +28,6 @@ def checkouts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Pa
         "yoke_core.domain.lint_workspace_cwd_match.resolve_session_worktree_paths",
         lambda session_id: [str(lane)] if session_id == SESSION else [],
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.lint_workspace_cwd_match._read_mode",
-        lambda payload=None: "deny",
-    )
     return lane, main
 
 
@@ -79,7 +75,7 @@ def test_pytest_in_command_position_from_main_is_still_refused(checkouts) -> Non
     command = "rg -n 'pytest' docs | head -3; pytest runtime/api"
     verdict = evaluate_payload(_payload(command, main))
     assert verdict is not None
-    assert verdict[2] == "denied"
+    assert verdict[1] == "denied"
 
 
 def test_cd_out_of_the_lane_is_still_refused(checkouts) -> None:

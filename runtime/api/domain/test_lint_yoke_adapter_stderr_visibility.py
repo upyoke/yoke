@@ -9,7 +9,6 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-from unittest import mock
 
 import pytest
 
@@ -30,9 +29,8 @@ def _payload(command: str, **extra: object) -> dict:
     return payload
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 @pytest.mark.parametrize(
@@ -53,8 +51,7 @@ def test_incident_commands_are_denied(command: str, detected: str):
     result = _eval(command)
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert detected in reason
     assert outcome == "denied"
 
@@ -80,7 +77,7 @@ def test_named_mutating_adapter_families_are_denied(command: str):
     result = _eval(command)
 
     assert result is not None
-    assert result[0] == "deny"
+    assert result[1] == "denied"
 
 
 @pytest.mark.parametrize(
@@ -109,7 +106,7 @@ def test_global_env_selector_still_classifies_mutation():
     )
 
     assert result is not None
-    assert "yoke deployment-runs create" in result[1]
+    assert "yoke deployment-runs create" in result[0]
 
 
 def test_quoted_redirection_text_is_not_shell_redirection():
@@ -122,21 +119,20 @@ def test_quoted_redirection_text_is_not_shell_redirection():
     command = "yoke items create --title 'example 2>/dev/null' --json | tail -1"
 
     assert lint._find_violation(command) is None
-    assert _eval(command)[1].startswith("BLOCKED: Yoke adapter output truncated")
+    assert _eval(command)[0].startswith("BLOCKED: Yoke adapter output truncated")
 
 
 def test_non_bash_tool_is_allowed():
     payload = _payload("yoke say --stdin 2>/dev/null", tool_name="Read")
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert lint.evaluate_payload(payload) is None
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.NOOP
 
 
 def test_suppression_token_is_audit_only():
     command = (
         "yoke say --stdin 2>/dev/null # lint:no-yoke-adapter-stderr-visibility-check"
     )
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
+    decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
@@ -146,25 +142,11 @@ def test_suppression_token_is_audit_only():
     assert guard_audit_outcome(decision) == "suppression_attempted"
 
 
-def test_warn_mode_reports_without_blocking():
-    with mock.patch.object(lint, "_read_mode", return_value="warn"):
-        decision = lint.evaluate(
-            lint._build_context_from_payload(
-                _payload("yoke claims work acquire --item YOK-1 2>&-")
-            )
-        )
-
-    assert decision.outcome is Outcome.WARN
-    assert not decision.block
-    assert "mode=warn" in decision.audit_fields["reason"]
-    assert guard_audit_outcome(decision) == "warn"
-
-
 def test_denial_teaches_bare_and_visible_stderr_shapes():
     result = _eval("yoke messages acknowledge message-1 2>/dev/null")
 
     assert result is not None
-    reason = result[1]
+    reason = result[0]
     assert "Run the adapter bare" in reason
     assert "leave stderr attached to the terminal" in reason
     assert "--json | python3 -c" in reason
@@ -188,8 +170,7 @@ def test_truncated_adapter_output_is_denied(command: str):
     result = _eval(command)
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "Yoke adapter output truncated" in reason
 
@@ -230,7 +211,7 @@ def test_truncation_denial_names_a_narrower_read():
     result = _eval("yoke items get YOK-1 body | head -30")
 
     assert result is not None
-    reason = result[1]
+    reason = result[0]
     assert "yoke items get PREFIX-N status" in reason
     assert "--section" in reason
     assert "mktemp /tmp/yoke-cmd.XXXXXX" in reason
@@ -245,7 +226,7 @@ def test_truncation_denial_falls_back_to_universally_accepted_shapes():
     result = _eval("yoke env list | head -5")
 
     assert result is not None
-    reason = result[1]
+    reason = result[0]
     assert "yoke env list <arguments>" in reason
     assert "--json" in reason
     assert "--full" not in reason
@@ -255,29 +236,29 @@ def test_truncation_denial_sends_a_watcher_to_its_own_capture():
     result = _eval("yoke watch pytest --print-streaming-pair | tail -12")
 
     assert result is not None
-    assert "raw capture path" in result[1]
+    assert "raw capture path" in result[0]
 
 
 def test_hidden_stderr_outranks_truncation_when_a_command_does_both():
     result = _eval("yoke say --stdin --item YOK-1 2>/dev/null | tail -1")
 
     assert result is not None
-    assert "hid its diagnostic stderr" in result[1]
+    assert "hid its diagnostic stderr" in result[0]
 
 
 def test_literal_adapter_truncator_is_denied():
     result = _eval("yoke relay status | head -4")
     assert result is not None
-    assert "Yoke adapter output truncated" in result[1]
+    assert "Yoke adapter output truncated" in result[0]
 
 
 def test_assigned_variable_truncator_is_denied():
     result = _eval("p=head; yoke relay status | $p -4")
     assert result is not None
-    assert "Yoke adapter output truncated" in result[1]
+    assert "Yoke adapter output truncated" in result[0]
 
 
 def test_unresolved_truncator_substitution_is_denied():
     result = _eval("yoke relay status | $p -4")
     assert result is not None
-    assert result[0] == "deny"
+    assert result[1] == "denied"

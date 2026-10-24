@@ -39,23 +39,20 @@ def _eval(
     command: str = WATCH,
     *,
     timeout=None,
-    mode: str = "deny",
     family: str = "claude",
     headless=True,
 ):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(
-            _payload(command, timeout=timeout, headless=headless),
-            executor_family=family,
-        )
+    return lint.evaluate_payload(
+        _payload(command, timeout=timeout, headless=headless),
+        executor_family=family,
+    )
 
 
 class TestScope(unittest.TestCase):
     def test_omitted_timeout_is_denied(self):
         verdict = _eval()
         assert verdict is not None
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "denied")
         self.assertIn(f"timeout: {IN_TURN_WATCHER_TIMEOUT_MS}", reason)
         self.assertIn("not a blanket Bash rule", reason)
@@ -127,23 +124,15 @@ class TestScope(unittest.TestCase):
     def test_non_bash_is_clean(self):
         payload = _payload()
         payload["tool_name"] = "Read"
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            self.assertIsNone(lint.evaluate_payload(payload, executor_family="claude"))
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
-class TestModesAndEnvelope(unittest.TestCase):
-    def test_warn_mode_is_advisory(self):
-        verdict = _eval(mode="warn")
-        assert verdict is not None
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "warn")
-        self.assertEqual(outcome, "warned")
-        self.assertIn("would block", reason)
-
+class TestDecision(unittest.TestCase):
     def test_suppression_does_not_unblock(self):
         verdict = _eval(f"{WATCH} {lint.SUPPRESSION_TOKEN}")
         assert verdict is not None
-        self.assertEqual(verdict[2], "suppression_attempted")
+        self.assertEqual(verdict[1], "suppression_attempted")
 
     def _decision(self, *, remote: bool = False, headless=True):
         return lint.evaluate(
@@ -164,14 +153,6 @@ class TestModesAndEnvelope(unittest.TestCase):
             self.assertEqual(local.outcome, outcome)
             self.assertEqual(remote.outcome, outcome)
             self.assertEqual(local.message, remote.message)
-
-    def test_warn_mode_decision_records_a_warn_row(self):
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = self._decision()
-        self.assertEqual(decision.outcome, Outcome.WARN)
-        self.assertFalse(decision.block)
-        self.assertIn("would block", decision.audit_fields["reason"])
-        self.assertEqual(guard_audit_outcome(decision), "warn")
 
     def test_deny_envelope_names_repair(self):
         decision = self._decision()

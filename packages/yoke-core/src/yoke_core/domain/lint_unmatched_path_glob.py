@@ -43,14 +43,6 @@ _GLOB_CHARS = frozenset("*?[")
 _REDIR_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
 
 
-def _extract_tool_name(payload: dict) -> str:
-    for key in ("tool_name", "toolName"):
-        value = payload.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
-
-
 def _extract_cwd(payload: dict, fallback: str = "") -> str:
     return resolve_payload_cwd(payload, fallback=fallback)
 
@@ -58,15 +50,6 @@ def _extract_cwd(payload: dict, fallback: str = "") -> str:
 def _payload_cwd(payload: dict) -> str:
     cwd = payload.get("cwd")
     return cwd if isinstance(cwd, str) else ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_unmatched_path_glob",
-        payload,
-    )
 
 
 def _unquoted_tokens(command: str) -> List[str]:
@@ -125,7 +108,6 @@ def _find_unmatched(command: str, cwd: str) -> Optional[Tuple[str, str]]:
 def _format_reason(
     token: str,
     suppression_seen: bool,
-    mode: str,
     *,
     execution_cwd: str = "",
     payload_cwd: str = "",
@@ -158,9 +140,7 @@ def _format_reason(
                 ", ".join(matches) if matches else "none"
             )
             body += "\nIf `rg` is absent, enumerate tracked files with `git ls-files`."
-    if mode == "warn":
-        body += "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body += (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
@@ -172,24 +152,21 @@ def evaluate_payload(
     payload: dict,
     *,
     fallback_cwd: str = "",
-) -> Optional[Tuple[str, str, str]]:
+) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` on a hit, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not command:
         return None
     repair = ripgrep_replace_repair(command)
     if repair is not None:
-        mode = _read_mode(payload)
         reason = attach_check_id(
             "BLOCKED: `rg -r` means `--replace`, not recursive search. "
             f"Repaired command: `{repair}`",
             check_id=RIPGREP_REPLACE_CHECK_ID,
         )
-        return mode, reason, "denied"
+        return reason, "denied"
     if executing_shell(payload) != "zsh":
         return None
     execution_cwd = _extract_cwd(payload, fallback=fallback_cwd)
@@ -202,53 +179,50 @@ def evaluate_payload(
         return None
     token, checked_cwd = found
     suppression_seen = SUPPRESSION_TOKEN in source
-    mode = _read_mode(payload)
     reason = _format_reason(
         token,
         suppression_seen,
-        mode,
         execution_cwd=checked_cwd,
         payload_cwd=_payload_cwd(payload),
         command=source,
     )
-    outcome = "suppression_attempted" if suppression_seen else "denied"
-    return mode, reason, outcome
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload, fallback_cwd=record.cwd or "")
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
+    reason, outcome = verdict
     audit = {
-        "mode": mode,
         "reason": reason,
         "audit_outcome": outcome,
         "check_id": RIPGREP_REPLACE_CHECK_ID
         if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason
         else CHECK_ID,
     }
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields=audit,
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd = payload.get("cwd")
     session_id = payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=session_id if isinstance(session_id, str) else None,

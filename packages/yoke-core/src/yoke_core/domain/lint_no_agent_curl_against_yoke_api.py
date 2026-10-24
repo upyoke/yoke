@@ -21,12 +21,11 @@ Allowed shapes the lint stays out of:
 * Any command whose substring contains ``YOKE_API`` without actually
   shelling out via ``curl``.
 
-Mode pinned by the project-local ``.yoke/lint-config`` guard key
-``lint_no_agent_curl_against_yoke_api`` (each sibling lint has its own
-guard key). There is no live machine-config key
-``lint_agent_cli_contract_mode``. Suppression token
-``# lint:no-agent-curl-check`` is recorded as audit evidence only — the
-rule still denies in ``deny`` mode.
+The guard always returns a deny; the hook runner's mode gate applies the
+``.yoke/lint-config`` guard key ``lint_no_agent_curl_against_yoke_api``
+(``warn`` downgrades it to an audit-only row). Suppression token
+``# lint:no-agent-curl-check`` is recorded as audit evidence only — it
+does not unblock.
 """
 
 from __future__ import annotations
@@ -51,24 +50,6 @@ _YOKE_API_VAR_RE = re.compile(r"\$\{?YOKE_API\}?")
 _API_URL_RE = re.compile(
     r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):8765/(?:v1|api)(?:[/?#]|$)"
 )
-
-
-def _extract_tool_name(payload: dict) -> str:
-    for k in ("tool_name", "toolName"):
-        v = payload.get(k)
-        if isinstance(v, str) and v:
-            return v
-    return ""
-
-
-def _read_mode(payload: object | None = None) -> str:
-    # Single surface: resolve via the lint_config registry (.yoke/lint-config).
-    from yoke_core.domain import lint_config
-
-    return lint_config.resolve_mode_for_payload(
-        "lint_no_agent_curl_against_yoke_api",
-        payload,
-    )
 
 
 def _arg_targets_yoke_api(arg: str) -> bool:
@@ -101,7 +82,7 @@ def _command_targets_yoke_api(command: str) -> bool:
     return False
 
 
-def _format_reason(suppression_seen: bool, mode: str) -> str:
+def _format_reason(suppression_seen: bool) -> str:
     body = (
         "BLOCKED: `curl http://localhost:8765/v1/...` (or `/api/...`, or "
         "`curl $YOKE_API/...`) "
@@ -126,9 +107,7 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         "— the unified `yoke` CLI is the canonical agent interface; "
         "HTTP-against-localhost is infrastructure / debug surface."
     )
-    if mode == "warn":
-        body = body + "\n\n[mode=warn] this hook would block in deny mode."
-    elif suppression_seen:
+    if suppression_seen:
         body = (
             body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
@@ -136,12 +115,9 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
     return attach_check_id(body, check_id="lint-no-agent-curl-against-yoke-api")
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
-    """Apply the rule; return ``(mode, reason, outcome)`` when denying/warning."""
+def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit, else None."""
     if not isinstance(payload, dict):
-        return None
-    tool = _extract_tool_name(payload)
-    if tool and tool != "Bash":
         return None
     command = _extract_command(payload)
     if not command:
@@ -149,43 +125,37 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     if not _command_targets_yoke_api(command):
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
-    mode = _read_mode(payload)
-    reason = _format_reason(suppression_seen, mode)
-    outcome = "suppression_attempted" if suppression_seen else "denied"
-    return (mode, reason, outcome)
+    reason = _format_reason(suppression_seen)
+    return reason, "suppression_attempted" if suppression_seen else "denied"
 
 
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry — pure shape parse, no subprocess fan-out."""
+    if record.tool_name and record.tool_name != "Bash":
+        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    mode, reason, outcome = verdict
-    audit = {
-        "mode": mode,
-        "reason": f"[mode={mode}] {reason}" if mode == "warn" else reason,
-        "audit_outcome": outcome,
-    }
-    if mode == "deny":
-        return HookDecision(
-            outcome=Outcome.DENY,
-            message=reason,
-            audit_fields=audit,
-            block=True,
-            next=Next.STOP,
-        )
-    return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
+    reason, outcome = verdict
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=reason,
+        audit_fields={"reason": reason, "audit_outcome": outcome},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
+    tool_name = payload.get("tool_name")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
-        tool_name=_extract_tool_name(payload) or None,
+        tool_name=tool_name if isinstance(tool_name, str) and tool_name else None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,

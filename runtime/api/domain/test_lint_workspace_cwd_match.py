@@ -75,16 +75,10 @@ def test_denies_event_622168_shape(
     workspace.mkdir()
     main_checkout.mkdir()
     _claim_workspace(monkeypatch, workspace)
-    # Mock the machine-config read to a stub that says deny:
-    monkeypatch.setattr(
-        "yoke_core.domain.lint_workspace_cwd_match._read_mode",
-        lambda payload=None: "deny",
-    )
     payload = _event_622168_payload(str(main_checkout))
     verdict = evaluate_payload(payload)
     assert verdict is not None, "expected denial verdict for event-622168 shape"
-    mode, reason, outcome = verdict
-    assert mode == "deny"
+    reason, outcome = verdict
     assert outcome == "denied"
     assert "writer-class command" in reason
     assert str(workspace) in reason
@@ -159,10 +153,6 @@ def test_writer_verb_allowlist_denies_each_shape(
     workspace.mkdir()
     main_checkout.mkdir()
     _claim_workspace(monkeypatch, workspace)
-    monkeypatch.setattr(
-        "yoke_core.domain.lint_workspace_cwd_match._read_mode",
-        lambda payload=None: "deny",
-    )
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": command},
@@ -171,8 +161,8 @@ def test_writer_verb_allowlist_denies_each_shape(
     }
     verdict = evaluate_payload(payload)
     assert verdict is not None, f"expected denial for {command!r}"
-    mode, _, _ = verdict
-    assert mode == "deny"
+    _, outcome = verdict
+    assert outcome == "denied"
 
 
 def test_unrelated_commands_pass_through(
@@ -218,10 +208,6 @@ def test_suppression_token_records_audit_but_does_not_unblock(
     workspace.mkdir()
     main_checkout.mkdir()
     _claim_workspace(monkeypatch, workspace)
-    monkeypatch.setattr(
-        "yoke_core.domain.lint_workspace_cwd_match._read_mode",
-        lambda payload=None: "deny",
-    )
     command = "python3 -m pytest runtime/harness/  " + SUPPRESSION_TOKEN
     payload = {
         "tool_name": "Bash",
@@ -231,41 +217,12 @@ def test_suppression_token_records_audit_but_does_not_unblock(
     }
     verdict = evaluate_payload(payload)
     assert verdict is not None
-    mode, _, outcome = verdict
-    assert mode == "deny", "suppression token must NOT unblock the rule"
+    _, outcome = verdict
     assert outcome == "suppression_attempted"
     decision = lint_workspace_cwd_match.evaluate(_context(payload))
-    assert decision.outcome is Outcome.DENY
+    assert decision.outcome is Outcome.DENY, "suppression token must NOT unblock"
+    assert decision.block
     assert guard_audit_outcome(decision) == "suppression_attempted"
-
-
-# ---------------------------------------------------------------------------
-# Warn mode fallthrough
-# ---------------------------------------------------------------------------
-
-
-def test_warn_mode_audits_without_block(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    workspace = tmp_path / "worktree"
-    main_checkout = tmp_path / "main"
-    workspace.mkdir()
-    main_checkout.mkdir()
-    _claim_workspace(monkeypatch, workspace)
-    monkeypatch.setattr(
-        "yoke_core.domain.lint_workspace_cwd_match._read_mode",
-        lambda payload=None: "warn",
-    )
-    payload = _event_622168_payload(str(main_checkout))
-    verdict = evaluate_payload(payload)
-    assert verdict is not None
-    mode, reason, _ = verdict
-    assert mode == "warn"
-    assert "[mode=warn]" in reason
-    decision = lint_workspace_cwd_match.evaluate(_context(payload))
-    assert decision.outcome is Outcome.WARN and not decision.block
-    assert guard_audit_outcome(decision) == "warn"
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +243,8 @@ def test_non_bash_tool_is_ignored(
         "cwd": str(tmp_path / "main"),
         "session_id": SESSION,
     }
-    assert evaluate_payload(payload) is None
+    record = lint_workspace_cwd_match._build_context_from_payload(payload)
+    assert lint_workspace_cwd_match.evaluate(record).outcome is Outcome.NOOP
 
 
 # ---------------------------------------------------------------------------
@@ -300,9 +258,6 @@ def _main_and_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path
     workspace.mkdir()
     main_checkout.mkdir()
     _claim_workspace(monkeypatch, workspace)
-    monkeypatch.setattr(
-        lint_workspace_cwd_match, "_read_mode", lambda payload=None: "deny"
-    )
     return main_checkout
 
 

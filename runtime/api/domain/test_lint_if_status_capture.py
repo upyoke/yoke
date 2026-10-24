@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-from unittest import mock
 
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
@@ -24,9 +23,8 @@ def _payload(command: str, **extra: object) -> dict:
     return payload
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 def test_if_compound_status_capture_after_newline_denies():
@@ -40,8 +38,7 @@ done"""
     )
 
     assert result is not None
-    mode, reason, outcome = result
-    assert mode == "deny"
+    reason, outcome = result
     assert outcome == "denied"
     assert "`rc=$?`" in reason
     assert "status of the `if` compound" in reason
@@ -51,8 +48,8 @@ def test_if_compound_status_capture_after_semicolon_denies():
     result = _eval("if build_image; then exit 0; fi; status=$?")
 
     assert result is not None
-    assert result[0] == "deny"
-    assert "`status=$?`" in result[1]
+    assert result[1] == "denied"
+    assert "`status=$?`" in result[0]
 
 
 def test_capture_inside_else_is_allowed():
@@ -80,14 +77,13 @@ fi
 
 def test_non_bash_tool_allows():
     payload = _payload("if false; then echo ok; fi; rc=$?", tool_name="Read")
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        assert lint.evaluate_payload(payload) is None
+    decision = lint.evaluate(lint._build_context_from_payload(payload))
+    assert decision.outcome is Outcome.NOOP
 
 
 def test_suppression_is_audit_only():
     command = "if false; then echo ok; fi; rc=$? # lint:no-if-status-capture-check"
-    with mock.patch.object(lint, "_read_mode", return_value="deny"):
-        decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
+    decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
@@ -96,16 +92,3 @@ def test_suppression_is_audit_only():
     assert decision.audit_fields["reason"]
     assert guard_audit_outcome(decision) == "suppression_attempted"
 
-
-def test_warn_mode_returns_warn():
-    with mock.patch.object(lint, "_read_mode", return_value="warn"):
-        decision = lint.evaluate(
-            lint._build_context_from_payload(
-                _payload("if false; then echo ok; fi; rc=$?")
-            )
-        )
-
-    assert decision.outcome is Outcome.WARN
-    assert not decision.block
-    assert decision.audit_fields["reason"]
-    assert guard_audit_outcome(decision) == "warn"

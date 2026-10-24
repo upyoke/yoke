@@ -12,6 +12,7 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+from yoke_core.domain import lint_long_command_polling as entry
 from yoke_core.domain import lint_long_command_polling_waiter as waiter
 from yoke_core.domain.lint_long_command_polling_constants import (
     BG_WAITER_SUPPRESSION_TOKEN,
@@ -20,6 +21,7 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
     CAPTURE_ROOTS as ROOTS,
     capture_fact,
 )
+from yoke_core.hooks.types import Outcome
 
 
 CAPTURE = "/tmp/yoke-pytest.body-budget.raw.log"
@@ -112,13 +114,6 @@ class TestExtractWaiterTarget(unittest.TestCase):
 
 
 class TestEvaluateBgWaiter(unittest.TestCase):
-    def setUp(self) -> None:
-        self._mode_patch = mock.patch.object(
-            waiter, "_read_lint_mode", return_value="deny"
-        )
-        self._mode_patch.start()
-        self.addCleanup(self._mode_patch.stop)
-
     def _existing_captures_patch(self, captures: set[str]):
         return mock.patch.object(
             waiter, "_existing_capture_files", return_value=captures
@@ -151,8 +146,8 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             result = waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}"))
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        reason, ctx = result
+        self.assertTrue(reason.startswith("DENIED"))
         self.assertEqual(ctx.get("waiter_shape"), "tail-f")
         self.assertIn(CAPTURE, reason)
 
@@ -164,8 +159,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, _reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        _reason, ctx = result
         self.assertEqual(ctx.get("waiter_shape"), "sleep-then-peek")
 
     def test_while_sentinel_against_existing_capture_denies(self) -> None:
@@ -178,8 +172,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, _reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        _reason, ctx = result
         self.assertEqual(ctx.get("waiter_shape"), "while-sentinel")
 
     def test_watch_tail_against_existing_capture_denies(self) -> None:
@@ -192,8 +185,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, _reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        _reason, ctx = result
         self.assertEqual(ctx.get("waiter_shape"), "watch-tail")
 
     def test_suppression_token_audit_only(self) -> None:
@@ -206,21 +198,8 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             )
         self.assertIsNotNone(result)
         assert result is not None
-        verdict, _reason, ctx = result
-        self.assertEqual(verdict, "deny")
+        _reason, ctx = result
         self.assertEqual(ctx.get("outcome"), "suppression_attempted")
-
-    def test_warn_mode_records_without_blocking(self) -> None:
-        # Warn-mode emits the verdict but does not block.
-        with (
-            mock.patch.object(waiter, "_read_lint_mode", return_value="warn"),
-            self._existing_captures_patch({CAPTURE}),
-        ):
-            result = waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}"))
-        self.assertIsNotNone(result)
-        assert result is not None
-        verdict, _reason, _ctx = result
-        self.assertEqual(verdict, "warn")
 
     def test_payload_without_client_roots_allows(self) -> None:
         # Roots come from the client fact; with none, no path is a capture.
@@ -233,7 +212,8 @@ class TestEvaluateBgWaiter(unittest.TestCase):
         payload = _bg_payload(f"tail -f {CAPTURE}")
         payload["tool_name"] = "Read"
         with self._existing_captures_patch({CAPTURE}):
-            self.assertIsNone(waiter.evaluate_bg_waiter(payload))
+            decision = entry.evaluate(entry._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
 if __name__ == "__main__":
