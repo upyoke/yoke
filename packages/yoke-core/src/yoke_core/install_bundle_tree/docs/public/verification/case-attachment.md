@@ -114,6 +114,15 @@ start → executing) with `yoke qa requirement update --requirement-id N
 An epic task's case is its implementation review: seed it with
 `yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num K`.
 
+## Self-contained cases
+
+A case runs with only the access of the session that executes it, such as the
+item work claim for item QA. Every project's cases bring their own access,
+fixtures and public surface; none relies on the runner's steering seat, claim
+or session. A case that calls a seat-only read such as `yoke steering report
+get` can never pass under the item claim. Prove the outcome through a read the
+runner can make, or a fixture the case creates and removes.
+
 ## Naming where a case runs
 
 A plan carries its own `target_environment_id`, so every case materialized

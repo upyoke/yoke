@@ -1,0 +1,13 @@
+{
+ "id": "guard-false-blocks",
+ "title": "Shell guards pass deliberate shapes beside the mistakes they block",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A Bash command runs rg with a replacement, or curl against port 8765.",
+ "need": "rg -r with a $ capture replacement (rg -o PAT -r '$1' FILES) rewrites printed output and passes; rg -rn PAT, the grep-style recursive mistake, is still refused with an rg -n repair. curl is refused only on Yoke API paths (/v1, /api) at localhost, 127.0.0.1 or 0.0.0.0 port 8765, or through $YOKE_API; a local static file server on 8765 passes.",
+ "disclosure": "current cue",
+ "surface": "lint-ripgrep-replace and lint-no-agent-curl-against-yoke-api refusals.",
+ "review": "Source regression cases cover each passing shape and each still-refused shape on both hook paths for rg. Live installed delivery remains unverified.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/shell_guard_repairs.py", "packages/yoke-core/src/yoke_core/domain/lint_no_agent_curl_against_yoke_api.py", "runtime/api/domain/test_shell_guard_false_blocks.py", "runtime/api/domain/test_lint_no_agent_curl_against_yoke_api.py"],
+ "position": 2
+}

@@ -81,6 +81,10 @@ Standalone execution uses existing QA records and never credits item or deployme
 
 ## Case environment obligations
 
+Every case is [self-contained](case-attachment.md#self-contained-cases): it
+never relies on the runner's seat, claim or session.
+
+
 A case can declare `"target_envs": ["prod"]` in the JSON supplied to
 `yoke qa plan-cases replace` or `yoke qa plan edit`. These are unique registered
 environment names on the plan's project, each with a reviewable URL. Use `[]`

@@ -44,6 +44,12 @@ absence of a notice does not clear the failed requirement.
   but the probe does not. Use the [correction-only replacement recipe](deployment-plan-execution.md#shared-plan-credit)
   or `yoke qa plan run --help`; retain the failed attempt and require a passing
   independent verdict on the replacement. Other failed or owed cases stay owed.
+- **Pass proven outside the run:** when another session's read proves the
+  outcome, record the pass, then attach that read's output to the same run:
+  `yoke qa artifact add --requirement-id N --run-id RUN --artifact-type command_output --content-file PATH`.
+  A stage credits only a pass with attached evidence; a bare pass refuses
+  `passed_without_evidence` and names the run. Then make the case
+  [self-contained](case-attachment.md#self-contained-cases).
 - **Unclear cause:** investigate now and retain the failure evidence. Do not
   park on an unnamed future fix or report success from an unproven diagnosis.
 
