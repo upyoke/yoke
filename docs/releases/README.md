@@ -18,6 +18,14 @@ before activating callers; the hosted bridge uses this operation directly.
 
 1. Verify and merge the exact source on `main`. Bind the consumer commit through
    the selected release flow; follow the [source-dev release rules](../source-dev-doctrine.md).
+Before dispatching the hosted bridge, the existing CI gate also waits for
+   the pinned commit's successful `yoke-build-artifacts.yml` push on `main`,
+   including attestation. A merge-group success does not satisfy it. The relay
+   reruns a cancelled first attempt once; its durable Actions intent prevents
+   paired drivers or lost responses from sending a second rerun. A failed or
+   cancelled second attempt refuses before dispatch and names the newest main
+   commit with a successful factory, when one exists. Inspect the failed run
+   and correct its cause, or compose a new release on that successful commit.
 2. The hosted bridge reuses the passed proof of that exact product/consumer pair
    across stage and production. A different commit pair needs its own proof.
    The bridge passes the registered `stage` or `prod` environment unchanged.
