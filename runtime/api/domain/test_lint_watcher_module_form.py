@@ -6,7 +6,6 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
@@ -25,17 +24,15 @@ def _payload(command: str, **extra) -> dict:
     return payload
 
 
-def _eval(command: str, *, mode: str = "deny"):
-    with mock.patch.object(lint, "_read_mode", return_value=mode):
-        return lint.evaluate_payload(_payload(command))
+def _eval(command: str):
+    return lint.evaluate_payload(_payload(command))
 
 
 class TestLegacyForms(unittest.TestCase):
     def test_module_form_is_denied(self):
         verdict = _eval("python3 -m yoke_core.tools.watch_pytest -- runtime/api/")
         assert verdict is not None
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "deny")
+        reason, outcome = verdict
         self.assertEqual(outcome, "denied")
         self.assertIn("yoke watch pytest", reason)
 
@@ -70,26 +67,11 @@ class TestLegacyForms(unittest.TestCase):
     def test_non_bash_tool_is_clean(self):
         payload = _payload("python3 -m yoke_core.tools.watch_pytest")
         payload["tool_name"] = "Read"
-        self.assertIsNone(lint.evaluate_payload(payload))
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.NOOP)
 
 
-class TestModesAndEnvelope(unittest.TestCase):
-    def test_warn_mode_is_advisory(self):
-        verdict = _eval("python3 -m yoke_core.tools.watch_doctor", mode="warn")
-        assert verdict is not None
-        mode, reason, outcome = verdict
-        self.assertEqual(mode, "warn")
-        self.assertEqual(outcome, "warned")
-        self.assertIn("would block", reason)
-
-    def test_warn_mode_decision_records_warn_row(self):
-        payload = _payload("python3 -m yoke_core.tools.watch_doctor")
-        with mock.patch.object(lint, "_read_mode", return_value="warn"):
-            decision = lint.evaluate(lint._build_context_from_payload(payload))
-        self.assertIs(decision.outcome, Outcome.WARN)
-        self.assertFalse(decision.block)
-        self.assertEqual(guard_audit_outcome(decision), "warn")
-        self.assertIn("would block", decision.audit_fields["reason"])
+class TestDecision(unittest.TestCase):
 
     def test_suppression_is_audited(self):
         verdict = _eval(
@@ -97,13 +79,12 @@ class TestModesAndEnvelope(unittest.TestCase):
             "# lint:no-watcher-module-form-check"
         )
         assert verdict is not None
-        self.assertEqual(verdict[2], "suppression_attempted")
-        self.assertIn("does NOT unblock", verdict[1])
+        self.assertEqual(verdict[1], "suppression_attempted")
+        self.assertIn("does NOT unblock", verdict[0])
 
     def test_deny_decision_has_permission_envelope(self):
         payload = _payload("python3 -m yoke_core.tools.watch_pytest")
-        with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            decision = lint.evaluate(lint._build_context_from_payload(payload))
+        decision = lint.evaluate(lint._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(guard_audit_outcome(decision), "denied")

@@ -56,7 +56,11 @@ def test_deny_mode_keeps_the_block(monkeypatch: pytest.MonkeyPatch) -> None:
     _registered(monkeypatch, "deny")
     d = _deny()
     out = mode_gate.apply_mode(d, "yoke_core.domain.lint_x")
-    assert out is d and out.block is True
+    assert out.outcome is Outcome.DENY and out.block is True and out.next is Next.STOP
+    assert out.message == d.message
+    assert out.audit_fields.get("policy_mode") == "deny"
+    assert "downgraded_from" not in out.audit_fields
+    assert guard_audit_outcome(out) == "denied"
 
 
 def test_warn_mode_downgrades_block_to_noop(monkeypatch: pytest.MonkeyPatch) -> None:
