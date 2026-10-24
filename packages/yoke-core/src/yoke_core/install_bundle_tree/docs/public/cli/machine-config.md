@@ -77,16 +77,11 @@ Relays connected to a private API host also require this record and install
 from `origin/simple/`; they do not infer an index from the API host. See
 [Maintaining a private fork](../projects/private-forks.md) for artifacts and recovery.
 
-Launch model choice does not live in machine config. A launch names a level
-(`--level LEVEL`) and Yoke places it on one of that level's options — see
-[launching by level](../agents/level-launches.md#launching-by-level) —
-or names an exact selection with `--surface` and the knobs below, recorded as
-an override. On an item-bound create, `--surface S` without `--model`
-selects the best option from the item's effective stage level on S, using
-the same capacity rules as a level launch. Omit effort/context knobs in that
-form; pass `--model` to customize them. Retry keeps that surface constraint.
-If no option qualifies, the refusal names the blockers and the launch flags
-`--surface S --model MODEL --reasoning-effort EFFORT` for an explicit selection.
+Launch model choice does not live in machine config. An item launch takes the
+item's workflow stage level and Yoke places it on one of that level's options —
+see [launching by level](../agents/level-launches.md#launching-by-level). A
+level or an exact selection with `--surface` and the knobs below is an
+[override](../agents/level-launches.md#overrides).
 Other unnamed knobs on an explicit model selection take the vendor default. Preview combines equal requested/effective settings and shows
 both when they differ, with each knob's source (`level SENIOR option`,
 `explicit launch request`, or `vendor default`). Empty rows are omitted;
@@ -101,11 +96,7 @@ machines by that pool's meter rather than by whichever window reads lowest.
 The human machine table appears when placement, eligibility or pool readings
 decided the outcome; all candidates and relays remain available in `--json`.
 
-`yoke session-control launch preview` and `create` accept `--level LEVEL`, or
-`--surface S` with the three flags. On an item-bound `create`, `--level` also
-records the level as the item's level for every stage (`--level-reason TEXT`,
-default `launch-time level`); a preview or an itemless create places one launch.
-`create --idempotency-key K` replays the launch already named by K. If its
+`yoke session-control launch create --idempotency-key K` replays the launch already named by K. If its
 session ended or was terminated, `launch_replay_finished` names that launch
 and says no new worker started. Repeat create with a new key to relaunch.
 A fresh item-bound create refuses `item_has_live_worker` while a live session

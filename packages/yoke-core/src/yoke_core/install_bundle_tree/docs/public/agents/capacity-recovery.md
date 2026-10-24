@@ -55,7 +55,7 @@ steering owns their recovery until that surface declares an observation path.
 Inspect placement before changing capacity:
 
 ```text
-yoke session-control launch preview --project PROJECT --level SENIOR --json
+yoke session-control launch preview --project PROJECT --item PREFIX-N --json
 ```
 
 `max_worker_lanes` limits worker launches on a machine. A launch for an item,

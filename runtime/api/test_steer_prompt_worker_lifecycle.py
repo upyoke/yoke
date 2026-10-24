@@ -58,7 +58,10 @@ class TestSteerWorkerLifecycle:
         assert "yoke session-control launch get" in text
         assert "yoke session-control launch reconcile" in text
         assert "yoke session-control launch retry" in text
-        assert "--level {_level}" in text
+        assert (
+            "yoke session-control launch create --project {_project} --item {ITEM} "
+            '--idempotency-key "steer:{_project}:{ITEM}" --json'
+        ) in text
         # The DONE target is the steering ROLE. A session id there would not
         # survive the seat that launched the worker being released.
         assert "yoke say --steering --stdin" in text
@@ -79,13 +82,23 @@ class TestSteerWorkerLifecycle:
             "yoke session-control launch create"
         )
 
-    def test_model_selection_link_and_level_tokens(self):
+    def test_the_default_launch_names_no_level_or_placement(self):
         launch = _words(_read(_STEER_DIR / "worker-launch.md"))
-        assert "[model-selection.md](model-selection.md)" in launch
-        assert "--level" in launch
+        preview = "yoke session-control launch preview --project {_project} --item {ITEM}"
+        assert preview in launch
+        assert "{_level}" not in launch
+        assert "[level](model-selection.md)" in launch
+        assert "level-launches.md#overrides" in launch
+
+    def test_level_override_is_taught_against_the_stage_level(self):
         selection = _words(_read(_STEER_DIR / "model-selection.md"))
-        for level in ("JUNIOR:", "INTERN:", "PRINCIPAL:", "`--level`"):
-            assert level in selection
+        assert "only when the work needs a level other than the item's effective stage level" in selection
+        assert "`yoke settings get levels`" in selection
+        assert "--level-reason" in selection
+        assert "PRINCIPAL launches and restaff require explicit operator approval" in selection
+        assert "level-launches.md#overrides" in selection
+        for listed in ("JUNIOR:", "INTERN:", "SENIOR"):
+            assert listed not in selection
 
 
 class TestSteerRestaff:

@@ -1,13 +1,10 @@
 # Choose the level
 
-JUNIOR: mechanical, small bugs, docs. INTERN: trivial, specified. PRINCIPAL:
-very complex. Otherwise omit `--level`. Item-bound `--level` overrides stages.
-Never pick machine or surface.
+The item's stage sets the level. Pass `--level` with `--level-reason` only
+when the work needs a level other than the item's effective stage level
+(`yoke settings get levels`); recipe in
+[Overrides](../../../../.yoke/docs/agents/level-launches.md#overrides).
 PRINCIPAL launches and restaff require explicit operator approval: they consume far more tokens.
-
-```text
-yoke session-control launch create --project P --item PREFIX-N --level JUNIOR --level-reason "specified docs" --idempotency-key K
-```
 
 ## Restaff
 
