@@ -64,9 +64,16 @@ def _build_parser() -> Any:
             "Cancel an item that will never resume. For work that will come "
             "back, use `yoke items freeze` instead.\n\n"
             "The command claims the item for you, sets it to cancelled with "
-            "the reason, updates the items that depend on it, closes the "
-            "GitHub issue, and releases the claim. It refuses if another "
-            "session holds the item.\n\n"
+            "the reason, closes the GitHub issue, and releases the claim. "
+            "It refuses if another session holds the item.\n\n"
+            "Cancelling removes every dependency that names the item, both "
+            "the ones it waits on and the ones where other items wait on it, "
+            "because a cancelled item can never satisfy a dependency. The "
+            "receipt lists each removed edge. Each dependent item with a live "
+            "holder gets one message naming the cancelled item and the --ref "
+            "replacement, if any; edges are not moved onto the replacement, "
+            "so a holder who still needs that work adds the dependency "
+            "itself with `yoke items dependency add`.\n\n"
             "Cancelling is an administrative close, not work, so the "
             "session's model level is not checked. A session in another "
             "project may cancel only while it holds a live steering seat "
@@ -133,8 +140,40 @@ def _write_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
             "`yoke items freeze` instead.",
             file=stdout,
         )
+        _write_dependency_report(result.get("dependency_reconciliation") or {}, stdout)
         return
     print(f"{ref}: already cancelled with that reason — no change.", file=stdout)
+
+
+def _write_dependency_report(recon: Dict[str, Any], stdout: TextIO) -> None:
+    """List removed dependency edges and what each dependent's holder heard."""
+    outbound = recon.get("outbound_removed") or []
+    if outbound:
+        print(f"Removed {len(outbound)} dependency edge(s) this item waited on.", file=stdout)
+    inbound = recon.get("inbound_removed") or []
+    if inbound:
+        print(f"Removed {len(inbound)} dependency edge(s) waiting on this item:", file=stdout)
+        for edge in inbound:
+            print(
+                f"  - {edge.get('dependent_item')} gate={edge.get('gate_point')} "
+                f"satisfaction={edge.get('satisfaction')}",
+                file=stdout,
+            )
+    for notice in recon.get("holder_notices") or []:
+        dependent = notice.get("dependent_item")
+        delivery = notice.get("delivery")
+        if delivery == "no_live_holder":
+            print(f"  {dependent} has no live holder; no message sent.", file=stdout)
+        elif delivery == "cancelling_session":
+            print(f"  {dependent} is held by this session; no message sent.", file=stdout)
+        else:
+            print(
+                f"  Told {dependent}'s holder session "
+                f"{notice.get('holder_session_id')} ({delivery}).",
+                file=stdout,
+            )
+    if recon.get("notice_advisory"):
+        print(f"Warning: {recon['notice_advisory']}", file=stdout)
 
 
 __all__ = [

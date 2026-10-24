@@ -106,11 +106,9 @@ def hc_cancelled_blocker_dependencies(
     """HC-cancelled-blocker-dependencies: item_dependencies rows whose
     blocking item is a cancelled item.
 
-    Catches pre-existing drift that the close-time reconciliation cannot
-    safely auto-delete (ambiguous inbound rows without a resolution_ref
-    match) plus any future regression where a caller bypasses
-    ``backlog.execute_close`` and leaves self-evidently stale dependency
-    rows behind.
+    ``backlog.execute_close`` removes every row naming the cancelled item,
+    so this catches rows left by cancels that predate that removal and any
+    regression where a caller bypasses it.
     """
     if not _base._table_exists(conn, "item_dependencies"):
         rec.record(
