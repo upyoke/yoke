@@ -96,6 +96,9 @@ class TestResolveSessionIdentity:
         assert caught.value.code == "NO_SESSION"
         # The refusal must point at registration, never at a local guess.
         assert "hook" in caught.value.message.lower()
+        # The doctor check that verifies registration, not the quick sample.
+        assert "yoke doctor run --session" in caught.value.message
+        assert "--quick" not in caught.value.message
 
 
 class TestHandleIdentity:

@@ -7,6 +7,6 @@ on, a non-pass gate blocks; register missing coverage, widen an existing
 claim, never replace it:
 ```bash
 yoke claims path required-gate PREFIX-N
-yoke claims path register --item PREFIX-N --paths <repo-relative-paths> --allow-planned
+yoke claims path register --item PREFIX-N --paths <path1>,<path2>,... --allow-planned
 yoke claims path widen --claim-id <claim-id> --add-paths <added-paths> --reason "<verified-scope-expansion>" --item PREFIX-N
 ```

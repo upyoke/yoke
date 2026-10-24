@@ -152,7 +152,7 @@ history**: `NNNN_slug.py` entries, permanent, each exposing `apply(conn)` and
 optionally `invariants(conn)`.
 
 ```bash
-yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
+yoke --env <name> migration rehearse PREFIX-N
 ```
 
 Rehearsal runs the declared entries against the validation surface and records

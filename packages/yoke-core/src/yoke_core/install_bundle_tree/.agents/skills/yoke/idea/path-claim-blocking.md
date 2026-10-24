@@ -3,7 +3,7 @@
 Never drop a required file.
 
 ```text
-yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim <claim-id> --paths <shared-paths>
+yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim <claim-id> --paths <path1>,<path2>,...
 ```
 
 Independent edits: `coordination_only` with a verifiable rationale. Ordered

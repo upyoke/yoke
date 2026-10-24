@@ -28,7 +28,7 @@ def _p(conn: Any) -> str:
 #: a locally detected value.
 UNREGISTERED_RECOVERY = (
     "Sessions register at start through the harness hooks. Check this "
-    "project's hook installation with `yoke doctor run --quick`, or "
+    "session's registration with `yoke doctor run --session`, or "
     "register explicitly with `yoke sessions begin --executor E "
     "--provider P --requested-model M --workspace W`."
 )

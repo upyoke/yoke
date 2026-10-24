@@ -60,8 +60,8 @@ yoke sessions touch --mode parked --reason "awaiting BLOCKER merge"
 
 - Add the edge before the landing you need: an unfinished blocker's landing counts only after the
   edge exists. A blocker at `done` always satisfies it. Re-add an older edge to re-land.
-- For delivery use `--gate-point closure --satisfaction fact:deployed:prod` (an environment of the
-  blocking project); `status:done` only when the whole close-out is required.
+- Delivery waits use `--gate-point closure`: `fact:merged` if the fix ships in the same
+  release or shared QA case, `fact:deployed:prod` only if it must be live first.
 - Park only after the write succeeds. On `dependency_cycle`, settle it with steering, or use
   `coordination_only` when independent. Keep the claim and lane.
 - Your own item's release wait needs no edge. Details: `yoke items dependency add --help` and
