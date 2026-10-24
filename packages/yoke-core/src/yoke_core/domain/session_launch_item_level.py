@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.item_posture_amend import amend_item_posture
 from yoke_core.domain.item_posture_amend_guards import ItemPostureAmendError
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
-from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchRequest,

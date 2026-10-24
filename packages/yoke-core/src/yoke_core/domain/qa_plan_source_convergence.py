@@ -18,6 +18,8 @@ import os
 import re
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_rows
 
 _log = logging.getLogger(__name__)
@@ -90,12 +92,17 @@ def converge_source_bound_plans(conn: Any, build_sha: str | None = None) -> list
                 )
             else:
                 _log.warning(
-                    "qa_plan_source_convergence_failed: plan %s (%s) kept its "
-                    "cases from source %s, so item QA will materialize those, not "
-                    "build %s. Reason: %s. Recovery: fix the reason and restart "
-                    "the server, or export and sync the cases by hand with "
-                    "yoke qa plan-cases sync "
-                    "(docs/testing-verification/installer-campaign.md).",
+                    compose_refusal(
+                        (
+                            "qa_plan_source_convergence_failed: plan %s (%s) kept its cases from "
+                            "source %s, so item QA will materialize those, not build %s. Reason: %s."
+                        ),
+                        recovery=(
+                            "fix the reason and restart the server, or export and sync the cases by "
+                            "hand with yoke qa plan-cases sync "
+                            "(docs/testing-verification/installer-campaign.md)."
+                        ),
+                    ),
                     plan_id,
                     row["slug"],
                     row["source_revision"],

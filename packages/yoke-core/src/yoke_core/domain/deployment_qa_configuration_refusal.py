@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.qa_plan_management import QaPlanError
 
 
@@ -29,13 +31,9 @@ def configuration_blocker(
         return None
     if label is None:
         label = f"member {item_refs(member)}" if member is not None else "run"
-    return (
-        f"{label}: qa_configuration_refused: {exc} "
-        f"{label} stays held at stage {stage_name!r} while other members "
-        "keep settling. Run "
-        f"{run_id} stays executing and its recorded QA results are kept. "
-        "Recovery: fix the named QA configuration, then re-drive the same "
-        f"run with `yoke watch deploy -- {run_id}`."
+    return compose_refusal(
+        f"{label}: qa_configuration_refused: {exc} {label} stays held at stage {stage_name!r} while other members keep settling. Run {run_id} stays executing and its recorded QA results are kept.",
+        recovery=f"fix the named QA configuration, then re-drive the same run with `yoke watch deploy -- {run_id}`.",
     )
 
 

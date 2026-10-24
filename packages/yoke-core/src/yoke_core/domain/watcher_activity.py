@@ -3,8 +3,9 @@
 from pathlib import Path
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.api import service_client_structured_api_adapter as structured_api
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def refresh_watcher_activity(session_id: str, *, progress_capture: Path) -> bool:

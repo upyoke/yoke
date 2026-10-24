@@ -18,8 +18,6 @@ override the universe definition with a ``levels`` document in its
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import utc_now
-from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Optional
 
 from yoke_contracts.levels import (
@@ -31,7 +29,11 @@ from yoke_contracts.levels import (
     resolve_effective_levels,
 )
 from yoke_contracts.project_contract.project_keys import SESSION_ROUTING_CAPABILITY
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import utc_now
+
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 TABLE = "universe_settings"
@@ -70,7 +72,7 @@ def _loads(raw: Any, *, where: str, repair: str) -> Any:
     except (TypeError, ValueError) as exc:
         raise UniverseLevelsError(
             "levels_document_unreadable",
-            f"{where} is not valid JSON. Recovery: {repair}",
+            compose_refusal(f"{where} is not valid JSON.", recovery=f"{repair}"),
         ) from exc
 
 

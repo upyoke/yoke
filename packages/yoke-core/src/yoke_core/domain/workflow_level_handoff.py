@@ -8,10 +8,12 @@ from contextvars import ContextVar
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionWarning
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_level import level_is_unresolved
+
 from yoke_core.domain.project_identity import placeholder, render_item_ref
-from yoke_core.domain.workflow_stage_levels import item_stage_level
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.workflow_stage_levels import item_stage_level
 
 _CAPTURE: ContextVar[list[dict[str, str]] | None] = ContextVar(
     "level_handoff_capture", default=None
@@ -89,7 +91,10 @@ def item_level_handoff(
             FunctionWarning(
                 code="level_handoff_unread",
                 step="level_handoff",
-                detail=f"Transition committed, but stage-level handoff could not be read ({exc}). Recovery: read the item and worker levels before continuing.",
+                detail=compose_refusal(
+                    f"Transition committed, but stage-level handoff could not be read ({exc}).",
+                    recovery="read the item and worker levels before continuing.",
+                ),
             )
         ]
 

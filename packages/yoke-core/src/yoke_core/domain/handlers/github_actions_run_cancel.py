@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -20,9 +19,10 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.github_actions_identifiers import WorkflowRunId
 from yoke_core.domain.handlers.github_actions_set import _validate_and_resolve
-
 
 FUNCTION_ID = "github_actions.run.cancel"
 
@@ -65,9 +65,13 @@ def handle_run_cancel(request: FunctionCallRequest) -> HandlerOutcome:
             error=FunctionError(
                 code="workflow_run_cancel_refused",
                 message=(
-                    f"{exc}. Recovery: open the run in GitHub and cancel it "
-                    "there. A QA case gate force-cancels a run that never "
-                    "starts and redispatches it."
+                    compose_refusal(
+                        f"{exc}.",
+                        recovery=(
+                            "open the run in GitHub and cancel it there. A QA case gate force-cancels "
+                            "a run that never starts and redispatches it."
+                        ),
+                    )
                 ),
             ),
         )

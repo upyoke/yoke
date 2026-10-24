@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Tuple
 
 from pydantic import BaseModel, Field, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -26,10 +25,10 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.handlers.github_actions_set import _auth_failed, _bad_request
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
-from yoke_core.domain.refusal_recovery import compose_refusal
-
 
 OWNER_MODULE = "yoke_core.domain.handlers.github_open_work"
 FUNCTION_ID = "github.open_work.list"

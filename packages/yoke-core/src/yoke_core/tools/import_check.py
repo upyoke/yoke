@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.tools import _source_pythonpath
 
 #: Marker Python uses for a module caught mid-initialisation by a cycle.
@@ -73,33 +75,35 @@ def _diagnose(module: str, exc: BaseException, root: Path) -> str:
     if isinstance(exc, ModuleNotFoundError) and exc.name:
         missing = exc.name
         if missing == module or module.startswith(f"{missing}."):
-            return (
-                f"no module named {missing!r} under this checkout's source "
-                f"roots. Recovery: confirm the file exists and the package "
-                f"name matches its directory under {root}."
+            return compose_refusal(
+                f"no module named {missing!r} under this checkout's source roots.",
+                recovery=f"confirm the file exists and the package name matches its directory under {root}.",
             )
-        return (
-            f"imports {missing!r}, which is not installed or not importable"
-            f"{where}. Recovery: add the dependency, or correct the import "
-            f"to a module this checkout owns."
+        return compose_refusal(
+            f"imports {missing!r}, which is not installed or not importable{where}.",
+            recovery="add the dependency, or correct the import to a module this checkout owns.",
         )
     if isinstance(exc, ImportError) and any(
         marker in detail for marker in _PARTIAL_INIT_MARKERS
     ):
-        return (
-            f"circular import: {detail}{where}. Recovery: move the shared "
-            "name into a module both sides import, or defer one import into "
-            "the function that needs it."
+        return compose_refusal(
+            f"circular import: {detail}{where}.",
+            recovery=(
+                "move the shared name into a module both sides import, or defer one import "
+                "into the function that needs it."
+            ),
         )
     if isinstance(exc, ImportError):
-        return (
-            f"{type(exc).__name__}: {detail}{where}. Recovery: correct the "
-            "import, or the module it names."
+        return compose_refusal(
+            f"{type(exc).__name__}: {detail}{where}.",
+            recovery="correct the import, or the module it names.",
         )
-    return (
-        f"raised {type(exc).__name__} while executing at import time: "
-        f"{detail}{where}. Recovery: module-level code runs on import — move "
-        "the work that failed into a function the caller invokes."
+    return compose_refusal(
+        f"raised {type(exc).__name__} while executing at import time: {detail}{where}.",
+        recovery=(
+            "module-level code runs on import — move the work that failed into a "
+            "function the caller invokes."
+        ),
     )
 
 
@@ -114,9 +118,10 @@ def check_module(module: str, *, root: Path) -> ImportOutcome:
         return ImportOutcome(
             module,
             "",
-            f"resolved to a namespace package with no source file. Recovery: "
-            f"name a module, or add an __init__.py so {module!r} has one "
-            "definite origin.",
+            compose_refusal(
+                "resolved to a namespace package with no source file.",
+                recovery=f"name a module, or add an __init__.py so {module!r} has one definite origin.",
+            ),
         )
     resolved = Path(origin).resolve()
     try:
@@ -125,10 +130,10 @@ def check_module(module: str, *, root: Path) -> ImportOutcome:
         return ImportOutcome(
             module,
             str(resolved),
-            f"imported from outside this checkout: {resolved}. Recovery: this "
-            f"verdict says nothing about {root} — run the probe through "
-            f"`{_source_pythonpath.SOURCE_RUN_RECIPE}` from a session that "
-            "owns the source lane.",
+            compose_refusal(
+                f"imported from outside this checkout: {resolved}.",
+                recovery=f"this verdict says nothing about {root} — run the probe through `{_source_pythonpath.SOURCE_RUN_RECIPE}` from a session that owns the source lane.",
+            ),
         )
     return ImportOutcome(module, str(resolved), "")
 

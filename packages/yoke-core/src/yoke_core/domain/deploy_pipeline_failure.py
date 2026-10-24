@@ -7,10 +7,11 @@ import subprocess
 import sys
 from typing import Callable, List, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
-
 
 EXIT_STAGE_FAILED = 1
 
@@ -104,12 +105,11 @@ def _report_failure_trace(run_id: str) -> None:
         return
     detail = (trace.stderr or trace.stdout or "").strip() or "no diagnostic"
     print(
-        f"Failure trace stopped before the dispatch chain could be resolved: {detail}",
-        file=sys.stderr,
-    )
-    print(
-        "Recovery: restore the named control-plane/GitHub read authority, then "
-        f"run `yoke deployment-runs failure-trace {run_id}`.",
+        compose_refusal(
+            f"Failure trace stopped before the dispatch chain could be resolved: {detail}",
+            recovery="restore the named control-plane/GitHub read authority, then "
+            f"run `yoke deployment-runs failure-trace {run_id}`.",
+        ),
         file=sys.stderr,
     )
 

@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import os
-from pathlib import Path
 import shutil
-import sys
 import subprocess
+import sys
 import uuid
 import venv
+from collections.abc import Callable
+from pathlib import Path
 
 from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.python_venv_dependencies import ensure_venv_support
-from yoke_core.tools.session_relay_release_retention import RELAY_RELEASE_LOCK_NAME
+
 from yoke_core.tools.session_relay_release import (
     PYTHON_ISOLATION_FLAG,
     RELAY_ACTIVE_RELEASE_NAME,
@@ -26,7 +27,7 @@ from yoke_core.tools.session_relay_release import (
     relay_runtime_path,
     relay_runtime_python,
 )
-
+from yoke_core.tools.session_relay_release_retention import RELAY_RELEASE_LOCK_NAME
 
 RUNTIME_ENTRYPOINT_SOURCE = Path(__file__).with_name(
     "session_relay_runtime_entrypoint.py"
@@ -141,8 +142,10 @@ def _validate_runtime(runtime: Path) -> None:
     ):
         raise RelayReleaseError(
             RELAY_RELEASE_INSTALL_FAILED,
-            f"stable relay runtime is incomplete at {runtime}. Recovery: move "
-            "that runtime directory aside, then retry the relay install.",
+            compose_refusal(
+                f"stable relay runtime is incomplete at {runtime}.",
+                recovery="move that runtime directory aside, then retry the relay install.",
+            ),
         )
 
 

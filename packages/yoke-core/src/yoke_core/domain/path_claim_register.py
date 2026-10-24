@@ -20,11 +20,13 @@ from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import IncompatibleOverlap, PathClaimError
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_read import _blocking_conflicts_for
 from yoke_core.domain.project_identity import (
+    render_item_ref,
     unresolved_item_ref,
 )
 
@@ -126,8 +128,9 @@ def compose_overlap_denial(
         for claim_id, overlap_paths, holder_ref in conflicts:
             paths_str = ", ".join(overlap_paths) or "(no path strings)"
             lines.append(f"    claim {claim_id}, holder {holder_ref}: {paths_str}")
-    lines.append("Recovery: " + _overlap_recovery(conn, item_id, public_ref))
-    return "\n".join(lines)
+    return compose_refusal(
+        "\n".join(lines), recovery=_overlap_recovery(conn, item_id, public_ref)
+    )
 
 
 def _resolve_conflicts(

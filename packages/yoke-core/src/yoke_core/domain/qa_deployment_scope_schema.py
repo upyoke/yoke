@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
@@ -12,7 +14,6 @@ from yoke_core.domain.schema_common import (
     _table_exists,
 )
 from yoke_core.domain.sql_boolean_contract import canonical_boolean_expression
-
 
 DEPLOYMENT_STAGE_COLUMN = "deployment_stage"
 DEPLOYMENT_MEMBER_COLUMN = "deployment_member_item_id"
@@ -138,7 +139,6 @@ REQUIREMENT_SCOPE_INDEX_NAMES = tuple(spec[0] for spec in _REQUIREMENT_INDEX_SPE
 
 
 def add_deployment_scope_columns(conn: Any) -> None:
-    """Add nullable scope selectors without changing existing subjects."""
     if _table_exists(conn, "qa_plan_executions"):
         _add_column_if_not_exists(
             conn, "qa_plan_executions", "deployment_run_id", "TEXT"
@@ -179,14 +179,15 @@ def _subject_constraints(conn: Any, table: str) -> list[str]:
     ]
     if unknown:
         raise RuntimeError(
-            f"{table} has unrecognized subject checks {unknown}; refusing to drop "
-            "them. Recovery: classify and replace the checks in an ordered migration."
+            compose_refusal(
+                f"{table} has unrecognized subject checks {unknown}; refusing to drop them.",
+                recovery="classify and replace the checks in an ordered migration.",
+            )
         )
     return [str(row[0]) for row in candidates]
 
 
 def replace_deployment_scope_contract(conn: Any) -> None:
-    """Install the breaking scoped-subject constraints and indexes."""
     if not db_backend.connection_is_postgres(conn):
         raise RuntimeError("deployment-scoped QA requires Postgres authority")
     add_deployment_scope_columns(conn)
@@ -281,7 +282,6 @@ def _assert_indexes(
 
 
 def assert_deployment_scope_contract(conn: Any) -> None:
-    """Assert exact scoped columns, subject checks, and unique-index keys."""
     if not db_backend.connection_is_postgres(conn):
         raise RuntimeError("deployment-scoped QA requires Postgres authority")
     for table, constraint, expression in (

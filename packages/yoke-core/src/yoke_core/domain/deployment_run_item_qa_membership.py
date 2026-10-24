@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.deployment_flow_policy import STAGE_KIND_QA
 from yoke_core.domain.deployment_run_composition_freeze import (
@@ -33,10 +35,10 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
 )
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+from yoke_core.domain.deployment_run_proposed_membership import run_items
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
-from yoke_core.domain.deployment_run_proposed_membership import run_items
 
 #: The named result an item-scoped QA stage reports when no member owes it.
 NO_MEMBER_OWES_TARGET = (
@@ -134,36 +136,26 @@ def _owed_or_unreadable(conn: Any, run_id: str) -> tuple[tuple[int, ...], str]:
         return owed_delivery_item_ids(conn, run_id), ""
     except (LookupError, ValueError) as exc:
         return (), (
-            f"item_qa_owed_delivery_unreadable: run '{run_id}' has no member and "
-            f"whether its flow owes a delivery could not be read: {exc}. "
-            "Recovery: repair the named read, then validate or resume again."
+            compose_refusal(
+                f"item_qa_owed_delivery_unreadable: run '{run_id}' has no member and whether its flow owes a delivery could not be read: {exc}.",
+                recovery="repair the named read, then validate or resume again.",
+            )
         )
 
 
 def _owed_refusal(conn: Any, run_id: str, owed: tuple[int, ...]) -> str:
     flow, _project, _project_id, stages = _run_facts(conn, run_id)
     refs = ", ".join(render_item_ref(conn, item_id) for item_id in owed)
-    return (
-        f"item_qa_run_without_members: run '{run_id}' is on the completion flow "
-        f"'{flow}' for delivery-ready {refs}, which no other release holds, "
-        "but it enrolled none of them, so it would deploy and deliver nobody "
-        f"before its item-scoped QA stage(s) {', '.join(stages)} failed. "
-        "Their merges are not in this run's release lineage, or composition "
-        "skipped them for a reason it names. Recovery: create the run from a "
-        "release lineage that contains their merges, or attach one with "
-        f"`yoke deployment-runs add-item {run_id} PREFIX-N`, then validate again."
+    return compose_refusal(
+        f"item_qa_run_without_members: run '{run_id}' is on the completion flow '{flow}' for delivery-ready {refs}, which no other release holds, but it enrolled none of them, so it would deploy and deliver nobody before its item-scoped QA stage(s) {', '.join(stages)} failed. Their merges are not in this run's release lineage, or composition skipped them for a reason it names.",
+        recovery=f"create the run from a release lineage that contains their merges, or attach one with `yoke deployment-runs add-item {run_id} PREFIX-N`, then validate again.",
     )
 
 
 def _custody_refusal(flow: str, project: str, stages: tuple[str, ...]) -> str:
-    return (
-        f"item_qa_flow_without_delivery_custody: flow '{flow}' has item-scoped "
-        f"QA stage(s) {', '.join(stages)} but does not take delivery custody, "
-        "so no member ever receives the frozen requirement snapshot those "
-        "stages prove against. Recovery: run on a flow whose "
-        f"takes_delivery_custody is true (`yoke deployment-flows list "
-        f"--project {project}`), or give flow '{flow}' delivery custody in a "
-        "new flow version."
+    return compose_refusal(
+        f"item_qa_flow_without_delivery_custody: flow '{flow}' has item-scoped QA stage(s) {', '.join(stages)} but does not take delivery custody, so no member ever receives the frozen requirement snapshot those stages prove against.",
+        recovery=f"run on a flow whose takes_delivery_custody is true (`yoke deployment-flows list --project {project}`), or give flow '{flow}' delivery custody in a new flow version.",
     )
 
 

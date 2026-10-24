@@ -1,16 +1,19 @@
 """Ordered execution bands containing model-specific minimum-effort rows."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
-from yoke_contracts.level_defaults import DEFAULT_LEVELS
+
 from yoke_contracts.glyph_contract import GlyphContractError, validate_glyph
+from yoke_contracts.level_defaults import DEFAULT_LEVELS
 from yoke_contracts.model_level_resolution import (
     effort_ordinal,
     normalized_effort,
     resolve_model_level,
 )
 from yoke_contracts.model_reference import lookup_stem
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_level import level_is_unresolved
 
 LEVELS_KEY = "levels"
@@ -60,7 +63,10 @@ def _mapping(raw, keys, field, what):
     if not isinstance(raw, Mapping) or set(raw) - keys:
         raise LevelsError(
             "levels_document_invalid",
-            f"{what} must carry only {', '.join(sorted(keys))}. Recovery: read levels get and correct the named row.",
+            compose_refusal(
+                f"{what} must carry only {', '.join(sorted(keys))}.",
+                recovery="read levels get and correct the named row.",
+            ),
             field=field,
         )
     return raw

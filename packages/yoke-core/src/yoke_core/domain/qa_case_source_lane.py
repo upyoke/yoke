@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
@@ -71,12 +73,15 @@ def resolve_source_lane(
         choices = [r for r in choices if r["path"] in authorized]
     if len(choices) != 1:
         raise SourceLaneError(
-            f"qa_source_lane_unresolved: item_id={item_id}, task_num={task_num}, "
-            f"checkout={checkout_path!r}, branch={expected_branch!r}; "
-            f"matched {len(choices)} authorized lanes. Recovery: hold the matching "
-            "item/task claim and select its exact registered lane with "
-            "--checkout-path PATH --expected-branch BRANCH --expected-sha FULL_SHA; "
-            "inspect the item's registered lanes instead of choosing a sibling."
+            compose_refusal(
+                f"qa_source_lane_unresolved: item_id={item_id}, task_num={task_num}, checkout={checkout_path!r}, branch={expected_branch!r}; matched {len(choices)} authorized lanes.",
+                recovery=(
+                    "hold the matching item/task claim and select its exact registered lane "
+                    "with --checkout-path PATH --expected-branch BRANCH --expected-sha "
+                    "FULL_SHA; inspect the item's registered lanes instead of choosing a "
+                    "sibling."
+                ),
+            )
         )
     selected = choices[0]
     return {

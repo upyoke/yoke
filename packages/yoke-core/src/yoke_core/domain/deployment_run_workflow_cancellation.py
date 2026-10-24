@@ -22,10 +22,11 @@ from typing import Any, Dict, List
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.github_actions_run_cancel import RunCancelError, cancel_run
 from yoke_core.domain.github_workflow_dispatch_intents import INTENT_TABLE
-
 
 _LOG = logging.getLogger(__name__)
 
@@ -113,9 +114,10 @@ def _cancel_one(dispatch: Dict[str, str]) -> WorkflowCancellation:
             repo,
             run,
             CANCEL_FAILED,
-            f"{exc}. Recovery: restore the project's GitHub Actions write "
-            f"authority, then run `yoke github-actions run cancel {repo} {run} "
-            f"--project {dispatch['project'] or '<project>'}`.",
+            compose_refusal(
+                f"{exc}.",
+                recovery=f"restore the project's GitHub Actions write authority, then run `yoke github-actions run cancel {repo} {run} --project {dispatch['project'] or '<project>'}`.",
+            ),
         )
     return WorkflowCancellation(repo, run, outcome)
 

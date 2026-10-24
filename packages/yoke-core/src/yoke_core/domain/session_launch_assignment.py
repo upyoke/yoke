@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.item_terminal_resources import (
     item_is_terminal,
     workflow_pin_schema_present,
@@ -12,9 +13,7 @@ from yoke_core.domain.project_identity import (
     placeholder,
     render_item_ref,
 )
-from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_types import SessionLaunchError
-
 
 MAX_SESSION_NAME_LENGTH = 160
 
@@ -71,8 +70,9 @@ def refuse_held_assigned_item(
     item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
     if item_id is None:
         return
+    from yoke_contracts.refusal_recovery import compose_refusal
     from yoke_contracts.session_control.liveness import live_session_sql
-    from yoke_core.domain.refusal_recovery import compose_refusal
+
     from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
     from yoke_core.domain.work_claim_holder import holder_session_for_item
 

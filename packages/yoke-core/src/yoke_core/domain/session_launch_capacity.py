@@ -15,14 +15,9 @@ not a roomy machine, and the reading says so rather than passing silently.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire
-
-from yoke_core.domain.db_helpers import instant_parameter
-
-from datetime import datetime
-
-from dataclasses import asdict, dataclass
 import json
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Iterable, Mapping
 
 from yoke_contracts.machine_config.machine_capacity import (
@@ -32,7 +27,11 @@ from yoke_contracts.machine_config.machine_capacity import (
     format_bytes,
     sanitize_machine_capacity,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.sql_json import json_get
 
 MACHINE_AT_CAPACITY = "machine_at_capacity"
@@ -194,10 +193,9 @@ def capacity_refusal(capacities: Iterable[MachineCapacity]) -> str:
         )
         or "every eligible machine is at its lane cap"
     )
-    return (
-        f"{details}. Recovery: wait for a worker process to exit and free a lane, raise "
-        f"{MAX_WORKER_LANES_KEY} under settings in ~/.yoke/config.json on that "
-        "machine, or pass --machine to place the launch elsewhere"
+    return compose_refusal(
+        f"{details}.",
+        recovery=f"wait for a worker process to exit and free a lane, raise {MAX_WORKER_LANES_KEY} under settings in ~/.yoke/config.json on that machine, or pass --machine to place the launch elsewhere",
     )
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.domain_refusal import DomainRefusal
-
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional
@@ -11,6 +9,8 @@ from typing import Any, Dict, Mapping, Optional
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.deployment_run_ci_gate_github import (
     CI_GATE_READ_PERMISSIONS,
     read_refusal,
@@ -21,6 +21,7 @@ from yoke_core.domain.deployment_run_gate_branch_lineage import (
     require_descends_from_previous_release,
     runs_by_commit,
 )
+from yoke_core.domain.domain_refusal import DomainRefusal
 
 # Run listing and explicit-source recovery search bound.
 COMMIT_WINDOW = 100
@@ -31,7 +32,6 @@ UNVERIFIABLE = "release_source_unverifiable"
 
 
 class ReleaseSourceRefused(DomainRefusal):
-    """A release source the CI gate could never pass, refused before binding."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -40,7 +40,6 @@ class ReleaseSourceRefused(DomainRefusal):
 
 @dataclass(frozen=True)
 class CiGateTarget:
-    """The repository, workflow, and branch one release's CI gate reads."""
 
     project: str
     flow: str
@@ -62,7 +61,6 @@ def _waits_for_ci(stage: Any) -> bool:
 def _flow_facts(
     flow: str, environment: Optional[str]
 ) -> Optional[tuple[list, str, str]]:
-    """Return stages, tier, and gate environment; unknown flows return None."""
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.json_helper import loads_text
 
@@ -111,7 +109,6 @@ def _auth(project: str, flow: str, permissions: Mapping[str, str]) -> Any:
 def ci_gate_target(
     project: str, flow: str, environment: Optional[str]
 ) -> Optional[CiGateTarget]:
-    """Return what the flow's CI gate reads, or ``None`` when it reads nothing."""
     from yoke_core.domain.deploy_pipeline_gates import resolve_flow_gate_branch
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_slug,
@@ -176,7 +173,6 @@ def _state(run: Optional[dict]) -> str:
 
 
 def newest_tested_commit(target: CiGateTarget) -> str:
-    """The newest first-parent gate-branch commit whose own run passed or runs."""
     runs = _newest_run_by_commit(target, {})
     commits = _read(
         target,
@@ -190,14 +186,13 @@ def newest_tested_commit(target: CiGateTarget) -> str:
 
 
 def dispatch_branch_ci(target: CiGateTarget) -> str:
-    """Start the CI workflow on the gate branch; return the commit it tests."""
     from yoke_core.domain.gh_rest_transport import RestTransportError
     from yoke_core.domain.github_actions_rest import rest_post
 
     auth = _auth(target.project, target.flow, GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS)
     path = f"/repos/{target.repo}/actions/workflows/{target.workflow}/dispatches"
     recovery = (
-        f"  Recovery: start {target.workflow} on {target.branch} by hand, "
+        f"start {target.workflow} on {target.branch} by hand, "
         "then create the run again without --source-ref. Nothing was created."
     )
     try:
@@ -210,8 +205,11 @@ def dispatch_branch_ci(target: CiGateTarget) -> str:
     except RestTransportError as exc:
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
-            f"the tip of {target.repo}@{target.branch} has no own "
-            f"{target.workflow} run, and dispatching one failed: {exc}\n{recovery}",
+            compose_refusal(
+                f"the tip of {target.repo}@{target.branch} has no own "
+                f"{target.workflow} run, and dispatching one failed: {exc}",
+                recovery=recovery,
+            ),
         ) from exc
     run_id = result.get("workflow_run_id") if isinstance(result, dict) else None
     run = (
@@ -223,9 +221,12 @@ def dispatch_branch_ci(target: CiGateTarget) -> str:
     if not _FULL_SHA.fullmatch(sha):
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
-            f"dispatched {target.workflow} on {target.repo}@{target.branch}, "
-            "but GitHub named no run and commit for it, so no release commit "
-            f"can be bound to that run.\n{recovery}",
+            compose_refusal(
+                f"dispatched {target.workflow} on {target.repo}@{target.branch}, "
+                "but GitHub named no run and commit for it, so no release commit "
+                "can be bound to that run.",
+                recovery=recovery,
+            ),
         )
     return sha
 
@@ -257,9 +258,10 @@ def _untested(
     )
     return ReleaseSourceRefused(
         UNTESTED,
-        f"release commit {lineage} {finding} in {target.workflow} on "
-        f"{target.repo}@{target.branch}, so flow '{target.flow}' would block "
-        f"at its CI gate. Nothing was bound.{tested}\n  Recovery: {how}",
+        compose_refusal(
+            f"release commit {lineage} {finding} in {target.workflow} on {target.repo}@{target.branch}, so flow '{target.flow}' would block at its CI gate. Nothing was bound.{tested}",
+            recovery=f"{how}",
+        ),
     )
 
 
@@ -271,7 +273,6 @@ def require_tested_lineage(
     *,
     retry: bool = False,
 ) -> None:
-    """Refuse an explicit commit the flow's CI gate could never pass."""
     lineage = (release_lineage or "").strip()
     if not _FULL_SHA.fullmatch(lineage):
         # Empty is settled by the caller; an annotated release tag is peeled
@@ -308,17 +309,16 @@ def bind_tested_release_source(
     elif state not in _TESTED_STATES:
         raise ReleaseSourceRefused(
             "release_source_ci_failed",
-            f"gate branch tip {selected} on {target.repo}@{target.branch} "
-            f"has {target.workflow} run state {state}. Nothing was bound.\n"
-            f"  Recovery: fix {target.branch} and rerun CI, or name "
-            "--source-ref with a passing run and --project-repo-path CHECKOUT.",
+            compose_refusal(
+                f"gate branch tip {selected} on {target.repo}@{target.branch} has {target.workflow} run state {state}. Nothing was bound.",
+                recovery=f"fix {target.branch} and rerun CI, or name --source-ref with a passing run and --project-repo-path CHECKOUT.",
+            ),
         )
     require_descends_from_previous_release(target, selected)
     return selected
 
 
 def tested_lineage_refusal(conn: Any, run_id: str, value: str) -> Optional[str]:
-    """Name why an existing run may not bind *value*, or ``None``."""
     row = conn.execute(
         "SELECT r.flow, p.slug, e.name FROM deployment_runs r "
         "JOIN projects p ON p.id = r.project_id "

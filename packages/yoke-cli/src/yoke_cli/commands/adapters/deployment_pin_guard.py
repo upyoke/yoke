@@ -17,6 +17,9 @@ import argparse
 import json
 from typing import Any, Dict, Optional
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.commands.deployment_pin import (
     RELEASE_PIN_CAPABILITY,
@@ -24,7 +27,6 @@ from yoke_cli.commands.deployment_pin import (
     assert_no_pin_regression,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_contracts.api.function_call import TargetRef
 
 
 def pin_regression_error(parsed: argparse.Namespace) -> Optional[str]:
@@ -86,10 +88,10 @@ def _retry_run_lineage(run_id: str, session_id: Optional[str]) -> Optional[str]:
         error = response.error
         code = error.code if error else "retry_source_read_failed"
         raise PinRegressionError(
-            f"{code}: retry source lineage read failed for {run_id}. "
-            f"Recovery: read `yoke deployment-runs get {run_id} release_lineage`; "
-            "ask the control-plane operator to diagnose this narrow reader if "
-            "it still refuses, then retry."
+            compose_refusal(
+                f"{code}: retry source lineage read failed for {run_id}.",
+                recovery=f"read `yoke deployment-runs get {run_id} release_lineage`; ask the control-plane operator to diagnose this narrow reader if it still refuses, then retry.",
+            )
         )
     lineage = (response.result or {}).get("value")
     if not isinstance(lineage, str):

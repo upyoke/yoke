@@ -3,12 +3,16 @@
 from datetime import datetime
 
 from pydantic import BaseModel
-
-from yoke_contracts.api.function_call import FunctionCallRequest, FunctionError, HandlerOutcome
+from yoke_contracts.api.function_call import (
+    FunctionCallRequest,
+    FunctionError,
+    HandlerOutcome,
+)
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import utc_now
+
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 class WatcherActivityRequest(BaseModel):

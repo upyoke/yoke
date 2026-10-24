@@ -5,26 +5,27 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
 from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_contracts.timestamps import utc_now
 
-from . import db_backend, sessions_analytics as _sa
+from . import db_backend
+from . import sessions_analytics as _sa
 from .db_helpers import instant_parameter
-from .session_execution_level_write import refresh_session_execution_level
 from .session_activity_state import (
     episode_column_present,
     native_thread_id_column_present,
 )
-from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
+from .session_execution_level_write import refresh_session_execution_level
 from .session_mode import set_session_mode as set_session_mode
+from .session_model_columns import merged_facts
+from .session_scope_identity import resolve_registration_scope
+from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import (
     canonicalize_executor as _canonicalize_executor,
 )
-from .session_model_columns import merged_facts
-from .session_scope_identity import resolve_registration_scope
-from .sessions_registration_write import insert_registration, reactivate_registration
 from .sessions_lifecycle_identity import (
     existing_registration_row,
     normalize_observed_identity,
@@ -34,12 +35,13 @@ from .sessions_lifecycle_identity import (
     trusted_native_thread_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
-from .sessions_started_event import session_started_context
+from .sessions_queries import _row_to_dict
 from .sessions_reactivation_driver import (
     build_reactivation_driver_stamp,
     record_reactivation_wake_driver,
 )
-from .sessions_queries import _row_to_dict
+from .sessions_registration_write import insert_registration, reactivate_registration
+from .sessions_started_event import session_started_context
 from .work_claim_targets import from_row as target_from_row
 
 
@@ -185,7 +187,10 @@ def register_session(
         ):
             raise SessionError(
                 "SESSION_SCOPE_IMMUTABLE",
-                "A session cannot change its registered project. Recovery: open a new session in that folder.",
+                compose_refusal(
+                    "A session cannot change its registered project.",
+                    recovery="open a new session in that folder.",
+                ),
             )
         if existing is not None and existing["org_id"] is not None:
             retained_scope = resolve_registration_scope(
@@ -194,8 +199,10 @@ def register_session(
             if retained_scope.org_id != existing["org_id"]:
                 raise SessionError(
                     "SESSION_ORG_UNRESOLVED",
-                    "Session registration cannot resolve its authority scope. Recovery: "
-                    "reconnect with `yoke connection set` or ask an org admin for membership.",
+                    compose_refusal(
+                        "Session registration cannot resolve its authority scope.",
+                        recovery="reconnect with `yoke connection set` or ask an org admin for membership.",
+                    ),
                 )
         if existing is None or existing["ended_at"] is None:
             refresh_active_duplicate_identity(

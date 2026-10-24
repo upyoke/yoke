@@ -1,10 +1,12 @@
 """Snapshot upload expiry and custody without stored leases."""
 
+import hashlib
 from contextlib import contextmanager
 from datetime import timedelta
-import hashlib
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant, utc_now
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.retention_table_policies import Cleanup
 
@@ -23,8 +25,10 @@ def upload_lock(conn, upload_id):
         acquired = conn.execute("SELECT pg_try_advisory_lock(%s)", (key,)).fetchone()[0]
         if not acquired:
             raise ValueError(
-                "snapshot_upload_busy: another operation owns this upload. "
-                "Recovery: retry snapshot sync or universe prune after that operation finishes."
+                compose_refusal(
+                    "snapshot_upload_busy: another operation owns this upload.",
+                    recovery="retry snapshot sync or universe prune after that operation finishes.",
+                )
             )
     try:
         yield
@@ -57,8 +61,10 @@ def require_fresh_upload(conn, upload_id):
         days=policy.windows["snapshot_uploads"]
     ):
         raise ChunkUploadMissingError(
-            "snapshot_upload_expired_or_missing: staging lasts at most seven days. "
-            "Recovery: restart project snapshot sync with a new upload."
+            compose_refusal(
+                "snapshot_upload_expired_or_missing: staging lasts at most seven days.",
+                recovery="restart project snapshot sync with a new upload.",
+            )
         )
 
 

@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.db_helpers import instant_parameter
-
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend, strategy_docs
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.strategy_doc_claim_exclusion import (
     linked_document,
     live_execution_for_document,
 )
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOCS_TABLE
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-from yoke_core.domain.project_identity import render_item_ref
-
 
 BLITZ_DOCUMENT_ARCHIVE_FAILURE = "GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED"
 
@@ -112,11 +112,10 @@ def archive_completed_blitz_document(
     except Exception as exc:  # noqa: BLE001 - translate the transaction failure
         cause = str(exc)
     raise BlitzDocumentArchiveError(
-        f"{BLITZ_DOCUMENT_ARCHIVE_FAILURE}: could not archive strategy "
-        f"document {slug!r} while completing Blitz {render_item_ref(conn, item_id)}; the done "
-        "transition was rolled back. Recovery: restore strategy-document "
-        "write availability, then retry the release -> done "
-        f"transition. Cause: {cause}"
+        compose_refusal(
+            f"{BLITZ_DOCUMENT_ARCHIVE_FAILURE}: could not archive strategy document {slug!r} while completing Blitz {render_item_ref(conn, item_id)}; the done transition was rolled back.",
+            recovery=f"restore strategy-document write availability, then retry the release -> done transition. Cause: {cause}",
+        )
     )
 
 

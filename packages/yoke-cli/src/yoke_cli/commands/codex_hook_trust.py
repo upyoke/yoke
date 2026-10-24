@@ -7,13 +7,14 @@ import json
 import sys
 from typing import Callable, Dict, List, Tuple
 
-from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_contracts.codex_hook_trust_store import (
-    CodexHookTrustStoreError,
     SWEEP_COMMAND,
+    CodexHookTrustStoreError,
     sweep_stale_trust,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 
+from yoke_cli.commands._helpers import parse_or_usage_error
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -62,7 +63,9 @@ def codex_hook_trust_sweep(args: List[str]) -> int:
             print(json.dumps(payload, sort_keys=True), file=sys.stderr)
         else:
             print(
-                f"Codex hook trust sweep refused: {exc}. Recovery: {recovery}.",
+                compose_refusal(
+                    f"Codex hook trust sweep refused: {exc}.", recovery=f"{recovery}."
+                ),
                 file=sys.stderr,
             )
         return 1

@@ -5,13 +5,15 @@ from __future__ import annotations
 import argparse
 from typing import Any, List, Mapping, TextIO
 
+from yoke_contracts.api.function_call import FunctionError, TargetRef
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
 )
-from yoke_contracts.api.function_call import TargetRef, FunctionError
 
 CAPACITY_FUNCTION_ID = "universe.level_capacity.get"
 CAPACITY_USAGE = "yoke universe level-capacity get [--session-id S] [--json]"
@@ -76,7 +78,14 @@ def _require_min_effort_response(response, _actor):
                 "result": {},
                 "error": FunctionError(
                     code="levels_schema_version_skew",
-                    message="This serving build predates model/min_effort Levels (required floor: next-release). Recovery: ask the control-plane operator to serve the release carrying this contract; keep the existing stored Levels until its boot convergence completes.",
+                    message=compose_refusal(
+                        "This serving build predates model/min_effort Levels (required floor: next-release).",
+                        recovery=(
+                            "ask the control-plane operator to serve the release carrying this "
+                            "contract; keep the existing stored Levels until its boot convergence "
+                            "completes."
+                        ),
+                    ),
                 ),
             }
         )

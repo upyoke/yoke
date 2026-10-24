@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import json_helper
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_level_selection import level_source
 from yoke_core.domain.session_launch_machine_models import (
     EXPLICIT_SOURCE,
@@ -52,7 +54,10 @@ def retry_request(launch: LaunchRecord, *, conn: Any) -> LaunchRequest:
     except (TypeError, ValueError) as exc:
         raise SessionLaunchError(
             "launch_placement_unreadable",
-            "Stored launch placement cannot be read. Recovery: create a new launch with an explicit work item or level.",
+            compose_refusal(
+                "Stored launch placement cannot be read.",
+                recovery="create a new launch with an explicit work item or level.",
+            ),
         ) from exc
     recovery = placement.get("capacity_recovery") or {}
     from yoke_core.domain.project_identity import render_item_ref

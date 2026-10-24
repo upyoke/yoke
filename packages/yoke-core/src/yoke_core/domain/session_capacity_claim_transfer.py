@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.project_identity import placeholder
 from yoke_core.domain.session_capacity_recovery import (
@@ -23,8 +25,10 @@ def _refuse(detail: str) -> None:
     raise SessionLaunchError(
         "capacity_recovery_custody_changed",
         (
-            f"Capacity successor custody changed: {detail}. Recovery: steering must "
-            "inspect the current holder and launch before restaffing; preserve its lane."
+            compose_refusal(
+                f"Capacity successor custody changed: {detail}.",
+                recovery="steering must inspect the current holder and launch before restaffing; preserve its lane.",
+            )
         ),
     )
 
@@ -147,13 +151,13 @@ def transfer_capacity_claim(
         in recovery["excluded_models"]
     ):
         _refuse("successor selected the overloaded model")
+    from yoke_core.domain.session_message_store import cancel_open_recipients
+    from yoke_core.domain.session_steering_authority import session_control_target
+    from yoke_core.domain.session_termination import _queue_reap
     from yoke_core.domain.sessions_render_attribution import (
         clear_current_item,
         set_current_item,
     )
-    from yoke_core.domain.session_message_store import cancel_open_recipients
-    from yoke_core.domain.session_termination import _queue_reap
-    from yoke_core.domain.session_steering_authority import session_control_target
 
     target = session_control_target(conn, predecessor)
     stamp = instant_parameter(conn, parse_instant(now))

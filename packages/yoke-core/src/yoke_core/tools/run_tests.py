@@ -42,17 +42,18 @@ from pathlib import Path
 from typing import List, Sequence, TextIO
 
 from yoke_contracts import schema_authority
-from yoke_core.domain import process_group_reaping
-from yoke_core.domain import verification_tree_binding
+from yoke_contracts.refusal_recovery import compose_refusal
+
+from yoke_core.domain import process_group_reaping, verification_tree_binding
 from yoke_core.domain import (
     verification_tree_binding_pytest_startup as _tree_binding_startup,
 )
+from yoke_core.tools import _source_pythonpath, pytest_remote_selection
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
     isolate_from_administering_machine_config,
 )
-from yoke_core.tools import _source_pythonpath, pytest_remote_selection
 from yoke_core.tools._run_tests_args import (
     DEFAULT_TESTPATHS,
     parse_args,
@@ -157,11 +158,10 @@ def _prepare_yoke_backend_env(root: Path, stderr: TextIO = sys.stderr) -> bool:
         return True
     except Exception as exc:
         print(
-            "Error: Postgres authority setup failed before pytest started. "
-            f"Worktree/repo root: {root}. "
-            "Recovery: set YOKE_PG_DSN, YOKE_PG_DSN_FILE, or a usable "
-            "connected-env binding. "
-            f"Detail: {exc}",
+            compose_refusal(
+                f"Error: Postgres authority setup failed before pytest started. Worktree/repo root: {root}.",
+                recovery=f"set YOKE_PG_DSN, YOKE_PG_DSN_FILE, or a usable connected-env binding. Detail: {exc}",
+            ),
             file=stderr,
         )
         return False

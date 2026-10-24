@@ -4,11 +4,13 @@ An absent ``universe_settings`` row reads :data:`DEFAULT_CURSOR_QUOTA_ORDER`.
 Use ``yoke settings unset cursor_quota_order`` to follow shipped defaults.
 """
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.plan_limits import (
     cursor_scope_for_model,
 )
-from yoke_contracts.timestamps import utc_now
 from yoke_contracts.settings_catalog import UNIVERSE_SETTING_KEYS
+from yoke_contracts.timestamps import utc_now
+
 from yoke_core.domain import json_helper
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.machine_registry import marker
@@ -33,7 +35,10 @@ def validate_cursor_quota_order(pools):
     ):
         raise QuotaPoolOrderError(
             "cursor_quota_order_invalid",
-            'Use exactly Cursor Models and Other Models, once each. Recovery: yoke settings set cursor_quota_order \'["Cursor Models", "Other Models"]\'.',
+            compose_refusal(
+                "Use exactly Cursor Models and Other Models, once each.",
+                recovery='yoke settings set cursor_quota_order \'["Cursor Models", "Other Models"]\'.',
+            ),
         )
     return tuple(pools)
 
@@ -51,7 +56,10 @@ def read_pool_order(conn):
             raise
         raise QuotaPoolOrderError(
             "cursor_quota_order_unreadable",
-            "Stored Cursor order is invalid JSON. Recovery: set a valid order with yoke settings set cursor_quota_order.",
+            compose_refusal(
+                "Stored Cursor order is invalid JSON.",
+                recovery="set a valid order with yoke settings set cursor_quota_order.",
+            ),
         ) from exc
 
 

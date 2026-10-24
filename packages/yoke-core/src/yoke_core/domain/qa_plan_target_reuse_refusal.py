@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.qa_plan_management import _placeholder
 from yoke_core.domain.qa_requirement_target_rebind import (
     declaration_correction_applies,
     different_target_reuse_recovery,
 )
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def requirement_verdict_and_runs(

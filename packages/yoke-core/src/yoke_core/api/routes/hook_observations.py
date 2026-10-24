@@ -10,31 +10,31 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field, ValidationError
-
 from yoke_contracts.hook_evaluator_protocol import (
     HOOK_BATCH_MODEL_CONFIRMATIONS_FIELD,
     HOOK_CLIENT_WALL_BATCH_FIELD,
     HOOK_EVALUATOR_CAPABILITIES,
 )
 from yoke_contracts.hook_resident_routing import is_read_only_tool_event
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.api.http_auth import require_auth_context
-from yoke_core.hooks.relayed_session_identity import (
-    refusal_text,
-    stamped_identity_refusal,
-)
 from yoke_core.domain import db_helpers
 from yoke_core.domain.session_scope_identity import (
     HOOK_SCOPE_UNAVAILABLE,
     authorize_hook_request,
 )
 from yoke_core.hooks.observation_batch import persist_observation_batch, request_payload
-
+from yoke_core.hooks.relayed_session_identity import (
+    refusal_text,
+    stamped_identity_refusal,
+)
 
 router = APIRouter()
 _BATCH_LIMIT = 64
-_READ_ONLY_RECOVERY = (
-    "only canonical read-only tool chains may use telemetry batching. "
-    "Recovery: send guarded hooks through the ordinary synchronous hook evaluator."
+_READ_ONLY_RECOVERY = compose_refusal(
+    "only canonical read-only tool chains may use telemetry batching.",
+    recovery="send guarded hooks through the ordinary synchronous hook evaluator.",
 )
 
 
@@ -95,7 +95,7 @@ def post_hook_observation_batch(
             f"hook_schema {batch.hook_schema} is not supported",
         )
     auth = require_auth_context(http_request)
-    from yoke_core.api.routes.hooks import HookEvaluateRequest, HOOK_WIRE_SCHEMA
+    from yoke_core.api.routes.hooks import HOOK_WIRE_SCHEMA, HookEvaluateRequest
 
     stamped: list[tuple[HookObservation, Any, str]] = []
     for observation in batch.observations:

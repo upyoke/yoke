@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 SETTLEMENT_REFUSED_CODE = "takeover_settlement_refused"
@@ -73,14 +75,14 @@ def succeed_taken_over_run(
     memberless obligations nobody passed. A refusal here is the run's own
     succeeded gate, raised as a takeover refusal so nothing is created.
     """
-    from yoke_core.domain.deployment_run_settle_success import (
-        record_run_deliveries_on,
-    )
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
     )
     from yoke_core.domain.deployment_run_completion_preconditions import (
         refuse_succeeded,
+    )
+    from yoke_core.domain.deployment_run_settle_success import (
+        record_run_deliveries_on,
     )
     from yoke_core.domain.deployment_run_target_takeover import TakeoverRefused
     from yoke_core.domain.environment_delivery_record import stamp_run_environment
@@ -90,12 +92,10 @@ def succeed_taken_over_run(
     if refusal:
         raise TakeoverRefused(
             SETTLEMENT_REFUSED_CODE,
-            f"run {old_id} keeps only members it already closed, but it cannot "
-            f"read succeeded: {refusal.removeprefix('Error: ')} Nothing was "
-            f"created or changed. Recovery: settle or waive what {old_id} still "
-            f"owes (yoke deployment-runs get {old_id}), or end it with "
-            f"yoke deployment-runs terminalize {old_id} --disposition cancelled "
-            '--reason "<why>", then create this run again.',
+            compose_refusal(
+                f"run {old_id} keeps only members it already closed, but it cannot read succeeded: {refusal.removeprefix('Error: ')} Nothing was created or changed.",
+                recovery=f'settle or waive what {old_id} still owes (yoke deployment-runs get {old_id}), or end it with yoke deployment-runs terminalize {old_id} --disposition cancelled --reason "<why>", then create this run again.',
+            ),
         )
     completed_at = utc_now()
     conn.execute(

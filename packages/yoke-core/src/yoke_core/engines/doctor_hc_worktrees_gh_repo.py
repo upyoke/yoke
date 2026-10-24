@@ -17,27 +17,29 @@ from __future__ import annotations
 import json
 import re
 
+from yoke_contracts.doctor_budget import CHECK_BUDGET_S, remaining_seconds
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
+import yoke_core.engines.doctor_hc_worktrees as _wt
+import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.gh_rest_transport import RestTransportError
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_contracts.doctor_budget import CHECK_BUDGET_S, remaining_seconds
-from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
-import yoke_core.engines.doctor_hc_worktrees as _wt
-import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_context import resolve_self_project, self_project_names
 from yoke_core.engines.doctor_hc_gh_skip import (
     GH_APP_AUTH_UNAVAILABLE_SKIP_REASON,
@@ -89,10 +91,16 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "HC-wrong-repo-issues",
             "Wrong-repo GitHub issues",
             "N/A",
-            "compares issue bindings against the repository of the project that "
-            "owns this installation; this runner has no self project. Recovery: "
-            "run from a registered source checkout "
-            "(`yoke project register <checkout> --project-id <id>`).",
+            compose_refusal(
+                (
+                    "compares issue bindings against the repository of the project that owns "
+                    "this installation; this runner has no self project."
+                ),
+                recovery=(
+                    "run from a registered source checkout (`yoke project register <checkout> "
+                    "--project-id <id>`)."
+                ),
+            ),
         )
         return
     permissions = (
@@ -189,9 +197,10 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         except RestTransportError as err:
             incomplete = True
             notes.append(
-                f"repository_issue_inventory_failed: {auth.repo}: {err}. "
-                "Evidence incomplete. Recovery: retry --only wrong-repo-issues "
-                "after GitHub access recovers."
+                compose_refusal(
+                    f"repository_issue_inventory_failed: {auth.repo}: {err}. Evidence incomplete.",
+                    recovery="retry --only wrong-repo-issues after GitHub access recovers.",
+                )
             )
             continue
         for row in missing:

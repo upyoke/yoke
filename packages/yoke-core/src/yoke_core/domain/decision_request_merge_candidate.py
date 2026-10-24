@@ -13,14 +13,15 @@ clearance binds to exactly one head.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_request_contract import MERGE_CANDIDATE_REVIEW
-
+from yoke_core.domain.project_identity import render_item_ref
 
 KIND = MERGE_CANDIDATE_REVIEW
 SUBJECT_TYPE = "item_merge_candidate"
@@ -46,8 +47,10 @@ _FULL_SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 def _fail(detail: str) -> NoReturn:
     raise ValueError(
-        f"{CONTEXT_INVALID}: {KIND} subject_context {detail}. "
-        f"Recovery: {CONTEXT_RECOVERY}"
+        compose_refusal(
+            f"{CONTEXT_INVALID}: {KIND} subject_context {detail}.",
+            recovery=f"{CONTEXT_RECOVERY}",
+        )
     )
 
 

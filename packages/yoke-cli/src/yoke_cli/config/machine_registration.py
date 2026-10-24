@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.refusal_recovery import compose_refusal
 
 REGISTER_TIMEOUT_S = 10.0
 # One attempt, because the caller's own answer to a refusal is "report it and
@@ -83,8 +84,9 @@ def retry_if_retired(
     Returns the final response and the retired id it replaced, if any. The
     retired row and its history stay in the registry.
     """
-    from yoke_cli.config import machine_config_mutation
     from yoke_contracts.machine_authorization import MACHINE_RETIRED
+
+    from yoke_cli.config import machine_config_mutation
 
     error = getattr(response, "error", None)
     code = (
@@ -104,17 +106,19 @@ def retry_if_retired(
 
         failure = FunctionError(
             code=MACHINE_RETIRED,
-            message=f"machine {retired} is retired and this computer's new "
-            f"machine identity could not be saved: {exc}. Recovery: repair "
-            f"~/.yoke/config.json, then run `{REGISTER_RECOVERY_COMMAND}` again.",
+            message=compose_refusal(
+                f"machine {retired} is retired and this computer's new machine identity could not be saved: {exc}.",
+                recovery=f"repair ~/.yoke/config.json, then run `{REGISTER_RECOVERY_COMMAND}` again.",
+            ),
         )
         return response.model_copy(update={"error": failure}), retired
     return _call_register({**payload, "machine_id": replacement}), retired
 
 
 def _call_register(payload: Mapping[str, Any]) -> Any:
-    from yoke_cli.transport.dispatcher import call_dispatcher
     from yoke_contracts.api.function_call import TargetRef
+
+    from yoke_cli.transport.dispatcher import call_dispatcher
 
     return call_dispatcher(
         function_id="machine.register",
@@ -137,8 +141,9 @@ def show_this_machine(config_path: str | Path | None = None) -> dict[str, Any]:
             "reason": "machine config has no canonical machine id",
         }
     try:
-        from yoke_cli.transport.dispatcher import call_dispatcher
         from yoke_contracts.api.function_call import TargetRef
+
+        from yoke_cli.transport.dispatcher import call_dispatcher
 
         response = call_dispatcher(
             function_id="machine.show",
@@ -170,8 +175,9 @@ def _persist_credential(
     result: Mapping[str, Any], config_path: str | Path | None
 ) -> str | None:
     """Store an HTTPS machine bearer, returning recovery text on failure."""
-    from yoke_cli.config import machine_config, writer
     from yoke_contracts.machine_config import schema as contract
+
+    from yoke_cli.config import machine_config, writer
 
     connection = machine_config.active_connection(config_path)
     if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:

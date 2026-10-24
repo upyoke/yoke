@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -32,6 +31,8 @@ from yoke_contracts.level_proposals import (
 )
 from yoke_contracts.levels import LevelsError, default_levels, levels_payload
 from yoke_contracts.model_reference_records import ModelReferenceError
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 FUNCTION_ID = "models.level_proposal.run"
@@ -80,14 +81,18 @@ def handle_models_level_proposal(request: FunctionCallRequest) -> HandlerOutcome
     except ModelReferenceError as exc:
         return _failure(
             exc.code,
-            f"{exc}. Recovery: publish a catalog revision with `yoke models "
-            "publish` before proposing level changes.",
+            compose_refusal(
+                f"{exc}.",
+                recovery="publish a catalog revision with `yoke models publish` before proposing level changes.",
+            ),
         )
     except (LevelsError, UniverseLevelsError) as exc:
         return _failure(
             getattr(exc, "code", "levels_document_invalid"),
-            f"{exc}. Recovery: store a valid document with "
-            "`yoke settings set levels -`.",
+            compose_refusal(
+                f"{exc}.",
+                recovery="store a valid document with `yoke settings set levels -`.",
+            ),
         )
     records = revision["records"]
     generated = spec.changes is None

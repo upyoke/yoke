@@ -2,40 +2,46 @@
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import iso8601_now
-
-from yoke_contracts.machine_config.directories import create_private_directory
-
-from collections.abc import Callable
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import uuid
+from collections.abc import Callable
+from pathlib import Path
 
-from yoke_core.tools.distribution_channel import join_public_url
 from yoke_cli import manifest
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
+from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import iso8601_now
+
+from yoke_core.tools import session_relay_local_install as local_install
+from yoke_core.tools.distribution_channel import join_public_url
+from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.tools.session_relay_release import (
-    ManifestFetcher,
     PYTHON_ISOLATION_FLAG,
+    RELAY_ACTIVE_RELEASE_NAME,
     RELAY_RELEASE_ERROR_NAME,
     RELAY_RELEASE_FETCH_FAILED,
     RELAY_RELEASE_INSTALL_FAILED,
     RELAY_RELEASE_RECEIPT_NAME,
-    RELAY_ACTIVE_RELEASE_NAME,
+    ManifestFetcher,
     RelayReleaseError,
     RelayReleaseStatus,
     distribution_index_for_instance,
     fetch_served_build,
     relay_active_release_path,
     relay_launch_executable,
-    relay_runtime_executable,
-    relay_runtime_python,
     relay_release_receipt,
     relay_release_status,
+    relay_runtime_executable,
+    relay_runtime_python,
     release_version_from_build,
     write_release_json,
+)
+from yoke_core.tools.session_relay_release_retention import (
+    prune_relay_releases,
+    release_install_lock,
 )
 from yoke_core.tools.session_relay_runtime_install import (
     VenvCreator,
@@ -43,12 +49,6 @@ from yoke_core.tools.session_relay_runtime_install import (
     create_release_venv,
     ensure_relay_runtime,
     subprocess_failure_detail,
-)
-from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
-from yoke_core.tools import session_relay_local_install as local_install
-from yoke_core.tools.session_relay_release_retention import (
-    release_install_lock,
-    prune_relay_releases,
 )
 
 RELAY_RELEASES_DIR_NAME = "releases"
@@ -292,7 +292,10 @@ def _with_recovery(
     )
     return RelayReleaseError(
         code,
-        f"{code}: {detail}; {preservation}. Recovery: {relay_release_recovery(instance.environment)}",
+        compose_refusal(
+            f"{code}: {detail}; {preservation}.",
+            recovery=f"{relay_release_recovery(instance.environment)}",
+        ),
     )
 
 

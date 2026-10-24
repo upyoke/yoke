@@ -9,6 +9,8 @@ from yoke_contracts.doctor_budget import (
     DoctorBudgetExhausted,
     remaining_seconds,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.bounded_database import BudgetConnection
 
@@ -31,9 +33,13 @@ def bounded_connection(conn):
     is_postgres = db_backend.connection_is_postgres(conn)
     if is_postgres and not hasattr(conn, "autocommit"):
         raise RuntimeError(
-            "doctor_postgres_autocommit_unavailable: cannot bound this connection. "
-            "Recovery: provide a PostgreSQL connection exposing autocommit "
-            "so Doctor can set and restore its statement timeout."
+            compose_refusal(
+                "doctor_postgres_autocommit_unavailable: cannot bound this connection.",
+                recovery=(
+                    "provide a PostgreSQL connection exposing autocommit so Doctor can set and "
+                    "restore its statement timeout."
+                ),
+            )
         )
     restore = is_postgres and conn.autocommit
     prior = None

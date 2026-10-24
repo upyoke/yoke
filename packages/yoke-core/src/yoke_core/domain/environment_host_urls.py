@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from yoke_core.domain.refusal_recovery import compose_refusal
+from yoke_contracts.refusal_recovery import compose_refusal
 
 _URL_SET_RECOVERY = (
     "set it via: yoke projects environment-settings merge "

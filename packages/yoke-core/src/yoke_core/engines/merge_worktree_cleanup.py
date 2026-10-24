@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-
 from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
-from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
 )
+from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
@@ -105,7 +106,10 @@ def _post_merge_cleanup(
     if ctx.args.standalone:
         if not _sync_local_target(ctx):
             _print(
-                "merge_target_sync_failed: landing is proven; preserve the lane and retry the governed merge command after repairing local target synchronization.",
+                (
+                    "merge_target_sync_failed: landing is proven; preserve the lane and retry "
+                    "the governed merge command after repairing local target synchronization."
+                ),
                 err=True,
             )
             return 5
@@ -221,11 +225,6 @@ def _post_merge_cleanup(
         )
         _print("", err=True)
         _print(
-            f"Error: local target sync failed after "
-            f"{ctx.args.branch} \u2192 {ctx.args.target} was already committed.",
-            err=True,
-        )
-        _print(
             "Phase: post_merge_cleanup (merge already committed \u2014 do NOT "
             "roll the item back to 'implemented').",
             err=True,
@@ -236,12 +235,15 @@ def _post_merge_cleanup(
             else ctx.args.branch
         )
         _print(
-            "Recovery: from the main repo, run "
-            f"`git fetch origin {ctx.args.target}` then "
-            f"`git merge --ff-only origin/{ctx.args.target}` if {ctx.args.target} is "
-            f"checked out, or `git fetch origin {ctx.args.target}:{ctx.args.target}` "
-            f"if it is not; then resume with "
-            f"`/yoke usher {usher_ref}`.",
+            compose_refusal(
+                f"Error: local target sync failed after {ctx.args.branch} \u2192 {ctx.args.target} was already committed.",
+                recovery="from the main repo, run "
+                f"`git fetch origin {ctx.args.target}` then "
+                f"`git merge --ff-only origin/{ctx.args.target}` if {ctx.args.target} is "
+                f"checked out, or `git fetch origin {ctx.args.target}:{ctx.args.target}` "
+                f"if it is not; then resume with "
+                f"`/yoke usher {usher_ref}`.",
+            ),
             err=True,
         )
         # Continue with remaining cleanup (stash, ensure-target, print

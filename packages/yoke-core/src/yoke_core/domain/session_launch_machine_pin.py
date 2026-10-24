@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.machine_registry import marker
 
 MACHINE_UNRESOLVED = "machine_unresolved"
@@ -109,8 +111,10 @@ def _refusal(conn: Any, value: str, candidates: dict[str, _Candidate]) -> str:
         ]
     else:
         lines = [
-            f"{quoted} did not resolve to a live machine id. Recovery: run "
-            f"`{_LIST_COMMAND}` and pass a listed machine id."
+            compose_refusal(
+                f"{quoted} did not resolve to a live machine id.",
+                recovery=f"run `{_LIST_COMMAND}` and pass a listed machine id.",
+            )
         ]
     if _names_test_machine(conn, value):
         lines.append(

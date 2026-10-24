@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from yoke_contracts.timestamps import iso8601_now
+
 from yoke_core.domain.session_steering_authority import require_operator_seat
 
 
@@ -42,8 +43,9 @@ def abandonment_audit(
 
 def _require_no_live_membership(conn: Any, *, item_id: int) -> None:
     """The close caller holds the item binding lock, as membership writers do."""
+    from yoke_contracts.refusal_recovery import compose_refusal
+
     from yoke_core.domain.project_identity import placeholder, render_item_ref
-    from yoke_core.domain.refusal_recovery import compose_refusal
     from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
     from yoke_core.domain.sessions_analytics import SessionError
 

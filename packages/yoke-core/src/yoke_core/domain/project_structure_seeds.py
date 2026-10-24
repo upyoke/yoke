@@ -7,16 +7,17 @@ the seed surface dogfooded against the same write contract operators use.
 
 from __future__ import annotations
 
-from yoke_core.domain.strategy_docs_paths import STRATEGY_DIR_REL
-
 import copy
 from typing import Any, Dict, List, Optional, Tuple
+
+from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_structure import UsageError, read_structure
 from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.strategy_docs_paths import STRATEGY_DIR_REL
 
 _YOKE_FULL_TEST_COMMAND = "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 
@@ -176,9 +177,10 @@ def cmd_seed(
     selected = _RECIPES.get(recipe)
     if selected is None:
         raise UsageError(
-            f"No frozen seed recipe named '{recipe}'. "
-            f"Known recipes: {', '.join(sorted(_RECIPES))}. "
-            "Recovery: pass --recipe with one of them."
+            compose_refusal(
+                f"No frozen seed recipe named '{recipe}'. Known recipes: {', '.join(sorted(_RECIPES))}.",
+                recovery="pass --recipe with one of them.",
+            )
         )
     seeds = selected["entries"]
 

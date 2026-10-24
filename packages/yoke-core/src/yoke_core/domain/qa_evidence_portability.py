@@ -16,6 +16,7 @@ from yoke_contracts.qa_evidence_plane import (
     administered_elsewhere_env,
     serving_env_label,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 
 EVIDENCE_NOT_PORTABLE = "evidence_not_portable"
 
@@ -26,7 +27,7 @@ class EvidenceNotPortable(ValueError):
     code = EVIDENCE_NOT_PORTABLE
 
     def __init__(self, message: str, recovery: str) -> None:
-        super().__init__(f"{message} Recovery: {recovery}")
+        super().__init__(compose_refusal(f"{message}", recovery=f"{recovery}"))
         self.recovery = recovery
 
 

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from contextlib import ExitStack
 import json
 import time
+from contextlib import ExitStack
+from datetime import datetime
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.retention_defaults import RETENTION_KEY
 from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_contracts.universe_retention import RetentionPolicy
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.schema_common import _table_exists
@@ -29,9 +31,13 @@ def read_policy(conn):
         return RetentionPolicy.model_validate(json.loads(row[0])), "universe"
     except (ValueError, TypeError) as exc:
         raise ValueError(
-            "retention_policy_invalid: stored retention settings do not match supported version 1. "
-            "Recovery: ask the universe administrator to restore a valid retention document; "
-            "no policy editor ships with this command."
+            compose_refusal(
+                "retention_policy_invalid: stored retention settings do not match supported version 1.",
+                recovery=(
+                    "ask the universe administrator to restore a valid retention document; no "
+                    "policy editor ships with this command."
+                ),
+            )
         ) from exc
 
 
@@ -56,8 +62,10 @@ def read_retention(conn, cutoff=None):
     ).fetchall()
     if len(cards) != 1:
         raise ValueError(
-            "retention_universe_identity_unavailable: expected one organization identity. "
-            "Recovery: ask the universe administrator to repair the identity before pruning."
+            compose_refusal(
+                "retention_universe_identity_unavailable: expected one organization identity.",
+                recovery="ask the universe administrator to repair the identity before pruning.",
+            )
         )
     return policy, {
         "universe": dict(zip(("org_id", "slug", "name"), cards[0])),

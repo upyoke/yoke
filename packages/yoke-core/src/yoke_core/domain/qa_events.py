@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from typing import Any, Optional, Tuple
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_one
 
 
@@ -57,19 +59,16 @@ DELIBERATE_NON_WRITE_REASONS = frozenset(
 
 def _not_recorded(event_name: str, requirement_id: int, reason: str) -> str:
     """Name the failed emission and the step that recovers it."""
-    return (
-        f"QA requirement {requirement_id} was written but its {event_name} "
-        f"event did not land (reason: {reason}); the requirement write is "
-        "abandoned rather than left silently dark. Recovery: inspect the "
-        "events gateway for that reason, confirm the ledger is writable with "
-        f"`yoke events query --event-name {event_name}`, then re-run the "
-        "operation that created the requirement."
+    return compose_refusal(
+        f"QA requirement {requirement_id} was written but its {event_name} event did not land (reason: {reason}); the requirement write is abandoned rather than left silently dark.",
+        recovery=f"inspect the events gateway for that reason, confirm the ledger is writable with `yoke events query --event-name {event_name}`, then re-run the operation that created the requirement.",
     )
 
 
 # ---------------------------------------------------------------------------
 # Failure recovery shared by both emission helpers
 # ---------------------------------------------------------------------------
+
 
 def _safe_rollback(conn) -> None:
     """Clear an aborted transaction on the shared connection.
@@ -89,6 +88,7 @@ def _safe_rollback(conn) -> None:
 # ---------------------------------------------------------------------------
 # Target resolution
 # ---------------------------------------------------------------------------
+
 
 def resolve_requirement_event_target(row: Any) -> Tuple[Optional[str], Optional[int]]:
     """Map a qa_requirements row to canonical event item/task fields.
@@ -120,6 +120,7 @@ def resolve_requirement_event_target(row: Any) -> Tuple[Optional[str], Optional[
 # ---------------------------------------------------------------------------
 # QA requirement lifecycle events
 # ---------------------------------------------------------------------------
+
 
 def emit_qa_requirement_event(
     conn,
@@ -227,6 +228,7 @@ def emit_qa_requirement_event(
 # ---------------------------------------------------------------------------
 # QA run lifecycle events
 # ---------------------------------------------------------------------------
+
 
 def emit_qa_run_event(
     conn,

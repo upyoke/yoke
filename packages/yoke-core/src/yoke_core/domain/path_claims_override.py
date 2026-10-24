@@ -36,6 +36,8 @@ import json
 import os
 from typing import Any, List, Optional, Sequence
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
@@ -121,9 +123,10 @@ def invoke_override(
     """
     if os.environ.get("YOKE_HOOK_EVENT"):
         raise HookContextRejection(
-            "PathClaimOverride cannot be invoked from a hook context "
-            f"(YOKE_HOOK_EVENT={os.environ['YOKE_HOOK_EVENT']}). "
-            "Recovery: run outside hooks from a session holding the covering steering seat."
+            compose_refusal(
+                f"PathClaimOverride cannot be invoked from a hook context (YOKE_HOOK_EVENT={os.environ['YOKE_HOOK_EVENT']}).",
+                recovery="run outside hooks from a session holding the covering steering seat.",
+            )
         )
     if not (actor_reason or "").strip():
         raise EmptyActorReason(

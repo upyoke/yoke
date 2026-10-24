@@ -7,7 +7,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.session_control.native_turn_end import RelayTurnEndRequest
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.models import (
     RelayClaimRequest,
     RelayClaimResponse,
@@ -18,6 +18,8 @@ from yoke_contracts.session_control.models import (
     RelayReportRequest,
     RelayReportResponse,
 )
+from yoke_contracts.session_control.native_turn_end import RelayTurnEndRequest
+
 from yoke_core.domain.handlers.session_relay_poll_upkeep import (
     resume_vendor_error_sessions,
     stuck_native_turn_probes,
@@ -169,20 +171,25 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
 def _require_active_machine(conn, *, machine_id: str, actor_id: int) -> None:
     """Bind an in-process relay to the same durable machine as HTTP auth."""
     from yoke_contracts.machine_authorization import RETIRED_MACHINE_RECOVERY
+
     from yoke_core.domain.machine_registry import MachineRegistryError, require_machine
 
     record = require_machine(conn, machine_id)
     if record.retired_at is not None:
         raise MachineRegistryError(
             "machine_retired",
-            f"machine {record.machine_id} is retired. Recovery: "
-            f"{RETIRED_MACHINE_RECOVERY}",
+            compose_refusal(
+                f"machine {record.machine_id} is retired.",
+                recovery=f"{RETIRED_MACHINE_RECOVERY}",
+            ),
         )
     if record.owner_actor_id != actor_id:
         raise MachineRegistryError(
             "machine_credential_mismatch",
-            "The relay actor does not own the registered machine. Recovery: "
-            "reconnect this machine with the installer.",
+            compose_refusal(
+                "The relay actor does not own the registered machine.",
+                recovery="reconnect this machine with the installer.",
+            ),
         )
 
 

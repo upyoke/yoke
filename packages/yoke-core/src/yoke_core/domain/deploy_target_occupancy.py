@@ -33,6 +33,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 from yoke_core.domain.deployment_target_identity_config import (
@@ -134,8 +136,8 @@ def _open_qa_lines(
     evaluated counts as open: an unreadable answer is not a settled one.
     """
     from yoke_core.domain.deployment_qa_stage_outstanding import (
-        qa_stage_outstanding,
         first_waiting_qa_stage,
+        qa_stage_outstanding,
     )
 
     names = [str(stage.get("name") or "") for stage in target.stages]
@@ -256,8 +258,9 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
         if len(occupancy.open_requirements) > 10:
             lines.append(f"    … {len(occupancy.open_requirements) - 10} more")
     holders = sorted({occupancy.run_id for occupancy in held})
-    lines.append(
-        "Recovery: re-run this start once the holder finishes deploying and "
+    return compose_refusal(
+        "\n".join(lines),
+        recovery="re-run this start once the holder finishes deploying and "
         "its QA settles "
         f"(`yoke deployment-runs stages {holders[0]}` shows it). A holder on "
         "this run's flow and target that now waits only on item QA is taken "
@@ -267,9 +270,8 @@ def occupied_refusal(run_id: str, held: list[Occupancy]) -> str:
         "replacement; recreating alone does not clear occupancy. "
         "A holder nobody will finish is released by "
         f"terminalizing it: `yoke deployment-runs terminalize {holders[0]} "
-        '--disposition cancelled --reason "<why it is abandoned>"`.'
+        '--disposition cancelled --reason "<why it is abandoned>"`.',
     )
-    return "\n".join(lines)
 
 
 def require_target_unoccupied(conn: Any, run_id: str) -> RunTarget:

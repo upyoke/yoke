@@ -2,7 +2,9 @@
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
@@ -21,8 +23,10 @@ from yoke_core.domain.session_relay_types import SessionRelayError
 def _refuse():
     raise SessionRelayError(
         "relay_release_conflict",
-        "The job is no longer an unstarted lease owned by this relay. "
-        "Recovery: inspect its current attempt and native custody before retrying.",
+        compose_refusal(
+            "The job is no longer an unstarted lease owned by this relay.",
+            recovery="inspect its current attempt and native custody before retrying.",
+        ),
     )
 
 

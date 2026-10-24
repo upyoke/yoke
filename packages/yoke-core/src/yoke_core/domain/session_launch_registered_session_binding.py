@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.db_helpers import instant_parameter
-
 from datetime import datetime
-
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_binding_evidence import (
     bound_registration_evidence,
 )
@@ -66,10 +66,10 @@ def _require_launch_session_context(
     if facts["project_id"] is None:
         raise SessionLaunchError(
             "project_mismatch",
-            "registered session started outside any project; a launched worker "
-            f"must register in project {launch.project_id}'s folder. Recovery: map "
-            "that checkout on the launch machine with `yoke project register "
-            f"CHECKOUT --project-id {launch.project_id}`, then launch again.",
+            compose_refusal(
+                f"registered session started outside any project; a launched worker must register in project {launch.project_id}'s folder.",
+                recovery=f"map that checkout on the launch machine with `yoke project register CHECKOUT --project-id {launch.project_id}`, then launch again.",
+            ),
         )
     if facts["project_id"] != launch.project_id:
         raise SessionLaunchError("project_mismatch", "registered project differs")

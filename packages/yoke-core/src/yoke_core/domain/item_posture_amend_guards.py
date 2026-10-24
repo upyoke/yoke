@@ -29,8 +29,9 @@ def disallowed_posture_message(
     conn: Any, *, item_id: int, runtime: Any, key: str
 ) -> str:
     """Name the immutable pin and the authority needed to change it."""
+    from yoke_contracts.refusal_recovery import compose_refusal
+
     from yoke_core.domain.project_identity import render_item_ref
-    from yoke_core.domain.refusal_recovery import compose_refusal
 
     ref = render_item_ref(conn, item_id, required=True)
     return compose_refusal(
@@ -42,7 +43,8 @@ def disallowed_posture_message(
         "--version N --preview`. Only apply that migration without --preview after "
         "its compatibility checks pass, then retry the amendment. If no suitable "
         "version is published, the workflow owner must publish one first. "
-        "Migration requires a live steering seat covering the target project or document; route via yoke say --steering",
+        "Migration requires a live steering seat covering the target project or "
+        "document; route via yoke say --steering",
     )
 
 

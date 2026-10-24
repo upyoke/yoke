@@ -6,6 +6,8 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_phase_boundary import (
     POST_MERGE_QA_PHASES,
@@ -169,10 +171,10 @@ def refuse_correction_held_on_executing_run(
             frozen = raw if isinstance(raw, Mapping) else json.loads(str(raw or "{}"))
         except (TypeError, ValueError) as exc:
             raise QaPlanError(
-                "qa_member_snapshot_unreadable: executing run "
-                f"{row['run_id']} member snapshot could not be read. "
-                "Recovery: inspect `yoke deployment-runs get "
-                f"{row['run_id']}` and repair the snapshot before attaching."
+                compose_refusal(
+                    f"qa_member_snapshot_unreadable: executing run {row['run_id']} member snapshot could not be read.",
+                    recovery=f"inspect `yoke deployment-runs get {row['run_id']}` and repair the snapshot before attaching.",
+                )
             ) from exc
         if not isinstance(frozen, Mapping):
             continue
@@ -186,11 +188,13 @@ def refuse_correction_held_on_executing_run(
                 continue
             run_id = row["run_id"]
             raise QaPlanError(
-                "qa_correction_already_held: plan "
-                f"{plan_id} is already a correction on executing run {run_id} "
-                "for this member. Recovery: do not attach it. The correction "
-                "answers its replaced group on that run. Attach a different "
-                "plan only when this member owes a separate obligation."
+                compose_refusal(
+                    f"qa_correction_already_held: plan {plan_id} is already a correction on executing run {run_id} for this member.",
+                    recovery=(
+                        "do not attach it. The correction answers its replaced group on that run. "
+                        "Attach a different plan only when this member owes a separate obligation."
+                    ),
+                )
             )
 
 

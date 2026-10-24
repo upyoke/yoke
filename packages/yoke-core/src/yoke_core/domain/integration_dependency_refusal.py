@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.public_item_target import public_item_target
 
@@ -57,20 +59,20 @@ def integration_dependency_refusal(
             f"{blocker.get('rationale') or 'no rationale'}"
         )
     lines.append(
-        "Keep your work claim and lane; do not release or end the session; the notice wakes you as holder. "
-        'Park with `yoke sessions touch --mode parked --reason "awaiting '
-        '<BLOCKER> integration"`. '
-        "Recovery: wait for each blocker to merge (the control plane sends "
-        f"a notice when it does), then re-run `{rerun}`. If the dependency "
-        "is wrong, correct it first with `yoke items dependency update` or "
-        "`yoke items dependency remove`."
+        compose_refusal(
+            (
+                "Keep your work claim and lane; do not release or end the session; the "
+                "notice wakes you as holder. Park with `yoke sessions touch --mode parked "
+                '--reason "awaiting <BLOCKER> integration"`.'
+            ),
+            recovery=f"wait for each blocker to merge (the control plane sends a notice when it does), then re-run `{rerun}`. If the dependency is wrong, correct it first with `yoke items dependency update` or `yoke items dependency remove`.",
+        )
     )
     return "\n".join(lines)
 
 
 def _unavailable(ref: str, detail: str, rerun: str) -> str:
-    return (
-        f"integration_dependency_gate_unavailable: could not evaluate the "
-        f"integration dependency gate for {ref}: {detail}. Recovery: restore "
-        f"control-plane access, then re-run `{rerun}`."
+    return compose_refusal(
+        f"integration_dependency_gate_unavailable: could not evaluate the integration dependency gate for {ref}: {detail}.",
+        recovery=f"restore control-plane access, then re-run `{rerun}`.",
     )

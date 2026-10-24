@@ -23,8 +23,6 @@ package manager they did not have.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
-
 import os
 import platform
 import shutil
@@ -35,9 +33,11 @@ from pathlib import Path
 from typing import Callable, Mapping, Optional
 
 from yoke_contracts import terminal_detached_process
+from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.config import machine_config
 from yoke_cli.resilient_fetch import FetchError, FetchVerificationError, fetch_file
-
 
 #: The one pinned Node.js release this product provisions when a host has no
 #: usable Node. Bumping it means replacing the digests below in the same
@@ -87,7 +87,7 @@ class NodeToolchainError(RuntimeError):
     """The Browser QA Node toolchain could not be resolved or provisioned."""
 
     def __init__(self, reason: str, *, code: str, recovery: str) -> None:
-        super().__init__(f"{reason} Recovery: {recovery}")
+        super().__init__(compose_refusal(f"{reason}", recovery=f"{recovery}"))
         self.code = code
         self.reason = reason
         self.recovery = recovery

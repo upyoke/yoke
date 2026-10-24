@@ -17,7 +17,7 @@ from yoke_contracts.project_contract.file_byte_budget import (
 from yoke_contracts.project_contract.install_manifest import (
     is_install_bundle_generated_path,
 )
-
+from yoke_contracts.refusal_recovery import compose_refusal
 
 # Git empty-tree object; used as the "old" side on initial commit (no HEAD).
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -305,19 +305,9 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
 
 
 def _cli_description(limit: int) -> str:
-    return (
-        f"Enforce the {limit}-line authored-file limit.\n\n"
-        "Subcommands:\n"
-        "  report   Print per-file inventory (all tracked files).\n"
-        "  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\n"
-        "Hard-fail rules (apply to authored files only):\n"
-        f"  1. New authored file > {limit} lines.\n"
-        "  2. Existing oversized authored file grows.\n"
-        f"  3. Authored file crosses the {limit}-line limit upward.\n"
-        "Temporary exceptions are fully exempt.\n"
-        "Byte budgets: `file_byte_budget=PATH:BYTES` in .yoke/project.config "
-        "fails a changed file past its budget.\n\n"
-        "Recovery: split an oversized file by responsibility, or shorten it."
+    return compose_refusal(
+        f"Enforce the {limit}-line authored-file limit.\n\nSubcommands:\n  report   Print per-file inventory (all tracked files).\n  check    Diff-based hard-fail check (branch-vs-base OR staged).\n\nHard-fail rules (apply to authored files only):\n  1. New authored file > {limit} lines.\n  2. Existing oversized authored file grows.\n  3. Authored file crosses the {limit}-line limit upward.\nTemporary exceptions are fully exempt.\nByte budgets: `file_byte_budget=PATH:BYTES` in .yoke/project.config fails a changed file past its budget.",
+        recovery="split an oversized file by responsibility, or shorten it.",
     )
 
 

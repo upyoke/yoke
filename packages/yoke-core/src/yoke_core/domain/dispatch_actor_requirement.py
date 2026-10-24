@@ -14,6 +14,8 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.function_unresolved_project import permission_error_response
 from yoke_core.domain.yoke_function_permission_types import DispatchPermission
 from yoke_core.domain.yoke_function_registry import RegistryEntry
@@ -35,13 +37,13 @@ def actor_required_message(function_id: str, received: Any) -> str:
     """Name the missing actor and the ways to supply one."""
     shown = str(received or "").strip()
     received_text = f"non-numeric actor_id {shown!r}" if shown else "no actor_id"
-    return (
-        f"function {function_id!r} has side effects and this call carries "
-        f"{received_text}, so it cannot be authorized or attributed. "
-        "Recovery: run it from a registered harness session; on a local "
-        "universe run `yoke setup` so this machine records its operating "
-        "actor; or connect over https (`yoke env list`). Unset a non-numeric "
-        "YOKE_ACTOR_ID."
+    return compose_refusal(
+        f"function {function_id!r} has side effects and this call carries {received_text}, so it cannot be authorized or attributed.",
+        recovery=(
+            "run it from a registered harness session; on a local universe run `yoke "
+            "setup` so this machine records its operating actor; or connect over https "
+            "(`yoke env list`). Unset a non-numeric YOKE_ACTOR_ID."
+        ),
     )
 
 

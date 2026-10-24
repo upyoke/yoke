@@ -9,12 +9,13 @@ never drift apart in what they write.
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 from typing import Any, Iterable, Mapping, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import instant_parameter, query_one
-from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
@@ -25,11 +26,11 @@ from yoke_core.domain.qa_plan_case_definition import (
     case_target_subject,
     materialized_definition,
 )
+from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_plan_target_reuse_refusal import (
     different_target_refusal,
     requirement_verdict_and_runs,
 )
-from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def require_existing_target(

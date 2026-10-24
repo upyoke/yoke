@@ -6,15 +6,16 @@ import argparse
 import json
 from typing import Any, List
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
 )
-from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
-
 
 MACHINE_REGISTER_USAGE = (
     "yoke machine register [--name NAME] "
@@ -52,9 +53,10 @@ def _local_machine_id() -> str:
     resolved = machine_id()
     if not resolved:
         raise SystemExit(
-            "this machine has no canonical machine id in ~/.yoke/config.json. "
-            "Recovery: run `yoke setup` (or `yoke status`) to complete machine "
-            "setup, which assigns it."
+            compose_refusal(
+                "this machine has no canonical machine id in ~/.yoke/config.json.",
+                recovery="run `yoke setup` (or `yoke status`) to complete machine setup, which assigns it.",
+            )
         )
     return resolved
 

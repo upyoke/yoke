@@ -11,8 +11,10 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-from yoke_core.domain import machine_config
 from yoke_contracts.machine_config.settings_keys import MACHINE_SETTING_KEYS
+from yoke_contracts.refusal_recovery import compose_refusal
+
+from yoke_core.domain import machine_config
 
 __all__ = ["get_int", "get_seconds", "get_str", "main", "read_all"]
 
@@ -78,7 +80,9 @@ def get_int(
     if raw is None or raw == "":
         if default is None:
             raise ValueError(
-                f"setting_key_unknown: {key}. Recovery: yoke settings list"
+                compose_refusal(
+                    f"setting_key_unknown: {key}.", recovery="yoke settings list"
+                )
             )
         return default
     try:

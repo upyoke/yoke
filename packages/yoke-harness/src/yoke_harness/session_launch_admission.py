@@ -1,13 +1,14 @@
 """Serialize short native spawn boundaries and check current machine headroom."""
 
-from contextlib import contextmanager
 import threading
 import time
+from contextlib import contextmanager
 
 from yoke_contracts.machine_config.native_capacity import (
     NATIVE_SPAWN_STAGGER_SECONDS,
     observe_native_capacity,
 )
+from yoke_contracts.refusal_recovery import compose_refusal
 
 _LOCK = threading.Lock()
 _LAST_SPAWN = None
@@ -17,9 +18,14 @@ class NativeCapacityRefusal(ValueError):
     def __init__(self, code, reading):
         self.code = code
         super().__init__(
-            f"{code}: no native was started ({reading}). Recovery: free memory "
-            "or swap headroom (stop unused processes), then retry the launch. "
-            "If the reading is unavailable, restore the OS capacity probe first."
+            compose_refusal(
+                f"{code}: no native was started ({reading}).",
+                recovery=(
+                    "free memory or swap headroom (stop unused processes), then retry the "
+                    "launch. If the reading is unavailable, restore the OS capacity probe "
+                    "first."
+                ),
+            )
         )
 
 

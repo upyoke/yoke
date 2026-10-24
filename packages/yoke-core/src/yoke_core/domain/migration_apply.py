@@ -61,46 +61,48 @@ from yoke_contracts.direct_database_access import (
     MIGRATION_REHEARSE_COMMAND,
     direct_database_command,
 )
-from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
-from yoke_core.domain import db_helpers, db_backend
-from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
+from yoke_contracts.migration_rehearsal_teaching import (
+    CONNECTION_READER,
+    YOKE_SOURCE_LANE_REHEARSAL_RECIPE,
+)
+from yoke_contracts.refusal_recovery import compose_refusal
+from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
+
+from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain.coordination_claims import CoordinationClaimHeldError
 from yoke_core.domain.migration_apply_contract import (
-    STATE_PLANNED,
-    STATE_TEST_COPY_CREATED,
-    STATE_TEST_APPLIED,
-    STATE_TEST_VERIFIED,
-    STATE_REHEARSED,
-    STATE_BACKUP_CREATED,
-    STATE_LIVE_APPLIED,
-    STATE_LIVE_VERIFIED,
-    STATE_COMPLETED,
-    FAIL_TEST_COPY,
-    FAIL_TEST_APPLY,
-    FAIL_TEST_VERIFY,
     FAIL_BACKUP,
     FAIL_LIVE_APPLY,
     FAIL_LIVE_VERIFY,
-    MigrationApplyError,
-    ProfileNotApplyError,
+    FAIL_TEST_APPLY,
+    FAIL_TEST_COPY,
+    FAIL_TEST_VERIFY,
+    STATE_BACKUP_CREATED,
+    STATE_COMPLETED,
+    STATE_LIVE_APPLIED,
+    STATE_LIVE_VERIFIED,
+    STATE_PLANNED,
+    STATE_REHEARSED,
+    STATE_TEST_APPLIED,
+    STATE_TEST_COPY_CREATED,
+    STATE_TEST_VERIFIED,
     CompatibilityClassError,
-    RehearsalStaleError,
-    RehearsalMissingError,
-    ModuleResolutionError,
-    ModuleContractError,
+    MigrationApplyError,
     ModuleAttemptResult,
+    ModuleContractError,
+    ModuleResolutionError,
+    ProfileNotApplyError,
+    RehearsalMissingError,
+    RehearsalStaleError,
     RehearseResult,
 )
 from yoke_core.domain.migration_apply_format import (
     format_rehearse,
 )
-from yoke_core.domain.coordination_claims import CoordinationClaimHeldError
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
-from yoke_contracts.migration_rehearsal_teaching import (
-    CONNECTION_READER,
-    YOKE_SOURCE_LANE_REHEARSAL_RECIPE,
-)
+from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
 
 
 def _parse_item_argument(raw: str) -> int:
@@ -140,12 +142,10 @@ def _source_worktree_path(item_id: int, session_id: str) -> Optional[Path]:
                     "caller has no matching active item/task work claim for this lane"
                 )
     raise MigrationApplyError(
-        f"rehearsal_source_lane_invalid: item_id={item_id}, source={root}: {reason}. "
-        "Recovery: inspect `yoke claims work holder-list --session-id-filter "
-        f"{session_id}` and the named item's registered lanes; acquire the "
-        "matching item/task claim and rerun "
-        f"`{YOKE_SOURCE_LANE_REHEARSAL_RECIPE}`. Restore a missing lane through its "
-        "worktree preparation command; do not set the source binding by hand."
+        compose_refusal(
+            f"rehearsal_source_lane_invalid: item_id={item_id}, source={root}: {reason}.",
+            recovery=f"inspect `yoke claims work holder-list --session-id-filter {session_id}` and the named item's registered lanes; acquire the matching item/task claim and rerun `{YOKE_SOURCE_LANE_REHEARSAL_RECIPE}`. Restore a missing lane through its worktree preparation command; do not set the source binding by hand.",
+        )
     )
 
 

@@ -7,15 +7,16 @@ the mark and names the enable command when a launch or native resume refuses.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant, parse_instant
-from yoke_core.domain.db_helpers import instant_parameter
-
 from typing import Any
 from uuid import uuid4
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_control.surface_policy import (
     SURFACE_POLICY_STATE_DISABLED,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_launch_capacity import (
     MACHINE_AT_CAPACITY,
     capacity_refusal,
@@ -25,7 +26,6 @@ from yoke_core.domain.session_launch_machine_rejections import (
 )
 from yoke_core.domain.session_launch_store import marker, utc_now
 from yoke_core.domain.session_launch_types import LaunchPreview, SessionLaunchError
-
 
 SURFACE_DISABLED_REJECTION = "surface_disabled"
 WAKE_SKIP_SURFACE_DISABLED = "skipped_surface_disabled"
@@ -226,19 +226,27 @@ def mark_refusal_text(mark: dict[str, Any]) -> str:
 
 _CREATE_NONE_REASONS = {
     "codex-desktop": (
-        "codex-desktop declares create=none because its owning desktop app "
-        "holds the only writer lease, so Yoke cannot create or wake that "
-        "conversation. Recovery: request codex-cli for Yoke-created work."
+        compose_refusal(
+            (
+                "codex-desktop declares create=none because its owning desktop app holds "
+                "the only writer lease, so Yoke cannot create or wake that conversation."
+            ),
+            recovery="request codex-cli for Yoke-created work.",
+        )
     ),
     "claude-desktop": (
-        "claude-desktop declares create=none because the Claude adapter "
-        "creates only claude-cli sessions; desktop has no native create "
-        "route. Recovery: request claude-cli for Yoke-created work."
+        compose_refusal(
+            (
+                "claude-desktop declares create=none because the Claude adapter creates "
+                "only claude-cli sessions; desktop has no native create route."
+            ),
+            recovery="request claude-cli for Yoke-created work.",
+        )
     ),
 }
 
 _MANUAL_START_RECOVERY = (
-    "Recovery: verify the machine with `yoke relay status`. If relay launch "
+    "verify the machine with `yoke relay status`. If relay launch "
     "delivery is unavailable, start a normal harness session by hand, run "
     "`yoke sessions touch --mode MODE`, then acquire the item with "
     "`yoke claims work acquire --item PREFIX-N --reason REASON`; no launch "
@@ -252,13 +260,14 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
         surface = preview.requested_surface
         reason = _CREATE_NONE_REASONS.get(
             surface,
-            f"{surface} declares create=none. Recovery: choose a surface "
-            "whose session-control create capability is supported and retry.",
+            compose_refusal(
+                f"{surface} declares create=none.",
+                recovery="choose a surface whose session-control create capability is supported and retry.",
+            ),
         )
-        return (
-            f"{prefix}: {reason} Background session-control create capability is "
-            "unavailable. Recovery: launch from a supported harness or open a "
-            "session in the project folder."
+        return compose_refusal(
+            f"{prefix}: {reason} Background session-control create capability is unavailable.",
+            recovery="launch from a supported harness or open a session in the project folder.",
         )
     if preview.outcome == MACHINE_AT_CAPACITY:
         return f"{prefix}: {capacity_refusal(preview.machine_capacity)}"
@@ -268,15 +277,23 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
     if preview.placement_reason:
         # Placement already refused in a full sentence naming each machine it
         # weighed; the rejection codes describe eligibility, which passed.
-        suffix = f" {_MANUAL_START_RECOVERY}" if manual_recovery else ""
-        return f"{prefix}: {preview.placement_reason}{suffix}"
+        message = f"{prefix}: {preview.placement_reason}"
+        return (
+            compose_refusal(message, recovery=_MANUAL_START_RECOVERY)
+            if manual_recovery
+            else message
+        )
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         # Each machine's own reasons, never one merged set: a stale machine's
         # code must not read as the live machine's fault. Details name the
         # setting a bare code ("machine_access_denied") cannot.
         clauses = ineligibility_clauses(preview)
         message = f"{prefix}: {'; '.join(clauses) or 'no relay evidence'}"
-        return f"{message}. {_MANUAL_START_RECOVERY}" if manual_recovery else message
+        return (
+            compose_refusal(message, recovery=_MANUAL_START_RECOVERY)
+            if manual_recovery
+            else message
+        )
     considered = set(preview.considered_machine_ids)
     details = [
         mark_refusal_text(mark)
@@ -285,10 +302,12 @@ def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
     ]
     if not details:
         details = [mark_refusal_text(mark) for mark in list_marks(conn)]
-    suffix = f" {_MANUAL_START_RECOVERY}" if manual_recovery else ""
+    message = f"{prefix}: {'; '.join(details) or SURFACE_DISABLED_REJECTION}"
     return (
-        f"{prefix}: {'; '.join(details) or SURFACE_DISABLED_REJECTION}.{suffix}"
-    ).rstrip(".")
+        compose_refusal(message, recovery=_MANUAL_START_RECOVERY)
+        if manual_recovery
+        else message
+    )
 
 
 __all__ = [

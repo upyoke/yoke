@@ -9,11 +9,13 @@ each release it starts on.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
 import importlib
-from pathlib import Path
 import sys
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Any
+
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def release_status_payload(
@@ -85,16 +87,17 @@ def release_status_is_healthy(payload: Mapping[str, Any]) -> bool:
 
 def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None) -> Any:
     """Run this relay's build: a pinned release, or the machine's own Yoke."""
+    from yoke_harness.session_relay_daemon import serve_forever
+    from yoke_harness.session_relay_harness_reconcile import (
+        refresh_harness_inventory,
+    )
+    from yoke_harness.session_relay_inventory import collect_cached_inventory
+    from yoke_harness.session_relay_process_restart import exec_relay_release
+
     from yoke_cli.config.session_relay_instance import (
         RelayInstanceError,
         door_relay_refusal,
         resolve_relay_instance,
-    )
-    from yoke_harness.session_relay_daemon import serve_forever
-    from yoke_harness.session_relay_inventory import collect_cached_inventory
-    from yoke_harness.session_relay_process_restart import exec_relay_release
-    from yoke_harness.session_relay_harness_reconcile import (
-        refresh_harness_inventory,
     )
 
     release = importlib.import_module("yoke_core.tools.session_relay_release")
@@ -137,8 +140,10 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         )
         raise release.RelayReleaseError(
             code,
-            f"{detail}. Recovery: run `yoke --env {instance.environment} "
-            "relay install`.",
+            compose_refusal(
+                f"{detail}.",
+                recovery=f"run `yoke --env {instance.environment} relay install`.",
+            ),
         )
 
     def restart_from_pin(argv=None, *, executable=None):
@@ -147,9 +152,10 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         except OSError as exc:
             raise release.RelayReleaseError(
                 release.RELAY_RELEASE_START_FAILED,
-                "could not start the pinned relay "
-                f"release: {exc}. Recovery: retry `yoke --env "
-                f"{instance.environment} relay install`.",
+                compose_refusal(
+                    f"could not start the pinned relay release: {exc}.",
+                    recovery=f"retry `yoke --env {instance.environment} relay install`.",
+                ),
             ) from exc
         raise release.RelayReleaseError(
             release.RELAY_RELEASE_START_FAILED,

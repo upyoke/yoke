@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_execution_instructions import (
     create_instruction,
@@ -65,7 +67,10 @@ def seed_shipped_execution_instruction(conn: Any) -> int:
             "shipped_execution_instruction_workflows_missing",
             "Builtin workflows are not converged: "
             + ", ".join(missing)
-            + ". Recovery: run schema init again after builtin workflow convergence.",
+            + compose_refusal(
+                ".",
+                recovery="run schema init again after builtin workflow convergence.",
+            ),
         )
     instruction_id = create_instruction(conn, content=SHIPPED_EXECUTION_INSTRUCTION)
     set_instruction_scope(

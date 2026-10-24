@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.levels import (
     UNRESOLVED_LEVEL_REASONS,
     LevelsError,
     level_for_session,
 )
-from yoke_contracts.model_level_resolution import resolve_model_level
 from yoke_contracts.model_level_resolution import (
+    resolve_model_level,
     routing_effort_of,
     routing_model_of,
 )
-from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_model_facts import (
     PLACEHOLDER_MODEL_GUIDANCE,
     is_placeholder_model,
 )
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_model_catalog import current_model_records
 from yoke_core.domain.sessions_analytics import SessionError
@@ -30,7 +32,10 @@ def require_work_selection(conn, *, project_id, executor, model, reasoning_effor
     except (LevelsError, UniverseLevelsError) as exc:
         raise SessionError(
             "SESSION_LEVELS_INVALID",
-            f"{exc}. Recovery: repair the universe Levels or project session-routing document before acquiring work.",
+            compose_refusal(
+                f"{exc}.",
+                recovery="repair the universe Levels or project session-routing document before acquiring work.",
+            ),
         ) from exc
     records = current_model_records(conn)
     level = level_for_session(
@@ -46,13 +51,14 @@ def require_work_selection(conn, *, project_id, executor, model, reasoning_effor
         )
         raise SessionError(
             "SESSION_BELOW_INTERN",
-            f"{resolution.reason} ({UNRESOLVED_LEVEL_REASONS.get(resolution.reason, 'unresolved')}): "
-            "selection meets no configured execution level; model or effort "
-            f"is unknown, or both are below every option.{_placeholder_note(executor, model)} "
-            "Recovery: choose a "
-            "known model and effort meeting a configured level, or ask an org "
-            "admin to publish the missing catalog facts and approve Levels. "
-            "Steering without item claims remains available.",
+            compose_refusal(
+                f"{resolution.reason} ({UNRESOLVED_LEVEL_REASONS.get(resolution.reason, 'unresolved')}): selection meets no configured execution level; model or effort is unknown, or both are below every option.{_placeholder_note(executor, model)}",
+                recovery=(
+                    "choose a known model and effort meeting a configured level, or ask an org "
+                    "admin to publish the missing catalog facts and approve Levels. Steering "
+                    "without item claims remains available."
+                ),
+            ),
         )
     return level
 

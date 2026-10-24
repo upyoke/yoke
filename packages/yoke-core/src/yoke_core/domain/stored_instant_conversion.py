@@ -11,10 +11,10 @@ from collections import defaultdict
 from typing import Any, Iterable
 
 from psycopg import sql
-
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.schema_authority import refuse_without_serving_build_authority
-from yoke_core.domain import administered_postgres
 
+from yoke_core.domain import administered_postgres
 
 _OWNER_CREATION_REPAIRS = {
     ("items", "updated_at"),
@@ -49,8 +49,10 @@ def _expression(table: str, column: str, data_type: str) -> sql.Composable:
     if data_type in {"integer", "bigint"}:
         if (table, column) not in _EPOCH_SECONDS:
             raise RuntimeError(
-                f"instant_epoch_unit_undeclared: {table}.{column}. Recovery: "
-                "declare and verify its source unit before governing conversion."
+                compose_refusal(
+                    f"instant_epoch_unit_undeclared: {table}.{column}.",
+                    recovery="declare and verify its source unit before governing conversion.",
+                )
             )
         # Integer seconds remain exact; no binary floating-point conversion.
         return sql.SQL(
@@ -79,8 +81,10 @@ def _admit_column(
         return
     if data_type != "text":
         raise RuntimeError(
-            f"instant_source_type_unsupported: {table}.{column} is {data_type}. "
-            "Recovery: verify its declared instant storage before rehearsal."
+            compose_refusal(
+                f"instant_source_type_unsupported: {table}.{column} is {data_type}.",
+                recovery="verify its declared instant storage before rehearsal.",
+            )
         )
     value = sql.Identifier(column)
     if (table, column) in _OWNER_CREATION_REPAIRS:
@@ -107,10 +111,13 @@ def _admit_column(
     ).fetchone()[0]
     if count:
         raise RuntimeError(
-            f"instant_historical_repair_unresolved: {table}.{column} has "
-            f"{count} values without an approved usable owner fact. Recovery: "
-            "inspect the restored-source census and author the deterministic "
-            "owner repair before retrying governed rehearsal."
+            compose_refusal(
+                f"instant_historical_repair_unresolved: {table}.{column} has {count} values without an approved usable owner fact.",
+                recovery=(
+                    "inspect the restored-source census and author the deterministic owner "
+                    "repair before retrying governed rehearsal."
+                ),
+            )
         )
 
 
@@ -152,8 +159,13 @@ def _detach_dependent_view(conn: Any, changing: set[tuple[str, str]]) -> bool:
         raise RuntimeError(
             "instant_dependent_view_unowned: "
             + ", ".join(sorted(unknown))
-            + ". Recovery: declare the owner's transactional reconstruction before "
-            "retrying governed rehearsal; no view was dropped."
+            + compose_refusal(
+                ".",
+                recovery=(
+                    "declare the owner's transactional reconstruction before retrying governed "
+                    "rehearsal; no view was dropped."
+                ),
+            )
         )
     custom = conn.execute(
         "SELECT relacl IS NOT NULL OR reloptions IS NOT NULL OR "
@@ -163,9 +175,13 @@ def _detach_dependent_view(conn: Any, changing: set[tuple[str, str]]) -> bool:
     ).fetchone()[0]
     if custom:
         raise RuntimeError(
-            "instant_dependent_view_customized: public.item_progress_view has "
-            "custom ownership, grants, options or commentary. Recovery: declare "
-            "their exact transactional restoration before rehearsal; no view was dropped."
+            compose_refusal(
+                (
+                    "instant_dependent_view_customized: public.item_progress_view has custom "
+                    "ownership, grants, options or commentary."
+                ),
+                recovery="declare their exact transactional restoration before rehearsal; no view was dropped.",
+            )
         )
     conn.execute("DROP VIEW item_progress_view")
     return True
@@ -208,8 +224,10 @@ def convert_stored_instants(conn: Any, columns: Iterable[tuple[str, str]]) -> No
         if default and default not in {"''::text", "NULL::text"}:
             if data_type != "text":
                 raise RuntimeError(
-                    f"instant_default_unit_unresolved: {table}.{column}. "
-                    "Recovery: author its native default before rehearsal."
+                    compose_refusal(
+                        f"instant_default_unit_unresolved: {table}.{column}.",
+                        recovery="author its native default before rehearsal.",
+                    )
                 )
             defaults.append(
                 sql.SQL(
@@ -247,5 +265,7 @@ def assert_native_stored_instants(
         raise AssertionError(
             "stored_instant_type_mismatch: "
             + ", ".join(wrong)
-            + ". Recovery: rehearse the native-domain-instant history entry."
+            + compose_refusal(
+                ".", recovery="rehearse the native-domain-instant history entry."
+            )
         )

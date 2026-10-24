@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 
 def main() -> int:
     run_id = os.environ.get("DEPLOYMENT_RUN_ID", "")
@@ -83,10 +85,15 @@ def main() -> int:
             )
     except (ValueError, KeyError) as exc:
         print(
-            f"PRIVATE-QA-PROOF-MISSING: {exc}. Recovery: have the mixed member's "
-            "owner run its scoped private QA on this deployed candidate, retain its "
-            "execution receipt, then rerun this case. Keep shared host readiness "
-            "and campaign ownership intact; this probe never starts that campaign."
+            compose_refusal(
+                f"PRIVATE-QA-PROOF-MISSING: {exc}.",
+                recovery=(
+                    "have the mixed member's owner run its scoped private QA on this deployed "
+                    "candidate, retain its execution receipt, then rerun this case. Keep "
+                    "shared host readiness and campaign ownership intact; this probe never "
+                    "starts that campaign."
+                ),
+            )
         )
         return 1
     print(json.dumps({"run_id": run_id, "proof": proof}, sort_keys=True))

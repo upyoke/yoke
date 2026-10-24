@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain.db_helpers import query_one, utc_now
 from yoke_core.domain.deployment_run_insert import CREATOR_SESSION_COLUMN
 from yoke_core.domain.schema_common import _column_exists
@@ -72,13 +74,13 @@ def require_takeover_authority(
         return
     raise TakeoverRefused(
         RESERVED_FOR_STEERING_CODE,
-        f"run {old_id} waits only on item QA on this target, and steering "
-        f"session {holder} holds the live seat covering project {project_id}. "
-        f"Only that session or the session that created {old_id} "
-        f"({creator or 'not recorded'}) may take it over, so nothing was "
-        "created or changed. Recovery: report the landing to steering and "
-        'wait; it batches releases: printf %s "LANDED <ref> <merge sha>" | '
-        "yoke say --stdin --steering",
+        compose_refusal(
+            f"run {old_id} waits only on item QA on this target, and steering session {holder} holds the live seat covering project {project_id}. Only that session or the session that created {old_id} ({creator or 'not recorded'}) may take it over, so nothing was created or changed.",
+            recovery=(
+                "report the landing to steering and wait; it batches releases: printf %s "
+                '"LANDED <ref> <merge sha>" | yoke say --stdin --steering'
+            ),
+        ),
     )
 
 

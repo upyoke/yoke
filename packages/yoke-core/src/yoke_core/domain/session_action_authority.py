@@ -33,21 +33,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_WRITE,
     PERM_PROJECT_ADMIN,
+)
+from yoke_core.domain.session_action_attribution import (
+    SESSION_ACTION_LABELS,
+    action_label,
 )
 from yoke_core.domain.session_scope_identity import (
     SessionScope,
     actor_may_operate_session,
     session_scope_of,
 )
-from yoke_core.domain.session_action_attribution import (
-    SESSION_ACTION_LABELS,
-    action_label,
-)
-
 
 #: Actions whose target session the payload names outright. Everything
 #: else in :data:`SESSION_ACTION_LABELS` resolves its target through an
@@ -114,14 +115,9 @@ def _refusal(
     roles: tuple[str, ...],
 ) -> str:
     held = ", ".join(roles) if roles else "no role"
-    return (
-        f"actor {actor_id} holds {held} on project id {project_id} and may "
-        f"not {action} a session there: the action needs "
-        f"{permission_key!r}. Recovery: ask a project owner or org admin to "
-        f"grant the role that carries it (`python3 -m "
-        f"yoke_core.domain.actor_grants_cli grant-project --actor {actor_id} "
-        f"--project {project_id} --role owner`), or have an actor who "
-        f"already holds it act instead."
+    return compose_refusal(
+        f"actor {actor_id} holds {held} on project id {project_id} and may not {action} a session there: the action needs {permission_key!r}.",
+        recovery=f"ask a project owner or org admin to grant the role that carries it (`python3 -m yoke_core.domain.actor_grants_cli grant-project --actor {actor_id} --project {project_id} --role owner`), or have an actor who already holds it act instead.",
     )
 
 
@@ -227,8 +223,10 @@ def authorize_session_action(
         project_id=project_id,
         permission_key=permission_key,
         message=(
-            f"actor {actor_id} may not {action} this session: the action needs "
-            f"{permission_key!r}. Recovery: ask the session owner or an org administrator to act."
+            compose_refusal(
+                f"actor {actor_id} may not {action} this session: the action needs {permission_key!r}.",
+                recovery="ask the session owner or an org administrator to act.",
+            )
         )
         if scope.org_id is not None
         else _refusal(

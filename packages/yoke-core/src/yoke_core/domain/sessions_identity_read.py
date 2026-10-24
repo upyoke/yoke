@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.timestamps import parse_instant
 from typing import Any, List, Optional
 
@@ -98,8 +99,10 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     if row is None:
         raise SessionError(
             "NO_SESSION",
-            f"No session row for '{session_id}' on this control plane. "
-            f"{UNREGISTERED_RECOVERY}",
+            compose_refusal(
+                f"No session row for '{session_id}' on this control plane.",
+                recovery=UNREGISTERED_RECOVERY,
+            ),
         )
     from yoke_core.domain.sessions_queries_lookup import (
         resolve_harness_capabilities,

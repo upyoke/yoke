@@ -10,9 +10,10 @@ from yoke_cli.packs.prerequisites import (
     unsatisfied_prerequisites,
 )
 from yoke_contracts.packs import PACK_RECEIPT_REL
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_core.engines.doctor_context import resolve_context
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-
 
 SLUG = "pack-prerequisites"
 TITLE = "Installed Pack tool prerequisites"
@@ -58,9 +59,9 @@ def hc_pack_prerequisites(
 
 
 def _failure_line(row: dict[str, Any]) -> str:
-    return (
-        f"- {row.get('pack')}/{row.get('tool')}: {row.get('code')}: "
-        f"{row.get('detail')} Recovery: {row.get('install_recipe')}"
+    return compose_refusal(
+        f"- {row.get('pack')}/{row.get('tool')}: {row.get('code')}: {row.get('detail')}",
+        recovery=f"{row.get('install_recipe')}",
     )
 
 

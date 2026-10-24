@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_contracts.api.function_call import TargetRef
-from yoke_cli.config.project_slug_lookup import resolve_project_slug
-from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.machine_config.runtime import load_config
 from yoke_contracts.machine_config.schema_projects import (
-    projects_for_connection,
     project_connection,
+    projects_for_connection,
 )
 from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_contracts.refusal_recovery import compose_refusal
+
+from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_cli.config.project_slug_lookup import resolve_project_slug
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
 
 class FolderGuardError(RuntimeError):
@@ -32,10 +34,9 @@ def render_folder_line(project_id: int, slug: str, ref: str, title: str) -> str:
     checkout = local_checkout_for_project(project_id)
     subject = f"{ref} ({title})"
     if checkout is None:
-        return (
-            f"No local checkout is mapped to project {slug} for {subject}. "
-            f"Recovery: run `yoke --env {project_connection(load_config())} project register CHECKOUT --project-id {project_id}`, "
-            "then open a session there; sessions never switch projects."
+        return compose_refusal(
+            f"No local checkout is mapped to project {slug} for {subject}.",
+            recovery=f"run `yoke --env {project_connection(load_config())} project register CHECKOUT --project-id {project_id}`, then open a session there; sessions never switch projects.",
         )
     return (
         f"Open a session in {checkout} (project {slug}) to work on {subject}; "
@@ -73,8 +74,10 @@ def _work_item(item_ref: str) -> dict:
         or not (response.result or {}).get("public_ref")
     ):
         raise FolderGuardError(
-            "ITEM_IDENTITY_UNAVAILABLE: authority returned incomplete item identity. "
-            "Recovery: ask the control-plane operator to restore the item projection."
+            compose_refusal(
+                "ITEM_IDENTITY_UNAVAILABLE: authority returned incomplete item identity.",
+                recovery="ask the control-plane operator to restore the item projection.",
+            )
         )
     return {
         **fields,

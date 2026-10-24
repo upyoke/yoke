@@ -1,6 +1,8 @@
 """CLI adapters for deployment inventory and progress inspection."""
 
 from __future__ import annotations
+
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_cli.transport.human_values import write_human
 
 import argparse
@@ -154,8 +156,7 @@ def deployment_runs_failure_trace(args: List[str]) -> int:
                 )
             print(f"Terminal error: {result.get('terminal_error')}", file=stdout)
         else:
-            print(f"Failure trace stopped: {result.get('stop_reason')}", file=stdout)
-            print(f"Recovery: {result.get('recovery')}", file=stdout)
+            print(compose_refusal(f"Failure trace stopped: {result.get('stop_reason')}", recovery=result.get("recovery")), file=stdout)
         for stale in result.get("stale_bound_sources") or []:
             print(f"Stale bound source: {stale.get('reason')}", file=stdout)
         if result.get("bound_source_unverified"):

@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install.files import MODE_COPY, ProjectInstallError
 from yoke_cli.project_install.hooks_path_check import (
@@ -57,8 +59,10 @@ def mint_codex_hook_trust(root: Path) -> Dict[str, object]:
         return mint_installed_checkout_trust(root).payload()
     except CodexHookTrustStoreError as exc:
         raise ProjectInstallError(
-            f"Codex hook trust mint failed for {hooks_file_for(root)}: {exc}. "
-            f"Recovery: {retrust_recovery(root)}"
+            compose_refusal(
+                f"Codex hook trust mint failed for {hooks_file_for(root)}: {exc}.",
+                recovery=f"{retrust_recovery(root)}",
+            )
         ) from exc
 
 

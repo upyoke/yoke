@@ -1,10 +1,13 @@
 """Propose catalog-driven edits to model/minimum-effort level rows."""
 
 from __future__ import annotations
+
 import copy
+
 from yoke_contracts.levels import LevelsError, parse_levels
 from yoke_contracts.model_level_resolution import effort_ordinal, normalized_effort
 from yoke_contracts.model_reference import lookup_model_reference
+from yoke_contracts.refusal_recovery import compose_refusal
 
 CHANGE_KINDS = ("add", "move", "retire", "change")
 
@@ -53,7 +56,10 @@ def refuse_capability_conflicts(conflicts):
         first = conflicts[0]
         raise LevelsError(
             "level_min_effort_unpublished",
-            f"{first['model']} at {first['level']} names unpublished effort {first['value']}. Recovery: choose a published threshold or correct catalog facts with yoke models publish.",
+            compose_refusal(
+                f"{first['model']} at {first['level']} names unpublished effort {first['value']}.",
+                recovery="choose a published threshold or correct catalog facts with yoke models publish.",
+            ),
             field=f"{first['level']}.min_effort",
         )
 

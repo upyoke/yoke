@@ -13,8 +13,8 @@ from __future__ import annotations
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
-
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_model_facts import facts_from_mapping
 
 from yoke_core.domain.handlers.sessions_orchestration import (
@@ -87,8 +87,10 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
     if (body.project_id is not None) == body.machine_scope:
         return _err(
             "session_scope_ambiguous",
-            "Choose a project or machine scope, exclusively. Recovery: open a new "
-            "session in a registered project folder or request machine scope.",
+            compose_refusal(
+                "Choose a project or machine scope, exclusively.",
+                recovery="open a new session in a registered project folder or request machine scope.",
+            ),
         )
     sid = _session_id(request)
     if not sid:

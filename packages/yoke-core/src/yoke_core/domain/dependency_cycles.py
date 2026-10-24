@@ -15,6 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set
 
+from yoke_contracts.refusal_recovery import compose_refusal
+
 #: What a reader runs to break a loop: one edge becomes ordering advice.
 RECOVERY = (
     "make one edge in the loop coordination_only with `yoke items dependency "
@@ -129,9 +131,10 @@ class DependencyCycleError(ValueError):
         self.cycles = tuple(cycles)
         loops = " | ".join(cycle.describe(proposed) for cycle in self.cycles)
         super().__init__(
-            f"dependency_cycle: {change} would deadlock live work, because no "
-            f"item in the loop can move first — {loops}. Nothing was written. "
-            f"Recovery: {RECOVERY}."
+            compose_refusal(
+                f"dependency_cycle: {change} would deadlock live work, because no item in the loop can move first — {loops}. Nothing was written.",
+                recovery=f"{RECOVERY}.",
+            )
         )
 
 
