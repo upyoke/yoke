@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_harness import session_process_custody as group_custody
 from yoke_harness import session_relay_native_turn_custody as custody
 from yoke_harness import session_relay_runtime
 from yoke_harness.session_launch_containment import supervision_record_path
@@ -30,7 +31,9 @@ ATTEMPT = "33333333-3333-4333-8333-333333333333"
 RECORDED_START = "Mon Aug 24 08:00:00 2026"
 
 
-def _group_resume(tmp_path: Path, *, capture_state: str | None) -> None:
+def _group_resume(
+    tmp_path: Path, *, capture_state: str | None, **extra: object
+) -> None:
     """Write grouped resume custody whose leader is gone but group is not."""
     capture = None
     if capture_state is not None:
@@ -55,6 +58,7 @@ def _group_resume(tmp_path: Path, *, capture_state: str | None) -> None:
                 "supervision_kind": "resume",
                 "lease_id": "lease-1",
                 "capture_path": str(capture) if capture else None,
+                **extra,
             }
         ),
         encoding="utf-8",
@@ -127,3 +131,41 @@ def test_an_unsettled_native_still_holds_the_wake(
     assert deferred is not None
     assert deferred.result_code == NATIVE_TURN_RUNNING_RESULT
     assert custody.finished_resume_for_session(SESSION) is None
+
+
+def test_a_group_led_by_a_reused_pid_lets_the_wake_proceed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pid was reissued, so the recorded group no longer exists."""
+    monkeypatch.setattr(
+        group_custody, "group_members", lambda group: {"4001": "Fri Oct 23 16:58:11"}
+    )
+    _group_resume(tmp_path, capture_state=None)
+    context = session_relay_runtime.execution_context(_wake("claude-cli", tmp_path))
+    assert custody.deferral_for_running_native(context) is None
+    finished = custody.finished_resume_for_session(SESSION)
+    assert finished is not None and finished.attempt_id == ATTEMPT
+
+
+@pytest.mark.parametrize("result", sorted(group_custody.SUCCESS_RESULTS))
+def test_a_contained_exit_with_a_pruned_capture_does_not_defer(
+    result: str, tmp_path: Path, group_survives: None
+) -> None:
+    _group_resume(tmp_path, capture_state=None, containment_result=result)
+    context = session_relay_runtime.execution_context(_wake("codex-cli", tmp_path))
+    assert custody.deferral_for_running_native(context) is None
+
+
+def test_a_live_matching_group_member_still_defers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        group_custody,
+        "group_members",
+        lambda group: {"4001": RECORDED_START, "4002": "Mon Aug 24 08:00:05 2026"},
+    )
+    _group_resume(tmp_path, capture_state=None, containment_result="outcome_unknown")
+    context = session_relay_runtime.execution_context(_wake("cursor-cli", tmp_path))
+    deferred = custody.deferral_for_running_native(context)
+    assert deferred is not None
+    assert deferred.result_code == NATIVE_TURN_RUNNING_RESULT

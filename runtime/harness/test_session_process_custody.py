@@ -141,18 +141,29 @@ def test_unverified_post_kill_exit_retains_handle(tmp_path, monkeypatch):
         _finish(process)
 
 
-def test_group_with_no_matching_incarnation_is_not_signalled(monkeypatch):
+@pytest.mark.parametrize(
+    "live,state",
+    [
+        ({"123": "reused"}, "gone"),
+        ({"123": "reused", "124": "child"}, "gone"),
+        ({"124": "unrecorded survivor"}, "unresolved"),
+    ],
+)
+def test_group_with_no_matching_incarnation_is_not_signalled(monkeypatch, live, state):
+    """A reissued leader pid proves reuse; an unknown survivor stays unresolved."""
     record = {
         "pid": 123,
         "process_start_time": "original",
         "process_group_id": 123,
         "group_members": {"123": "original"},
     }
-    monkeypatch.setattr(custody, "group_members", lambda group: {"123": "reused"})
+    monkeypatch.setattr(custody, "group_members", lambda group: live)
     monkeypatch.setattr(
         custody.os, "killpg", lambda *args: pytest.fail("unrelated process signalled")
     )
-    assert custody.terminate_record(record) == "outcome_unknown"
+    assert custody.custody_state(record) == state
+    expected = "already_exited" if state == "gone" else "outcome_unknown"
+    assert custody.terminate_record(record) == expected
 
 
 def test_failed_adoption_keeps_registered_launch_custody(tmp_path, monkeypatch):

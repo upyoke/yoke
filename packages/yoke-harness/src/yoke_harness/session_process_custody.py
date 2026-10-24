@@ -1,7 +1,9 @@
 """Identity-bound group observation and bounded physical termination.
 
-Group ids alone can be reused. A surviving recorded member proves ownership;
-without one, a populated group stays unresolved and is never signalled.
+Group ids alone can be reused. A surviving recorded member proves ownership.
+A different incarnation of the recorded leader leading the group proves reuse,
+so the recorded group is gone. Any other populated group stays unresolved and
+is never signalled.
 """
 
 from __future__ import annotations
@@ -95,13 +97,15 @@ def custody_state(
         members = group_members(group)
         if not members:
             return "gone"
-        recorded = dict(record.get("group_members") or {})
-        recorded.setdefault(str(pid), started)
-        return (
-            "live"
-            if any(members.get(p) == s for p, s in recorded.items())
-            else "unresolved"
-        )
+        captured = dict(record.get("group_members") or {})
+        recorded = {str(pid): started, **captured}
+        if any(members.get(p) == s for p, s in recorded.items()):
+            return "live"
+        # A pid is never reissued while a group with that id exists, so a new
+        # incarnation leading the group proves the recorded group ended.
+        leader = captured.get(str(group))
+        current = members.get(str(group))
+        return "gone" if leader and current and current != leader else "unresolved"
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         return "unresolved"
 
