@@ -1,4 +1,4 @@
-"""Exact setup-created commits retained by the private durable apply report."""
+"""Setup publication facts retained by the private durable apply report."""
 
 from __future__ import annotations
 
@@ -31,6 +31,17 @@ def _git(root: Path, *args: str):
         text=True,
         timeout=30,
     )
+
+
+def record_destination(root: Path, github_repo: str) -> None:
+    """Save the actual destination as soon as remote choreography succeeds."""
+    writer = _ACTIVE.get()
+    if writer is None or not github_repo:
+        return
+    checkout = writer.payload.get("checkout_path")
+    if checkout and Path(checkout).expanduser().resolve() == root.resolve():
+        writer.payload["target_github_repo"] = github_repo
+        writer.write()
 
 
 def checkout_binding(root: Path, branch: str) -> dict[str, Any]:

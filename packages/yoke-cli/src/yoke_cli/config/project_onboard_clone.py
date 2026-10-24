@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from yoke_cli.config import github_local_user_access, github_publish, machine_config
-from yoke_cli.config import onboard_wizard_github_state
+from yoke_cli.config import github_fork_access
 from yoke_cli.config import project_clone_fork_resume
 from yoke_cli.config.project_clone_resume import existing_clone_matches
 from yoke_cli.config.project_clone_support import (
@@ -42,18 +42,6 @@ def prepare_clone_plan(
     service_api_url: str | None = None,
     local_connection_selected: bool = False,
 ) -> ClonePlan:
-    github_config = machine_config.github_config(config_path)
-    if github_config:
-        plan = replace(
-            plan,
-            fork_web_url=str(github_config.get("web_url") or plan.fork_web_url),
-            fork_allowed=(
-                onboard_wizard_github_state.fork_ready_from_config(
-                    github_config, remote_url,
-                )
-                if plan.outcome == CLONE_OUTCOME_FORK else plan.fork_allowed
-            ),
-        )
     if (
         plan.fallback_token is None
         and plan.use_machine_github
@@ -72,6 +60,14 @@ def prepare_clone_plan(
                 "before cloning a public repository."
             ) from exc
         plan = replace(plan, fallback_token=token.access_token)
+    github_config = machine_config.github_config(config_path)
+    if github_config:
+        reason = github_fork_access.unavailable_reason(github_config, remote_url)
+        plan = replace(
+            plan, fork_web_url=str(github_config.get("web_url") or plan.fork_web_url),
+            fork_allowed=not reason if plan.outcome == CLONE_OUTCOME_FORK else plan.fork_allowed,
+            fork_unavailable_reason=reason if plan.outcome == CLONE_OUTCOME_FORK else "",
+        )
     return plan
 
 
@@ -283,13 +279,7 @@ def apply_clone_outcome(
         )
     if plan.outcome == CLONE_OUTCOME_FORK and plan.fallback_token:
         if not plan.fork_allowed:
-            raise ProjectOnboardError(
-                "Creating a fork through Yoke requires Administration: write, "
-                "Contents access, all-repositories access on the destination, "
-                "and source-repository access. The baseline Yoke GitHub App "
-                "does not request Administration; clone the repository without "
-                "forking, or create the fork in GitHub first."
-            )
+            raise ProjectOnboardError(plan.fork_unavailable_reason or github_fork_access.UNVERIFIED)
         owner, repo = source_owner_repo(remote_url, web_url=plan.fork_web_url)
         existing_fork = project_clone_fork_resume.existing_fork_repo(
             root, remote_url=remote_url, web_url=plan.fork_web_url,

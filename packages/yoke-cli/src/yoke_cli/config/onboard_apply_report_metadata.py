@@ -69,6 +69,9 @@ def package_version() -> str:
 
 
 def target_github_repo(kwargs: Mapping[str, Any]) -> str:
+    if getattr(kwargs.get("project_clone"), "outcome", None) == "fork":
+        previous = kwargs.get("resume_payload")
+        return str(previous.get("target_github_repo") or "") if isinstance(previous, Mapping) else ""
     owner = str(kwargs.get("project_publish_owner") or "")
     name = str(kwargs.get("project_publish_repo_name") or "")
     repo = str(kwargs.get("project_github_repo") or "")

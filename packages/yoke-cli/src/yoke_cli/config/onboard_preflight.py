@@ -144,6 +144,12 @@ def _network_findings(
 ) -> tuple[list[str], list[str]]:
     problems: list[str] = []
     notes: list[str] = []
+    if getattr(result, "project_clone_outcome", None) == CLONE_OUTCOME_FORK:
+        reason = onboard_wizard_github_state.fork_unavailable_reason(
+            result, getattr(result, "project_remote_url", None),
+        )
+        if reason:
+            problems.append(reason)
     needs_github_token = bool(
         getattr(result, "project_publish_to_github", False)
         or getattr(result, "project_clone_outcome", None)

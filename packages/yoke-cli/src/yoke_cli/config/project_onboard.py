@@ -226,6 +226,10 @@ def import_project(
             plan=plan,
             clone_reused=clone_reused,
         )
+    from yoke_cli.config.onboard_publication_receipts import record_destination
+
+    if outcome is not None and outcome.github_repo:
+        record_destination(root, outcome.github_repo)
     project_onboard_installed_layer.apply_decision(
         root, plan.existing_layer_decision, progress=progress,
     )

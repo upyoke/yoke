@@ -84,6 +84,7 @@ class ClonePlan:
     fork_api_url: str = github_origin.DEFAULT_GITHUB_API_URL
     fork_web_url: str = github_origin.DEFAULT_GITHUB_WEB_URL
     fork_allowed: bool = False
+    fork_unavailable_reason: str = ""
     existing_layer_decision: str = ""
 
 
