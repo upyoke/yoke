@@ -35,6 +35,7 @@ from yoke_contracts.hook_runner.guard_scope import applicable_chain
 from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
 from yoke_contracts.hook_runner.policy_home import client_facts_for
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_MACHINE_HOME_KEY,
@@ -62,11 +63,13 @@ FAILURE_MARKER = "YOKE_CLIENT_FACT_FAILED"
 
 @dataclass(frozen=True)
 class Observation:
-    """What one collector may look at: the event, its payload, the harness."""
+    """What one collector may look at: the event, its payload, the harness,
+    and the one shared parse of the payload's Bash command."""
 
     event_name: str
     payload: Mapping[str, object]
     executor: str
+    shell: ShellParse
 
 
 def _turn_end_evidence(obs: Observation) -> dict:
@@ -122,7 +125,7 @@ def lint_config_snapshot(payload: Mapping[str, object]) -> dict:
 _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     "duration_ms": _command_duration,
     CLIENT_GIT_COMMIT_FACTS_KEY: lambda obs: collect_git_commit_facts(
-        dict(obs.payload)
+        dict(obs.payload), obs.shell
     ),
     CLIENT_MACHINE_HOME_KEY: lambda obs: client_machine_home_fact(
         str(Path.home().resolve())
@@ -142,7 +145,7 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     cf.SOURCE_ROOT_KEY: lambda obs: yoke_source_root_fact(),
     cf.MAIN_HEAD_KEY: lambda obs: main_head_fact(obs.payload),
     cf.CAPTURE_FILES_KEY: lambda obs: capture_files_fact(obs.payload),
-    cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload),
+    cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload, obs.shell),
 }
 
 
@@ -179,9 +182,16 @@ def collect_client_facts(
     payload: Mapping[str, object],
     executor: str,
     chain: Iterable[str],
+    *,
+    shell: ShellParse | None = None,
 ) -> dict[str, object]:
-    """Observe every fact the server-run policies of *chain* read."""
-    obs = Observation(event_name, payload, executor)
+    """Observe every fact the server-run policies of *chain* read.
+
+    A caller that already parsed the payload's command passes *shell*.
+    """
+    if shell is None:
+        shell = parse_shell(extract_command(payload))
+    obs = Observation(event_name, payload, executor, shell)
     # Every chain policy's mode resolves through the session checkout's
     # lint-config, so its snapshot rides with every chain (empty when the
     # checkout has none) and the authority never reads its own.

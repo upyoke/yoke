@@ -5,15 +5,17 @@ The hook relay has two different kinds of knowledge:
 * the client can inspect its Git worktree and index;
 * the authority side can read Yoke control-plane state.
 
-This module holds only shared wire constants and pure command/path parsing so
-the product client and authority policy do not maintain drifting copies.
+This module holds only shared wire constants and pure Git-argument and path
+rules over the shared shell parse, so the product client and authority policy
+do not maintain drifting copies.
 """
 
 from __future__ import annotations
 
-import shlex
 from dataclasses import dataclass
 from typing import Iterable, Optional, Sequence
+
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 
 CLIENT_GIT_COMMIT_FACTS_KEY = "_yoke_client_git_commit_facts"
@@ -57,50 +59,16 @@ def is_bookkeeping(filepath: str) -> bool:
     return any(filepath.startswith(prefix) for prefix in BOOKKEEPING_PREFIXES)
 
 
-def shell_segments(command: str) -> Iterable[str]:
-    """Yield command segments split on shell control operators, quote-aware."""
-    buffer: list[str] = []
-    index = 0
-    in_single = False
-    in_double = False
-    while index < len(command):
-        ch = command[index]
-        if ch == "\\" and index + 1 < len(command):
-            buffer.extend((ch, command[index + 1]))
-            index += 2
-            continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            buffer.append(ch)
-            index += 1
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            buffer.append(ch)
-            index += 1
-            continue
-        if not in_single and not in_double:
-            if command.startswith("&&", index) or command.startswith("||", index):
-                yield "".join(buffer)
-                buffer = []
-                index += 2
-                continue
-            if ch in (";", "|", "&"):
-                yield "".join(buffer)
-                buffer = []
-                index += 1
-                continue
-        buffer.append(ch)
-        index += 1
-    if buffer:
-        yield "".join(buffer)
+def _parsed(command: str | ShellParse) -> ShellParse:
+    return command if isinstance(command, ShellParse) else parse_shell(command or "")
 
 
-def _tokenize(segment: str) -> Optional[list[str]]:
-    try:
-        return shlex.split(segment.strip(), posix=True, comments=False)
-    except ValueError:
-        return None
+def _names_git(text: str, subcommand: str) -> bool:
+    """Word-level check for a statement the shell parse could not tokenize."""
+    words = text.split()
+    return any(
+        words[i] == "git" and words[i + 1] == subcommand for i in range(len(words) - 1)
+    )
 
 
 def _segment_git_subcommand(tokens: Sequence[str]) -> tuple[Optional[str], list[str], bool, str]:
@@ -141,37 +109,27 @@ def _segment_git_subcommand(tokens: Sequence[str]) -> tuple[Optional[str], list[
     return tokens[j], list(tokens[j + 1:]), rebased, repo_path
 
 
-def git_invocations(command: str) -> list[tuple[list[str], str]]:
+def git_invocations(command: str | ShellParse) -> list[tuple[list[str], str]]:
     """Return Git invocations as ``(args_after_subcommand, repo_path)`` pairs."""
     out: list[tuple[list[str], str]] = []
-    for segment in shell_segments(command or ""):
-        tokens = _tokenize(segment)
-        if tokens is None:
-            continue
-        subcommand, args, _rebased, repo_path = _segment_git_subcommand(tokens)
+    for segment in _parsed(command).segments:
+        subcommand, args, _rebased, repo_path = _segment_git_subcommand(segment.argv)
         if subcommand:
             out.append(([subcommand, *args], repo_path))
     return out
 
 
-def is_actual_git_commit(command: str) -> bool:
+def is_actual_git_commit(command: str | ShellParse) -> bool:
     """Return true iff *command* invokes ``git commit`` as shell code."""
-    if not command or not isinstance(command, str):
+    if not isinstance(command, (str, ShellParse)):
         return False
-    for segment in shell_segments(command):
-        text = segment.strip()
-        if not text:
-            continue
-        tokens = _tokenize(text)
-        if tokens is None:
-            words = text.split()
-            if any(words[i] == "git" and words[i + 1] == "commit" for i in range(len(words) - 1)):
-                return True
-            continue
-        subcommand, _args, _rebased, _repo_path = _segment_git_subcommand(tokens)
-        if subcommand == "commit":
-            return True
-    return False
+    parsed = _parsed(command)
+    if any(
+        _segment_git_subcommand(segment.argv)[0] == "commit"
+        for segment in parsed.segments
+    ):
+        return True
+    return any(_names_git(text, "commit") for text in parsed.unparsed)
 
 
 def _add_paths_from_args(args: list[str]) -> tuple[list[str], bool]:
@@ -198,19 +156,12 @@ def _commit_self_stages(args: list[str]) -> bool:
     return False
 
 
-def _add_targets(command: str) -> tuple[list[str], bool]:
+def _add_targets(command: str | ShellParse) -> tuple[list[str], bool]:
+    parsed = _parsed(command)
     collected: list[str] = []
-    indeterminate = False
-    for segment in shell_segments(command or ""):
-        if "git" not in segment:
-            continue
-        tokens = _tokenize(segment)
-        if tokens is None:
-            words = segment.split()
-            if any(words[i] == "git" and words[i + 1] == "add" for i in range(len(words) - 1)):
-                indeterminate = True
-            continue
-        subcommand, args, rebased, _repo_path = _segment_git_subcommand(tokens)
+    indeterminate = any(_names_git(text, "add") for text in parsed.unparsed)
+    for segment in parsed.segments:
+        subcommand, args, rebased, _repo_path = _segment_git_subcommand(segment.argv)
         if subcommand == "add":
             if rebased:
                 indeterminate = True
@@ -235,7 +186,7 @@ def _dedupe(*groups: Iterable[str]) -> list[str]:
 
 
 def effective_staged_set(
-    command: str,
+    command: str | ShellParse,
     staged: Optional[list[str]],
     *,
     modified_and_untracked: Optional[list[str]] = None,
@@ -276,5 +227,4 @@ __all__ = [
     "git_invocations",
     "is_actual_git_commit",
     "is_bookkeeping",
-    "shell_segments",
 ]

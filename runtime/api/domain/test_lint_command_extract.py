@@ -50,10 +50,8 @@ def test_engine_and_harness_share_the_contracts_command_reader() -> None:
     from yoke_contracts.hook_runner.command_extract import (
         extract_command as contracts_extract,
     )
-    from yoke_harness.hooks.local_policy_common import (
-        command_from_payload,
-        git_invocations,
-    )
+    from yoke_contracts.hook_runner.main_commit import git_invocations
+    from yoke_harness.hooks.local_policy_common import command_from_payload
 
     assert extract.extract_command is contracts_extract
     payload = {"tool_input": {"command": "p=git; $p reset --hard"}}

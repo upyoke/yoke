@@ -41,7 +41,7 @@ def test_product_local_subset_downgrades_snapshot_warn(
     monkeypatch.setitem(
         local_subset._POLICY_EVALUATORS,
         module_id,
-        lambda _payload: PolicyResult(DENY, "blocked by local policy"),
+        lambda _payload, _shell: PolicyResult(DENY, "blocked by local policy"),
     )
 
     result = local_subset.evaluate_local_subset(
@@ -74,7 +74,7 @@ def test_product_local_subset_keeps_snapshot_deny(
     monkeypatch.setitem(
         local_subset._POLICY_EVALUATORS,
         module_id,
-        lambda _payload: PolicyResult(DENY, "blocked by local policy"),
+        lambda _payload, _shell: PolicyResult(DENY, "blocked by local policy"),
     )
 
     result = local_subset.evaluate_local_subset(
@@ -105,7 +105,7 @@ def test_product_local_subset_denies_in_cursor_wire_shape(
     monkeypatch.setitem(
         local_subset._POLICY_EVALUATORS,
         module_id,
-        lambda _payload: PolicyResult(DENY, "blocked by local policy"),
+        lambda _payload, _shell: PolicyResult(DENY, "blocked by local policy"),
     )
 
     result = local_subset.evaluate_local_subset(

@@ -13,8 +13,9 @@ from yoke_contracts.hook_runner.main_commit import (
     git_invocations,
     is_actual_git_commit,
 )
+from yoke_contracts.hook_runner.shell_parse import ShellParse
 
-from yoke_harness.hooks.local_policy_common import command_from_payload, cwd_from_payload
+from yoke_harness.hooks.local_policy_common import cwd_from_payload
 
 
 def _git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
@@ -64,14 +65,13 @@ def _modified_and_untracked(cwd: str) -> Optional[list[str]]:
     return paths
 
 
-def collect_git_commit_facts(payload: dict) -> dict:
+def collect_git_commit_facts(payload: dict, shell: ShellParse) -> dict:
     """Return payload-extra facts for a relayed ``git commit`` hook call."""
-    command = command_from_payload(payload)
-    if not is_actual_git_commit(command):
+    if not is_actual_git_commit(shell):
         return {}
     invocations = [
         (args, repo_path)
-        for args, repo_path in git_invocations(command)
+        for args, repo_path in git_invocations(shell)
         if args[:1] == ["commit"]
     ]
     repo_path = invocations[0][1] if invocations else ""
@@ -79,7 +79,7 @@ def collect_git_commit_facts(payload: dict) -> dict:
     staged = _staged(cwd)
     status_paths = _modified_and_untracked(cwd)
     effective = effective_staged_set(
-        command,
+        shell,
         staged,
         modified_and_untracked=status_paths,
     )

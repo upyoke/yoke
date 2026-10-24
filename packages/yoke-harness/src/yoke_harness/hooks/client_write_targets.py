@@ -16,18 +16,18 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import subprocess
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from yoke_contracts.hook_runner import client_facts as cf
-
-from yoke_harness.hooks.local_policy_common import (
-    command_from_payload,
-    cwd_from_payload,
-    tool_input,
+from yoke_contracts.hook_runner.shell_parse import (
+    ShellParse,
+    advance_cwd,
+    cd_destination,
 )
+
+from yoke_harness.hooks.local_policy_common import cwd_from_payload, tool_input
 
 _GIT_TIMEOUT_S = 5
 #: Bounds the probe on very long command bodies.
@@ -45,7 +45,7 @@ def _path_shaped(text: str) -> bool:
     )
 
 
-def _operands(payload: Mapping[str, object]) -> list[str]:
+def _operands(payload: Mapping[str, object], command: str, cwd: str) -> list[str]:
     found: list[str] = []
     data = tool_input(dict(payload))
     for key in ("file_path", "filePath", "path", "notebook_path"):
@@ -53,29 +53,19 @@ def _operands(payload: Mapping[str, object]) -> list[str]:
         if isinstance(value, str) and value.strip():
             found.append(value)
     # The guard falls back to the command's cwd for a write with no operand.
-    found.append(execution_cwd(payload))
-    command = command_from_payload(dict(payload))
-    found.extend(t for t in _OPERAND_RE.findall(command or "") if _path_shaped(t))
+    found.append(cwd)
+    found.extend(t for t in _OPERAND_RE.findall(command) if _path_shaped(t))
     return list(dict.fromkeys(found))[:_MAX_OPERANDS]
 
 
-_CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@", "--"})
-
-
-def _shell_tokens(command: str) -> list[str]:
-    """Split ``command`` keeping ``&&``, ``;`` and newlines as separators."""
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|\n")
-    lexer.whitespace = " \t\r"
-    lexer.whitespace_split = True
-    return list(lexer)
-
-
-def execution_cwd(payload: Mapping[str, object]) -> str:
+def execution_cwd(payload: Mapping[str, object], shell: ShellParse) -> str:
     """The directory the payload's command runs in, as the write guard sees it.
 
     The declared call workdir, else the session cwd, then each leading plain
-    ``cd DIR`` segment joined by ``&&``, ``;`` or a newline, stopping at the first segment that is not one or at
-    an operand this machine cannot resolve without running the shell.
+    ``cd DIR`` segment of the shared parse, stopping at the first segment that
+    is not one or at a destination this machine cannot resolve without running
+    the shell. One answer serves every operand, so a later ``cd`` does not
+    move it: the guard resolves its fallback the same way.
     """
     data = tool_input(dict(payload))
     declared = data.get("workdir") or data.get("working_directory")
@@ -85,23 +75,12 @@ def execution_cwd(payload: Mapping[str, object]) -> str:
         else cwd_from_payload(dict(payload))
     )
     cwd = os.path.realpath(os.path.expanduser(cwd))
-    try:
-        tokens = _shell_tokens(command_from_payload(dict(payload)) or "")
-    except ValueError:
-        return cwd
-    segment: list[str] = []
-    for token in [*tokens, "&&"]:
-        if token.strip("\n") not in {"&&", ";", ""}:
-            segment.append(token)
-            continue
-        operands = [t for t in segment[1:] if t not in _CD_OPTIONS]
-        if segment[:1] != ["cd"] or len(operands) != 1:
+    for segment in shell.segments:
+        destination = cd_destination(segment.argv)
+        moved = advance_cwd(cwd, destination) if destination is not None else ""
+        if not moved:
             break
-        target = os.path.expanduser(operands[0])
-        if "$" in target or "`" in target or target == "-" or target.startswith("~"):
-            break
-        cwd = os.path.realpath(os.path.join(cwd, target))
-        segment = []
+        cwd = moved
     return cwd
 
 
@@ -156,10 +135,10 @@ def _worktrees(repo: str) -> list[str]:
     ]
 
 
-def write_targets_fact(payload: Mapping[str, object]) -> dict:
+def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict:
     """Report resolution, ignore status and live lanes for every operand."""
-    cwd = execution_cwd(payload)
-    resolved = {raw: _resolve(raw, cwd) for raw in _operands(payload)}
+    cwd = execution_cwd(payload, shell)
+    resolved = {raw: _resolve(raw, cwd) for raw in _operands(payload, shell.command, cwd)}
     by_repo: dict[str, list[str]] = {}
     for path in resolved.values():
         repo = _repo_root(path)

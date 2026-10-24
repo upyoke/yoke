@@ -13,6 +13,9 @@ from yoke_contracts.hook_runner import (
     recursive_rm_guard,
 )
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
+from yoke_contracts.hook_runner.main_commit import git_invocations
+from yoke_contracts.hook_runner.shell_expansion_scan import double_quoted_spans
+from yoke_contracts.hook_runner.shell_parse import ShellParse
 from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
     LIVE_DENY,
@@ -23,10 +26,8 @@ from yoke_harness.hooks.local_policy_common import (
     DENY,
     NOOP,
     PolicyResult,
-    command_from_payload,
     cwd_from_payload,
     git,
-    git_invocations,
     repo_cwd,
     response_text,
     write_fields,
@@ -43,22 +44,16 @@ _SCHEMA_HINT_RE = re.compile(
     r"^(?:Error|sqlite3\.OperationalError):\s*no such (column|table)(?::\s*([\w.]+))?",
     re.IGNORECASE | re.MULTILINE,
 )
-_GREP_LIKE_RE = re.compile(
-    r"(?:^|[;&|]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
-    r"(?:\S*/)?(?:rg|grep|egrep|fgrep)\b"
-)
+_SEARCH_PROGRAMS = frozenset({"rg", "grep", "egrep", "fgrep"})
 
 
-def lint_destructive_git(payload: dict) -> PolicyResult:
+def lint_destructive_git(payload: dict, shell: ShellParse) -> PolicyResult:
     """Apply the shared destructive-git and recursive-rm rules.
 
     ``worktree remove`` and the claimed-worktree ``rm`` check are engine-only.
     """
-    command = command_from_payload(payload)
-    suppression_seen = destructive_git_messages.SUPPRESSION_TOKEN in command
-    refusal = recursive_rm_guard.recursive_rm_refusal(
-        command, cwd_from_payload(payload)
-    )
+    suppression_seen = destructive_git_messages.SUPPRESSION_TOKEN in shell.command
+    refusal = recursive_rm_guard.recursive_rm_refusal(shell, cwd_from_payload(payload))
     if refusal is not None:
         return PolicyResult(
             DENY,
@@ -66,7 +61,7 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
                 refusal.shape, list(refusal.targets), suppression_seen
             ),
         )
-    for args, repo_path in git_invocations(command):
+    for args, repo_path in git_invocations(shell):
         cwd = repo_cwd(payload, repo_path)
         shape = destructive_git_rules.classify_shape(args, cwd)
         if shape is None or shape == "worktree_remove":
@@ -83,33 +78,6 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
     return PolicyResult(NOOP)
 
 
-def _double_quoted_spans(text: str) -> list[str]:
-    spans: list[str] = []
-    current: list[str] = []
-    in_double = False
-    escaped = False
-    for char in text:
-        if escaped:
-            if in_double:
-                current.append("\\" + char)
-            escaped = False
-            continue
-        if char == "\\":
-            escaped = True
-            continue
-        if char == '"':
-            if in_double:
-                spans.append("".join(current))
-                current = []
-                in_double = False
-            else:
-                in_double = True
-            continue
-        if in_double:
-            current.append(char)
-    return spans
-
-
 def _has_unescaped_backtick(span: str) -> bool:
     escaped = False
     for char in span:
@@ -124,57 +92,28 @@ def _has_unescaped_backtick(span: str) -> bool:
     return False
 
 
-def _segment_until_shell_separator(text: str) -> str:
-    in_single = False
-    in_double = False
-    escaped = False
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if escaped:
-            escaped = False
-            index += 1
+def lint_shell_backtick_search(payload: dict, shell: ShellParse) -> PolicyResult:
+    for segment in shell.segments:
+        if segment.program not in _SEARCH_PROGRAMS:
             continue
-        if char == "\\" and not in_single:
-            escaped = True
-            index += 1
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-        elif char == '"' and not in_single:
-            in_double = not in_double
-        elif not in_single and not in_double:
-            if text.startswith("&&", index) or text.startswith("||", index):
-                return text[:index]
-            if char in ";|":
-                return text[:index]
-        index += 1
-    return text
-
-
-def lint_shell_backtick_search(payload: dict) -> PolicyResult:
-    command = command_from_payload(payload)
-    for match in _GREP_LIKE_RE.finditer(command):
-        segment = _segment_until_shell_separator(command[match.end() :])
-        for span in _double_quoted_spans(segment):
-            if _has_unescaped_backtick(span):
-                return PolicyResult(
-                    DENY,
-                    "BLOCKED: grep/rg search text contains a backtick inside "
-                    "double quotes. Backticks still run command substitution "
-                    "there; use single quotes for literal Markdown/code searches.",
-                )
+        if any(_has_unescaped_backtick(span) for span in double_quoted_spans(segment.text)):
+            return PolicyResult(
+                DENY,
+                "BLOCKED: grep/rg search text contains a backtick inside "
+                "double quotes. Backticks still run command substitution "
+                "there; use single quotes for literal Markdown/code searches.",
+            )
     return PolicyResult(NOOP)
 
 
-def lint_local_privacy(payload: dict) -> PolicyResult:
+def lint_local_privacy(payload: dict, shell: ShellParse) -> PolicyResult:
     """Mirror the engine guard: deny the privacy database, advise broad scans.
 
     Personal-folder reads and GUI automation are the harness prompt's and the
     operating system's call, so they classify but produce nothing here.
     """
     finding = classify_shell_command(
-        command_from_payload(payload),
+        shell,
         home=Path.home(),
         cwd=payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd(),
     )
@@ -188,7 +127,7 @@ def lint_local_privacy(payload: dict) -> PolicyResult:
     return PolicyResult(NOOP)
 
 
-def lint_tmp_runtime_import(payload: dict) -> PolicyResult:
+def lint_tmp_runtime_import(payload: dict, shell: ShellParse) -> PolicyResult:
     file_path, content = write_fields(payload)
     if not file_path.endswith(".py") or not file_path.startswith(_TMP_PREFIXES):
         return PolicyResult(NOOP)
@@ -201,7 +140,7 @@ def lint_tmp_runtime_import(payload: dict) -> PolicyResult:
     )
 
 
-def hint_file_line(payload: dict) -> PolicyResult:
+def hint_file_line(payload: dict, shell: ShellParse) -> PolicyResult:
     file_path, content = write_fields(payload)
     if not file_path:
         return PolicyResult(NOOP)
@@ -217,8 +156,8 @@ def hint_file_line(payload: dict) -> PolicyResult:
     )
 
 
-def db_error_advisory(payload: dict) -> PolicyResult:
-    command = command_from_payload(payload)
+def db_error_advisory(payload: dict, shell: ShellParse) -> PolicyResult:
+    command = shell.command
     output = response_text(payload)
     messages: list[str] = []
     repo_root = os.environ.get("YOKE_REPO_ROOT", "").strip()

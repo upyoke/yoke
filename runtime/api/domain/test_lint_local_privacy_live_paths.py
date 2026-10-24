@@ -23,13 +23,19 @@ import pytest
 from yoke_contracts.hook_runner.hook_guard_catalog import GUARD_CATALOG
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_local_privacy
 from yoke_core.hooks import mode_gate
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
 from yoke_harness.hooks import local_policies, local_subset
 from yoke_harness.hooks.deadline import HookDeadline
-from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP
+from yoke_harness.hooks.local_policy_common import (
+    ADVISORY,
+    DENY,
+    NOOP,
+    command_from_payload,
+)
 
 
 HOME = Path("/Users/synthetic-operator")
@@ -55,6 +61,12 @@ def _payload(command: str) -> dict:
     }
 
 
+def _product_verdict(payload: dict):
+    """Run the product-local guard with the payload's shared shell parse."""
+    shell = parse_shell(command_from_payload(payload))
+    return local_policies.lint_local_privacy(payload, shell)
+
+
 @pytest.mark.parametrize(
     "command",
     [
@@ -68,7 +80,7 @@ def test_scoped_access_and_gui_automation_pass_both_live_paths(command: str) -> 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
         assert lint_local_privacy.evaluate_payload(lint_local_privacy._context(_payload(command))) is None
         with patch.object(local_policies.Path, "home", return_value=HOME):
-            assert local_policies.lint_local_privacy(_payload(command)).outcome == NOOP
+            assert _product_verdict(_payload(command)).outcome == NOOP
 
 
 def test_broad_discovery_advises_on_both_live_paths() -> None:
@@ -78,7 +90,7 @@ def test_broad_discovery_advises_on_both_live_paths() -> None:
         engine_verdict = lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload))
         decision = lint_local_privacy.evaluate(lint_local_privacy._context(payload))
     with patch.object(local_policies.Path, "home", return_value=HOME):
-        product_verdict = local_policies.lint_local_privacy(payload)
+        product_verdict = _product_verdict(payload)
 
     assert engine_verdict is not None
     assert engine_verdict[1] == "advisory"
@@ -114,7 +126,7 @@ def test_privacy_database_still_denies_on_both_live_paths() -> None:
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
         engine_verdict = lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload))
     with patch.object(local_policies.Path, "home", return_value=HOME):
-        product_verdict = local_policies.lint_local_privacy(payload)
+        product_verdict = _product_verdict(payload)
 
     assert engine_verdict is not None
     assert engine_verdict[1] == "denied"
@@ -128,7 +140,7 @@ def test_engine_and_product_local_policy_share_safe_outcome() -> None:
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
         assert lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload)) is None
     with patch.object(local_policies.Path, "home", return_value=HOME):
-        assert local_policies.lint_local_privacy(payload).outcome == NOOP
+        assert _product_verdict(payload).outcome == NOOP
 
 
 def test_guard_is_protected_and_ordered_before_unmatched_globs() -> None:

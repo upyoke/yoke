@@ -31,6 +31,17 @@ class TestPassThrough:
         assert result.paths == ["a.py"]
         assert result.worktree_content_paths == frozenset()
 
+    def test_heredoc_body_add_text_is_not_an_add_segment(self):
+        # The message body is input to ``git commit -F -``, not commands.
+        result = _effective(
+            "git commit -F - <<'EOF'\nRevert; git add . was wrong\nEOF",
+            ["a.py"],
+            status=["a.py", "b.py"],
+        )
+        assert result is not None
+        assert result.paths == ["a.py"]
+        assert result.worktree_content_paths == frozenset()
+
 
 class TestDeterminateAdds:
     def test_one_call_add_targets_union_with_staged(self):
@@ -41,6 +52,12 @@ class TestDeterminateAdds:
         assert result is not None
         assert result.paths == ["a.py", "b.md", "c/d.py"]
         assert result.worktree_content_paths == frozenset({"b.md", "c/d.py"})
+
+    def test_add_on_its_own_line_names_only_its_paths(self):
+        result = _effective("git add x.py\ngit commit -m 'x'", [], status=["y.py"])
+        assert result is not None
+        assert result.paths == ["x.py"]
+        assert result.worktree_content_paths == frozenset({"x.py"})
 
     def test_add_targets_alone_when_nothing_staged(self):
         result = _effective("git add x.py && git commit -m 'x'", [])

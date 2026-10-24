@@ -12,7 +12,12 @@ from unittest import mock
 
 from yoke_core.domain import lint_main_commit
 from yoke_harness.hooks import main_commit_client
-from runtime.api.domain.test_lint_main_commit import TEST_ITEM_REF, _payload
+from runtime.api.domain.test_lint_main_commit import (
+    TEST_ITEM_REF,
+    _evaluate_payload,
+    _payload,
+)
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 
 
 def _evaluate(command: str, *, staged: list[str], status: list[str] | None = None):
@@ -25,13 +30,17 @@ def _evaluate(command: str, *, staged: list[str], status: list[str] | None = Non
             main_commit_client, "_modified_and_untracked", return_value=status
         ),
     ):
-        payload.update(main_commit_client.collect_git_commit_facts(payload))
+        payload.update(
+            main_commit_client.collect_git_commit_facts(
+                payload, parse_shell(lint_main_commit._extract_command(payload))
+            )
+        )
     with mock.patch.object(
         lint_main_commit,
         "_active_worktree_items",
         return_value=[f"{TEST_ITEM_REF}|Some item"],
     ):
-        return lint_main_commit.evaluate_payload(payload)
+        return _evaluate_payload(payload)
 
 
 class TestOneCallAddCommit(unittest.TestCase):

@@ -30,7 +30,7 @@ from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ENV_OPTIONS_WITH_ARG = frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"})
-CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@"})
+CD_OPTIONS = frozenset({"-L", "-P", "-e", "-@", "--"})
 
 # Reserved words that open or punctuate a compound statement. None of them
 # is the command being run, so they are dropped before the command word.
@@ -149,7 +149,7 @@ def strip_env_prefix(tokens: list[str] | tuple[str, ...]) -> list[str]:
 
 
 def cd_destination(argv: tuple[str, ...] | list[str]) -> str | None:
-    """Operand of a plain ``cd DIR``, ignoring ``-L``/``-P``/``-e``/``-@``."""
+    """Operand of a plain ``cd DIR``, ignoring ``-L``/``-P``/``-e``/``-@``/``--``."""
     if not argv or argv[0] != "cd":
         return None
     operands = [token for token in argv[1:] if token not in CD_OPTIONS]

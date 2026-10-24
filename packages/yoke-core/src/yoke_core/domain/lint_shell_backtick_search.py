@@ -5,48 +5,19 @@ from __future__ import annotations
 from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
-import re
 import sys
 from typing import Optional, Tuple
 
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_expansion_scan import double_quoted_spans
+from yoke_contracts.hook_runner.shell_parse import ShellParse
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-shell-backtick-search"
 SUPPRESSION_TOKEN = "# lint:no-backtick-search-check"
 
-_GREP_LIKE_RE = re.compile(
-    r"(?:^|[;&|]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
-    r"(?:\S*/)?(?:rg|grep|egrep|fgrep)\b"
-)
-
-
-def _double_quoted_spans(text: str) -> list[str]:
-    spans: list[str] = []
-    current: list[str] = []
-    in_double = False
-    escaped = False
-    for char in text:
-        if escaped:
-            if in_double:
-                current.append("\\" + char)
-            escaped = False
-            continue
-        if char == "\\":
-            escaped = True
-            continue
-        if char == '"':
-            if in_double:
-                spans.append("".join(current))
-                current = []
-                in_double = False
-            else:
-                in_double = True
-            continue
-        if in_double:
-            current.append(char)
-    return spans
+_SEARCH_PROGRAMS = frozenset({"rg", "grep", "egrep", "fgrep"})
 
 
 def _has_unescaped_backtick(span: str) -> bool:
@@ -63,39 +34,11 @@ def _has_unescaped_backtick(span: str) -> bool:
     return False
 
 
-def _segment_until_shell_separator(text: str) -> str:
-    in_single = False
-    in_double = False
-    escaped = False
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if escaped:
-            escaped = False
-            index += 1
+def _grep_like_backtick_span(shell: ShellParse) -> Optional[str]:
+    for segment in shell.segments:
+        if segment.program not in _SEARCH_PROGRAMS:
             continue
-        if char == "\\" and not in_single:
-            escaped = True
-            index += 1
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-        elif char == '"' and not in_single:
-            in_double = not in_double
-        elif not in_single and not in_double:
-            if text.startswith("&&", index) or text.startswith("||", index):
-                return text[:index]
-            if char in ";|":
-                return text[:index]
-        index += 1
-    return text
-
-
-def _grep_like_backtick_span(command: str) -> Optional[str]:
-    for match in _GREP_LIKE_RE.finditer(command):
-        rest = command[match.end() :]
-        segment = _segment_until_shell_separator(rest)
-        for span in _double_quoted_spans(segment):
+        for span in double_quoted_spans(segment.text):
             if _has_unescaped_backtick(span):
                 return span
     return None
@@ -121,13 +64,13 @@ def _format_reason(span: str, suppression_seen: bool) -> str:
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+def evaluate_payload(payload: dict, shell: ShellParse) -> Optional[Tuple[str, str]]:
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
+    command = shell.command
     if not command:
         return None
-    span = _grep_like_backtick_span(command)
+    span = _grep_like_backtick_span(shell)
     if span is None:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
@@ -139,7 +82,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

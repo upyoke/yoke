@@ -25,7 +25,11 @@ from yoke_contracts.hook_runner.project_scope import (
     HookProjectScope,
     resolve_hook_project_scope,
 )
-from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
+from yoke_contracts.hook_runner.shell_guard_repairs import (
+    NOTHING_RAN,
+    RIPGREP_REPLACE_CHECK_ID,
+)
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_contracts.hook_runner.degraded import infrastructure_reply
 
 from yoke_harness.hooks.client_facts import (
@@ -170,6 +174,8 @@ def evaluate_local_subset(
     # the harness hook child that ran. Rides to the server in payload_extra.
     payload_extra: dict[str, object] = {DRIVER_PAYLOAD_KEY: collect_driver_process()}
     contexts: list[str] = []
+    # One parse of the Bash command, shared by every policy and fact below.
+    shell = parse_shell(command_from_payload(payload))
     try:
         chain = event_chain(event_name, payload, project_scope)
     except (ValueError, OSError, RuntimeError) as exc:
@@ -178,7 +184,9 @@ def evaluate_local_subset(
         )
         return LocalSubsetEvaluation(stdout, 0, False, payload_extra=payload_extra)
     if collect_facts:
-        payload_extra.update(collect_client_facts(event_name, payload, executor, chain))
+        payload_extra.update(
+            collect_client_facts(event_name, payload, executor, chain, shell=shell)
+        )
     for module_id in _local_modules(chain):
         if deadline.expired():
             break
@@ -186,7 +194,7 @@ def evaluate_local_subset(
             if module_id == _SESSION_DISPATCH:
                 result = session_lifecycle(event_name, payload, executor)
             else:
-                result = _POLICY_EVALUATORS[module_id](payload)
+                result = _POLICY_EVALUATORS[module_id](payload, shell)
         except Exception as exc:
             # A guard that crashed did not deny; the call proceeds, warned.
             contexts.append(
@@ -206,13 +214,8 @@ def evaluate_local_subset(
                     or f"{module_id} would block, but lint-config mode is warn."
                 )
                 continue
-            from yoke_contracts.hook_runner.shell_guard_repairs import (
-                NOTHING_RAN,
-                is_compound,
-            )
-
             reason = result.message
-            if is_compound(command_from_payload(payload)) and NOTHING_RAN not in reason:
+            if shell.is_compound and NOTHING_RAN not in reason:
                 reason += f"\n\n{NOTHING_RAN}"
             stdout, exit_code = deny_stdout(reason, event_name, executor)
             return LocalSubsetEvaluation(

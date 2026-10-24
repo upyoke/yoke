@@ -15,6 +15,7 @@ from yoke_contracts.hook_runner.main_commit import (
     is_bookkeeping as _contract_is_bookkeeping,
 )
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse
 from yoke_core.domain.lint_main_commit_client_facts import (
     client_facts,
     client_list,
@@ -96,12 +97,12 @@ def _format_reason(
     return attach_check_id(body, check_id="lint-main-commit")
 
 
-def evaluate_payload(payload: dict) -> Optional[str]:
-    """Return a denial reason when *payload* should be blocked."""
-    command = _extract_command(payload)
+def evaluate_payload(payload: dict, shell: ShellParse) -> Optional[str]:
+    """Return a denial reason when *payload*, parsed as *shell*, should be blocked."""
+    command = shell.command
     if not command:
         return None
-    if not is_actual_git_commit(command):
+    if not is_actual_git_commit(shell):
         return None
 
     # The checkout is on the client machine, which reports its branch and
@@ -132,7 +133,7 @@ def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     if record.remote and CLIENT_GIT_COMMIT_FACTS_KEY not in payload:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = evaluate_payload(payload)
+    reason = evaluate_payload(payload, record.shell)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(

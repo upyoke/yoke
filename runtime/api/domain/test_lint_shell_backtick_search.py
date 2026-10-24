@@ -6,9 +6,14 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 
+import pytest
+
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_shell_backtick_search as lint
+from yoke_harness.hooks import local_policies
+from yoke_harness.hooks.local_policy_common import DENY
 
 
 def _payload(command: str, **extra: object) -> dict:
@@ -24,7 +29,7 @@ def _payload(command: str, **extra: object) -> dict:
 
 
 def _eval(command: str):
-    return lint.evaluate_payload(_payload(command))
+    return lint.evaluate_payload(_payload(command), parse_shell(command))
 
 
 def test_rg_double_quoted_backticks_denies():
@@ -75,3 +80,32 @@ def test_suppression_is_audit_only():
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert guard_audit_outcome(decision) == "suppression_attempted"
     assert "BLOCKED" in decision.audit_fields["reason"]
+
+
+def test_search_on_a_later_line_denies():
+    assert _eval('cd docs\nrg "uses `foo` here" .') is not None
+
+
+def test_env_prefixed_search_denies():
+    assert _eval('env -i LC_ALL=C grep "`whoami`" AGENTS.md') is not None
+
+
+def test_heredoc_body_search_text_allows():
+    assert _eval("cat > notes.md <<'EOF'\nrg \"uses `foo` here\" docs/\nEOF") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'rg "uses `foo` here" docs/',
+        'cd docs\nrg "uses `foo` here" .',
+        'rg "plain text" docs/ | echo "`not search text`"',
+        r'rg "\`literal\`" docs/',
+        "cat > notes.md <<'EOF'\nrg \"uses `foo` here\" docs/\nEOF",
+    ],
+)
+def test_product_local_twin_agrees_with_engine(command):
+    local = local_policies.lint_shell_backtick_search(
+        _payload(command), parse_shell(command)
+    )
+    assert (local.outcome == DENY) is (_eval(command) is not None)
