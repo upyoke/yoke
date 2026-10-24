@@ -1,4 +1,4 @@
-"""Doctor reports setup facets and durable relay failures and calls shared fix."""
+"""Doctor reports setup facets, live relay failures, and calls shared fix."""
 
 from types import SimpleNamespace
 
@@ -35,8 +35,10 @@ def test_inspect_fix_and_relay_failure(monkeypatch):
     monkeypatch.setattr(
         doctor, "read_reconcile_state", lambda: {"failure": "previous refusal"}
     )
-    doctor.hc_harness_setup(None, DoctorArgs(fix=True), rec)
-    assert "previous refusal" in rec.results[-1].detail
+    doctor.hc_harness_setup(None, DoctorArgs(), rec)
+    assert rec.results[-1].result == "FAIL"
+    assert "missing" in rec.results[-1].detail
+    assert "relay_last_reconcile_failed: previous refusal" in rec.results[-1].detail
 
 
 def test_no_homes_is_not_applicable(monkeypatch):
@@ -103,3 +105,48 @@ def test_unobserved_codex_app_does_not_prove_an_orphan_home(monkeypatch, tmp_pat
             doctor, "probe_surface", lambda surface: SimpleNamespace(verdict=verdict)
         )
         assert doctor.codex_home_without_codex() == ""
+
+
+def test_setup_apply_reports_ready_after_relay_ran_before_scaffold(
+    monkeypatch, tmp_path
+):
+    """The relay reconciles a just-registered checkout before the installer
+    writes `.codex/hooks.json`; the installer's own pass then completes setup."""
+    import json
+    from pathlib import Path
+
+    from yoke_contracts.harness_machine_hooks import HarnessMachineHooks
+    from yoke_harness import harness_setup_reconcile as setup
+    from yoke_harness import session_relay_harness_reconcile as relay
+
+    home = tmp_path / "home"
+    (home / ".codex").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    dirs = {"codex": ".codex", "claude-code": ".claude", "cursor": ".cursor"}
+    monkeypatch.setattr(
+        HarnessMachineHooks,
+        "home_path",
+        lambda self, environ=None: home / dirs[self.harness_id],
+    )
+    root = tmp_path / "checkout"
+    root.mkdir()
+    monkeypatch.setattr(setup, "all_registered_checkouts", lambda **kw: [root])
+    monkeypatch.setattr(setup, "main_checkout", lambda path: root)
+    monkeypatch.setattr(setup, "registered_worktree_paths", lambda path: [root])
+    monkeypatch.setattr(relay, "state_path", lambda: tmp_path / "relay.json")
+    monkeypatch.setattr(doctor, "codex_home_without_codex", lambda: "")
+
+    early = relay.reconcile_on_change(now=100)
+    assert ".codex/hooks.json" in json.dumps(early["failure"])
+
+    hooks = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]}}
+    (root / ".codex").mkdir()
+    (root / ".codex/hooks.json").write_text(json.dumps(hooks))
+    assert not setup.reconcile_harness_setup(paths=[root]).failed
+
+    rec = RecordCollector()
+    doctor.hc_harness_setup(None, DoctorArgs(), rec)
+    assert rec.results[-1].result == "PASS", rec.results[-1].detail
+    assert relay.read_reconcile_state()["failure"] == early["failure"]
