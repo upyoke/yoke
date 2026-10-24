@@ -106,7 +106,6 @@ REGISTRATIONS: List[dict] = [
         "owner_module": "yoke_core.domain.handlers.items_deployment_flow_claim",
         "target_kinds": ["item"],
         "side_effects": [],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["claim_required"],
         "adapter_status": "internal",
         "claim_required_kind": "item",

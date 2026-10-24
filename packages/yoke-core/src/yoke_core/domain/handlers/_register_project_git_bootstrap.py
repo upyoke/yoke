@@ -15,7 +15,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.project_git_bootstrap",
         target_kinds=["global"],
         side_effects=["project_repo_file_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,

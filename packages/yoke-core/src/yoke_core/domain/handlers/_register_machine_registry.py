@@ -57,7 +57,6 @@ def _register(
         owner_module=_machines.__name__,
         target_kinds=["global"],
         side_effects=side_effects,
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["verified_actor", "handler_enforced_machine_ownership"],
         adapter_status="live",
         claim_required_kind=None,

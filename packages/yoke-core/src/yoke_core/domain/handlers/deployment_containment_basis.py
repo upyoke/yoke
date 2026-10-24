@@ -52,7 +52,6 @@ def register(registry):
         owner_module=__name__,
         target_kinds=["workflow_run"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["run_driver_required"],
         adapter_status="live",
         claim_required_kind=None,

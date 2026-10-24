@@ -257,7 +257,6 @@ for entry in REGISTRATIONS:
             "stability": "stable",
             "owner_module": "yoke_core.domain.handlers.ouroboros_writes",
             "target_kinds": ["global"],
-            "emitted_event_names": ["YokeFunctionCalled"],
             "guardrails": [],
             "adapter_status": "live",
             "claim_required_kind": None,

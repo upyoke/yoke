@@ -28,7 +28,6 @@ def register(registry) -> None:
         owner_module=_MODULE,
         target_kinds=["item"],
         side_effects=["item_deploy_stage_write", "item_deployed_to_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["stampable_fields_only", "read_back_verified"],
         adapter_status="internal",
         claim_required_kind=None,

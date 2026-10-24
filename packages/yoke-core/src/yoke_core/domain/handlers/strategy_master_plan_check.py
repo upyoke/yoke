@@ -72,7 +72,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.strategy_master_plan_check",
         "target_kinds": ["global"],
         "side_effects": [],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": None,

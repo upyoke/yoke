@@ -189,7 +189,6 @@ def synthetic_handler(monkeypatch):
         owner_module="runtime.api.test_service_client_structured_api_adapter",
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
     )

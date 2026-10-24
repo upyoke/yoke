@@ -13,7 +13,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.lint_config_show",
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,

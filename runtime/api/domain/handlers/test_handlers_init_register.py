@@ -111,7 +111,7 @@ def test_scratch_entry_target_kinds_and_claim_required_kind() -> None:
     assert entry.adapter_status == "live"
     assert entry.stability == "stable"
     assert entry.side_effects == ()
-    assert entry.emitted_event_names == ()
+    assert entry.emitted_event_names == ("YokeFunctionCalled",)
 
 
 def test_domain_registrars_includes_register_scratch_module() -> None:

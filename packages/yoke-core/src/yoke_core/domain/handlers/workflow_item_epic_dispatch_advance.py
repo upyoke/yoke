@@ -84,7 +84,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         ),
         "target_kinds": ["epic_task"],
         "side_effects": ["epic_dispatch_chains_update"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": "epic",

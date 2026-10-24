@@ -23,12 +23,16 @@ The six values the dispatcher accepts for ``claim_required_kind`` are
 ``None``, ``"item"``, ``"epic"``, ``"qa_subject"``, ``"self_only"``,
 ``"steering"``.
 Any other string raises :class:`RegistryValidationError` at import time.
+
+The dispatcher emits ``YokeFunctionCalled`` for every call, so the
+registry puts it first in every entry's ``emitted_event_names``.
+Registrations declare only the events their handler emits.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -51,6 +55,8 @@ _CLAIM_REQUIRED_KIND_VALUES: Tuple[Optional[str], ...] = (
     "self_only",
     "steering",
 )
+# Emitted by the dispatcher for every call (yoke_function_dispatch_events).
+DISPATCHER_EVENT_NAME = "YokeFunctionCalled"
 
 
 class RegistryDuplicateError(Exception):
@@ -102,9 +108,9 @@ def register(
     owner_module: str,
     target_kinds: List[str],
     side_effects: List[str],
-    emitted_event_names: List[str],
     guardrails: List[str],
     adapter_status: str,
+    emitted_event_names: Sequence[str] = (),
     version: str = "v1",
     replacement_function_id: Optional[str] = None,
     removal_target_version: Optional[str] = None,
@@ -118,7 +124,8 @@ def register(
     registered. Raises :class:`RegistryValidationError` for any static
     contract violation (bad id shape, unknown stability, deprecated
     without replacement, unknown claim-required kind, or an id absent
-    from the previous serving set that omits ``minimum_serving_version``).
+    from the previous serving set that omits ``minimum_serving_version``,
+    or a hand declaration of the dispatcher's ``YokeFunctionCalled``).
     """
     if not validate_function_id(function_id):
         raise RegistryValidationError(
@@ -146,6 +153,11 @@ def register(
             f"unknown claim_required_kind {claim_required_kind!r}; "
             f"expected one of {accepted}"
         )
+    if DISPATCHER_EVENT_NAME in emitted_event_names:
+        raise RegistryValidationError(
+            f"{function_id!r} declares {DISPATCHER_EVENT_NAME!r}; the registry "
+            "adds it to every entry, so remove it from emitted_event_names"
+        )
     floor = (minimum_serving_version or "").strip() or None
     if (
         _REQUIRE_UNSERVED_FLOOR
@@ -167,7 +179,7 @@ def register(
         owner_module=owner_module,
         target_kinds=tuple(target_kinds),
         side_effects=tuple(side_effects),
-        emitted_event_names=tuple(emitted_event_names),
+        emitted_event_names=(DISPATCHER_EVENT_NAME, *emitted_event_names),
         guardrails=tuple(guardrails),
         adapter_status=adapter_status,
         version=version,
@@ -218,6 +230,7 @@ def reset_registry_for_tests() -> None:
 
 
 __all__ = [
+    "DISPATCHER_EVENT_NAME",
     "RegistryEntry",
     "RegistryDuplicateError",
     "RegistryValidationError",

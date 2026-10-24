@@ -116,7 +116,7 @@ def register(registry):
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_ACTION_PERFORMED],
+        emitted_event_names=[EVENT_SESSION_ACTION_PERFORMED],
         guardrails=[
             "secret_values_never_returned",
             "registered_machine_lease",

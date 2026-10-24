@@ -79,7 +79,6 @@ def register(registry):
         target_kinds=["item", "global"],
         minimum_serving_version="next-release",
         side_effects=["qa_plan_execution_write", "qa_plan_execution_adoption_write"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "project_scope_required",
             "item_work_holder",

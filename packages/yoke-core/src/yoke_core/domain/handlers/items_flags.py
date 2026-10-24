@@ -320,7 +320,6 @@ def _descriptor(
         "owner_module": "yoke_core.domain.handlers.items_flags",
         "target_kinds": ["item"],
         "side_effects": ["render_body", "github_sync", summary],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["implicit_item_claim", "done_item_block"],
         "adapter_status": "live",
         # None at the dispatcher on purpose: its gate would refuse before

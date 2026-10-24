@@ -290,14 +290,14 @@ def register(registry: Any) -> None:
             handle_agent_mission_ready,
             AgentMissionPlanCaseReadyRequest,
             AgentMissionPlanCaseReadyResponse,
-            ["QARunCaptured", "YokeFunctionCalled"],
+            ["QARunCaptured"],
         ),
         (
             "test_machine.mission.access",
             handle_agent_mission_access,
             AgentMissionAccessRequest,
             AgentMissionAccessResponse,
-            ["YokeFunctionCalled"],
+            [],
         ),
     ):
         registry.register(

@@ -52,7 +52,6 @@ def _registry_kwargs() -> dict:
         "owner_module": "yoke_core.domain.yoke_function_dispatch",
         "target_kinds": ["item"],
         "side_effects": [],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
     }

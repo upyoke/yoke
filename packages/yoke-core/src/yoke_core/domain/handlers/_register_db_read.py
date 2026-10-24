@@ -15,7 +15,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.db_read",
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["read_only_sql", "row_cap", "statement_timeout"],
         adapter_status="live",
         claim_required_kind=None,

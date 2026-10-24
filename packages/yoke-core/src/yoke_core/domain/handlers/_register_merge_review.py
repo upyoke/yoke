@@ -22,7 +22,6 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["decision_requests_insert", "decision_requests_withdraw"],
         emitted_event_names=[
-            "YokeFunctionCalled",
             "DecisionRequestCreated",
             "DecisionRequestWithdrawn",
         ],

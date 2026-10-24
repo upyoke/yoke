@@ -218,7 +218,6 @@ def test_pending_registration_declares_read_scope_floor_and_live_adapter():
         "owner_module": handler.__name__,
         "target_kinds": ["global"],
         "side_effects": [],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["verified_actor", "org_membership"],
         "adapter_status": "live",
         "claim_required_kind": None,

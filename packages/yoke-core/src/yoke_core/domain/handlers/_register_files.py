@@ -15,7 +15,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.files_upload",
         target_kinds=["global"],
         side_effects=["shared_file_store"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,

@@ -97,7 +97,6 @@ REGISTRATIONS: List[dict[str, Any]] = [
         ),
         "target_kinds": ["global"],
         "side_effects": ["item_insert", "db_write", "github_sync"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": ["promotion_idempotency", "workflow_entry_surface"],
         "adapter_status": "live",
         "claim_required_kind": None,

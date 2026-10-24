@@ -324,7 +324,7 @@ def test_function_registry_exposes_steering_contracts() -> None:
     listed = lookup("claims.steering.list")
     assert acquire is not None and acquire.claim_required_kind is None
     assert acquire.target_kinds == ("global",)
-    assert acquire.emitted_event_names == ("SteeringClaimed",)
+    assert acquire.emitted_event_names == ("YokeFunctionCalled", "SteeringClaimed")
     assert "strategy_doc_claims_insert_or_pair" in acquire.side_effects
     assert release is not None and release.claim_required_kind == "self_only"
     assert release.target_kinds == ("claim",)

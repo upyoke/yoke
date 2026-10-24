@@ -47,7 +47,6 @@ def register(registry) -> None:
             owner_module=handlers.__name__,
             target_kinds=["global"],
             side_effects=effects,
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=guardrails,
             adapter_status="live",
             claim_required_kind=None,

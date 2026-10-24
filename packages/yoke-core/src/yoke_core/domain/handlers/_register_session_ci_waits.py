@@ -19,7 +19,6 @@ _SHARED = dict(
     owner_module=_MODULE,
     target_kinds=["global"],
     side_effects=["session_ci_run_wait_write"],
-    emitted_event_names=["YokeFunctionCalled"],
     guardrails=["session_required"],
     adapter_status="internal",
     claim_required_kind=None,

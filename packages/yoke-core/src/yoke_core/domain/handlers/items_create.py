@@ -272,7 +272,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.items_create",
         "target_kinds": ["global"],
         "side_effects": ["item_insert", "github_sync"],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [
             "workflow_entry_surface",
             "execution_instructions_considered",

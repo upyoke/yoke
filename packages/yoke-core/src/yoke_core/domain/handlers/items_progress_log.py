@@ -171,7 +171,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.items_progress_log",
         "target_kinds": ["item"],
         "side_effects": [],
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": None,

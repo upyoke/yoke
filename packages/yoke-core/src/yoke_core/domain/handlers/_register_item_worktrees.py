@@ -40,7 +40,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktree_create",
         target_kinds=["item"],
         side_effects=["item_worktrees_insert"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "actor_holds_item_claim",
             "active_item",
@@ -63,7 +62,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktree_paths",
         target_kinds=["item"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
@@ -77,7 +75,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktree_inventory",
         target_kinds=["global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
@@ -91,7 +88,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktree_paths",
         target_kinds=["item"],
         side_effects=["item_worktrees_update_path"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "actor_holds_item_claim",
             "active_item",
@@ -111,7 +107,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktrees",
         target_kinds=["item"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
@@ -125,7 +120,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktrees",
         target_kinds=["item"],
         side_effects=["item_worktrees_update_state"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
             "actor_holds_item_claim",
             "evidence_only_status",
@@ -144,7 +138,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.item_worktrees",
         target_kinds=["item"],
         side_effects=["item_worktrees_update_state"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         # Post-merge bookkeeping: the terminal transition releases the item
         # claim in the same transaction that releases the row, so this caller
@@ -161,7 +154,6 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.cancelled_lane_deletion",
         target_kinds=["item"],
         side_effects=["render_body", "github_sync"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["cancelled_item", "item_owned_lane_branches"],
         # The cancel's status transaction released the claim before this
         # machine deleted the lanes; the handler admits only a cancelled item

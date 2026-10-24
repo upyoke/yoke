@@ -28,7 +28,6 @@ def register(registry) -> None:
             owner_module=_keepalive.__name__,
             target_kinds=["global"],
             side_effects=["harness_sessions_update"],
-            emitted_event_names=["YokeFunctionCalled"],
             guardrails=["verified_actor", "handler_enforced_project_authority"],
             adapter_status="live",
             claim_required_kind=None,

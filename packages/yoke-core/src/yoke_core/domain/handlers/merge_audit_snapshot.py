@@ -106,7 +106,6 @@ def register(registry):
         owner_module=__name__,
         target_kinds=["item", "global"],
         side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="internal",
         claim_required_kind=None,

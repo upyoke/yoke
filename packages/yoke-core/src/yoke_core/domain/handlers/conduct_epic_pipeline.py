@@ -207,7 +207,6 @@ def _entry(
         "owner_module": _OWNER,
         "target_kinds": ["epic_task"],
         "side_effects": effects,
-        "emitted_event_names": ["YokeFunctionCalled"],
         "guardrails": [],
         "adapter_status": "live",
         "claim_required_kind": claim,

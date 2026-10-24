@@ -54,7 +54,7 @@ def secret_calls(test_db, monkeypatch, caplog):
         _FUNCTIONS[1], _synthetic_create,
         profile_tokens.ProfileTokenCreateRequest, _CredentialResponse,
         stability="internal", owner_module=__name__, target_kinds=["global"],
-        side_effects=["api_tokens_insert"], emitted_event_names=["YokeFunctionCalled"],
+        side_effects=["api_tokens_insert"],
         guardrails=[ONE_TIME_SECRET_GUARDRAIL], adapter_status="internal",
         ambient_session_required=False,
     )
