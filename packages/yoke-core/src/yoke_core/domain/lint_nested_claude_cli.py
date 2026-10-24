@@ -22,9 +22,8 @@ and names the operator override.
 
 from __future__ import annotations
 
-import shlex
 from pathlib import PurePosixPath
-from typing import Mapping, Optional, Sequence
+from typing import Iterator, Mapping, Optional, Sequence
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_family_identity import (
@@ -35,7 +34,11 @@ from yoke_contracts.hook_runner.hook_guard_catalog import (
     NESTED_CLAUDE_CLI_CHECK_ID,
     NESTED_CLAUDE_CLI_GUARD,
 )
-from yoke_contracts.hook_runner.shell_guard_repairs import without_heredoc_bodies
+from yoke_contracts.hook_runner.shell_parse import (
+    ShellParse,
+    parse_shell,
+    strip_env_prefix,
+)
 from yoke_core.domain import lint_config
 
 #: Payload key carrying the calling harness family across the relay split.
@@ -86,42 +89,45 @@ def resolve_caller_family(payload: object | None = None) -> Optional[str]:
         return None
 
 
-def claude_invocations(command: str) -> list[list[str]]:
+def _opened_command(words: Sequence[str]) -> list[str]:
+    """Words of a command opened by ``(``/``$(``, up to its closing ``)``."""
+    closed: list[str] = []
+    for word in words:
+        closed.append(word.rstrip(")"))
+        if word.endswith(")"):
+            break
+    return strip_env_prefix([word for word in closed if word])
+
+
+def _commands_in(argv: Sequence[str], tokens: Sequence[str]) -> Iterator[list[str]]:
+    """Yield the segment's own command and each ``$(...)`` it opens."""
+    if argv and argv[0].startswith("("):
+        yield _opened_command([argv[0].lstrip("("), *argv[1:]])
+    elif argv:
+        yield list(argv)
+    for index, token in enumerate(tokens):
+        for opened in token.split("$(")[1:]:
+            yield _opened_command([opened, *tokens[index + 1:]])
+
+
+def claude_invocations(command: str | ShellParse) -> list[list[str]]:
     """Return each command in ``command`` whose binary is ``claude``.
 
     Each entry is that command's own words, binary first. A word is the
-    binary only in command position: after a shell operator, a newline or an
-    opening ``$(``/``(``, past any ``VAR=value`` prefixes. Line continuations
-    join first and heredoc bodies drop, so a path argument such as
-    ``runtime/harness/claude`` on a continued line is never read as a command.
-    Text the shell cannot tokenize runs nothing, so it names no invocation.
+    binary only in command position: first in a segment of the shared parse
+    or just inside an opening ``(``/``$(``, past any ``VAR=value`` prefixes.
+    Line continuations join and heredoc bodies are input, so a path argument
+    such as ``runtime/harness/claude`` on a continued line is never read as a
+    command. Text the shell cannot tokenize runs nothing, so it names no
+    invocation.
     """
-    text = without_heredoc_bodies(command.replace("\\\n", " "))
-    try:
-        lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()")
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return []
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token and set(token) <= set(";&|()"):
-            segments.append([])
-        else:
-            segments[-1].append(token)
-    invocations: list[list[str]] = []
-    for words in segments:
-        index = 0
-        while (
-            index < len(words)
-            and "=" in words[index]
-            and not words[index].startswith("=")
-        ):
-            index += 1
-        if index < len(words) and PurePosixPath(words[index]).name == "claude":
-            invocations.append(words[index:])
-    return invocations
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    return [
+        words
+        for segment in parsed.segments
+        for words in _commands_in(segment.argv, segment.tokens)
+        if words and PurePosixPath(words[0]).name == "claude"
+    ]
 
 
 def nested_claude_cli_denial(

@@ -28,20 +28,13 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import os
-import re
 import sys
 from pathlib import PurePath
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_core.domain.command_workdir import command_execution_cwd
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_heredoc_syntax,
-)
-from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
-    shell_command_segments,
-)
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_core.domain.command_workdir import command_segment_cwds
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
@@ -50,10 +43,6 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 
 CHECK_ID = "lint-workspace-cwd-match"
 SUPPRESSION_TOKEN = "# lint:no-workspace-cwd-check"
-
-_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-_ENV_OPTIONS_WITH_ARG = {"-u", "--unset", "-C", "--chdir"}
-
 
 # Writer-class verbs. Each entry is the leading argv-after-env-prefix shape;
 # detection consumes a leading ``python3 -m`` when needed.
@@ -66,20 +55,6 @@ _WRITER_VERBS = (
     ("python", "-m", "yoke_core.tools.run_tests"),
     ("python3", "-m", "yoke_core.tools.run_tests"),
 )
-
-
-def _strip_env_prefix(tokens: list[str]) -> list[str]:
-    i = 0
-    if tokens and tokens[0] == "env":
-        i = 1
-        while i < len(tokens) and tokens[i].startswith("-"):
-            option = tokens[i]
-            i += 1
-            if option in _ENV_OPTIONS_WITH_ARG and i < len(tokens):
-                i += 1
-    while i < len(tokens) and _ENV_RE.match(tokens[i]):
-        i += 1
-    return tokens[i:]
 
 
 def _matches_writer_verb(tokens: list[str]) -> bool:
@@ -95,21 +70,6 @@ def _matches_writer_verb(tokens: list[str]) -> bool:
         if prefix == normalised and len(normalised) >= len(verb):
             return True
     return False
-
-
-def _statements(command: str) -> list[list[str]]:
-    """Return each invocation's argv, command word first.
-
-    The shared quote-aware splitter keeps a quoted search pattern such as
-    ``rg 'a|pytest|b'`` one operand, and heredoc bodies are data, so only a
-    word in command position can name a writer.
-    """
-    out: list[list[str]] = []
-    for segment in shell_command_segments(strip_heredoc_syntax(command or "")):
-        tokens = _strip_env_prefix(command_operand_tokens(segment))
-        if tokens:
-            out.append(tokens)
-    return out
 
 
 def _is_under(target: str, root: str) -> bool:
@@ -150,7 +110,9 @@ def _format_reason(
     return attach_check_id(body, check_id="lint-workspace-cwd-match")
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+def evaluate_payload(
+    payload: dict, shell: ShellParse | None = None
+) -> Optional[Tuple[str, str]]:
     """Apply rules; return ``(reason, audit_outcome)`` on a hit, else None."""
     if not isinstance(payload, dict):
         return None
@@ -165,16 +127,18 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    # The call's declared workdir and any leading ``cd`` decide where the
-    # writer runs, exactly as the shell will.
-    cwd = command_execution_cwd(payload)
-    if not cwd:
-        return None
-    if any(_is_under(cwd, workspace) for workspace in workspaces):
-        return None
+    parsed = shell if shell is not None else parse_shell(command)
+    # The call's declared workdir and every ``cd`` before a writer decide
+    # where it runs, exactly as the shell will. Heredoc bodies are data and
+    # a quoted pattern is one operand, so only a command word names a writer.
+    base_cwd, segment_cwds = command_segment_cwds(payload, shell=parsed)
     suppression_seen = SUPPRESSION_TOKEN in command
-    for tokens in _statements(command):
-        if not _matches_writer_verb(tokens):
+    for segment, moved in zip(parsed.segments, segment_cwds):
+        tokens = list(segment.argv)
+        cwd = moved or base_cwd
+        if not cwd or not _matches_writer_verb(tokens):
+            continue
+        if any(_is_under(cwd, workspace) for workspace in workspaces):
             continue
         reason = _format_reason(
             ", ".join(workspaces),
@@ -191,7 +155,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

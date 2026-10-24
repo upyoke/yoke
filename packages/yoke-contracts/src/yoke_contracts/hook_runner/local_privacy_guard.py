@@ -24,9 +24,9 @@ from yoke_contracts.hook_runner.local_privacy_command_parse import (
     GREP_VALUE_OPTIONS,
     RG_VALUE_OPTIONS,
     option_positionals,
-    segments,
     unwrap,
 )
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.hook_runner.local_privacy_messages import (
     HOME_DISCOVERY,
     LOCAL_GUI_AUTOMATION,
@@ -269,15 +269,24 @@ def _scan_segment(
 
 
 def classify_shell_command(
-    command: str,
+    command: str | ShellParse,
     *,
     home: Path,
     cwd: str | os.PathLike[str] | None = None,
 ) -> LocalPrivacyFinding | None:
-    """Return the strongest operator-machine privacy finding in ``command``."""
+    """Return the strongest operator-machine privacy finding in ``command``.
+
+    Each segment's relative paths resolve against the directory it runs in,
+    after every earlier ``cd``; an unreadable ``cd`` leaves them unresolved.
+    """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    base = os.fspath(cwd) if cwd is not None else ""
     strongest: LocalPrivacyFinding | None = None
-    for segment in segments(command):
-        strongest = _stronger(strongest, _scan_segment(segment, home=home, cwd=cwd))
+    for segment, segment_cwd in zip(
+        parsed.segments, parsed.segment_cwds(base, home=str(home))
+    ):
+        finding = _scan_segment(segment.argv, home=home, cwd=segment_cwd or None)
+        strongest = _stronger(strongest, finding)
     return strongest
 
 

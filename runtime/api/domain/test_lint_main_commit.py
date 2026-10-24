@@ -14,6 +14,7 @@ from yoke_contracts.hook_runner.main_commit import (
     CLIENT_GIT_COMMIT_FACTS_KEY,
     CLIENT_GIT_COMMIT_FACTS_SCHEMA,
 )
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_main_commit
 from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
@@ -34,6 +35,12 @@ def git_facts(branch: str | None, staged: list[str]) -> dict:
             "status_probe_ok": True,
         }
     }
+
+
+def _evaluate_payload(payload: dict):
+    """Run the policy on *payload* with its one shared shell parse."""
+    shell = parse_shell(lint_main_commit._extract_command(payload))
+    return lint_main_commit.evaluate_payload(payload, shell)
 
 
 def _payload(command: str, facts: dict | None = None) -> dict:
@@ -113,11 +120,11 @@ class TestExtractCommand(unittest.TestCase):
 
 class TestEvaluatePayload(unittest.TestCase):
     def test_no_git_commit_allows(self) -> None:
-        self.assertIsNone(lint_main_commit.evaluate_payload(_payload("git status")))
+        self.assertIsNone(_evaluate_payload(_payload("git status")))
 
     def test_bypass_comment_allows(self) -> None:
         self.assertIsNone(
-            lint_main_commit.evaluate_payload(
+            _evaluate_payload(
                 _payload(
                     "git commit -m 'foo'  # lint:no-main-check",
                     git_facts("main", ["runtime/api/domain/foo.py"]),
@@ -130,25 +137,25 @@ class TestEvaluatePayload(unittest.TestCase):
             lint_main_commit, "_active_worktree_items", return_value=["YOK-1|x"]
         ) as active:
             self.assertIsNone(
-                lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
+                _evaluate_payload(_payload("git commit -m 'foo'"))
             )
         active.assert_not_called()
 
     def test_non_main_branch_allows(self) -> None:
         facts = git_facts("feature-xyz", ["runtime/api/domain/foo.py"])
         self.assertIsNone(
-            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+            _evaluate_payload(_payload("git commit -m 'foo'", facts))
         )
 
     def test_unknown_branch_allows(self) -> None:
         facts = git_facts(None, ["runtime/api/domain/foo.py"])
         self.assertIsNone(
-            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+            _evaluate_payload(_payload("git commit -m 'foo'", facts))
         )
 
     def test_no_staged_files_allows(self) -> None:
         self.assertIsNone(
-            lint_main_commit.evaluate_payload(
+            _evaluate_payload(
                 _payload("git commit -m 'foo'", git_facts("main", []))
             )
         )
@@ -156,7 +163,7 @@ class TestEvaluatePayload(unittest.TestCase):
     def test_all_bookkeeping_allows(self) -> None:
         facts = git_facts("main", ["AGENTS.md", "ouroboros/patterns.md"])
         self.assertIsNone(
-            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+            _evaluate_payload(_payload("git commit -m 'foo'", facts))
         )
 
     def test_no_active_items_allows(self) -> None:
@@ -165,7 +172,7 @@ class TestEvaluatePayload(unittest.TestCase):
             lint_main_commit, "_active_worktree_items", return_value=[]
         ):
             self.assertIsNone(
-                lint_main_commit.evaluate_payload(
+                _evaluate_payload(
                     _payload("git commit -m 'foo'", facts)
                 )
             )
@@ -179,7 +186,7 @@ class TestEvaluatePayload(unittest.TestCase):
             "_active_worktree_items",
             return_value=[f"{TEST_ITEM_REF}|Some item", "YOK-99|Another"],
         ):
-            reason = lint_main_commit.evaluate_payload(
+            reason = _evaluate_payload(
                 _payload("git commit -m 'foo'", facts)
             )
         self.assertIsNotNone(reason)
@@ -193,7 +200,7 @@ class TestEvaluatePayload(unittest.TestCase):
         with mock.patch.object(
             lint_main_commit, "_active_worktree_items", return_value=["YOK-1|Something"]
         ):
-            reason = lint_main_commit.evaluate_payload(
+            reason = _evaluate_payload(
                 _payload("git commit -am 'x'", facts)
             )
         self.assertIsNotNone(reason)
@@ -322,7 +329,7 @@ class TestQuotedGitCommitEvidence(unittest.TestCase):
         )
         payload = _payload(cmd, git_facts("main", ["runtime/api/domain/foo.py"]))
         with mock.patch.object(lint_main_commit, "_active_worktree_items") as active:
-            result = lint_main_commit.evaluate_payload(payload)
+            result = _evaluate_payload(payload)
             self.assertIsNone(result)
             active.assert_not_called()
 

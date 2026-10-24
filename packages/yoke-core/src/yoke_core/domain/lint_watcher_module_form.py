@@ -13,12 +13,12 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import os
-import shlex
 import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -28,13 +28,14 @@ SUPPRESSION_TOKEN = "# lint:no-watcher-module-form-check"
 _PYTHON_NAMES = {"python", "python3"}
 
 
-def _legacy_forms(command: str) -> tuple[tuple[str, str], ...]:
-    try:
-        tokens = shlex.split(command, posix=True)
-    except ValueError:
-        return ()
+def _legacy_forms(command: str | ShellParse) -> tuple[tuple[str, str], ...]:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     found: list[tuple[str, str]] = []
-    for index in range(len(tokens) - 2):
+    for tokens, index in (
+        (segment.tokens, index)
+        for segment in parsed.segments
+        for index in range(len(segment.tokens) - 2)
+    ):
         if os.path.basename(tokens[index]) not in _PYTHON_NAMES:
             continue
         if tokens[index + 1] != "-m":
@@ -69,15 +70,20 @@ def _format_reason(
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Return ``(reason, audit_outcome)`` for a legacy watcher form, else None."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for a legacy watcher form, else None.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    forms = _legacy_forms(command)
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    forms = _legacy_forms(parsed)
     if not forms:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     reason = _format_reason(forms, suppression_seen)
     return reason, "suppression_attempted" if suppression_seen else "denied"
 
@@ -86,7 +92,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

@@ -11,8 +11,15 @@ from yoke_contracts.hook_runner.shell_guard_repairs import (
     _brace_alternatives,
     glob_repair,
 )
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_unmatched_path_glob as core
 from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+
+
+def _client(payload: dict):
+    """Run the client evaluator the way the local subset does: with one parse."""
+    return lint_unmatched_path_glob(payload, parse_shell(extract_command(payload)))
 
 
 def _selected_files(command: str, cwd: Path) -> set[Path]:
@@ -60,7 +67,7 @@ def test_printed_repairs_select_intact_patterns(tmp_path, hook, invocation, patt
     }
     if "{" in pattern:
         reason = (core.evaluate_payload(payload)[0] if hook == "core"
-                  else lint_unmatched_path_glob(payload).message)
+                  else _client(payload).message)
         repaired = re.search(r"Repaired command: `([^`]+)`", reason)[1]
     else:
         repaired = glob_repair(payload["tool_input"]["command"], pattern,
@@ -91,7 +98,7 @@ def test_unsafe_repairs_keep_manual_recipe(tmp_path: Path, command):
     payload = {"tool_name": "Bash", "cwd": str(tmp_path),
                "tool_input": {"command": command, "shell": "/bin/zsh"}}
     reasons = [core.evaluate_payload(payload)[0],
-               lint_unmatched_path_glob(payload).message]
+               _client(payload).message]
     for reason in reasons:
         assert "Repaired command:" not in reason
         assert "rg --files" in reason
@@ -129,7 +136,7 @@ def test_brace_matching_checks_each_expanded_operand(tmp_path, hook, missing, pa
     payload = {"tool_name": "Bash", "cwd": str(tmp_path),
                "tool_input": {"command": f"ls {pattern}", "shell": "/bin/zsh"}}
     denied = (core.evaluate_payload(payload) is not None if hook == "core"
-              else lint_unmatched_path_glob(payload).outcome == "deny")
+              else _client(payload).outcome == "deny")
     assert denied is (missing != "none")
 
 

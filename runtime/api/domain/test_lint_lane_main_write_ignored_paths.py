@@ -24,6 +24,8 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_core.domain import lint_lane_main_write
 from yoke_contracts.hook_runner.client_facts import WRITE_TARGETS_KEY
 from yoke_harness.hooks.client_write_targets import write_targets_fact
@@ -102,7 +104,7 @@ def _write(repo: Path, relative: str) -> dict:
         "tool_input": {"file_path": str(repo / relative), "content": "body\n"},
     }
     # The client answers for its own checkout before the payload leaves it.
-    return {**payload, **write_targets_fact(payload)}
+    return {**payload, **write_targets_fact(payload, parse_shell(extract_command(payload)))}
 
 
 def _refuse_subprocess(*_args, **_kwargs):

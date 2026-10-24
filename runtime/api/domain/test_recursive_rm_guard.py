@@ -14,6 +14,7 @@ from yoke_contracts.hook_runner.destructive_git_messages import (
     format_recursive_rm_reason,
 )
 from yoke_core.domain import lint_destructive_git as engine
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 from yoke_harness.hooks import local_policies
 
 INCIDENT = 'rm -rf "$(dirname $(mktemp -u))"/tmp.* 2>/dev/null'
@@ -134,8 +135,9 @@ def test_engine_guard_passes_creating_call_cleanup(roots, monkeypatch):
 
 def test_client_guard_denies_shared_temp_glob(roots):
     shared, _ = roots
+    command = f"rm -rf {shared}/tmp.*"
     result = local_policies.lint_destructive_git(
-        _payload(f"rm -rf {shared}/tmp.*", "/")
+        _payload(command, "/"), parse_shell(command)
     )
     assert result.outcome == local_policies.DENY
     assert "shared temp root" in result.message

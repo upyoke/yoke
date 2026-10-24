@@ -74,6 +74,15 @@ class TestIsActualGitCommit(unittest.TestCase):
         self.assertTrue(is_actual_git_commit('git commit -m "unclosed'))
         self.assertFalse(is_actual_git_commit('"git commit'))
 
+    def test_commit_on_a_later_line_is_found(self) -> None:
+        # Newlines separate commands, so a second-line commit is its own
+        # statement rather than arguments of the first.
+        self.assertTrue(is_actual_git_commit("git status\ngit commit -m x"))
+
+    def test_heredoc_body_is_input_not_a_commit(self) -> None:
+        cmd = "cat > notes.txt <<'EOF'\nthen git commit -m x\nEOF"
+        self.assertFalse(is_actual_git_commit(cmd))
+
 
 if __name__ == "__main__":
     unittest.main()

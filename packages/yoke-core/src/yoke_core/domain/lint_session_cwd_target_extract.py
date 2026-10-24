@@ -11,17 +11,17 @@ are not write targets.
 from __future__ import annotations
 
 import re
-import shlex
 from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import Any, List, Mapping, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_contracts.hook_runner.shell_parse import strip_env_prefix
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
     resolve_path_operands,
     shell_variable_bindings,
 )
@@ -32,12 +32,11 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_EQUALS_PREFIXES,
     REDIRECT_OPERATORS,
     extract_command_targets,
+    in_segment_cwd,
     is_file_redirect_operand,
-    strip_env_prefixes,
-    strip_heredoc_syntax,
+    without_heredoc_operators,
 )
 from yoke_core.domain.observe_apply_patch_parser import parse_patch
-from yoke_core.domain.path_claim_bash_splitter import split_pipeline
 
 
 APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
@@ -193,8 +192,10 @@ def analyze_payload_write_targets(
     payload: Mapping[str, Any],
     *,
     protected_roots: Tuple[str, ...] = (),
+    shell: ShellParse | None = None,
+    segment_cwds: Sequence[str] = (),
 ) -> PayloadWriteTargets:
-    """Return write-position paths for a payload with resolution detail."""
+    """Return write-position paths; ``segment_cwds`` moves relative ones."""
     if not isinstance(payload, Mapping):
         return PayloadWriteTargets([], False)
     tool_input = _tool_input(payload)
@@ -211,10 +212,11 @@ def analyze_payload_write_targets(
         out.extend(parse_patch(command).all_paths())
         return PayloadWriteTargets(_dedupe_paths(out), False)
 
-    shell_targets, unresolved = _extract_shell_write_targets(command)
+    parsed = shell if shell is not None else parse_shell(command)
+    shell_targets, unresolved = _extract_shell_write_targets(parsed, segment_cwds)
     out.extend(shell_targets)
     python_writes = analyze_python_heredoc_writes(
-        command, protected_roots=protected_roots
+        parsed, protected_roots=protected_roots, segment_cwds=segment_cwds
     )
     out.extend(python_writes.targets)
     return PayloadWriteTargets(
@@ -230,47 +232,52 @@ def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:
     return analyze_payload_write_targets(payload).targets
 
 
-def payload_has_embedded_python_write(payload: Mapping[str, Any]) -> bool:
+def payload_has_embedded_python_write(
+    payload: Mapping[str, Any], shell: ShellParse | None = None
+) -> bool:
     """True when a Bash payload executes an embedded Python write call."""
     if not isinstance(payload, Mapping) or _is_apply_patch_payload(payload):
         return False
     command = extract_payload_command(payload)
-    return bool(command) and analyze_python_heredoc_writes(command).detected
+    return bool(command) and analyze_python_heredoc_writes(shell or command).detected
 
 
-def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
+def _extract_shell_write_targets(
+    parsed: ShellParse, segment_cwds: Sequence[str]
+) -> Tuple[List[str], bool]:
     from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
-    result = analyze_shell_path_use(command)
+    result = analyze_shell_path_use(parsed, segment_cwds=segment_cwds)
     return list(result.write_targets), result.unresolved_writes
 
 
 def resolve_shell_write_operands(
-    command: str, *, bindings=None
+    command: str | ShellParse,
+    *,
+    bindings=None,
+    segment_cwds: Sequence[str] = (),
 ) -> Tuple[List[str], bool]:
     """Resolve existing write positions using bindings from the whole body."""
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     if bindings is None:
-        bindings = shell_variable_bindings(command)
+        bindings = shell_variable_bindings(parsed.command)
     out: List[str] = []
     unresolved = False
-    for segment in split_pipeline(strip_heredoc_syntax(command)):
-        try:
-            split = shlex.split(segment)
-        except ValueError:
-            continue
+    for index, segment in enumerate(parsed.segments):
         # Redirects are read before the reserved words are dropped: a
         # word-list header carries no operands but can still redirect.
-        clean, redirects = _split_redirect_targets(split)
-        clean = strip_env_prefixes(command_operand_tokens(clean))
+        words = without_heredoc_operators(segment.tokens)
+        clean, redirects = _split_redirect_targets(words)
+        clean = strip_env_prefix(clean)
         resolved, segment_unresolved = resolve_path_operands(redirects, bindings)
-        out.extend(resolved)
+        out.extend(in_segment_cwd(resolved, segment_cwds, index))
         unresolved = unresolved or segment_unresolved
         if not clean:
             continue
         command_base = PurePath(clean[0]).name
         if command_base == "git":
             git_targets, git_unresolved = git_write_targets(segment, bindings=bindings)
-            out.extend(git_targets)
+            out.extend(in_segment_cwd(git_targets, segment_cwds, index))
             unresolved = unresolved or git_unresolved
             continue
         args = clean[1:]
@@ -280,7 +287,7 @@ def resolve_shell_write_operands(
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
             continue
         resolved, segment_unresolved = resolve_path_operands(positionals, bindings)
-        out.extend(resolved)
+        out.extend(in_segment_cwd(resolved, segment_cwds, index))
         unresolved = unresolved or segment_unresolved
     return _dedupe_paths(out), unresolved
 

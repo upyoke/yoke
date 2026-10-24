@@ -104,29 +104,16 @@ if "sqlite3" in command_stripped:
                 words = shlex.split(part, posix=True)
             except Exception:
                 words = part.split()
-            idx = 0
-            while idx < len(words) and re.match(r"[A-Za-z_]\w*=.*", words[idx]):
-                idx += 1
-            if idx >= len(words):
+            words = strip_env_prefix(words)
+            if not words:
                 return False
-            first_word = words[idx].rsplit("/", 1)[-1]
+            first_word = words[0].rsplit("/", 1)[-1]
             if first_word == "sqlite3":
                 return True
-            if first_word == "command" and idx + 1 < len(words):
-                return words[idx + 1].rsplit("/", 1)[-1] == "sqlite3"
-            if first_word == "env":
-                nested_idx = idx + 1
-                while (
-                    nested_idx < len(words)
-                    and re.match(r"[A-Za-z_]\w*=.*", words[nested_idx])
-                ):
-                    nested_idx += 1
-                return (
-                    nested_idx < len(words)
-                    and words[nested_idx].rsplit("/", 1)[-1] == "sqlite3"
-                )
+            if first_word == "command" and len(words) > 1:
+                return words[1].rsplit("/", 1)[-1] == "sqlite3"
             if first_word in SHELL_EXECUTORS:
-                for token in words[idx + 1:]:
+                for token in words[1:]:
                     if token.startswith("-"):
                         continue
                     script = token.rsplit("/", 1)[-1]
@@ -212,7 +199,7 @@ if not uses_raw_query_escape_hatch(command_stripped):
 # single-quoted SQL is inspected too. Keep the quoted-string fallback so checks
 # still see inline SQL assigned to variables earlier in the command.
 quoted_strings = []
-for _candidate in extract_yoke_query_sql_payloads(command) + re.findall(r"\"((?:[^\"\\]|\\.)*)\"", command):
+for _candidate in extract_yoke_query_sql_payloads(shell) + re.findall(r"\"((?:[^\"\\]|\\.)*)\"", command):
     if _candidate not in quoted_strings:
         quoted_strings.append(_candidate)
 

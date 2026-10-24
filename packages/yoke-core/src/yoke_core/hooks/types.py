@@ -10,7 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from functools import cached_property
 from typing import Any
+
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 
 class Outcome(str, Enum):
@@ -37,6 +41,8 @@ class HookContext:
 
     The context is intentionally minimal. Anything else a policy needs is read
     on demand via `yoke_core.hooks.helpers_*` or `yoke_core.domain.*`.
+    `shell` is the one shared parse of the Bash command, built on first use
+    and reused by every later policy in the chain.
     """
 
     event_name: str
@@ -54,6 +60,10 @@ class HookContext:
     # (``/v1/hooks/evaluate``): client-local filesystem/git/env state is NOT
     # available, and ``cwd`` is payload-borne only (no ``os.getcwd`` fallback).
     remote: bool = False
+
+    @cached_property
+    def shell(self) -> ShellParse:
+        return parse_shell(extract_command(self.payload))
 
 
 @dataclass(frozen=True)

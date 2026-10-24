@@ -197,6 +197,18 @@ class TestCompoundCommands:
     def test_or_with_unclassified_does_not_classify(self):
         assert match_read_only_signature("git status || true") is None
 
+    @pytest.mark.parametrize(
+        "command", ["git status\nrm -rf build", "git status & rm -rf build"]
+    )
+    def test_newline_or_background_write_does_not_classify(self, command):
+        assert match_read_only_signature(command) is None
+
+    def test_glued_semicolon_splits_reads(self):
+        assert match_read_only_signature("git status;git log") == "compound-read"
+
+    def test_heredoc_body_is_input_not_a_command(self):
+        assert match_read_only_signature("cat <<'EOF'\nrm -rf build\nEOF") == "cat-read"
+
 
 class TestNonReadOnlyCommands:
     def test_pytest_does_not_classify(self):

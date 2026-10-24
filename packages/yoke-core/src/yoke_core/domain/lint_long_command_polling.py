@@ -88,7 +88,7 @@ def evaluate(record: HookContext) -> HookDecision:
     """
     payload = record.payload if isinstance(record.payload, dict) else {}
     tool_name = record.tool_name or ""
-    verdict_result = evaluate_payload(payload, tool_name)
+    verdict_result = evaluate_payload(payload, tool_name, record.shell)
     if verdict_result is None:
         return _allow_decision()
 

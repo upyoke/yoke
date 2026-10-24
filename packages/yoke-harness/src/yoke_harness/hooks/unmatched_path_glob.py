@@ -2,26 +2,16 @@
 
 from __future__ import annotations
 
-import re
-
 from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
-    array_assignment_element,
     executing_shell,
     expanded_glob_path,
+    find_unmatched_path_glob,
     glob_repair,
-    glob_segment_bases,
-    path_glob_is_unmatched,
     ripgrep_replace_repair,
 )
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_harness.hooks.local_policy_common import DENY, NOOP, PolicyResult
-
-
-_GLOB_CHARS = frozenset("*?[")
-_REDIRECT_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
-_HEREDOC = re.compile(
-    r"<<(?P<strip>-)?\s*(?:'(?P<sq>[^']+)'|\"(?P<dq>[^\"]+)\"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"
-)
 
 
 def _tool_input(payload: dict) -> dict:
@@ -65,81 +55,18 @@ def _execution_cwd(payload: dict) -> str:
     return ""
 
 
-def _strip_heredoc_bodies(command: str) -> str:
-    kept: list[str] = []
-    delimiters: list[tuple[str, bool]] = []
-    for line in command.splitlines(keepends=True):
-        if delimiters:
-            delimiter, strip_tabs = delimiters[0]
-            candidate = line.rstrip("\r\n")
-            if strip_tabs:
-                candidate = candidate.lstrip("\t")
-            if candidate == delimiter:
-                delimiters.pop(0)
-            continue
-        kept.append(line)
-        for match in _HEREDOC.finditer(line):
-            delimiter = match.group("sq") or match.group("dq") or match.group("bare")
-            delimiters.append((delimiter, bool(match.group("strip"))))
-    return "".join(kept)
+def lint_unmatched_path_glob(payload: dict, shell: ShellParse) -> PolicyResult:
+    """Deny an unmatched path glob only when the command shell is zsh.
 
-
-def _unquoted_tokens(command: str) -> list[str]:
-    tokens: list[str] = []
-    current: list[str] = []
-    in_single = in_double = escaped = False
-    for char in _strip_heredoc_bodies(command):
-        if escaped:
-            if not in_single and not in_double:
-                current.append(char)
-            escaped = False
-            continue
-        if char == "\\" and not in_single:
-            escaped = True
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-            continue
-        if char == '"' and not in_single:
-            in_double = not in_double
-            continue
-        if in_single or in_double:
-            continue
-        if char.isspace() or char in ";|&":
-            if current:
-                tokens.append("".join(current))
-                current = []
-            continue
-        current.append(char)
-    if current:
-        tokens.append("".join(current))
-    return tokens
-
-
-def _unmatched(command: str, cwd: str) -> tuple[str, str]:
-    if not cwd:
-        return "", ""
-    for piece, base in glob_segment_bases(_strip_heredoc_bodies(command), cwd):
-        for token in _unquoted_tokens(piece):
-            path = array_assignment_element(token)
-            for prefix in _REDIRECT_PREFIXES:
-                if path.startswith(prefix):
-                    path = path[len(prefix) :]
-                    break
-            if "/" not in path or not any(char in path for char in _GLOB_CHARS):
-                continue
-            if path_glob_is_unmatched(path, base or ""):
-                return path, base or ""
-    return "", ""
-
-
-def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
-    """Deny an unmatched path glob only when the command shell is zsh."""
+    Globs are read from the command as written, before assignment
+    substitution, so ``shell`` is reused only when it parsed that same text.
+    """
     tool = payload.get("tool_name") or payload.get("toolName")
     if tool and tool != "Bash":
         return PolicyResult(NOOP)
     command = _command(payload)
-    repair = ripgrep_replace_repair(command)
+    parsed = shell if shell.command == command else parse_shell(command)
+    repair = ripgrep_replace_repair(parsed)
     if repair is not None:
         return PolicyResult(
             DENY,
@@ -149,9 +76,10 @@ def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
     if executing_shell(payload) != "zsh":
         return PolicyResult(NOOP)
     cwd = _execution_cwd(payload)
-    token, checked = _unmatched(command, cwd)
-    if not token:
+    found = find_unmatched_path_glob(parsed, cwd)
+    if found is None:
         return PolicyResult(NOOP)
+    token, checked = found
     reason = (
         "BLOCKED: unquoted path glob matches no files after home and cwd resolution.\n\n"
         f"Detected: `{token}`\n"
@@ -160,7 +88,7 @@ def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
         "zsh NOMATCH aborts the command before the tool runs. Enumerate "
         "candidates with `rg --files`, or quote a pattern the tool consumes."
     )
-    repair = glob_repair(command, token, checked)
+    repair = glob_repair(parsed, token, checked)
     if repair is not None:
         repaired, matches = repair
         reason += "\n\nRepaired command: `" + repaired + "`"

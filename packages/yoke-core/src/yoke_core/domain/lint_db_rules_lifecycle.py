@@ -103,7 +103,7 @@ _EVENT_TABLE = "events"
 # Suppression: add "# lint:no-lifecycle-mutation-check" comment to the command.
 if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check" not in command_stripped:
     _lifecycle_sql_strings = []
-    for _candidate in extract_yoke_query_sql_payloads(command) + re.findall(r"\"((?:[^\"\\]|\\.)*)\"", command):
+    for _candidate in extract_yoke_query_sql_payloads(shell) + re.findall(r"\"((?:[^\"\\]|\\.)*)\"", command):
         if _candidate not in _lifecycle_sql_strings:
             _lifecycle_sql_strings.append(_candidate)
     for _dqs in _lifecycle_sql_strings:
@@ -160,7 +160,7 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
 # caught by Check 1 (hardcoded yoke.db). This check catches Python that receives the
 # DB path as an argument or env var and mutates lifecycle tables.
 # Reuses extract_python_payloads() from the heredoc/inline preprocessing above.
-for py_code in extract_python_payloads(original_command):
+for py_code in extract_python_payloads(shell):
     if "# lint:no-lifecycle-mutation-check" in original_command:
         break
     _executed = executed_sql_strings(py_code)

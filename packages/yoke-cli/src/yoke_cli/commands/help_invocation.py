@@ -1,20 +1,19 @@
 """Recognize print-only invocations before the shared hook runner dispatches."""
 
-import shlex
+from yoke_contracts.hook_runner.shell_parse import parse_shell
 
 
 def is_help_only_command(command: str) -> bool:
     """Keep operands, shell effects and forwarded commands in the guard chain."""
     if not any(flag in command for flag in ("-h", "--help", "--version")):
         return False
-    if any(char in command for char in ";&|<>$`\n()"):
+    if any(char in command for char in ";&|<>$`\n()#"):
         return False
-    try:
-        words = shlex.split(command)
-    except ValueError:
+    parsed = parse_shell(command)
+    if len(parsed.segments) != 1 or parsed.unparsed:
         return False
-    if not words:
-        return False
+    # Every word, assignments included: an ``X=1`` prefix is not print-only.
+    words = parsed.segments[0].tokens
     args = words[1:]
     if words[0].rsplit("/", 1)[-1] == "yoke":
         from yoke_cli.commands.command_tree import listed_routes

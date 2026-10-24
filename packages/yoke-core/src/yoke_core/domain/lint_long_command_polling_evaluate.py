@@ -10,6 +10,7 @@ from typing import Optional, Sequence
 from yoke_contracts.hook_runner.client_facts import (
     capture_roots,
 )
+from yoke_contracts.hook_runner.shell_parse import ShellParse
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.lint_long_command_polling_constants import (
@@ -107,12 +108,15 @@ def _capture_registered_in_session(
 
 
 def evaluate_payload(
-    payload: dict, tool_name: Optional[str] = None,
+    payload: dict,
+    tool_name: Optional[str] = None,
+    shell: Optional[ShellParse] = None,
 ) -> Optional[tuple[str, dict]]:
     """Evaluate *payload*. Return ``(reason, context)`` or ``None``.
 
     *tool_name* is the runner's tool name; ``None`` reads the payload's
-    ``tool_name``. The returned context dict may carry an ``outcome`` key
+    ``tool_name``. *shell* is the hook's shared parse of the command. The
+    returned context dict may carry an ``outcome`` key
     for rules with audit-only suppression tokens.
     """
     if tool_name is None:
@@ -122,7 +126,11 @@ def evaluate_payload(
 
     # A GitHub polling loop holds the turn a recorded CI wait would end;
     # checked before the suppression token, which does not unblock it.
-    if tool_name in ("", "Bash") and command and _is_github_poll_loop(command):
+    if (
+        tool_name in ("", "Bash")
+        and command
+        and _is_github_poll_loop(shell if shell is not None else command)
+    ):
         ctx = _build_context(tool_name or "Bash", command, None)
         return _format_github_poll_loop_reason(), ctx
 

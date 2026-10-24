@@ -20,6 +20,7 @@ from typing import Optional
 
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_long_command_polling_extract import _extract_command
 
 
@@ -28,13 +29,17 @@ SUPPRESSION_TOKEN = "# lint:no-monitor-watcher-tail-check"
 _FOLLOW_FLAGS = frozenset({"-f", "-F"})
 
 
-def _watcher_capture_path(command: str) -> Optional[str]:
+def _watcher_capture_path(command: str | ShellParse) -> Optional[str]:
     """Return the path from a bare watcher ``tail -f`` shape."""
-    candidate = command.partition(SUPPRESSION_TOKEN)[0].strip()
-    try:
-        tokens = shlex.split(candidate, posix=True)
-    except ValueError:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if len(parsed.segments) != 1 or parsed.unparsed:
         return None
+    tokens = list(parsed.segments[0].tokens)
+    suppression = SUPPRESSION_TOKEN.split()
+    for index in range(len(tokens)):
+        if tokens[index : index + len(suppression)] == suppression:
+            tokens = tokens[:index]
+            break
     if len(tokens) != 3:
         return None
     executable, flag, path = tokens
@@ -69,15 +74,20 @@ def _format_reason(path: str, suppression_seen: bool) -> str:
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[tuple[str, str]]:
-    """Return ``(reason, audit_outcome)`` for a bare watcher tail, else None."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for a bare watcher tail, else None.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    path = _watcher_capture_path(command)
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    path = _watcher_capture_path(parsed)
     if path is None:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     reason = _format_reason(path, suppression_seen)
     return reason, "suppression_attempted" if suppression_seen else "denied"
 
@@ -86,7 +96,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name != "Monitor":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

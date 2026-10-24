@@ -14,7 +14,7 @@ import re
 import sys
 from typing import Optional, Tuple
 
-from yoke_core.domain import shell_expansion_scan
+from yoke_contracts.hook_runner import shell_expansion_scan
 from yoke_core.domain.lint_shell_backtick_search import _extract_command
 from yoke_core.domain.lint_yoke_quoted_shell_substitution_messages import (
     SUPPRESSION_TOKEN,

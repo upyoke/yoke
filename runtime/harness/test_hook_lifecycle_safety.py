@@ -242,7 +242,7 @@ def test_local_safety_guard_crash_allows_tool(monkeypatch):
     module = "yoke_core.domain.lint_destructive_git"
     monkeypatch.setattr(local_subset, "event_chain", lambda *_a: [module])
 
-    def broken(_payload):
+    def broken(_payload, _shell):
         raise OSError("guard unavailable")
 
     monkeypatch.setitem(local_subset._POLICY_EVALUATORS, module, broken)

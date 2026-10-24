@@ -244,7 +244,7 @@ def run_event(
         decision = _guard_denial_identity.bind(
             decision,
             module_id,
-            command=extract_payload_command(payload),
+            command=context.shell,
         )
         record_guard_decision(
             decision,

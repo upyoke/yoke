@@ -33,11 +33,12 @@ from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_yoke_adapter_output_truncation import (
     TRUNCATORS,
     find_truncation_violation,
+    later_stages,
     stage_tokens,
     truncation_reason,
     yoke_args,
 )
-from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
+from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -52,7 +53,7 @@ _LAUNCH_WRITES = frozenset({"create", "retry", "reconcile"})
 _MESSAGE_ACKS = frozenset({"ack", "acknowledge"})
 
 
-def _mutating_adapter_label(stage: str) -> Optional[str]:
+def _mutating_adapter_label(stage: ShellSegment) -> Optional[str]:
     args = yoke_args(stage)
     if not args:
         return None
@@ -92,9 +93,15 @@ def _mutating_adapter_label(stage: str) -> Optional[str]:
     return "yoke " + " ".join(path) if path else None
 
 
-def _redirection_tokens(stage: str) -> list[str]:
+def _redirection_tokens(stage: ShellSegment) -> list[str]:
+    """Split one stage's text so redirection operators stand alone.
+
+    The shared words cannot tell an unquoted ``2>/dev/null`` redirect from a
+    quoted ``"2>/dev/null"`` argument; punctuation-aware tokens of the
+    stage text can.
+    """
     try:
-        lexer = shlex.shlex(stage, posix=True, punctuation_chars="<>&")
+        lexer = shlex.shlex(stage.text, posix=True, punctuation_chars="<>&")
         lexer.whitespace_split = True
         lexer.commenters = ""
         return list(lexer)
@@ -118,7 +125,7 @@ def _has_redirection(tokens: list[str], target: str) -> bool:
     return False
 
 
-def _is_parser_or_truncator(stage: str) -> bool:
+def _is_parser_or_truncator(stage: ShellSegment) -> bool:
     tokens = stage_tokens(stage)
     if not tokens:
         return False
@@ -128,21 +135,21 @@ def _is_parser_or_truncator(stage: str) -> bool:
     return command in {"python", "python3"} and "-c" in tokens[1:]
 
 
-def _find_violation(command: str) -> Optional[Tuple[str, str]]:
-    for stages in iter_pipeline_groups(command):
-        for index, stage in enumerate(stages):
-            label = _mutating_adapter_label(stage)
-            if label is None:
-                continue
-            redirects = _redirection_tokens(stage)
-            if _has_redirection(redirects, "/dev/null"):
-                return label, "suppressed stderr with `2>/dev/null`"
-            if _has_redirection(redirects, "-"):
-                return label, "closed stderr with `2>&-`"
-            if _has_redirection(redirects, "1") and any(
-                _is_parser_or_truncator(later) for later in stages[index + 1 :]
-            ):
-                return label, "merged stderr into parsed or truncated stdout"
+def _find_violation(command: str | ShellParse) -> Optional[Tuple[str, str]]:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    for index, stage in enumerate(parsed.segments):
+        label = _mutating_adapter_label(stage)
+        if label is None:
+            continue
+        redirects = _redirection_tokens(stage)
+        if _has_redirection(redirects, "/dev/null"):
+            return label, "suppressed stderr with `2>/dev/null`"
+        if _has_redirection(redirects, "-"):
+            return label, "closed stderr with `2>&-`"
+        if _has_redirection(redirects, "1") and any(
+            _is_parser_or_truncator(later) for later in later_stages(parsed, index)
+        ):
+            return label, "merged stderr into parsed or truncated stdout"
     return None
 
 
@@ -169,20 +176,25 @@ def _format_reason(label: str, hazard: str, suppression_seen: bool) -> str:
     return attach_check_id(body, check_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Return ``(reason, audit_outcome)`` for hidden or truncated output, else None."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Return ``(reason, audit_outcome)`` for hidden or truncated output, else None.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    if not command:
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    if not parsed.command:
         return None
     # A hidden refusal is the graver of the two shapes, so a command that
     # commits both is named by its stderr hazard rather than its truncator.
-    hidden = _find_violation(command)
-    truncated = None if hidden is not None else find_truncation_violation(command)
+    hidden = _find_violation(parsed)
+    truncated = None if hidden is not None else find_truncation_violation(parsed)
     if hidden is None and truncated is None:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
     if hidden is not None:
         reason = _format_reason(*hidden, suppression_seen)
     else:
@@ -199,7 +211,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

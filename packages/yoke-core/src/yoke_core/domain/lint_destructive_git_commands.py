@@ -7,33 +7,26 @@ client-local guard.
 
 from __future__ import annotations
 
-import re
 from typing import Tuple
 
-from yoke_core.domain.lint_shell_target_tokens import (
-    command_operand_tokens,
-    shell_command_segments,
-)
-
-_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 
 
-def parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
+def parse_git_invocations(command: str | ShellParse) -> list[Tuple[list[str], str]]:
     """Return ``(git-args, -C path)`` for each git invocation in *command*.
 
-    Compound-statement keywords (``do``, ``then``, …) are not the command
-    being run, so they are dropped before looking for ``git``. The shape
-    is the verb; argument spelling does not decide whether this is git.
+    The shared parse drops compound-statement keywords (``do``, ``then``,
+    …), assignments and an ``env`` prefix, which are not the command being
+    run. The shape is the verb; argument spelling does not decide whether
+    this is git.
     """
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     out: list[Tuple[list[str], str]] = []
-    for tokens in shell_command_segments(command or ""):
-        tokens = command_operand_tokens(tokens)
-        index = 0
-        while index < len(tokens) and _ENV_RE.match(tokens[index]):
-            index += 1
-        if index >= len(tokens) or tokens[index].rsplit("/", 1)[-1] != "git":
+    for segment in parsed.segments:
+        if segment.program != "git":
             continue
-        index += 1
+        tokens = segment.argv
+        index = 1
         repo_path = ""
         while index < len(tokens):
             token = tokens[index]
@@ -50,5 +43,5 @@ def parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
             else:
                 break
         if index < len(tokens):
-            out.append((tokens[index:], repo_path))
+            out.append((list(tokens[index:]), repo_path))
     return out

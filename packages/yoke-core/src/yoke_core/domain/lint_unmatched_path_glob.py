@@ -13,23 +13,19 @@ from yoke_core.hooks.decision_render import render_codex_decision
 
 import json
 import sys
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
-    array_assignment_element,
     executing_shell,
     expanded_glob_path,
+    find_unmatched_path_glob,
     glob_repair,
-    glob_segment_bases,
-    path_glob_is_unmatched,
     ripgrep_replace_repair,
 )
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_heredoc_body_lines,
-)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import (
     extract_command as _extract_command,
@@ -38,9 +34,6 @@ from yoke_core.domain.lint_command_extract import (
 
 CHECK_ID = "lint-unmatched-path-glob"
 SUPPRESSION_TOKEN = "# lint:no-unmatched-glob-check"
-
-_GLOB_CHARS = frozenset("*?[")
-_REDIR_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
 
 
 def _extract_cwd(payload: dict, fallback: str = "") -> str:
@@ -52,66 +45,13 @@ def _payload_cwd(payload: dict) -> str:
     return cwd if isinstance(cwd, str) else ""
 
 
-def _unquoted_tokens(command: str) -> List[str]:
-    tokens: List[str] = []
-    current: List[str] = []
-    in_single = in_double = escaped = False
-    for char in command:
-        if escaped:
-            if not in_single and not in_double:
-                current.append(char)
-            escaped = False
-            continue
-        if char == "\\" and not in_single:
-            escaped = True
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-            continue
-        if char == '"' and not in_single:
-            in_double = not in_double
-            continue
-        if in_single or in_double:
-            continue
-        if char.isspace() or char in ";|&":
-            if current:
-                tokens.append("".join(current))
-                current = []
-            continue
-        current.append(char)
-    if current:
-        tokens.append("".join(current))
-    return tokens
-
-
-def _strip_redir(token: str) -> str:
-    for prefix in _REDIR_PREFIXES:
-        if token.startswith(prefix):
-            return token[len(prefix) :]
-    return token
-
-
-def _find_unmatched(command: str, cwd: str) -> Optional[Tuple[str, str]]:
-    if not cwd:
-        return None
-    stripped = strip_heredoc_body_lines(command)
-    for piece, base in glob_segment_bases(stripped, cwd):
-        for token in _unquoted_tokens(piece):
-            path = array_assignment_element(_strip_redir(token))
-            if "/" not in path or not any(char in path for char in _GLOB_CHARS):
-                continue
-            if path_glob_is_unmatched(path, base or ""):
-                return path, base or ""
-    return None
-
-
 def _format_reason(
     token: str,
     suppression_seen: bool,
     *,
     execution_cwd: str = "",
     payload_cwd: str = "",
-    command: str = "",
+    command: ShellParse | None = None,
 ) -> str:
     body = (
         "BLOCKED: unquoted path glob matches no files after home and cwd resolution.\n\n"
@@ -131,7 +71,7 @@ def _format_reason(
         "Do not pass an optional unmatched path glob such as `docs/deploy*` "
         "directly to zsh."
     )
-    if command:
+    if command is not None:
         repair = glob_repair(command, token, execution_cwd)
         if repair is not None:
             repaired, matches = repair
@@ -152,14 +92,20 @@ def evaluate_payload(
     payload: dict,
     *,
     fallback_cwd: str = "",
+    shell: ShellParse | None = None,
 ) -> Optional[Tuple[str, str]]:
-    """Return ``(reason, audit_outcome)`` on a hit, else None."""
+    """Return ``(reason, audit_outcome)`` on a hit, else None.
+
+    ``shell`` is the hook call's shared parse of the extracted command.
+    """
     if not isinstance(payload, dict):
         return None
     command = _extract_command(payload)
     if not command:
         return None
-    repair = ripgrep_replace_repair(command)
+    reuse = shell is not None and shell.command == command
+    parsed = shell if reuse else parse_shell(command)
+    repair = ripgrep_replace_repair(parsed)
     if repair is not None:
         reason = attach_check_id(
             "BLOCKED: `rg -r` means `--replace`, not recursive search. "
@@ -174,7 +120,8 @@ def evaluate_payload(
     # raw text so an unexpanded variable is allowed instead of denied as a
     # literal path.
     source = _raw_command(payload) or command
-    found = _find_unmatched(source, execution_cwd)
+    walked = parsed if source == command else parse_shell(source)
+    found = find_unmatched_path_glob(walked, execution_cwd)
     if found is None:
         return None
     token, checked_cwd = found
@@ -184,7 +131,7 @@ def evaluate_payload(
         suppression_seen,
         execution_cwd=checked_cwd,
         payload_cwd=_payload_cwd(payload),
-        command=source,
+        command=walked,
     )
     return reason, "suppression_attempted" if suppression_seen else "denied"
 
@@ -193,7 +140,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload, fallback_cwd=record.cwd or "")
+    verdict = evaluate_payload(payload, fallback_cwd=record.cwd or "", shell=record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

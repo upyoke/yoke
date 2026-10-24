@@ -3,23 +3,16 @@
 from __future__ import annotations
 
 import os
-import re
-import shlex
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
 from yoke_contracts.hook_runner.command_extract import extract_command
-from yoke_contracts.hook_runner.main_commit import (
-    git_invocations as parse_git_invocations,
-)
 
 
 DENY = "deny"
 ADVISORY = "advisory"
 NOOP = "noop"
-SEP_RE = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
-ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
 @dataclass(frozen=True)
@@ -80,23 +73,6 @@ def response_text(payload: dict) -> str:
     return response if isinstance(response, str) else str(response or "")
 
 
-def statements(command: str) -> list[list[str]]:
-    out: list[list[str]] = []
-    for stmt in SEP_RE.split(command or ""):
-        if not stmt.strip():
-            continue
-        try:
-            tokens = shlex.split(stmt, posix=True)
-        except ValueError:
-            continue
-        index = 0
-        while index < len(tokens) and ENV_RE.match(tokens[index]):
-            index += 1
-        if index < len(tokens):
-            out.append(tokens[index:])
-    return out
-
-
 def git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
     try:
         return subprocess.run(
@@ -107,10 +83,6 @@ def git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return None
-
-
-def git_invocations(command: str) -> list[tuple[list[str], str]]:
-    return parse_git_invocations(command)
 
 
 def repo_cwd(payload: dict, repo_path: str = "") -> str:
@@ -125,10 +97,8 @@ __all__ = [
     "command_from_payload",
     "cwd_from_payload",
     "git",
-    "git_invocations",
     "repo_cwd",
     "response_text",
-    "statements",
     "tool_name",
     "write_fields",
 ]

@@ -16,7 +16,8 @@ import re
 from dataclasses import dataclass
 from typing import Iterator, Sequence
 
-from yoke_contracts.hook_runner.local_privacy_command_parse import segments, unwrap
+from yoke_contracts.hook_runner.local_privacy_command_parse import unwrap
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_contracts.machine_config.scratch_roots import scratch_path_roots
 
 UNRESOLVED_SHAPE = "rm_unresolved_target"
@@ -27,7 +28,6 @@ _VARIABLE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_
 _REDIRECT = re.compile(r"^\d*(?:>>?|<)")
 _DECLARERS = frozenset({"export", "local", "readonly", "declare", "typeset"})
 _GLOB_MARKS = frozenset("*?[")
-_LEADING_KEYWORDS = frozenset({"do", "then", "else", "elif", "if", "while", "until", "{", "!"})
 _MADE_HERE = object()  # a variable this command set from ``mktemp``
 
 
@@ -71,7 +71,7 @@ def _split_rm_args(args: Sequence[str]) -> tuple[list[str], list[str]]:
 
 
 def _record_assignments(tokens: Sequence[str], bindings: dict[str, object]) -> None:
-    index = 1 if tokens and tokens[0] in _DECLARERS else 0
+    index = 0
     while index < len(tokens):
         match = _ASSIGNMENT.match(tokens[index])
         if not match:
@@ -86,26 +86,30 @@ def _record_assignments(tokens: Sequence[str], bindings: dict[str, object]) -> N
         index += 1
 
 
-def _walk(command: str) -> Iterator[tuple[list[str], dict[str, object]]]:
-    """Yield each recursive ``rm``'s raw targets with the bindings set before it."""
+def _walk(
+    command: str | ShellParse, cwd: str
+) -> Iterator[tuple[list[str], dict[str, object], str]]:
+    """Yield each recursive ``rm``'s raw targets, prior bindings and cwd."""
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     bindings: dict[str, object] = {}
-    for tokens in segments(command):
-        while tokens and tokens[0] in _LEADING_KEYWORDS:
-            tokens = tokens[1:]
+    for segment, segment_cwd in zip(parsed.segments, parsed.segment_cwds(cwd)):
+        tokens = list(segment.argv)
         if tokens and tokens[0].startswith("("):
             tokens = [tokens[0].lstrip("("), *tokens[1:]]
-        _record_assignments(tokens, bindings)
+        _record_assignments(segment.assignments, bindings)
+        if tokens and tokens[0] in _DECLARERS:
+            _record_assignments(tokens[1:], bindings)
         executable, args = unwrap(tokens)
         if executable != "rm":
             continue
         flags, targets = _split_rm_args(args)
         if _is_recursive(flags) and targets:
-            yield targets, dict(bindings)
+            yield targets, dict(bindings), segment_cwd
 
 
-def recursive_rm_invocations(command: str) -> list[list[str]]:
+def recursive_rm_invocations(command: str | ShellParse) -> list[list[str]]:
     """Return the raw targets of every recursive ``rm`` in ``command``."""
-    return [targets for targets, _ in _walk(command)]
+    return [targets for targets, _, _ in _walk(command, "")]
 
 
 def _substitute(raw: str, bindings: dict[str, object]) -> str | None:
@@ -139,19 +143,19 @@ def _sweeps_shared_root(path: str, roots: Sequence[str]) -> bool:
 
 
 def recursive_rm_refusal(
-    command: str, cwd: str, roots: Sequence[str] | None = None
+    command: str | ShellParse, cwd: str, roots: Sequence[str] | None = None
 ) -> RecursiveRmRefusal | None:
     """Return the first recursive delete this command must not run, if any."""
     shared_roots = list(roots) if roots is not None else scratch_path_roots()
-    for raw_targets, bindings in _walk(command or ""):
+    for raw_targets, bindings, segment_cwd in _walk(command or "", cwd):
         unresolved: list[str] = []
         shared: list[str] = []
         for raw in raw_targets:
             text = _substitute(raw, bindings)
             if text is None:
                 unresolved.append(raw)
-            elif text and _sweeps_shared_root(_resolve(text, cwd), shared_roots):
-                shared.append(_resolve(text, cwd))
+            elif text and _sweeps_shared_root(_resolve(text, segment_cwd), shared_roots):
+                shared.append(_resolve(text, segment_cwd))
         if unresolved:
             return RecursiveRmRefusal(UNRESOLVED_SHAPE, tuple(unresolved))
         if shared:

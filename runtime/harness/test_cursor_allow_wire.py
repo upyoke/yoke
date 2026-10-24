@@ -52,7 +52,7 @@ def test_local_deny_keeps_reason_and_native_verdict(monkeypatch, tmp_path):
     monkeypatch.setitem(
         local_subset._POLICY_EVALUATORS,
         module,
-        lambda payload: PolicyResult(DENY, "required refusal"),
+        lambda payload, shell: PolicyResult(DENY, "required refusal"),
     )
     result = local_subset.evaluate_local_subset(
         "PreToolUse",

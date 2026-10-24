@@ -44,8 +44,8 @@ LANE_EDIT_GUIDANCE = (
     "While this session holds an implementation-lane work claim, tracked "
     "source edits belong in the lane worktree — not the main checkout. "
     "Copy the in-lane path above into your Edit/Write/Bash call; a relative "
-    "path resolves against the call's workdir, then any leading `cd`, so "
-    "running the call in the lane also lands it there."
+    "path resolves against the call's workdir, then each `cd` that runs "
+    "before it, so running the call in the lane also lands it there."
 )
 
 _SOURCE_NOTES = {

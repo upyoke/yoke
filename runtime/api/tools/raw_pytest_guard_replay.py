@@ -1,72 +1,63 @@
-"""Replay retained full shell payloads through pure baseline/candidate guards.
+"""Replay retained full shell payloads through baseline and candidate guards.
 
 Never runs archived commands, hooks, emitters, or transports. The baseline is
-extracted from a verified repository revision; missing originals are explicitly
-inconclusive. Expected classifications must be independently supplied.
+the guard's ``_classify`` imported, in a separate interpreter, from a
+``git archive`` of a verified repository revision; missing originals are
+explicitly inconclusive. Expected classifications must be independently
+supplied.
 """
 
 from __future__ import annotations
 
 import argparse
-import ast
 import json
-import re
 import subprocess
+import sys
+import tarfile
+import tempfile
+from io import BytesIO
 from pathlib import Path
 
 from yoke_core.domain import lint_raw_pytest_full_suite as candidate
 
-_DOMAIN = "packages/yoke-core/src/yoke_core/domain/"
+_PACKAGES = ("yoke-contracts", "yoke-core")
+_BASELINE_RUNNER = """
+import json, sys
+sys.path[:0] = sys.argv[1:]
+from yoke_core.domain.lint_raw_pytest_full_suite import _classify
+commands = json.load(sys.stdin)
+json.dump([_classify(command) for command in commands], sys.stdout)
+"""
 
 
-def baseline_classifier(root: Path, revision: str):
-    """Compile only verified pure parser definitions, excluding hook I/O."""
-    functions = {
-        "_leading_program",
-        "mask_quoted_spans",
-        "_unquoted_chars",
-        "mask_data_sink_lines",
-        "strip_heredoc_bodies",
-        "_consume_heredoc",
-        "_pytest_tokens",
-        "_pytest_paths",
-        "_classify",
-    }
-    namespace = {
-        "re": re,
-        "List": list,
-        "Optional": __import__("typing").Optional,
-        "Sequence": __import__("typing").Sequence,
-        "Tuple": __import__("typing").Tuple,
-        "WATCH_CLI_TOKENS": {},
-        "cli_form": lambda module: module,
-        "full_sweep_anchors": candidate.full_sweep_anchors,
-    }
-    from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
-
-    namespace.update(WATCH_CLI_TOKENS=WATCH_CLI_TOKENS, cli_form=cli_form)
-    for name in (
-        "lint_raw_pytest_full_suite_shell.py",
-        "lint_raw_pytest_full_suite.py",
-    ):
-        source = subprocess.check_output(
-            ["git", "-C", str(root), "show", f"{revision}:{_DOMAIN}{name}"],
+def baseline_classifications(root: Path, revision: str, commands: list[str]) -> list:
+    """Classify ``commands`` with the guard exactly as ``revision`` shipped it."""
+    archive = subprocess.check_output(
+        ["git", "-C", str(root), "archive", revision, *(f"packages/{p}/src" for p in _PACKAGES)]
+    )
+    with tempfile.TemporaryDirectory() as tree:
+        with tarfile.open(fileobj=BytesIO(archive)) as bundle:
+            bundle.extractall(tree, filter="data")
+        sources = [str(Path(tree, "packages", p, "src")) for p in _PACKAGES]
+        output = subprocess.run(
+            [sys.executable, "-I", "-c", _BASELINE_RUNNER, *sources],
+            input=json.dumps(commands),
+            capture_output=True,
             text=True,
+            check=False,
         )
-        tree = ast.parse(source)
-        tree.body = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            or isinstance(node, ast.FunctionDef)
-            and node.name in functions
-        ]
-        exec(compile(tree, name, "exec"), namespace)
-    return namespace["_classify"]
+    if output.returncode != 0:
+        raise SystemExit(
+            f"raw_pytest_baseline_failed: {revision} could not classify the corpus; "
+            f"check the revision ships lint_raw_pytest_full_suite._classify.\n{output.stderr}"
+        )
+    return [tuple(value) if value else None for value in json.loads(output.stdout)]
 
 
-def replay(rows: list[dict], baseline):
+def replay(rows: list[dict], root: Path, revision: str):
     """Compare decisions without asserting missing evidence as passing."""
+    originals = [row["original"] for row in rows if row.get("original") is not None]
+    baseline = iter(baseline_classifications(root, revision, originals))
     results = []
     for row in rows:
         original = row.get("original")
@@ -74,7 +65,7 @@ def replay(rows: list[dict], baseline):
         if original is None:
             result.update(verdict="inconclusive", reason="full original unavailable")
         else:
-            before = baseline(original)
+            before = next(baseline)
             after = candidate._classify(original)
             expected = row.get("expected")
             observed = after[0] if after else "silent"
@@ -148,7 +139,7 @@ def main():
                 text=True,
             ).strip()
         ),
-        "rows": replay(corpus["rows"], baseline_classifier(root, revision)),
+        "rows": replay(corpus["rows"], root, revision),
     }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     counts = {

@@ -15,7 +15,7 @@ from yoke_core.hooks.decision_render import render_codex_decision
 import json
 import os
 import sys
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 from yoke_contracts.hook_runner.client_facts import headless_launch
 from yoke_contracts.watch_cli_forms import (
@@ -23,13 +23,14 @@ from yoke_contracts.watch_cli_forms import (
     WATCH_CLI_TOKENS,
 )
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import (
+    ShellParse,
+    parse_shell,
+    strip_env_prefix,
+)
 from yoke_core.domain.lint_session_cwd_host_command import (
     yoke_subcommand_positionals,
 )
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    strip_env_prefixes,
-)
-from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
@@ -65,7 +66,7 @@ def _is_watch_subcommand(tokens: Sequence[str]) -> bool:
     )
 
 
-def _is_yoke_watch_invocation(tokens: List[str]) -> bool:
+def _is_yoke_watch_invocation(tokens: Sequence[str]) -> bool:
     """True when ``tokens`` invoke ``yoke watch <kind>`` as the program.
 
     Reuses the session-cwd yoke positional walk so global flags such as
@@ -75,7 +76,7 @@ def _is_yoke_watch_invocation(tokens: List[str]) -> bool:
     ``--print-streaming-pair`` before any ``--`` only prints the pair and
     runs nothing, so that call needs no watcher timeout.
     """
-    argv = strip_env_prefixes(list(tokens))
+    argv = strip_env_prefix(tokens)
     if not argv or not _is_yoke_executable(argv[0]):
         return False
     if _is_watch_subcommand(argv):
@@ -86,11 +87,9 @@ def _is_yoke_watch_invocation(tokens: List[str]) -> bool:
     return _is_yoke_watch_invocation(argv[argv.index("--") + 1 :])
 
 
-def _is_watcher_command(command: str) -> bool:
-    return any(
-        _is_yoke_watch_invocation(segment)
-        for segment in shell_command_segments(command)
-    )
+def _is_watcher_command(command: str | ShellParse) -> bool:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    return any(_is_yoke_watch_invocation(segment.argv) for segment in parsed.segments)
 
 
 def _format_reason(timeout_ms: Optional[int], suppression_seen: bool) -> str:
@@ -134,8 +133,12 @@ def evaluate_payload(
     payload: dict,
     *,
     executor_family: str = "",
+    shell: Optional[ShellParse] = None,
 ) -> Optional[Tuple[str, str]]:
-    """Return ``(reason, audit_outcome)`` for a short watcher timeout, else None."""
+    """Return ``(reason, audit_outcome)`` for a short watcher timeout, else None.
+
+    ``shell`` is the hook call's shared parse of the same command.
+    """
     if not isinstance(payload, dict):
         return None
     if (executor_family or "").strip() != _CLAUDE_FAMILY:
@@ -143,7 +146,7 @@ def evaluate_payload(
     if not headless_launch(payload):
         return None
     command = _extract_command(payload)
-    if not _is_watcher_command(command):
+    if not _is_watcher_command(shell if shell is not None else command):
         return None
     timeout_ms = _tool_timeout_ms(payload)
     if timeout_ms is not None and timeout_ms >= IN_TURN_WATCHER_TIMEOUT_MS:
@@ -160,6 +163,7 @@ def evaluate(record: HookContext) -> HookDecision:
     verdict = evaluate_payload(
         payload,
         executor_family=record.executor_family or "",
+        shell=record.shell,
     )
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)

@@ -135,6 +135,8 @@ def test_yok374_allowlisted_and_read_only_references_allowed(command: str) -> No
         'sqlite3 "$YOKE_DB" ".read migrate-to-sqlite.sh"',
         'command sqlite3 "$YOKE_DB" "SELECT 1"',
         'env YOKE_DB=/tmp/yoke.db sqlite3 "$YOKE_DB" "SELECT 1"',
+        'env -i sqlite3 db.db "SELECT 1"',
+        'env -u HOME _X=1 sqlite3 db.db "SELECT 1"',
         "sh my-custom-sqlite3-tool.sh",
         "sh sqlite3-backdoor.sh",
     ],

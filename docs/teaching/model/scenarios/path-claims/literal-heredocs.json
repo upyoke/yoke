@@ -8,5 +8,5 @@
  "disclosure": "current cue",
  "surface": "Path claim model reference and shared Bash guard",
  "review": "Candidate source regressions cover apostrophes, regex operators, single and double quotes, tab-stripped delimiters, multiple inputs, later commands and claimed versus uncovered redirects. Deployed proof remains pending.",
- "sources": ["docs/public/sessions/model/path-claims.md", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_parser.py", "packages/yoke-core/src/yoke_core/domain/shell_expansion_scan.py", "runtime/api/domain/test_path_claim_bash_parser_heredocs.py"]
+ "sources": ["docs/public/sessions/model/path-claims.md", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_parser.py", "packages/yoke-contracts/src/yoke_contracts/hook_runner/shell_expansion_scan.py", "runtime/api/domain/test_path_claim_bash_parser_heredocs.py"]
 }

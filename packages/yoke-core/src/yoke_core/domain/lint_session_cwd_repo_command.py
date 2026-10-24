@@ -13,6 +13,7 @@ import shlex
 from pathlib import PurePath
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
@@ -59,26 +60,22 @@ _GH_LOCAL_COPY_SHAPES = frozenset(
 )
 
 
-def _is_env_assignment(token: str) -> bool:
-    if "=" not in token or token.startswith("-"):
-        return False
-    name = token.split("=", 1)[0]
-    return bool(name) and name[0].isalpha() and name.replace("_", "").isalnum()
+def _parse_simple_command(parsed: ShellParse) -> tuple[list[str], str, list[str]]:
+    """Split one simple command into its env prefix, binary and arguments.
 
-
-def _parse_simple_command(command: str) -> tuple[list[str], str, list[str]]:
-    if not command.strip() or any(char in command for char in ";&|"):
+    The prefix keeps every word before the binary verbatim (assignments
+    and an ``env`` prefix with its options) so the rendered command runs
+    with the same environment. Any ``;``, ``&`` or ``|`` in the raw text,
+    quoted or not, refuses a suggestion: a re-rendered command would drop
+    a trailing ``&`` or a comment, so only plainly simple bodies qualify.
+    """
+    if any(char in parsed.command for char in ";&|"):
         return [], "", []
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
+    if parsed.unparsed or len(parsed.segments) != 1 or not parsed.segments[0].argv:
         return [], "", []
-    env: list[str] = []
-    while tokens and _is_env_assignment(tokens[0]):
-        env.append(tokens.pop(0))
-    if not tokens:
-        return [], "", []
-    return env, tokens[0], tokens[1:]
+    segment = parsed.segments[0]
+    env = list(segment.tokens[: len(segment.tokens) - len(segment.argv)])
+    return env, segment.argv[0], list(segment.argv[1:])
 
 
 def _has_git_target(args: Sequence[str]) -> bool:
@@ -100,7 +97,7 @@ def _insert_git_checkout(
 
 
 def _render_git_command(
-    command: str,
+    command: ShellParse,
     env: list[str],
     binary: str,
     args: list[str],
@@ -144,12 +141,13 @@ def _render_gh_command(
     return f"{shlex.join([*env, binary, *args])} --repo {selector}"
 
 
-def render_claimed_repo_command(command: str, checkout: str) -> str:
+def render_claimed_repo_command(command: str | ShellParse, checkout: str) -> str:
     """Return one exact lane-bound command, or ``""`` when unsafe."""
-    env, binary, args = _parse_simple_command(command)
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    env, binary, args = _parse_simple_command(parsed)
     base = PurePath(binary).name
     if base == "git":
-        return _render_git_command(command, env, binary, args, checkout)
+        return _render_git_command(parsed, env, binary, args, checkout)
     if base == "gh":
         return _render_gh_command(env, binary, args, checkout)
     return ""

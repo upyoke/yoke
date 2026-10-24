@@ -38,7 +38,9 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.hook_runner.session_cwd import client_machine_home
 from yoke_core.domain import lint_config
-from yoke_core.domain.command_workdir import command_execution_cwd
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
+from yoke_core.domain.command_workdir import command_segment_cwds
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
     command_has_suppression_token,
@@ -107,7 +109,9 @@ def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
 
 
 def evaluate_pre_tool_use(
-    payload: Mapping[str, Any], tool_name: Optional[str] = None,
+    payload: Mapping[str, Any],
+    tool_name: Optional[str] = None,
+    shell: Optional[ShellParse] = None,
 ) -> Verdict:
     """Judge one tool call; *tool_name* defaults to the payload's ``tool_name``."""
     session_id = _extract_session_id(payload)
@@ -121,6 +125,8 @@ def evaluate_pre_tool_use(
         return Verdict(allow=True)
 
     payload_dict = dict(payload)
+    if shell is None:
+        shell = parse_shell(extract_command(payload))
     try:
         with _open_conn() as conn:
             claims = claimed_worktrees(conn, session_id=session_id)
@@ -131,8 +137,8 @@ def evaluate_pre_tool_use(
                 return Verdict(allow=True)
             repo_roots = tuple(derive_repo_roots(conn, active_claims))
             # The client's home, never this process's: "" leaves ``~`` as written.
-            fallback_cwd = command_execution_cwd(
-                payload, machine_home=client_machine_home(payload)
+            fallback_cwd, segment_cwds = command_segment_cwds(
+                payload, machine_home=client_machine_home(payload), shell=shell
             )
             hits = collect_main_write_targets(
                 tool_name=tool_name,
@@ -140,6 +146,8 @@ def evaluate_pre_tool_use(
                 fallback_cwd=fallback_cwd,
                 claims=tuple(active_claims),
                 repo_roots=repo_roots,
+                shell=shell,
+                segment_cwds=segment_cwds,
             )
             if not hits:
                 return Verdict(allow=True)
@@ -219,7 +227,7 @@ def evaluate_pre_tool_use(
 
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_pre_tool_use(payload, record.tool_name or "")
+    verdict = evaluate_pre_tool_use(payload, record.tool_name or "", record.shell)
     if verdict.allow:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     audit = {

@@ -5,7 +5,8 @@ from __future__ import annotations
 from yoke_contracts.field_note_text import DENIAL_FOOTER
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN, is_compound
+from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
@@ -17,12 +18,15 @@ def _with_denial_footer(message: str) -> str:
     return f"{body}\n\n{DENIAL_FOOTER}"
 
 
-def bind(decision: HookDecision, module_id: str, *, command: str = "") -> HookDecision:
+def bind(
+    decision: HookDecision, module_id: str, *, command: str | ShellParse = ""
+) -> HookDecision:
     """Attach the registered guard's id to every denial boundary.
 
     A guard with condition-specific ids may select one through
     ``audit_fields['check_id']``. An empty or foreign id is replaced by the
-    guard's primary id and retained as mismatch evidence.
+    guard's primary id and retained as mismatch evidence. ``command`` may be
+    the hook call's shared parse, so a compound command is not parsed again.
     """
     if not (decision.outcome is Outcome.DENY or decision.block):
         return decision
@@ -36,7 +40,8 @@ def bind(decision: HookDecision, module_id: str, *, command: str = "") -> HookDe
     if candidate and candidate != check_id:
         audit["reported_check_id_mismatch"] = candidate
     reason = attach_check_id(_with_denial_footer(decision.message), check_id)
-    if command and is_compound(command) and NOTHING_RAN not in reason:
+    parsed = command if isinstance(command, ShellParse) else parse_shell(command)
+    if parsed.is_compound and NOTHING_RAN not in reason:
         reason = attach_check_id(f"{reason}\n\n{NOTHING_RAN}", check_id)
     audit.update({"check_id": check_id, "denial_reason": reason})
     return HookDecision(

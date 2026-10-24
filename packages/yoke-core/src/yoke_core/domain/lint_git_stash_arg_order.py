@@ -21,6 +21,7 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_parse import ShellParse, parse_shell
 from yoke_core.domain.lint_destructive_git import _parse_git_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -103,15 +104,20 @@ def _format_reason(flag: str, suppression_seen: bool) -> str:
     return attach_check_id(body, check_id="lint-git-stash-arg-order")
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
-    """Apply the rule; return ``(reason, audit_outcome)`` on a hit."""
+def evaluate_payload(
+    payload: dict, shell: Optional[ShellParse] = None
+) -> Optional[Tuple[str, str]]:
+    """Apply the rule; return ``(reason, audit_outcome)`` on a hit.
+
+    *shell* is the hook's shared parse of the payload's command.
+    """
     if not isinstance(payload, dict):
         return None
-    command = _extract_command(payload)
-    if not command:
+    parsed = shell if shell is not None else parse_shell(_extract_command(payload))
+    if not parsed.command:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
-    for args, _repo_path in _parse_git_invocations(command):
+    suppression_seen = SUPPRESSION_TOKEN in parsed.command
+    for args, _repo_path in _parse_git_invocations(parsed):
         if not _is_stash_push(args):
             continue
         hit = _find_message_after_dashdash(args)
@@ -128,7 +134,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, record.shell)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict
