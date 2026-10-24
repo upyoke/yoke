@@ -2,8 +2,10 @@
 
 ``_refuse_conversation_shaped`` and ``_authorize_scope`` return
 ``outcome="denied"`` before ``evaluate_remote``/``run_event`` ever runs, so
-no guard module gets a chance to call ``emit_denial_event`` — these two
-refusal shapes used to leave no durable ``HarnessToolCallDenied`` row.
+the hook runner never records a guard decision for them; the route records
+their ``HarnessToolCallDenied`` row itself. A denial a guard makes during
+guard-revision skew is recorded once by the runner, carrying the skew the
+route hands to ``evaluate_remote``.
 """
 
 from __future__ import annotations
@@ -156,7 +158,7 @@ def test_guard_revision_skew_reason_empty_when_revisions_match() -> None:
         assert _guard_revision_skew_reason(request) == ""
 
 
-def test_skew_annotation_preserves_the_actual_denying_check() -> None:
+def test_route_hands_the_skew_reason_to_the_run_and_records_no_second_row() -> None:
     request = _request(
         {"session_id": "sid-1", "identity_stamped": True},
         project_id=1,
@@ -168,11 +170,6 @@ def test_skew_annotation_preserves_the_actual_denying_check() -> None:
         degraded=(),
         wait_ms=1,
         outcome="denied",
-        denial_audit={
-            "hook": "yoke_core.domain.turn_end_promised_work_gate",
-            "check_id": "turn_end_promised_work_gate",
-            "reason": "finish the claimed work",
-        },
     )
     with (
         mock.patch(
@@ -186,7 +183,9 @@ def test_skew_annotation_preserves_the_actual_denying_check() -> None:
                 None,
             ),
         ),
-        mock.patch("yoke_core.api.routes.hooks.evaluate_remote", return_value=denial),
+        mock.patch(
+            "yoke_core.api.routes.hooks.evaluate_remote", return_value=denial
+        ) as evaluate,
         mock.patch(
             "yoke_core.api.routes.hooks.collect_execution_provenance",
             return_value={"source_sha": "b" * 40},
@@ -195,11 +194,83 @@ def test_skew_annotation_preserves_the_actual_denying_check() -> None:
     ):
         response = post_hooks_evaluate(_FakeHttpRequest(), request, BackgroundTasks())
     assert response.status_code == 200
+    revisions = evaluate.call_args.kwargs["denial_revisions"]
+    assert revisions["client_revision"] == "a" * 40
+    assert revisions["server_revision"] == "b" * 40
+    assert "guard-revision skew" in revisions["guard_version_skew"]
+    canonical.assert_not_called()
+
+
+def test_denial_during_skew_is_one_row_carrying_the_skew(monkeypatch) -> None:
+    from yoke_core.hooks import remote_entry, runner
+    from yoke_core.hooks.adapter_capability import AdapterCapability
+    from yoke_core.hooks.types import HookDecision, Next, Outcome
+
+    decision = HookDecision(
+        outcome=Outcome.DENY,
+        message="finish the claimed work",
+        next=Next.STOP,
+        audit_fields={"check_id": "turn_end_promised_work_gate"},
+    )
+    module_id = "yoke_core.domain.turn_end_promised_work_gate"
+    monkeypatch.setattr(runner, "chain_for", lambda *_args: [module_id])
+    monkeypatch.setattr(
+        runner,
+        "invoke_module",
+        lambda *_args, **_kwargs: (
+            decision,
+            "",
+            None,
+            ("guardrail", {"module": module_id}),
+        ),
+    )
+    monkeypatch.setattr(runner._mode_gate, "apply_mode", lambda value, *_a, **_k: value)
+    monkeypatch.setattr(
+        "yoke_contracts.hook_runner.guard_scope.applicable_chain",
+        lambda chain, _project_id: chain,
+    )
+    monkeypatch.setattr(runner, "deduplicated_dispatch", lambda *_a, **_k: False)
+    monkeypatch.setattr(
+        "yoke_core.hooks.run_tail.preflight_remote_registration",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.hooks.run_tail.flush_run_tail", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(remote_entry, "resolve_total_timeout_ms", lambda: 1000)
+    monkeypatch.setattr(
+        remote_entry,
+        "resolve_capability",
+        lambda _executor: AdapterCapability(
+            family="claude",
+            payload_parser=lambda _raw: {"session_id": "sid-1"},
+            decision_renderer=lambda _decisions, _event: ("denied", 2),
+        ),
+    )
+    revisions = {
+        "client_revision": "a" * 40,
+        "server_revision": "b" * 40,
+        "guard_version_skew": "guard-revision skew: server bbbb, client aaaa",
+    }
+    with mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical:
+        result = remote_entry.evaluate_remote(
+            "PreToolUse",
+            json.dumps({"session_id": "sid-1"}),
+            "claude-cli",
+            None,
+            1000,
+            denial_revisions=revisions,
+        )
+    assert result.outcome == "denied"
+    canonical.assert_called_once()
     kwargs = canonical.call_args.kwargs
+    assert kwargs["hook"] == module_id
     assert kwargs["check_id"] == "turn_end_promised_work_gate"
-    assert kwargs["hook"] == "yoke_core.domain.turn_end_promised_work_gate"
     assert kwargs["reason"] == "finish the claimed work"
-    assert "guard-revision skew" in kwargs["guard_version_skew"]
+    assert kwargs["outcome"] == "denied"
+    assert kwargs["guard_version_skew"] == revisions["guard_version_skew"]
+    assert kwargs["client_revision"] == revisions["client_revision"]
+    assert kwargs["server_revision"] == revisions["server_revision"]
 
 
 def test_guard_skew_is_a_separate_denial_payload_annotation() -> None:

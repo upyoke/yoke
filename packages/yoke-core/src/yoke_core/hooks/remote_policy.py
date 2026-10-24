@@ -59,8 +59,10 @@ class RunControls:
     ``agent_type``). ``actor_id`` is the server-verified bearer-token actor
     bound at ensure-register. ``project_scope`` is the in-process caller's
     already-resolved project membership (a remote run uses
-    ``authorized_project_id`` instead). ``flush_tail=False`` skips the
-    telemetry/ensure-register tail. ``degraded`` / ``timed_out`` /
+    ``authorized_project_id`` instead). ``denial_revisions`` is the relayed
+    evaluation's guard revision pair (``client_revision``,
+    ``server_revision``, ``guard_version_skew``) that every recorded denial
+    carries. ``flush_tail=False`` skips the telemetry/ensure-register tail. ``degraded`` / ``timed_out`` /
     ``final_outcome`` are write-backs populated during the run, as is a
     remote run's ``deferred_telemetry``: the flush its caller runs after
     responding, given the server's request wall time in milliseconds.
@@ -76,7 +78,7 @@ class RunControls:
     project_scope: Optional[HookProjectScope] = None
     flush_tail: bool = True
     degraded: list[str] = field(default_factory=list)
-    denial_audit: dict[str, str] = field(default_factory=dict)
+    denial_revisions: dict[str, str] = field(default_factory=dict)
     timed_out: bool = False
     final_outcome: str = ""
     message_probe: bool = False

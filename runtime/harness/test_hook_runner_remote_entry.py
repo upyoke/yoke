@@ -9,6 +9,7 @@ import types
 from typing import Any
 
 import pytest
+from yoke_core.hooks import denial
 from yoke_core.hooks import remote_entry
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.remote_entry import evaluate_remote
@@ -109,7 +110,8 @@ def test_real_subagent_lint_denies_remotely_via_request_agent_type(
 ) -> None:
     """End-to-end: request agent_type drives the REAL subagent-context deny."""
     lint_id = "yoke_core.domain.lint_subagent_background"
-    monkeypatch.setattr(f"{lint_id}.emit_audit_event", lambda *a, **k: None)
+    recorded: list[dict[str, Any]] = []
+    monkeypatch.setattr(denial, "emit_denial_event", lambda **kw: recorded.append(kw))
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: [lint_id])
     stdin = json.dumps(
         {
@@ -139,6 +141,9 @@ def test_real_subagent_lint_denies_remotely_via_request_agent_type(
     assert as_subagent.outcome == "denied"
     assert as_main.exit_code == 0
     assert as_main.outcome == "completed"
+    assert [(r["hook"], r["outcome"], r["agent"]) for r in recorded] == [
+        (lint_id, "denied", "engineer")
+    ]
 
 
 def test_client_policies_self_skip_with_degraded_markers(

@@ -19,8 +19,8 @@ Allowed shapes (the lint stays out of their way):
 * invocations of the ``item_field_transform`` helper itself.
 
 Bypass: ``# lint:no-structured-transform-check`` on the command body is
-audit-only — recorded as ``outcome=suppression_attempted`` but the rule
-still denies.
+audit-only — the decision declares ``audit_outcome=suppression_attempted``
+for the hook runner's audit row, but the rule still denies.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision``. The CLI
 ``__main__`` form (stdin -> payload -> HookContext -> evaluate) is
@@ -209,32 +209,6 @@ def _build_deny_response(reason: str) -> dict:
     }
 
 
-def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
-    """Best-effort ``HarnessToolCallDenied`` audit event."""
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    sid = payload.get("session_id") or ""
-    tu = payload.get("tool_use_id") or ""
-    turn = payload.get("turn_id") or payload.get("message_id") or ""
-    try:
-        emit_denial_event(
-            hook="lint-structured-field-transform-shell",
-            tool="Bash",
-            check_id="structured_field_transform_choreography",
-            reason=reason,
-            session_id=sid if isinstance(sid, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tu if isinstance(tu, str) else "",
-            turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Wraps :func:`evaluate_payload`; the bypass token is
     audit-only — the rule still denies."""
@@ -246,7 +220,6 @@ def evaluate(record: HookContext) -> HookDecision:
     outcome = "suppression_attempted" if _BYPASS_TOKEN in command else "denied"
     reason = attach_check_id(reason, check_id="lint-structured-field-transform-shell")
     envelope = json.dumps(_build_deny_response(reason))
-    _emit_denial(payload, reason, outcome=outcome)
     return HookDecision(
         outcome=Outcome.DENY,
         message=envelope,

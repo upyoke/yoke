@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_destructive_git as ldg
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -394,21 +395,18 @@ class TestModePinAndSuppression(unittest.TestCase):
         cmd = (
             f"git -C {self.repo} reset --hard HEAD~1  # lint:no-uncommitted-wipe-check"
         )
-        with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
-            mock.patch.object(ldg, "_emit_audit_event") as emit_mock,
-        ):
+        with mock.patch.object(ldg, "_read_mode", return_value="deny"):
             decision = ldg.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
-        # outcome arg is the 4th positional (payload, reason, mode, outcome).
-        self.assertEqual(emit_mock.call_args.args[3], "suppression_attempted")
+        self.assertEqual(
+            decision.audit_fields["audit_outcome"], "suppression_attempted"
+        )
+        self.assertIn("does NOT unblock", decision.audit_fields["reason"])
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
     def test_AC9_warn_mode_returns_warn_no_deny_envelope(self):
-        with (
-            mock.patch.object(ldg, "_read_mode", return_value="warn"),
-            mock.patch.object(ldg, "_emit_audit_event"),
-        ):
+        with mock.patch.object(ldg, "_read_mode", return_value="warn"):
             decision = ldg.evaluate(
                 _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
             )
@@ -416,18 +414,19 @@ class TestModePinAndSuppression(unittest.TestCase):
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
+        self.assertEqual(decision.audit_fields["mode"], "warn")
+        self.assertTrue(decision.audit_fields["reason"])
+        self.assertEqual(guard_audit_outcome(decision), "warn")
 
     def test_AC9_deny_mode_emits_envelope(self):
-        with (
-            mock.patch.object(ldg, "_read_mode", return_value="deny"),
-            mock.patch.object(ldg, "_emit_audit_event"),
-        ):
+        with mock.patch.object(ldg, "_read_mode", return_value="deny"):
             decision = ldg.evaluate(
                 _record_for(_payload(f"git -C {self.repo} reset --hard HEAD~1"))
             )
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
         envelope = json.loads(decision.message)
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(

@@ -231,51 +231,25 @@ class TestEveryOutcomeRoundTripsThroughOutcomes:
             )
 
 
-class TestNamedLintEmitterLiterals:
-    """Every named ``HarnessToolCallDenied`` emitter's outcome literal
-    is a member of OUTCOMES. The emitter modules in the inventory below
-    pass either a string literal or a local variable bound to one of
-    these literals to ``emit_denial_event(outcome=...)``."""
+class TestGuardDecisionOutcomes:
+    """Every outcome the hook runner records for a guard decision is a
+    member of OUTCOMES."""
 
-    # (module path, set of literals that module may pass as outcome)
-    # Inventory drawn from the spec's Refinement Notes 2026-05-20
-    # HarnessToolCallDenied emitter inventory.
-    NAMED_EMITTER_LITERALS = {
-        "yoke_core.domain.lint_destructive_git": {
-            "suppression_attempted",
-            "denied",
-        },
-        "yoke_core.domain.lint_long_command_polling_decide": {
-            "warn",
-            "suppression_attempted",
-        },
-        "yoke_core.domain.lint_python_runtime_import_in_tmp": {
-            "suppression_attempted",
-        },
-        "yoke_core.domain.lint_shell_quoted_function_payload": {
-            "suppression_attempted",
-            "warn",
-        },
-        "yoke_core.domain.lint_structured_field_transform_shell": {
-            "suppression_attempted",
-        },
-        "yoke_core.domain.lint_subagent_background_decide": {
-            "warn",
-            "suppression_attempted",
-        },
-        "yoke_core.domain.lint_workspace_cwd_match": {
-            "suppression_attempted",
-            "denied",
-        },
-    }
+    def test_every_recorded_outcome_is_in_outcomes(self):
+        from yoke_core.hooks.guard_denial_record import guard_audit_outcome
+        from yoke_core.hooks.types import HookDecision, Outcome
 
-    def test_every_named_literal_is_in_outcomes(self):
-        for module_path, literals in self.NAMED_EMITTER_LITERALS.items():
-            for literal in literals:
-                assert literal in OUTCOMES, (
-                    f"{module_path} emits outcome={literal!r} which is "
-                    f"not a member of OUTCOMES={sorted(OUTCOMES)}"
-                )
+        declared = ("", "denied", "warn", "suppression_attempted", "other")
+        for outcome in Outcome:
+            for block in (False, True):
+                for audit_outcome in declared:
+                    decision = HookDecision(
+                        outcome=outcome,
+                        block=block,
+                        audit_fields={"audit_outcome": audit_outcome},
+                    )
+                    recorded = guard_audit_outcome(decision)
+                    assert recorded == "" or recorded in OUTCOMES, recorded
 
 
 class TestFailedOutcomesExcludesLintGuardrailValues:

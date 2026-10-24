@@ -1,11 +1,10 @@
-"""Denial event payload construction and emission for hook guards.
+"""``HarnessToolCallDenied`` payload construction and emission.
 
-Builds the ``HarnessToolCallDenied`` context payload from a hook /
-check / reason tuple and pushes it through the native
-``yoke_core.domain.events.emit_event`` CLI. Imported by lint guards
-that need only the denial path; ``yoke_core.hooks.telemetry``
-re-exports the public surface so call sites can ``mock.patch`` against
-``yoke_core.hooks.telemetry.emit_denial_event``.
+Guards never call this. The shared runner records each guard decision
+through :mod:`yoke_core.hooks.guard_denial_record`; the relay's
+client-local subset reaches :func:`emit_denial_event` through the
+denial-audit route; the hooks route records its own pre-dispatch refusals.
+Nothing else emits the event.
 
 A refused call is also *finished*, and this module closes it. The
 PreToolUse observation opens a ``session_tool_calls`` row and the tool
@@ -182,11 +181,7 @@ def emit_denial_event(
 ) -> None:
     """Emit HarnessToolCallDenied via the Python emit-event owner.
 
-    ``outcome`` defaults to ``"denied"`` so existing callers keep the
-    legacy event shape. Lint hooks may pass ``"suppression_attempted"``
-    to distinguish suppression-token paths from ordinary denials in the
-    audit stream — see
-    ``runtime/api/domain/lint_long_command_polling_decide.py``.
+    ``outcome`` is ``denied``, ``suppression_attempted`` or ``warn``.
     ``agent`` names the subagent type that made the refused call, so a
     subagent's denial stays distinguishable from its parent session's.
     """

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest import mock
 
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_if_status_capture as lint
 
@@ -83,20 +84,19 @@ def test_non_bash_tool_allows():
 
 def test_suppression_is_audit_only():
     command = 'if false; then echo ok; fi; rc=$? # lint:no-if-status-capture-check'
-    with mock.patch.object(lint, "_read_mode", return_value="deny"), \
-         mock.patch.object(lint, "_emit_audit_event") as emit_mock:
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
         decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
     body = json.loads(decision.message)
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert emit_mock.call_args.args[3] == "suppression_attempted"
+    assert decision.audit_fields["reason"]
+    assert guard_audit_outcome(decision) == "suppression_attempted"
 
 
 def test_warn_mode_returns_warn():
-    with mock.patch.object(lint, "_read_mode", return_value="warn"), \
-         mock.patch.object(lint, "_emit_audit_event"):
+    with mock.patch.object(lint, "_read_mode", return_value="warn"):
         decision = lint.evaluate(
             lint._build_context_from_payload(
                 _payload('if false; then echo ok; fi; rc=$?')
@@ -105,3 +105,5 @@ def test_warn_mode_returns_warn():
 
     assert decision.outcome is Outcome.WARN
     assert not decision.block
+    assert decision.audit_fields["reason"]
+    assert guard_audit_outcome(decision) == "warn"

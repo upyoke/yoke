@@ -50,6 +50,7 @@ from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
+CHECK_ID = "python_runtime_import_in_tmp"
 _BYPASS_TOKEN = "# lint:no-tmp-runtime-import-check"
 
 # Free-path roots under which a Python file with ``runtime.*`` imports
@@ -228,31 +229,6 @@ def _build_deny_response(reason: str) -> dict:
     }
 
 
-def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
-    """Best-effort ``HarnessToolCallDenied`` audit event."""
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    _s = lambda v: v if isinstance(v, str) else ""  # noqa: E731
-    file_path, _ = _extract_write_fields(payload)
-    try:
-        emit_denial_event(
-            hook="lint-python-runtime-import-in-tmp",
-            tool="Write",
-            check_id="python_runtime_import_in_tmp",
-            reason=reason,
-            session_id=_s(payload.get("session_id")),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=_s(payload.get("tool_use_id")),
-            turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
-            command_snippet=file_path,
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Wraps :func:`evaluate_payload`; the bypass token is
     audit-only — the rule still denies."""
@@ -263,11 +239,14 @@ def evaluate(record: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     outcome = "suppression_attempted" if _BYPASS_TOKEN in content else "denied"
     envelope = json.dumps(_build_deny_response(reason))
-    _emit_denial(payload, reason, outcome=outcome)
     return HookDecision(
         outcome=Outcome.DENY,
         message=envelope,
-        audit_fields={"reason": reason, "audit_outcome": outcome},
+        audit_fields={
+            "reason": reason,
+            "audit_outcome": outcome,
+            "check_id": CHECK_ID,
+        },
         block=True,
         next=Next.STOP,
     )

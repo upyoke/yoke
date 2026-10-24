@@ -318,7 +318,17 @@ def test_runner_carries_the_actual_denier_to_the_remote_boundary(monkeypatch) ->
         payload_parser=lambda _raw: {},
         decision_renderer=lambda _decisions, _event: ("denied", 2),
     )
-    controls = RunControls(remote=True, flush_tail=False)
+    revisions = {
+        "client_revision": "client-sha",
+        "server_revision": "server-sha",
+        "guard_version_skew": "revisions differ",
+    }
+    controls = RunControls(remote=True, flush_tail=False, denial_revisions=revisions)
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.denial.emit_denial_event",
+        lambda **kwargs: recorded.append(kwargs),
+    )
 
     runner.run_event(
         "PreToolUse",
@@ -327,8 +337,10 @@ def test_runner_carries_the_actual_denier_to_the_remote_boundary(monkeypatch) ->
         controls=controls,
     )
 
-    assert controls.denial_audit == {
-        "hook": "policy.module",
-        "check_id": "claimed_work_gate",
-        "reason": "finish the claimed work",
-    }
+    assert len(recorded) == 1
+    row = recorded[0]
+    assert row["hook"] == "policy.module"
+    assert row["check_id"] == "claimed_work_gate"
+    assert row["reason"] == "finish the claimed work"
+    assert row["outcome"] == "denied"
+    assert {key: row[key] for key in revisions} == revisions

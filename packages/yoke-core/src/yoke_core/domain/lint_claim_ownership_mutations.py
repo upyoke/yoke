@@ -32,7 +32,6 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 
 
 CHECK_ID = "claim_ownership_mutation"
-HOOK_NAME = "lint-claim-ownership-mutations"
 _SERVICE_CLIENT_MUTATIONS: frozenset[str] = frozenset(
     (
         "claim-work release-work-claim claim-release release-all-claims "
@@ -212,25 +211,6 @@ def _resolve_db_path() -> Optional[str]:
     return None
 
 
-def _emit_denial(payload: dict, reason: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=reason,
-            session_id=str(payload.get("session_id") or ""),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=str(payload.get("tool_use_id") or ""),
-            turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
-            command_snippet=_extract_command(payload),
-        )
-    except Exception:
-        pass
-
-
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
     """Return ``(reason, family)`` when *command* is denied, else None."""
     command = _extract_command(payload)
@@ -266,7 +246,6 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, family = verdict
-    _emit_denial(payload, reason)
     envelope = {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",

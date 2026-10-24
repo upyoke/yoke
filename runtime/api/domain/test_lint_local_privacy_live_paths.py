@@ -24,6 +24,7 @@ from yoke_contracts.hook_runner.hook_guard_catalog import GUARD_CATALOG
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_contracts.hook_runner.local_privacy_messages import LIVE_ADVISORY
 from yoke_core.domain import lint_local_privacy
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
 from yoke_harness.hooks import local_policies, local_subset
 from yoke_harness.hooks.deadline import HookDeadline
@@ -83,6 +84,8 @@ def test_broad_discovery_advises_on_both_live_paths() -> None:
     assert decision.outcome is Outcome.WARN
     assert decision.block is False
     assert decision.audit_fields["additionalContext"] == engine_verdict[1]
+    assert decision.audit_fields["reason"] == engine_verdict[1]
+    assert guard_audit_outcome(decision) == "warn"
     assert product_verdict.outcome == ADVISORY
     assert product_verdict.additional_context in engine_verdict[1]
 

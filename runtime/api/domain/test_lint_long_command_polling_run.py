@@ -11,9 +11,9 @@ where the function lookup happens at call time.
 
 Per the epic the legacy stdin-driven ``run(stdin_data: str)``
 shape is gone; tests construct a :class:`HookContext` and assert against
-the typed :class:`HookDecision` instead. Audit-event emission still
-fires from inside ``evaluate`` (preserving warn-mode audit-only and
-``suppression_attempted`` outcome stamping).
+the typed :class:`HookDecision` instead. The decision's ``audit_fields``
+carry the audit outcome the hook runner records (warn-mode rows and
+``suppression_attempted`` stamping).
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
     _bash_payload,
     _non_bash_payload,
 )
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -64,28 +65,21 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
 
-    def test_warn_mode_returns_warn_decision_emits_event(self) -> None:
+    def test_warn_mode_returns_warn_decision_that_records_a_warn_row(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with (
-            mock.patch.object(lint_eval, "_read_lint_mode", return_value="warn"),
-            mock.patch.object(lint, "_emit_audit_event") as emit_mock,
-        ):
+        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="warn"):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
         self.assertEqual(decision.audit_fields.get("mode"), "warn")
-        emit_mock.assert_called_once()
-        called_args = emit_mock.call_args.args
-        self.assertEqual(called_args[3], "warn")
+        self.assertIn("sleep", decision.audit_fields["reason"].lower())
+        self.assertEqual(guard_audit_outcome(decision), "warn")
 
     def test_deny_mode_returns_deny_decision_with_envelope(self) -> None:
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with (
-            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
-            mock.patch.object(lint, "_emit_audit_event") as emit_mock,
-        ):
+        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
@@ -99,35 +93,21 @@ class TestEvaluate(unittest.TestCase):
             "sleep",
             parsed["hookSpecificOutput"]["permissionDecisionReason"].lower(),
         )
-        emit_mock.assert_called_once()
-        called_args = emit_mock.call_args.args
-        self.assertEqual(called_args[3], "deny")
-
-    def test_deny_event_check_id_and_tool_preserved(self) -> None:
-        payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
-        with (
-            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
-            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
-        ):
-            decision = lint.evaluate(_record_for(payload))
-        self.assertIs(decision.outcome, Outcome.DENY)
-        emit_mock.assert_called_once()
-        kwargs = emit_mock.call_args.kwargs
-        self.assertEqual(kwargs.get("check_id"), lint.CHECK_ID)
-        self.assertEqual(kwargs.get("tool"), "Bash")
-        self.assertEqual(kwargs.get("hook"), lint.HOOK_NAME)
-        self.assertIn("[mode=deny]", kwargs.get("reason", ""))
+        self.assertEqual(decision.audit_fields.get("mode"), "deny")
+        self.assertEqual(decision.audit_fields.get("tool_name"), "Bash")
+        self.assertEqual(
+            decision.audit_fields["reason"],
+            parsed["hookSpecificOutput"]["permissionDecisionReason"],
+        )
+        self.assertEqual(guard_audit_outcome(decision), "denied")
 
     def test_schedule_wakeup_payload_allowed(self) -> None:
         payload = _non_bash_payload("ScheduleWakeup", turn_id="turn-9")
-        with (
-            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
-            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
-        ):
+        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
-        emit_mock.assert_not_called()
+        self.assertEqual(guard_audit_outcome(decision), "")
 
     def test_task_output_payload_allowed(self) -> None:
         payload = _non_bash_payload(
@@ -135,14 +115,11 @@ class TestEvaluate(unittest.TestCase):
             tool_input={"task_id": "bg-123"},
             turn_id="turn-5",
         )
-        with (
-            mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"),
-            mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as emit_mock,
-        ):
+        with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertEqual(decision.message, "")
-        emit_mock.assert_not_called()
+        self.assertEqual(guard_audit_outcome(decision), "")
 
 
 class TestSuppressedDenyPath(unittest.TestCase):

@@ -13,10 +13,9 @@ Contract (preserved from the pre-Pythonization shell):
 - Exit: always ``0`` (fail-open).
 - Graceful degradation: any missing/unexpected DB, table, payload, or
   ``--name`` argument results in a silent pass-through.
-- On deny, a fire-and-forget ``HarnessToolCallDenied`` event is emitted via
-  the shared ``emit_denial_event`` helper with the hook-meta attribution
-  fields from the payload (session_id, tool_use_id, turn_id, command
-  snippet).
+- On deny, :func:`evaluate` returns a blocking decision whose
+  ``audit_fields`` carry the deny reason; the shared hook runner records
+  the denial row from it.
 
 The module keeps the decision surface pure and side-effect-free so it can
 be unit-tested directly without touching the shell wrapper. The CLI entry
@@ -26,9 +25,9 @@ This module is the **front door** for the lint-event-registry hook chain
 and is dispatched from two harness surfaces (Claude PreToolUse via
 ``python3 -m yoke_core.domain.lint_event_registry``; Codex via direct
 ``from yoke_core.domain.lint_event_registry import evaluate``). Parsing
-helpers live in :mod:`.lint_event_registry_extract`; render/emit helpers
-live in :mod:`.lint_event_registry_render`. The public surface
-(``evaluate``, ``decide``, ``decide_dict``, ``main``, ``HookMeta``,
+helpers live in :mod:`.lint_event_registry_extract`; deny-payload render
+helpers live in :mod:`.lint_event_registry_render`. The public surface
+(``evaluate``, ``decide``, ``decide_dict``, ``main``,
 ``Decision``) stays here.
 """
 
@@ -37,44 +36,34 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_event_registry_extract import (
-    HookMeta,
-    extract_command,
     extract_event_name,
-    extract_hook_meta,
     parse_payload,
 )
 from yoke_core.domain.lint_event_registry_render import (
     CHECK_ID,
-    HOOK_NAME,
-    TOOL_NAME,
     build_deny_json,
     build_deny_reason,
-    emit_denial,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 __all__ = [
     "CHECK_ID",
     "Decision",
-    "HOOK_NAME",
-    "HookMeta",
-    "TOOL_NAME",
     "build_deny_json",
     "build_deny_reason",
     "decide",
     "decide_dict",
-    "emit_denial",
     "evaluate",
     "extract_command",
     "extract_event_name",
-    "extract_hook_meta",
     "lookup_event_registered",
     "main",
     "parse_payload",
@@ -89,18 +78,16 @@ class Decision:
         action: ``"allow"`` or ``"deny"``. ``"allow"`` covers both "not
             interesting" (no emit-event.sh, no --name, missing DB, missing
             table) and "registered". ``"deny"`` means "unregistered — block
-            with deny JSON and emit event".
+            with deny JSON".
         event_name: The extracted ``--name`` value if any, otherwise ``""``.
         deny_json: The serialized PreToolUse deny JSON for the block path.
-        reason: The human-readable deny reason (also used for telemetry).
-        hook_meta: Attribution metadata (always populated when available).
+        reason: The human-readable deny reason (also the audit reason).
     """
 
     action: str = "allow"
     event_name: str = ""
     deny_json: str = ""
     reason: str = ""
-    hook_meta: HookMeta = field(default_factory=HookMeta)
 
 
 def _deny_json_with_reason(reason: str) -> str:
@@ -159,26 +146,24 @@ def decide_dict(data: Optional[dict], db_path: str) -> Decision:
     if data is None:
         return Decision(action="allow")
 
-    hook_meta = extract_hook_meta(data)
-
     command = extract_command(data)
     if not command:
-        return Decision(action="allow", hook_meta=hook_meta)
+        return Decision(action="allow")
 
     if "emit-event.sh" not in command:
-        return Decision(action="allow", hook_meta=hook_meta)
+        return Decision(action="allow")
 
     event_name = extract_event_name(command)
     if not event_name:
         # help / usage invocation — allow silently.
-        return Decision(action="allow", hook_meta=hook_meta)
+        return Decision(action="allow")
 
     registry_available, registered = lookup_event_registered(db_path, event_name)
     if not registry_available or registered:
         # Missing DB or missing ``event_registry`` table → graceful
         # pass-through, so the hook never hard-blocks a command just because
         # the registry tooling happens to be missing locally.
-        return Decision(action="allow", event_name=event_name, hook_meta=hook_meta)
+        return Decision(action="allow", event_name=event_name)
 
     reason = attach_check_id(
         build_deny_reason(event_name), check_id="lint-event-registry"
@@ -188,7 +173,6 @@ def decide_dict(data: Optional[dict], db_path: str) -> Decision:
         event_name=event_name,
         deny_json=_deny_json_with_reason(reason),
         reason=reason,
-        hook_meta=hook_meta,
     )
 
 
@@ -205,8 +189,8 @@ def evaluate(record: HookContext) -> HookDecision:
     """Typed entry: route a parsed PreToolUse payload through the registry rules.
 
     - ``allow`` → ``HookDecision(NOOP, CONTINUE)``
-    - ``deny`` → fires the ``HarnessToolCallDenied`` event and returns
-      ``HookDecision(DENY, message=<deny_json>, block=True, next=STOP)``.
+    - ``deny`` → ``HookDecision(DENY, message=<deny_json>, block=True,
+      next=STOP)`` whose ``audit_fields`` carry the deny reason.
 
     DB path is resolved from ``YOKE_DB`` first, then the canonical
     fallback. Missing/unavailable DB degrades to silent allow inside
@@ -217,7 +201,6 @@ def evaluate(record: HookContext) -> HookDecision:
     decision = decide_dict(payload, db_path)
 
     if decision.action == "deny" and decision.deny_json:
-        emit_denial(decision)
         return HookDecision(
             outcome=Outcome.DENY,
             message=decision.deny_json,

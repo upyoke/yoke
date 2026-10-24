@@ -123,7 +123,7 @@ Emitted by PostToolUseFailure hook on every failed tool call.
 
 **HarnessToolCallDenied**
 
-Emitted by `yoke_core.domain.observe` (denial path) when a PreToolUse hook denies a tool call.
+Recorded once by the hook runner (`yoke_core.hooks.guard_denial_record`) when a PreToolUse guard denies a tool call; guards never emit it. `event_outcome` is `denied`, `suppression_attempted` or `warn`.
 
 ```json
 {
@@ -136,8 +136,8 @@ Emitted by `yoke_core.domain.observe` (denial path) when a PreToolUse hook denie
  "tool_name": "Bash",
  "context": {
  "detail": {
- "hook": "lint-main-commit",
- "check_id": "impl_on_main",
+ "hook": "yoke_core.domain.lint_main_commit",
+ "check_id": "lint-main-commit",
  "reason": "Implementation commit denied on main"
  }
  }

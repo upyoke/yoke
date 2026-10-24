@@ -46,7 +46,6 @@ from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-pipe-to-truncator"
-HOOK_NAME = "lint-pipe-to-truncator"
 SUPPRESSION_TOKEN = "# lint:no-pipe-truncator-check"
 
 # Long-command module ids that count only in ``python -m <module>`` command
@@ -213,32 +212,6 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     return (mode, reason, outcome)
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    sid = payload.get("session_id") or ""
-    tu = payload.get("tool_use_id") or ""
-    turn = payload.get("turn_id") or payload.get("message_id") or ""
-    audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=audit_reason,
-            session_id=sid if isinstance(sid, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tu if isinstance(tu, str) else "",
-            turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry — pure shape parse, no subprocess fan-out."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -246,8 +219,11 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
+    audit = {
+        "mode": mode,
+        "reason": f"[mode={mode}] {reason}" if mode == "warn" else reason,
+        "audit_outcome": outcome,
+    }
     if mode == "deny":
         envelope = json.dumps(
             {

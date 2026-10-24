@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_claim_ownership_mutations as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
@@ -197,8 +197,7 @@ class TestEvaluateContract(unittest.TestCase):
             "python3 -m yoke_core.api.service_client release-work-claim "
             f"--item YOK-1 --session-id {_FOREIGN}"
         )
-        with mock.patch.object(lint, "_emit_denial"):
-            decision = lint.evaluate(_record(_payload(cmd)))
+        decision = lint.evaluate(_record(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
@@ -211,6 +210,10 @@ class TestEvaluateContract(unittest.TestCase):
             decision.audit_fields.get("family"),
             "service-client/release-work-claim",
         )
+        self.assertIn(
+            "claim-boundary bypass attempt", decision.audit_fields["reason"]
+        )
+        self.assertEqual(guard_audit_outcome(decision), "denied")
 
     def test_typed_evaluate_noop_on_allowed(self) -> None:
         decision = lint.evaluate(_record(_payload("git status")))

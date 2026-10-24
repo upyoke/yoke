@@ -6,6 +6,7 @@ from yoke_core.domain import lint_shell_quoted_function_payload as lint
 from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
     build_choreography_remediation,
 )
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Outcome
 
 
@@ -66,13 +67,7 @@ def test_function_call_meta_cli_is_not_exempted() -> None:
     assert "No function id covers this exact subcommand path" in reason
 
 
-def test_raw_status_update_emits_lifecycle_transition_note(monkeypatch) -> None:
-    emitted: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        lint,
-        "_emit_denial",
-        lambda _p, reason, *, outcome="denied": emitted.append((outcome, reason)),
-    )
+def test_raw_status_update_warns_with_lifecycle_transition_note() -> None:
     decision = lint.evaluate(
         _record(
             "python3 -m yoke_core.cli.db_router items update YOK-1706 "
@@ -82,7 +77,8 @@ def test_raw_status_update_emits_lifecycle_transition_note(monkeypatch) -> None:
     assert decision.outcome is Outcome.WARN
     assert decision.block is False
     assert "yoke lifecycle transition <PREFIX-N> --to STATUS" in decision.message
-    assert emitted and emitted[0][0] == "warn"
+    assert guard_audit_outcome(decision) == "warn"
+    assert decision.audit_fields["reason"] == decision.message
 
 
 def test_ac1_redirect_target_glued_in_read_pipe() -> None:

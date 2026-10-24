@@ -34,7 +34,6 @@ from yoke_core.domain.lint_command_extract import (
 )
 
 CHECK_ID = "lint-unmatched-path-glob"
-HOOK_NAME = "lint-unmatched-path-glob"
 SUPPRESSION_TOKEN = "# lint:no-unmatched-glob-check"
 
 _GLOB_CHARS = frozenset("*?[")
@@ -213,35 +212,12 @@ def evaluate_payload(
     return mode, reason, outcome
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=f"[mode={mode}] {reason}" if mode == "warn" else reason,
-            session_id=str(payload.get("session_id") or ""),
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=str(payload.get("tool_use_id") or ""),
-            turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload, fallback_cwd=record.cwd or "")
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
     audit = {
         "mode": mode,
         "reason": reason,

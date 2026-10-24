@@ -17,9 +17,20 @@ from yoke_core.domain.lint_workspace_cwd_match import (
     SUPPRESSION_TOKEN,
     evaluate_payload,
 )
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Outcome
 
 SESSION = "fixture-session"
+
+
+def _context(payload: dict, *, remote: bool = False) -> HookContext:
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        remote=remote,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +234,9 @@ def test_suppression_token_records_audit_but_does_not_unblock(
     mode, _, outcome = verdict
     assert mode == "deny", "suppression token must NOT unblock the rule"
     assert outcome == "suppression_attempted"
+    decision = lint_workspace_cwd_match.evaluate(_context(payload))
+    assert decision.outcome is Outcome.DENY
+    assert guard_audit_outcome(decision) == "suppression_attempted"
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +263,9 @@ def test_warn_mode_audits_without_block(
     mode, reason, _ = verdict
     assert mode == "warn"
     assert "[mode=warn]" in reason
+    decision = lint_workspace_cwd_match.evaluate(_context(payload))
+    assert decision.outcome is Outcome.WARN and not decision.block
+    assert guard_audit_outcome(decision) == "warn"
 
 
 # ---------------------------------------------------------------------------
@@ -325,15 +342,7 @@ def test_verdict_is_the_same_locally_and_remotely(
     ):
         payload = _event_622168_payload(cwd)
         decisions = [
-            lint_workspace_cwd_match.evaluate(
-                HookContext(
-                    event_name="PreToolUse",
-                    executor_family="claude",
-                    executor_surface="claude",
-                    payload=dict(payload),
-                    remote=remote,
-                )
-            )
+            lint_workspace_cwd_match.evaluate(_context(dict(payload), remote=remote))
             for remote in (False, True)
         ]
         assert [d.outcome for d in decisions] == [outcome, outcome]

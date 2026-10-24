@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
 from typing import Optional
-
-from yoke_core.domain.lint_command_extract import extract_command
 
 
 # ``--name`` argument parsing. Double-quoted, single-quoted, and unquoted
@@ -26,17 +23,6 @@ from yoke_core.domain.lint_command_extract import extract_command
 _NAME_RE_DOUBLE = re.compile(r'--name\s+"([^"]+)"')
 _NAME_RE_SINGLE = re.compile(r"--name\s+'([^']+)'")
 _NAME_RE_BARE = re.compile(r"--name\s+([^\s\"']+)")
-
-
-@dataclass
-class HookMeta:
-    """Attribution metadata extracted from the PreToolUse payload."""
-
-    session_id: str = ""
-    tool_use_id: str = ""
-    turn_id: str = ""
-    command_snippet: str = ""
-    agent: str = ""
 
 
 def parse_payload(raw: str) -> Optional[dict]:
@@ -70,26 +56,3 @@ def extract_event_name(command: str) -> Optional[str]:
         if match:
             return match.group(1)
     return None
-
-
-def extract_hook_meta(data: dict) -> HookMeta:
-    """Pull session, call, turn, command and agent fields from the payload.
-
-    Missing fields become empty strings. ``turn_id`` falls back to
-    ``message_id`` to match the previous shell extraction logic. The
-    ``command_snippet`` is the Bash command text (if any) and carries into
-    the HarnessToolCallDenied event context so operators can see which call
-    was blocked.
-    """
-    if not isinstance(data, dict):
-        return HookMeta()
-    session_id = data.get("session_id") or ""
-    tool_use_id = data.get("tool_use_id") or ""
-    turn_id = data.get("turn_id") or data.get("message_id") or ""
-    return HookMeta(
-        session_id=str(session_id),
-        tool_use_id=str(tool_use_id),
-        turn_id=str(turn_id),
-        command_snippet=extract_command(data),
-        agent=str(data.get("agent_type") or ""),
-    )

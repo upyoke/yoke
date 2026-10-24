@@ -11,7 +11,7 @@ Same-object semantics matter: callers do
 expect that to take effect at every call site. A wrapper function
 would break that contract; module-level re-export aliases preserve it.
 
-Sibling owners provide denial payloads (``denial``), session identity
+Sibling owners provide session identity
 (``identity``), registration (``service_client``), model attestation
 (``session_model_attestation_write``), and bounded stdin reads (``stdin``).
 """
@@ -20,12 +20,6 @@ from __future__ import annotations
 from pathlib import Path
 from yoke_core.domain.events_project_identity import working_project_for_event
 from typing import Any, Optional
-from yoke_core.hooks.denial import (  # noqa: F401
-    COMMAND_SNIPPET_MAX_BYTES,
-    build_denial_context,
-    build_denial_payload,
-    emit_denial_event,
-)
 from yoke_core.hooks.identity import (  # noqa: F401
     _classify_session_id_source,
     resolve_direct_session_id,
@@ -316,14 +310,10 @@ def _flush_records(records, emitters, *, conn, severity_check, deadline) -> None
 
 
 __all__ = [
-    "COMMAND_SNIPPET_MAX_BYTES",
     "STDIN_FALLBACK_MAX_BYTES",
     "STDIN_FALLBACK_TIMEOUT_SECONDS",
     "_classify_session_id_source",
     "bounded_stdin_read",
-    "build_denial_context",
-    "build_denial_payload",
-    "emit_denial_event",
     "emit_harness_session_sent_first_user_prompt_submit",
     "emit_hook_dispatch_telemetry",
     "emit_hook_execution_failed",

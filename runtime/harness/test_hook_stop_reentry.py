@@ -36,6 +36,11 @@ def test_native_reentry_runs_lifecycle_and_tail(executor, monkeypatch):
         return decision, "", None, ("guardrail", {})
 
     monkeypatch.setattr(runner, "invoke_module", invoke)
+    recorded: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_core.hooks.denial.emit_denial_event",
+        lambda **kwargs: recorded.append(kwargs),
+    )
     controls = RunControls(project_scope=HookProjectScope())
     text, code = runner.run_event(
         "Stop",
@@ -47,7 +52,7 @@ def test_native_reentry_runs_lifecycle_and_tail(executor, monkeypatch):
     assert "block" not in text and "followup_message" not in text
     assert seen == ["fake.hold", "fake.lifecycle", "tail"]
     assert controls.final_outcome == "allow"
-    assert controls.denial_audit == {}
+    assert recorded == []
 
 
 def test_promised_work_gate_does_not_record_a_hold_on_native_reentry(monkeypatch):

@@ -12,6 +12,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import lint_yoke_adapter_stderr_visibility as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -132,10 +133,7 @@ def test_suppression_token_is_audit_only():
     command = (
         "yoke say --stdin 2>/dev/null # lint:no-yoke-adapter-stderr-visibility-check"
     )
-    with (
-        mock.patch.object(lint, "_read_mode", return_value="deny"),
-        mock.patch.object(lint, "_emit_audit_event") as emit_mock,
-    ):
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
         decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
@@ -143,14 +141,11 @@ def test_suppression_token_is_audit_only():
     body = json.loads(decision.message)
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert "does NOT unblock" in body["hookSpecificOutput"]["permissionDecisionReason"]
-    assert emit_mock.call_args.args[3] == "suppression_attempted"
+    assert guard_audit_outcome(decision) == "suppression_attempted"
 
 
 def test_warn_mode_reports_without_blocking():
-    with (
-        mock.patch.object(lint, "_read_mode", return_value="warn"),
-        mock.patch.object(lint, "_emit_audit_event"),
-    ):
+    with mock.patch.object(lint, "_read_mode", return_value="warn"):
         decision = lint.evaluate(
             lint._build_context_from_payload(
                 _payload("yoke claims work acquire --item YOK-1 2>&-")
@@ -160,6 +155,7 @@ def test_warn_mode_reports_without_blocking():
     assert decision.outcome is Outcome.WARN
     assert not decision.block
     assert "mode=warn" in decision.audit_fields["reason"]
+    assert guard_audit_outcome(decision) == "warn"
 
 
 def test_denial_teaches_bare_and_visible_stderr_shapes():

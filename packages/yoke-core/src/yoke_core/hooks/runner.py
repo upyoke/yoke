@@ -3,7 +3,9 @@
 ``run_event`` parses the hook payload, builds a ``HookContext``, resolves the
 registered policy chain, dispatches each module through
 :mod:`yoke_core.hooks.runner_invoke`, renders the harness-specific decision,
-and emits best-effort telemetry. A lifecycle event the harness delivered
+records each guard's denial or declared audit outcome once through
+:func:`yoke_core.hooks.guard_denial_record.record_guard_decision`, and emits best-effort
+telemetry. A lifecycle event the harness delivered
 twice is collapsed before dispatch by
 :mod:`yoke_core.hooks.dispatch_dedup`.
 
@@ -38,6 +40,7 @@ from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks import guard_denial_identity as _guard_denial_identity
 from yoke_core.hooks import mode_gate as _mode_gate
 from yoke_core.hooks.context import build_context
+from yoke_core.hooks.guard_denial_record import record_guard_decision
 from yoke_core.hooks.dispatch_dedup import deduplicated_dispatch
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner_invoke import invoke_module
@@ -173,7 +176,6 @@ def run_event(
         # Scope resolution is infrastructure: the call proceeds, loudly.
         if controls is not None:
             controls.final_outcome = "allow"
-            controls.denial_audit = {}
             if controls.remote:
                 controls.degraded.append(
                     f"{FAILURE_PREFIX}hook_scope_unavailable:{exc}; repair the declared guard scope and retry"
@@ -239,22 +241,12 @@ def run_event(
             module_id,
             command=extract_payload_command(payload),
         )
-        if (
-            controls is not None
-            and decision.outcome is Outcome.DENY
-            and not controls.denial_audit
-        ):
-            audit = decision.audit_fields
-            controls.denial_audit = {
-                "hook": module_id,
-                "check_id": str(audit.get("check_id") or module_id),
-                "reason": str(
-                    audit.get("denial_reason")
-                    or decision.message
-                    or audit.get("reason")
-                    or "Hook policy denied."
-                ),
-            }
+        record_guard_decision(
+            decision,
+            module_id,
+            context=context,
+            revisions=controls.denial_revisions if controls is not None else None,
+        )
         decisions.append(decision)
         telem_records.append(record)
         if failure is not None and controls is not None:
@@ -279,8 +271,6 @@ def run_event(
 
     if event_name == "Stop" and stop_reentry(payload):
         extra_stdout_parts = []
-        if controls is not None:
-            controls.denial_audit = {}
     rendered_text, exit_code = capability.decision_renderer(decisions, event_name)
     if extra_stdout_parts:
         joined = "".join(extra_stdout_parts)

@@ -10,6 +10,7 @@ from yoke_contracts.hook_runner.client_facts import HEADLESS_LAUNCH_KEY, client_
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_contracts.watch_cli_forms import IN_TURN_WATCHER_TIMEOUT_MS
 from yoke_core.domain import lint_headless_watcher_timeout as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import HookContext, Next, Outcome
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
@@ -163,11 +164,20 @@ class TestModesAndEnvelope(unittest.TestCase):
             self.assertEqual(remote.outcome, outcome)
             self.assertEqual(local.message, remote.message)
 
+    def test_warn_mode_decision_records_a_warn_row(self):
+        with mock.patch.object(lint, "_read_mode", return_value="warn"):
+            decision = self._decision()
+        self.assertEqual(decision.outcome, Outcome.WARN)
+        self.assertFalse(decision.block)
+        self.assertIn("would block", decision.audit_fields["reason"])
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+
     def test_deny_envelope_names_repair(self):
         decision = self._decision()
         self.assertEqual(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
         envelope = json.loads(decision.message or "{}")
         reason = envelope["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn(str(IN_TURN_WATCHER_TIMEOUT_MS), reason)

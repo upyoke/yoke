@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import unittest
-from unittest import mock
 
 from yoke_core.domain import lint_structured_field_transform_shell as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -211,11 +211,12 @@ class TestEvaluate(unittest.TestCase):
             "items get 42 spec > /tmp/old.md && "
             "items update 42 spec --stdin < /tmp/new.md"
         )
-        with mock.patch.object(lint, "_emit_denial"):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertIn("lint-structured-field-transform-shell", decision.audit_fields["reason"])
         decoded = json.loads(decision.message)
         self.assertEqual(
             decoded["hookSpecificOutput"]["permissionDecision"],
@@ -223,9 +224,9 @@ class TestEvaluate(unittest.TestCase):
         )
 
     def test_evaluate_allows_safe_command(self) -> None:
-        with mock.patch.object(lint, "_emit_denial"):
-            decision = lint.evaluate(_record_for(_payload("git status")))
+        decision = lint.evaluate(_record_for(_payload("git status")))
         self.assertIs(decision.outcome, Outcome.NOOP)
+        self.assertEqual(guard_audit_outcome(decision), "")
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
@@ -247,35 +248,28 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.NOOP)
 
     def test_evaluate_bypass_token_audit_only_still_denies(self) -> None:
-        # Suppression-token is audit-only; evaluate still denies with
-        # outcome=suppression_attempted recorded.
+        # Suppression-token is audit-only; evaluate still denies and the
+        # decision records outcome=suppression_attempted.
         cmd = (
             "items get 42 spec > /tmp/old.md && "
             "items update 42 spec --stdin < /tmp/new.md "
             "# lint:no-structured-transform-check"
         )
-        calls = []
-        with mock.patch.object(
-            lint,
-            "_emit_denial",
-            lambda _payload, _reason, *, outcome="denied": calls.append(outcome),
-        ):
-            decision = lint.evaluate(_record_for(_payload(cmd)))
+        decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(
             decision.audit_fields["audit_outcome"], "suppression_attempted"
         )
-        self.assertEqual(calls, ["suppression_attempted"])
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
     def test_evaluate_token_on_safe_command_noop_no_event(self) -> None:
-        with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(
-                _record_for(_payload("git status # lint:no-structured-transform-check"))
-            )
+        decision = lint.evaluate(
+            _record_for(_payload("git status # lint:no-structured-transform-check"))
+        )
         self.assertIs(decision.outcome, Outcome.NOOP)
-        emit_mock.assert_not_called()
+        self.assertEqual(guard_audit_outcome(decision), "")
 
 
 if __name__ == "__main__":

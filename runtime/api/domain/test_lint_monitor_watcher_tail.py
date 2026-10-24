@@ -6,6 +6,7 @@ import json
 import unittest
 from unittest import mock
 
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_monitor_watcher_tail as lint
 
@@ -82,9 +83,7 @@ class TestModesSuppressionAndEnvelope(unittest.TestCase):
 
     def test_deny_decision_has_permission_envelope(self):
         payload = _payload(f"tail -f {_PROGRESS}")
-        with mock.patch.object(lint, "_read_mode", return_value="deny"), mock.patch.object(
-            lint, "_emit_audit_event"
-        ):
+        with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(lint._context(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
@@ -92,6 +91,24 @@ class TestModesSuppressionAndEnvelope(unittest.TestCase):
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"], "deny"
         )
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertIn("yoke watch tail", decision.audit_fields["reason"])
+
+    def test_warn_decision_records_warn_audit_row(self):
+        payload = _payload(f"tail -f {_PROGRESS}")
+        with mock.patch.object(lint, "_read_mode", return_value="warn"):
+            decision = lint.evaluate(lint._context(payload))
+        self.assertIs(decision.outcome, Outcome.WARN)
+        self.assertEqual(decision.message, "")
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
+
+    def test_suppressed_warn_decision_records_suppression_attempt(self):
+        payload = _payload(f"tail -f {_PROGRESS} {lint.SUPPRESSION_TOKEN}")
+        with mock.patch.object(lint, "_read_mode", return_value="warn"):
+            decision = lint.evaluate(lint._context(payload))
+        self.assertFalse(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
 
 
 if __name__ == "__main__":

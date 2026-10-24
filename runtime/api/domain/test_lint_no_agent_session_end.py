@@ -21,6 +21,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_no_agent_session_end as lint
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -168,42 +169,34 @@ class TestSuppressionTokenAudit(unittest.TestCase):
             "python3 -m yoke_core.api.service_client session-end "
             "# lint:no-agent-session-end-check"
         )
-        with (
-            mock.patch.object(lint, "_read_mode", return_value="deny"),
-            mock.patch.object(lint, "_emit_audit_event") as emit_mock,
-        ):
+        with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
-        self.assertEqual(
-            emit_mock.call_args.args[3],
-            "suppression_attempted",
-        )
+        self.assertEqual(guard_audit_outcome(decision), "suppression_attempted")
+        self.assertIn("does NOT unblock", decision.audit_fields["reason"])
 
 
 class TestModePin(unittest.TestCase):
     def test_warn_mode_returns_warn_no_deny_envelope(self):
         cmd = "python3 -m yoke_core.api.service_client session-end"
-        with (
-            mock.patch.object(lint, "_read_mode", return_value="warn"),
-            mock.patch.object(lint, "_emit_audit_event"),
-        ):
+        with mock.patch.object(lint, "_read_mode", return_value="warn"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
         self.assertIs(decision.next, Next.CONTINUE)
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
 
     def test_deny_mode_emits_envelope(self):
         cmd = "python3 -m yoke_core.api.service_client session-end"
-        with (
-            mock.patch.object(lint, "_read_mode", return_value="deny"),
-            mock.patch.object(lint, "_emit_audit_event"),
-        ):
+        with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(_record_for(_payload(cmd)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
         envelope = json.loads(decision.message)
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(

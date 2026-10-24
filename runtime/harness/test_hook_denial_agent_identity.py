@@ -21,8 +21,9 @@ from yoke_core.api.routes.hooks_denial_audit import (
     HookDenialAuditRequest,
     post_hooks_denial_audit,
 )
-from yoke_core.domain import lint_pipe_to_truncator
 from yoke_core.hooks import denial
+from yoke_core.hooks.guard_denial_record import record_guard_decision
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import start_hook_deadline
 
@@ -92,6 +93,23 @@ def test_route_refusal_records_the_request_agent_type() -> None:
 
 def test_server_side_guard_denial_reads_payload_agent_type() -> None:
     payload = {"session_id": "sid-parent", "agent_type": AGENT}
-    with mock.patch("yoke_core.hooks.telemetry.emit_denial_event") as canonical:
-        lint_pipe_to_truncator._emit_audit_event(payload, "BLOCKED", "deny", "denied")
+    decision = HookDecision(
+        outcome=Outcome.DENY,
+        message="BLOCKED",
+        next=Next.STOP,
+        audit_fields={"reason": "BLOCKED"},
+    )
+    context = HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="cli",
+        tool_name="Bash",
+        session_id="sid-parent",
+        payload=payload,
+    )
+    with mock.patch("yoke_core.hooks.denial.emit_denial_event") as canonical:
+        record_guard_decision(
+            decision, "yoke_core.domain.lint_pipe_to_truncator", context=context
+        )
+    canonical.assert_called_once()
     assert canonical.call_args.kwargs["agent"] == AGENT

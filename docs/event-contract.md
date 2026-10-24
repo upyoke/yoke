@@ -246,7 +246,7 @@ Guard-free read-only hooks retain this exact event contract when the resident
 persists their tool and dispatch events through the ordered asynchronous
 observation batch.
 
-**Suppression-token audit evidence is NOT a separate event.** Lint guardrails honor `# lint:no-*-check` suppression tokens by recording the attempt on the *existing* `HarnessToolCallDenied` row with `event_outcome='suppression_attempted'`. No separate hook suppression event is registered or emitted; observers querying suppression activity filter `HarnessToolCallDenied` by `event_outcome`.
+**Suppression-token audit evidence is NOT a separate event.** A guard that sees a `# lint:no-*-check` suppression token declares `audit_outcome='suppression_attempted'` on its decision, and the hook runner records it on the *existing* `HarnessToolCallDenied` row with that `event_outcome`. No separate hook suppression event is registered or emitted; observers querying suppression activity filter `HarnessToolCallDenied` by `event_outcome`.
 
 ### Registering New Events
 

@@ -6,6 +6,7 @@ import json
 import unittest
 from unittest import mock
 
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_watcher_module_form as lint
 
@@ -79,6 +80,15 @@ class TestModesAndEnvelope(unittest.TestCase):
         self.assertEqual(outcome, "warned")
         self.assertIn("would block", reason)
 
+    def test_warn_mode_decision_records_warn_row(self):
+        payload = _payload("python3 -m yoke_core.tools.watch_doctor")
+        with mock.patch.object(lint, "_read_mode", return_value="warn"):
+            decision = lint.evaluate(lint._build_context_from_payload(payload))
+        self.assertIs(decision.outcome, Outcome.WARN)
+        self.assertFalse(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertIn("would block", decision.audit_fields["reason"])
+
     def test_suppression_is_audited(self):
         verdict = _eval(
             "python3 -m yoke_core.tools.watch_pytest "
@@ -90,12 +100,11 @@ class TestModesAndEnvelope(unittest.TestCase):
 
     def test_deny_decision_has_permission_envelope(self):
         payload = _payload("python3 -m yoke_core.tools.watch_pytest")
-        with mock.patch.object(lint, "_read_mode", return_value="deny"), mock.patch.object(
-            lint, "_emit_audit_event"
-        ):
+        with mock.patch.object(lint, "_read_mode", return_value="deny"):
             decision = lint.evaluate(lint._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
+        self.assertEqual(guard_audit_outcome(decision), "denied")
         envelope = json.loads(decision.message)
         self.assertEqual(
             envelope["hookSpecificOutput"]["permissionDecision"], "deny"

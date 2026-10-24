@@ -15,6 +15,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_pipe_to_truncator as lptt
+from yoke_core.hooks.guard_denial_record import guard_audit_outcome
 from yoke_core.hooks.types import Next, Outcome
 
 
@@ -221,27 +222,24 @@ class TestModesAndSuppression(unittest.TestCase):
 
     def test_evaluate_deny_decision_shape(self):
         payload = _payload("python3 -m pytest -q | tail -2")
-        with (
-            mock.patch.object(lptt, "_read_mode", return_value="deny"),
-            mock.patch.object(lptt, "_emit_audit_event") as emit,
-        ):
+        with mock.patch.object(lptt, "_read_mode", return_value="deny"):
             decision = lptt.evaluate(lptt._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
-        emit.assert_called_once()
+        self.assertEqual(guard_audit_outcome(decision), "denied")
+        self.assertIn("BLOCKED", decision.audit_fields["reason"])
 
     def test_evaluate_warn_decision_shape(self):
         payload = _payload("python3 -m pytest -q | tail -2")
-        with (
-            mock.patch.object(lptt, "_read_mode", return_value="warn"),
-            mock.patch.object(lptt, "_emit_audit_event"),
-        ):
+        with mock.patch.object(lptt, "_read_mode", return_value="warn"):
             decision = lptt.evaluate(lptt._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertFalse(decision.block)
+        self.assertEqual(guard_audit_outcome(decision), "warn")
+        self.assertTrue(decision.audit_fields["reason"].startswith("[mode=warn] "))
 
     def test_noop_on_clean_command(self):
         decision = lptt.evaluate(

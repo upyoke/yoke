@@ -1,4 +1,4 @@
-"""Reason formatter, deny envelope, and audit emission for the subagent-background lint.
+"""Reason formatter and deny envelope for the subagent-background lint.
 
 Split from :mod:`yoke_core.domain.lint_subagent_background` so the
 entry-point stays under the 350-line file cap (mirroring the
@@ -11,17 +11,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain.lint_subagent_background_constants import (
-    CHECK_ID,
-    HOOK_NAME,
-    SUPPRESSION_TOKEN,
-)
+from yoke_core.domain.lint_subagent_background_constants import SUPPRESSION_TOKEN
 
 
 __all__ = [
     "build_deny_response",
     "format_reason",
-    "emit_audit_event",
 ]
 
 
@@ -114,45 +109,3 @@ def format_reason(
             "Run the command foreground instead."
         )
     return text
-
-
-def _safe_str(value, default: str = "") -> str:
-    return value if isinstance(value, str) else default
-
-
-def emit_audit_event(
-    payload: dict,
-    tool_name: str,
-    reason: str,
-    mode: str,
-    outcome: str,
-    *,
-    command: str = "",
-) -> None:
-    """Emit ``HarnessToolCallDenied`` with mode/outcome annotated reason."""
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    session_id = _safe_str(payload.get("session_id"))
-    tool_use_id = _safe_str(payload.get("tool_use_id"))
-    turn_id = _safe_str(payload.get("turn_id") or payload.get("message_id"))
-    command_snippet = (command or "")[:256]
-    annotated = f"[mode={mode}] {reason}"
-    if outcome and outcome != "denied":
-        annotated = f"[mode={mode}][outcome={outcome}] {reason}"
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool=tool_name or "",
-            check_id=CHECK_ID,
-            reason=annotated,
-            session_id=session_id,
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tool_use_id,
-            turn_id=turn_id,
-            command_snippet=command_snippet,
-            outcome=outcome or "denied",
-        )
-    except Exception:
-        pass

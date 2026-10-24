@@ -209,8 +209,6 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         derivation=derivation,
         tool_name=tool_name,
     )
-    tool_use_id = payload_dict.get("tool_use_id")
-    turn_id = payload_dict.get("turn_id") or payload_dict.get("message_id")
     emit_denied(
         session_id=session_id,
         attempted_path=attempted_path,
@@ -219,10 +217,6 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         item_id=claim.item_id,
         mode=mode,
         suppression_attempted=suppression_seen,
-        reason=reason,
-        tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
-        turn_id=turn_id if isinstance(turn_id, str) else "",
-        agent=str(payload_dict.get("agent_type") or ""),
         derivation=derivation,
     )
 
@@ -267,23 +261,31 @@ def _build_deny_response(reason: str) -> dict:
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_pre_tool_use(payload)
-    if verdict.allow:
+    if verdict.allow and not verdict.reason:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    audit = {
+        "reason": verdict.reason,
+        "attempted_path": verdict.attempted_path,
+        "lane_path": verdict.lane_path,
+        "mode": verdict.mode,
+        "suppression_attempted": verdict.suppression_attempted,
+        "derivation_source": verdict.derivation.source if verdict.derivation else "",
+    }
+    if verdict.suppression_attempted:
+        audit["audit_outcome"] = "suppression_attempted"
+    if verdict.allow:
+        # Warn mode lets the write through but still records the hit.
+        audit.setdefault("audit_outcome", "warn")
+        return HookDecision(
+            outcome=Outcome.AUDIT_ONLY, next=Next.CONTINUE, audit_fields=audit
+        )
     envelope = json.dumps(_build_deny_response(verdict.reason))
     return HookDecision(
         outcome=Outcome.DENY,
         message=envelope,
         block=True,
         next=Next.STOP,
-        audit_fields={
-            "attempted_path": verdict.attempted_path,
-            "lane_path": verdict.lane_path,
-            "mode": verdict.mode,
-            "suppression_attempted": verdict.suppression_attempted,
-            "derivation_source": (
-                verdict.derivation.source if verdict.derivation else ""
-            ),
-        },
+        audit_fields=audit,
     )
 
 

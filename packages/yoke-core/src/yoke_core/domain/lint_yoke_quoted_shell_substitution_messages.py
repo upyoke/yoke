@@ -5,7 +5,6 @@ from __future__ import annotations
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 
 CHECK_ID = "lint-yoke-quoted-shell-substitution"
-HOOK_NAME = "lint-yoke-quoted-shell-substitution"
 SUPPRESSION_TOKEN = "# lint:no-yoke-quoted-substitution-check"
 
 SAFE_FORM = (

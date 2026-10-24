@@ -128,18 +128,8 @@ def post_hooks_evaluate(
         payload_extra=request.payload_extra,
         deadline_ms=deadline_ms,
         actor_id=auth.actor_id,
+        denial_revisions=_denial_revisions(request),
     )
-    if result.outcome == "denied":
-        skew_reason = _guard_revision_skew_reason(request)
-        if skew_reason:
-            audit = result.denial_audit
-            _emit_route_denial(
-                audit.get("check_id") or "hook_policy_denial",
-                audit.get("reason") or "Hook policy denied.",
-                request,
-                hook=audit.get("hook") or "yoke_core.api.routes.hooks",
-                guard_version_skew=skew_reason,
-            )
     attributes = {"event": request.event_name, "outcome": result.outcome}
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
     record_counter("yoke.hook.requests", attributes=attributes)
@@ -218,20 +208,23 @@ def _guard_revision_skew_reason(request: HookEvaluateRequest) -> str:
     )
 
 
+def _denial_revisions(request: HookEvaluateRequest) -> dict[str, str]:
+    """The revision pair every denial recorded for *request* carries."""
+    return {
+        "client_revision": str(request.execution_provenance.get("source_sha") or ""),
+        "server_revision": str(collect_execution_provenance().get("source_sha") or ""),
+        "guard_version_skew": _guard_revision_skew_reason(request),
+    }
+
+
 def _emit_route_denial(
     check_id: str,
     reason: str,
     request: HookEvaluateRequest,
     *,
-    hook: str = "yoke_core.api.routes.hooks",
-    guard_version_skew: str = "",
     close_tool_call: bool = True,
 ) -> None:
-    """Record a route refusal or annotate a chain denial during skew.
-
-    Pre-dispatch refusals have no guard emitter. A skew annotation after
-    dispatch preserves the runner-reported hook/check/reason as the denial.
-    """
+    """Record a refusal the route makes before any guard runs."""
     try:
         from yoke_core.hooks.denial import emit_denial_event
     except Exception:
@@ -240,11 +233,9 @@ def _emit_route_denial(
     session_id = payload.get("session_id")
     tool_use_id = payload.get("tool_use_id")
     turn_id = payload.get("turn_id") or payload.get("message_id")
-    server_revision = collect_execution_provenance().get("source_sha") or ""
-    client_revision = request.execution_provenance.get("source_sha") or ""
     try:
         emit_denial_event(
-            hook=hook,
+            hook="yoke_core.api.routes.hooks",
             check_id=check_id,
             reason=reason,
             session_id=session_id if isinstance(session_id, str) else "",
@@ -252,11 +243,9 @@ def _emit_route_denial(
             turn_id=turn_id if isinstance(turn_id, str) else "",
             guard_key=check_id,
             mode="deny",
-            client_revision=str(client_revision),
-            server_revision=str(server_revision),
-            guard_version_skew=guard_version_skew,
             agent=(request.agent_type or "").strip(),
             close_tool_call=close_tool_call,
+            **_denial_revisions(request),
         )
     except Exception:
         pass

@@ -14,8 +14,8 @@ Writer-class verbs caught today:
 The mode (``warn`` audits without blocking, ``deny`` denies) is pinned by
 the ``lint_workspace_cwd_match_mode`` key in machine config. Yoke dogfood
 defaults to ``deny``. The suppression token ``# lint:no-workspace-cwd-check``
-is recorded as ``outcome=suppression_attempted`` audit evidence and does NOT
-unblock — symmetric with the path-claim guard's audit-only token shape.
+is declared as ``audit_outcome=suppression_attempted`` for the hook runner's
+audit row and does NOT unblock — symmetric with the path-claim guard's audit-only token shape.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision``. The CLI
 ``__main__`` form (stdin -> payload -> HookContext -> evaluate) is preserved
@@ -47,7 +47,6 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 
 
 CHECK_ID = "lint-workspace-cwd-match"
-HOOK_NAME = "lint-workspace-cwd-match"
 SUPPRESSION_TOKEN = "# lint:no-workspace-cwd-check"
 
 _ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -209,32 +208,6 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    sid = payload.get("session_id") or ""
-    tu = payload.get("tool_use_id") or ""
-    turn = payload.get("turn_id") or payload.get("message_id") or ""
-    audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=audit_reason,
-            session_id=sid if isinstance(sid, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tu if isinstance(tu, str) else "",
-            turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Reads active worktree claims through the live authority."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -242,7 +215,6 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
         envelope = json.dumps(

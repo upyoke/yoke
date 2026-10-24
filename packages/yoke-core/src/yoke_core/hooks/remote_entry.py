@@ -58,7 +58,6 @@ class RemoteEvaluation:
     degraded: tuple[str, ...]
     wait_ms: int
     outcome: str  # completed | timeout | denied
-    denial_audit: dict[str, str]
     # True only when the run leased the session's inbox at an event that can
     # inject on the caller's surface.
     message_probe: bool = False
@@ -84,6 +83,7 @@ def evaluate_remote(
     native_thread_id: Optional[str] = None,
     payload_extra: Optional[dict] = None,
     actor_id: Optional[int] = None,
+    denial_revisions: Optional[dict[str, str]] = None,
 ) -> RemoteEvaluation:
     """Evaluate one hook event server-side; never raises past run_event."""
     budget_ms = max(1, min(int(deadline_ms), resolve_total_timeout_ms()))
@@ -93,6 +93,7 @@ def evaluate_remote(
         remote=True,
         actor_id=actor_id,
         authorized_project_id=project_id,
+        denial_revisions=dict(denial_revisions or {}),
     )
     if isinstance(payload_extra, dict):
         controls.payload_extra.update(payload_extra)
@@ -166,7 +167,6 @@ def evaluate_remote(
         degraded=tuple(degraded),
         wait_ms=wait_ms,
         outcome=outcome,
-        denial_audit=dict(controls.denial_audit),
         message_probe=controls.message_probe,
         flush_telemetry=controls.deferred_telemetry or _no_deferred_telemetry,
     )

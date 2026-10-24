@@ -48,8 +48,10 @@ Modes (resolved from ``.yoke/lint-config`` via
 ``yoke_core.domain.lint_config``; an unconfigured guard resolves to
 ``deny``):
 
-- ``warn``: emit ``HarnessToolCallDenied`` audit event but do NOT block.
-- ``deny``: emit the audit event AND block via ``hookSpecificOutput``.
+- ``warn``: return a WARN decision the hook runner records as a ``warn``
+  audit row, but do NOT block.
+- ``deny``: block via ``hookSpecificOutput``; the hook runner records the
+  denial.
 
 Suppression: ``# lint:no-subagent-background-check`` on the Bash command
 body or in the ``reason`` of a ``ScheduleWakeup`` payload. The token is
@@ -76,7 +78,6 @@ from yoke_core.domain.lint_subagent_background_constants import (
 )
 from yoke_core.domain.lint_subagent_background_decide import (
     build_deny_response,
-    emit_audit_event,
     format_reason,
 )
 from yoke_core.hooks.types import (
@@ -239,14 +240,6 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return _allow_decision()
     mode, reason, tool_name, outcome = verdict
-    emit_audit_event(
-        payload,
-        tool_name,
-        reason,
-        mode,
-        outcome,
-        command=_extract_command(payload),
-    )
     audit_fields = {
         "mode": mode,
         "reason": reason,
@@ -309,15 +302,7 @@ def main() -> int:
     verdict = evaluate_payload(payload, agent_type=args.agent_type)
     if verdict is None:
         return 0
-    mode, reason, tool_name, outcome = verdict
-    emit_audit_event(
-        payload,
-        tool_name,
-        reason,
-        mode,
-        outcome,
-        command=_extract_command(payload),
-    )
+    mode, reason, _tool_name, _outcome = verdict
     if mode == "deny":
         print(json.dumps(build_deny_response(reason)))
     return 0

@@ -23,7 +23,6 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-destructive-git"
-HOOK_NAME = "lint-destructive-git"
 GUARD_KEY = "lint_destructive_git"
 SUPPRESSION_TOKEN = messages.SUPPRESSION_TOKEN
 
@@ -177,32 +176,6 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     return None
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
-    try:
-        from yoke_core.hooks.telemetry import emit_denial_event
-    except Exception:
-        return
-    sid = payload.get("session_id") or ""
-    tu = payload.get("tool_use_id") or ""
-    turn = payload.get("turn_id") or payload.get("message_id") or ""
-    audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
-    try:
-        emit_denial_event(
-            hook=HOOK_NAME,
-            tool="Bash",
-            check_id=CHECK_ID,
-            reason=audit_reason,
-            session_id=sid if isinstance(sid, str) else "",
-            agent=str(payload.get("agent_type") or ""),
-            tool_use_id=tu if isinstance(tu, str) else "",
-            turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload),
-            outcome=outcome,
-        )
-    except Exception:
-        pass
-
-
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. ``record.cwd`` scopes git inspection via ``payload['cwd']``."""
     payload = record.payload if isinstance(record.payload, dict) else {}
@@ -210,7 +183,6 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
         envelope = json.dumps(
