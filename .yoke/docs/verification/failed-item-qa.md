@@ -62,7 +62,7 @@ what must be staffed, and write the dependency before waiting:
 
 ```text
 yoke items dependency add ITEM FIX operator --gate-point closure \
-  --satisfaction fact:deployed:ENV --rationale "Delivery QA requires this correction in ENV"
+  --satisfaction fact:merged --rationale "Delivery QA retests this correction in the same release"
 ```
 
 Read `yoke items dependency add --help` first. ITEM is the failed dependent;
@@ -71,11 +71,17 @@ what the retest actually requires:
 
 - `closure` says when the dependent must stop: it may work but cannot complete
   before the condition holds. It does not deploy the fix or select a QA target.
+- `fact:merged` requires the fix on trunk. Use it when the fix ships in the
+  same release as ITEM or the same shared QA case proves both: the retest
+  then sees the fix without waiting for its delivery.
 - `status:done` requires the fix item's completion under its pinned workflow.
   Use it when completion is sufficient; it does not require a named environment.
 - `fact:deployed:ENV` additionally requires durable completion delivery
   attribution to that registered environment, including its run and candidate.
-  Reaching `release`, merging, or merely having a successful run is insufficient.
+  Use it only when ITEM truly needs the fix live before its own release. A
+  fix that ships in ITEM's release or shared case cannot be delivered first,
+  so release composition skips ITEM. Reaching `release`, merging, or merely
+  having a successful run is insufficient.
 
 Do not make the fix wait for the failed item's completion in return.
 A `dependency_cycle` refusal names the cycle and recovery; ask steering to
@@ -99,7 +105,7 @@ condition. Keep full evidence in the item's artifacts when needed.
 
 ```text
 yoke items progress-log append ITEM --headline "delivery QA blocker" --stdin
-yoke sessions touch --mode parked --reason "waiting for FIX delivery to ENV for item QA"
+yoke sessions touch --mode parked --reason "waiting for FIX to meet its milestone for item QA"
 ```
 
 Park only on an explicit blocker. Keep the work claim and lane; do not end the

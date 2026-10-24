@@ -90,7 +90,7 @@ uncovered task paths. A body edit takes effect on the next check, so widen
 the task's claim when its list grows. Register or widen each owning task
 claim, then rerun readiness; a whole-item claim does not substitute:
 ```text
-yoke claims path register --item PREFIX-N --task-num <task-number> --paths <task-budget-paths> [--allow-planned]
+yoke claims path register --item PREFIX-N --task-num <task-number> --paths <path1>,<path2>,... [--allow-planned]
 ```
 
 ## Registration

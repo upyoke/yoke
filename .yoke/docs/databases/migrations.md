@@ -79,7 +79,7 @@ known mismatched permanent migration bytes.
 A work item authors the entry and rehearses it:
 
 ```bash
-yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
+yoke --env <name> migration rehearse PREFIX-N
 ```
 
 Rehearsal applies the entry to the validation surface, records the gate's

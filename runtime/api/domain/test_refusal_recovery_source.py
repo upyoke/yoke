@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import subprocess
 from pathlib import Path
@@ -10,8 +11,11 @@ ROOT = Path(__file__).resolve().parents[3]
 COMPOSER = "packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py"
 # Permanent migration history and standalone versioned Pack programs cannot
 # gain a dependency on the current runtime. The browser reply runs JavaScript.
+# The standalone relay entrypoint diagnoses failure before packages are bound.
 # Freeze these exact source versions: this is no allowance for new literals.
 FROZEN_SOURCES = {
+    'packages/yoke-core/src/yoke_core/tools/session_relay_runtime_entrypoint.py':
+        '354609e83ce5e9d26f5f2a1df29c271f1be3bf702528d3418a8feab9f1259f9b',
     'packages/yoke-core/src/yoke_core/domain/migrations/0053_retire_advance_skill.py':
         '934f51effddc4856d35d38dd2d606028f08092bf2fe556f1f8f1f2604c8841c4',
     'packages/yoke-core/src/yoke_core/domain/migrations/0054_remove_lane_allowlists.py':
@@ -74,7 +78,15 @@ def test_no_hand_written_recovery_labels() -> None:
             or rel == COMPOSER
         ):
             continue
-        if "Recovery:" not in p.read_text():
+        source = p.read_text()
+        if "Recovery:" not in source:
+            continue
+        if p.suffix == ".py" and not any(
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and "Recovery:" in node.value
+            for node in ast.walk(ast.parse(source))
+        ):
             continue
         if hashlib.sha256(p.read_bytes()).hexdigest() == FROZEN_SOURCES.get(rel):
             continue

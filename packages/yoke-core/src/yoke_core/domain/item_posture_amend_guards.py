@@ -42,10 +42,9 @@ def disallowed_posture_message(
         f"and select a version allowing {key!r}, then preview `yoke workflows item migrate {ref} "
         "--version N --preview`. Only apply that migration without --preview after "
         "its compatibility checks pass, then retry the amendment. If no suitable "
-        "version is published, the workflow owner must publish one first. "(
-            "Migration requires a live steering seat covering the target project or "
-            "document; route via yoke say --steering"
-        ),
+        "version is published, the workflow owner must publish one first. "
+        "Migration requires a live steering seat covering the target project or "
+        "document; route via yoke say --steering",
     )
 
 

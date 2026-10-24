@@ -178,6 +178,10 @@ class TestItemDependencyWriteDispatch:
         assert "--gate-point" in out
         assert "--satisfaction" in out
         assert "--rationale" in out
+        # A fix shipping in the dependent's own release takes fact:merged;
+        # fact:deployed would make composition skip the dependent.
+        assert "ships in the dependent's release or shared QA case" in out
+        assert "composition skips the dependent" in out
         for source in VALID_SOURCES:
             assert source in out
 

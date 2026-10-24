@@ -62,7 +62,10 @@ from yoke_contracts.direct_database_access import (
     direct_database_command,
 )
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
-from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
+from yoke_contracts.migration_rehearsal_teaching import (
+    CONNECTION_READER,
+    YOKE_SOURCE_LANE_REHEARSAL_RECIPE,
+)
 from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
 
@@ -141,7 +144,7 @@ def _source_worktree_path(item_id: int, session_id: str) -> Optional[Path]:
     raise MigrationApplyError(
         compose_refusal(
             f"rehearsal_source_lane_invalid: item_id={item_id}, source={root}: {reason}.",
-            recovery=f"inspect `yoke claims work holder-list --session-id-filter {session_id}` and the named item's registered lanes; acquire the matching item/task claim and rerun `yoke --env <name> dev run --lane <registered-path> -- yoke migration rehearse ITEM`. Restore a missing lane through its worktree preparation command; do not set the source binding by hand.",
+            recovery=f"inspect `yoke claims work holder-list --session-id-filter {session_id}` and the named item's registered lanes; acquire the matching item/task claim and rerun `{YOKE_SOURCE_LANE_REHEARSAL_RECIPE}`. Restore a missing lane through its worktree preparation command; do not set the source binding by hand.",
         )
     )
 

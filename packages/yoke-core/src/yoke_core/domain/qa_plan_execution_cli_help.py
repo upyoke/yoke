@@ -191,8 +191,9 @@ Inspect the failed requirement and its QA runs, then classify product defect,
 setup failure, case defect, or unclear cause. Current-item failures belong to
 that item: retain the claim and lane, correct and verify the work. If a separate
 correction is justified, name its owner and record ITEM -> FIX with a closure
-dependency before parking: status:done for completion, fact:deployed:ENV for
-completion with durable delivery attribution in that registered environment.
+dependency before parking: fact:merged when the fix ships in the same release
+or shared case, status:done for completion, fact:deployed:ENV only when the fix
+must be live in that registered environment before this item's release.
 Checkpoint the failed run/stage/member/target, diagnosis, exact milestone and
 next scoped command. Keep the claim while waiting; steering staffs corrections,
 arranges delivery and resumes an owner whose surface cannot wake automatically.

@@ -118,8 +118,8 @@ def write_summary(result, out, full):
         print("Not finished:", file=out)
         for skip in result["unfinished"]:
             print(
-                compose_refusal(
-                    f"  {skip['table']} ({skip['code']}, {skip['attempts']} attempts): {skip['reason']}.",
+                "  " + compose_refusal(
+                    f"{skip['table']} ({skip['code']}, {skip['attempts']} attempts): {skip['reason']}.",
                     recovery=f"{skip['recovery']}",
                 ),
                 file=out,
