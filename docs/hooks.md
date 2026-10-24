@@ -133,9 +133,8 @@ A computed deny survives expiry. Otherwise `degraded` includes
 
 Timeout, unreachable host, non-200 or invalid response degrades only the server
 half to that warned allow. Already-computed client allow context survives; a client deny never enters that path. Claude's output
-writer sends exit-2 denial reasons and guard/environment notices to stderr,
-reducing a local deny envelope to reason text. Codex/Cursor retain stdout verdict
-envelopes; allow context uses stdout.
+writer sends plain exit-2 denial reasons and guard/environment notices to stderr.
+Codex/Cursor retain stdout verdict envelopes; allow context uses stdout.
 
 ### Lifecycle deduplication and orientation
 
