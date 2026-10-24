@@ -39,8 +39,9 @@ Model: [databases](../../databases/index.md).
 - A row-transforming entry is idempotent when its output already exists: fold, do not recreate.
 - Rehearse with `yoke migration rehearse PREFIX-N` from the configured local-Postgres authority
   that owns the item; with none configured, escalate. It holds `LIVE_DB_MIGRATION:<model>`
-  until the merge lands. From one of several lanes:
-  `yoke --env <name> dev run --lane <registered-worker-path> -- yoke migration rehearse PREFIX-N`.
+  until the merge lands. From a source lane: `yoke dev run [--lane <path>] -- yoke --env <name>
+  migration rehearse PREFIX-N` (`--env` before `dev run` is refused). `rehearsal_commands` are
+  tests, never the rehearse command.
 - Several items with entries: assign ordinals, stack each lane on the previous branch, list every
   module on the top item's DB claim, rehearse once on the top item, land in order, ship in one
   release.

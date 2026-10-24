@@ -46,7 +46,7 @@ Each section names the owner that holds the detail.
   yoke dev db-admin exec P-stage-MODEL-db-admin --dsn-var APP_DSN -- <command>
   ```
 - Rehearse migrations from the claimed lane:
-  `yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N`. With several lanes add
+  `yoke dev run -- yoke --env prod-db-admin migration rehearse PREFIX-N`. With several lanes add
   `--lane <registered-worker-path>` after `dev run`. Keep the fleet-preflight receipt and the
   `LIVE_DB_MIGRATION:<model>` hold; the merge releases it.
 - Tenant-fleet content-identity adoption is an attested operator step: read

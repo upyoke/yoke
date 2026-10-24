@@ -8,10 +8,10 @@ Behavior, verified references, `- [ ] AC-N:` ACs, and a
 
 ```text
 yoke items structured-field replace "$ITEM_REF" --field spec --source idea --stdin < <spec-file>
-yoke claims path register --item "$ITEM_REF" --paths <every-required-path> --allow-planned
+yoke claims path register --item "$ITEM_REF" --paths <path1>,<path2>,... --allow-planned
 ```
 
-Register only when path claims are on; `required_per_task` registers per
+Register every required path in one comma-separated `--paths` list, only when path claims are on; `required_per_task` registers per
 task later. Overlap: [path-claim-blocking.md](path-claim-blocking.md).
 
 ## 10. Readiness and release

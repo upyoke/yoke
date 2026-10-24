@@ -83,7 +83,8 @@ def github_merge_queue_hold(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github merge-queue hold",
         description=(
-            "Hold this item's merge-queue candidate: clear merge-when-ready, "
+            "Hold this item's merge-queue candidate before correcting a lane "
+            "whose pull request exists: clear merge-when-ready, "
             "remove the queue entry, and verify GitHub reports both gone. "
             "Disabling auto-merge alone does not remove an entry the queue "
             "has already taken, so a hold that cannot be read back is "
@@ -92,7 +93,9 @@ def github_merge_queue_hold(args: List[str]) -> int:
             "the lane, re-run the verification gate against the new "
             "candidate, then `yoke merge item` to arm it again. A candidate "
             "that landed before or during the hold is reported with the "
-            "commit GitHub actually merged."
+            "commit GitHub actually merged. Before a pull request exists "
+            "nothing is queued: the hold refuses, and you correct and "
+            "commit without one."
         ),
     )
     parser.add_argument("item", help="Work item, as PREFIX-N.")

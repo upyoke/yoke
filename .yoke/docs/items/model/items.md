@@ -100,7 +100,7 @@ The amendment workflow accepts a single flat payload combining both halves:
 }
 ```
 
-For `state="declared"` + `mutation_intent="apply"`, `migration_strategy` is required inline. For `state="declared"` + `compatibility_class="pre_merge_safe"`, the four authored attestation fields (`pre_merge_readers_writers`, `invariants`, `rehearsal_commands`, `residual_risk_notes`) are required inline. `pre_merge_readers_writers[].role` accepts only `reader` or `writer`; migration modules and schema-changing files use `writer`, not prose such as `schema migration`. The validator demultiplexes the payload across both stored fields and writes them atomically — partial writes that leave the two halves out of sync are not possible.
+For `state="declared"` + `mutation_intent="apply"`, `migration_strategy` is required inline. For `state="declared"` + `compatibility_class="pre_merge_safe"`, the four authored attestation fields (`pre_merge_readers_writers`, `invariants`, `rehearsal_commands`, `residual_risk_notes`) are required inline. `rehearsal_commands` are test commands that rehearsal runs against the validation database, such as a focused pytest run; never list `yoke migration rehearse` there, because rehearsal would call itself and fail. `pre_merge_readers_writers[].role` accepts only `reader` or `writer`; migration modules and schema-changing files use `writer`, not prose such as `schema migration`. The validator demultiplexes the payload across both stored fields and writes them atomically — partial writes that leave the two halves out of sync are not possible.
 
 Negative claims — the reviewed-none decision — use the convenience flag:
 

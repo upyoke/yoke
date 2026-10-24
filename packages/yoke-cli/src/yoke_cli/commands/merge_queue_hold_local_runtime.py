@@ -99,8 +99,10 @@ def _readiness(item: str, project: Optional[str]) -> Dict[str, Any]:
     result = _call(_READINESS_FUNCTION, item, project)
     if not str(result.get("pr_number") or ""):
         raise HoldRefused(
-            f"{item} has no recorded pull request to hold; "
-            f"{result.get('narrative') or 'nothing was read back'}"
+            f"{item} has no recorded pull request to hold "
+            f"({result.get('narrative') or 'nothing was read back'}). Nothing "
+            "is queued yet: correct and commit in the lane without a hold, "
+            "and hold only once the item has a pull request"
         )
     return result
 
