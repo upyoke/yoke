@@ -3,7 +3,9 @@
 After a guard module returns its decision, the runner asks the registry
 (:mod:`yoke_core.domain.lint_config`) for that guard's configured mode. A
 guard that *blocks* while configured ``warn`` is downgraded here to a
-non-blocking decision so the command runs, and the downgrade is recorded as a
+non-blocking decision so the command runs. The downgraded decision declares
+``audit_outcome=warn``, so the runner's single recorder
+(:func:`yoke_core.hooks.guard_denial_record.record_guard_decision`) writes its
 ``HarnessToolCallDenied`` row with ``outcome=warn``.
 
 This is the single point that turns operator ``.yoke/lint-config`` policy into
@@ -50,9 +52,9 @@ def apply_mode(
         return decision
     if mode != lint_config.WARN:
         return decision
-    _emit_downgrade(module_id, context)
     audit = dict(decision.audit_fields or {})
     audit.update({"policy_mode": lint_config.WARN, "downgraded_from": decision.outcome.value})
+    audit.setdefault("audit_outcome", lint_config.WARN)
     return HookDecision(
         outcome=Outcome.WARN, message="", next=Next.CONTINUE, audit_fields=audit,
     )
@@ -64,37 +66,6 @@ def _policy_snapshot(context: Optional[HookContext]) -> object | None:
     if lint_policy.SNAPSHOT_PAYLOAD_KEY not in context.payload:
         return None
     return context.payload.get(lint_policy.SNAPSHOT_PAYLOAD_KEY)
-
-
-def _emit_downgrade(module_id: str, context: Optional[HookContext]) -> None:
-    """Best-effort ``HarnessToolCallDenied`` row recording the warn-downgrade."""
-    try:
-        from yoke_core.hooks.denial import emit_denial_event
-    except Exception:  # noqa: BLE001 — audit emission must never break dispatch
-        return
-    guard = module_id.rsplit(".", 1)[-1]
-    payload = context.payload if context and isinstance(context.payload, dict) else {}
-    tool_input = payload.get("tool_input") if isinstance(payload, dict) else None
-    command = tool_input.get("command") if isinstance(tool_input, dict) else ""
-    _s = lambda v: v if isinstance(v, str) else ""  # noqa: E731
-    try:
-        emit_denial_event(
-            hook="lint-mode-gate",
-            tool=(context.tool_name if context else "") or "Bash",
-            check_id=guard,
-            reason=(
-                f"[outcome=warn] guard {guard} downgraded deny->warn by "
-                f".yoke/lint-config policy"
-            ),
-            session_id=_s(context.session_id if context else ""),
-            agent=_s(payload.get("agent_type")),
-            tool_use_id=_s(payload.get("tool_use_id")),
-            turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
-            command_snippet=_s(command),
-            outcome="warn",
-        )
-    except Exception:  # noqa: BLE001 — telemetry must never propagate
-        return
 
 
 __all__ = ["apply_mode"]
