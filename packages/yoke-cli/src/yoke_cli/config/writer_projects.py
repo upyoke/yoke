@@ -118,12 +118,21 @@ def set_publication_read_only(
             "project_publication_unmapped: register this checkout before selecting publication"
         )
     connection = contract.project_connection(payload)
-    projects = contract.projects_for_connection(payload)
-    for project in projects:
-        if project["project_id"] == entry["project_id"]:
-            project["publication_read_only"] = read_only
-    payload["connection_projects"][connection] = projects
+    normalized = contract.projects_for_connection(payload)
+    projects = payload["connection_projects"][connection]
+    selected = [index for index, project in enumerate(normalized)
+                if project["project_id"] == entry["project_id"]]
+    if len(selected) != 1:
+        raise MachineConfigWriteError(
+            "project_publication_ambiguous: repair the duplicate checkout mapping"
+        )
+    previous = dict(projects[selected[0]])
+    updated = {**previous, "publication_read_only": read_only}
+    projects[selected[0]] = updated
     _write_payload(payload, cfg_path)
+    from yoke_cli.project_install.owned_cleanup import refresh_registration_policy
+
+    refresh_registration_policy(repo_root, cfg_path, connection, previous, updated)
 
 
 __all__ = ["register_project", "set_publication_read_only"]

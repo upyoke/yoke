@@ -58,6 +58,35 @@ def record_registration(root: Path, project_id: int, config_path) -> None:
     files.write_manifest(root, manifest)
 
 
+def refresh_registration_policy(root, config_path, connection, previous, updated) -> None:
+    """Carry established ownership through a serialized publication-only change."""
+    if previous == updated:
+        return
+    checkout = main_checkout(Path(root)).resolve()
+    manifest = files.load_manifest(checkout)
+    record = manifest.get(REGISTRATION_KEY) if manifest else None
+    if (
+        not isinstance(record, dict)
+        or record.get("config") != str(Path(config_path).resolve())
+        or record.get("connection") != connection
+        or record.get("entry") != previous
+        or previous.get("project_id") != manifest.get("project_id")
+        or Path(previous["checkout"]).expanduser().resolve() != checkout
+        or updated != {**previous, "publication_read_only": updated.get("publication_read_only")}
+        or type(updated.get("publication_read_only")) is not bool
+    ):
+        return
+    record["entry"] = dict(updated)
+    try:
+        files.write_manifest(checkout, manifest)
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise files.ProjectInstallError(
+            "registration_policy_receipt_failed: publication setting changed but its "
+            "ownership receipt could not be saved; preserve the mapping and review "
+            "the install manifest before uninstalling"
+        ) from exc
+
+
 def cleanup(root: Path, manifest: dict, config_path) -> dict:
     """Keep independent failures reviewable without claiming complete retirement."""
     try:
