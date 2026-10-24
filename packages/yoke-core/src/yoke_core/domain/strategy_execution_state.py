@@ -12,7 +12,7 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
-#: The one workflow whose items execute a strategy document.
+#: The workflow whose items claim and execute a strategy document.
 BLITZ_WORKFLOW_ID = "blitz"
 
 
@@ -69,7 +69,7 @@ def _require_blitz_item(conn: Any, item_id: int) -> dict[str, Any]:
     if str(item["workflow_id"]) != BLITZ_WORKFLOW_ID:
         raise StrategyExecutionLinkError(
             f"{render_item_ref(conn, item_id)} uses workflow {item['workflow_id']!r}; "
-            "only Blitz items link execution strategy documents"
+            "only Blitz items may claim execution strategy documents"
         )
     return item
 
