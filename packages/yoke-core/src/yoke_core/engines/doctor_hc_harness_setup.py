@@ -46,12 +46,15 @@ def hc_harness_setup(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             problems.append(
                 f"harness_reconcile_state_unwritable: {exc}; repair relay state permissions."
             )
+    # The relay reconciles on its own clock, so its recorded failure can predate
+    # files an installer wrote since; it counts only while this live pass still
+    # finds a problem.
+    state = read_reconcile_state()
+    if problems and state.get("failure"):
+        problems.append(f"relay_last_reconcile_failed: {state['failure']}")
     orphan = codex_home_without_codex()
     if orphan:
         problems.append(orphan)
-    state = read_reconcile_state()
-    if state.get("failure"):
-        problems.append(f"relay_last_reconcile_failed: {state['failure']}")
     if problems:
         rec.record(SLUG, TITLE, "FAIL", "\n".join([*problems, RECOVERY]))
         return
