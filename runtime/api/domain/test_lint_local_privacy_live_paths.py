@@ -66,7 +66,7 @@ def _payload(command: str) -> dict:
 )
 def test_scoped_access_and_gui_automation_pass_both_live_paths(command: str) -> None:
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        assert lint_local_privacy.evaluate_payload(_payload(command)) is None
+        assert lint_local_privacy.evaluate_payload(lint_local_privacy._context(_payload(command))) is None
         with patch.object(local_policies.Path, "home", return_value=HOME):
             assert local_policies.lint_local_privacy(_payload(command)).outcome == NOOP
 
@@ -75,7 +75,7 @@ def test_broad_discovery_advises_on_both_live_paths() -> None:
     payload = _payload("find $HOME -maxdepth 4 -name python3")
 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        engine_verdict = lint_local_privacy.evaluate_payload(payload)
+        engine_verdict = lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload))
         decision = lint_local_privacy.evaluate(lint_local_privacy._context(payload))
     with patch.object(local_policies.Path, "home", return_value=HOME):
         product_verdict = local_policies.lint_local_privacy(payload)
@@ -112,7 +112,7 @@ def test_privacy_database_still_denies_on_both_live_paths() -> None:
     payload = _payload("cat '/Library/Application Support/com.apple.TCC/TCC.db'")
 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        engine_verdict = lint_local_privacy.evaluate_payload(payload)
+        engine_verdict = lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload))
     with patch.object(local_policies.Path, "home", return_value=HOME):
         product_verdict = local_policies.lint_local_privacy(payload)
 
@@ -126,7 +126,7 @@ def test_engine_and_product_local_policy_share_safe_outcome() -> None:
     payload = _payload(f"find {_quote(REPO)} -name codex")
 
     with patch.object(lint_local_privacy.Path, "home", return_value=HOME):
-        assert lint_local_privacy.evaluate_payload(payload) is None
+        assert lint_local_privacy.evaluate_payload(lint_local_privacy._context(payload)) is None
     with patch.object(local_policies.Path, "home", return_value=HOME):
         assert local_policies.lint_local_privacy(payload).outcome == NOOP
 

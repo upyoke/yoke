@@ -30,15 +30,13 @@ from yoke_core.domain.lint_command_extract import extract_command as _extract_co
 CHECK_ID = "lint-local-privacy"
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
+def evaluate_payload(record: HookContext) -> Optional[Tuple[str, str]]:
     """Return ``(reason, audit_outcome)`` — ``denied`` or ``advisory`` — or None."""
-    if not isinstance(payload, dict):
-        return None
-    command = _extract_command(payload)
-    if not command:
+    payload = record.payload if isinstance(record.payload, dict) else {}
+    if not record.shell.segments:
         return None
     finding = classify_shell_command(
-        command,
+        record.shell,
         home=Path.home(),
         cwd=(payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd()),
     )
@@ -55,8 +53,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
 def evaluate(record: HookContext) -> HookDecision:
     if record.tool_name and record.tool_name != "Bash":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    payload = record.payload if isinstance(record.payload, dict) else {}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(record)
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, outcome = verdict

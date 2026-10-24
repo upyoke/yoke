@@ -5,9 +5,10 @@ guard, so every guard agrees on what the command runs:
 
 - Heredoc bodies are input, not commands. They are lifted out first and kept
   on ``ShellParse.heredocs`` with whether the shell expands them.
-- Statements split on unquoted ``;``, ``&&``, ``||``, ``|``, ``&`` and
-  newlines before tokenizing, so ``--target-root /lane; git ...`` never glues
-  the ``;`` onto ``/lane``.
+- Statements split on unquoted ``;``, ``&&``, ``||``, ``&`` and newlines,
+  and pipelines on ``|``, before tokenizing, so ``--target-root /lane; git
+  ...`` never glues the ``;`` onto ``/lane``. Each segment records its
+  ``pipeline`` and ``stage`` position.
 - Each segment's ``argv`` drops leading compound keywords (``do``, ``then``),
   ``NAME=value`` assignments (``_``-prefixed names included) and an ``env``
   prefix with its options (``env -i``, ``env -u NAME``).
@@ -25,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from yoke_contracts.hook_runner.shell_expansion_scan import Heredoc, scan
-from yoke_contracts.hook_runner.shell_statements import split_pipeline
+from yoke_contracts.hook_runner.shell_statements import iter_pipeline_groups
 
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ENV_OPTIONS_WITH_ARG = frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"})
@@ -51,6 +52,8 @@ class ShellSegment:
     tokens: tuple[str, ...]
     assignments: tuple[str, ...]
     argv: tuple[str, ...]
+    pipeline: int = 0
+    stage: int = 0
 
     @property
     def program(self) -> str:
@@ -99,23 +102,25 @@ def parse_shell(command: str) -> ShellParse:
     scanned = scan(text)
     segments: list[ShellSegment] = []
     unparsed: list[str] = []
-    for statement in split_pipeline(scanned.code, split_background=True, shell_comments=True):
-        try:
-            tokens = shlex.split(statement.replace("\\\n", " "))
-        except ValueError:
-            unparsed.append(statement)
-            continue
-        if tokens:
-            segments.append(_segment(statement, tokens))
+    groups = iter_pipeline_groups(scanned.code, shell_comments=True, split_background=True)
+    for pipeline, stages in enumerate(groups):
+        for stage, statement in enumerate(stages):
+            try:
+                tokens = shlex.split(statement.replace("\\\n", " "))
+            except ValueError:
+                unparsed.append(statement)
+                continue
+            if tokens:
+                segments.append(_segment(statement, tokens, pipeline, stage))
     return ShellParse(text, scanned.code, scanned.heredocs, tuple(segments), tuple(unparsed))
 
 
-def _segment(text: str, tokens: list[str]) -> ShellSegment:
+def _segment(text: str, tokens: list[str], pipeline: int = 0, stage: int = 0) -> ShellSegment:
     index = 0
     while index < len(tokens) and tokens[index] in COMPOUND_STATEMENT_KEYWORDS:
         index += 1
     if index < len(tokens) and tokens[index] in WORD_LIST_KEYWORDS:
-        return ShellSegment(text, tuple(tokens), (), ())
+        return ShellSegment(text, tuple(tokens), (), (), pipeline, stage)
     assignments: list[str] = []
     while index < len(tokens):
         word = tokens[index]
@@ -133,7 +138,9 @@ def _segment(text: str, tokens: list[str]) -> ShellSegment:
                 index += 1
         if index < len(tokens) and tokens[index] == "--":
             index += 1
-    return ShellSegment(text, tuple(tokens), tuple(assignments), tuple(tokens[index:]))
+    return ShellSegment(
+        text, tuple(tokens), tuple(assignments), tuple(tokens[index:]), pipeline, stage
+    )
 
 
 def strip_env_prefix(tokens: list[str] | tuple[str, ...]) -> list[str]:

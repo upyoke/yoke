@@ -8,13 +8,10 @@ shapes.
 
 from __future__ import annotations
 
-import re
-import shlex
 from pathlib import Path
 from typing import Sequence
 
-
-_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+from yoke_contracts.hook_runner.shell_parse import strip_env_prefix
 
 RG_VALUE_OPTIONS = frozenset(
     (
@@ -32,53 +29,22 @@ GREP_VALUE_OPTIONS = frozenset(
 )
 
 
-def segments(command: str) -> list[list[str]]:
-    """Return quote-aware command segments separated by shell operators."""
-    try:
-        lexer = shlex.shlex(
-            command.replace("\n", " ; "),
-            posix=True,
-            punctuation_chars=";&|",
-        )
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return []
-    out: list[list[str]] = []
-    current: list[str] = []
-    for token in tokens:
-        if token and set(token) <= set(";&|"):
-            if current:
-                out.append(current)
-            current = []
-        else:
-            current.append(token)
-    if current:
-        out.append(current)
-    return out
+def unwrap(argv: Sequence[str]) -> tuple[str, list[str]]:
+    """Return the real executable and its arguments, past sudo/exec wrappers.
 
-
-def unwrap(tokens: Sequence[str]) -> tuple[str, list[str]]:
-    """Return the real executable and its arguments, past env/sudo/exec wrappers."""
-    index = 0
-    while index < len(tokens) and _ASSIGNMENT.match(tokens[index]):
-        index += 1
-    while index < len(tokens):
-        executable = Path(tokens[index]).name
+    ``argv`` already has its leading assignments and ``env`` prefix removed
+    by the shared parse; a wrapper may carry another one.
+    """
+    tokens = list(argv)
+    while tokens:
+        executable = Path(tokens[0]).name
         if executable in {"command", "exec", "nohup", "sudo"}:
-            index += 1
+            index = 1
             while index < len(tokens) and tokens[index].startswith("-"):
                 index += 1
+            tokens = strip_env_prefix(tokens[index:])
             continue
-        if executable == "env":
-            index += 1
-            while index < len(tokens) and (
-                tokens[index].startswith("-") or _ASSIGNMENT.match(tokens[index])
-            ):
-                index += 1
-            continue
-        return executable, list(tokens[index + 1 :])
+        return executable, tokens[1:]
     return "", []
 
 
@@ -121,6 +87,5 @@ __all__ = [
     "GREP_VALUE_OPTIONS",
     "RG_VALUE_OPTIONS",
     "option_positionals",
-    "segments",
     "unwrap",
 ]
