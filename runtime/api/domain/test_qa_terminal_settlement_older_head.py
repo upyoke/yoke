@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain.qa_terminal_requirement_errors import _recovery_instruction
 from yoke_core.domain.qa_terminal_settlement import blocking_requirement_issues
 from runtime.api.domain.test_standalone_item_merge_commit_bound import (
@@ -68,10 +69,20 @@ def test_other_unfinished_runs_stay_incomplete(requirement):
     assert issue.state == "incomplete"
 
 
-def test_record_verdict_is_named_only_for_a_case_that_cannot_run():
-    stored_only = _ci_requirement(sha=MERGING_SHA, method_config={"command": ""})
-    assert "yoke qa run record-verdict --help" in _recovery_instruction(stored_only)
-    assert "record-verdict" not in _recovery_instruction(_ci_requirement(sha=""))
+@pytest.mark.parametrize("config", [None, {}, {"command": ""}, "invalid-json", CI_CONFIG])
+def test_command_ci_recovery_always_runs_the_case(config, tmp_path):
+    requirement = _ci_requirement(sha=MERGING_SHA, method_config=config)
+    if config is None:
+        requirement.pop("method_config")
+    assert _recovery_instruction(requirement) == (
+        "Run `yoke qa case run --requirement-id 77`"
+    )
+    _, error = merge_qa.preflight(
+        _item(requirement), public_ref="YOK-10", repo_root=tmp_path, branch="YOK-10"
+    )
+    assert "Run `yoke qa case run --requirement-id 77`" in error
+    assert "record-verdict" not in error
+    assert "not executable" not in error
 
 
 def test_merge_runs_the_case_for_the_new_head_after_an_older_failure(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -52,31 +51,4 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
             "the selected completion run must accept this source's copies "
             "at its recorded candidate and target before done can settle"
         )
-    evidence_instruction = (
-        "Record the existing exact-head CI result for this requirement through "
-        "`yoke qa run record-verdict --help`, passing --raw-result as JSON "
-        'carrying the CI run id/URL and {"verification_tree": {"head_sha": '
-        '"<the commit that run verified>"}} -- prose is stored verbatim, '
-        "leaves the head SHA unreadable, and this gate refuses again"
-    )
-    if method_id != "command-ci":
-        return f"Run `{case_command}`"
-    from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
-        validate_method_config,
-    )
-
-    raw_config = requirement.get("method_config")
-    try:
-        method_config = (
-            raw_config
-            if isinstance(raw_config, dict)
-            else json.loads(str(raw_config or "{}"))
-        )
-    except (TypeError, ValueError):
-        method_config = {}
-    try:
-        validate_method_config("command-ci", method_config)
-    except QaMethodConfigError:
-        return "The stored CI case is not executable; " + evidence_instruction
     return f"Run `{case_command}`"
