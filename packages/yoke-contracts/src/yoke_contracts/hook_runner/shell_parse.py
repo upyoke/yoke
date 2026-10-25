@@ -7,8 +7,10 @@ guard, so every guard agrees on what the command runs:
   on ``ShellParse.heredocs`` with whether the shell expands them.
 - Statements split on unquoted ``;``, ``&&``, ``||``, ``&`` and newlines,
   and pipelines on ``|``, before tokenizing, so ``--target-root /lane; git
-  ...`` never glues the ``;`` onto ``/lane``. Each segment records its
-  ``pipeline`` and ``stage`` position.
+  ...`` never glues the ``;`` onto ``/lane``. An operator inside ``$(...)``,
+  backticks, ``<(...)`` or ``>(...)`` belongs to that substitution, so
+  ``pytest $(find tests -name x.py | head -1)`` is one segment. Each segment
+  records its ``pipeline`` and ``stage`` position.
 - Each segment's ``argv`` drops leading compound keywords (``do``, ``then``),
   ``NAME=value`` assignments (``_``-prefixed names included) and an ``env``
   prefix with its options (``env -i``, ``env -u NAME``).

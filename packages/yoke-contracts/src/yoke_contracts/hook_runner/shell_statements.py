@@ -1,123 +1,18 @@
-"""Quote-aware statement splitter shared by every Bash hook guard.
+"""Quote- and substitution-aware statement splitter shared by every Bash hook guard.
 
 Quoted and backslash-escaped operators are literal: ``db_router query
--separator "|" "..."`` is one statement, not a pipeline. ``shell_parse``
-builds the shared per-hook parse on this split; the path-claim parser also
-uses its pipeline grouping.
+-separator "|" "..."`` is one statement, not a pipeline. Operators inside a
+command substitution (``$(...)``, backticks) or a process substitution
+(``<(...)``, ``>(...)``) belong to that inner command, so ``x=$(a | b)`` is
+one statement too. ``shell_parse`` builds the shared per-hook parse on this
+split; the path-claim parser and the quoted-substitution lint use it as well.
 """
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
-
-def split_pipeline(
-    command: str,
-    *,
-    split_background: bool = False,
-    shell_comments: bool = False,
-) -> List[str]:
-    """Split a Bash command on quote-aware ``;`` / ``&&`` / ``||`` / ``|`` / ``\\n``.
-
-    Operators inside single-quoted, double-quoted, or backslash-escaped
-    spans are treated as literal characters and do NOT split. Empty
-    segments are dropped. Whitespace around segment boundaries is
-    stripped.
-
-    Newlines outside of quotes act as statement separators (shell
-    treats unquoted ``\\n`` like ``;``) — BUT only when the command
-    contains no unquoted heredoc (``<<MARKER``). With a heredoc
-    present, the body is intentionally opaque to this splitter; the
-    parser handles heredocs via the fail-closed sweep. Splitting on
-    newline inside a heredoc body would parse prose lines as shell
-    statements, which is a false-positive class we explicitly avoid.
-
-    Without the newline split, a multi-line command body merges into
-    a single segment whose first verb absorbs every positional token
-    from every line — exactly the failure mode that misclassified
-    ``tee /tmp/x\\n_rc=${PIPESTATUS[0]}\\n``... as a tee with extra
-    positional targets.
-
-    Examples:
-
-    - ``"a | b"`` -> ``["a", "b"]`` (real pipeline)
-    - ``'cmd -separator "|"'`` -> ``["cmd -separator \"|\""]`` (quoted ``|`` is literal)
-    - ``"a && b ; c"`` -> ``["a", "b", "c"]``
-    - ``"echo \\| not-a-pipe"`` -> ``["echo \\| not-a-pipe"]`` (escaped ``|`` is literal)
-    - ``"a\\nb"`` -> ``["a", "b"]`` (newline is a statement separator)
-    - ``"cat <<EOF\\nbody\\nEOF"`` -> single segment (heredoc body is opaque)
-    """
-    # Invocation consumers also split a background command; quoted ampersands
-    # remain argv data. Path consumers retain their established boundary shape.
-    split_on_newline = split_background or not has_unquoted_heredoc(command)
-    out: List[str] = []
-    buf: List[str] = []
-    i = 0
-    in_single = False
-    in_double = False
-    n = len(command)
-    while i < n:
-        ch = command[i]
-        # Backslash escape (outside single quotes).
-        if ch == "\\" and not in_single and i + 1 < n:
-            buf.append(ch)
-            buf.append(command[i + 1])
-            i += 2
-            continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            buf.append(ch)
-            i += 1
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            buf.append(ch)
-            i += 1
-            continue
-        if in_single or in_double:
-            buf.append(ch)
-            i += 1
-            continue
-        if shell_comments and ch == "#" and (not buf or buf[-1].isspace()):
-            end = command.find("\n", i)
-            if end < 0:
-                end = n
-            buf.append(command[i:end])
-            i = end
-            continue
-        # Two-character operators: ``&&`` / ``||`` / ``;;``.
-        if ch in ";|&" and i + 1 < n and command[i + 1] == ch:
-            seg = "".join(buf).strip()
-            if seg:
-                out.append(seg)
-            buf = []
-            i += 2
-            continue
-        # Single-character pipeline operators: ``;`` / ``|`` / ``\n``.
-        # Newline split is gated on absence of heredoc so heredoc body
-        # lines stay opaque (see docstring).
-        if (
-            ch in (";", "|")
-            or (
-                ch == "&"
-                and split_background
-                and (not buf or buf[-1] != ">")
-                and (i + 1 >= n or command[i + 1] != ">")
-            )
-            or (ch == "\n" and split_on_newline)
-        ):
-            seg = "".join(buf).strip()
-            if seg:
-                out.append(seg)
-            buf = []
-            i += 1
-            continue
-        buf.append(ch)
-        i += 1
-    tail = "".join(buf).strip()
-    if tail:
-        out.append(tail)
-    return out
+_SUBSTITUTION_OPENERS = ("$(", "<(", ">(")
 
 
 def has_unquoted_heredoc(segment: str) -> bool:
@@ -160,89 +55,145 @@ def has_unquoted_heredoc(segment: str) -> bool:
     return False
 
 
-def iter_pipeline_groups(
+def pipeline_spans(
     command: str, *, shell_comments: bool = False, split_background: bool = False
-) -> List[List[str]]:
-    """Yield each statement as its quote-aware ``|`` stages.
+) -> List[List[Tuple[int, str]]]:
+    """Return each statement as its ``|`` stages, each with its start offset.
 
-    Statement boundaries (unquoted): ``;`` / ``&&`` / ``||`` / newline.
-    Stage boundaries within a statement (unquoted): ``|``.
-    Quoted operators stay literal, so
-    ``cmd --evidence 'a | pytest | head'`` is one stage, not a live pipeline.
+    Statement boundaries (top level only): ``;`` / ``&&`` / ``||`` / newline,
+    and ``&`` when ``split_background`` is set (never the ``&`` of ``>&`` or
+    ``&>``). Stage boundaries within a statement: ``|``. Text inside quotes,
+    after a backslash, or inside ``$(...)``, backticks, ``<(...)`` or
+    ``>(...)`` never splits. Each stage is stripped; its offset points at its
+    first non-space character in ``command``. Empty stages are dropped.
+
+    Newlines split statements only when the command has no unquoted heredoc
+    (``<<MARKER``) or ``split_background`` is set: a heredoc body stays
+    opaque so its prose lines are never read as statements. With
+    ``shell_comments``, an unquoted ``#`` at a word start runs to the end of
+    its line and is kept in the stage text.
     """
     split_on_newline = split_background or not has_unquoted_heredoc(command)
-    groups: List[List[str]] = []
-    stages: List[str] = []
-    buf: List[str] = []
+    groups: List[List[Tuple[int, str]]] = []
+    stages: List[Tuple[int, str]] = []
+    # Closers still owed, innermost last: ``'``, ``"``, ``)`` or a backtick.
+    nesting: List[str] = []
+    start = 0
     i = 0
-    in_single = False
-    in_double = False
     n = len(command)
 
-    def flush_stage() -> None:
-        seg = "".join(buf).strip()
-        buf.clear()
-        if seg:
-            stages.append(seg)
+    def flush_stage(end: int) -> None:
+        text = command[start:end]
+        stripped = text.strip()
+        if stripped:
+            stages.append((start + len(text) - len(text.lstrip()), stripped))
 
-    def flush_group() -> None:
-        flush_stage()
+    def flush_group(end: int) -> None:
+        flush_stage(end)
         if stages:
             groups.append(list(stages))
             stages.clear()
 
     while i < n:
         ch = command[i]
-        if ch == "\\" and not in_single and i + 1 < n:
-            buf.append(ch)
-            buf.append(command[i + 1])
+        inner = nesting[-1] if nesting else ""
+        if inner == "'":
+            if ch == "'":
+                nesting.pop()
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
             i += 2
             continue
-        if ch == "'" and not in_double:
-            in_single = not in_single
-            buf.append(ch)
+        if inner == '"':
+            if ch == '"':
+                nesting.pop()
+            elif ch == "`":
+                nesting.append("`")
+            elif command.startswith("$(", i):
+                nesting.append(")")
+                i += 1
             i += 1
             continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-            buf.append(ch)
+        if ch in "'\"":
+            nesting.append(ch)
             i += 1
             continue
-        if in_single or in_double:
-            buf.append(ch)
+        if ch == "`":
+            if inner == "`":
+                nesting.pop()
+            else:
+                nesting.append("`")
             i += 1
             continue
-        if shell_comments and ch == "#" and (not buf or buf[-1].isspace()):
+        if command.startswith(_SUBSTITUTION_OPENERS, i):
+            nesting.append(")")
+            i += 2
+            continue
+        if nesting:
+            if ch == "(":
+                nesting.append(")")
+            elif ch == ")" and inner == ")":
+                nesting.pop()
+            i += 1
+            continue
+        if shell_comments and ch == "#" and (i == start or command[i - 1].isspace()):
             end = command.find("\n", i)
-            if end < 0:
-                end = n
-            buf.append(command[i:end])
-            i = end
+            i = n if end < 0 else end
             continue
         if ch in ";|&" and i + 1 < n and command[i + 1] == ch:
-            flush_group()
+            flush_group(i)
             i += 2
+            start = i
             continue
-        if (
+        background = (
             split_background
             and ch == "&"
             and (i == 0 or command[i - 1] != ">")
             and (i + 1 == n or command[i + 1] != ">")
-        ):
-            flush_group()
+        )
+        if ch == "|":
+            flush_stage(i)
+        elif ch == ";" or background or (ch == "\n" and split_on_newline):
+            flush_group(i)
+        else:
             i += 1
             continue
-        if ch == "|" or ch == ";" or (ch == "\n" and split_on_newline):
-            if ch == "|":
-                flush_stage()
-            else:
-                flush_group()
-            i += 1
-            continue
-        buf.append(ch)
         i += 1
-    flush_group()
+        start = i
+    flush_group(n)
     return groups
 
 
-__all__ = ["has_unquoted_heredoc", "iter_pipeline_groups", "split_pipeline"]
+def iter_pipeline_groups(
+    command: str, *, shell_comments: bool = False, split_background: bool = False
+) -> List[List[str]]:
+    """Return each statement as its ``|`` stages (see :func:`pipeline_spans`).
+
+    - ``"pytest -q | head -5 && echo done"`` -> ``[["pytest -q", "head -5"], ["echo done"]]``
+    - ``"cmd --evidence 'a | b'"`` -> one stage (quoted ``|`` is literal)
+    - ``"x=$(git log | head -1)"`` -> one stage (the ``|`` is inside ``$(...)``)
+    - ``"cat <<EOF\\nbody\\nEOF"`` -> one stage (heredoc body is opaque)
+    """
+    return [
+        [text for _, text in group]
+        for group in pipeline_spans(
+            command, shell_comments=shell_comments, split_background=split_background
+        )
+    ]
+
+
+def split_pipeline(
+    command: str, *, split_background: bool = False, shell_comments: bool = False
+) -> List[str]:
+    """Return every pipeline stage of every statement, in order."""
+    return [
+        stage
+        for group in iter_pipeline_groups(
+            command, shell_comments=shell_comments, split_background=split_background
+        )
+        for stage in group
+    ]
+
+
+__all__ = ["has_unquoted_heredoc", "iter_pipeline_groups", "pipeline_spans", "split_pipeline"]

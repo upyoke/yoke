@@ -52,6 +52,22 @@ def test_quoted_operators_stay_data_and_pipes_record_their_stage() -> None:
     ]
 
 
+def test_pipes_inside_substitutions_belong_to_one_segment() -> None:
+    command = (
+        "yoke dev run -- python3 -m pytest $(find runtime tests -name X.py | head -1)"
+        ' >"$_tmp" 2>&1; tail -80 "$_tmp"'
+    )
+    parsed = parse_shell(command)
+    assert [(s.program, s.pipeline, s.stage) for s in parsed.segments] == [
+        ("yoke", 0, 0),
+        ("tail", 1, 0),
+    ]
+    assert [s.program for s in parse_shell("echo `ls | wc -l` | cat").segments] == [
+        "echo",
+        "cat",
+    ]
+
+
 def test_compound_keywords_and_word_lists_are_not_commands() -> None:
     assert _argvs("for f in /a /b; do cat \"$f\"; done") == [(), ("cat", "$f"), ()]
 

@@ -1,13 +1,14 @@
-"""``$(...)`` substitution body classifier for the path-claim Bash parser.
+"""Substitution body classifier for the path-claim Bash parser.
 
 Sibling helper for :mod:`path_claim_bash_parser`. The canonical commit
 form taught in ``AGENTS.md`` is ``git commit -m "$(cat <<'EOF' ... EOF)"``
 — a literal-message construct that carries no path-mutation signal.
 The narrow Bug 4 whitelist allows that exact shape (heredoc literal
-body feeding a text-flag consumer) while denying any other ``$(...)``
-substitution whose body leads with a mutating verb.
+body feeding a text-flag consumer) while denying any other ``$(...)``,
+backtick or process substitution whose body runs a mutating verb in any
+statement or pipeline stage.
 
-Quote-aware: ``$(...)`` inside single quotes is ignored. Inside double
+Quote-aware: substitutions inside single quotes are ignored. Inside double
 quotes ``$(...)`` is still active per shell semantics and is scanned.
 
 Pure function, no I/O, no DB access.
@@ -17,6 +18,8 @@ from __future__ import annotations
 
 import re
 from typing import List, Tuple
+
+from yoke_contracts.hook_runner.shell_statements import split_pipeline
 
 
 _MUTATE_VERBS = frozenset({"rm", "mv", "cp", "tee", "truncate"})
@@ -42,10 +45,12 @@ def classify_substitution_bodies(segment: str) -> str:
       consumer (``-m`` / ``--message`` / ``--body`` / ``-F``).
     * Plain read commands (date, hostname, pwd, etc.).
 
-    ``ambiguous`` means at least one ``$(...)`` body leads with a
-    mutating verb (``rm``, ``mv``, ``cp``, ``tee``, ``truncate``,
-    ``git rm`` / ``git restore`` / ``git checkout``) outside the
-    whitelisted shape. The caller emits a single
+    ``ambiguous`` means a statement or pipeline stage inside a
+    ``$(...)``, backtick, ``<(...)`` or ``>(...)`` body, at any nesting
+    depth, leads with a mutating verb (``rm``, ``mv``, ``cp``, ``tee``,
+    ``truncate``, ``git rm`` / ``git restore`` / ``git checkout``)
+    outside the whitelisted shape. The outer statement split keeps each
+    body whole, so every stage is checked here. The caller emits a single
     ``Mutation(verb="ambiguous", ...)`` so the path-claim guard fails
     closed.
     """
@@ -53,17 +58,20 @@ def classify_substitution_bodies(segment: str) -> str:
         stripped = body.strip()
         if not stripped:
             continue
-        if _is_mktemp_body(stripped):
-            continue
         if _is_cat_heredoc_literal(stripped) and _consumer_is_text_flag(
             segment, offset
         ):
             continue
-        first_token = stripped.split(maxsplit=1)[0]
-        if first_token in _MUTATE_VERBS:
-            return "ambiguous"
-        if first_token == "git" and _git_subcmd_is_mutating(stripped):
-            return "ambiguous"
+        for stage in split_pipeline(stripped, shell_comments=True):
+            if _is_mktemp_body(stage):
+                continue
+            first_token = stage.split(maxsplit=1)[0]
+            if first_token in _MUTATE_VERBS:
+                return "ambiguous"
+            if first_token == "git" and _git_subcmd_is_mutating(stage):
+                return "ambiguous"
+            if classify_substitution_bodies(stage) == "ambiguous":
+                return "ambiguous"
     return "ok"
 
 
@@ -158,12 +166,8 @@ def _substitution_spans(
 
 
 def _outer_substitutions(segment: str) -> List[Tuple[int, str]]:
-    """Return command substitution bodies for the path mutation classifier."""
-    return [
-        (start, body)
-        for start, _end, body, kind in _substitution_spans(segment)
-        if kind == "command"
-    ]
+    """Return every outer substitution body for the path mutation classifier."""
+    return [(start, body) for start, _end, body, _kind in _substitution_spans(segment)]
 
 
 def executable_substitutions(

@@ -15,6 +15,7 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner import shell_expansion_scan
+from yoke_contracts.hook_runner.shell_statements import pipeline_spans
 from yoke_core.domain.lint_shell_backtick_search import _extract_command
 from yoke_core.domain.lint_yoke_quoted_shell_substitution_messages import (
     SUPPRESSION_TOKEN,
@@ -37,7 +38,12 @@ def _yoke_substitution_finding(command: str) -> Optional[Tuple[str, str]]:
     never a finding; that is what keeps the refusal's own recovery usable.
     """
     scanned = shell_expansion_scan.scan(command)
-    for start, segment in shell_expansion_scan.command_segments(scanned.code):
+    stages = [
+        stage
+        for group in pipeline_spans(scanned.code, split_background=True)
+        for stage in group
+    ]
+    for start, segment in stages:
         if _YOKE_CMD_RE.match(segment) is None:
             continue
         for span in shell_expansion_scan.double_quoted_spans(segment):
