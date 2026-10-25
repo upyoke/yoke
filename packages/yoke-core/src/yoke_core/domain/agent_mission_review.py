@@ -88,15 +88,19 @@ def _walker_dispatch(
         "yoke qa artifact add "
         f"--requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "
-        "--content-base64 B64 --filename NAME [--content-type TYPE] [--metadata JSON]"
+        "--content-file LOCAL_PATH [--filename NAME] [--content-type TYPE] [--metadata JSON]"
     )
     artifact_bytes_clause = (
         "attach it with the bytes themselves, never a path on the target: "
         "walk-end restores the host to its declared starting state, so a "
         "recorded path outlives its own file and is refused. "
         "You are driving the target from another machine, so read the "
-        "bytes back first by running `base64 -i TARGET_PATH` through "
-        "the remote command below and passing its stdout as B64. "
+        "bytes back first by running `cat TARGET_PATH` through the remote "
+        "command below. Save the returned file bytes unchanged "
+        "into LOCAL_PATH in your own local scratch "
+        "directory, then attach with `--content-file LOCAL_PATH` from your machine. "
+        "The mission scratch path is on the target and holds staged secrets; "
+        "keep your local evidence file separate. "
     )
     scratch_path = mission_scratch_path(execution_id)
     walk_flags = (

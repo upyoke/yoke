@@ -34,9 +34,13 @@ def test_informed_dispatch_drives_target_and_uploads_bytes_from_controller() -> 
     assert walker["dispatch_kind"] == "subagent"
     assert walker["subagent_type"] == "yoke-qa-walker"
     assert walker["context_policy"] == "project-informed"
-    assert "--content-base64 B64 --filename NAME" in walker["artifact_add_command"]
-    assert "--content-file" not in walker["artifact_add_command"]
-    assert "base64 -i TARGET_PATH" in walker["prompt"]
+    assert "--content-file LOCAL_PATH [--filename NAME]" in walker["artifact_add_command"]
+    assert "--content-base64" not in walker["prompt"]
+    assert "cat TARGET_PATH" in walker["prompt"]
+    assert "Save the returned file bytes unchanged" in walker["prompt"]
+    assert "your own local scratch" in walker["prompt"]
+    assert "mission scratch path is on the target" in walker["prompt"]
+    assert "never a path on the target" in walker["prompt"]
     assert walker["walk_start_command"] in walker["prompt"]
     assert walker["walk_end_command"] in walker["prompt"]
 
