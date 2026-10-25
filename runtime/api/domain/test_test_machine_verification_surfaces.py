@@ -29,6 +29,7 @@ def test_a_failed_bridge_leaves_the_ssh_surface_passed() -> None:
         ],
         project="yoke",
         test_machine=MACHINE,
+        os="macos",
     )
 
     assert surfaces["ssh"] == {"status": SURFACE_PASSED, "check": "connection"}
@@ -46,6 +47,7 @@ def test_a_failed_transport_reports_the_bridge_as_not_run() -> None:
         [{"name": "connection", "ok": False}],
         project="yoke",
         test_machine=MACHINE,
+        os="macos",
     )
 
     assert surfaces["ssh"]["status"] == SURFACE_FAILED
@@ -92,3 +94,16 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
     assert verification["status"] == "error"
     assert verification["surfaces"]["ssh"]["status"] == SURFACE_PASSED
     assert verification["surfaces"]["terminal_bridge"]["status"] == SURFACE_FAILED
+
+
+def test_linux_and_windows_recovery_names_the_xrdp_desktop():
+    for os in ("linux", "windows"):
+        surfaces = verification_surfaces(
+            [{"name": "terminal_bridge", "ok": False}],
+            project="yoke", test_machine="lab", os=os,
+        )
+        recovery = surfaces["terminal_bridge"]["recovery"]
+        assert "Terminal.app" not in recovery and "bridge-diagnose" not in recovery
+        assert "~/.xsession-errors" in recovery
+        assert "/var/log/xrdp-sesman.log" in recovery
+        assert "yoke test-machine verify" in recovery

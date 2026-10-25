@@ -243,6 +243,7 @@ def _test_machine_detail(
                 list(receipt.get("checks") or []),
                 project=row.project,
                 test_machine=row.test_machine,
+                os=row.settings["os"],
             ),
             "status_meaning": (
                 "bookkeeping: verified_at is unset; not a health or "

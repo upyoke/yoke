@@ -28,7 +28,7 @@ _SURFACE_CHECKS = (
 )
 
 
-def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
+def _failed_recovery(surface: str, *, project: str, test_machine: str, os: str) -> str:
     selector = f"--project {project} --test-machine {test_machine}"
     if surface == SSH_SURFACE:
         return (
@@ -38,6 +38,13 @@ def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
             f"`yoke test-machine exec {selector} -- /usr/bin/true` proves "
             "the route."
         )
+    if os in {"linux", "windows"}:
+        return (
+            "SSH still works, so remote exec, resets, and machine assertions do; "
+            "the XFCE/Xorg desktop capture failed. Inspect ~/.xsession-errors and "
+            "/var/log/xrdp-sesman.log in the Linux or Windows WSL fixture, repair "
+            f"the desktop, then rerun `yoke test-machine verify {selector}`."
+        )
     return (
         "SSH still works, so remote exec, resets, and machine assertions do; "
         "Terminal.app captures do not. "
@@ -46,11 +53,13 @@ def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
     )
 
 
+
 def verification_surfaces(
     checks: Sequence[Mapping[str, Any]],
     *,
     project: str,
     test_machine: str,
+    os: str,
 ) -> dict[str, dict[str, Any]]:
     """Return each verified surface's own status, keyed by surface name.
 
@@ -76,6 +85,7 @@ def verification_surfaces(
                     surface,
                     project=project,
                     test_machine=test_machine,
+                    os=os,
                 ),
             }
     return surfaces
