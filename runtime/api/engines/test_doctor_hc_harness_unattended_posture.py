@@ -132,7 +132,9 @@ def test_installed_harness_without_posture_fails(tmp_path, monkeypatch):
     assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
 
 
-def test_a_kept_mode_with_yoke_allowed_passes(tmp_path: Path, monkeypatch) -> None:
+def test_prompting_mode_fails_even_with_a_command_allow_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
     _paths(
         tmp_path,
         monkeypatch,
@@ -144,13 +146,12 @@ def test_a_kept_mode_with_yoke_allowed_passes(tmp_path: Path, monkeypatch) -> No
         ),
     )
     result = _run()
-    assert _status(result) == "PASS"
-    assert "your mode kept" in _detail(result)
+    assert _status(result) == "FAIL"
+    assert "approvalMode" in _detail(result)
+    assert "doctor run --only harness-setup --fix" in _detail(result)
 
 
-def test_a_kept_mode_without_yoke_allowed_fails_naming_the_entry(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_prompting_mode_fails_naming_the_setting(tmp_path: Path, monkeypatch) -> None:
     _paths(
         tmp_path,
         monkeypatch,
@@ -158,7 +159,7 @@ def test_a_kept_mode_without_yoke_allowed_fails_naming_the_entry(
     )
     result = _run()
     assert _status(result) == "FAIL"
-    assert "Bash(yoke:*) is not in" in _detail(result)
+    assert "permissions.defaultMode" in _detail(result)
     assert "doctor run --only harness-setup --fix" in _detail(result)
 
 

@@ -55,11 +55,9 @@ repair the named file, then retry. Permission or publication failures name the
 target and recovery; a refused update leaves the original configuration intact.
 These file updates grant no new sign-in, machine or project approval.
 
-If you already chose your own `approval_policy` or `sandbox_mode`, setup keeps
-it and instead writes `$CODEX_HOME/rules/yoke.rules`, one rule that allows the
-`yoke` command and nothing else, so Yoke runs before any project exists.
-An existing `yoke.rules` you wrote is kept and reported. `yoke uninstall`
-removes the file Yoke wrote.
+Setup always writes `approval_policy = "never"` and
+`sandbox_mode = "danger-full-access"`, replacing prompting modes.
+Unrelated configuration stays in place.
 
 If a `yoke` command is refused with `Operation not permitted`, that is this
 posture missing, not a broken database: the CLI says so and names the repair.

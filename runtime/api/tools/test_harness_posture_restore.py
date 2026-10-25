@@ -1,5 +1,4 @@
-"""Setup allows ``yoke`` machine-wide in every harness, even where the
-operator had a prompting mode; uninstall restores the prior mode and allowlist.
+"""Setup enforces unattended modes; uninstall restores prior settings.
 
 Each case starts from a restrictive operator setup that existed before
 Yoke: a prompting mode plus the operator's own allowlist.
@@ -22,16 +21,9 @@ from yoke_contracts.harness_unattended_posture import (
     claude_settings_path,
     codex_config_path,
     cursor_config_path,
-    posture_plan_summary,
 )
-from yoke_contracts.harness_yoke_allow import (
-    CODEX_RULES_TEXT,
-    YOKE_COMMAND_ALLOW,
-    configure_yoke_allow,
-    posture_state,
-    yoke_allow_path,
-    yoke_posture,
-)
+from yoke_contracts.harness_posture_read import posture_findings, posture_state
+
 
 RESTRICTIVE_CLAUDE = {
     "theme": "dark",
@@ -68,113 +60,44 @@ def _json(path: Path):
 
 
 def test_restrictive_harnesses_prompt_before_setup(machine):
-    for harness in YOKE_COMMAND_ALLOW:
+    for harness in ("claude-code", "codex", "cursor"):
         assert posture_state(harness) == POSTURE_PROMPTS
-        assert yoke_posture(harness).blocking
+        assert posture_findings(harness)
 
 
 def test_setup_enforces_posture_and_keeps_unrelated_settings(machine):
     lines = configure_harness_unattended_posture(stream=io.StringIO())
-    assert sum("allowed yoke in" in line for line in lines) == 3
+    assert len(lines) == 3
     claude = _json(claude_settings_path())
     assert claude["permissions"]["defaultMode"] == "bypassPermissions"
-    assert claude["permissions"]["allow"] == ["Bash(ls:*)", "Bash(yoke:*)"]
+    assert claude["permissions"]["allow"] == ["Bash(ls:*)"]
     cursor = _json(cursor_config_path())
     assert cursor["approvalMode"] == "unrestricted"
     assert cursor["permissions"] == {
-        "allow": ["Shell(ls)", "Shell(yoke *)"],
+        "allow": ["Shell(ls)"],
         "deny": ["Shell(rm)"],
     }
-    assert yoke_allow_path("codex").read_text() == CODEX_RULES_TEXT
-    for harness in YOKE_COMMAND_ALLOW:
-        verdict = yoke_posture(harness)
-        assert verdict.blocking == () and not verdict.kept, harness
+    assert not (codex_config_path().parent / "rules/yoke.rules").exists()
+    for harness in ("claude-code", "codex", "cursor"):
+        assert posture_findings(harness) == (), harness
         assert posture_state(harness) == POSTURE_UNATTENDED
 
 
 def test_a_second_pass_changes_nothing(machine):
     configure_harness_unattended_posture(stream=io.StringIO())
     recorded = ledger.read()
-    for harness in YOKE_COMMAND_ALLOW:
-        assert configure_yoke_allow(harness) == []
+    assert configure_harness_unattended_posture(stream=io.StringIO()) == []
     assert ledger.read() == recorded
-    allow = _json(claude_settings_path())["permissions"]["allow"]
-    assert allow.count("Bash(yoke:*)") == 1
 
 
-def test_uninstall_removes_only_the_added_entries(machine):
+def test_uninstall_restores_original_modes(machine):
     configure_harness_unattended_posture(stream=io.StringIO())
     lines, failures = revert_recorded()
     assert not failures, failures
     assert _json(claude_settings_path()) == RESTRICTIVE_CLAUDE
     assert _json(cursor_config_path()) == RESTRICTIVE_CURSOR
     assert codex_config_path().read_text() == RESTRICTIVE_CODEX
-    assert not yoke_allow_path("codex").exists()
-    assert not yoke_allow_path("codex").parent.exists()
     assert revert_recorded() == ([], [])
-
-
-def test_containers_yoke_created_are_dropped_on_uninstall(machine):
-    claude_settings_path().write_text('{"permissions": {"defaultMode": "auto"}}')
-    cursor_config_path().write_text('{"approvalMode": "allowlist"}')
-    configure_yoke_allow("claude-code")
-    configure_yoke_allow("cursor")
-    assert _json(cursor_config_path())["permissions"] == {
-        "allow": ["Shell(yoke *)"],
-        "deny": [],
-    }
-    revert_recorded()
-    assert _json(claude_settings_path()) == {"permissions": {"defaultMode": "auto"}}
-    assert _json(cursor_config_path()) == {"approvalMode": "allowlist"}
-
-
-def test_an_entry_the_operator_removed_is_not_reinstated_by_uninstall(machine):
-    configure_yoke_allow("cursor")
-    payload = _json(cursor_config_path())
-    payload["permissions"]["allow"].remove("Shell(yoke *)")
-    cursor_config_path().write_text(json.dumps(payload))
-    assert revert_recorded() == ([], [])
-    assert _json(cursor_config_path()) == RESTRICTIVE_CURSOR
-
-
-def test_a_malformed_allowlist_refuses_loudly_and_is_left_alone(machine):
-    claude_settings_path().write_text('{"permissions": {"allow": "Bash(ls)"}}')
-    (line,) = configure_yoke_allow("claude-code")
-    assert "yoke_allow_failed" in line and "doctor run" in line
-    assert _json(claude_settings_path()) == {"permissions": {"allow": "Bash(ls)"}}
-    assert posture_state("claude-code") == POSTURE_PROMPTS
-
-
-def test_an_operator_codex_rules_file_with_the_same_name_is_kept(machine):
-    rules = yoke_allow_path("codex")
-    rules.parent.mkdir()
-    rules.write_text('prefix_rule(pattern = ["ls"])\n')
-    (line,) = configure_yoke_allow("codex")
-    assert "yoke_allow_failed" in line
-    assert rules.read_text() == 'prefix_rule(pattern = ["ls"])\n'
-
-
-def test_absent_harnesses_are_skipped(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.delenv("CODEX_HOME", raising=False)
-    for harness in YOKE_COMMAND_ALLOW:
-        assert configure_yoke_allow(harness) == []
-        assert yoke_posture(harness) is None
-
-
-def test_claude_surface_selects_its_own_mode(machine):
-    configure_yoke_allow("claude-code")
-    assert yoke_posture("claude-code", "claude-cli").kept
-    settings = _json(claude_settings_path())
-    settings["permissions"]["allow"] = []
-    claude_settings_path().write_text(json.dumps(settings))
-    assert yoke_posture("claude-code", "claude-cli").blocking
-
-
-def test_review_summary_names_every_allow_entry(machine):
-    summary = posture_plan_summary()
-    for entry in YOKE_COMMAND_ALLOW.values():
-        assert entry in summary
 
 
 @pytest.mark.parametrize(

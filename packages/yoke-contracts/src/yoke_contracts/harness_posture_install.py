@@ -7,8 +7,7 @@ stop and ask, so a fresh install leaves a stranger approving each ``yoke``
 call by hand. This pass closes that gap for each harness actually present,
 from the single posture declaration the launch route already reads.
 
-Every pass applies unattended posture and adds the machine-wide yoke allow
-entry. Each write is named in the installer output; unrelated settings stay
+Every pass applies unattended posture. Each write is named in the installer output; unrelated settings stay
 unchanged, and doctor reports the standing posture.
 """
 
@@ -40,7 +39,6 @@ def configure_harness_unattended_posture(
     from yoke_contracts.cursor_posture_install import (
         configure_cursor_unattended_posture,
     )
-    from yoke_contracts.harness_yoke_allow import configure_yoke_allow
 
     out = stream if stream is not None else sys.stdout
     actions: List[str] = []
@@ -63,8 +61,6 @@ def configure_harness_unattended_posture(
             else []
         )
         + (list(configure_cursor_unattended_posture()) if "cursor" in harnesses else [])
-        # Keep the machine-wide entry for commands outside any project.
-        + [line for harness in harnesses for line in configure_yoke_allow(harness)]
     )
     for line in reported:
         out.write(f"{line}\n")

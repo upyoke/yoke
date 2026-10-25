@@ -22,7 +22,7 @@ from yoke_contracts.harness_folder_trust import claude_state_path, cursor_trust_
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.harness_posture_install import configure_harness_unattended_posture
-from yoke_contracts.harness_yoke_allow import yoke_posture
+from yoke_contracts.harness_posture_read import posture_findings
 from yoke_contracts.machine_config.checkout import (
     main_checkout,
     registered_worktree_paths,
@@ -118,12 +118,8 @@ def _posture(harness: str) -> tuple[bool, str]:
             raise ValueError(
                 f"harness_config_malformed: {target}: permissions is not an object"
             )
-    verdict = yoke_posture(harness)
-    problems = (
-        verdict.blocking + verdict.kept
-        if verdict
-        else (f"{target}: no {harness} config",)
-    )
+    findings = posture_findings(harness)
+    problems = findings if findings is not None else (f"{target}: no {harness} config",)
     return not problems, f"harness_posture_missing: {'; '.join(problems)}"
 
 

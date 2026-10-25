@@ -83,8 +83,8 @@ that home takes precedence over a config-file environment override. See
    to the counts. Shell PATH files changed during Install are already applied
    and stay changed if you cancel. Worker launches bypass command approval;
    Codex workers also bypass the sandbox and CLI hook-trust checks. Expanded
-   Review names the actual launch arguments. Saved operator settings stay in
-   place; permission modes are always set for unattended use.
+   Review names the actual launch arguments. Unrelated operator settings stay
+   in place; permission modes are always set for unattended use.
 
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this

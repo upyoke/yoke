@@ -30,7 +30,7 @@ is still removed and committed on the current branch, with a warning to merge
 that commit into the default branch.
 It then removes the relay and its workers, the selected project layers, Yoke's
 GitHub credentials and checkout helpers, its machine-wide hooks and their Codex
-trust, and the `yoke` allow-entry and folder-trust settings it wrote into
+trust, and the folder-trust settings it wrote into
 Claude Code, Codex and Cursor. It restores approval modes replaced during setup
 and removes approval keys setup added. It stops the hook evaluator, local UI and embedded Postgres,
 tears down local self-host stacks and their universe volumes, and deletes the

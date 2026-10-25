@@ -27,9 +27,8 @@ Grounded against the builds this repository supports:
 * ``claude-code`` — ``claude_desktop_config.json``:
   ``preferences.bypassPermissionsModeEnabled``.
 
-Setup replaces prompting modes with unattended values; the ``yoke`` allow
-entry in :mod:`yoke_contracts.harness_yoke_allow` also allows Yoke commands, and its :func:`~yoke_contracts.harness_yoke_allow.posture_state` is
-the standing verdict.
+Setup replaces prompting modes with unattended values. Machine and session
+health checks report the actual modes each supported surface reads.
 
 Writing these is a real widening of what a harness will run without asking,
 which is why each install pass says out loud what it changed and a health
@@ -236,25 +235,20 @@ def posture_plan_step() -> Dict[str, str]:
 
 def posture_plan_summary() -> str:
     """Name every detected config and its required unattended mode."""
-    from yoke_contracts.harness_yoke_allow import YOKE_COMMAND_ALLOW as allow
-
     from yoke_contracts.harness_machine_hooks import installed_machine_hooks
 
     descriptions = {
         CLAUDE_FAMILY: (
             f"claude-code: {CLAUDE_SETTINGS_PATH} "
-            f"{CLAUDE_PERMISSIONS_CONTAINER}.{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}, "
-            f"plus permissions.allow {allow[CLAUDE_FAMILY]}"
+            f"{CLAUDE_PERMISSIONS_CONTAINER}.{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}"
         ),
         CODEX_FAMILY: (
             f"codex: {codex_config_path()} {CODEX_APPROVAL_POLICY_KEY} and "
-            f"{CODEX_SANDBOX_MODE_KEY}, plus "
-            f"{codex_config_path().parent / 'rules/yoke.rules'} {allow[CODEX_FAMILY]}"
+            f"{CODEX_SANDBOX_MODE_KEY}"
         ),
         CURSOR_FAMILY: (
             f"cursor: {CURSOR_CLI_CONFIG_PATH} {CURSOR_APPROVAL_MODE_KEY} "
-            f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}, "
-            f"plus permissions.allow {allow[CURSOR_FAMILY]}"
+            f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}"
         ),
     }
     if claude_config_path().is_file():
@@ -270,7 +264,7 @@ def posture_plan_summary() -> str:
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
     "Repair: `yoke doctor run --only harness-setup --fix` "
-    "allows yoke in each detected harness's own config and sets the "
+    "sets each detected harness's own config to the "
     "unattended mode, leaving unrelated settings in place."
 )
 
