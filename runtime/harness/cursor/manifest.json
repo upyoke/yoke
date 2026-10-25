@@ -193,6 +193,10 @@
         "verb": "PreToolUse"
       },
       {
+        "native_event": "postToolUse",
+        "verb": "PostToolUse"
+      },
+      {
         "native_event": "stop",
         "verb": "Stop"
       },

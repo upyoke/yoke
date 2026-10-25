@@ -91,6 +91,12 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
     `additional_context` — a Shell call included — and the recipient's
     `injection_count` must move within one tool call. A `PreToolUse` round trip never counts as a
     message probe on Cursor, because nothing injects there.
+    Repeat in a folder with no project hooks (no `.cursor/hooks.json` or
+    `.claude/settings.json`): the machine-wide `postToolUse` in
+    `~/.cursor/hooks.json` carries the envelope, and the message reaches
+    `injection_count` 1 and is acknowledged before the turn ends. Inside a
+    project the machine-wide entry steps aside, so each tool call runs one
+    PostToolUse evaluation and the message is injected once.
 
 ## Hook-enhanced — IDE surface
 
