@@ -81,6 +81,13 @@ yoke watch preflight -- --project P [--model M] [--checkout PATH] \
     --record-receipt --product-sha SHA --receipt-env <control-plane>
 ```
 
+The preflight runs from the installed Yoke package in any working directory;
+no Yoke source checkout or `PYTHONPATH` is needed. A declared project boot
+command still uses that project’s checkout. Startup and subprocess failures
+name a reason and a diagnostic capture; read it, fix the named cause and retry.
+For a missing packaged module, reinstall with `yoke update` or report a
+defective release and its capture to the control-plane operator.
+
 `--model` defaults to the capability's `default_model`. `--checkout` names the
 checkout a `named_databases` fleet converges from (default: the project's
 checkout registered on this machine). The live databases are

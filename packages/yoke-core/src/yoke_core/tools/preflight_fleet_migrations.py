@@ -13,9 +13,10 @@ version this machine's engine cannot install refuses before anything is dumped.
 Each candidate database is rostered before copying. Engine tenant fleets
 exclude Platform, abandoned test databases and retained validation copies.
 
-Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
+Preflight runs from the installed package in any working directory.
+Ordinary pre-release rehearsal uses the active engine (no ``--engine-wheel``).
 The release wheel is produced after tag allocation, so it cannot exist at
-the only moment a receipt can be written. The wheel is built from the same
+the only moment a receipt can be written. The wheel is built from that
 commit; rehearsing that commit's sources proves the history and schema-shape
 the wheel will package. ``--engine-wheel`` pins an already-built artifact.
 
@@ -70,7 +71,7 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
-from runtime.api.tools.preflight_engine_artifact import (
+from yoke_core.tools.preflight_engine_artifact import (
     EngineArtifactError,
     activate_engine_artifact as _activate_engine_artifact,
 )
@@ -157,8 +158,8 @@ def _execute(parsed, engine_artifact):
     from yoke_core.domain.migration_preflight_receipt_store import (
         read_declared_admin_connection,
     )
-    from runtime.api.tools import fleet_rehearsal_receipt_write as receipt_write
-    from runtime.api.tools import migration_fleet_selection
+    from yoke_core.tools import fleet_rehearsal_receipt_write as receipt_write
+    from yoke_core.tools import migration_fleet_selection
 
     covered_env = receipt.target_environment_for_admin_env(positional[0])
     target, unavailable = timed(

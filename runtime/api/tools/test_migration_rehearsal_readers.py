@@ -2,7 +2,7 @@
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from runtime.api.fixtures.session_holdings import insert_session
-from runtime.api.tools import migration_rehearsal_readers as readers
+from yoke_core.tools import migration_rehearsal_readers as readers
 from yoke_core.domain import db_backend
 
 
@@ -43,7 +43,7 @@ def test_session_decode_outside_list_window_is_not_hidden(test_db, monkeypatch):
 
 
 def test_failed_reader_prevents_release_tooling(monkeypatch):
-    from runtime.api.tools import yoke_migration_fleet as fleet
+    from yoke_core.tools import yoke_migration_rehearsal as fleet
 
     monkeypatch.setattr(
         readers, "verify_migrated_readers", lambda *_: "launch decode failed"

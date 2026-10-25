@@ -10,7 +10,7 @@ import pytest
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.commands.adapters.release_pin_verify import release_pin_verify
-from yoke_cli.commands.release_pin_agreement import PinHealthAgreement
+from yoke_contracts.release_pin_agreement import PinHealthAgreement
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,

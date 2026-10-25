@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from runtime.api.tools.yoke_migration_fleet import (
+from yoke_core.tools.yoke_migration_rehearsal import (
     converge,
     history_names,
     load_module,

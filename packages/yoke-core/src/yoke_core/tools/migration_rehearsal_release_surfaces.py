@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_cli.commands.release_pin_agreement import evaluate_pin_health_agreement
+from yoke_contracts.release_pin_agreement import evaluate_pin_health_agreement
 from yoke_contracts.release_pin import (
     DESIRED_PIN_PATH_KEY,
     PROBE_URL_PATH_KEY,

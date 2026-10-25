@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.commands.release_pin_agreement import (
+from yoke_contracts.release_pin_agreement import (
     evaluate_pin_health_agreement,
 )
 

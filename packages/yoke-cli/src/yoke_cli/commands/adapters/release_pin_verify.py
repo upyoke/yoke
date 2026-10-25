@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from yoke_cli.commands.release_pin_agreement import fetch_probe_json
 from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands._helpers import (
@@ -18,7 +19,7 @@ from yoke_contracts.release_pin import (
     SERVED_PIN_RESPONSE_PATH_KEY,
 )
 from yoke_cli.commands.deployment_pin import RELEASE_PIN_CAPABILITY
-from yoke_cli.commands.release_pin_agreement import (
+from yoke_contracts.release_pin_agreement import (
     evaluate_pin_health_agreement,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
@@ -35,9 +36,7 @@ def release_pin_verify(args: List[str]) -> int:
     parser.add_argument(
         "--environment",
         required=True,
-        help=(
-            "Registered environment name for the project."
-        ),
+        help=("Registered environment name for the project."),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -87,6 +86,7 @@ def release_pin_verify(args: List[str]) -> int:
         desired_path=desired_pin_path,
         probe_url_path=probe_url_path,
         served_pin_response_path=served_pin_response_path,
+        opener=fetch_probe_json,
     )
     payload = {
         "project": parsed.project,
@@ -164,20 +164,20 @@ def _environment_values(
     return values if isinstance(values, dict) else {}
 
 
-def _project_environment_names(
-    project: str, session_id: Optional[str]
-) -> List[str]:
+def _project_environment_names(project: str, session_id: Optional[str]) -> List[str]:
     result = _read(
         "projects.infrastructure.list",
         {"project": project},
         session_id,
     )
     rows = (result or {}).get("environments") or []
-    return sorted({
-        str(row.get("name") or "").strip()
-        for row in rows
-        if isinstance(row, dict) and str(row.get("name") or "").strip()
-    })
+    return sorted(
+        {
+            str(row.get("name") or "").strip()
+            for row in rows
+            if isinstance(row, dict) and str(row.get("name") or "").strip()
+        }
+    )
 
 
 def _read(

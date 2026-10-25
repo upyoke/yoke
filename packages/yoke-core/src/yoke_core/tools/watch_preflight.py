@@ -26,7 +26,7 @@ from yoke_core.tools._watch_throttle import Classification, LineClass
 WRAPPER_MODULE = "yoke_core.tools.watch_preflight"
 KIND = "preflight"
 DEFAULT_PROG = "watch_preflight"
-PREFLIGHT_MODULE = "runtime.api.tools.preflight_fleet_migrations"
+PREFLIGHT_MODULE = "yoke_core.tools.preflight_fleet_migrations"
 
 PREFLIGHT_URGENT_RE = re.compile(
     r"(^FAIL\b|could not (?:copy|read)\b|receipt was not recorded\b"
@@ -111,7 +111,8 @@ environment a release targets. The receipt lands on that environment's
 own settings document under ``release.fleet_rehearsal.<model>``, so coverage is
 durable state rather than telemetry that can expire.
 
-Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
+Preflight runs from the installed package in any working directory.
+Ordinary pre-release rehearsal uses the active engine (no ``--engine-wheel``).
 The release wheel does not exist until after tag allocation.
 ``--engine-wheel`` pins an already-built artifact when you have one.
 
@@ -142,7 +143,7 @@ named holder or its surviving transfer child finishes. Manual database operation
 outside the rehearsal kernel are not covered.
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
-``python3 -m runtime.api.tools.preflight_fleet_migrations``.
+``python3 -m yoke_core.tools.preflight_fleet_migrations``.
 
 When a release-surface capability contract blocks a receipt: read the
 stored document with ``yoke projects capability-settings get``, then
@@ -211,6 +212,28 @@ def _strip_separator(passthrough: Sequence[str]) -> list[str]:
     return args
 
 
+def preflight_failure(rc: int, raw_capture: Path) -> str:
+    """Keep launch/import failures actionable in both watcher captures."""
+    if rc == 0:
+        return ""
+    try:
+        output = raw_capture.read_text(errors="replace")
+    except OSError:
+        output = ""
+    reason = (
+        "fleet_preflight_import_failed"
+        if "ModuleNotFoundError:" in output or "ImportError:" in output
+        else "fleet_preflight_failed"
+    )
+    return (
+        f"{reason}: exit code {rc}; diagnostic capture: {raw_capture}. "
+        "Read the capture and correct its named cause, then retry "
+        "yoke watch preflight with the same arguments. For a missing packaged "
+        "module, reinstall a complete Yoke release with yoke update, or report "
+        "the capture to the control-plane operator if that release is defective."
+    )
+
+
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
@@ -239,6 +262,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        exit_metadata=lambda rc: preflight_failure(rc, raw_path),
         flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 
