@@ -139,13 +139,27 @@ own operation and recovery. All these operations stay inside the existing copy
 admission and cleanup. Named-database fleets retain their project-declared boot
 and verification commands.
 
-Before a deployment run dispatches a GitHub workflow for a project that
-declares a `migration_model`, it reads every model's fleet. A `none` fleet is
+Before a deployment run dispatches a GitHub workflow, it rehearses every
+project that workflow ships: the run's own project at its release commit, and
+each project a stage binds through `input_bindings` at the commit the run
+recorded for that binding (a Yoke release that carries a Platform pin ships
+Platform's registry history this way). Each project, model and target
+environment is checked once per attempt; a bound project is checked under its
+environment of the same name, from its checkout registered on this machine,
+fetching the bound commit when that checkout lacks it. A binding with no
+recorded commit, two commits of one project, or a bound project with no
+registered checkout or no readable environment refuses the dispatch with its
+recovery. When preparation re-binds a stale source just before dispatch, the
+new commit is checked again before the workflow goes out.
+
+For each shipped project the gate reads every model's fleet. A `none` fleet is
 skipped with its reason printed. An undeclared fleet refuses the dispatch with
-the declaration recipe. Otherwise the gate reads the release commit's history
+the declaration recipe. Otherwise the gate reads that commit's history
 entries (from the model's `runner.config.modules_dir`) and schema-shape digest,
 and when the target environment's receipts do not cover both it rehearses
-exactly the release commit's code before dispatching. The rehearsal runs while
+exactly that commit's code before dispatching. The installed Yoke package only
+orchestrates the copy; the candidate commit supplies the history, schema and
+boot it is judged by. The rehearsal runs while
 the stage's CI gate waits on the same commit, so it adds no wait of its own
 once CI is the longer one; dispatch still needs both the passing gate and the
 covering receipt, and a failed CI gate is the refusal reported. A `named_databases` fleet

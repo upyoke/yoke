@@ -6,7 +6,7 @@
  "when": "A governed project approaches its first release",
  "need": "Each model also needs migration_fleet: named databases with project boot/verification commands, engine tenants only for that topology, or none with a reason. Project-admin declares it; release uses target-specific coverage. Item rehearsal and fleet receipts prove different things.",
  "disclosure": "missing cue",
- "surface": "Fleet reference lines 14–56 and 133–154; release refusal names declaration recipe.",
+ "surface": "Fleet reference lines 14–56 and 133–172; release refusal names declaration recipe.",
  "gap": "Verified gap: onboard declares migration_model but never migration_fleet; later release refuses missing fleet. Proposed release-readiness lesson must collect the real fleet/boot facts or explicit none before dispatch.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability-settings get --project P --cap-type migration_fleet --json"],

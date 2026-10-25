@@ -3,8 +3,8 @@
  "title": "Run fleet rehearsal from the installed package",
  "status": "observed",
  "form": "Do",
- "verification": "Source and wheel regressions cover startup outside checkouts and controlled rehearsal/receipt boundaries. Live fleet proof remains a release check.",
+ "verification": "Source and wheel regressions cover startup outside checkouts and controlled rehearsal/receipt boundaries; dispatch regressions cover bound-project selection, refusals and per-target coverage. Live fleet proof remains a release check.",
  "topics": ["databases/rehearsal/validation-rehearsal"],
- "sources": ["packages/yoke-core/src/yoke_core/tools/watch_preflight.py", "docs/public/databases/migration-fleet.md", "tests/import_graph/wheel_smoke_preflight.py"],
- "current": "The installed watcher runs in any directory without importing runtime. The declared project boot command still uses its project checkout. Failed subprocesses retain raw output and exit status and name the diagnostic capture and recovery. A missing packaged dependency calls for a complete release reinstall or escalation with the capture."
+ "sources": ["packages/yoke-core/src/yoke_core/tools/watch_preflight.py", "docs/public/databases/migration-fleet.md", "tests/import_graph/wheel_smoke_preflight.py", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_fleet_rehearsal_sources.py", "runtime/api/domain/test_deploy_pipeline_fleet_bound_sources.py"],
+ "current": "The installed watcher runs in any directory without importing runtime. The declared project boot command still uses its project checkout. Failed subprocesses retain raw output and exit status and name the diagnostic capture and recovery. A missing packaged dependency calls for a complete release reinstall or escalation with the capture. Before a workflow dispatch the release gate runs it for every project the workflow ships, including each project bound through input_bindings at its recorded commit, and refuses an unresolved or inconsistent binding with its recovery."
 }
