@@ -23,6 +23,9 @@ FAKE_DSN = "postgresql://yoke@/yoke?host=/fake/local-universe/sock"
 
 
 class _FakeEngine:
+    def unsupported_host_reason(self):
+        return ""
+
     def birth(self, *, org_name=None, admin_name=None, emit=lambda _line: None):
         return {
             "dsn": FAKE_DSN,
