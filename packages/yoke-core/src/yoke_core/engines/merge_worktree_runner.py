@@ -224,6 +224,7 @@ def run(args: MergeArgs) -> int:
         # Preflight
         pf_result = preflight_checks(ctx)
         if pf_result:
+            _print(pf_result[1], err=True)
             exit_code = pf_result[0]
             return exit_code
 
