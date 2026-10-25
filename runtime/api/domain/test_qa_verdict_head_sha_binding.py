@@ -95,7 +95,7 @@ def test_guard_ignores_runs_the_terminal_gate_never_sha_matches():
     )
 
 
-def test_stale_sha_recovery_names_the_json_shape():
+def test_stale_ci_recovery_runs_the_case():
     issues = blocking_requirement_issues(
         [
             {
@@ -117,9 +117,8 @@ def test_stale_sha_recovery_names_the_json_shape():
     assert len(issues) == 1
     assert issues[0].state == "stale-sha"
     recovery = issues[0].recovery
-    assert "JSON" in recovery
-    assert "verification_tree" in recovery
-    assert "head_sha" in recovery
+    assert recovery == "Run `yoke qa case run --requirement-id 15542`"
+    assert "record-verdict" not in recovery
 
 
 def test_gate_summary_text_discloses_that_it_skips_tree_freshness():
