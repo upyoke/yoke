@@ -130,12 +130,12 @@ def stream_command(
                 binding.inspect("after")
                 if binding.refusal:
                     exit_code = exit_code or 1
+                    with raw_capture.open("a", encoding="utf-8") as capture:
+                        capture.write("\n" + binding.refusal + "\n")
                     print(binding.refusal, file=destination, flush=True)
         if binding:
             evidence = binding.evidence
             report = binding.report()
-            with raw_capture.open("a", encoding="utf-8") as capture:
-                capture.write("\n" + report + "\n")
             print(report, file=destination, flush=True)
     output = raw_capture.read_text(encoding="utf-8", errors="replace")
     # 124 is the shell's own "deadline expired" code, so a command that
