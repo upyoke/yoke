@@ -180,22 +180,6 @@ def test_terminal_transition_names_pending_human_review(test_db, monkeypatch):
     assert "resolve 73 approve|reject|waive" in result["error"]
 
 
-def test_terminal_transition_refuses_pass_from_an_earlier_commit(test_db):
-    insert_item(test_db, id=10, status="release")
-    _seed_merging_sha(test_db, "b" * 40)
-    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
-    insert_qa_run(
-        test_db,
-        qa_requirement_id=requirement_id,
-        verdict="pass",
-        raw_result='{"verification_tree":{"head_sha":"' + "a" * 40 + '"}}',
-        completed_at="2026-01-01T00:00:01Z",
-    )
-    result = _terminal_result(test_db)
-    assert "recorded SHA " + "a" * 40 in result["error"]
-    assert "the merge verified " + "b" * 12 in result["error"]
-
-
 def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
     insert_item(test_db, id=10, status="release")
     _seed_merging_sha(test_db, "b" * 40)
@@ -235,6 +219,7 @@ def test_terminal_transition_accepts_the_head_the_merge_gate_verified(test_db):
     """
     insert_item(test_db, id=10, status="release")
     integrated = "c" * 40
+    _seed_merge_receipt(test_db, landing_sha="b" * 40, merge_sha=integrated)
     gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
         test_db,
@@ -257,7 +242,7 @@ def test_terminal_transition_accepts_lane_and_integrated_heads_together(test_db)
     """
     insert_item(test_db, id=10, status="release")
     lane, integrated = "d" * 40, "e" * 40
-    _seed_merge_receipt(test_db, landing_sha=lane, merge_sha="f" * 40)
+    _seed_merge_receipt(test_db, landing_sha=lane, merge_sha=integrated)
     item_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
         test_db,
@@ -321,7 +306,13 @@ def test_flow_derived_ci_refusal_runs_the_case(test_db):
     assert "record-verdict" not in result["error"]
 
 
-def test_terminal_transition_still_refuses_a_head_no_merge_recorded(test_db):
+def test_terminal_transition_still_refuses_a_head_outside_lane_history(
+    test_db, monkeypatch
+):
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_lane_history.item_lane_contains",
+        lambda *_: lambda *_: False,
+    )
     """Accepting several recorded heads must not accept an unrecorded one."""
     insert_item(test_db, id=10, status="release")
     _seed_merge_receipt(test_db, landing_sha="d" * 40, merge_sha="f" * 40)

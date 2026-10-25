@@ -8,7 +8,7 @@ import pytest
 from runtime.api.domain.test_qa_simulation_triage import _seed, _record
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, format_instant
 from yoke_core.domain import qa_browser_freshness_check as browser
-from yoke_core.domain import qa_terminal_settlement as terminal
+from yoke_core.domain import qa_requirement_issues as terminal
 from yoke_core.domain import qa_gate_helpers as gate_helpers
 from yoke_core.domain.events_acting_identity import acting_event_identity
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
@@ -47,10 +47,10 @@ def test_terminal_completion_requires_optional_native_instant(clock):
         "run_id": 2,
         "verdict": "pass",
         "completed_at": clock,
-        "requires_code_identity": False,
+        "recorded_head_sha": "observed lane head",
         "method_id": "browser",
     }
-    result = terminal._issue_for_requirement(row, accepted_shas=())
+    result = terminal.issue_for_requirement(row, accepted_shas=("observed lane head",))
     if clock is None:
         assert result.state == "incomplete"
     else:
@@ -78,7 +78,7 @@ def test_ambiguous_diagnostic_and_completion_clocks_refuse(monkeypatch, clock):
             None, where="r.id=1", params=(), latest_code=LatestCodeRef()
         )
     with pytest.raises(InvalidInstant):
-        terminal._issue_for_requirement(
+        terminal.issue_for_requirement(
             {"id": 1, "run_id": 2, "verdict": "pass", "completed_at": clock},
             accepted_shas=(),
         )

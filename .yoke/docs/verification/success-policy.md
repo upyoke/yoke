@@ -12,18 +12,22 @@ tiebreak before grading. Historical passing attempts never rescue a newer
 pending or failing attempt. See the [requirement state model](requirement-state.md)
 and [QA platform](platform.md).
 
-## CI across candidate commits
+## Item QA across lane commits
 
-After a rebase, run `yoke qa case run --requirement-id ID` for the current
-candidate. A newer completed passing `command-ci` requirement on that exact
-candidate covers older passing CI requirements whose only refusal is their
-earlier recorded commit. They must belong to the same item, workflow transition
-and verification phase; the covering requirement and its run must both be newer.
-The original requirements and runs remain readable history, with no waiver.
-Without a current pass, merge still names each stale requirement and its repair.
-Missing commit proof, changed configuration or target, incomplete or failed
-attempts, human review, deployment-bound cases and other methods keep their
-own obligations.
+Every QA method records its lane's commit at run start in
+`verification_tree.head_sha`, including machine and mission captures. Later
+evidence and review retain that start commit. Merge and done accept the latest
+completed passing run when its start commit is an ancestor of, or equal to,
+the item's merge candidate. No rerun or re-recording is needed merely because
+the lane advanced. Required merge-queue CI still tests the final commit.
+
+A missing or foreign start commit refuses as `outside-lane`, naming the commit
+and recovery: run the requirement from the item's claimed lane. An unreadable
+ancestry check refuses as `lane-history-unavailable`; restore the checkout's
+commit objects or the project's repository Contents read binding and retry.
+Changed configuration or target, missing subject proof, newer incomplete or
+failing attempts and required human review still block. Deployment-bound and
+post-deploy cases retain their deployed-release proof obligations.
 
 ## Stored all-pass policy
 

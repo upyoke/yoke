@@ -1,16 +1,4 @@
-"""Proving a standalone lane before it is allowed to land.
-
-The merge boundary refuses a branch whose blocking verification does not cover
-the exact commit it would merge. One refusal class is recoverable rather than
-terminal — a passing run bound to no commit, or any concluded case run on an
-older one — so the proof is re-established here and re-checked before the
-landing route is selected.
-
-Kept apart from the boundary that sequences close-out because it runs only for
-a lane that still has something to land: a branch the base already contains is
-past the point this gate exists to hold, and re-running a SHA-bound case there
-publishes a lane whose pull request may already be in the merge queue.
-"""
+"""Prove standalone lane QA before selecting its landing route."""
 
 from __future__ import annotations
 
@@ -19,7 +7,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import merge_queue_landing_timeout as _timeout
-from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
@@ -42,26 +29,12 @@ def proof_check(
 ) -> tuple[str, str]:
     """Read-only QA proof answer. Returns ``(blocker, merge_will_note)``.
 
-    Proof bound only to an older commit of this lane is not a blocker: the
-    merge re-binds it or re-runs its case in :func:`verify_and_land`.
-    Anything else is.
+    Passing evidence from the lane history needs no new run.
     """
-    qa_item = item_for_merge_phase(
-        item, leaves_status_unchanged=bool(args.skip_status)
-    )
+    qa_item = item_for_merge_phase(item, leaves_status_unchanged=bool(args.skip_status))
     _sha, qa_error = qa_preflight(
         qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
     )
-    if not qa_error:
-        return "", ""
-    _sha, issues, eval_error = commit_bound.evaluate(
-        qa_item, public_ref=public_ref, repo_root=repo_root, branch=branch
-    )
-    if not eval_error and commit_bound.is_commit_bound_refusal(issues):
-        return "", (
-            "re-run or re-bind QA recorded for an older commit of this lane "
-            "against the merging commit"
-        )
     return qa_error, ""
 
 
@@ -75,28 +48,16 @@ def verify_and_land(
     target: str,
     repo_root: Path,
     project: str,
-    read_item: Callable[[], tuple[dict[str, Any], str]],
     enter_review: Callable[[], str],
 ) -> tuple[Optional[Any], str]:
     """Prove the lane before landing it. Returns ``(outcome, refusal)``.
 
-    ``read_item`` re-reads the item when recovery re-ran a case.
     ``enter_review`` moves the item into its review stage once the proof
     holds and before anything lands; it returns a refusal or empty.
     """
-    leaves_status_unchanged = bool(args.skip_status)
-
-    def reload() -> tuple[dict[str, Any], str]:
-        fresh, error = read_item()
-        if error:
-            return {}, error
-        return item_for_merge_phase(
-            fresh, leaves_status_unchanged=leaves_status_unchanged
-        ), ""
-
     qa_item = item_for_merge_phase(
         item,
-        leaves_status_unchanged=leaves_status_unchanged,
+        leaves_status_unchanged=bool(args.skip_status),
     )
     commit_sha, qa_error = qa_preflight(
         qa_item,
@@ -104,17 +65,6 @@ def verify_and_land(
         repo_root=repo_root,
         branch=branch,
     )
-    if qa_error:
-        commit_sha, qa_error = commit_bound.recover_and_recheck(
-            qa_item,
-            public_ref=public_ref,
-            repo_root=repo_root,
-            branch=branch,
-            qa_error=qa_error,
-            reload=reload,
-            rerecord=commit_bound.rerecord_hand_run,
-            run_case=commit_bound.rerun_command_case,
-        )
     if qa_error:
         return None, qa_error
     review_refusal = enter_review()

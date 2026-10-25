@@ -62,7 +62,7 @@ def recorded_item_revisions(conn, item_id: Optional[int]) -> tuple[str, ...]:
     if item_id is None:
         return ()
     try:
-        return accepted_merging_shas(conn, int(item_id), include_blocking_heads=False)
+        return accepted_merging_shas(conn, int(item_id))
     except Exception:
         # A minimal-schema universe carries none of these tables; that is no
         # recorded revision, which the callers already treat as unjudgeable.

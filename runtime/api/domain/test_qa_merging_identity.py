@@ -1,8 +1,7 @@
-"""Merge identity keeps the PR-entry SHA when a queue batch is recorded later."""
+"""Lane and landing records own accepted commits; CI runs cannot vouch for themselves."""
 
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
-    ci_run_identity_shas,
     queue_batch_covers_receipt,
 )
 from yoke_core.domain.qa_terminal_settlement import blocking_requirement_issues
@@ -22,30 +21,6 @@ def _ci_result(head: str, *, batch_merge: str = "") -> str:
         '"merge_queue_batch": {"combined_head_sha": "' + head + '", '
         '"merge_sha": "' + batch_merge + '"}}'
     )
-
-
-def test_ci_identity_keeps_pr_entry_when_batch_is_newer():
-    shas = ci_run_identity_shas(
-        (
-            _ci_result(MERGE, batch_merge=MERGE),
-            _ci_result(PR_ENTRY),
-        )
-    )
-
-    assert PR_ENTRY in shas
-    assert MERGE in shas
-
-
-def test_newest_batch_alone_does_not_drop_the_entry_head():
-    """The previous single-newest read would have returned only MERGE."""
-    shas = ci_run_identity_shas(
-        (
-            _ci_result(MERGE, batch_merge=MERGE),
-            _ci_result(PR_ENTRY),
-        )
-    )
-
-    assert shas[0] == PR_ENTRY
 
 
 def test_batch_covers_when_train_merge_matches_the_receipt():
@@ -82,7 +57,7 @@ def test_passing_pr_entry_run_is_stale_against_lane_and_merge_only():
     )
 
     assert len(issues) == 1
-    assert issues[0].state == "stale-sha"
+    assert issues[0].state == "outside-lane"
 
 
 def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
@@ -106,7 +81,7 @@ def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
     assert issues == []
 
 
-def test_accepted_set_includes_blocking_head_when_batch_covers(monkeypatch):
+def test_accepted_set_does_not_let_ci_runs_vouch_for_themselves(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.qa_merging_identity._evidence_sha",
         lambda *_a: "",
@@ -126,14 +101,10 @@ def test_accepted_set_includes_blocking_head_when_batch_covers(monkeypatch):
         "yoke_core.domain.qa_merging_identity._lane_sha",
         lambda *_a: LANE,
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_merging_identity._passing_blocking_heads",
-        lambda *_a: [PR_ENTRY],
-    )
 
     accepted = accepted_merging_shas(object(), 42)
 
-    assert accepted == (LANE, MERGE, PR_ENTRY)
+    assert accepted == (LANE, MERGE)
 
 
 def test_stale_blocking_head_stays_out_without_a_covering_batch(monkeypatch):
@@ -153,14 +124,10 @@ def test_stale_blocking_head_stays_out_without_a_covering_batch(monkeypatch):
         "yoke_core.domain.qa_merging_identity._lane_sha",
         lambda *_a: LANE,
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_merging_identity._passing_blocking_heads",
-        lambda *_a: [STALE],
-    )
 
     accepted = accepted_merging_shas(object(), 42)
 
     assert STALE not in accepted
-    assert PR_ENTRY in accepted
+    assert PR_ENTRY not in accepted
     assert MERGE in accepted
     assert LANE in accepted

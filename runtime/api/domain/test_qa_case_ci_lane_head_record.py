@@ -5,7 +5,7 @@ the rebase produced. A rebase is not a commit, so the git post-commit hook
 that normally stamps ``item_worktrees.commit_sha`` never fires and the row
 keeps the pre-rebase head. The merge boundary then compares its recorded
 candidate against runs recorded at the new one, finds no match, and refuses
-with a stale-sha forever — a state no retry escapes, because every retry
+with a outside-lane forever — a state no retry escapes, because every retry
 rebases again.
 
 Publishing is the moment that new head becomes the lane's shared identity, so
@@ -39,8 +39,19 @@ def _repo(tmp_path: Path, *, remote: str) -> Path:
     (checkout / "file.txt").write_text("x", encoding="utf-8")
     subprocess.run(["git", "-C", str(checkout), "add", "-A"], check=True)
     subprocess.run(
-        ["git", "-C", str(checkout), "-c", "user.email=t@example.com",
-         "-c", "user.name=T", "commit", "-q", "-m", "seed"],
+        [
+            "git",
+            "-C",
+            str(checkout),
+            "-c",
+            "user.email=t@example.com",
+            "-c",
+            "user.name=T",
+            "commit",
+            "-q",
+            "-m",
+            "seed",
+        ],
         check=True,
     )
     return checkout
@@ -79,14 +90,16 @@ def test_publishing_a_lane_records_its_head(tmp_path, recorded):
             "head_only": True,
             "timeout_s": None,
             "retry_command": lane_head_record.rerecord_command(
-                "widgets", str(checkout),
+                "widgets",
+                str(checkout),
             ),
         }
     ]
 
 
 def test_the_record_does_not_run_on_the_post_commit_hook_deadline(
-    tmp_path, recorded,
+    tmp_path,
+    recorded,
 ):
     """Nothing waits on this write, so it does not borrow the hook's hurry.
 
@@ -126,11 +139,17 @@ def test_a_lane_published_from_a_recorded_commit_records_nothing(tmp_path, recor
     checkout = _repo(tmp_path, remote=str(_origin(tmp_path)))
     head = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
     lane.push_lane(
-        checkout, "PRJ-9", project="widgets", target="trunk", source_ref=head,
+        checkout,
+        "PRJ-9",
+        project="widgets",
+        target="trunk",
+        source_ref=head,
     )
 
     assert recorded == []
@@ -150,9 +169,7 @@ def _relay_deadline_expired(monkeypatch):
         "sync_local_snapshot_for_write",
         lambda **kwargs: {
             "status": "failed",
-            "message": (
-                "HTTPS function relay response exceeded the time limit"
-            ),
+            "message": ("HTTPS function relay response exceeded the time limit"),
             "repair_command": repair,
         },
     )
@@ -160,7 +177,9 @@ def _relay_deadline_expired(monkeypatch):
 
 
 def test_an_unrecorded_candidate_names_a_recovery_a_finished_lane_can_take(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ):
     """The warning owes a recovery the lane it warns can actually perform.
 
@@ -185,7 +204,9 @@ def test_an_unrecorded_candidate_names_a_recovery_a_finished_lane_can_take(
 
 
 def test_a_withheld_repair_still_names_what_records_the_candidate(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ):
     """A refusal no retry answers still leaves the lane needing the stamp.
 
@@ -227,10 +248,14 @@ def test_a_failed_recording_does_not_unpublish_the_lane(tmp_path, monkeypatch):
 
     published = subprocess.run(
         ["git", "-C", str(origin), "rev-parse", "refs/heads/PRJ-9"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     local = subprocess.run(
         ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     assert published == local

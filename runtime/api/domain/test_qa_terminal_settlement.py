@@ -15,7 +15,6 @@ from yoke_core.domain.qa_terminal_settlement import (
     find_unsettled_records,
 )
 from yoke_core.domain.qa_browser_freshness_check import _latest_browser_run
-from yoke_core.domain.qa_merging_identity import _passing_blocking_heads
 
 
 @pytest.mark.parametrize("latest_verdict", [None, "pass", "fail"])
@@ -91,7 +90,6 @@ def test_detached_review_does_not_mask_latest_capture_identity(test_db):
     rows = _blocking_requirement_rows(test_db, item["id"])
     assert rows[0]["run_id"] == capture["id"]
     assert rows[0]["recorded_head_sha"] == sha
-    assert _passing_blocking_heads(test_db, item["id"]) == [sha]
     assert (
         blocking_requirement_issues(
             rows, accepted_shas=(sha,), public_ref="example", require_any=True

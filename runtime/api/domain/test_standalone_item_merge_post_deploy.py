@@ -40,6 +40,9 @@ def _requirement(*, phase: str, verdict: str, transition: str | None) -> dict:
     return {
         "id": 77,
         "blocking_mode": "blocking",
+        "current_passing_proof": True,
+        "subject_proof_error": "",
+        "human_review": None,
         "waived_at": None,
         "qa_phase": phase,
         "run_id": 88,

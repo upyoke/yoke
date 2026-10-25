@@ -1,9 +1,9 @@
 {
  "id": "current-ci-covers-earlier-candidates",
- "title": "Rebase with earlier passing CI requirements",
+ "title": "QA passes remain accepted across lane commits",
  "status": "observed",
  "audience": "both",
- "when": "An item rebases after one or more CI requirements passed on earlier candidates.",
- "need": "Run the current command-ci case. Its newer passing requirement and run cover older passes only within the same item, transition and verification phase, and only for stale commit identity. History stays readable; missing proof, other failures and other methods still refuse.",
- "sources": ["docs/public/verification/success-policy.md", "packages/yoke-core/src/yoke_core/domain/qa_ci_candidate_coverage.py", "runtime/api/domain/test_qa_ci_candidate_coverage.py"]
+ "when": "An item lane advances after a QA method passed on an earlier lane commit.",
+ "need": "Keep each method's run start commit. A completed passing run from the item's lane history remains accepted when the lane advances; no covering CI requirement or new capture is needed. Foreign commits, newer failures or incomplete attempts, stale configuration and target, subject proof and human review still block; required queue CI tests the final commit.",
+ "sources": ["docs/public/verification/success-policy.md", "packages/yoke-core/src/yoke_core/domain/qa_terminal_settlement.py", "runtime/api/domain/test_qa_terminal_settlement_older_head.py"]
 }

@@ -56,7 +56,9 @@ def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:
         ):
             execution = dict(row)
             if execution["test_machine_lease_id"] is not None:
-                owners[int(execution["test_machine_lease_id"])] = f"plan {execution['id']}"
+                owners[int(execution["test_machine_lease_id"])] = (
+                    f"plan {execution['id']}"
+                )
             for claim in execution_host_leases(conn, execution):
                 owners[claim.id] = f"plan {execution['id']}"
     if _table_exists(conn, "qa_runs") and _table_exists(conn, "qa_requirements"):
@@ -90,39 +92,62 @@ def live_qa_leases(conn: Any, item_id: int) -> list[tuple[int, str]]:
 
 
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
-    from yoke_core.domain.qa_simulation_triage import triage_discharge_sql
-
     placeholder = marker(conn)
+    has_methods = _table_exists(conn, "qa_methods") and _column_exists(
+        conn, "qa_methods", "runner_id"
+    )
+    has_runner = _column_exists(conn, "qa_requirements", "runner_id")
+    runner = (
+        "COALESCE(q.runner_id,m.runner_id) AS runner_id"
+        if has_methods and has_runner
+        else ("q.runner_id" if has_runner else "NULL AS runner_id")
+    )
+    join = "LEFT JOIN qa_methods m ON m.id=q.method_id" if has_methods else ""
+    scopes = [f"q.item_id={placeholder}"]
+    for name in ("epic_id", "deployment_member_item_id"):
+        if _column_exists(conn, "qa_requirements", name):
+            scopes.append(f"q.{name}={placeholder}")
     cursor = conn.execute(
-        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, "
-        "q.superseded_by_requirement_id, q.replacement_requirement_id, "
-        f"{requirement_retracted_at_select(conn, 'q')}, "
-        f"{triage_discharge_sql(conn, 'q')} AS triage_discharge, "
-        "q.qa_phase, q.method_id, q.method_config, q.item_id, q.runner_id, "
-        "q.host_baseline, q.execution_target_json, q.execution_target_digest, "
-        "q.workflow_transition_id FROM qa_requirements q "
-        f"WHERE q.item_id = {placeholder} ORDER BY q.id",
-        (int(item_id),),
+        f"SELECT q.*, {runner}, "
+        f"{requirement_retracted_at_select(conn, 'q')} "
+        f"FROM qa_requirements q {join} "
+        f"WHERE {' OR '.join(scopes)} ORDER BY q.id",
+        tuple(int(item_id) for _ in scopes),
     )
     columns = [str(column[0]) for column in cursor.description]
     rows = [
         dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
         for row in cursor.fetchall()
     ]
-    rows = effective_obligations(conn, rows)
+    rows = list(
+        {row["id"]: row for row in [*rows, *effective_obligations(conn, rows)]}.values()
+    )
     from yoke_core.domain.qa_simulation_triage import current_simulation_triage
 
+    methods = {}
+    if has_methods:
+        methods = {
+            str(row["id"]): row["runner_id"]
+            for row in query_rows(conn, "SELECT id,runner_id FROM qa_methods", ())
+        }
+
     for row in rows:
+        row["runner_id"] = row.get("runner_id") or methods.get(
+            str(row.get("method_id"))
+        )
         row["retracted_at"] = row.get("retracted_at")
-        row["triage_discharge"] = bool(current_simulation_triage(conn, int(row["id"])))
+        row["triage_discharge"] = (
+            bool(current_simulation_triage(conn, int(row["id"])))
+            if row.get("qa_kind") == "simulation"
+            else False
+        )
     attempts = latest_executions(
         conn,
         [
             row["id"]
             for row in rows
-            if not row.get("replacement_graph_error")
-            and not row["waived_at"]
-            and not row["retracted_at"]
+            if not row.get("waived_at")
+            and not row.get("retracted_at")
             and not item_supersession_settled(row)
         ],
     )
@@ -139,27 +164,23 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         ):
             row[key] = attempt.get(key)
     from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-    from yoke_core.domain.qa_subject_proof import (
-        requires_code_identity,
-        subject_proof_error,
-    )
+    from yoke_core.domain.qa_subject_proof import subject_proof_error
 
     for row in rows:
         attempt = attempts.get(int(row["id"]))
         row["current_passing_proof"] = (
             has_current_passing_run(conn, int(row["id"])) if attempt else False
         )
-        row["requires_code_identity"] = requires_code_identity(row)
         row["subject_proof_error"] = (
             subject_proof_error(conn, row, attempt)
             if attempt and row["current_passing_proof"]
             else ""
         )
-        if row["qa_phase"] == "post_deploy" and not row["deployment_run_id"]:
+        if row.get("qa_phase") == "post_deploy" and not row.get("deployment_run_id"):
             row["post_deploy_consumed"] = source_obligation_consumed(
                 conn, item_id=item_id, source_requirement_id=int(row["id"])
             )
-        row["recorded_head_sha"] = recorded_head_sha(row.pop("raw_result", None))
+        row["recorded_head_sha"] = recorded_head_sha(row.get("raw_result"))
         waiting = requirement_awaits_human_review(conn, int(row["id"]))
         row["human_review"] = waiting.as_dict() if waiting else None
     return rows

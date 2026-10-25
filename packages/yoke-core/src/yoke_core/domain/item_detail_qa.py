@@ -132,21 +132,24 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             else "NULL AS latest_evidence_type"
         ),
     ]
-    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.qa_terminal_records import _blocking_requirement_rows
 
     where = f"WHERE q.item_id = {marker} OR q.epic_id = {marker}"
     params: list[Any] = [item_id, item_id]
     if _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
         where += f" OR q.deployment_member_item_id = {marker}"
         params.append(item_id)
-    requirement_ids = [
-        int(row["id"])
-        for row in _dict_rows(
-            conn.execute(f"SELECT q.id FROM qa_requirements q {where}", tuple(params))
+    authoritative = {
+        row["id"]: row for row in _blocking_requirement_rows(conn, item_id)
+    }
+    run_ids = (
+        ",".join(
+            str(int(row["run_id"]))
+            for row in authoritative.values()
+            if row.get("run_id")
         )
-    ]
-    current = latest_executions(conn, requirement_ids)
-    run_ids = ",".join(str(int(run["id"])) for run in current.values()) or "NULL"
+        or "NULL"
+    )
     joins = [
         "FROM qa_requirements q",
         f"LEFT JOIN qa_runs r ON r.qa_requirement_id=q.id AND r.id IN ({run_ids})",
@@ -210,6 +213,9 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             precondition_reason=precondition_reason,
             proof_kind=row.get("proof_kind"),
         )
+    for row in rows:
+        proof = authoritative.get(row["id"], {})
+        row.update({key: value for key, value in proof.items() if key != "raw_result"})
     return rows
 
 

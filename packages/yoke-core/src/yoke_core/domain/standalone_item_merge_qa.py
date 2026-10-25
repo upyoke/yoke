@@ -5,14 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.merge_preflight_github_lock_retry import (
-    call_with_machine_lock_retry,
-)
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.qa_lane_history import checkout_contains
 from yoke_core.domain.qa_phase_boundary import applies_at_pre_merge
-from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_terminal_settlement import (
     BlockingRequirementIssue,
     blocking_requirement_issues,
@@ -77,42 +72,6 @@ def item_for_merge_phase(
     }
 
 
-def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
-    """Read proof for the actual attempt already selected by item detail."""
-    if requirement.get("recorded_head_sha") or requirement.get("run_id") is None:
-        return ""
-    requirement_id = int(requirement["id"])
-    response = call_with_machine_lock_retry(
-        lambda: call_dispatcher(
-            function_id="qa.run.list",
-            target=TargetRef(
-                kind="qa_requirement",
-                qa_requirement_id=requirement_id,
-            ),
-            payload={"requirement_id": requirement_id},
-        )
-    )
-    if not response.success:
-        detail = response.error.message if response.error else "read failed"
-        return f"could not read QA runs for requirement {requirement_id}: {detail}"
-    rows = list((response.result or {}).get("rows") or [])
-    run_id = int(requirement["run_id"])
-    latest = next((row for row in rows if int(row["id"]) == run_id), None)
-    if latest is None:
-        # Keep missing SHA proof on the normal commit-bound recovery path.
-        # Another run's evidence cannot bind this selected attempt.
-        return ""
-    requirement.update(
-        run_id=latest.get("id"),
-        verdict=latest.get("verdict"),
-        execution_status=latest.get("execution_status"),
-        case_outcome=latest.get("case_outcome"),
-        completed_at=latest.get("completed_at"),
-        recorded_head_sha=recorded_head_sha(latest.get("raw_result")),
-    )
-    return ""
-
-
 def evaluate(
     item: dict[str, Any],
     *,
@@ -131,10 +90,23 @@ def evaluate(
     if not commit_sha:
         return "", [], f"cannot resolve the commit carried by branch {branch!r}"
     requirements = list(item.get("qa_requirements") or [])
-    for requirement in requirements:
-        hydration_error = _hydrate_run_identity(requirement)
-        if hydration_error:
-            return commit_sha, [], hydration_error
+    for row in requirements:
+        if row.get("verdict") == "pass" and not all(
+            key in row
+            for key in ("current_passing_proof", "subject_proof_error", "human_review")
+        ):
+            from yoke_contracts.refusal_recovery import compose_refusal
+
+            return (
+                commit_sha,
+                [],
+                compose_refusal(
+                    "qa_proof_response_unavailable: the serving item-detail response predates "
+                    "the shared QA proof reader (serving-response floor: next-release)",
+                    recovery="use the installed client matched to the serving engine, or update "
+                    "the engine and client together to the release carrying the shared QA proof reader",
+                ),
+            )
     attachments = list(item.get("qa_plan_attachments") or [])
     require_any = bool(requirements) or any(
         int(attachment.get("case_count") or 0) > 0 for attachment in attachments
@@ -146,6 +118,9 @@ def evaluate(
             accepted_shas=(commit_sha,),
             public_ref=public_ref,
             require_any=require_any,
+            contains_commit=lambda head, commit: checkout_contains(
+                str(repo_root), head, commit
+            ),
         ),
         "",
     )

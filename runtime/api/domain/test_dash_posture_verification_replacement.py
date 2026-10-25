@@ -169,7 +169,9 @@ def test_same_settlement_clears_selected_verification_at_done(dash_db_path):
 
 
 @pytest.mark.parametrize("sha", [CANDIDATE_SHA, "b" * 40, ""])
-def test_premerge_replacement_proves_exact_lane_commit(dash_db_path, monkeypatch, sha):
+def test_premerge_replacement_uses_shared_lane_history_gate(
+    dash_db_path, monkeypatch, sha
+):
     monkeypatch.setenv("YOKE_QA_GATE_COMMIT_SHA", CANDIDATE_SHA)
     conn = connect_test_db(dash_db_path)
     try:
@@ -186,7 +188,7 @@ def test_premerge_replacement_proves_exact_lane_commit(dash_db_path, monkeypatch
 
 
 @pytest.mark.parametrize("sha", [CANDIDATE_SHA, "c" * 40, ""])
-def test_checkout_free_replacement_after_merge_proves_accepted_lane_head(
+def test_checkout_free_replacement_uses_shared_lane_history_gate(
     dash_db_path, monkeypatch, sha
 ):
     previous_merge = "b" * 40
@@ -245,3 +247,25 @@ def test_declared_pending_successor_blocks_before_automatic_discharge(dash_db_pa
     result = _gate(dash_db_path)
     assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
     assert f"replacement #{replacement}" in result["error"]
+
+
+def test_earlier_lane_replacement_pass_remains_accepted(dash_db_path, monkeypatch):
+    monkeypatch.setenv("YOKE_QA_GATE_COMMIT_SHA", CANDIDATE_SHA)
+    seen = []
+
+    def history(_conn, _item_id):
+        def contains(head, commit):
+            seen.append((head, commit))
+            return head == CANDIDATE_SHA and commit == "b" * 40
+
+        return contains
+
+    monkeypatch.setattr("yoke_core.domain.qa_lane_history.item_lane_contains", history)
+    conn = connect_test_db(dash_db_path)
+    try:
+        _, replacement = _cases(conn)
+        _verdict(conn, replacement, sha="b" * 40)
+    finally:
+        conn.close()
+    assert _gate(dash_db_path) is None
+    assert seen == [(CANDIDATE_SHA, "b" * 40)]

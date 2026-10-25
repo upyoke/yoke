@@ -57,7 +57,8 @@ def _record_verdict(raw_result, requirement_row):
     )
     with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
         with patch(
-            "yoke_core.domain.db_helpers.query_one", return_value=requirement_row,
+            "yoke_core.domain.db_helpers.query_one",
+            return_value=requirement_row,
         ):
             return qa_run.handle_qa_run_record_verdict(request)
 
@@ -80,7 +81,9 @@ def test_empty_raw_result_is_refused_at_the_write():
 
 def test_json_head_sha_satisfies_the_write_guard():
     assert not qa_run._names_no_verified_tree(
-        "pass", _blocking_requirement(), JSON_RESULT,
+        "pass",
+        _blocking_requirement(),
+        JSON_RESULT,
     )
 
 
@@ -88,10 +91,14 @@ def test_guard_ignores_runs_the_terminal_gate_never_sha_matches():
     prose = PROSE_RESULT
     assert not qa_run._names_no_verified_tree("fail", _blocking_requirement(), prose)
     assert not qa_run._names_no_verified_tree(
-        "pass", _blocking_requirement(blocking_mode="advisory"), prose,
+        "pass",
+        _blocking_requirement(blocking_mode="advisory"),
+        prose,
     )
     assert not qa_run._names_no_verified_tree(
-        "pass", _blocking_requirement(waived_at="2026-08-20T00:00:00Z"), prose,
+        "pass",
+        _blocking_requirement(waived_at="2026-08-20T00:00:00Z"),
+        prose,
     )
 
 
@@ -115,24 +122,26 @@ def test_stale_ci_recovery_runs_the_case():
     )
 
     assert len(issues) == 1
-    assert issues[0].state == "stale-sha"
+    assert issues[0].state == "outside-lane"
     recovery = issues[0].recovery
     assert recovery == "Run `yoke qa case run --requirement-id 15542`"
     assert "record-verdict" not in recovery
 
 
 def test_gate_summary_text_discloses_that_it_skips_tree_freshness():
-    text = _format_text({
-        "target": "YOK-1",
-        "transition": "reviewed-implementation",
-        "qa_tables_present": True,
-        "no_requirements": False,
-        "satisfied": True,
-        "blocking_unsatisfied_count": 0,
-        "browser_unsatisfied_count": 0,
-        "e2e_unsatisfied_count": 0,
-        "tree_freshness_checked": False,
-        "requirements": [],
-    })
+    text = _format_text(
+        {
+            "target": "YOK-1",
+            "transition": "reviewed-implementation",
+            "qa_tables_present": True,
+            "no_requirements": False,
+            "satisfied": True,
+            "blocking_unsatisfied_count": 0,
+            "browser_unsatisfied_count": 0,
+            "e2e_unsatisfied_count": 0,
+            "tree_freshness_checked": False,
+            "requirements": [],
+        }
+    )
 
     assert "Tree freshness: not evaluated here" in text

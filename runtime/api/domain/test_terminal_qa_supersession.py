@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.domain.test_terminal_qa_settlement import (
     _seed_plan_execution,
+    _seed_merging_sha,
     _terminal_result,
 )
 from runtime.api.domain.test_terminal_post_deploy_settlement import (
@@ -27,6 +28,7 @@ COMPLETED_AT = "2026-01-01T00:00:01Z"
 
 
 def _seed_successor(test_db, *, verdict="pass", completed_at=COMPLETED_AT):
+    _seed_merging_sha(test_db, "a" * 40)
     successor = int(insert_qa_requirement(test_db, item_id=10)["id"])
     if verdict != "missing":
         insert_qa_run(

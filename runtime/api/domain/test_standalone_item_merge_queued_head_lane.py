@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
-from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain.standalone_item_merge_lane import (
     lane_branch,
@@ -91,61 +90,3 @@ def test_merge_item_lands_and_keys_the_queued_head_lane(
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
     assert merger.call_args.kwargs["branch"] == "YOK-10-composition"
     assert merger.call_args.kwargs["commit_sha"] == QUEUED_SHA
-
-
-def test_parent_command_recovery_runs_in_the_queued_head_lane() -> None:
-    requirement = _requirement(verdict="pass", sha=INTEGRATION_SHA)
-    requirement["runner_id"] = "ci_run"
-    item = _epic(QUEUED_SHA)
-    item["qa_requirements"] = [requirement]
-    _, issues, _ = merge_qa.evaluate(
-        item, public_ref="YOK-10", repo_root=Path("/"), branch="YOK-10-composition"
-    )
-    ran = []
-
-    error = commit_bound.recover_issues(
-        item,
-        issues,
-        QUEUED_SHA,
-        run_case=lambda requirement_id, lane, sha: ran.append(
-            (requirement_id, lane["path"], lane["branch"], sha)
-        ),
-    )
-
-    assert error == ""
-    assert ran == [(77, "/composition", "YOK-10-composition", QUEUED_SHA)]
-
-
-def test_case_rerun_selects_the_lane_and_pins_the_commit(monkeypatch) -> None:
-    from yoke_core.domain import qa_case_execution
-
-    calls = []
-    monkeypatch.setattr(
-        qa_case_execution,
-        "execute_case",
-        lambda requirement_id, **kwargs: calls.append((requirement_id, kwargs)),
-    )
-    lane = {"path": "/composition", "branch": "YOK-10-composition"}
-
-    commit_bound.rerun_command_case(77, lane, QUEUED_SHA)
-
-    assert calls == [
-        (
-            77,
-            {
-                "checkout_path": "/composition",
-                "expected_branch": "YOK-10-composition",
-                "expected_sha": QUEUED_SHA,
-            },
-        )
-    ]
-
-
-def test_rebinding_to_the_rebased_head_keeps_the_queued_lane(monkeypatch) -> None:
-    rebased = "f" * 40
-    monkeypatch.setattr(commit_bound.git, "head_of", lambda *_a: rebased)
-    item = commit_bound.at_lane_head(
-        _epic(QUEUED_SHA), repo_root=Path("/"), branch="YOK-10-composition"
-    )
-    lane = merge_source_lane(item)
-    assert (lane["branch"], lane["commit_sha"]) == ("YOK-10-composition", rebased)

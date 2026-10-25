@@ -134,7 +134,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT [--source operator\|agent] [--force]` | Waive a requirement with a recorded rationale |
-| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert an actual run; code/build blocking passes bind observed commit identity, while Machine and endpoint cases retain their actual subject proof |
+| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert an actual run; every method records its lane start commit, and Machine and endpoint cases also retain their actual subject proof |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status captured\|capture_failed] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--raw-result JSON] [opts]` | Record a one-shot verdict; a blocking pass carries `{"verification_tree": {"head_sha": "<full commit sha>"}}` in `--raw-result` JSON, except a `browser-inspection` review, whose capture already names its commit |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |

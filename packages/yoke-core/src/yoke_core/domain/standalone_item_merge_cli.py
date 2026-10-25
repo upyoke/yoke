@@ -137,11 +137,14 @@ def run(argv: List[str]) -> int:
     )
     recovered_claim = False
     if claim_error or pruned_lane:
-        recovered, recovery_error = readiness.recovery or recovery.reacquire_landed_claim(
-            item_id=item_id,
-            session_id=str(args.session_id),
-            lane=landed_lane,
-            item=item,
+        recovered, recovery_error = (
+            readiness.recovery
+            or recovery.reacquire_landed_claim(
+                item_id=item_id,
+                session_id=str(args.session_id),
+                lane=landed_lane,
+                item=item,
+            )
         )
         if recovery_error or recovered is None:
             return fail(f"{public_ref}: {recovery_error or 'claim recovery failed'}")
@@ -172,7 +175,6 @@ def run(argv: List[str]) -> int:
             target=target,
             repo_root=repo_root,
             project=project,
-            read_item=lambda: _resolve_item(public_ref, args.project),
             enter_review=enter_review,
         )
         if refusal:
