@@ -295,7 +295,7 @@ def test_terminal_transition_accepts_pass_for_recorded_merge_sha(test_db):
     assert _terminal_result(test_db) == {"success": True}
 
 
-def test_flow_derived_ci_refusal_names_the_evidence_surface(test_db):
+def test_flow_derived_ci_refusal_runs_the_case(test_db):
     insert_item(test_db, id=10, status="release")
     _seed_merging_sha(test_db, "b" * 40)
     requirement_id = _row_id(
@@ -317,8 +317,8 @@ def test_flow_derived_ci_refusal_names_the_evidence_surface(test_db):
 
     result = _terminal_result(test_db)
 
-    assert "yoke qa run record-verdict --help" in result["error"]
-    assert "yoke qa case run" not in result["error"]
+    assert f"yoke qa case run --requirement-id {requirement_id}" in result["error"]
+    assert "record-verdict" not in result["error"]
 
 
 def test_terminal_transition_still_refuses_a_head_no_merge_recorded(test_db):

@@ -3,5 +3,6 @@
  "title": "Command (CI)",
  "status": "draft-copy",
  "page": "qa-methods",
- "position": 1
+ "position": 1,
+ "text": "Unfinished command-CI requirements direct the worker to run the QA case, including when an item-detail response omits method configuration. Merge and terminal checks never advise recording a manual verdict instead of executing the case."
 }
