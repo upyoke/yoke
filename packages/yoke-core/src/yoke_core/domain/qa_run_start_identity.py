@@ -20,7 +20,7 @@ def lane_start_commit(raw: Any) -> str:
 
 
 def stamp_start_commit(conn: Any, columns: dict[str, Any]) -> None:
-    if lane_start_commit(columns.get("raw_result")):
+    if recorded_head_sha(columns.get("raw_result")):
         return
     if not _table_exists(conn, "item_worktrees") or not _column_exists(
         conn, "qa_requirements", "item_id"
@@ -63,5 +63,7 @@ def stamp_start_commit(conn: Any, columns: dict[str, Any]) -> None:
 
 
 def retain_start_commit(existing_raw: Any, incoming_raw: Any) -> Any:
+    if recorded_head_sha(incoming_raw):
+        return incoming_raw
     sha = lane_start_commit(existing_raw)
     return wrap_evidence(incoming_raw, sha) if sha else incoming_raw

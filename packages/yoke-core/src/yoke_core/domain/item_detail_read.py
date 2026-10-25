@@ -190,7 +190,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, Any]:
+def get_item_detail(item_id: int, *, include: Sequence[str] = (), qa_proof: bool = False) -> dict[str, Any]:
     """Return the item's posture and proof, plus the content sections named.
 
     ``include`` names sections from
@@ -245,7 +245,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
         )
         owner_names = resolve_owner_names(conn, [row.get("owner")])
         claim = active_item_claims(conn, [item_id]).get(item_id)
-        qa_requirements = qa_rows(conn, item_id)
+        qa_requirements = qa_rows(conn, item_id, include_proof=qa_proof)
         flow = completion_flow_values(conn, [item_id]).get(
             item_id,
             {"value": "", "source": "none"},

@@ -251,16 +251,6 @@ def test_declared_pending_successor_blocks_before_automatic_discharge(dash_db_pa
 
 def test_earlier_lane_replacement_pass_remains_accepted(dash_db_path, monkeypatch):
     monkeypatch.setenv("YOKE_QA_GATE_COMMIT_SHA", CANDIDATE_SHA)
-    seen = []
-
-    def history(_conn, _item_id):
-        def contains(head, commit):
-            seen.append((head, commit))
-            return head == CANDIDATE_SHA and commit == "b" * 40
-
-        return contains
-
-    monkeypatch.setattr("yoke_core.domain.qa_lane_history.item_lane_contains", history)
     conn = connect_test_db(dash_db_path)
     try:
         _, replacement = _cases(conn)
@@ -268,4 +258,3 @@ def test_earlier_lane_replacement_pass_remains_accepted(dash_db_path, monkeypatc
     finally:
         conn.close()
     assert _gate(dash_db_path) is None
-    assert seen == [(CANDIDATE_SHA, "b" * 40)]

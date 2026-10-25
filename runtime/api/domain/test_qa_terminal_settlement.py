@@ -92,7 +92,7 @@ def test_detached_review_does_not_mask_latest_capture_identity(test_db):
     assert rows[0]["recorded_head_sha"] == sha
     assert (
         blocking_requirement_issues(
-            rows, accepted_shas=(sha,), public_ref="example", require_any=True
+            rows, public_ref="example", require_any=True
         )
         == []
     )
@@ -135,7 +135,7 @@ def test_undetermined_requirement_issue_preserves_reason():
                 "requirement_source": "explicit",
             }
         ],
-        accepted_shas=(),
+
         public_ref="YOK-41",
         require_any=True,
     )

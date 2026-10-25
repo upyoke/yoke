@@ -63,6 +63,7 @@ class ItemsOverviewListResponse(BaseModel):
 
 
 class ItemDetailGetRequest(BaseModel):
+    qa_proof: bool = False
     #: Content sections to serve in full. Omitted means none of them: the
     #: response still reports every section in ``item.content_index`` with
     #: the command that returns it, so a caller that wants the item's
@@ -274,7 +275,7 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
             "$.payload.include",
         )
     try:
-        item = get_item_detail(int(request.target.item_id), include=include)
+        item = get_item_detail(int(request.target.item_id), include=include, qa_proof=payload.qa_proof)
     except LookupError as exc:
         return _error("not_found", str(exc))
     from yoke_core.domain.db_helpers import connect

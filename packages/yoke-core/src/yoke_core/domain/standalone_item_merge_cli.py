@@ -51,7 +51,7 @@ def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
         lambda: call_dispatcher(
             function_id="items.detail.get",
             target=TargetRef(kind="item", public_ref=public_ref, project_id=project),
-            payload={},
+            payload={"qa_proof": True},
         )
     )
     if not response.success:

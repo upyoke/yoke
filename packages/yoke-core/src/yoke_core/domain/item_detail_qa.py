@@ -34,15 +34,7 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
 
 
 def _runner_column(conn: Any, has_methods: bool) -> str:
-    """The runner that will actually execute a requirement.
-
-    Stored in two places: on the requirement when it overrides its method's
-    default, and otherwise on the method. Readers classify by the effective
-    one -- the merge boundary decides from it whether commit-bound recovery
-    may re-run a requirement or must refuse it as substrate-owned -- so
-    answering with only the requirement's own column reports the great
-    majority of rows as having no runner at all.
-    """
+    """Read a requirement override or its method default."""
     on_requirement = _column_exists(conn, "qa_requirements", "runner_id")
     on_method = has_methods and _column_exists(conn, "qa_methods", "runner_id")
     if on_requirement and on_method:
@@ -54,7 +46,7 @@ def _runner_column(conn: Any, has_methods: bool) -> str:
     return "NULL AS runner_id"
 
 
-def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
+def qa_rows(conn: Any, item_id: int, *, include_proof: bool = False) -> list[dict[str, Any]]:
     """Return each requirement with its latest run and proof summary."""
     if not _table_exists(conn, "qa_requirements"):
         return []
@@ -139,13 +131,27 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     if _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
         where += f" OR q.deployment_member_item_id = {marker}"
         params.append(item_id)
-    authoritative = {
-        row["id"]: row for row in _blocking_requirement_rows(conn, item_id)
-    }
+    authoritative = (
+        {row["id"]: row for row in _blocking_requirement_rows(conn, item_id)}
+        if include_proof else {}
+    )
+    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.db_helpers import query_rows
+
+    if include_proof:
+        where = "WHERE q.id IN (" + (",".join(str(int(key)) for key in authoritative) or "NULL") + ")"
+        params = []
+        attempts = list(authoritative.values())
+    else:
+        requirements = query_rows(conn, f"SELECT q.id FROM qa_requirements q {where}", tuple(params))
+        attempts = [
+            dict(run, run_id=run["id"])
+            for run in latest_executions(conn, [row["id"] for row in requirements]).values()
+        ]
     run_ids = (
         ",".join(
             str(int(row["run_id"]))
-            for row in authoritative.values()
+            for row in attempts
             if row.get("run_id")
         )
         or "NULL"

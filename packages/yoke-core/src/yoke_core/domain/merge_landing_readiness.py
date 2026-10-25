@@ -10,7 +10,7 @@ same report and changes nothing.
 The questions, in report order: review stage, close-out evidence flags, lane
 resolution, checkout, stale unlanded work, work claim (including a pruned
 lane with nothing landed), uncommitted lane files, blocking QA proof for the
-merging commit, the post-deploy QA answer, then the landing route's own gates
+item, the post-deploy QA answer, then the landing route's own gates
 (integration dependencies, candidate review, the merge-queue probe and, for
 the standalone engine, the project's verification command). Those route gates
 call the functions the landing itself calls, so ``--check`` and the merge
@@ -19,12 +19,12 @@ tree: nothing is left to prove before a landing that happened. So does a
 merge that must recover its claim first: the merge proves the recovered lane
 after recovery.
 
-Two conditions are not blockers because the merge resolves them itself: an
-item one declared edge before review (the merge enters review), and QA
-proof bound only to an older commit of this lane (the merge re-binds it).
-They are reported as ``merge_will`` notes. Entering review runs that stage's
+An item one declared edge before review is reported as a ``merge_will``
+note because the merge enters review. Entering review runs that stage's
 gates: the database-claim prose gate is asked here, read-only, and its
 refusal is a blocker; the note names the gates only the merge evaluates.
+QA start commits are observations; the item's current passing requirements
+authorize landing without rebinding.
 """
 
 from __future__ import annotations

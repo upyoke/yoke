@@ -270,7 +270,7 @@ def test_terminal_readers_ignore_retired_pending_runs(test_db):
                     "retracted_at": RETRACTED_AT,
                 }
             ],
-            accepted_shas=(),
+
             public_ref="member",
             require_any=True,
         )

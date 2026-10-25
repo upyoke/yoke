@@ -1,6 +1,6 @@
 # Dash — merge
 
-Land clean HEAD; QA passes from its lane history count. Never hand-merge, force-push or bypass CI. Print the wait shape, then run it once:
+Land clean HEAD; Effective item QA passes count. Never hand-merge, force-push or bypass CI. Print the wait shape, then run it once:
 
 ```text
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<result>" --verification "<proof>"

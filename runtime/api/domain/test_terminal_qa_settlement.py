@@ -306,14 +306,7 @@ def test_flow_derived_ci_refusal_runs_the_case(test_db):
     assert "record-verdict" not in result["error"]
 
 
-def test_terminal_transition_still_refuses_a_head_outside_lane_history(
-    test_db, monkeypatch
-):
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_lane_history.item_lane_contains",
-        lambda *_: lambda *_: False,
-    )
-    """Accepting several recorded heads must not accept an unrecorded one."""
+def test_terminal_transition_accepts_unrelated_commit_observation(test_db):
     insert_item(test_db, id=10, status="release")
     _seed_merge_receipt(test_db, landing_sha="d" * 40, merge_sha="f" * 40)
     requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
@@ -327,5 +320,4 @@ def test_terminal_transition_still_refuses_a_head_outside_lane_history(
 
     result = _terminal_result(test_db)
 
-    assert result["error_code"] == "GATE_QA_TERMINAL_VERDICT"
-    assert "recorded SHA " + "a" * 40 in result["error"]
+    assert result == {"success": True}

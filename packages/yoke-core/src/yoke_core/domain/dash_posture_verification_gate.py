@@ -17,7 +17,6 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     blocking_row_unsatisfied_at_done,
     source_obligation_consumed,
 )
-from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_obligation_settlement import (
     effective_requirement,
     obligation_settled,
@@ -37,7 +36,7 @@ def _requirement_consumed(
     *,
     pre_merge: bool,
     item_id: int,
-    candidate_shas: tuple[str, ...],
+    proofs: dict[int, dict[str, Any]],
 ) -> bool:
     """Whether this blocking row is satisfied at the boundary being crossed.
 
@@ -81,29 +80,15 @@ def _requirement_consumed(
         )
         if obligation_settled(row):
             return True
-        row["passed"] = passed = has_current_passing_run(conn, int(row["id"]))
-    if passed and candidate_shas and row.get("qa_phase") == "verification":
-        from yoke_core.domain.qa_terminal_records import _blocking_requirement_rows
-        from yoke_core.domain.qa_terminal_settlement import blocking_requirement_issues
-        from yoke_core.domain.qa_lane_history import item_lane_contains
+        row["passed"] = passed = bool(proofs.get(int(row["id"]), {}).get("current_passing_proof"))
+    if passed and row.get("qa_phase") == "verification":
+        from yoke_core.domain.qa_requirement_issues import issue_for_requirement
 
-        proof = next(
-            (
-                proof
-                for proof in _blocking_requirement_rows(conn, item_id)
-                if int(proof["id"]) == int(row["id"])
-            ),
-            None,
-        )
-        issues = blocking_requirement_issues(
-            [proof] if proof else [],
-            accepted_shas=candidate_shas,
-            public_ref=str(item_id),
-            require_any=True,
-            contains_commit=item_lane_contains(conn, item_id),
-        )
-        if issues:
-            row["settlement_error"] = issues[0].detail
+        proof = proofs.get(int(row["id"]))
+        if proof is None:
+            return False
+        if issue := issue_for_requirement(proof):
+            row["settlement_error"] = issue.detail
             return False
     if pre_merge:
         return passed
@@ -124,7 +109,6 @@ def verification_gate(
     item_id: int,
     verification: Mapping[str, Any],
     target_status: str,
-    candidate_shas: tuple[str, ...] = (),
 ) -> Optional[dict[str, Any]]:
     if not all(
         _table_exists(conn, table)
@@ -182,6 +166,9 @@ def verification_gate(
         params,
     )
     rows = cursor.fetchall()
+    from yoke_core.domain.qa_terminal_records import _blocking_requirement_rows
+
+    proofs = {int(row["id"]): row for row in _blocking_requirement_rows(conn, item_id)}
     scored = []
     for row in rows:
         item = dict(row)
@@ -192,7 +179,7 @@ def verification_gate(
             if item.get("qa_kind") == "simulation"
             else None
         )
-        item["passed"] = has_current_passing_run(conn, int(item["id"]))
+        item["passed"] = bool(proofs.get(int(item["id"]), {}).get("current_passing_proof"))
         scored.append(item)
     rows = scored
     if not rows:
@@ -253,7 +240,7 @@ def verification_gate(
             row,
             pre_merge=pre_merge,
             item_id=int(item_id),
-            candidate_shas=candidate_shas,
+            proofs=proofs,
         )
     ]
     unsatisfied = [

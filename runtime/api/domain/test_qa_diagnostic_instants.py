@@ -50,7 +50,7 @@ def test_terminal_completion_requires_optional_native_instant(clock):
         "recorded_head_sha": "observed lane head",
         "method_id": "browser",
     }
-    result = terminal.issue_for_requirement(row, accepted_shas=("observed lane head",))
+    result = terminal.issue_for_requirement(row)
     if clock is None:
         assert result.state == "incomplete"
     else:
@@ -80,7 +80,6 @@ def test_ambiguous_diagnostic_and_completion_clocks_refuse(monkeypatch, clock):
     with pytest.raises(InvalidInstant):
         terminal.issue_for_requirement(
             {"id": 1, "run_id": 2, "verdict": "pass", "completed_at": clock},
-            accepted_shas=(),
         )
 
 

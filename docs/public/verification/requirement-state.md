@@ -51,12 +51,14 @@ Merge and terminal close-out read the same selected execution and proof through
 subject proof or human-review fields refuses `qa_proof_response_unavailable`
 with serving-response floor `next-release`: use the installed client matched
 to that engine, or update engine and client together to the release carrying
-this reader. Every method records its lane head at start, and later
-evidence retains it. An earlier passing commit in the lane history is accepted
-without a new capture or verdict. A foreign or missing commit refuses
-`outside-lane`; run the requirement in the item's claimed lane and record its
-start commit. Required merge-queue CI still proves the final commit. The landing
-refuses `lane_head_superseded` if the branch advanced; retry the merge.
+this reader. Merge requests proof grading with `qa_proof: true` on
+`items.detail.get`; ordinary item-detail reads keep the display summary.
+The run writer records a start commit when available, as an observation only,
+and preserves a verified commit already in the evidence. The latest completed
+pass on the item's effective requirement counts without commit comparison,
+including after a rebase or when no start commit was recorded. Required
+merge-queue CI still proves the final commit. The landing refuses
+`lane_head_superseded` if the branch advanced; retry the merge.
 A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
 Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
