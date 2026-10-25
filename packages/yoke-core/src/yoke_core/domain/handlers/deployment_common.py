@@ -243,12 +243,17 @@ def error(
 
 def update_refusal_code(message: str) -> str:
     """The code a run update refusal leads with, else ``update_failed``."""
+    from yoke_core.domain.deployment_run_composition_guard import (
+        RUN_SUPERSEDED_CODE,
+    )
     from yoke_core.domain.deployment_run_settlement_refusal import (
         SETTLEMENT_BLOCKED_CODE,
     )
 
     code = message.removeprefix("Error: ").split(":", 1)[0]
-    if code == SETTLEMENT_BLOCKED_CODE or code.startswith("candidate_containment_"):
+    if code in {SETTLEMENT_BLOCKED_CODE, RUN_SUPERSEDED_CODE} or code.startswith(
+        "candidate_containment_"
+    ):
         return code
     return "update_failed"
 
