@@ -50,11 +50,13 @@ def _linux_capture(control, remote, scrot):
                 diagnostic = (logs.stdout + logs.stderr)[-6000:]
                 for secret in getattr(control, "secret_values", ()):
                     diagnostic = diagnostic.replace(secret, "[REDACTED]")
-                raise ValueError(compose_refusal(
-                    "screenshot_png_invalid: blank desktop",
-                    evaluated=f"desktop_session={session}; {diagnostic}",
-                    recovery="Repair XFCE/Xorg in the Linux or Windows WSL fixture using ~/.xsession-errors and /var/log/xrdp-sesman.log, then rerun test-machine verify",
-                )) from exc
+                raise ValueError(
+                    compose_refusal(
+                        "screenshot_png_invalid: blank desktop",
+                        evaluated=f"desktop_session={session}; {diagnostic}",
+                        recovery="Repair XFCE/Xorg in the Linux or Windows WSL fixture using ~/.xsession-errors and /var/log/xrdp-sesman.log, then rerun test-machine verify",
+                    )
+                ) from None
         # XFCE can exist before its first frame; wait on the replacement too.
         time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
         captured = desktop_command(control, scrot, timeout=30)

@@ -28,20 +28,29 @@ def test_blank_restart_checks_admission_before_stopping(blocked):
         "stop_desktop": lambda: calls.append("stop"),
         "ensure_desktop": lambda *a, **kw: calls.append("start"),
     }
-    with pytest.raises(RuntimeError, match=(
-        "desktop_password_missing" if blocked == "password" else "linux_desktop_restart_in_use"
-    )):
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "desktop_password_missing"
+            if blocked == "password"
+            else "linux_desktop_restart_in_use"
+        ),
+    ):
         exec(DESKTOP_PROGRAM, namespace)
     assert calls == []
 
 
 def test_blank_restart_stops_then_starts_with_password_on_stdin(capsys):
     calls = []
+
     def start(password, port, **kwargs):
         calls.append(("start", password, port, kwargs))
         return {"environment": {"DISPLAY": ":11"}, "desktop_session": "started"}
+
     namespace = {
-        "sys": SimpleNamespace(stdin=StringIO("secret\n"), argv=["probe", "3390", "0", "1"]),
+        "sys": SimpleNamespace(
+            stdin=StringIO("secret\n"), argv=["probe", "3390", "0", "1"]
+        ),
         "Path": Path,
         "json": json,
         "desktop_sessions": lambda: [{"pid": 42}],
@@ -52,4 +61,7 @@ def test_blank_restart_stops_then_starts_with_password_on_stdin(capsys):
     exec(DESKTOP_PROGRAM, namespace)
     assert calls == ["stop", ("start", "secret", 3390, {"rdp_access": False})]
     receipt = json.loads(capsys.readouterr().out)
-    assert receipt == {"environment": {"DISPLAY": ":11"}, "desktop_session": "restarted"}
+    assert receipt == {
+        "environment": {"DISPLAY": ":11"},
+        "desktop_session": "restarted",
+    }

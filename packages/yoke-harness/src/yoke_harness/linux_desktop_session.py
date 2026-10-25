@@ -6,6 +6,7 @@ import json
 import shlex
 from pathlib import Path
 
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness import linux_desktop_state
 from yoke_harness.linux_command_custody import run_command
 
@@ -29,7 +30,8 @@ print(json.dumps(receipt))
 def ensure_desktop(control, *, restart=False):
     source = Path(linux_desktop_state.__file__).read_text()
     program = (
-        source + "\nimport sys\ntry:\n"
+        source
+        + "\nimport sys\ntry:\n"
         + "\n".join(" " + line for line in DESKTOP_PROGRAM.splitlines())
         + "\nexcept (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as exc:\n print(str(exc), file=sys.stderr); sys.exit(69)"
     )
@@ -52,10 +54,11 @@ def ensure_desktop(control, *, restart=False):
         for secret in getattr(control, "secret_values", ()):
             detail = detail.replace(secret, "[REDACTED]")
         raise RuntimeError(
-            "linux_desktop_session_required: "
-            + detail
-            + "; "
-            + linux_desktop_state.RECOVERY
+            compose_refusal(
+                "linux_desktop_session_required",
+                evaluated=detail,
+                recovery=linux_desktop_state.RECOVERY,
+            )
         )
     try:
         receipt = json.loads(probe.stdout)

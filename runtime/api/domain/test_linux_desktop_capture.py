@@ -34,13 +34,24 @@ def host(monkeypatch, *, session, frames):
     def run(command, **kwargs):
         commands.append(command)
         return subprocess.CompletedProcess(
-            command, 0, frames.pop(0) if command.startswith("base64") else "", ""
+            command,
+            0,
+            frames.pop(0)
+            if command.startswith("base64")
+            else (
+                "xfwm4: cannot open display; private-secret"
+                if command.startswith("tail")
+                else ""
+            ),
+            "",
         )
 
     monkeypatch.setattr("yoke_harness.linux_desktop_session.desktop_command", desktop)
     monkeypatch.setattr(capture.time, "sleep", lambda _: None)
-    monkeypatch.setattr("yoke_harness.linux_desktop_session.ensure_desktop",
-                        lambda control, **kw: restarts.append(kw))
+    monkeypatch.setattr(
+        "yoke_harness.linux_desktop_session.ensure_desktop",
+        lambda control, **kw: restarts.append(kw),
+    )
     return SimpleNamespace(os="linux", _run=run, restarts=restarts), captures, commands
 
 
@@ -86,6 +97,7 @@ def test_reused_desktop_restarts_once_then_reports_logs(monkeypatch):
     control, captures, commands = host(
         monkeypatch, session="reused", frames=[png(blank=True), png(blank=True)]
     )
+    control.secret_values = ("private-secret",)
     ticks = iter((0, 0, 16))
     monkeypatch.setattr(capture.time, "monotonic", lambda: next(ticks))
     result = capture.capture_desktop(control)
@@ -93,6 +105,9 @@ def test_reused_desktop_restarts_once_then_reports_logs(monkeypatch):
     assert control.restarts == [{"restart": True}]
     assert len(captures) == 2
     assert "desktop_session=restarted" in result.evidence["recovery"]
+    assert "xfwm4: cannot open display" in result.evidence["recovery"]
+    assert "private-secret" not in result.evidence["recovery"]
+    assert "[REDACTED]" in result.evidence["recovery"]
     assert "~/.xsession-errors" in result.evidence["recovery"]
     assert any("/var/log/xrdp-sesman.log" in command for command in commands)
 

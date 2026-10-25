@@ -53,7 +53,6 @@ def _failed_recovery(surface: str, *, project: str, test_machine: str, os: str) 
     )
 
 
-
 def verification_surfaces(
     checks: Sequence[Mapping[str, Any]],
     *,

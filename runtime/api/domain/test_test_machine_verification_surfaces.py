@@ -100,7 +100,9 @@ def test_linux_and_windows_recovery_names_the_xrdp_desktop():
     for os in ("linux", "windows"):
         surfaces = verification_surfaces(
             [{"name": "terminal_bridge", "ok": False}],
-            project="yoke", test_machine="lab", os=os,
+            project="yoke",
+            test_machine="lab",
+            os=os,
         )
         recovery = surfaces["terminal_bridge"]["recovery"]
         assert "Terminal.app" not in recovery and "bridge-diagnose" not in recovery
