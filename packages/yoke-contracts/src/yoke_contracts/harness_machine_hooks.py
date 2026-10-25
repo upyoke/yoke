@@ -11,10 +11,12 @@ entry into ``runtime/harness/<dir>/manifest.json`` under ``machine_hooks``
 (documented in ``runtime/harness/manifest-machine-hooks.md``); the installer,
 the step-aside rule, uninstall and doctor read it from here.
 
-The event set is light on purpose: session lifecycle, prompt delivery and the
-PreToolUse Bash chain that carries the machine guards. Every other event
-carries only project or lane guards, per-tool heartbeat or telemetry, so it
-stays project-only.
+The event set is light on purpose: session lifecycle, prompt delivery, the
+PreToolUse Bash chain that carries the machine guards, and one mid-turn
+message channel. Claude and Codex inject messages on that PreToolUse Bash
+hook; Cursor's pre-tool hooks answer allow or deny only, so Cursor adds its
+matcherless ``postToolUse``. Every other event carries only project or lane
+guards, per-tool heartbeat or telemetry, so it stays project-only.
 """
 
 from __future__ import annotations
@@ -180,6 +182,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
             MachineHookEvent("sessionStart", "SessionStart"),
             MachineHookEvent("beforeSubmitPrompt", "UserPromptSubmit"),
             MachineHookEvent("beforeShellExecution", "PreToolUse"),
+            MachineHookEvent("postToolUse", "PostToolUse"),
             MachineHookEvent("stop", "Stop"),
             MachineHookEvent("sessionEnd", "SessionEnd"),
         ),

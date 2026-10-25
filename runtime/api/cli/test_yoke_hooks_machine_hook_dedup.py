@@ -68,6 +68,18 @@ def test_user_hook_runs_outside_any_project(tmp_path, harness_id):
     assert not should_skip_config_duplicate("PreToolUse", env, _payload(harness_id, tmp_path))
 
 
+def test_cursor_project_runs_one_post_tool_use_evaluation(tmp_path):
+    """The project and user configs both fire postToolUse; only one evaluates."""
+    _write_project(tmp_path, "cursor")
+    payload = _payload("cursor", tmp_path)
+    user = _environment("cursor", tmp_path)
+    project = {**user, "YOKE_HOOK_CONFIG_OWNER": "cursor-project"}
+    evaluations = [
+        not should_skip_config_duplicate("PostToolUse", env, payload) for env in (user, project)
+    ]
+    assert evaluations == [False, True]
+
+
 def test_codex_finds_project_hooks_from_a_subfolder(tmp_path):
     _write_project(tmp_path, "codex")
     (tmp_path / ".git").mkdir()

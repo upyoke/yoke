@@ -116,7 +116,8 @@ def test_retired_cursor_entries_are_replaced(tmp_path):
     ensure_machine_hooks(["cursor"], env)
     commands = _commands(json.loads(path.read_text()))
     assert not any("YOKE_CURSOR_LIFECYCLE_ROOT" in c or "canary" in c for c in commands)
-    assert sum("YOKE_HOOK_CONFIG_OWNER=cursor-user " in c for c in commands) == 5
+    installed = len(HARNESS_MACHINE_HOOKS["cursor"].events)
+    assert sum("YOKE_HOOK_CONFIG_OWNER=cursor-user " in c for c in commands) == installed
 
 
 @pytest.mark.parametrize("harness_id", HARNESSES)
