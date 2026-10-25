@@ -261,6 +261,14 @@ def test_list_dispatches_project_and_filters() -> None:
     }
 
 
+def test_session_list_without_project_sends_no_project() -> None:
+    with patch.dict("os.environ", {"YOKE_PROJECT": "alpha"}):
+        rc, _out, err = _run("claims", "steering", "list", "--session-id", "s1")
+    assert rc == 0, err
+    assert _CAPTURED[-1].target.project_id is None
+    assert _CAPTURED[-1].payload == {"session_id": "s1"}
+
+
 def test_human_list_names_scope_holder_and_machine() -> None:
     rc, out, err = _run("claims", "steering", "list", "--project", "alpha")
     assert rc == 0, err

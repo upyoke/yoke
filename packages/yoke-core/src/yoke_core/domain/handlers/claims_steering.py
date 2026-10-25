@@ -199,10 +199,11 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _error("payload_invalid", f"list payload invalid: {exc}")
     project_id = _authorized_project_id(request)
-    if project_id is None:
+    if project_id is None and not body.session_id:
         return _error(
             "project_context_required",
-            "steering list requires project context",
+            "steering list needs a scope; pass --project P for one project's "
+            "seats or --session-id S for one session's seats in every project",
             "$.target.project_id",
         )
 
@@ -216,6 +217,10 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
             session_id=body.session_id,
             active_only=body.active_only,
         )
+    visible = (request.options or {}).get("visible_project_ids")
+    if project_id is None and visible is not None:
+        readable = {int(pid) for pid in visible}
+        rows = [row for row in rows if int(row["scope"]["project_id"]) in readable]
     return HandlerOutcome(
         result_payload={"claims": [_claim_payload(row) for row in rows]},
     )

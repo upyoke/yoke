@@ -2,8 +2,8 @@
 
 Most function ids answer "who may call this?" from their family's declared
 scope (:mod:`yoke_core.domain.function_authz_scope`). A few cannot: the
-board read widens or narrows with the caller's visible projects, and
-doctor changes scope with the flags it was given — a project-safe quick
+board read and a session's steering-seat list widen or narrow with the
+caller's visible projects, and doctor changes scope with the flags it was given — a project-safe quick
 run is an ordinary project read, while anything broader is a whole-DB
 diagnostic. Their resolvers live here so
 :mod:`yoke_core.domain.yoke_function_permissions` keeps the shared
@@ -120,6 +120,29 @@ def board_data_get_dispatch_permission(
     )
 
 
+def lists_one_session_steering_everywhere(request: FunctionCallRequest) -> bool:
+    """A steering list naming a session and no project spans every project."""
+    return (
+        request.target.project_id is None
+        and bool((request.payload or {}).get("session_id"))
+    )
+
+
+def steering_session_list_dispatch_permission(
+    conn: Any,
+    actor_id: int,
+    permission_key: str,
+) -> DispatchPermission:
+    """Let the handler list the session's seats in projects the caller reads."""
+    visible_ids = actor_project_ids_with_permission(conn, actor_id, permission_key)
+    return DispatchPermission(
+        permission_key,
+        None,
+        None,
+        visible_project_ids=tuple(sorted(visible_ids or ())),
+    )
+
+
 def _reads_outside_project_session(
     conn: Any, actor_id: int, permission_key: str
 ) -> bool:
@@ -214,4 +237,6 @@ def _is_project_safe_doctor_quick(payload: dict[str, Any] | None) -> bool:
 __all__ = [
     "board_data_get_dispatch_permission",
     "doctor_dispatch_permission",
+    "lists_one_session_steering_everywhere",
+    "steering_session_list_dispatch_permission",
 ]

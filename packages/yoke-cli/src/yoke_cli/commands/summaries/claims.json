@@ -25,7 +25,7 @@
   "claims path widen": "Add paths to an existing path claim.",
   "claims steering": "Take, check and release steering seats over a project.",
   "claims steering acquire": "Take a steering seat over a project or strategy document.",
-  "claims steering list": "List steering seats, optionally only active ones.",
+  "claims steering list": "List one project's steering seats, or one session's seats in every project.",
   "claims steering release": "Release a steering seat.",
   "claims steering verify": "Check whether this session holds a project steering seat.",
   "claims work": "Take, read and release claims on work items.",
