@@ -46,24 +46,17 @@ of history order. The field is null for empty or unfiltered history; unfiltered
 run lists retain their existing audit order. A client missing this response field
 refuses with `qa_current_run_identity_unavailable` and names the serving-response
 floor; the control-plane operator must serve the release carrying the field.
-Merge proof hydration resolves item detail's selected `run_id` exactly, preserving
-native start/id selection even if history order changes. Missing selected proof
-stays unbound and enters the existing commit-bound recovery: re-run the Command
-case or re-record methodless hand acceptance against the candidate. Epic task
-reviews use the epic review writer, retaining their full review body and binding
-`head_sha` to the candidate; item requirements use the general hand writer.
-A re-run Command case can rebase and publish the lane before it tests it, so
-the merge then reads the item again, binds to the branch head the case tested
-and re-runs the preflight on that run's own verdict. If that read fails, the
-merge refuses `commit_bound_recheck_unreadable` and lands nothing; restore the
-item read and retry. The landing refuses `lane_head_superseded` instead of
-force-pushing a candidate the branch has moved past; re-run the merge.
-`yoke merge item PREFIX-N` attempts each eligible recovery. If any write fails,
-`commit_bound_recovery_failed` lists each failed requirement id and reason plus
-successful ids; landing stays blocked. Inspect failed requirements with
-`yoke qa run list --requirement-id ID`, repair the named refusal, then retry the
-merge. Successful writes remain recorded. Substrate methods retain their runner
-authority and teach their own re-run command.
+Merge and terminal close-out read the same selected execution and proof through
+`qa_terminal_records`. An older item-detail response missing current proof,
+subject proof or human-review fields refuses `qa_proof_response_unavailable`
+with serving-response floor `next-release`: use the installed client matched
+to that engine, or update engine and client together to the release carrying
+this reader. Every method records its lane head at start, and later
+evidence retains it. An earlier passing commit in the lane history is accepted
+without a new capture or verdict. A foreign or missing commit refuses
+`outside-lane`; run the requirement in the item's claimed lane and record its
+start commit. Required merge-queue CI still proves the final commit. The landing
+refuses `lane_head_superseded` if the branch advanced; retry the merge.
 A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
 Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
@@ -156,14 +149,14 @@ Proof must describe the same selected attempt and subject. Code proof records
 the observed build identity; an expected release SHA is not an observation.
 Browser capture time never substitutes for observed identity. A build may
 prove an accepted landing through verified repository containment.
-Terminal settlement checks code/build SHA only for a code subject. Frozen
+Lane start identity is traceability for every method. Frozen
 Machine/mission runners prove the same actual capture through the admitted
 case result, baseline, host lease and contract; a direct Machine case uses its
 own canonical machine artifact and leased resource without a plan wrapper.
 Reviews inherit that identity.
 Endpoint Command cases record the URL actually passed to their command and
-prove it belongs to the frozen target. Generic hand writers do not stamp an
-ambient lane SHA onto these resource subjects. Missing resource proof refuses
+prove it belongs to the frozen target. Their recorded lane start commit does
+not substitute for resource proof. Missing resource proof refuses
 with `qa_machine_*` or `qa_endpoint_*`; rerun the named actual case against its
 required target. Configuration and document checks retain their appropriate
 actual evidence. Do not borrow an old screenshot, passing verdict or unrelated

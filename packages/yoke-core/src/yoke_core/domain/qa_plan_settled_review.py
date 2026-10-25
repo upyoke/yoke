@@ -125,7 +125,10 @@ def _persisted_verdicts(
         newest.add(requirement_id)
         if str(_value(row, "verdict", 1)) != "pass":
             continue
-        judged = {int(_value(row, "review_run_id", 3)), int(_value(row, "capture_run_id", 5))}
+        judged = {
+            int(_value(row, "review_run_id", 3)),
+            int(_value(row, "capture_run_id", 5)),
+        }
         if current.get(requirement_id) not in judged:
             continue
         if newest_execution_id is None:
@@ -234,8 +237,7 @@ def settled_review_run_result(execution: Mapping[str, Any]) -> dict[str, Any]:
         state = aggregate_state(state, result)
     recovery = (
         "Passing review verdicts are already recorded and reprinted here. "
-        "A new capture requires the existing admission path: "
-        "`yoke qa plan run` with `--replaces`."
+        "The pass remains accepted when the lane or deployed build advances."
     )
     return {
         "execution_id": str(execution.get("execution_id") or execution["id"]),

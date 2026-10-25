@@ -121,6 +121,9 @@ def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     """Insert one run on the caller's transaction; a pass discharges its replacements."""
     columns = _clock_columns(conn, columns)
     lock_requirement_scope(conn, int(columns["qa_requirement_id"]))
+    from yoke_core.domain.qa_run_start_identity import stamp_start_commit
+
+    stamp_start_commit(conn, columns)
     _bind_evidence(conn, None, columns)
     p = marker(conn)
     names = list(columns)
@@ -162,6 +165,14 @@ def update_qa_run(
     ).fetchone()
     if subject is not None:
         lock_requirement_scope(conn, int(subject[0]))
+    if "raw_result" in columns:
+        from yoke_core.domain.qa_run_start_identity import retain_start_commit
+
+        prior = query_one(conn, "SELECT raw_result FROM qa_runs WHERE id=%s", (run_id,))
+        if prior:
+            columns["raw_result"] = retain_start_commit(
+                prior["raw_result"], columns["raw_result"]
+            )
     _bind_evidence(conn, int(run_id), columns)
     assignments = [f"{name}={p}" for name in columns]
     params: list[Any] = list(columns.values())

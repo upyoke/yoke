@@ -1,9 +1,4 @@
-"""Bind a hand-recorded QA run to the commit it verified.
-
-Code/build verdicts bind their verified commit and retain evidence text.
-Machine and endpoint subjects retain their actual capture/contract identity;
-their passing writers must not manufacture an ambient repository SHA.
-"""
+"""Bind hand-recorded QA evidence to its item lane commit."""
 
 from __future__ import annotations
 
@@ -152,10 +147,14 @@ def bind_recorded_raw_result(
     requirement: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[str], str]:
     """Return ``(bound_raw_result, error)``. ``error`` is empty on success."""
-    from yoke_core.domain.qa_subject_proof import requires_code_identity
+    if requirement and (
+        requirement.get("deployment_run_id")
+        or requirement.get("qa_phase") == "post_deploy"
+    ):
+        from yoke_core.domain.qa_subject_proof import requires_code_identity
 
-    if requirement is not None and not requires_code_identity(requirement):
-        return raw_result, ""
+        if not requires_code_identity(requirement):
+            return raw_result, ""
     if not should_bind_raw_result(
         verdict=verdict,
         blocking_mode=blocking_mode,
@@ -197,7 +196,7 @@ def bind_cli_raw_result(
     try:
         row = query_one(
             conn,
-            "SELECT blocking_mode, waived_at, item_id, method_config, runner_id "
+            "SELECT blocking_mode, waived_at, item_id, method_config, runner_id, qa_phase, deployment_run_id "
             "FROM qa_requirements WHERE id = %s",
             (int(requirement_id),),
         )

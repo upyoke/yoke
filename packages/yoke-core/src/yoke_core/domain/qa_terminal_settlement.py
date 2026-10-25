@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Sequence
-from yoke_contracts.timestamps import parse_instant
+from typing import Any, Callable, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
-from yoke_core.domain.qa_ci_candidate_coverage import covered_stale_ci_ids
+from yoke_core.domain.qa_requirement_issues import BlockingRequirementIssue, issue_for_requirement
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
 )
@@ -18,7 +17,6 @@ from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
 )
 from yoke_core.domain.qa_terminal_requirement_errors import (
-    _recovery_instruction,
     requirement_issue_errors,
 )
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
@@ -39,14 +37,6 @@ class UnsettledQaRecord:
     detail: str
 
 
-@dataclass(frozen=True)
-class BlockingRequirementIssue:
-    """Why one terminal blocking requirement is not merge-authorizing."""
-
-    requirement_id: str
-    state: str
-    detail: str
-    recovery: str
 
 
 def _placeholder(conn: Any) -> str:
@@ -73,94 +63,6 @@ def _run_detail(row: Any) -> str:
     )
 
 
-def _render_shas(shas: Sequence[str]) -> str:
-    return ", ".join(sha[:12] for sha in shas) if shas else "<missing>"
-
-
-def _issue_for_requirement(
-    requirement: dict[str, Any],
-    *,
-    accepted_shas: Sequence[str],
-) -> BlockingRequirementIssue | None:
-    requirement_id = str(requirement.get("id") or "<unknown>")
-    if error := requirement.get("replacement_graph_error"):
-        return BlockingRequirementIssue(
-            requirement_id,
-            "replacement-graph-invalid",
-            error,
-            "Reconcile the durable correction chain through registered correction surfaces",
-        )
-    if requirement.get("post_deploy_consumed"):
-        return None
-    review = requirement.get("human_review")
-    if review:
-        return BlockingRequirementIssue(
-            requirement_id,
-            "human-review",
-            review["detail"],
-            review["recovery"],
-        )
-    recovery = _recovery_instruction(requirement)
-    if "post_deploy_consumed" in requirement:
-        return BlockingRequirementIssue(
-            requirement_id,
-            "post-deploy-unaccepted",
-            "the admitted source copies are not accepted on the completion run",
-            recovery,
-        )
-    run_id = requirement.get("run_id")
-    if run_id is None:
-        return BlockingRequirementIssue(
-            requirement_id,
-            "missing",
-            "no materialized run exists",
-            recovery,
-        )
-    verdict = str(requirement.get("verdict") or "").strip().lower()
-    completed_at = requirement.get("completed_at")
-    if completed_at is not None:
-        completed_at = parse_instant(completed_at)
-    run_sha = str(requirement.get("recorded_head_sha") or "").strip()
-    older_run = bool(run_sha) and run_sha not in set(accepted_shas)
-    if verdict != "pass" or completed_at is None:
-        actual = str(
-            requirement.get("case_outcome")
-            or requirement.get("execution_status")
-            or verdict
-            or "pending"
-        ).strip()
-        rerun_for_head = bool(completed_at and older_run and requirement.get("method_id"))
-        reason = str(requirement.get("verdict_reason") or "").strip()
-        reason_text = f"; reason: {reason}" if verdict == "undetermined" else ""
-        return BlockingRequirementIssue(
-            requirement_id,
-            "stale-sha" if rerun_for_head else "incomplete",
-            f"latest run #{run_id} concluded {actual!r}{reason_text}"
-            + (f" on older commit {run_sha[:12]}" if rerun_for_head else ", not completed success"),
-            recovery,
-        )
-    if requirement.get("current_passing_proof") is False:
-        return BlockingRequirementIssue(
-            requirement_id,
-            "stale-proof",
-            f"passing run #{run_id} does not prove the frozen configuration and target",
-            recovery,
-        )
-    if requirement.get("requires_code_identity") is False:
-        if issue := requirement.get("subject_proof_error"):
-            return BlockingRequirementIssue(
-                requirement_id, "subject-unproven", issue, recovery
-            )
-        return None
-    if older_run or not run_sha:
-        return BlockingRequirementIssue(
-            requirement_id,
-            "stale-sha",
-            f"passing run #{run_id} recorded SHA {run_sha or '<missing>'}; "
-            f"the merge verified {_render_shas(accepted_shas)}",
-            recovery,
-        )
-    return None
 
 
 def blocking_requirement_issues(
@@ -169,6 +71,7 @@ def blocking_requirement_issues(
     accepted_shas: Sequence[str],
     public_ref: str,
     require_any: bool,
+    contains_commit: Callable[[str, str], bool] | None = None,
 ) -> list[BlockingRequirementIssue]:
     """Evaluate the latest run read model for a terminal blocking set."""
     declared = [
@@ -193,15 +96,15 @@ def blocking_requirement_issues(
                 "--transition reviewing-implementation",
             )
         ]
-    graded = [
-        (row, _issue_for_requirement(row, accepted_shas=accepted_shas))
-        for row in blocking
-    ]
-    covered = covered_stale_ci_ids(graded)
     return [
         issue
-        for row, issue in graded
-        if issue is not None and str(row.get("id")) not in covered
+        for row in blocking
+        if (
+            issue := issue_for_requirement(
+                row, accepted_shas=accepted_shas, contains_commit=contains_commit
+            )
+        )
+        is not None
     ]
 
 
@@ -321,11 +224,14 @@ def terminal_transition_result(
     from yoke_core.domain.project_identity import render_item_ref
 
     public_ref = render_item_ref(conn, item_id)
+    from yoke_core.domain.qa_lane_history import item_lane_contains
+
     issues = blocking_requirement_issues(
         _blocking_requirement_rows(conn, item_id),
         accepted_shas=accepted_merging_shas(conn, item_id),
         public_ref=public_ref,
         require_any=True,
+        contains_commit=item_lane_contains(conn, item_id),
     )
     errors = requirement_issue_errors(
         issues, public_ref=public_ref, target_status=target_status

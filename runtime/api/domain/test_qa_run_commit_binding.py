@@ -90,12 +90,13 @@ def test_runner_empty_pass_is_not_forced_without_a_lane():
     assert (bound, error) == (None, "")
 
 
-def test_machine_judgment_does_not_fabricate_lane_identity():
+def test_machine_judgment_records_lane_identity_and_retains_subject():
     raw = '{"evidence":{"host_control_submission":{"lease_id":17,"contract_digest":"issued"}}}'
     bound, error = _bind(
         raw_result=raw,
         requirement={"runner_id": "host_control", "method_config": {}},
-        resolve_lane=lambda: (_ for _ in ()).throw(AssertionError("ambient lane read")),
+        resolve_lane=lambda: ("/lane", SHA, ""),
     )
-    assert (bound, error) == (raw, "")
-    assert recorded_head_sha(bound) == ""
+    assert error == ""
+    assert recorded_head_sha(bound) == SHA
+    assert json.loads(bound)["evidence"] == json.loads(raw)["evidence"]

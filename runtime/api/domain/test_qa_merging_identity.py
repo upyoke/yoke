@@ -82,7 +82,7 @@ def test_passing_pr_entry_run_is_stale_against_lane_and_merge_only():
     )
 
     assert len(issues) == 1
-    assert issues[0].state == "stale-sha"
+    assert issues[0].state == "outside-lane"
 
 
 def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
@@ -106,7 +106,7 @@ def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
     assert issues == []
 
 
-def test_accepted_set_includes_blocking_head_when_batch_covers(monkeypatch):
+def test_accepted_set_does_not_let_ci_runs_vouch_for_themselves(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.qa_merging_identity._evidence_sha",
         lambda *_a: "",
@@ -126,14 +126,10 @@ def test_accepted_set_includes_blocking_head_when_batch_covers(monkeypatch):
         "yoke_core.domain.qa_merging_identity._lane_sha",
         lambda *_a: LANE,
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_merging_identity._passing_blocking_heads",
-        lambda *_a: [PR_ENTRY],
-    )
 
     accepted = accepted_merging_shas(object(), 42)
 
-    assert accepted == (LANE, MERGE, PR_ENTRY)
+    assert accepted == (LANE, MERGE)
 
 
 def test_stale_blocking_head_stays_out_without_a_covering_batch(monkeypatch):
@@ -153,14 +149,10 @@ def test_stale_blocking_head_stays_out_without_a_covering_batch(monkeypatch):
         "yoke_core.domain.qa_merging_identity._lane_sha",
         lambda *_a: LANE,
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_merging_identity._passing_blocking_heads",
-        lambda *_a: [STALE],
-    )
 
     accepted = accepted_merging_shas(object(), 42)
 
     assert STALE not in accepted
-    assert PR_ENTRY in accepted
+    assert PR_ENTRY not in accepted
     assert MERGE in accepted
     assert LANE in accepted

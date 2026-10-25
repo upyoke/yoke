@@ -68,7 +68,7 @@ def test_plan_runner_reprints_settled_review_without_capture():
     assert result["state"] == "passed"
     assert result["executed_count"] == 0
     assert result["verdicts"][0]["verdict"] == "pass"
-    assert "--replaces" in result["recovery"]
+    assert "remains accepted" in result["recovery"]
 
 
 def test_cli_reprints_settled_review_and_exits(capsys):
@@ -76,7 +76,7 @@ def test_cli_reprints_settled_review_and_exits(capsys):
         "state": "passed",
         "review_status": "settled",
         "verdicts": [{"requirement_id": 5, "verdict": "pass"}],
-        "recovery": "use --replaces",
+        "recovery": "Passing review verdicts remain accepted.",
     }
     with mock.patch(
         "yoke_core.domain.qa_plan_execution_cli.execute_plan", return_value=settled
@@ -95,7 +95,7 @@ def test_cli_reprints_settled_review_and_exits(capsys):
     assert code == 0
     assert '"verdict":"pass"' in captured.out.replace(" ", "")
     assert "already passed" in captured.err
-    assert "--replaces" in captured.err
+    assert "--replaces" not in captured.err
 
 
 def test_reviewed_attempt_does_not_grow_another_capture(

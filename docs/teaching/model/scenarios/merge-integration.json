@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "situations": ["A verified change is ready to land.", "A queued pull request stops, its base changes, or required checks disagree.", "The user asks which commit actually landed and whether it was reviewed."],
  "coverage": "catalogued",
- "current": "Research trace; requirements and source paths need live proof. Commit-bound merge recovery routes methodless epic task reviews through the epic writer, preserves review bodies and reports failed requirement ids alongside successful recovery ids; failure blocks landing. A re-run Command case that rebased the lane is rechecked against the branch head it tested, and the landing refuses lane_head_superseded rather than force-push a superseded candidate. This behavior is source-observed, not verified-live.",
+ "current": "Merge and close-out share one QA requirement reader. Every method records its lane commit at run start. A completed passing run from the lane's history authorizes the item without rebinding or rerunning; foreign or missing commits and all other proof refusals still block. Required queue CI tests the final commit. Source-observed; not yet verified-live.",
  "questions": ["Audit merge candidate review, human review and queue CI reuse as distinct contracts; current map mentions approvals/QA but does not trace this complete landing family."],
- "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md", "docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/standalone_item_merge_commit_bound.py", "runtime/api/domain/test_standalone_item_merge_commit_bound.py"]
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md", "docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/qa_terminal_settlement.py", "runtime/api/domain/test_qa_terminal_settlement_older_head.py"]
 }

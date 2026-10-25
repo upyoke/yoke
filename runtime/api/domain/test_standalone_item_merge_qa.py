@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -64,6 +63,9 @@ def _requirement(
     return {
         "id": requirement_id,
         "blocking_mode": "blocking",
+        "current_passing_proof": True,
+        "subject_proof_error": "",
+        "human_review": None,
         "waived_at": None,
         "run_id": 88,
         "verdict": verdict,
@@ -269,10 +271,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     )
     admit_route_gates(monkeypatch)
 
-    def rerecord(requirement, commit_sha):
-        requirement["recorded_head_sha"] = commit_sha
-
-    monkeypatch.setattr(verify.commit_bound, "rerecord_hand_run", rerecord)
+    monkeypatch.setattr(merge_qa, "checkout_contains", lambda *_args: True)
     outcome = merge_domain.StandaloneMergeOutcome(
         exit_code=0,
         ok=True,
@@ -310,37 +309,12 @@ def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
     assert "recorded SHA" in error
 
 
-def test_preflight_reads_raw_proof_from_an_older_item_detail_server(
-    tmp_path: Path,
-    monkeypatch,
-):
-    requirement = _requirement(verdict="pass", sha="")
-    monkeypatch.setattr(
-        merge_qa,
-        "call_dispatcher",
-        lambda **_kwargs: SimpleNamespace(
-            success=True,
-            result={
-                "rows": [
-                    {
-                        "id": 88,
-                        "verdict": "pass",
-                        "execution_status": "captured",
-                        "case_outcome": "passed",
-                        "completed_at": "2026-01-01T00:00:00Z",
-                        "raw_result": '{"verification_tree":{"head_sha":"'
-                        + MERGING_SHA
-                        + '"}}',
-                    }
-                ]
-            },
-        ),
+def test_older_serving_response_names_floor_and_recovery(tmp_path):
+    row = _requirement(verdict="pass", sha=MERGING_SHA)
+    row.pop("subject_proof_error")
+    _, error = merge_qa.preflight(
+        _item(row), public_ref="example", repo_root=tmp_path, branch="lane"
     )
-    commit_sha, error = merge_qa.preflight(
-        _item(requirement),
-        public_ref="YOK-10",
-        repo_root=tmp_path,
-        branch="YOK-10",
-    )
-    assert commit_sha == MERGING_SHA
-    assert error == ""
+    assert "qa_proof_response_unavailable" in error
+    assert "serving-response floor: next-release" in error
+    assert "installed client matched to the serving engine" in error

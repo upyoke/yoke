@@ -22,7 +22,6 @@ from yoke_core.domain.qa_obligation_settlement import (
     effective_requirement,
     obligation_settled,
 )
-from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_requirement_source_retirement import is_source_retirement
 from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
@@ -50,7 +49,6 @@ def _requirement_consumed(
     that was deployed when it ran, not the one being closed out.
     """
     passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
-    from yoke_core.domain.qa_latest_execution import latest_executions
     from yoke_core.domain.qa_simulation_triage import current_simulation_triage
 
     if obligation_settled(row):
@@ -84,15 +82,6 @@ def _requirement_consumed(
         if obligation_settled(row):
             return True
         row["passed"] = passed = has_current_passing_run(conn, int(row["id"]))
-        from yoke_core.domain.qa_subject_proof import requires_code_identity
-
-        if candidate_shas and requires_code_identity(row):
-            latest = latest_executions(conn, [int(row["id"])]).get(int(row["id"]))
-            if (
-                not latest
-                or recorded_head_sha(latest["raw_result"]) not in candidate_shas
-            ):
-                return False
     if pre_merge:
         return passed
     phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")

@@ -312,8 +312,7 @@ def report_plan_result(result: dict[str, Any]) -> int:
     if result.get("review_status") == "settled":
         print(
             "QA review already passed; reprinted the recorded passing "
-            "verdicts without a new capture. A new capture requires "
-            "`yoke qa plan run` with `--replaces`.",
+            "verdicts without a new capture.",
             file=sys.stderr,
         )
     state = result.get("state")

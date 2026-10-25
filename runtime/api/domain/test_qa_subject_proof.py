@@ -58,6 +58,7 @@ def _machine(conn, *, broken=None, runner="host_control"):
             "test_machine": "proof-host",
             "baseline": "installed",
         },
+        "verification_tree": {"head_sha": "a" * 40},
         "method_config": config,
         "execution_target_digest": TARGET,
     }
@@ -78,6 +79,7 @@ def _machine(conn, *, broken=None, runner="host_control"):
         "requirement_id": requirement["id"],
         "runner_id": runner,
         "host_baseline": "other" if broken == "baseline" else "installed",
+        "verification_tree": {"head_sha": "a" * 40},
         "method_config": config,
     }
     result = {"run_id": run["id"] + 1 if broken == "run" else run["id"]}
@@ -104,10 +106,10 @@ def _machine(conn, *, broken=None, runner="host_control"):
 
 
 @pytest.mark.parametrize("runner", ["host_control", "agent_mission"])
-def test_machine_proof_settles_without_repository_sha(test_db, runner):
+def test_machine_proof_settles_with_start_commit(test_db, runner):
     item, _, run = _machine(test_db, runner=runner)
     assert _issues(test_db, item) == []
-    assert "verification_tree" not in json.loads(run["raw_result"])
+    assert json.loads(run["raw_result"])["verification_tree"]["head_sha"] == "a" * 40
 
 
 @pytest.mark.parametrize("broken", ["receipt", "run", "session", "baseline", "target"])
@@ -155,6 +157,7 @@ def test_endpoint_command_proves_its_observed_target(test_db, observed):
         verdict="pass",
         raw_result=json.dumps(
             {
+                "verification_tree": {"head_sha": "a" * 40},
                 "method_config": config,
                 "execution_target_digest": TARGET,
                 "base_url": observed,
@@ -174,7 +177,7 @@ def test_code_subject_retains_exact_observed_revision_requirement(test_db):
         test_db, qa_requirement_id=requirement["id"], verdict="pass", raw_result="{}"
     )
     [issue] = _issues(test_db, item)
-    assert issue.state == "stale-sha"
+    assert issue.state == "outside-lane"
     assert (
         proof_subject(
             {
