@@ -129,3 +129,21 @@ def test_a_bound_release_without_the_merge_blocks_and_claims_nothing(
     assert "Nothing was created" in owner.message
     assert f"yoke deployment-runs start-for-item {ref}" in owner.message
     assert "rides" not in owner.message
+
+
+def test_a_holder_in_another_environment_does_not_answer(
+    test_db, tmp_path, monkeypatch
+):
+    _ref, _baseline, landing = _merged(test_db, tmp_path, monkeypatch)
+    insert_run(test_db, "run-stage", lineage=landing, status="succeeded", flow=FLOW)
+    test_db.execute(
+        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
+        "VALUES ('run-stage',%s,'2026-09-14T00:30:00Z')",
+        (ITEM_ID,),
+    )
+    test_db.commit()
+    slug = test_db.execute("SELECT slug FROM projects WHERE id = 1").fetchone()[0]
+
+    # The stage run delivered it; a production start still gets its own run.
+    assert delivery_owner(ITEM_ID, str(slug), "prod") is None
+    assert delivery_owner(ITEM_ID, str(slug), "").run_id == "run-stage"
