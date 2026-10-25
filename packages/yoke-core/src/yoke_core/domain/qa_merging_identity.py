@@ -51,33 +51,6 @@ def _batch_block(raw_result: Any) -> dict[str, Any]:
     return block if isinstance(block, dict) else {}
 
 
-def ci_run_identity_shas(raw_results: Sequence[Any]) -> tuple[str, ...]:
-    """PR-entry head plus train head and merge, from newest-first ``ci_run`` rows.
-
-    A later batch receipt is a different tree than the member's command-ci
-    entry run. Keeping only the newest SHA drops the entry head the blocking
-    requirement still names, so both identities stay in the set.
-    """
-    entry_head = ""
-    batch_head = ""
-    batch_merge = ""
-    for raw in raw_results:
-        block = _batch_block(raw)
-        head = recorded_head_sha(raw)
-        if block:
-            if not batch_head:
-                batch_head = head or str(block.get("combined_head_sha") or "").strip()
-            if not batch_merge:
-                batch_merge = str(block.get("merge_sha") or "").strip()
-        elif not entry_head:
-            entry_head = head
-        if entry_head and batch_head and batch_merge:
-            break
-    return tuple(
-        dict.fromkeys(sha for sha in (entry_head, batch_head, batch_merge) if sha)
-    )
-
-
 def queue_batch_covers_receipt(
     raw_results: Sequence[Any],
     receipt_shas: Sequence[str],
@@ -223,7 +196,6 @@ __all__ = [
     "accepted_merging_shas",
     "recorded_batch_blocks",
     "recorded_batch_blocks_for_items",
-    "ci_run_identity_shas",
     "queue_batch_covers_receipt",
     "recorded_head_sha",
 ]
