@@ -138,10 +138,10 @@ def test_hint_names_only_flags_the_command_has():
 
     hint = _read_hint("qa.activity.list", configure)
     assert hint.startswith(
-        "Narrow yoke qa activity list with its filters --deployment-run-id, "
-        "--item; limit --limit;"
+        "Narrow yoke qa activity list with its fields --section; filters "
+        "--deployment-run-id, --item; limit --limit;"
     )
-    assert "field" not in hint
+    assert "FIELD" not in hint
     assert "--json" not in hint
     assert hint.endswith("or add --full to request the entire answer explicitly.")
 
@@ -156,9 +156,9 @@ def test_hint_names_field_and_paging_flags_when_present():
     assert "Narrow yoke items get with its fields FIELD, --section; paging --cursor;" in hint
 
 
-def test_hint_without_narrowing_flags_says_so():
+def test_read_without_its_own_narrowing_flags_names_the_shared_section():
     hint = _read_hint("sessions.identity", lambda parser: None)
-    assert hint.startswith("yoke sessions identity has no narrowing flags;")
+    assert hint.startswith("Narrow yoke sessions identity with its fields --section;")
     assert "--full" in hint
 
 

@@ -180,6 +180,7 @@ def parse_or_usage_error(
     from yoke_cli.transport.output_limit import (
         full_output_requested,
         record_read_parser,
+        record_read_section,
         registered_read_requested,
     )
 
@@ -191,10 +192,26 @@ def parse_or_usage_error(
             action="store_true",
             help="Full read detail; bypass the oversized human-read safety net.",
         )
+    shared_section = registered_read_requested() and not any(
+        "--section" in action.option_strings for action in parser._actions
+    )
+    if shared_section:
+        parser.add_argument(
+            "--section",
+            dest="read_section",
+            metavar="HEADING",
+            help="Print only the Markdown section under HEADING (any level, "
+            "case-insensitive) of the human reply.",
+        )
+        if parser.usage:
+            parser.usage = f"{parser.usage} [--section HEADING]"
     if registered_read_requested():
         record_read_parser(parser)
     try:
-        return parser.parse_args(args)
+        parsed = parser.parse_args(args)
+        if shared_section:
+            record_read_section(parsed.read_section)
+        return parsed
     except SystemExit as exc:
         # argparse exits 0 for --help / --version and 2 for parse errors.
         # Let --help propagate cleanly; only annotate real parse failures.

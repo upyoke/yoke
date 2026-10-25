@@ -28,6 +28,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from typing import Iterator, List, Optional, Sequence, Tuple
 
 from yoke_cli.commands.registry import resolve
+from yoke_cli.transport.output_limit import read_output_scope
 from yoke_contracts.items_projection import ALLOWED_GET_FIELDS, unknown_field_message
 from yoke_core.tools.taught_recipe_semantic_probe import probe_recipe
 
@@ -188,7 +189,8 @@ def _usage_error(command_argv: List[str]) -> Tuple[Optional[str], Optional[str]]
         return None, None
     err = io.StringIO()
     try:
-        with _abort_after_parse():
+        # The router's read scope adds the flags every registered read takes.
+        with _abort_after_parse(), read_output_scope(rest, function_id):
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
                 rc = adapter(rest)
     except _ParsedOK:

@@ -54,7 +54,18 @@ An unusually large registered human read over 28,000 UTF-8 bytes refuses with
 `read_output_limit_exceeded` before printing any partial answer. Its hint names
 the field, filter, limit and paging flags that command really has; narrow with
 those, or add `--full` to print the complete human reply. This safety
-net does not apply to writes, JSON or deliberate machine formats.
+net does not apply to writes, JSON or deliberate machine formats: `--json`
+is never refused for size.
+
+Every registered read takes `--section HEADING`, which prints only the
+Markdown section under that heading: any level, case-insensitive, up to the
+next heading at the same level or shallower. When an oversized reply has
+headings, the refusal lists them with each section's size and its exact
+`--section` command. A heading the reply lacks refuses with
+`read_section_missing` and the same outline. `--section` narrows human text
+only, so with `--json` it refuses with `read_section_requires_human_output`.
+`yoke items get` with a field and `yoke items section get` keep their
+own `--section`, which reads inside one stored field or section.
 
 Suggested root/category/command targets of 40/80/120 lines and
 2,400/4,800/7,200 characters prompt readability review. Routine replies target
@@ -66,6 +77,7 @@ size tests guard the routine projections.
 ```text
 yoke items get APP-7 status --json
 yoke items get APP-7 body --section "## Acceptance Criteria"
+yoke strategy doc get CURRENT-PLAN --project example --section "Live status"
 yoke qa plan list --project example --limit 25 --offset 25
 ```
 

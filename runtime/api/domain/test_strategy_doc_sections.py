@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    find_section,
+    section_headings,
+)
 from yoke_core.domain.strategy_doc_sections import (
     StrategyDocSectionMissingError,
-    find_section,
     replace_section,
-    section_headings,
 )
 
 
