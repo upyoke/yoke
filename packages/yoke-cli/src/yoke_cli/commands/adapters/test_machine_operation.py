@@ -9,6 +9,7 @@ machine is never left leased by an execution that has already stopped.
 from __future__ import annotations
 
 import argparse
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -86,16 +87,24 @@ def run_host_operation(
             probes_document = Path(probes_file).read_text(encoding="utf-8")
         except OSError as exc:
             return usage_error(f"probes file must be readable: {exc}")
-    return _execute(
-        operation=operation,
-        project=parsed.project,
-        test_machine=parsed.test_machine,
-        baseline=getattr(parsed, "baseline", None),
-        destination=getattr(parsed, "destination", None),
-        probes_document=probes_document,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
+    try:
+        return _execute(
+            operation=operation,
+            project=parsed.project,
+            test_machine=parsed.test_machine,
+            baseline=getattr(parsed, "baseline", None),
+            destination=getattr(parsed, "destination", None),
+            probes_document=probes_document,
+            session_id=parsed.session_id,
+            json_mode=parsed.json_mode,
+        )
+    finally:
+        _power().power_off_idle(parsed.project)
+
+
+def _power() -> Any:
+    """Cloud Test Machine power runs here, where the aws-admin key lives."""
+    return importlib.import_module("yoke_core.domain.test_machine_power")
 
 
 def _execute(
@@ -139,6 +148,7 @@ def _execute(
             execute_host_operation_contract,
         )
 
+        _power().power_on(execution["project"], execution["settings"])
         submission = execute_host_operation_contract(
             execution,
             probes_document=probes_document,

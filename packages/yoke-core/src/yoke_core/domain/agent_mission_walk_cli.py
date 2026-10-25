@@ -204,6 +204,9 @@ def _finish_cleanup(parsed, contract: dict, result: dict | None) -> str | None:
         },
     )
     if response.success:
+        from yoke_core.domain.test_machine_power import power_off_idle
+
+        power_off_idle(str(contract["project"]))
         return None
     error = response.error
     return (

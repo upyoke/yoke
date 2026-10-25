@@ -22,7 +22,6 @@ import sys
 import time
 from typing import Callable, Optional
 
-from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_core.domain.deploy_environment_settings import (
     DeployEnvironment,
     DeployEnvironmentError,
@@ -32,6 +31,10 @@ from yoke_core.domain.deploy_remote import (
     CommandRunner,
     aws_capability_env,
     run_remote,
+)
+from yoke_core.domain.ec2_instance_power import (
+    Ec2InstancePowerError,
+    ensure_instance_running,
 )
 
 
@@ -58,10 +61,10 @@ def _instance_name_tag(env: DeployEnvironment) -> str:
     return f"{stack_name}/VpsInstance"
 
 
-def _describe_origin_instance(
+def _origin_instance_id(
     runner: CommandRunner, env: DeployEnvironment, aws_env: dict
-) -> tuple[str, str]:
-    """Return (instance_id, state) for the env origin instance."""
+) -> str:
+    """Return the instance id of the env origin instance, found by Name tag."""
     result = runner.run(
         [
             "aws",
@@ -71,7 +74,7 @@ def _describe_origin_instance(
             f"Name=tag:Name,Values={_instance_name_tag(env)}",
             "Name=instance-state-name,Values=pending,running,stopping,stopped",
             "--query",
-            "Reservations[].Instances[].[InstanceId,State.Name]",
+            "Reservations[].Instances[].InstanceId",
             "--output",
             "json",
         ],
@@ -83,74 +86,38 @@ def _describe_origin_instance(
             "[env-activate] describe-instances failed: " + result.stderr.strip()
         )
     try:
-        rows = json.loads(result.stdout or "[]")
+        ids = json.loads(result.stdout or "[]")
     except ValueError as exc:
         raise EnvironmentActivateError(
             f"[env-activate] describe-instances returned non-JSON: {exc}"
         ) from exc
-    if not rows:
+    if not ids:
         raise EnvironmentActivateError(
             f"[env-activate] no EC2 instance tagged "
             f"'{_instance_name_tag(env)}' exists; apply the standalone origin "
             f"VPS stack ({env.origin_vps_stack_name}) before activating"
         )
-    if len(rows) > 1:
-        ids = ", ".join(str(r[0]) for r in rows)
+    if len(ids) > 1:
         raise EnvironmentActivateError(
             f"[env-activate] multiple instances match tag "
-            f"'{_instance_name_tag(env)}': {ids}; resolve the duplicate "
-            "before deploying"
+            f"'{_instance_name_tag(env)}': {', '.join(str(i) for i in ids)}; "
+            "resolve the duplicate before deploying"
         )
-    instance_id, state = rows[0][0], rows[0][1]
-    return str(instance_id), str(state)
+    return str(ids[0])
 
 
-def ensure_instance_running(
+def ensure_origin_running(
     runner: CommandRunner,
     env: DeployEnvironment,
     aws_env: dict,
     emit: Callable[[str], None] = _emit,
 ) -> str:
     """Start the origin instance when stopped; return its instance id."""
-    instance_id, state = _describe_origin_instance(runner, env, aws_env)
-    emit(f"  [env-activate] origin instance {instance_id} is {state}")
-    if state == "running":
-        return instance_id
-    if state in ("stopped", "stopping"):
-        emit(f"  [env-activate] starting {instance_id}")
-        started = runner.run(
-            ["aws", "ec2", "start-instances", "--instance-ids", instance_id],
-            env=aws_env,
-            timeout=60,
-        )
-        if not started.ok:
-            raise EnvironmentActivateError(
-                "[env-activate] start-instances failed: " + started.stderr.strip()
-            )
-    announce_designed_wait(
-        f"origin instance {instance_id} to reach running (aws ec2 wait)",
-        max_wait_seconds=600,
-        cadence=poll_every(15),
-        write=emit,
-    )
-    waited = runner.run(
-        [
-            "aws",
-            "ec2",
-            "wait",
-            "instance-running",
-            "--instance-ids",
-            instance_id,
-        ],
-        env=aws_env,
-        timeout=600,
-    )
-    if not waited.ok:
-        raise EnvironmentActivateError(
-            f"[env-activate] instance {instance_id} did not reach running: "
-            + waited.stderr.strip()
-        )
-    emit(f"  [env-activate] origin instance {instance_id} running")
+    instance_id = _origin_instance_id(runner, env, aws_env)
+    try:
+        ensure_instance_running(runner, instance_id, aws_env, emit)
+    except Ec2InstancePowerError as exc:
+        raise EnvironmentActivateError(f"[env-activate] {exc}") from exc
     return instance_id
 
 
@@ -204,7 +171,7 @@ def exec_environment_activate(
                 f"({env.stack_name}) has never been applied"
             )
         aws_env = aws_capability_env(env.project, env.aws_region)
-        ensure_instance_running(runner, env, aws_env, emit)
+        ensure_origin_running(runner, env, aws_env, emit)
         wait_ssh_reachable(runner, env, emit)
         emit(f"  [env-activate] {env.project}/{env.env_name} is active")
         return 0

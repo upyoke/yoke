@@ -11,7 +11,7 @@ from yoke_core.domain import deploy_environment_activate
 from yoke_core.domain.deploy_environment_activate import (
     EnvironmentActivateError,
     _instance_name_tag,
-    ensure_instance_running,
+    ensure_origin_running,
     exec_environment_activate,
     wait_ssh_reachable,
 )
@@ -50,17 +50,18 @@ def _describe(rows) -> CommandResult:
     return CommandResult(0, json.dumps(rows), "")
 
 
-class TestEnsureInstanceRunning:
+class TestEnsureOriginRunning:
     def test_running_instance_is_left_alone(self):
-        runner = FakeRunner([_describe([["i-0abc", "running"]])])
-        instance = ensure_instance_running(
+        runner = FakeRunner([_describe(["i-0abc"]), _describe(["running"])])
+        instance = ensure_origin_running(
             runner, _env(), {"AWS_REGION": "us-east-1"}, lambda _l: None
         )
         assert instance == "i-0abc"
-        assert len(runner.calls) == 1
+        assert len(runner.calls) == 2
         assert "tag:Name,Values=yoke-platform-vps/VpsInstance" in " ".join(
             runner.calls[0]["argv"]
         )
+        assert runner.calls[1]["argv"][3:5] == ["--instance-ids", "i-0abc"]
 
     def test_instance_name_uses_standalone_vps_stack(self):
         assert _instance_name_tag(_env()) == "yoke-platform-vps/VpsInstance"
@@ -85,23 +86,39 @@ class TestEnsureInstanceRunning:
     def test_stopped_instance_is_started_and_waited(self):
         runner = FakeRunner(
             [
-                _describe([["i-0abc", "stopped"]]),
+                _describe(["i-0abc"]),
+                _describe(["stopped"]),
                 CommandResult(0, "", ""),  # start-instances
                 CommandResult(0, "", ""),  # wait instance-running
             ]
         )
-        instance = ensure_instance_running(
+        instance = ensure_origin_running(
             runner, _env(), {}, lambda _l: None
         )
         assert instance == "i-0abc"
         argvs = [c["argv"] for c in runner.calls]
-        assert argvs[1][:3] == ["aws", "ec2", "start-instances"]
-        assert argvs[2][:4] == ["aws", "ec2", "wait", "instance-running"]
+        assert argvs[2][:3] == ["aws", "ec2", "start-instances"]
+        assert argvs[3][:4] == ["aws", "ec2", "wait", "instance-running"]
+
+    def test_start_failure_names_activation_and_instance(self):
+        runner = FakeRunner(
+            [
+                _describe(["i-0abc"]),
+                _describe(["stopped"]),
+                CommandResult(1, "", "UnauthorizedOperation"),
+            ]
+        )
+        with pytest.raises(EnvironmentActivateError) as exc:
+            ensure_origin_running(runner, _env(), {}, lambda _l: None)
+        assert str(exc.value) == (
+            "[env-activate] instance i-0abc: start-instances failed: "
+            "UnauthorizedOperation"
+        )
 
     def test_missing_instance_names_stack_remediation(self):
         runner = FakeRunner([_describe([])])
         with pytest.raises(EnvironmentActivateError) as exc:
-            ensure_instance_running(runner, _env(), {}, lambda _l: None)
+            ensure_origin_running(runner, _env(), {}, lambda _l: None)
         message = str(exc.value)
         assert (
             "apply the standalone origin VPS stack (yoke-platform-vps) "
@@ -111,10 +128,10 @@ class TestEnsureInstanceRunning:
 
     def test_duplicate_instances_refused(self):
         runner = FakeRunner(
-            [_describe([["i-0abc", "running"], ["i-0def", "stopped"]])]
+            [_describe(["i-0abc", "i-0def"])]
         )
         with pytest.raises(EnvironmentActivateError) as exc:
-            ensure_instance_running(runner, _env(), {}, lambda _l: None)
+            ensure_origin_running(runner, _env(), {}, lambda _l: None)
         assert "multiple instances" in str(exc.value)
 
 
@@ -183,7 +200,8 @@ class TestExecEnvironmentActivate:
         )
         runner = FakeRunner(
             [
-                _describe([["i-0abc", "running"]]),
+                _describe(["i-0abc"]),
+                _describe(["running"]),
                 CommandResult(0, "ssh-ok\n", ""),
             ]
         )

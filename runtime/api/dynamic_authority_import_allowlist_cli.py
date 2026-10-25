@@ -153,6 +153,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "user authority",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/test_machine_operation.py",
+        "yoke_core.domain.test_machine_power",
+    ): (
+        "machine_local_credential_custody",
+        "start and stop a cloud Test Machine with the machine-local aws-admin key",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.project_github_auth",
     ): (

@@ -222,20 +222,25 @@ def execute_plan(
             error=exc,
         ) from exc
     from yoke_core.domain.qa_plan_execution_run import execute_begun_plan
+    from yoke_core.domain.test_machine_power import host_case_projects, power_off_idle
 
-    return execute_begun_plan(
-        execution=execution,
-        begun=begun,
-        target=target,
-        resolved_actor=resolved_actor,
-        transition_id=transition_id,
-        expected_branch=expected_branch,
-        expected_sha=expected_sha,
-        timeout_seconds=timeout_seconds,
-        checkout_path=checkout_path,
-        allow_tree_mismatch=allow_tree_mismatch,
-        call_plan_function=_call_plan_function,
-    )
+    try:
+        return execute_begun_plan(
+            execution=execution,
+            begun=begun,
+            target=target,
+            resolved_actor=resolved_actor,
+            transition_id=transition_id,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+            timeout_seconds=timeout_seconds,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch,
+            call_plan_function=_call_plan_function,
+        )
+    finally:
+        for host_project in host_case_projects(begun.requirements):
+            power_off_idle(host_project)
 
 
 __all__ = ["QaPlanExecutionError", "execute_plan", "ordered_plan_requirements"]

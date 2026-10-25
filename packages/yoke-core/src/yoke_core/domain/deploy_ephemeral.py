@@ -47,7 +47,7 @@ from yoke_core.domain.deploy_core_container_remote import (
 )
 from yoke_core.domain.deploy_environment_activate import (
     EnvironmentActivateError,
-    ensure_instance_running,
+    ensure_origin_running,
     wait_ssh_reachable,
 )
 from yoke_core.domain.deploy_environment_settings import (
@@ -171,7 +171,7 @@ def exec_ephemeral_deploy(
         slug = occupancy
         tag = image_tag or canonical_image_tag(sha)
         aws_env = aws_capability_env(policy.host_project, env.aws_region)
-        ensure_instance_running(runner, env, aws_env, emit)
+        ensure_origin_running(runner, env, aws_env, emit)
         wait_ssh_reachable(runner, env, emit)
         image_ref = ensure_image_in_registry(
             runner, env, aws_env, repo_path=repo_path, tag=tag, emit=emit

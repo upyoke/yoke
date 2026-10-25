@@ -199,6 +199,10 @@ def run(args: List[str]) -> int:
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
+    from yoke_cli.config.project_selection import selected_project_context
+    from yoke_core.domain.test_machine_power import power_off_idle
+
+    power_off_idle(selected_project_context(parsed.project))
     print(json.dumps(result, sort_keys=True))
     if result.get("submission") == "persisted":
         return 0
