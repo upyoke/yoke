@@ -8,6 +8,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import seed_item, seed_ite
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_session_cwd
+from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     extract_command_targets,
 )
@@ -136,3 +137,29 @@ def test_claimed_worker_can_exec_a_remote_sealed_path(worker):
         }
     )
     assert verdict.allow, verdict.reason
+
+
+@pytest.mark.parametrize("tool_name", ["Bash", "exec_command", "Shell"])
+@pytest.mark.parametrize(
+    ("suffix", "allowed"),
+    [("", True), (" > '~/local-output.txt'", False), (" && touch '~/local.txt'", False)],
+)
+def test_remote_home_argument_preserves_local_home_refusal(
+    worker, tool_name, suffix, allowed
+):
+    command = (
+        "yoke qa mission host-command --item-id 5 --execution-id exec-1 "
+        "--requirement-id 7 -- /bin/ls '~/remote-home'" + suffix
+    )
+    verdict = lint_session_cwd.evaluate_pre_tool_use(
+        {
+            "session_id": "capture-worker-session",
+            "cwd": str(worker),
+            "tool_name": tool_name,
+            "tool_input": {"command": command},
+        },
+        machine_home="",
+    )
+    assert verdict.allow is allowed, verdict.reason
+    if not allowed:
+        assert verdict.failure_class == UNRESOLVED_HOME_PATH
