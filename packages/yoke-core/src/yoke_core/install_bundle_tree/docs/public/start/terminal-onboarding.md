@@ -81,10 +81,11 @@ the source as the destination and states whether write access was confirmed or
 remains unverified; **Fork** and **Duplicate** select an owned destination through
 the available GitHub capabilities. A configured project's existing destination
 stays selected. Review names the destination and branch before Apply.
-Read-only setup stays `publication-pending`; publication-required item work
-refuses with `publication_destination_read_only` before preparing its lane.
-Choose/configure an owned writable destination using the refusal's recovery,
-then retry setup and work preparation. Source fetching remains usable. Existing
+Read-only setup stays `publication-pending`; lane preparation and local merges
+remain available, including when the checkout has an `origin` remote. Yoke pushes
+refuse with `publication_destination_read_only`. To publish, choose/configure an
+owned writable destination using the refusal's recovery, then retry publication.
+Source fetching remains usable. Existing
 legacy disabled push URLs migrate once into the Yoke setting and are removed;
 other fetch and push URLs remain intact.
 

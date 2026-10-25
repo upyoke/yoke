@@ -32,9 +32,6 @@ def _context_item_ref(ctx) -> str:
 
 
 def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
-    from yoke_cli.config import project_publication_destination as destination
-    if destination.read_only(ctx.repo_root):
-        return (1, destination.recovery())
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
