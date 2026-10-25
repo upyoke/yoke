@@ -170,7 +170,11 @@ class TestClaimsPathReadDispatch:
         assert req.function == "claims.path.list"
         assert req.target.kind == "item"
         assert req.target.public_ref == "YOK-1819"
-        assert req.payload == {"states": ["planned", "active", "blocked"]}
+        assert req.payload == {
+            "states": ["planned", "active", "blocked"],
+            "limit": 25,
+            "offset": 0,
+        }
 
     def test_claims_path_get_dispatches(self) -> None:
         rc = _run_with_dispatch(

@@ -107,7 +107,7 @@ STRATEGY_ADAPTERS = [
     _read_entry(
         function_id="strategy.doc.list",
         cli_invocation=(
-            "yoke strategy doc list [--project P] [--session-id S] [--json]"
+            "yoke strategy doc list [--limit N] [--offset N] [--project P] [--session-id S] [--json]"
         ),
         notes="Per-project DB-authoritative strategy docs (slug, title, status metadata, updated_at, bytes); .yoke/strategy/ is a rendered view.",
     ),

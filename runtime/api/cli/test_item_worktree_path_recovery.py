@@ -4,7 +4,7 @@ from contextlib import nullcontext
 import subprocess
 
 from runtime.api.fixtures.backlog import insert_item
-from yoke_cli.commands.adapters import item_worktrees
+from yoke_cli.commands.adapters import item_worktrees, list_paging
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -73,6 +73,7 @@ def test_path_record_cli_recovers_existing_checkout(test_db, monkeypatch, tmp_pa
         return 0 if outcome.primary_success else 1
 
     monkeypatch.setattr(item_worktrees, "dispatch_and_emit", dispatch)
+    monkeypatch.setattr(list_paging, "dispatch_and_emit", dispatch)
     args = [
         f"YOK-{item_id}",
         "--worktree-id",

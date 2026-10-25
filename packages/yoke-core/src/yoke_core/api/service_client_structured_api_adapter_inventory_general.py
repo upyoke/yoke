@@ -120,7 +120,7 @@ GENERAL_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="claims.path.list",
         cli_invocation=(
-            "yoke claims path list --item PREFIX-N [--state S]... [--project P] [--full] [--session-id S] [--json]"
+            "yoke claims path list --item PREFIX-N [--state S]... [--project P] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -189,7 +189,7 @@ GENERAL_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="items.dependency.list",
         cli_invocation=(
-            "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--full] [--project P] [--session-id S] [--json]"
+            "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--limit N] [--offset N] [--full] [--project P] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(

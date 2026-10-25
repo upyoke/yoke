@@ -315,4 +315,5 @@ def test_activity_handler_preserves_the_additive_summary_contract() -> None:
         "item_ids": None,
         "deployment_run_ids": None,
         "limit": 6,
+        "offset": 0,
     }

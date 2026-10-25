@@ -57,7 +57,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="qa.method.list",
-        cli_invocation=("yoke qa method list [--project P] [--session-id S] [--json]"),
+        cli_invocation=(
+            "yoke qa method list [--limit N] [--offset N] [--project P] [--full] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.method.get",
@@ -79,8 +81,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.plan.list",
         cli_invocation=(
-            "yoke qa plan list --project P [--limit N] [--offset N] "
-            "[--include-retired] [--full] [--session-id S] [--json]"
+            "yoke qa plan list --project P [--limit N] [--offset N] [--include-retired] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -92,7 +93,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.activity.list",
         cli_invocation=(
-            "yoke qa activity list --project P [--deployment-run-id RUN] [--item PREFIX-N ...] [--limit N] [--full] [--session-id S] [--json]"
+            "yoke qa activity list --project P [--deployment-run-id RUN] [--item PREFIX-N ...] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -267,7 +268,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.requirement.list",
         cli_invocation=(
-            "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | --deployment-run-id ID] [--project P] [--full] [--session-id S] [--json]"
+            "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | --deployment-run-id ID] [--project P] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -291,7 +292,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.run.list",
         cli_invocation=(
-            "yoke qa run list [--requirement-id N] [--project P] [--full] [--session-id S] [--json]"
+            "yoke qa run list [--requirement-id N] [--project P] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(

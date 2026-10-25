@@ -25,7 +25,9 @@ PLAN_CASES_SYNC_USAGE = (
 )
 
 USAGE_BY_FUNCTION_ID = {
-    "qa.method.list": ("yoke qa method list [--project P] [--session-id S] [--json]"),
+    "qa.method.list": (
+        "yoke qa method list [--limit N] [--offset N] [--project P] [--full] [--session-id S] [--json]"
+    ),
     "qa.method.get": (
         "yoke qa method get METHOD [--project P] [--full] [--session-id S] [--json]"
     ),
@@ -38,7 +40,7 @@ USAGE_BY_FUNCTION_ID = {
         "[--success-policy-params JSON]"
     ),
     "qa.plan.list": (
-        "yoke qa plan list --project P [--limit N] [--offset N] [--offset N] "
+        "yoke qa plan list --project P [--limit N] [--offset N] "
         "[--include-retired] [--full] [--session-id S] [--json]"
     ),
     "qa.plan.get": (

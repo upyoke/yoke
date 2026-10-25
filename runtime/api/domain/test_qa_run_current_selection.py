@@ -223,4 +223,10 @@ def test_empty_run_history_has_explicit_null_current_identity(test_db):
     requirement = insert_qa_requirement(test_db, item_id=item["id"])
     outcome = _read(requirement["id"])
     assert outcome.primary_success, outcome.error
-    assert outcome.result_payload == {"rows": [], "current_run_id": None}
+    assert outcome.result_payload == {
+        "rows": [],
+        "current_run_id": None,
+        "limit": None,
+        "offset": 0,
+        "next_offset": None,
+    }

@@ -146,7 +146,7 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="epic_tasks.list.run",
         cli_invocation=(
-            "yoke epic-tasks list --epic PREFIX-N [--full] [--session-id S] [--json]"
+            "yoke epic-tasks list --epic PREFIX-N [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(

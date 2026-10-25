@@ -91,7 +91,7 @@ def qa_method_list(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method list",
-        usage="yoke qa method list [--limit N] [--offset N] [--project P] [--full] [--session-id S] [--json]",
+        usage=USAGE_BY_FUNCTION_ID["qa.method.list"],
         function_id="qa.method.list",
         payload=lambda _args: {},
         project_required=False,

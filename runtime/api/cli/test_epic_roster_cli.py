@@ -19,7 +19,7 @@ class TestEpicTasksList:
         assert req.function == "epic_tasks.list.run"
         assert req.target.kind == "epic_task"
         assert req.target.public_ref == "YOK-501"
-        assert req.payload == {}
+        assert req.payload == {"limit": 25, "offset": 0}
 
     def test_missing_epic_returns_two(self) -> None:
         rc = _run(_stub_ok, "epic-tasks", "list")
@@ -30,7 +30,7 @@ class TestEpicTasksList:
         rc = _run(_stub_fail, "epic-tasks", "list", "--epic", "YOK-999")
         assert rc == 1
 
-    def test_human_output_matches_legacy_rows(self) -> None:
+    def test_human_summary_and_full_lane_details(self) -> None:
         def stub(request: FunctionCallRequest) -> FunctionCallResponse:
             _CAPTURED_REQUESTS.append(request)
             return FunctionCallResponse(
@@ -67,7 +67,13 @@ class TestEpicTasksList:
             "YOK-501",
         )
         assert rc == 0
-        assert "task num: 1" in out
-        assert "title: Plan lane" in out
-        assert "status: planned" in out
-        assert "branch: YOK-501-1" in out
+        assert "task_num | title | status | dependencies" in out
+        assert "1 | Plan lane | planned" in out
+        rc, full, err = _run_capture(
+            stub, "epic-tasks", "list", "--epic", "YOK-501", "--full"
+        )
+        assert rc == 0, err
+        assert "task num: 1" in full
+        assert "title: Plan lane" in full
+        assert "status: planned" in full
+        assert "branch: YOK-501-1" in full

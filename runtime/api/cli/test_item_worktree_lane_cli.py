@@ -10,7 +10,7 @@ from yoke_cli import operation_inventory
 from yoke_cli.commands.adapters import (
     item_worktree_lane_evidence as lane_release_evidence,
 )
-from yoke_cli.commands.adapters import item_worktrees
+from yoke_cli.commands.adapters import item_worktrees, list_paging
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
@@ -23,6 +23,7 @@ def _capture_dispatch(monkeypatch):
         return 0
 
     monkeypatch.setattr(item_worktrees, "dispatch_and_emit", _dispatch)
+    monkeypatch.setattr(list_paging, "dispatch_and_emit", _dispatch)
     return captured
 
 
@@ -202,7 +203,7 @@ def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
 
     assert item_worktrees.item_worktrees_list(["YOK-955"]) == 0
     assert captured["function_id"] == "item_worktrees.list"
-    assert captured["payload"] == {}
+    assert captured["payload"] == {"limit": 25, "offset": 0}
 
     captured.clear()
     assert (
