@@ -7,5 +7,6 @@
   "dev path-snapshot-prewarm": "Build a project's file path snapshots ahead of time.",
   "dev ruff-changed": "Lint the Python files changed since a base commit.",
   "dev run": "Run a command in a source lane's locked environment.",
-  "dev setup": "Set up this machine to develop Yoke from source."
+  "dev setup": "Set up this machine to develop Yoke from source.",
+  "dev yokepedia": "Build Yokepedia from this source checkout and open it."
 }

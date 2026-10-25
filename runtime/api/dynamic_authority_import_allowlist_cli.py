@@ -122,6 +122,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "bind arbitrary development commands to the session's claimed lane",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/yokepedia.py",
+        "yoke_core.tools.yokepedia",
+    ): (
+        "source_dev_admin",
+        "build and open Yokepedia from the current Yoke source checkout",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_queue_hold_local_runtime.py",
         "yoke_core.domain.merge_queue_hold",
     ): (

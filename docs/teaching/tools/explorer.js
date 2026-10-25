@@ -2,7 +2,8 @@
 'use strict';
 const world = document.querySelector('#world');
 const notice = document.querySelector('#notice');
-const byId = new Map(), records = new Map();
+const data = JSON.parse(document.querySelector('#yokepedia-data').textContent);
+const byId = new Map();
 let roots = [], focus = null;
 const navigation = [];
 const text = (tag, value, className = '') => {
@@ -80,26 +81,22 @@ function render() {
   if (focus) researchLinks(focus, world);
   notice.textContent = `${children.length} ${children.length === 1 ? 'entry' : 'entries'}`;
 }
-async function fillDetail(node, el) {
+const MISSING = ' is missing from this build. Rebuild Yokepedia: yoke dev yokepedia';
+function fillDetail(node, el) {
   if (el.dataset.loaded) return;
   el.dataset.loaded = 'yes';
   const body = el.querySelector('.detail');
   if (node.record) {
-    try {
-      await fillResearch(node, body);
-    } catch (error) {
-      body.append(text('p', 'Record could not load. Rebuild the views and reload this map.'));
-      el.dataset.loaded = '';
-    }
+    if (node.record in data.records) fillResearch(node, data.records[node.record], body);
+    else body.append(text('p', 'Research record' + MISSING, 'error'));
   }
   if (node.body) body.append(text('div', node.body, 'document'));
   if (node.document) {
-    try {
-      const response = await fetch(node.document);
-      if (!response.ok) throw Error(response.status);
-      let content = await response.text();
+    let content = data.documents[node.document];
+    if (content === undefined) body.append(text('p', 'Source document' + MISSING, 'error'));
+    else {
       if (node.document_lines) content = content.split('\n').slice(...node.document_lines).join('\n');
-      content = content.replace(/^---[\s\S]*?---\n/, '').replace(/<!--[\s\S]*?-->/g, '');
+      content = content.replace(/^---[\s\S]*?---\n/, '').replace(/<!-{2}[\s\S]*?-{2}>/g, '');
       const container = node.source_only ? text('details', '', 'research') : body;
       if (node.source_only) {
         container.append(text('summary', 'Source definition'));
@@ -109,8 +106,6 @@ async function fillDetail(node, el) {
       const source = text('a', 'Open source file ↗');
       source.href = node.document; source.target = '_blank'; source.rel = 'noopener';
       container.append(source);
-    } catch (error) {
-      body.append(text('p', 'Document could not load. Serve the checkout root and reload.'));
     }
   }
   if (node.url) {
@@ -133,30 +128,16 @@ async function fillDetail(node, el) {
     });
   }
 }
-(async () => {
-  try {
-    const response = await fetch('manifest.json', {cache: 'no-store'});
-    if (!response.ok) throw Error('manifest');
-    const chunks = await response.json();
-    const data = [];
-    for (let i = 0; i < chunks.length; i += 24) {
-      const batch = await Promise.all(chunks.slice(i, i + 24).map(async name => {
-        const r = await fetch(name, {cache: 'no-store'});
-        if (!r.ok) throw Error(name); return r.json();
-      }));
-      data.push(...batch.flat());
-    }
-    data.forEach(node => byId.set(node.id, {...node, children: []}));
-    byId.forEach(node => {
-      if (node.parent) byId.get(node.parent).children.push(node);
-      else roots.push(node);
-    });
-    expandRepresentations();
-    await showBuildInfo();
-    const selected = byId.get(decodeURIComponent(location.hash.slice(1)));
-    choose(selected || null, false);
-  } catch (error) {
-    notice.textContent = 'Map could not load. Serve the checkout over localhost, rebuild the views, then reload.';
-    notice.classList.add('error');
-  }
-})();
+try {
+  data.nodes.forEach(node => byId.set(node.id, {...node, children: []}));
+  byId.forEach(node => {
+    if (node.parent) byId.get(node.parent).children.push(node);
+    else roots.push(node);
+  });
+  expandRepresentations();
+  showBuildInfo(data.build);
+  choose(byId.get(decodeURIComponent(location.hash.slice(1))) || null, false);
+} catch (error) {
+  notice.textContent = 'Yokepedia could not start: ' + error.message + '. Rebuild it with yoke dev yokepedia, then reload.';
+  notice.classList.add('error');
+}

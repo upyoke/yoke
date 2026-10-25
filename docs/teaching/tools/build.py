@@ -5,17 +5,20 @@ Run from a Yoke source checkout:
     yoke dev run -- python3 docs/teaching/tools/build.py          # rebuild views
     yoke dev run -- python3 docs/teaching/tools/build.py --check  # verify only
 
-Generated views are untracked and combine the model with source inventories.
-The responsive guide is the only generated reading interface.
+People run `yoke dev yokepedia` to build and open the page. The one generated
+file, views/yokepedia.html, is untracked and self-contained: it embeds the
+graph, source documents, research records and build information.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
+import tempfile
 from pathlib import Path, PurePosixPath
 
 import inventory
@@ -36,7 +39,6 @@ from render_explorer import build_explorer
 
 VIEWS_ROOT = TEACHING_ROOT / "views"
 LIVE_ROOT = TEACHING_ROOT / "live"
-PAGE_SPLIT = "split generated node data into smaller chunks; keep record content unchanged"
 FILE_SPLIT = "split it into a new file at a meaningful boundary"
 _HREF = re.compile(r'href="([^"]*)"')
 _ID = re.compile(r'id="([^"]*)"')
@@ -61,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     graph = model.docs_graph
     pages = GuideData(model, live, docs, lambda path: inventory.area_of(path, graph))
     views: dict[str, str] = {}
-    build_explorer(views, pages)
+    scanned = build_explorer(views, pages)
     check_links(model, views, set(files))
 
     canonical = {
@@ -71,11 +73,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.check:
         check_canonical_model(model, canonical)
-    else:
-        _replace_tree(VIEWS_ROOT, views)
-        if LIVE_ROOT.exists():
-            shutil.rmtree(LIVE_ROOT)
-    limits_and_privacy(model, views)
+    limits_and_privacy(model, scanned)
+    if not args.check and not model.problems:
+        publish(model, views)
     return report(model.problems, check=args.check)
 
 
@@ -131,19 +131,40 @@ def check_canonical_model(model, canonical: dict) -> None:
             )
 
 
-def _replace_tree(root: Path, pages: dict[str, str]) -> None:
-    """Write ``pages`` under ``root`` and delete obsolete generated files."""
-    for stale in root.rglob("*"):
-        if stale.is_file() and stale.relative_to(root).as_posix() not in pages:
-            stale.unlink()
-    for path, text in pages.items():
-        target = root / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+def publish(model, views: dict[str, str]) -> None:
+    """Swap each validated page in, then delete obsolete generated files.
+
+    A failed write keeps the last good page; nothing is removed until every
+    page is in place.
+    """
+    try:
+        VIEWS_ROOT.mkdir(parents=True, exist_ok=True)
+        for name, text in views.items():
+            fd, temp = tempfile.mkstemp(prefix=f".{name}.", suffix=".tmp", dir=VIEWS_ROOT)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    handle.write(text)
+                os.chmod(temp, 0o644)
+                os.replace(temp, VIEWS_ROOT / name)
+            finally:
+                Path(temp).unlink(missing_ok=True)
+        for stale in VIEWS_ROOT.iterdir():
+            if stale.name in views or stale.name.endswith(".tmp"):
+                continue
+            shutil.rmtree(stale) if stale.is_dir() else stale.unlink()
+        if LIVE_ROOT.exists():
+            shutil.rmtree(LIVE_ROOT)
+    except OSError as exc:
+        model.problem(
+            "VIEWS_WRITE_FAILED",
+            "docs/teaching/views",
+            f"{exc}; make docs/teaching/views writable, then rebuild",
+        )
 
 
-def limits_and_privacy(model, views: dict[str, str]) -> None:
-    texts = {f"views/{path}": text for path, text in views.items()}
+def limits_and_privacy(model, generated: dict[str, str]) -> None:
+    """Authored files keep the line limit; every file, generated too, is privacy-scanned."""
+    texts = {f"views/{path}": text for path, text in generated.items()}
     for path in TEACHING_ROOT.rglob("*"):
         rel = path.relative_to(TEACHING_ROOT).as_posix()
         if (
@@ -154,12 +175,11 @@ def limits_and_privacy(model, views: dict[str, str]) -> None:
             texts[rel] = path.read_text(encoding="utf-8", errors="replace")
     for rel, text in sorted(texts.items()):
         lines = wrapped_lines(text)
-        if lines > LINE_LIMIT:
+        if lines > LINE_LIMIT and not rel.startswith("views/"):
             model.problem(
                 "LINE_LIMIT",
                 f"docs/teaching/{rel}",
-                f"{lines} lines at 80 columns exceeds {LINE_LIMIT}; "
-                + (PAGE_SPLIT if rel.startswith("views/") else FILE_SPLIT),
+                f"{lines} lines at 80 columns exceeds {LINE_LIMIT}; {FILE_SPLIT}",
             )
         for number, line in enumerate(text.splitlines(), start=1):
             for label, pattern in privacy.PATTERNS:

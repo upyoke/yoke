@@ -40,6 +40,7 @@ from yoke_cli.commands.adapters.source_dev_run import (
     ruff_changed,
     source_dev_run,
 )
+from yoke_cli.commands.adapters.yokepedia import yokepedia
 from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
 from yoke_cli.commands.git_hook import AdapterFn
@@ -76,6 +77,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("dev", "run"): source_dev_run,
     ("dev", "ruff-changed"): ruff_changed,
     ("dev", "import-check"): import_check,
+    ("dev", "yokepedia"): yokepedia,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
     ("dev", "db-admin", "exec"): dev_db_admin_exec,
     ("dev", "path-snapshot-prewarm"): dev_path_snapshot_prewarm,
@@ -111,6 +113,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "yoke dev ruff-changed --base REF [--format-check] [--fix-format]"
     ),
     "yoke dev import-check": "yoke dev import-check MODULE [MODULE ...]",
+    "yoke dev yokepedia": "yoke dev yokepedia [--no-open]",
     "yoke dev db-admin setup": (
         "yoke dev db-admin setup <env> [--database MODEL] "
         "[--control-plane-env CONNECTION_ENV] [--yes]"

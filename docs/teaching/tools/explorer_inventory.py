@@ -37,7 +37,7 @@ def add_inventories(nodes, pages):
                       'skill:' + value.removeprefix('/yoke ') if kind == 'skills' else '')
             connect(by_id, key, target, 'Sources', 'Registered source')
     add('inventory:docs', 'Documentation links', 'research-index:surfaces',
-        record='../../model/docs-graph.json')
+        record='../model/docs-graph.json')
     for source in ('source:docs', 'source:project'):
         connect(by_id, source, 'inventory:docs', 'Coverage', 'Tracked document links and publication areas')
     graph = pages.m.docs_graph
@@ -69,7 +69,7 @@ def add_inventories(nodes, pages):
         parent = 'inventory:docs:' + (area or ('excluded' if excluded else 'unassigned'))
         key = 'inventory:doc:' + path
         node = add(key, path, parent)
-        node.update(url='../../../../' + path,
+        node.update(url='../../../' + path,
                     summary=f'{len(incoming[path])} incoming links · {len(targets)} outgoing links.')
         for target in concrete[path]:
             connect(by_id, target, key, 'Documentation links', 'Tracked document identity')

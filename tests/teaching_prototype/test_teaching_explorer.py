@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.teaching_prototype.yokepedia_page import inline_scripts, page_data
+
 TOOLS = Path(__file__).resolve().parents[2] / 'docs/teaching/tools'
 
 
@@ -49,19 +51,22 @@ def test_public_docs_match_the_actual_files_and_category_titles(explorer):
     assert 'doc:docs/public/start/index.md' in nodes['doc:docs/public/index.md']['related']
 
 
-def test_single_page_and_complete_bounded_data_chunks(explorer):
+def test_single_page_embeds_every_node_document_and_record(explorer):
     model, views, renderer = explorer
-    assert [key for key in views if key.endswith('.html')] == [renderer.ROOT]
-    manifest = json.loads(views['explore/manifest.json'])
-    nodes = [node for name in manifest for node in json.loads(views['explore/' + name])]
+    assert list(views) == [renderer.PAGE] == ['yokepedia.html']
+    data = page_data(views[renderer.PAGE])
+    nodes = data['nodes']
     assert len([node for node in nodes if not node.get('research')]) == len(renderer.map_nodes(model))
     assert len({node['id'] for node in nodes}) == len(nodes)
-    assert all(len(json.loads(views['explore/' + name])) <= 12 for name in manifest)
     for node in nodes:
-        for key in ('record', 'document'):
+        for key, embedded in (('record', data['records']), ('document', data['documents'])):
             if node.get(key):
-                target = TOOLS.parent / 'views/explore' / node[key]
-                assert target.resolve().is_file()
+                target = (TOOLS.parent / 'views' / node[key]).resolve()
+                assert target.is_file()
+                content = target.read_text(encoding='utf-8')
+                expected = json.loads(content) if key == 'record' else content
+                assert embedded[node[key]] == expected
+    assert set(data['build']) == {'built_at', 'commit', 'dirty', 'input_files', 'input_digest'}
 
 
 def test_missing_navigation_assignment_is_actionable(explorer):
@@ -120,7 +125,7 @@ def test_command_map_includes_registered_operations(explorer):
     assert nodes['help-output:yoke actors']['parent'] == 'command:yoke actors'
     assert 'Usage: yoke actors' in nodes['help-output:yoke actors']['body']
     assert nodes['command:yoke']['output_size']['estimated'] is False
-    assert 'explore/explorer_graph.js' in views
+    assert 'function expandRepresentations' in views[renderer.PAGE]
 
 
 def test_node_types_distinguish_forms_and_summaries(explorer):
@@ -154,7 +159,7 @@ def test_setup_pairs_and_source_excerpts_are_real(explorer):
         if node.get('document_lines'):
             start, end = node['document_lines']
             # Preview output need not exist in a clean source checkout.
-            path = (TOOLS.parent / 'views/explore' / node['document']).resolve()
+            path = (TOOLS.parent / 'views' / node['document']).resolve()
             assert 0 <= start < end <= len(path.read_text().splitlines())
     assert any(n['type_label'] == 'Answer choice' for n in nodes.values())
     assert any(n['type_label'] == 'Reply field' for n in nodes.values())
@@ -198,8 +203,8 @@ def test_source_sizes_measure_exact_utf8_excerpts(explorer, tmp_path, monkeypatc
     monkeypatch.setattr(explorer_documents, 'REPO', tmp_path)
     raw = 'Heading\r\nCafé 🌍\r\nEnd'.encode('utf-8')
     (tmp_path / 'sample.md').write_bytes(raw)
-    nodes = [dict(document='../../../../sample.md'),
-             dict(document='../../../../sample.md', document_lines=[1, 2]),
+    nodes = [dict(document='../../../sample.md'),
+             dict(document='../../../sample.md', document_lines=[1, 2]),
              dict(title='A conceptual group')]
     describe_sizes(nodes)
     assert nodes[0]['source_size']['bytes'] == len(raw)
@@ -208,7 +213,7 @@ def test_source_sizes_measure_exact_utf8_excerpts(explorer, tmp_path, monkeypatc
                                          chars=len('Café 🌍\r\n'), lines=1,
                                          label='Context text')
     assert 'source_size' not in nodes[2]
-    code = [dict(document='../../../../sample.md', source_only=True)]
+    code = [dict(document='../../../sample.md', source_only=True)]
     describe_sizes(code)
     assert 'source_size' not in code[0]
 
@@ -273,13 +278,12 @@ def test_install_modes_represent_real_setup_subtrees(explorer):
 
 def test_guide_uses_document_grid_without_canvas_controls(explorer):
     _, views, _ = explorer
-    html = views['explore/index.html']
+    html = views['yokepedia.html']
     assert '<main id="main">' in html
     assert 'id="wires"' not in html
     assert 'id="tools"' not in html
-    css = views['explore/explorer.css']
-    assert 'grid-template-columns: repeat(auto-fit' in css
-    script = views['explore/explorer.js']
+    assert 'grid-template-columns: repeat(auto-fit' in html
+    script = '\n'.join(inline_scripts(html))
     assert 'history.pushState' in script
     assert "addEventListener('wheel'" not in script
     assert 'function place(' not in script

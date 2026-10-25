@@ -117,12 +117,14 @@ def test_check_does_not_depend_on_local_views(tools, monkeypatch, tmp_path):
     assert stale.read_text() == "obsolete output"
 
 
-def test_build_recreates_html_and_stylesheet(tools, monkeypatch, tmp_path):
+def test_build_writes_one_self_contained_page(tools, monkeypatch, tmp_path):
     import build
 
     monkeypatch.setattr(build, "VIEWS_ROOT", tmp_path / "views")
     monkeypatch.setattr(build, "LIVE_ROOT", tmp_path / "live")
-    for path in ("views/index.html", "views/style.css", "views/old.json", "live/commands.html"):
+    obsolete = ("views/explore/index.html", "views/explore/nodes-0.json",
+                "views/explore/manifest.json", "views/style.css", "live/commands.html")
+    for path in obsolete:
         stale = tmp_path / path
         stale.parent.mkdir(parents=True, exist_ok=True)
         stale.write_text("obsolete")
@@ -132,14 +134,11 @@ def test_build_recreates_html_and_stylesheet(tools, monkeypatch, tmp_path):
     monkeypatch.setattr(build, "model_files", lambda: [record])
     assert build.main([]) == 0
     assert record.read_text() == original
-    assert (tmp_path / "views/explore/index.html").read_text().startswith("<!doctype html>")
-    assert (tmp_path / "views/explore/explorer.css").read_text() == (
-        TOOLS / "explorer.css"
-    ).read_text()
-
-    assert not (tmp_path / "views/index.html").exists()
-    assert not (tmp_path / "views/style.css").exists()
-    assert not (tmp_path / "views/old.json").exists()
+    assert [path.name for path in (tmp_path / "views").iterdir()] == ["yokepedia.html"]
+    page = (tmp_path / "views/yokepedia.html").read_text()
+    assert page.startswith("<!doctype html>")
+    assert (TOOLS / "explorer.css").read_text() in page
+    assert '<link rel="stylesheet"' not in page and "<script src=" not in page
     assert not (tmp_path / "live").exists()
 
 
@@ -149,7 +148,7 @@ def test_generated_views_are_untracked_and_ignored():
     )
     assert not tracked
     result = subprocess.run(
-        ["git", "check-ignore", "docs/teaching/views/index.html"],
+        ["git", "check-ignore", "docs/teaching/views/yokepedia.html"],
         cwd=REPO,
         capture_output=True,
         text=True,

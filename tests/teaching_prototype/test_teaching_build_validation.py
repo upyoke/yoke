@@ -121,22 +121,21 @@ def test_untracked_source_recovery_stages_the_named_file(monkeypatch, tmp_path):
     assert "is missing; create and git-add" in validate()[0].message
 
 
-def test_over_limit_view_refusal_names_chunking(monkeypatch, tmp_path):
+def test_generated_views_skip_line_limits_but_stay_privacy_scanned(monkeypatch, tmp_path):
     monkeypatch.syspath_prepend(str(TOOLS))
     import build
     import model
 
     monkeypatch.setattr(build, "TEACHING_ROOT", tmp_path)
     (tmp_path / "notes.md").write_text("line\n" * 351)
+    home = "/" + "Users/someone/"
     loaded = model.Model()
-    build.limits_and_privacy(loaded, {"concepts/topic.html": "line\n" * 351})
-    by_where = {problem.where: problem for problem in loaded.problems}
-    view = by_where["docs/teaching/views/concepts/topic.html"]
-    assert view.code == "LINE_LIMIT"
-    assert "smaller chunks" in view.message
-    note = by_where["docs/teaching/notes.md"]
-    assert "`page`" not in note.message
-    assert "split it into a new file" in note.message
+    build.limits_and_privacy(loaded, {"yokepedia.html": "line\n" * 351,
+                                      "yokepedia.html#doc:x": f'{{"body":"{home}"}}'})
+    found = {(problem.code, problem.where): problem for problem in loaded.problems}
+    assert set(found) == {("LINE_LIMIT", "docs/teaching/notes.md"),
+                          ("PRIVATE_MATERIAL", "docs/teaching/views/yokepedia.html#doc:x:1")}
+    assert "split it into a new file" in found["LINE_LIMIT", "docs/teaching/notes.md"].message
 
 
 def _owned_model(monkeypatch, tmp_path, part_page):

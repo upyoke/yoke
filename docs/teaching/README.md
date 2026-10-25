@@ -10,21 +10,23 @@ names belongs in one of these records instead. It is internal contributor
 material: it lives only in the Yoke source repository and never ships in the
 install bundle.
 
-Build the local views with `yoke dev run -- python3 docs/teaching/tools/build.py`,
-then open `docs/teaching/views/explore/index.html` in a browser from that checkout.
-This registered scanner works on the mapped main checkout without a work claim
-and in a claimed lane. It writes only ignored guide files;
-it never rewrites the model.
-Agents read the model JSON directly. If a review tool refuses `file:` URLs,
-serve this directory locally (`python3 -m http.server` from `docs/teaching`).
-The responsive guide is the only reading interface. The old catalogue pages and compatibility routes are removed. Model JSON files retain
-their identities and remain the editable source of research truth.
+Read it as Yokepedia: run `yoke dev yokepedia` anywhere inside a Yoke source
+checkout or worktree. It builds `docs/teaching/views/yokepedia.html` from that
+checkout and opens it in your browser; `--no-open` prints the path instead.
+The page is one self-contained file that works from a `file:` URL with no
+server. Agents and CI run the same build with
+`yoke dev run -- python3 docs/teaching/tools/build.py` (and `--check`) from
+the checkout they mean to build. This registered scanner needs no harness
+session or work claim. It writes only the ignored page; it never rewrites the model.
+Agents read the model JSON directly. Yokepedia is the only reading interface.
+Model JSON files retain their identities and remain the editable source of
+research truth.
 
 ## Canonical source and access
 
 ### Human reading view
 
-Open `views/explore/index.html` after building for the responsive context guide.
+`yoke dev yokepedia` opens the responsive context guide.
 Each page shows its immediate children in a normal CSS grid. Cards grow with
 content and the browser scrolls naturally. Open a card to read or explore it;
 breadcrumbs, the source navigator and browser Back preserve navigation.
@@ -43,11 +45,9 @@ Source groups in `tools/explorer_sources.py` are editorial navigation, not
 new authorities. New surfaces must be assigned to a group; the build reports
 `EXPLORER_SOURCE` otherwise. The explorer reads source definitions, not captured session data. Availability never establishes actual context receipt.
 
-Serve the checkout root over loopback: `python3 -m http.server 8765 --bind
-127.0.0.1` from the checkout, then open
-`/docs/teaching/views/explore/index.html`. This is a local design review, not
-product-delivery proof. Search highlighting across related context chains is
-reserved for after the operator locks the map structure.
+Yokepedia is a local design review, not product-delivery proof. Search
+highlighting across related context chains is reserved for after the operator
+locks the map structure.
 
 ### Source access
 
@@ -68,7 +68,7 @@ machine paths. The check refuses private paths and identifiers.
 | `model/evidence/` | Collection metadata plus one evidence record per child file |
 | `model/boundaries/`, `model/gaps/` | One locked rule or open gap per file |
 | `model/docs-graph.json` | Documentation areas for the live docs graph |
-| `views/` | Untracked generated HTML and CSS; build locally to read |
+| `views/` | Untracked generated `yokepedia.html`; build locally to read |
 | `tools/` | The builder and check |
 
 Every record has a stable `id`; the guide uses it to identify the record's node.
@@ -148,8 +148,10 @@ and the retired `live/` directory; no compatibility pages are produced.
 
 ## Check failures
 
-Every build validates the model before rendering. Invalid models exit 1 and
-report every problem by file, record and field, without replacing local views.
+Every build validates the model, renders in memory, then checks links and
+privacy before it writes. Any problem exits 1 and reports every problem by file,
+record and field, keeping the last good page. A successful build swaps the new
+page in, then deletes obsolete generated files.
 Fix the named records, rebuild, then run `--check`:
 
 | Code | Repair |
@@ -162,14 +164,19 @@ Fix the named records, rebuild, then run `--check`:
 | `DANGLING_ANCHOR`, `DANGLING_LINK` | Fix the target id or path, then rebuild |
 | `MODEL_NOT_CANONICAL` | Run `yoke dev run -- python3 docs/teaching/tools/convert_model.py`, then rebuild and check |
 | `MODEL_RECORD_ID` | Store one record with an `id` matching its filename |
-| `LINE_LIMIT` | For generated data, split nodes into smaller chunks; for another file, split it at a meaningful boundary. Keep record content; rebuild |
+| `LINE_LIMIT` | Split the authored file at a meaningful boundary. Keep record content; rebuild |
 | `PAGE_COLLISION` | Give the part a `page` name no other surface or scenario uses |
 | `PRIVATE_MATERIAL` | Remove the private path or id |
+| `GUIDE_SOURCE_UNREADABLE` | Restore the named document or record, or stop citing it |
+| `GUIDE_ASSET_UNSAFE` | Build the named closing-tag or comment text in `tools/` from parts |
+| `VIEWS_WRITE_FAILED` | Make `docs/teaching/views` writable; the last good page is kept |
 
-Every file here obeys the shared 350-line hard limit, counted at 80 columns;
-300 is the design target. `--check` validates the model and builds views in
-memory, checking links, privacy and limits without reading or writing local
-views. CI runs this build validation through
+Every authored file here obeys the shared 350-line hard limit, counted at 80
+columns; 300 is the design target. The generated page is exempt from line limits
+but privacy-scanned: its shell, every node and build data. Embedded document and
+record text are verbatim copies of tracked files that their owners check.
+`--check` validates the model and builds the page in memory, checking links,
+privacy and limits without reading or writing local views. CI runs this build validation through
 `tests/teaching_prototype/test_teaching_prototype_check.py`.
 
 The homepage contains the agent request and install command. Named connections
@@ -262,7 +269,7 @@ keep these links in expandable Connected teaching sections. Unattached decisions
 and gaps remain accessible through Research; topic pages show direct teaching
 mapping counts, including zero. Parent mappings do not cover child topics.
 
-The original JSON is fetched for full record content, including every field and
+The page embeds each original record for full content, including every field and
 citation. Research has its own status explanation and no agent-output size badge:
 research prose is not delivered context. History isolates superseded proposals.
 `explorer_inventory.py` folds registry coverage and document-link counts into the

@@ -17,12 +17,15 @@ def _make_source_checkout(path: Path) -> Path:
     return path.resolve()
 
 
-def _make_read_only_scanner(root: Path) -> str:
-    relative = next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))
-    scanner = root / relative
-    scanner.parent.mkdir(parents=True, exist_ok=True)
-    scanner.touch()
-    return relative
+CLAIMED_TARGET = "claimed-target-python-module:install-bundle-sync"
+
+
+def _install_sync(monkeypatch, target: Path) -> list[str]:
+    """The one mapped-main operation: install sync into a claimed lane."""
+    monkeypatch.setattr(
+        source_dev_run, "_claimed_target_signature", lambda _command: CLAIMED_TARGET
+    )
+    return [*source_dev_run.MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX, str(target)]
 
 
 def _set_zero_live_claims(monkeypatch) -> None:
@@ -100,7 +103,6 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
     tmp_path,
 ):
     captured = {}
-    scanner = next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))
 
     def _dispatch(**kwargs):
         captured.update(kwargs)
@@ -119,8 +121,8 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         session_id="session-1",
         root=tmp_path,
         project_id=17,
-        command=["python3", scanner, "secret value"],
-        authority_signature=f"read-only-python-script:{scanner}",
+        command=["python3", "-m", "secret value"],
+        authority_signature=CLAIMED_TARGET,
     )
 
     assert error is None
@@ -132,7 +134,7 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         "command_name": "python3",
         "argument_count": 2,
         "fallback_reason": "no_live_claimed_yoke_source_lane",
-        "authority_signature": f"read-only-python-script:{scanner}",
+        "authority_signature": CLAIMED_TARGET,
     }
     assert "secret value" not in repr(payload)
     assert captured["actor"].session_id == "session-1"
@@ -144,7 +146,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     capsys,
 ):
     order = []
-    scanner = _make_read_only_scanner(tmp_path)
+    command = _install_sync(monkeypatch, tmp_path)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
@@ -177,7 +179,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     monkeypatch.setattr(source_dev_run, "_record_main_checkout_fallback", _record)
     monkeypatch.setattr(source_dev_run.subprocess, "run", _run)
 
-    assert source_dev_run.run(["python3", scanner]) == 0
+    assert source_dev_run.run(command) == 0
     assert [entry[0] for entry in order] == ["event", "child"]
     assert f"source checkout: {tmp_path}" in order[0][1]
     assert "registered operation" in order[0][1]
@@ -203,7 +205,7 @@ def test_fallback_refuses_arbitrary_commands_before_import_resolution(
 
     assert source_dev_run.run(["python3", "-c", "pass"]) == 1
 
-    assert "only permits registered read-only scanners" in capsys.readouterr().err
+    assert "only permits claimed-target maintenance" in capsys.readouterr().err
     imports.assert_not_called()
     child.assert_not_called()
 
@@ -238,7 +240,7 @@ def test_fallback_accepts_install_sync_only_for_a_claimed_target(
 
 
 def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
-    scanner = _make_read_only_scanner(tmp_path)
+    command = _install_sync(monkeypatch, tmp_path)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
@@ -257,7 +259,7 @@ def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
     child = mock.Mock()
     monkeypatch.setattr(source_dev_run.subprocess, "run", child)
 
-    assert source_dev_run.run(["python3", scanner]) == 1
+    assert source_dev_run.run(command) == 1
     child.assert_not_called()
 
 
@@ -271,28 +273,3 @@ def isolated_environment_probe(monkeypatch):
         "resolve",
         lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {}),
     )
-
-
-@pytest.mark.parametrize("args", [[], ["--check"]])
-def test_mapped_main_teaching_build_preserves_git_status(monkeypatch, args):
-    import subprocess
-
-    root = Path(__file__).resolve().parents[3]
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (root, None, 17))
-    monkeypatch.setattr(
-        source_dev_run.verification_tree_binding,
-        "ambient_session_id",
-        lambda: "session-1",
-    )
-    monkeypatch.setattr(
-        source_dev_run, "_record_main_checkout_fallback", lambda **kwargs: None
-    )
-    before = subprocess.check_output(["git", "status", "--porcelain"], cwd=root)
-
-    assert source_dev_run.run(["python3", "docs/teaching/tools/build.py", *args]) == 0
-
-    assert subprocess.check_output(["git", "status", "--porcelain"], cwd=root) == before
-    if not args:
-        assert (root / "docs/teaching/views/explore/index.html").is_file()
-        assert not (root / "docs/teaching/views/index.html").exists()
-        assert not (root / "docs/teaching/live").exists()

@@ -133,8 +133,8 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   Commit first; a dirty tree fails the served-commit match. With `env YOKE_ENV=render-proof`,
   add `--prepare-only` to prepare a render universe. Self-hosted sign-in review uses
   `serve_self_host_workbench_for_review` the same way.
-- Teaching model: read `docs/teaching/README.md` before changing what Yoke teaches. Build with
-  `yoke dev run -- python3 docs/teaching/tools/build.py` and `--check`.
+- Teaching model: read `docs/teaching/README.md` before changing what Yoke teaches; it owns
+  the build and `--check` recipes and `yoke dev yokepedia`.
 - Worktree cleanup: [worktree cleanup](source-dev-worktree-cleanup.md).
 - `origin/cla-signatures` is permanent governance state. Never delete, force-push, reset, prune or
   protect it.
