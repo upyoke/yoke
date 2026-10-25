@@ -169,7 +169,7 @@ def test_same_settlement_clears_selected_verification_at_done(dash_db_path):
 
 
 @pytest.mark.parametrize("sha", [CANDIDATE_SHA, "b" * 40, ""])
-def test_premerge_replacement_uses_shared_lane_history_gate(
+def test_premerge_replacement_counts_without_commit_comparison(
     dash_db_path, monkeypatch, sha
 ):
     monkeypatch.setenv("YOKE_QA_GATE_COMMIT_SHA", CANDIDATE_SHA)
@@ -180,15 +180,11 @@ def test_premerge_replacement_uses_shared_lane_history_gate(
     finally:
         conn.close()
     result = _gate(dash_db_path)
-    if sha == CANDIDATE_SHA:
-        assert result is None
-    else:
-        assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
-        assert f"replacement #{replacement}" in result["error"]
+    assert result is None
 
 
 @pytest.mark.parametrize("sha", [CANDIDATE_SHA, "c" * 40, ""])
-def test_checkout_free_replacement_uses_shared_lane_history_gate(
+def test_checkout_free_replacement_counts_without_commit_comparison(
     dash_db_path, monkeypatch, sha
 ):
     previous_merge = "b" * 40
@@ -224,11 +220,7 @@ def test_checkout_free_replacement_uses_shared_lane_history_gate(
     assert latest.sha == previous_merge
     assert latest.accepted_shas == (previous_merge, CANDIDATE_SHA)
     result = _gate(dash_db_path)
-    if sha == CANDIDATE_SHA:
-        assert result is None
-    else:
-        assert result["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
-        assert f"replacement #{replacement}" in result["error"]
+    assert result is None
 
 
 def test_declared_pending_successor_blocks_before_automatic_discharge(dash_db_path):

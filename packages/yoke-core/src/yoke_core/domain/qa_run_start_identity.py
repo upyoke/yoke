@@ -2,21 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_run_commit_binding import wrap_evidence
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-
-
-def lane_start_commit(raw: Any) -> str:
-    try:
-        payload = json.loads(raw or "{}") if isinstance(raw, str) else (raw or {})
-    except (ValueError, TypeError):
-        return ""
-    return recorded_head_sha(json.dumps({"verification_tree": payload.get("verification_tree")})) if isinstance(payload, dict) else ""
 
 
 def stamp_start_commit(conn: Any, columns: dict[str, Any]) -> None:
@@ -65,5 +56,5 @@ def stamp_start_commit(conn: Any, columns: dict[str, Any]) -> None:
 def retain_start_commit(existing_raw: Any, incoming_raw: Any) -> Any:
     if recorded_head_sha(incoming_raw):
         return incoming_raw
-    sha = lane_start_commit(existing_raw)
+    sha = recorded_head_sha(existing_raw)
     return wrap_evidence(incoming_raw, sha) if sha else incoming_raw

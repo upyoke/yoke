@@ -1,4 +1,4 @@
-"""Durable landing and lane identities for QA ancestry checks.
+"""Durable landing identities for browser freshness and delivery checks.
 
 Start commits are observations. They never add themselves to the candidate
 set: the lane, merge receipt and recorded close-out evidence own that set.

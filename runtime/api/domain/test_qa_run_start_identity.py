@@ -126,3 +126,10 @@ def test_start_observation_is_retained_when_finished_evidence_has_no_commit():
     raw = retain_start_commit(wrap_evidence("started", START), '{"evidence":"finished"}')
     assert recorded_head_sha(raw) == START
     assert json.loads(raw)["evidence"] == "finished"
+
+
+def test_served_commit_survives_plain_evidence_update():
+    from yoke_core.domain.qa_run_start_identity import retain_start_commit
+
+    raw = retain_start_commit(json.dumps({"code_identity": {"sha": LATER}}), "finished")
+    assert recorded_head_sha(raw) == LATER

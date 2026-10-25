@@ -271,7 +271,6 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     )
     admit_route_gates(monkeypatch)
 
-    monkeypatch.setattr(merge_qa, "checkout_contains", lambda *_args: True)
     outcome = merge_domain.StandaloneMergeOutcome(
         exit_code=0,
         ok=True,
@@ -290,7 +289,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     merger.assert_called_once()
 
 
-def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
+def test_preflight_accepts_pass_with_or_without_commit_observation(tmp_path: Path):
     commit_sha, error = merge_qa.preflight(
         _item(_requirement(verdict="pass", sha=MERGING_SHA)),
         public_ref="YOK-10",
@@ -306,7 +305,7 @@ def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
         branch="YOK-10",
     )
     assert commit_sha == MERGING_SHA
-    assert "recorded SHA" in error
+    assert error == ""
 
 
 def test_older_serving_response_names_floor_and_recovery(tmp_path):

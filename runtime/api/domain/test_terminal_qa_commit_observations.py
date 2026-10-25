@@ -35,6 +35,10 @@ def test_terminal_does_not_expand_item_scope(test_db):
     insert_item(test_db, id=10, status="release")
     insert_item(test_db, id=11)
     own = insert_qa_requirement(test_db, item_id=10)
-    insert_qa_requirement(test_db, item_id=11, epic_id=10)
-    insert_qa_requirement(test_db, item_id=11, deployment_member_item_id=10)
+    from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+
+    insert_qa_requirement(test_db, item_id=None, epic_id=10, task_num=1)
+    run = insert_deployment_run(test_db)
+    insert_qa_requirement(test_db, item_id=None, deployment_run_id=run["id"],
+        deployment_stage="release", deployment_member_item_id=10)
     assert [row["id"] for row in _blocking_requirement_rows(test_db, 10)] == [own["id"]]

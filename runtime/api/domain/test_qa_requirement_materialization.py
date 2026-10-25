@@ -96,7 +96,7 @@ def test_methodless_recovery_uses_head_bound_recording(phase):
     )
     assert "yoke qa run add --requirement-id 34" in recipe
     assert "--qa-kind ac_verification" in recipe
-    assert "--head-sha <full-commit-sha>" in recipe
+    assert "--verdict pass --raw-result" in recipe
     assert "qa case run" not in recipe
 
 

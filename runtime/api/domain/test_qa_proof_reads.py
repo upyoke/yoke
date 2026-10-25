@@ -44,16 +44,19 @@ def test_merge_proof_reads_one_cohort(test_db, monkeypatch):
 @pytest.mark.parametrize("phase", ["verification", "post_deploy"])
 @pytest.mark.parametrize("digest", ["frozen", "wrong"])
 def test_deployment_pass_retains_frozen_release_target_binding(test_db, phase, digest):
-    item = insert_item(test_db)
-    requirement = insert_qa_requirement(test_db, item_id=item["id"],
+    from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+    from yoke_core.domain.qa_latest_execution import latest_executions
+    from yoke_core.domain.qa_requirement_pass_currency import current_passing_requirements
+
+    run = insert_deployment_run(test_db)
+    requirement = insert_qa_requirement(test_db, item_id=None,
+        deployment_run_id=run["id"], deployment_stage="release",
         qa_phase=phase, execution_target_digest="frozen")
-    # A deployment-bound row takes its release identity from the frozen target,
-    # independently of the optional start commit observation.
-    row = dict(requirement, deployment_run_id="release")
     insert_qa_run(test_db, qa_requirement_id=requirement["id"], verdict="pass",
         raw_result=json.dumps({"execution_target_digest": digest}))
-    [proof] = records._blocking_requirement_rows(test_db, item["id"])
-    proof.pop("post_deploy_consumed", None)
-    proof.update(deployment_run_id=row["deployment_run_id"])
+    attempt = latest_executions(test_db, [requirement["id"]])[requirement["id"]]
+    proof = dict(requirement, run_id=attempt["id"], verdict=attempt["verdict"],
+        completed_at=attempt["completed_at"], subject_proof_error="",
+        current_passing_proof=requirement["id"] in current_passing_requirements(test_db, [requirement["id"]]))
     issues = blocking_requirement_issues([proof], public_ref="example", require_any=True)
     assert [issue.state for issue in issues] == ([] if digest == "frozen" else ["stale-proof"])
