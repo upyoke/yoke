@@ -83,7 +83,6 @@ class WizardResult:
     yoke_token_verification: dict[str, Any] | None = None
     mode: str = "quick"
     apply: bool = False
-    harness_posture: bool = True
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP
     machine_github_api_url: str | None = None
     machine_github_verification: dict[str, Any] | None = None
@@ -217,7 +216,6 @@ class WizardResult:
             "token_source_kind": self.token_source_kind,
             "mode": self.mode,
             "apply": apply,
-            "harness_posture": self.harness_posture,
             "check_identity": check_identity,
             "machine_github_choice": self.machine_github_choice,
             "machine_github_api_url": self.machine_github_api_url,
@@ -277,7 +275,6 @@ class WizardDefaults:
     project_checkout: str | None = None
     project_clone_outcome: str | None = None
     apply: bool = False
-    harness_posture: bool = True
     post_install: bool = False
 
 

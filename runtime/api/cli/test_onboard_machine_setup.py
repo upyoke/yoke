@@ -88,7 +88,6 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
         project_checkout=None,
         project_clone_outcome=None,
         apply=False,
-        harness_posture=True,
         post_install=False,
     )
     assert (
@@ -105,10 +104,7 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
     assert events == ["directories", "browser", "wizard"]
 
 
-@pytest.mark.parametrize("decline", [False, True])
-def test_interactive_permission_choice_reaches_preview_and_apply(
-    tmp_path, monkeypatch, decline
-):
+def test_interactive_posture_is_in_preview_and_apply(tmp_path, monkeypatch):
     from yoke_cli.commands.adapters import onboard as adapter
     from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
 
@@ -138,7 +134,6 @@ def test_interactive_permission_choice_reaches_preview_and_apply(
             project_mode="machine-only",
             project_inputs={},
             machine_github={"choice": kwargs["machine_github_choice"]},
-            harness_posture=kwargs["harness_posture"],
         )
         plans.append((kwargs["apply"], [step["action"] for step in plan["steps"]]))
         return {"plan": plan}
@@ -157,13 +152,10 @@ def test_interactive_permission_choice_reaches_preview_and_apply(
         "--config",
         str(tmp_path / "cfg.json"),
     ]
-    if decline:
-        arguments.append("--skip-harness-permissions")
-
     assert adapter.onboard(arguments) == 0
     assert [applied for applied, _ in plans] == [False, True]
     assert all(
-        ("harness-unattended-posture" in actions) is not decline for _, actions in plans
+        "harness-unattended-posture" in actions for _, actions in plans
     )
 
 
@@ -250,7 +242,6 @@ def test_apply_rechecks_wsl_before_relay(monkeypatch, tmp_path):
     runtime.apply(
         config_path=tmp_path / "config.json",
         reuse={},
-        harness_posture=False,
         progress=None,
         report={},
         local_destination=False,

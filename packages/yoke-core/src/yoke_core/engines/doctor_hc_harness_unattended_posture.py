@@ -40,7 +40,7 @@ SLUG = "harness-unattended-posture"
 TITLE = "Every installed harness runs yoke without approval prompts"
 
 
-def harness_posture(
+def inspect_unattended_posture(
     harness_id: str, *, installed: bool, surface_id: str | None = None
 ) -> tuple[str, str]:
     """One harness's posture verdict: ``PASS``, ``FAIL`` or ``N/A`` and why.
@@ -96,7 +96,7 @@ def hc_harness_unattended_posture(
         if entry.path
     }
     for harness_id in (CLAUDE_FAMILY, CODEX_FAMILY, CURSOR_FAMILY):
-        verdict, detail = harness_posture(harness_id, installed=harness_id in installed)
+        verdict, detail = inspect_unattended_posture(harness_id, installed=harness_id in installed)
         if verdict == "FAIL":
             prompting.append(detail)
         elif verdict == "PASS":
@@ -131,4 +131,4 @@ def hc_harness_unattended_posture(
     )
 
 
-__all__ = ["SLUG", "TITLE", "harness_posture", "hc_harness_unattended_posture"]
+__all__ = ["SLUG", "TITLE", "inspect_unattended_posture", "hc_harness_unattended_posture"]

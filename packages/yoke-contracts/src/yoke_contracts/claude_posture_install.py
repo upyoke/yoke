@@ -77,8 +77,7 @@ def configure_claude_app_bypass_permissions(
         out.write(f"Claude desktop {CLAUDE_BYPASS_KEY}: {unrecorded}\n")
     out.write(
         f"Enabled Claude desktop {CLAUDE_BYPASS_KEY} in {target}.\n"
-        f"Quit and relaunch Claude desktop to pick up the change.\n"
-        f"(Pass --skip-harness-permissions on future runs to opt out.)\n\n"
+        f"Quit and relaunch Claude desktop to pick up the change.\n\n"
     )
     return True
 

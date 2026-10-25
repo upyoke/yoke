@@ -110,7 +110,6 @@ def test_venv_failure_stops_setup_before_browser_or_relay(
         onboard_apply_runtime.apply(
             config_path=None,
             reuse={"temp_root": True, "cache_dir": True},
-            harness_posture=False,
             progress=lambda *args: progress.append(args),
             report={},
             local_destination=False,

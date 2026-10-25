@@ -124,7 +124,6 @@ def init_setup_state(
         token_file=defaults.token_file,
         mode=(defaults.mode or "quick"),
         apply=defaults.apply,
-        harness_posture=defaults.harness_posture,
         project_mode=(
             defaults.project_mode or onboard_project.PROJECT_MODE_MACHINE_ONLY
         ),

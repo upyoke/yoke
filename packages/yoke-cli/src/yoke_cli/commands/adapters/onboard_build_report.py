@@ -62,7 +62,6 @@ def build_report(
     project_keep_existing_remote: bool = False,
     resume_run_id: str | None = None,
     resume_payload: dict | None = None,
-    harness_posture: bool = True,
 ) -> dict | None:
     try:
         return _apply_with_durable_report(
@@ -78,7 +77,6 @@ def build_report(
                 "mode": mode,
                 "apply": apply,
                 "check_identity": check_identity,
-                "harness_posture": harness_posture,
                 "machine_github_choice": machine_github_choice,
                 "machine_github_api_url": machine_github_api_url,
                 "project_mode": project_mode,

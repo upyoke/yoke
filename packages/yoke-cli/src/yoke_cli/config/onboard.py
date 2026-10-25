@@ -79,7 +79,6 @@ def build_report(
     project_clone: onboard_project.ClonePlan | None = None,
     project_keep_existing_remote: bool = False,
     progress: onboard_apply_progress.ProgressCallback | None = None,
-    harness_posture: bool = True,
     same_host_self_host: bool = False,
     self_host_directory: str | None = None,
     admin_name: str | None = None,
@@ -175,7 +174,6 @@ def build_report(
         path_repair=path_repair,
         reuse=reuse,
         local_destination=local_destination,
-        harness_posture=harness_posture,
         same_host_self_host=same_host_self_host,
     )
     report: Dict[str, Any] = {
@@ -258,7 +256,6 @@ def build_report(
     onboard_apply_runtime.apply(
         config_path=cfg_path,
         reuse=reuse,
-        harness_posture=harness_posture,
         progress=progress,
         report=report,
         local_destination=local_destination,

@@ -19,7 +19,6 @@ def apply(
     *,
     config_path: Path,
     reuse: Mapping[str, Any],
-    harness_posture: bool,
     progress: onboard_apply_progress.ProgressCallback | None,
     report: dict[str, Any],
     local_destination: bool,
@@ -31,9 +30,7 @@ def apply(
     onboard_machine_setup.setup_browser(progress, report, error_cls=error_cls)
     step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")
     onboard_apply_progress.emit(progress, *step, "running")
-    setup = harness_posture_install.apply_reported(
-        include_posture=harness_posture, progress=progress
-    )
+    setup = harness_posture_install.apply_reported(progress=progress)
     report["harness_setup"] = setup.payload()
     onboard_apply_progress.emit(progress, *step, "failed" if setup.failed else "done")
     onboard_session_relay.apply(

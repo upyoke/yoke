@@ -46,7 +46,6 @@ def build_plan(
     path_repair: dict[str, Any] | None = None,
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
-    harness_posture: bool = True,
     same_host_self_host: bool = False,
 ) -> dict[str, Any]:
     reuse = dict(reuse or {})
@@ -101,8 +100,7 @@ def build_plan(
         )
     # Every destination, because the harness a person opens prompts the same
     # way whether their control plane is local, a team server, or hosted.
-    if harness_posture:
-        steps.append(harness_unattended_posture.posture_plan_step())
+    steps.append(harness_unattended_posture.posture_plan_step())
     # Machine-wide hooks for every existing harness home, with or without a project.
     steps.extend(harness_machine_hooks.machine_hooks_plan_steps())
     steps.extend(

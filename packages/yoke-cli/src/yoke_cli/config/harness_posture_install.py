@@ -13,9 +13,7 @@ if TYPE_CHECKING:
     from yoke_harness.harness_setup_reconcile import HarnessSetupResult
 
 
-def apply_reported(
-    *, include_posture: bool = True, progress=None
-) -> HarnessSetupResult:
+def apply_reported(*, progress=None) -> HarnessSetupResult:
     """Reconcile all registered targets and name every outcome and recovery."""
     from yoke_harness.harness_setup_reconcile import reconcile_harness_setup
 
@@ -24,7 +22,7 @@ def apply_reported(
         onboard_apply_progress.emit(
             progress, MACHINE_HOOKS_PLAN_ACTION, spec.display_path(), "running"
         )
-    result = reconcile_harness_setup(include_posture=include_posture)
+    result = reconcile_harness_setup()
     for spec in specs:
         failed = any(
             row.harness_id == spec.harness_id

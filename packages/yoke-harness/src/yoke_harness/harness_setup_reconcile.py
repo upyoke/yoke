@@ -216,7 +216,7 @@ def _targets(
 
 
 def _walk(
-    paths: Sequence[Path] | None, *, apply: bool, include_posture: bool = True
+    paths: Sequence[Path] | None, *, apply: bool
 ) -> HarnessSetupResult:
     rows: list[HarnessSetupRow] = []
     try:
@@ -271,19 +271,18 @@ def _walk(
                         retrust_recovery(target),
                     )
                 )
-        if include_posture:
-            rows.append(
-                _facet(
-                    home,
-                    harness,
-                    "posture",
-                    lambda: _posture(harness),
-                    lambda: configure_harness_unattended_posture(
-                        harnesses=(harness,), stream=io.StringIO()
-                    ),
-                    apply,
-                )
+        rows.append(
+            _facet(
+                home,
+                harness,
+                "posture",
+                lambda: _posture(harness),
+                lambda: configure_harness_unattended_posture(
+                    harnesses=(harness,), stream=io.StringIO()
+                ),
+                apply,
             )
+        )
         rows.append(
             _facet(
                 home,
@@ -313,7 +312,7 @@ def inspect_harness_setup(paths: Sequence[Path] | None = None) -> HarnessSetupRe
 
 
 def reconcile_harness_setup(
-    paths: Sequence[Path] | None = None, *, include_posture: bool = True
+    paths: Sequence[Path] | None = None
 ) -> HarnessSetupResult:
-    """Apply every facet; an explicit setup permission decline omits posture."""
-    return _walk(paths, apply=True, include_posture=include_posture)
+    """Apply every facet, including unattended posture, to installed harnesses."""
+    return _walk(paths, apply=True)

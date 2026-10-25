@@ -220,21 +220,13 @@ def read_posture_config(
 
 
 #: The onboarding plan step that writes this posture. Named as a step so the
-#: operator sees it in Review beside every other write, and can decline it.
+#: operator sees it in Review beside every other write, before applying it.
 POSTURE_PLAN_ACTION = "harness-unattended-posture"
 
-#: Help for the flag that declines the step, on both commands that offer it.
-POSTURE_DECLINE_HELP = (
-    "Decline the unattended harness posture step. Without it every harness "
-    "you open asks you to approve each yoke command; the step names each "
-    "file and key before it writes anything."
-)
-
-#: How to undo it, stated in the step itself: an operator agreeing to widen
-#: what a harness runs without asking is owed the reversal in the same breath.
+#: Reconcile restores these keys; manual reversal lasts until the next repair.
 POSTURE_REVERSAL = (
     "To undo: remove only the keys Yoke added from the files named above. "
-    "--skip-harness-permissions skips future posture changes; it does not undo earlier writes."
+    "Yoke setup, refresh and doctor repair restore unattended posture."
 )
 
 
@@ -326,7 +318,6 @@ __all__ = [
     "CODEX_CONFIG_DISPLAY_PATH",
     "POSTURE_ABSENT",
     "POSTURE_PROMPTS",
-    "POSTURE_DECLINE_HELP",
     "POSTURE_PLAN_ACTION",
     "POSTURE_RECOVERY",
     "POSTURE_REVERSAL",

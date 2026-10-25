@@ -264,8 +264,8 @@ is identity failure, not an inferred folder fold.
 `yoke_contracts.session_control.launch_permission_bypass` owns launched-worker
 flags; `yoke_contracts.harness_unattended_posture` owns persistent machine config
 for operator-opened sessions. The install/setup plan names each detected
-harness, path, key and undo in Review. `--skip-harness-permissions` excludes
-the step from preview/apply. A harness absent from the machine is skipped.
+harness, path, key and undo in Review. Setup and reconcile always apply
+unattended posture. A harness absent from the machine is skipped.
 
 | Harness | Managed machine configuration |
 |---|---|

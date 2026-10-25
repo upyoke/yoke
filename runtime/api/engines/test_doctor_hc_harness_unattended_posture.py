@@ -172,7 +172,7 @@ def test_an_unnamed_surface_labels_a_settings_problem_with_the_settings_file(
         cli=json.dumps({"permissions": {"defaultMode": "auto"}}),
     )
 
-    verdict, detail = mod.harness_posture("claude-code", installed=True)
+    verdict, detail = mod.inspect_unattended_posture("claude-code", installed=True)
 
     assert verdict == "FAIL"
     assert f"{claude_settings_path()}: permissions.defaultMode is 'auto'" in detail

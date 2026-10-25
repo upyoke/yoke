@@ -60,7 +60,8 @@ def _harness_posture_noop(monkeypatch):
     monkeypatch.setattr(isl, "reconcile_harness_setup", lambda **_kwargs: [])
 
 
-def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env):
+@pytest.mark.parametrize("skip_verify", [False, True])
+def test_install_always_reconciles_harness_setup(tmp_path: Path, install_env, skip_verify):
     repo = _fake_repo(tmp_path)
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     called = []
@@ -74,10 +75,10 @@ def test_install_skip_harness_permissions_propagates(tmp_path: Path, install_env
         cwd=repo,
         home=repo,
         target_dir=str(tmp_path / "bin"),
-        skip_harness_permissions=True,
+        skip_verify=skip_verify,
         stream=io.StringIO(),
     )
-    assert called == []
+    assert len(called) == 1
 
 
 def test_install_default_configures_every_harness(tmp_path: Path, install_env):

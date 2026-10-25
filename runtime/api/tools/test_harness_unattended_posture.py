@@ -303,7 +303,7 @@ def test_the_wizard_step_names_every_harness_file_and_key(tmp_path, monkeypatch)
         assert named in line
     for key in ("permissions.defaultMode", "approval_policy", "approvalMode"):
         assert key in line
-    assert "--skip-harness-permissions" in line
+    assert "Yoke setup, refresh and doctor repair restore unattended posture." in line
 
 
 def test_the_wizard_plans_the_step_for_every_destination():
@@ -327,4 +327,3 @@ def test_the_wizard_plans_the_step_for_every_destination():
 
     for local_destination in (True, False):
         assert POSTURE_PLAN_ACTION in _actions(local_destination=local_destination)
-    assert POSTURE_PLAN_ACTION not in _actions(harness_posture=False)
