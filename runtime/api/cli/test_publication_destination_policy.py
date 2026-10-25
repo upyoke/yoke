@@ -68,13 +68,12 @@ def test_read_only_preserves_fetch_and_refuses_all_publication(checkout, monkeyp
     )
     assert outcome['status'] == 'publication_pending'
     assert 'publication_destination_read_only' in outcome['recovery']
-    monkeypatch.setattr(worktree_preflight_upstream, 'refresh_base_branch',
-                        lambda *_: pytest.fail('must refuse before work/fetch'))
     gate = worktree_preflight_upstream.gate_upstream_for_preparation(
         str(root), {'project': {'default_branch': 'main'}}, no_worktree=False,
     )
-    assert gate.block_kind == 'publication_destination_read_only'
-    assert 'writable' in gate.narrative
+    assert not gate.block_kind
+    assert gate.freshness.verified
+    assert gate.freshness.lane_base_is_current
 
 
 def test_explicit_source_selection_restores_push_without_changing_fetch(checkout):
@@ -162,20 +161,51 @@ def test_duplicate_refuses_unrelated_local_commit_before_creation(checkout, monk
     assert git(root, 'remote', 'get-url', 'origin') == str(source)
 
 
-def test_governed_merge_refuses_read_only_before_integration(checkout):
+@pytest.mark.parametrize("refusal", [False, True])
+@pytest.mark.parametrize("remote", [False, True])
+def test_read_only_local_merge_preserves_remote_and_prints_refusals(
+    tmp_path, monkeypatch, capsys, refusal, remote,
+):
     from types import SimpleNamespace
-    from yoke_core.engines.merge_worktree_prepare_preflight import preflight_checks
+    from runtime.api.engines.local_merge_test_support import make_local_checkout
+    from runtime.api.cli.test_project_publication_settings import seed_project
+    from yoke_core.engines import merge_worktree as engine
+    from yoke_core.engines import merge_worktree_prepare_preflight as preflight
+    from yoke_core.engines import merge_worktree_runner as runner
 
-    root, source = checkout
-    original = git(root, 'rev-parse', 'HEAD')
+    root, lane, ctx = make_local_checkout(monkeypatch, tmp_path, "no-remote")
+    seed_project(root)
     destination.prevent_push(root)
-    code, message = preflight_checks(SimpleNamespace(repo_root=str(root)))
-    assert code != 0
-    assert 'publication_destination_read_only' in message
-    native_push = subprocess.run(['git', '-C', str(root), 'push', 'origin', 'main'],
-                                 capture_output=True, text=True)
-    assert native_push.returncode == 0
-    assert git(source, 'rev-parse', 'main') == original
+    if remote:
+        source = tmp_path / "source.git"
+        git(root, "clone", "--bare", str(root), str(source))
+        git(root, "remote", "add", "origin", str(source))
+        original = git(source, "show-ref")
+    commands = []
+
+    def run_git(argv, cwd, env, timeout):
+        commands.append(argv)
+        return subprocess.run(argv, cwd=cwd, env=env, timeout=timeout,
+                              capture_output=True, text=True)
+
+    monkeypatch.setattr(credentialed_git, "_run_own_credentials", run_git)
+    monkeypatch.setattr(preflight, "call_dispatcher",
+                        lambda **_kw: SimpleNamespace(success=True, result={}))
+    message = "integration_dependency_blocked: wait for the blocking item to land"
+    monkeypatch.setattr(engine, "preflight_checks",
+                        (lambda _ctx: (4, message)) if refusal else preflight.preflight_checks)
+    monkeypatch.setattr(engine, "_ensure_target_pushed",
+                        lambda *_a: pytest.fail("local merge must not publish target"))
+    assert runner.run(ctx.args) == (4 if refusal else 0)
+    if refusal:
+        assert message in capsys.readouterr().err
+        assert not (root / "feature.txt").exists()
+    else:
+        assert (root / "feature.txt").read_text() == "feature\n"
+        git(root, "merge-base", "--is-ancestor", git(lane, "rev-parse", "HEAD"), "main")
+    assert not any("push" in command for command in commands)
+    if remote:
+        assert git(source, "show-ref") == original
 
 
 def test_saved_read_only_setup_reopens_destination_without_remote_mutation(checkout, tmp_path):
