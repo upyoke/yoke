@@ -59,6 +59,7 @@ def _report(launch_id: str) -> dict[str, object]:
             "native_diagnostic_ref": DIAGNOSTIC_REF,
             "native_exit_at": "2026-08-22T12:00:41Z",
             "native_stderr_tail": REFUSAL,
+            "native_stderr_excerpt": f"starting\n{REFUSAL}",
         },
     }
 
@@ -91,4 +92,27 @@ def test_a_native_exit_without_registration_closes_the_launch_with_its_capture()
     assert evidence["exit_code"] == 1
     assert evidence["native_diagnostic_ref"] == DIAGNOSTIC_REF
     assert evidence["native_stderr_tail"] == REFUSAL
+    assert evidence["native_stderr_excerpt"] == f"starting\n{REFUSAL}"
     assert evidence["launch_phase_reached"] == "awaiting_registration"
+
+
+def test_reported_excerpt_is_redacted_and_byte_bounded_in_the_launch_read():
+    conn = launch_connection()
+    add_relay(conn)
+    launch = _awaiting_registration(conn)
+    report = _report(launch.launch_id)
+    token = "yoke_v1_" + "x" * 43
+    report["evidence"]["native_stderr_excerpt"] = "é" * 3000 + f"\n{token}\nerror"
+    report["evidence"]["private_payload"] = "must not persist"
+    apply_unregistered_native_death_reports(
+        conn, machine_id="machine-1", authorized_projects=[10],
+        reports=[report], now="2026-08-22T12:00:45Z",
+    )
+
+    # Reading durable launch state needs neither a session nor a running relay.
+    evidence = json.loads(get_launch(conn, launch.launch_id).result_evidence)
+    excerpt = evidence["native_stderr_excerpt"]
+    assert 4000 < len(excerpt.encode()) <= 4096
+    assert excerpt.endswith("[Yoke API token redacted]\nerror")
+    assert token not in excerpt
+    assert "private_payload" not in evidence

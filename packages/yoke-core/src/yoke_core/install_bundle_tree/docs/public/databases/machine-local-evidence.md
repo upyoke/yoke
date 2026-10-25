@@ -55,6 +55,8 @@ Only the machine named on the row may lease it, and only the lease it was grante
 
 ## Where the link appears
 
-The fleet report's [undelivered-message and unregistered-launch rows](../sessions/steering-report.md) end with an `evidence` clause naming `yoke session-control evidence get --session <id>`, carrying `--evidence-id` when that row's attempt recorded a diagnostic reference. Both rows render it through one contract helper (`evidence_pull_suffix`), so a row naming a failure on another machine always names the read that brings it here.
+The fleet report's [undelivered-message rows](../sessions/steering-report.md) name `yoke session-control evidence get --session <id>`, with `--evidence-id` when the attempt recorded a diagnostic reference. This read uses the registered session to reach its machine.
+
+For a launch that exits before registration, the relay pushes a redacted stderr excerpt of at most 4 KiB into the launch's stored `result_evidence.native_stderr_excerpt`. Read it with `yoke session-control launch get LAUNCH-ID --json`; the fleet report includes the full excerpt in JSON and its last 512 characters in the human row. These reads work after the source relay goes offline.
 
 The machine-local route still exists and still works: `yoke relay diagnostic <nd-ref>` reads a capture directly, which is what an operator standing on that machine wants and what still answers when the relay is down.

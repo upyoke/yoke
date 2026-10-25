@@ -99,6 +99,7 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "native_launch_pid": entry.native_launch_pid,
         "native_launch_phase": entry.native_launch_phase,
         "native_stderr_tail": entry.native_stderr_tail,
+        "native_stderr_excerpt": entry.native_stderr_excerpt,
         "exit_code": entry.exit_code,
         "spawn_duration_ms": entry.spawn_duration_ms,
         "detail": entry.detail,

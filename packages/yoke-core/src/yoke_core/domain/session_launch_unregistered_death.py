@@ -52,6 +52,7 @@ _REPORTED_EVIDENCE_FIELDS = (
     "native_diagnostic_ref",
     "native_exit_at",
     "native_stderr_tail",
+    "native_stderr_excerpt",
 )
 
 

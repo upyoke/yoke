@@ -5,5 +5,6 @@
  "commands": ["yoke session-control launch cancel", "yoke session-control launch reconcile", "yoke session-control launch retry"],
  "functions": ["session_control.launch.cancel", "session_control.launch.reconcile", "session_control.launch.retry"],
  "page": "frontier",
- "position": 5
+ "position": 5,
+ "summary": "A native that exits before registration pushes a redacted stderr excerpt of at most 4 KiB into durable launch evidence. Launch get and fleet JSON retain it when the source relay is offline; the human fleet row shows its last 512 characters. Registered-session diagnostics use session-control evidence get. Observed in source and tests; deployed proof is pending."
 }
