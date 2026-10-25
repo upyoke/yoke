@@ -84,7 +84,9 @@ def _dispatch_through(monkeypatch, workflow: Callable[..., tuple[int, str]]) -> 
     """
 
     def dispatch(config, *, before_dispatch, **kwargs):
-        ready = readiness.await_dispatch_readiness(None, before_dispatch)
+        ready = readiness.await_dispatch_readiness(
+            None, before_dispatch, kwargs.get("bound_inputs")
+        )
         if ready[0] != 0:
             return ready
         return workflow(config, **kwargs)
@@ -107,7 +109,7 @@ def _covered(
 def _stable_commit(monkeypatch) -> None:
     """Everything a release commit contributes except its history entries."""
     monkeypatch.setattr(
-        rehearsal,
+        rehearsal.sources,
         "_release_sha",
         lambda _lineage, _repository: (_RELEASE_SHA, ""),
     )

@@ -1,7 +1,7 @@
 """Prepare authoritative consumer inputs immediately before workflow dispatch."""
 
 from __future__ import annotations
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.deployment_run_bound_sources import (
@@ -25,8 +25,13 @@ def bound_inputs_for_dispatch(
     run_id: str,
     bound_inputs: Optional[Mapping[str, str]],
     member_items: list[str],
+    before_dispatch: Optional[Callable[[Mapping[str, str]], tuple[int, str]]] = None,
 ) -> tuple[dict[str, str], str]:
-    """Refresh unused sources, seal consumption, and update the driver's members."""
+    """Refresh unused sources, seal consumption, and update the driver's members.
+
+    A source preparation re-bound is not the one ``before_dispatch`` prepared
+    during the readiness wait, so it runs again on the prepared commits.
+    """
     resolved = dict(bound_inputs or {})
     declared = config.get("input_bindings") or {}
     if not declared:
@@ -107,4 +112,8 @@ def bound_inputs_for_dispatch(
             f"Bound source re-bound: {change['project']} {change['frozen_sha']} "
             f"-> {change['current_sha']} before {name}; delivery members re-derived"
         )
+    if before_dispatch is not None and resolved != dict(bound_inputs or {}):
+        rc, diagnostic = before_dispatch(resolved)
+        if rc != 0:
+            return resolved, f"{prefix}{diagnostic}"
     return resolved, ""

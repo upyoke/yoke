@@ -24,7 +24,7 @@ def test_preparation_runs_while_the_ci_gate_waits() -> None:
         assert preparation_started.wait(_OVERLAP_SECONDS)
         return True, ""
 
-    def before_dispatch() -> tuple[int, str]:
+    def before_dispatch(_bound) -> tuple[int, str]:
         preparation_started.set()
         assert gate_started.wait(_OVERLAP_SECONDS)
         assert threading.current_thread() is threading.main_thread()
@@ -52,7 +52,7 @@ def test_ci_gate_sees_the_dispatching_context() -> None:
 def test_failed_preparation_refuses_though_ci_passed() -> None:
     result = readiness.await_dispatch_readiness(
         lambda: (True, "  CI gate: passed"),
-        lambda: (1, "fleet rehearsal passed but its receipt does not cover x"),
+        lambda _bound: (1, "fleet rehearsal passed but its receipt does not cover x"),
     )
 
     assert result == (1, "fleet rehearsal passed but its receipt does not cover x")
@@ -61,7 +61,7 @@ def test_failed_preparation_refuses_though_ci_passed() -> None:
 def test_failed_ci_gate_refuses_after_the_preparation_finishes() -> None:
     prepared: list[str] = []
 
-    def before_dispatch() -> tuple[int, str]:
+    def before_dispatch(_bound) -> tuple[int, str]:
         prepared.append("rehearsed")
         return 7, "rehearsal failed"
 
@@ -74,7 +74,7 @@ def test_failed_ci_gate_refuses_after_the_preparation_finishes() -> None:
 
 
 def test_skipped_ci_gate_still_runs_the_preparation(capsys) -> None:
-    result = readiness.await_dispatch_readiness(None, lambda: (3, "refused"))
+    result = readiness.await_dispatch_readiness(None, lambda _bound: (3, "refused"))
 
     assert result == (3, "refused")
     assert "CI gate: skipped" in capsys.readouterr().out
@@ -126,7 +126,7 @@ def test_dispatch_refuses_without_a_covering_receipt() -> None:
     )
 
     rc, diagnostic = _dispatch(
-        lambda: (1, "receipt does not cover 0002_rewrite_rows"),
+        lambda _bound: (1, "receipt does not cover 0002_rewrite_rows"),
         mock.Mock(return_value=(True, "")),
         trigger,
     )
@@ -144,7 +144,7 @@ def test_dispatch_follows_the_ci_gate_once_the_receipt_is_ready() -> None:
         events.append("ci gate passed")
         return True, ""
 
-    def before_dispatch() -> tuple[int, str]:
+    def before_dispatch(_bound) -> tuple[int, str]:
         assert gate_started.wait(_OVERLAP_SECONDS)
         events.append("receipt recorded")
         return 0, ""
