@@ -230,14 +230,16 @@ def test_session_posture_requires_a_verified_surface_reader(
         assert "harness-setup --fix" not in result.detail
 
 
-def test_unproven_registration_names_new_session_and_hook_approval(monkeypatch):
+def test_unproven_registration_names_only_a_new_session(monkeypatch):
+    # Setup mints Codex hook trust, so no harness shows a trust prompt to approve.
     monkeypatch.setattr(
         doctor_install, "build_actor", lambda: SimpleNamespace(session_id="")
     )
     result = run(doctor_install.hc_session_hook_registration, only="session-hook-registration")
     assert result.result == "FAIL"
     assert "Start a new harness session" in result.detail
-    assert "Codex's hook-trust prompt" in result.detail
+    assert "approve" not in result.detail
+    assert "trust" not in result.detail
 
 
 @pytest.mark.parametrize("quick", [False, True])
