@@ -206,3 +206,38 @@ Run the focused parser tests.
     def test_empty_prose(self):
         assert detect_triggers("") == []
         assert detect_triggers(None) == []  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# _strip_code — stripped spans never join surrounding words into a trigger
+# ---------------------------------------------------------------------------
+
+
+class TestStrippedSpansDoNotJoinWords:
+    def test_inline_code_between_delete_and_from_is_ignored(self):
+        prose = "Delete `--project {project}` from the doctor command."
+        assert detect_triggers(prose) == []
+
+    def test_quoted_flag_between_delete_and_from_is_ignored(self):
+        prose = 'Delete "--project" from the doctor command.'
+        assert detect_triggers(prose) == []
+
+    def test_narrative_parenthetical_between_delete_and_from_is_ignored(self):
+        prose = (
+            "Delete (the flag an earlier release added) from the doctor "
+            "command."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_fenced_code_between_delete_and_from_is_ignored(self):
+        prose = "Delete\n```\n--project\n```\nfrom the doctor command."
+        assert detect_triggers(prose) == []
+
+    def test_sql_inside_code_span_is_ignored(self):
+        prose = "The doctor no longer runs `DELETE FROM sessions` on start."
+        assert detect_triggers(prose) == []
+
+    def test_plain_prose_delete_from_still_fires(self):
+        prose = "The cleanup step will DELETE FROM sessions for stale rows."
+        labels = [t[0] for t in detect_triggers(prose)]
+        assert "DELETE FROM <table>" in labels

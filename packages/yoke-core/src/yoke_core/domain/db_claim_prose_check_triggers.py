@@ -203,8 +203,9 @@ _NEGATIVE_DB_CLAIM_PATTERNS: List[re.Pattern] = [
 ]
 
 
-# Patterns within fenced code blocks (```...```) and inline code spans
-# (`...`) get stripped before detection.
+# Code, quoted and narrative spans become one neutral word, never a bare
+# space, so stripping cannot join the words around a span into a trigger.
+_STRIPPED_SPAN = " elided "
 _FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 _QUOTED_PROSE_RE = re.compile(r'(?:"[^"\n]+"|“[^”\n]+”)')
@@ -285,11 +286,11 @@ def _strip_code(prose: str) -> str:
     """Remove code and narrative contexts that do not declare current work."""
     if not prose:
         return ""
-    no_fenced = _FENCED_CODE_RE.sub(" ", prose)
-    no_inline = _INLINE_CODE_RE.sub(" ", no_fenced)
-    no_quotes = _QUOTED_PROSE_RE.sub(" ", no_inline)
+    no_fenced = _FENCED_CODE_RE.sub(_STRIPPED_SPAN, prose)
+    no_inline = _INLINE_CODE_RE.sub(_STRIPPED_SPAN, no_fenced)
+    no_quotes = _QUOTED_PROSE_RE.sub(_STRIPPED_SPAN, no_inline)
     no_scope = _strip_out_of_scope_sections(no_quotes)
-    no_context = _NARRATIVE_PAREN_RE.sub(" ", no_scope)
+    no_context = _NARRATIVE_PAREN_RE.sub(_STRIPPED_SPAN, no_scope)
     no_history = _HISTORICAL_SENTENCE_RE.sub(" ", no_context)
     no_tools = _TOOLING_LINE_RE.sub(" ", no_history)
     return _strip_non_executing_sql_evidence(no_tools)
