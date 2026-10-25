@@ -203,6 +203,8 @@ def parse_or_usage_error(
             help="Print only the Markdown section under HEADING (any level, "
             "case-insensitive) of the human reply.",
         )
+        if parser.usage:
+            parser.usage = f"{parser.usage} [--section HEADING]"
     if registered_read_requested():
         record_read_parser(parser)
     try:
