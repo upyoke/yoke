@@ -64,7 +64,7 @@ headings, the refusal lists them with each section's size and its exact
 `--section` command. A heading the reply lacks refuses with
 `read_section_missing` and the same outline. `--section` narrows human text
 only, so with `--json` it refuses with `read_section_requires_human_output`.
-`yoke items get ITEM FIELD --section` and `yoke items section get` keep their
+`yoke items get` with a field and `yoke items section get` keep their
 own `--section`, which reads inside one stored field or section.
 
 Suggested root/category/command targets of 40/80/120 lines and
