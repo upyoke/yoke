@@ -94,6 +94,45 @@ def test_modified_lane_hooks_refuse_without_minting(machine):
     assert "re-trust in Codex" in row.recovery
 
 
+@pytest.mark.parametrize(
+    "harness,dirname",
+    [
+        ("codex", ".codex"),
+        ("claude-code", ".claude"),
+        ("cursor", ".cursor"),
+    ],
+)
+def test_existing_allow_entry_does_not_skip_posture_repair(machine, harness, dirname):
+    from yoke_contracts import harness_unattended_posture as posture
+    from yoke_contracts.harness_yoke_allow import configure_yoke_allow, yoke_allowed
+
+    home, _root, _lanes = machine
+    (home / dirname).mkdir()
+    assert not setup.reconcile_harness_setup().failed
+    configure_yoke_allow(harness)
+    assert yoke_allowed(harness)
+    target = (
+        posture.claude_settings_path()
+        if harness == "claude-code"
+        else posture.managed_config_paths()[harness]
+    )
+    if harness == "codex":
+        target.write_text(target.read_text().replace('"never"', '"on-request"'))
+    else:
+        data = json.loads(target.read_text())
+        if harness == "claude-code":
+            data["permissions"]["defaultMode"] = "plan"
+        else:
+            data["approvalMode"] = "allowlist"
+        target.write_text(json.dumps(data))
+    result = setup.reconcile_harness_setup()
+    row = next(
+        r for r in result.rows if r.harness_id == harness and r.facet == "posture"
+    )
+    assert row.outcome == "written", row
+    assert not setup.yoke_posture(harness).kept
+
+
 def test_malformed_file_preserved_and_other_harnesses_continue(machine):
     home, root, _ = machine
     (home / ".codex").mkdir()

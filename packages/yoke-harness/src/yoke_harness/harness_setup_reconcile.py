@@ -119,7 +119,11 @@ def _posture(harness: str) -> tuple[bool, str]:
                 f"harness_config_malformed: {target}: permissions is not an object"
             )
     verdict = yoke_posture(harness)
-    problems = verdict.blocking if verdict else (f"{target}: no {harness} config",)
+    problems = (
+        verdict.blocking + verdict.kept
+        if verdict
+        else (f"{target}: no {harness} config",)
+    )
     return not problems, f"harness_posture_missing: {'; '.join(problems)}"
 
 
@@ -215,9 +219,7 @@ def _targets(
     return sorted(targets.items(), key=lambda pair: (pair[0] != pair[1], str(pair[0])))
 
 
-def _walk(
-    paths: Sequence[Path] | None, *, apply: bool
-) -> HarnessSetupResult:
+def _walk(paths: Sequence[Path] | None, *, apply: bool) -> HarnessSetupResult:
     rows: list[HarnessSetupRow] = []
     try:
         targets = _targets(paths, rows)
@@ -311,8 +313,6 @@ def inspect_harness_setup(paths: Sequence[Path] | None = None) -> HarnessSetupRe
     return _walk(paths, apply=False)
 
 
-def reconcile_harness_setup(
-    paths: Sequence[Path] | None = None
-) -> HarnessSetupResult:
+def reconcile_harness_setup(paths: Sequence[Path] | None = None) -> HarnessSetupResult:
     """Apply every facet, including unattended posture, to installed harnesses."""
     return _walk(paths, apply=True)
