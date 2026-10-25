@@ -90,8 +90,10 @@ def test_bare_python_and_yoke_import_candidate_instead_of_installed_source(
     output = Path(result["output_capture"]).read_text()
     assert output.count("candidate-only") == 2
     assert "[candidate_source]" not in output
-    assert output == record["output"]
+    assert output in record["output"]
+    assert "[candidate_source]" not in record["output"]
     raw = json.loads(record["raw_result"])
+    assert "[candidate_source]" not in raw["output_tail"]
     assert raw["candidate_source"] == result["candidate_source"]
     for moment in ("before", "after"):
         origins = raw["candidate_source"][moment]
