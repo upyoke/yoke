@@ -51,7 +51,6 @@ class PlanGetRequest(ProjectReadRequest):
 
 class ActivityListRequest(ProjectReadRequest):
     detail: ReadDetail = DETAIL_SUMMARY
-    # CLI pages are total bounds; grouped UI reads retain their per-run bound.
     limit: int = Field(default=100, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
