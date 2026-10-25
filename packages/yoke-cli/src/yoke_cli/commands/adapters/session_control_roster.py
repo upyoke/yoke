@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 from yoke_cli.transport.human_values import write_human
 from typing import List
 
@@ -10,7 +12,6 @@ from yoke_cli.commands._helpers import (
     add_full_arg,
     add_json_arg,
     add_session_arg,
-    dispatch_and_emit,
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -72,16 +73,7 @@ def session_control_roster_list(args: List[str]) -> int:
             "terminated session, 'wound_down' for an ordinary end."
         ),
     )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Page size (default: 25; maximum: 500).",
-    )
-    parser.add_argument(
-        "--offset", type=int, default=0, metavar="N", help="Start at this row."
-    )
+    add_page_args(parser, limit=None)
     add_full_arg(
         parser, "all sessions and complete roster details unless --limit is named"
     )
@@ -114,7 +106,8 @@ def session_control_roster_list(args: List[str]) -> int:
         }.items()
         if value is not None
     }
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="sessions.list",
         target=TargetRef(kind="global"),
         payload=payload,
@@ -135,14 +128,24 @@ def write_roster_summary(response, stdout, stderr, *, full=False) -> None:
         write_human(result, stdout)
         return
     fields = result.get("fields") or []
-    rows = [dict(zip(fields, row)) if isinstance(row, list) else row for row in result.get("rows") or []]
-    write_human({"sessions": [{
-        "session_id": row.get("session_id"),
-        "liveness": row.get("liveness"),
-        "mode": row.get("mode"),
-        "current_item_ref": row.get("current_item_ref") or row.get("current_item"),
-        "executor_surface": row.get("executor_surface"),
-    } for row in rows]}, stdout)
-    if result.get("next_offset") is not None:
-        print(f"Next page: --offset {result['next_offset']}", file=stdout)
+    rows = [
+        dict(zip(fields, row)) if isinstance(row, list) else row
+        for row in result.get("rows") or []
+    ]
+    write_human(
+        {
+            "sessions": [
+                {
+                    "session_id": row.get("session_id"),
+                    "liveness": row.get("liveness"),
+                    "mode": row.get("mode"),
+                    "current_item_ref": row.get("current_item_ref")
+                    or row.get("current_item"),
+                    "executor_surface": row.get("executor_surface"),
+                }
+                for row in rows
+            ]
+        },
+        stdout,
+    )
     print("Details: yoke sessions list --session SESSION-ID --full", file=stdout)

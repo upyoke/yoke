@@ -287,4 +287,4 @@ class TestQaRequirementList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "deployment_run"
         assert req.target.deployment_run_id == "run-20260731-001"
-        assert req.payload == {}
+        assert req.payload == {"limit": 25, "offset": 0}

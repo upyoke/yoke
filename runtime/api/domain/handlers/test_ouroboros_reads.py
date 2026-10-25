@@ -26,7 +26,13 @@ def _request(function_id: str, payload=None) -> FunctionCallRequest:
 
 def _seed_entry(conn, *, timestamp: str, body: str, project=None) -> int:
     entry_id = cmd_insert_entry(
-        conn, timestamp, "tester", "ctx", "observation", body, project,
+        conn,
+        timestamp,
+        "tester",
+        "ctx",
+        "observation",
+        body,
+        project,
     )
     conn.commit()
     return int(entry_id)
@@ -50,7 +56,9 @@ class TestOuroborosEntryList:
 
     def test_unreviewed_filter(self, test_db):
         reviewed_id = _seed_entry(
-            test_db, timestamp="2026-01-01T00:00:00Z", body="reviewed",
+            test_db,
+            timestamp="2026-01-01T00:00:00Z",
+            body="reviewed",
         )
         cmd_mark_reviewed(test_db, reviewed_id)
         test_db.commit()
@@ -86,6 +94,8 @@ class TestOuroborosEntryList:
         )
         assert [e["body"] for e in first.result_payload["entries"]] == ["c", "b"]
         assert [e["body"] for e in second.result_payload["entries"]] == ["a"]
+        assert first.result_payload["next_offset"] == 2
+        assert second.result_payload["next_offset"] is None
 
     def test_rejects_limit_above_cap(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
@@ -150,7 +160,8 @@ class TestOuroborosEntryList:
 class TestOuroborosEntryGet:
     def test_returns_full_entry(self, test_db):
         entry_id = _seed_entry(
-            test_db, timestamp="2026-01-01T00:00:00Z",
+            test_db,
+            timestamp="2026-01-01T00:00:00Z",
             body="line one\nline two",
         )
         outcome = ouroboros_reads.handle_ouroboros_entry_get(

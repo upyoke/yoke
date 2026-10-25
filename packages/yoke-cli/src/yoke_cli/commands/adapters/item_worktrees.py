@@ -1,7 +1,8 @@
 """``yoke item-worktrees ...`` flag adapters."""
 
 from __future__ import annotations
-from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 
 import argparse
 import json
@@ -34,12 +35,10 @@ ITEM_WORKTREES_GET_USAGE = (
     "[--session-id S] [--json]"
 )
 ITEM_WORKTREES_LIST_USAGE = (
-    "yoke item-worktrees list <PREFIX-N> [--project P] [--full] "
+    "yoke item-worktrees list <PREFIX-N> [--project P] [--limit N] [--offset N] [--full] "
     "[--session-id S] [--json]"
 )
-ITEM_WORKTREES_INVENTORY_USAGE = (
-    "yoke item-worktrees inventory --project P [--full] [--session-id S] [--json]"
-)
+ITEM_WORKTREES_INVENTORY_USAGE = "yoke item-worktrees inventory --project P [--limit N] [--offset N] [--full] [--session-id S] [--json]"
 ITEM_WORKTREES_PATH_RECORD_USAGE = (
     "yoke item-worktrees path-record <PREFIX-N> --worktree-id ID "
     "--branch BRANCH --path ABSOLUTE_PATH "
@@ -121,22 +120,20 @@ def item_worktrees_list(args: List[str]) -> int:
         metavar="PREFIX-N",
         help="Item id.",
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEM_WORKTREES_LIST_USAGE)
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, _stderr) -> None:
-        write_human(response.result or {}, stdout)
-
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="item_worktrees.list",
         target=item_target("item", parsed.item, parsed.project),
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
     )
 
 
@@ -152,22 +149,20 @@ def item_worktrees_inventory(args: List[str]) -> int:
         metavar="P",
         help="Project slug or numeric id whose lanes to read.",
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEM_WORKTREES_INVENTORY_USAGE)
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, _stderr) -> None:
-        write_human(response.result or {}, stdout)
-
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="item_worktrees.inventory",
         target=TargetRef(kind="global"),
         payload={"project": parsed.project},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
     )
 
 

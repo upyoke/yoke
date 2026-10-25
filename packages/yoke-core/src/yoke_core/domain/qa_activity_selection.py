@@ -208,6 +208,7 @@ def bound_total(
     bounded: int,
     where: str,
     params: list[Any],
+    offset: int = 0,
 ) -> tuple[list[Any], dict[str, Any]]:
     """Keep the newest ``bounded`` rows, and count what matched when cut.
 
@@ -216,7 +217,7 @@ def bound_total(
     """
     truncated = len(rows) > bounded
     total = len(rows)
-    if truncated:
+    if truncated or offset:
         counted = query_rows(
             conn, f"SELECT COUNT(*) AS total {ACTIVITY_SOURCE} {where}", tuple(params)
         )
@@ -233,6 +234,7 @@ def select_activity(
     bounded: int,
     item_scoped: bool,
     per_run_group: bool,
+    offset: int = 0,
 ) -> tuple[list[Any], Optional[dict[str, Any]]]:
     """Run the bounded read, and say how an item-scoped one was bounded.
 
@@ -241,17 +243,22 @@ def select_activity(
     item ever took part in is a group, so a per-run bound would grow with the
     item's lifetime instead of honouring the limit the caller asked for.
     """
+    if per_run_group and offset:
+        raise ValueError(
+            "activity_group_offset_unsupported: omit --offset for per-run group reads"
+        )
     probe = bounded + 1 if item_scoped else bounded
     rows = query_rows(
         conn,
-        activity_query(marker, where, per_run_group=per_run_group),
-        (*params, probe),
+        activity_query(marker, where, per_run_group=per_run_group)
+        + (f" OFFSET {marker}" if not per_run_group else ""),
+        (*params, probe, offset) if not per_run_group else (*params, probe),
     )
     if not item_scoped:
         return rows, None
     if per_run_group:
         return bound_groups(rows, bounded)
-    return bound_total(conn, rows, bounded, where, params)
+    return bound_total(conn, rows, bounded, where, params, offset=offset)
 
 
 __all__ = [

@@ -26,13 +26,29 @@ _READ_SECTION: ContextVar[str | None] = ContextVar(
 _SECTION_SUPPORTED = ContextVar("registered_read_section_supported", default=False)
 
 _PROJECTION = {
-    "fields", "field", "include", "section", "read_section", "detail", "view"
+    "fields",
+    "field",
+    "include",
+    "section",
+    "read_section",
+    "detail",
+    "view",
 }
 _LIMIT = {"limit", "page_size", "display_limit", "lines"}
 _PAGING = {"offset", "cursor", "page"}
 _NOT_NARROWING = {
-    "help", "full", "json", "session_id", "project", "config", "stdin",
-    "output", "output_file", "format", "timeout", "wait",
+    "help",
+    "full",
+    "json",
+    "session_id",
+    "project",
+    "config",
+    "stdin",
+    "output",
+    "output_file",
+    "format",
+    "timeout",
+    "wait",
 }
 
 
@@ -108,10 +124,30 @@ def section_command(heading: str) -> str | None:
     return shlex.join([*kept, "--section", heading])
 
 
+def page_command(offset: int) -> str | None:
+    """Continue this exact read while keeping its filters and detail flags."""
+    command = _READ_COMMAND.get()
+    if not command:
+        return None
+    kept: list[str] = []
+    skip = False
+    for token in command:
+        if skip:
+            skip = False
+        elif token == "--offset":
+            skip = True
+        elif not token.startswith("--offset="):
+            kept.append(token)
+    return shlex.join([*kept, "--offset", str(offset)])
+
+
 def narrowing_flags(parser: argparse.ArgumentParser) -> dict[str, list[str]]:
     """Group the parser's real narrowing arguments by kind."""
     groups: dict[str, list[str]] = {
-        "fields": [], "filters": [], "limit": [], "paging": []
+        "fields": [],
+        "filters": [],
+        "limit": [],
+        "paging": [],
     }
     for action in parser._actions:
         if not action.option_strings:
@@ -122,10 +158,14 @@ def narrowing_flags(parser: argparse.ArgumentParser) -> dict[str, list[str]]:
             continue
         flag = max(action.option_strings, key=len)
         kind = (
-            "fields" if action.dest in _PROJECTION
-            else "limit" if action.dest in _LIMIT
-            else "paging" if action.dest in _PAGING
-            else "filters" if action.nargs != 0
+            "fields"
+            if action.dest in _PROJECTION
+            else "limit"
+            if action.dest in _LIMIT
+            else "paging"
+            if action.dest in _PAGING
+            else "filters"
+            if action.nargs != 0
             else None
         )
         if kind:
@@ -153,7 +193,6 @@ def read_recovery(function: str) -> str:
     named = "; ".join(f"{kind} {', '.join(flags)}" for kind, flags in groups.items())
     narrow = f"Narrow {command} with its {named}"
     full = any("--full" in action.option_strings for action in parser._actions)
-    return (
-        f"{narrow}; run {command} --help for the exact recipe"
-        + (", or add --full to request the entire answer explicitly." if full else ".")
+    return f"{narrow}; run {command} --help for the exact recipe" + (
+        ", or add --full to request the entire answer explicitly." if full else "."
     )

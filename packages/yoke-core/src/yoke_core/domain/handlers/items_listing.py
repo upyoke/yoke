@@ -195,7 +195,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                     )
                 sql = (
                     f"SELECT {select_cols} FROM items i{join} "
-                    f"{where_clause} ORDER BY i.id"
+                    f"{where_clause} ORDER BY i.id DESC"
                 )
                 sql_params: tuple = tuple(params)
                 if limit is not None:

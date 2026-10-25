@@ -19,7 +19,7 @@ class TestEpicTasksList:
         assert req.function == "epic_tasks.list.run"
         assert req.target.kind == "epic_task"
         assert req.target.public_ref == "YOK-501"
-        assert req.payload == {}
+        assert req.payload == {"limit": 25, "offset": 0}
 
     def test_missing_epic_returns_two(self) -> None:
         rc = _run(_stub_ok, "epic-tasks", "list")

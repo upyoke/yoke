@@ -72,6 +72,8 @@ Suggested root/category/command targets of 40/80/120 lines and
 40 lines and 2,400 characters. These targets are advisory; individual command
 size tests guard the routine projections.
 
+List reads use `--limit`/`--offset`; follow the next-page command.
+
 ## Deliberate data and machine formats
 
 ```text

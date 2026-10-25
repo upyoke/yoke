@@ -52,6 +52,7 @@ class OuroborosEntryListResponse(BaseModel):
     count: Optional[int] = None
     matching_count: Optional[int] = None
     next_cursor: Optional[str] = None
+    next_offset: Optional[int] = None
     limit: Optional[int] = None
     offset: Optional[int] = None
 
@@ -269,6 +270,7 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
             "entries": entries,
             "limit": limit,
             "offset": offset,
+            "next_offset": offset + len(entries) if len(entries) == limit else None,
         },
         primary_success=True,
     )

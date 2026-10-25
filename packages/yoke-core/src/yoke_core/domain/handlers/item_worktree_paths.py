@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
@@ -15,11 +17,11 @@ from yoke_core.domain.workflow_item_binding_validation import (
 )
 
 
-class ItemWorktreesListRequest(BaseModel):
+class ItemWorktreesListRequest(ListPageRequest):
     pass
 
 
-class ItemWorktreesListResponse(BaseModel):
+class ItemWorktreesListResponse(ListPageResponse):
     item_id: int
     worktrees: list[ItemWorktreeLane]
 
@@ -80,7 +82,9 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
         worktrees=[ItemWorktreeLane.model_validate(lane) for lane in lanes],
     )
     return HandlerOutcome(
-        result_payload=response.model_dump(),
+        result_payload=page_result(
+            response.model_dump(), "worktrees", request.payload or {}
+        ),
         primary_success=True,
     )
 

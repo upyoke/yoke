@@ -35,6 +35,7 @@ has no checkout.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from yoke_contracts.list_paging import page_result
 
 from yoke_core.domain import events as _events
 from yoke_core.domain import strategy_docs as _docs
@@ -111,11 +112,15 @@ def handle_doc_list(request: FunctionCallRequest) -> HandlerOutcome:
             return perr
         docs = _docs.list_docs(conn, project.id)
     return HandlerOutcome(
-        result_payload=DocListResponse(
-            project_id=project.id,
-            project_slug=project.slug,
-            docs=docs,
-        ).model_dump(),
+        result_payload=page_result(
+            DocListResponse(
+                project_id=project.id,
+                project_slug=project.slug,
+                docs=docs,
+            ).model_dump(),
+            "docs",
+            request.payload or {},
+        ),
         primary_success=True,
     )
 

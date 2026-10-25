@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -17,15 +19,13 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 
-
 QA_REQUIREMENT_LIST_USAGE = (
     "yoke qa requirement list [--item PREFIX-N | --epic PREFIX-N | "
-    "--deployment-run-id ID] [--project P] [--full] [--session-id S] [--json]"
+    "--deployment-run-id ID] [--project P] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_LIST_HELP_DEEP = """\
-List QA requirements. Pass one filter, or none to list every requirement in
-the project. When several are passed, --item wins, then --deployment-run-id,
+List a page of QA requirements. Pass one filter, or none for project scope. When several are passed, --item wins, then --deployment-run-id,
 then --epic.
 
   yoke qa requirement list --item YOK-N
@@ -44,7 +44,10 @@ def qa_requirement_list(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--item", default=None, metavar="PREFIX-N", help="Only this item's requirements."
+        "--item",
+        default=None,
+        metavar="PREFIX-N",
+        help="Only this item's requirements.",
     )
     parser.add_argument(
         "--epic",
@@ -60,6 +63,7 @@ def qa_requirement_list(args: List[str]) -> int:
         metavar="ID",
         help="Only this deployment run's requirements (run-YYYYMMDD-NNN).",
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_LIST_USAGE)
@@ -79,7 +83,8 @@ def qa_requirement_list(args: List[str]) -> int:
         )
         if parsed.epic is not None:
             payload["epic_public_ref"] = parsed.epic
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="qa.requirement.list",
         target=target,
         payload=payload,
@@ -88,9 +93,7 @@ def qa_requirement_list(args: List[str]) -> int:
     )
 
 
-QA_REQUIREMENT_GET_USAGE = (
-    "yoke qa requirement get (N | --requirement-id N) [--full] [--session-id S] [--json]"
-)
+QA_REQUIREMENT_GET_USAGE = "yoke qa requirement get (N | --requirement-id N) [--full] [--session-id S] [--json]"
 
 _REQUIREMENT_GET_HELP_DEEP = """\
 Show one QA requirement by its id. Pass the id positionally or with
@@ -140,7 +143,7 @@ def qa_requirement_get(args: List[str]) -> int:
 
 
 QA_RUN_LIST_USAGE = (
-    "yoke qa run list [--requirement-id N] [--project P] [--full] [--session-id S] "
+    "yoke qa run list [--requirement-id N] [--project P] [--limit N] [--offset N] [--full] [--session-id S] "
     "[--json]"
 )
 
@@ -149,7 +152,7 @@ With --requirement-id, list that requirement's runs: the current run first
 (latest start time, then highest id), then the older runs, newest id first.
 A run with a missing or invalid start time refuses the list with
 qa_execution_order_ambiguous. Without --requirement-id, list every run in the
-project, oldest id first (for debugging; agents filter by requirement).
+project, newest id first (for debugging; agents filter by requirement).
 
   yoke qa run list --requirement-id 5731
 
@@ -162,7 +165,8 @@ Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 def qa_run_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run list",
-        usage=QA_RUN_LIST_USAGE, description=_RUN_LIST_HELP_DEEP,
+        usage=QA_RUN_LIST_USAGE,
+        description=_RUN_LIST_HELP_DEEP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -174,6 +178,7 @@ def qa_run_list(args: List[str]) -> int:
         help="Only runs of this QA requirement id.",
     )
     add_project_arg(parser)
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_LIST_USAGE)
@@ -188,7 +193,8 @@ def qa_run_list(args: List[str]) -> int:
         target = TargetRef(
             kind="global", project_id=client_project_context(parsed.project)
         )
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="qa.run.list",
         target=target,
         payload={},
@@ -212,10 +218,15 @@ project; a run from another project is refused.
 def qa_run_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run get",
-        usage=QA_RUN_GET_USAGE, description=_RUN_GET_HELP_DEEP,
+        usage=QA_RUN_GET_USAGE,
+        description=_RUN_GET_HELP_DEEP,
     )
     parser.add_argument(
-        "--run-id", dest="run_id", type=int, required=True, metavar="N",
+        "--run-id",
+        dest="run_id",
+        type=int,
+        required=True,
+        metavar="N",
         help="The QA run's id.",
     )
     add_project_arg(parser)

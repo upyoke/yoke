@@ -82,8 +82,7 @@ def test_human_output_names_terminal_effects() -> None:
 def test_sessions_list_narrows_kills_through_ended_cause(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
-        roster,
-        "dispatch_and_emit",
+        "yoke_cli.commands.adapters.list_paging.dispatch_and_emit",
         lambda **kwargs: calls.append(kwargs) or 0,
     )
 
@@ -100,4 +99,3 @@ def test_sessions_list_rejects_terminated_as_a_liveness_peer(capsys) -> None:
     stderr = capsys.readouterr().err
     assert "invalid choice: 'terminated'" in stderr
     assert "--ended-cause killed|wound_down" in stderr
-

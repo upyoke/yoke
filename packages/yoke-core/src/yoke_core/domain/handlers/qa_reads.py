@@ -1,10 +1,8 @@
-"""QA read handlers — qa.requirement.{list,get}, qa.run.{list,get},
-qa.gate_summary.run. Typed read legs for the ``qa`` family; each wraps
-the matching domain read without CLI presentation. Reads only:
-``claim_required_kind=None``, ``YokeFunctionCalled`` emission.
-"""
+"""QA requirement, run and gate-summary read handlers."""
 
 from __future__ import annotations
+
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
 
 from typing import Any, Dict, List, Optional
 
@@ -29,13 +27,13 @@ def _rows_to_dicts(rows: Any, columns: tuple) -> List[Dict[str, Any]]:
 # qa.requirement.list
 
 
-class QaRequirementListRequest(BaseModel):
+class QaRequirementListRequest(ListPageRequest):
     item_id: Optional[int] = None
     epic_id: Optional[int] = None
     deployment_run_id: Optional[str] = None
 
 
-class QaRequirementListResponse(BaseModel):
+class QaRequirementListResponse(ListPageResponse):
     rows: List[Dict[str, Any]]
 
 
@@ -73,14 +71,14 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = query_rows(
             conn,
             f"SELECT {', '.join(REQ_COLUMNS)} FROM qa_requirements "
-            f"WHERE {where.format(p=_p(conn))} ORDER BY id",
+            f"WHERE {where.format(p=_p(conn))} ORDER BY id DESC",
             params,
         )
         listed = annotate_requirement_currency(conn, _rows_to_dicts(rows, REQ_COLUMNS))
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"rows": listed},
+        result_payload=page_result({"rows": listed}, "rows", payload),
         primary_success=True,
     )
 
@@ -128,11 +126,11 @@ def handle_qa_requirement_get(request: FunctionCallRequest) -> HandlerOutcome:
 # qa.run.list / qa.run.get
 
 
-class QaRunListRequest(BaseModel):
+class QaRunListRequest(ListPageRequest):
     requirement_id: Optional[int] = None
 
 
-class QaRunListResponse(BaseModel):
+class QaRunListResponse(ListPageResponse):
     rows: List[Dict[str, Any]]
     current_run_id: Optional[int] = None
 
@@ -169,7 +167,7 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = query_rows(
             conn,
             f"SELECT {', '.join(RUN_COLUMNS)}{actual} FROM qa_runs "
-            f"WHERE {where.format(p=_p(conn))} ORDER BY id",
+            f"WHERE {where.format(p=_p(conn))} ORDER BY id DESC",
             params,
         )
         rows, current_id = executions.run_history_with_current(rows, requirement_id)
@@ -178,10 +176,14 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={
-            "rows": [qa_run_read_projection(row) for row in rows],
-            "current_run_id": current_id,
-        },
+        result_payload=page_result(
+            {
+                "rows": [qa_run_read_projection(row) for row in rows],
+                "current_run_id": current_id,
+            },
+            "rows",
+            payload,
+        ),
         primary_success=True,
     )
 

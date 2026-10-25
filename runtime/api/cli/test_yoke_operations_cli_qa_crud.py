@@ -68,21 +68,21 @@ class TestQaRequirementList:
         assert req.function == "qa.requirement.list"
         assert req.target.kind == "item"
         assert req.target.public_ref == "YOK-1833"
-        assert req.payload == {}
+        assert req.payload == {"limit": 25, "offset": 0}
 
     def test_epic_filter_rides_payload(self) -> None:
         rc = _run(_stub_ok, "qa", "requirement", "list", "--epic", "YOK-1704")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
-        assert req.payload == {"epic_public_ref": "YOK-1704"}
+        assert req.payload == {"epic_public_ref": "YOK-1704", "limit": 25, "offset": 0}
 
     def test_no_filter_is_global(self) -> None:
         rc = _run(_stub_ok, "qa", "requirement", "list")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
-        assert req.payload == {}
+        assert req.payload == {"limit": 25, "offset": 0}
 
     def test_explicit_project_satisfies_global_resolution(self) -> None:
         args = ("qa", "requirement", "list", "--epic", "YOK-1704")
@@ -91,7 +91,7 @@ class TestQaRequirementList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
         assert req.target.project_id == "yoke"
-        assert req.payload == {"epic_public_ref": "YOK-1704"}
+        assert req.payload == {"epic_public_ref": "YOK-1704", "limit": 25, "offset": 0}
 
 
 class TestQaRequirementGet:

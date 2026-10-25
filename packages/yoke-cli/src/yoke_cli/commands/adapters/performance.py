@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -13,9 +14,7 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 _RANGE_USAGE = "--since ISO --until ISO [--project-ids ID,ID] [--points N]"
-PERFORMANCE_AGGREGATE_USAGE = (
-    f"yoke events performance aggregate {_RANGE_USAGE} [--full] [--session-id S] [--json]"
-)
+PERFORMANCE_AGGREGATE_USAGE = f"yoke events performance aggregate {_RANGE_USAGE} [--full] [--session-id S] [--json]"
 PERFORMANCE_DETAIL_USAGE = f"yoke events performance detail {_RANGE_USAGE} [--family FAMILY] [--offset N] [--limit N] [--full] [--session-id S] [--json]"
 
 
@@ -63,16 +62,7 @@ def _run(args: list[str], detail: bool) -> int:
             metavar="FAMILY",
             help="Kind of timing to read: function, tool, hook, relay, or watcher.",
         )
-        parser.add_argument(
-            "--offset",
-            type=int,
-            default=0,
-            metavar="N",
-            help="Rows to skip before the first one returned; default: 0.",
-        )
-        parser.add_argument(
-            "--limit", type=int, default=50, metavar="N", help="Most rows returned; default: 50."
-        )
+        add_page_args(parser, limit=50, maximum=100)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -86,7 +76,9 @@ def _run(args: list[str], detail: bool) -> int:
             parser.error("--project-ids must be comma-separated integer ids")
     if detail:
         payload.update(family=parsed.family, offset=parsed.offset, limit=parsed.limit)
-    return dispatch_and_emit(
+    emit = dispatch_list if detail else dispatch_and_emit
+    return emit(
+        **({"parsed": parsed} if detail else {}),
         function_id=f"events.performance.{verb}",
         target=TargetRef(kind="global"),
         payload=payload,

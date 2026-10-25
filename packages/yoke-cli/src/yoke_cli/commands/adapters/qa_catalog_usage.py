@@ -25,7 +25,9 @@ PLAN_CASES_SYNC_USAGE = (
 )
 
 USAGE_BY_FUNCTION_ID = {
-    "qa.method.list": ("yoke qa method list [--project P] [--session-id S] [--json]"),
+    "qa.method.list": (
+        "yoke qa method list [--limit N] [--offset N] [--project P] [--full] [--session-id S] [--json]"
+    ),
     "qa.method.get": (
         "yoke qa method get METHOD [--project P] [--full] [--session-id S] [--json]"
     ),
@@ -47,7 +49,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.activity.list": (
         "yoke qa activity list --project P [--deployment-run-id RUN] "
-        "[--item PREFIX-N ...] [--limit N] [--full] [--session-id S] [--json]"
+        "[--item PREFIX-N ...] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
     ),
     "qa.plan.create": (
         "yoke qa plan create SLUG --project P "

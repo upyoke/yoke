@@ -206,7 +206,9 @@ def test_cli_renders_outside_project(monkeypatch):
         kwargs["human_writer"](SimpleNamespace(result=raw), output, StringIO())
         return 0
 
-    monkeypatch.setattr(sessions_read, "dispatch_and_emit", dispatch)
+    monkeypatch.setattr(
+        "yoke_cli.commands.adapters.list_paging.dispatch_and_emit", dispatch
+    )
     assert sessions_read.sessions_list([]) == 0
     assert "outside any project (org 7)" in output.getvalue()
     assert raw["rows"][0]["project"] is None

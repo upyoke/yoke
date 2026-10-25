@@ -8,16 +8,18 @@ see which project's corpus served the call.
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class DocListRequest(BaseModel):
+class DocListRequest(ListPageRequest):
     model_config = ConfigDict(extra="forbid")
 
 
-class DocListResponse(BaseModel):
+class DocListResponse(ListPageResponse):
     project_id: int
     project_slug: str
     docs: List[Dict[str, Any]] = Field(default_factory=list)
@@ -41,7 +43,8 @@ class DocGetResponse(BaseModel):
 class DocSectionReplaceRequest(BaseModel):
     slug: str = Field(..., min_length=1, description="Strategy doc slug.")
     heading: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description=(
             "Heading text of the section to replace, matched "
             "case-insensitively at any level. The section runs to the next "
@@ -58,14 +61,16 @@ class DocSectionReplaceRequest(BaseModel):
         ),
     )
     base_updated_at: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description=(
             "The row updated_at this section was authored against (from "
             "strategy.doc.get); the write is compare-and-swap on it."
         ),
     )
     force: bool = Field(
-        False, description="Bypass the shrink guard for an intentional rewrite.",
+        False,
+        description="Bypass the shrink guard for an intentional rewrite.",
     )
 
 
@@ -80,14 +85,16 @@ class DocReplaceRequest(BaseModel):
         ),
     )
     base_updated_at: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description=(
             "The row updated_at this content was authored against (from "
             "strategy.doc.get); the write is compare-and-swap on it."
         ),
     )
     force: bool = Field(
-        False, description="Bypass the shrink guard for an intentional rewrite.",
+        False,
+        description="Bypass the shrink guard for an intentional rewrite.",
     )
 
 
@@ -109,7 +116,9 @@ class RenderKnownDoc(BaseModel):
     slug: str = Field(..., min_length=1)
     updated_at: str = Field(..., min_length=1)
     content_sha256: str = Field(
-        ..., min_length=64, max_length=64,
+        ...,
+        min_length=64,
+        max_length=64,
         description="sha256 of the header-free DB body last rendered locally.",
     )
     archived: bool = False
