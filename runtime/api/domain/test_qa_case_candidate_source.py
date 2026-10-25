@@ -89,7 +89,11 @@ def test_bare_python_and_yoke_import_candidate_instead_of_installed_source(
     assert result["verdict"] == "pass"
     output = Path(result["output_capture"]).read_text()
     assert output.count("candidate-only") == 2
+    assert "[candidate_source]" not in output
+    assert output in record["output"]
+    assert "[candidate_source]" not in record["output"]
     raw = json.loads(record["raw_result"])
+    assert "[candidate_source]" not in raw["output_tail"]
     assert raw["candidate_source"] == result["candidate_source"]
     for moment in ("before", "after"):
         origins = raw["candidate_source"][moment]
@@ -130,6 +134,10 @@ def test_zero_exit_cannot_pass_when_candidate_origins_change_during_command(
     assert result["verdict"] == record["verdict"] == "fail"
     assert "after" in result["candidate_source"]
     assert "missing" in result["candidate_source"]["refusal"]
+    refusal = result["candidate_source"]["refusal"]
+    assert refusal in Path(result["output_capture"]).read_text()
+    assert refusal in record["output"]
+    assert refusal in json.loads(record["raw_result"])["output_tail"]
 
 
 @pytest.mark.parametrize("scope", ["lane", "endpoint", "external"])

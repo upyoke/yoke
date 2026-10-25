@@ -4,5 +4,5 @@
  "status": "observed",
  "page": "verification",
  "position": 1,
- "description": "Raw captures preserve command output for inspection. Reading captures, finished task output or agent-written files needs no polling suppression. Short sleeps before reads of session-registered captures are refused; duplicate Monitors, GitHub polling loops and background waiters remain guarded. GitHub-loop detection inspects executed shell sources and ignores quoted data and Python heredoc fixture text."
+ "description": "Raw captures preserve command output for inspection. Reading captures, finished task output or agent-written files needs no polling suppression. Short sleeps before reads of session-registered captures are refused; duplicate Monitors, GitHub polling loops and background waiters remain guarded. GitHub-loop detection inspects executed shell sources and ignores quoted data and Python heredoc fixture text. Command QA captures retain command output and candidate-source refusals; the structured candidate_source result holds the import-binding evidence separately, while its report remains visible in the live stream."
 }
