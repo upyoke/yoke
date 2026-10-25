@@ -1,7 +1,12 @@
 """Composer: deploy-run setup for a single item, behind one entrypoint.
 
-Resolves the target, then creates the run with the item enrolled and its
-composition validated in one transaction
+Resolves the target, returns the run that already owns the item's delivery
+when there is one (:mod:`~yoke_core.domain.deployment_item_delivery_owner`),
+binds the release source exactly as ``deployment-runs create`` does
+(:func:`~yoke_core.domain.deployment_run_ci_tested_source.bind_tested_release_source`:
+the CI-proven gate branch tip, or an explicit ``--release-lineage``), then
+creates the run with the item enrolled and its composition validated in one
+transaction
 (:func:`~yoke_core.domain.deployment_run_create_write.create_item_run`). Stops at
 validation — deploy execution remains a separate operator call into
 ``yoke_core.domain.deploy_pipeline``. The composer never invokes
@@ -19,7 +24,12 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id as _ref
-from yoke_core.domain.deployment_run_ci_tested_source import require_tested_lineage
+from yoke_core.domain.deployment_item_delivery_owner import delivery_owner
+from yoke_core.domain.deployment_run_ci_tested_source import (
+    START_SOURCE_FLAG,
+    ReleaseSourceRefused,
+    bind_tested_release_source,
+)
 from yoke_core.domain.deployment_run_create_write import (
     CompositionRefused,
     create_item_run,
@@ -31,15 +41,9 @@ from yoke_core.domain.deployment_run_target_resolution import (
 from yoke_core.domain.deployment_run_lineage_rebind import (
     PREPARE_NAMES_NO_LINEAGE,
 )
-from yoke_core.domain.environment_delivery_record import STAGE_ENV_NAME
 from yoke_core.domain.deployment_item_flow_resolution import (
     describe_missing_flow as _describe_missing_flow,
     lookup_item_project_and_flow as _lookup_item_project_and_flow,
-)
-from yoke_core.engines.runs_release_lineage import (
-    NO_LOCAL_CHECKOUT,
-    _resolve_remote_release_head,
-    _validate_commit_release_lineage,
 )
 
 
@@ -55,8 +59,10 @@ class StartForItemResult:
     """Structured handle returned by :func:`start_for_item`.
 
     ``ok=True`` means setup succeeded through ``validate-composition``;
-    the caller may now invoke ``deploy_pipeline`` with ``run_id``. A failure
-    created nothing, so it carries no ``run_id``.
+    the caller may now invoke ``deploy_pipeline`` with ``run_id``. With
+    ``reused=True`` nothing was created: ``run_id`` names the run that
+    already holds or carries the item. A failure created nothing; a refusal
+    naming a blocking run carries that run's id.
     """
 
     ok: bool
@@ -71,6 +77,8 @@ class StartForItemResult:
     error_code: Optional[str] = None
     error_phase: Optional[str] = None
     item_ids: List[int] = field(default_factory=list)
+    reused: bool = False
+    release_lineage: Optional[str] = None
 
     def to_dict(self) -> dict:
         out = {
@@ -81,6 +89,8 @@ class StartForItemResult:
             "target_environment": self.target_environment_name,
             "run_id": self.run_id,
             "item_ids": list(self.item_ids),
+            "reused": self.reused,
+            "release_lineage": self.release_lineage,
         }
         if self.validation_message is not None:
             out["validation_message"] = self.validation_message
@@ -99,7 +109,6 @@ def start_for_item(
     flow: Optional[str] = None,
     environment: Optional[str] = None,
     release_lineage: Optional[str] = None,
-    project_repo_path: str = "",
     created_by: str = "operator",
     prepare: bool = False,
     session_id: Optional[str] = None,
@@ -175,58 +184,6 @@ def start_for_item(
             error_phase=PHASE_RESOLVE,
         )
 
-    if not prepare and not release_lineage and environment_name == STAGE_ENV_NAME:
-        try:
-            release_lineage, lineage_error = _resolve_remote_release_head(
-                resolved_project,
-                target_tier,
-                environment_name,
-                project_repo_path,
-            )
-        except Exception as exc:
-            lineage_error = f"release-lineage binding failed: {exc}"
-        if lineage_error == NO_LOCAL_CHECKOUT:
-            lineage_error = (
-                f"{_ref(item_id)} targets stage but project "
-                f"'{resolved_project}' has no machine-local checkout to bind a "
-                "release lineage; pass --release-lineage explicitly"
-            )
-        if lineage_error:
-            return StartForItemResult(
-                ok=False,
-                project=resolved_project,
-                flow=resolved_flow,
-                target_tier=target_tier,
-                target_environment_id=target_environment_id,
-                target_environment_name=environment_name,
-                item_ids=[item_id],
-                error=lineage_error,
-                error_phase=PHASE_VALIDATE_LINEAGE,
-            )
-    elif release_lineage:
-        try:
-            lineage_error = _validate_commit_release_lineage(
-                resolved_project,
-                target_tier,
-                environment_name,
-                release_lineage,
-                project_repo_path,
-            )
-        except Exception as exc:
-            lineage_error = f"release-lineage validation failed: {exc}"
-        if lineage_error:
-            return StartForItemResult(
-                ok=False,
-                project=resolved_project,
-                flow=resolved_flow,
-                target_tier=target_tier,
-                target_environment_id=target_environment_id,
-                target_environment_name=environment_name,
-                item_ids=[item_id],
-                error=lineage_error,
-                error_phase=PHASE_VALIDATE_LINEAGE,
-            )
-
     handle = {
         "project": resolved_project,
         "flow": resolved_flow,
@@ -235,10 +192,49 @@ def start_for_item(
         "target_environment_name": environment_name,
         "item_ids": [item_id],
     }
+    if not prepare:
+        try:
+            owner = delivery_owner(item_id, resolved_project, environment_name)
+        except Exception as exc:
+            return StartForItemResult(
+                **handle,
+                ok=False,
+                error=(
+                    f"could not read which run owns this item's delivery: {exc}. "
+                    "Nothing was created; repair that read, then run the same "
+                    "command again."
+                ),
+                error_code="delivery_owner_unreadable",
+                error_phase=PHASE_RESOLVE,
+            )
+        if owner is not None:
+            return StartForItemResult(
+                **handle,
+                ok=owner.carries,
+                reused=owner.carries,
+                run_id=owner.run_id,
+                validation_message=owner.message if owner.carries else None,
+                error=None if owner.carries else owner.message,
+                error_code=owner.code or None,
+                error_phase=None if owner.carries else PHASE_RESOLVE,
+            )
+        try:
+            release_lineage = bind_tested_release_source(
+                resolved_project,
+                resolved_flow,
+                environment,
+                release_lineage,
+                source_flag=START_SOURCE_FLAG,
+            )
+        except ReleaseSourceRefused as exc:
+            return StartForItemResult(
+                **handle,
+                ok=False,
+                error=str(exc),
+                error_code=exc.code,
+                error_phase=PHASE_VALIDATE_LINEAGE,
+            )
     try:
-        require_tested_lineage(
-            resolved_project, resolved_flow, environment, release_lineage
-        )
         created, validation_message = create_item_run(
             resolved_project,
             resolved_flow,
@@ -269,6 +265,7 @@ def start_for_item(
         **handle,
         ok=True,
         run_id=created.run_id,
+        release_lineage=release_lineage,
         validation_message=validation_message,
     )
 

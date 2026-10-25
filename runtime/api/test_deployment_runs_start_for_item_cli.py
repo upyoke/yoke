@@ -91,7 +91,6 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
             "--flow", "to-stage",
             "--environment", "stage",
             "--release-lineage", "L-99",
-            "--project-repo-path", "/workspace/externalwebapp",
             "--created-by", "agent",
         ])
     assert rc == 0
@@ -101,7 +100,6 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
         "flow": "to-stage",
         "environment": "stage",
         "release_lineage": "L-99",
-        "project_repo_path": "/workspace/externalwebapp",
         "created_by": "agent",
         "prepare": False,
     }

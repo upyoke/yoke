@@ -153,7 +153,8 @@ class TestWaitRun:
 
 class TestFindRun:
     def test_found(self, _resolver_ok, monkeypatch):
-        with _fake_urls(monkeypatch, [{"workflow_runs": [{"id": 999}]}]):
+        run = {"id": 999, "head_sha": "abc123", "event": "workflow_dispatch"}
+        with _fake_urls(monkeypatch, [{"workflow_runs": [run]}]):
             with pytest.raises(SystemExit) as exc_info:
                 github_actions.cmd_find_run(
                     "o/r",

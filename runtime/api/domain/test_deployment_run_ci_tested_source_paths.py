@@ -95,7 +95,7 @@ def test_unreadable_github_fails_closed(answer, expected):
         mock.patch(f"{REST}.rest_get", **kwargs),
         pytest.raises(tested.ReleaseSourceRefused) as refused,
     ):
-        tested.newest_tested_commit(TARGET)
+        tested._proof_state(TARGET, HEAD)
 
     assert refused.value.code == tested.UNVERIFIABLE
     assert expected in str(refused.value)
@@ -169,6 +169,16 @@ def test_gate_target_is_absent_without_a_gate_branch_or_ci_stage(gate_inputs):
         assert tested.ci_gate_target("platform", "missing", None) is None
 
 
+def test_a_dispatching_flow_without_ci_wait_still_binds_its_gate_branch(gate_inputs):
+    stages = [{"step_runner": "github-actions-workflow", "wait_for_ci": False}]
+    with mock.patch.object(
+        tested, "_flow_facts", return_value=(stages, "persistent", "stage")
+    ):
+        target = tested.ci_gate_target("platform", "flow", None)
+
+    assert (target.branch, target.workflow) == ("release", "")
+
+
 def test_retry_of_an_untested_candidate_refuses_without_source_ref_advice():
     request = deployment_request(
         function="deployment_runs.create",
@@ -207,15 +217,18 @@ def test_unkeyed_create_refuses_an_untested_commit_before_creating():
 
 
 def test_a_later_lineage_bind_names_the_untested_refusal():
+    from yoke_core.domain import deployment_run_lineage_rebind as rebind
+
     conn = mock.Mock()
     conn.execute.return_value.fetchone.return_value = ("flow", "platform", "prod")
     with (
         mock.patch.object(tested, "ci_gate_target", return_value=TARGET),
         mock.patch.object(tested, "_read", side_effect=_no_runs),
     ):
-        refusal = tested.tested_lineage_refusal(conn, "run-1", HEAD)
+        refusal = rebind._tested_lineage_refusal(conn, "run-1", HEAD)
 
     assert refusal.startswith(f"Error: {tested.UNTESTED}: release commit {HEAD}")
+    assert "--release-lineage COMMIT" in refusal
 
 
 @pytest.mark.parametrize("commits", [[], {}, [{"sha": "bad"}], [None]])
@@ -246,3 +259,16 @@ def test_default_checks_lineage_of_dispatched_commit_after_branch_moves():
         tested.bind_tested_release_source("platform", "flow", None, None)
     assert refused.value.code == lineage.OFF_LINEAGE
     compare.assert_called_once_with(TARGET, HEAD, OLDER)
+
+
+def test_an_explicit_commit_on_a_flow_without_ci_wait_reads_no_github(gate_inputs):
+    stages = [{"step_runner": "github-actions-workflow", "wait_for_ci": False}]
+    with (
+        mock.patch.object(
+            tested, "_flow_facts", return_value=(stages, "persistent", "stage")
+        ),
+        mock.patch.object(tested, "_auth") as auth,
+    ):
+        tested.require_tested_lineage("platform", "flow", None, HEAD)
+
+    auth.assert_not_called()

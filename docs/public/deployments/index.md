@@ -71,7 +71,12 @@ A failed or cancelled deployment keeps that outcome even when its member
 QA cannot be read, with the QA reason available on the same tooltip.
 
 `/yoke usher` and `yoke deployment-runs start-for-item` bind implemented work
-to a run, execute the pipeline, and move members toward done. Flow id ≠ run
+to a run, execute the pipeline, and move members toward done. start-for-item
+binds the CI-proven gate branch tip exactly as `create` does, and returns the
+run already holding or carrying the item (`reused`) rather than starting a
+second one. `bound_release_in_flight` names another project's live release that
+ships this source without the item: let it finish, then run start-for-item
+again ([commit proof](../verification/success-policy.md#commit-proof)). Flow id ≠ run
 id (`run-YYYYMMDD-NNN`).
 
 Delivered members require exact private-member or attached shared-plan

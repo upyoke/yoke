@@ -45,6 +45,7 @@ from yoke_core.domain.release_wait_facts import (
     OWES_QA,
     OWES_UNREAD,
     delivery_obligation,
+    delivery_start_command,
     session_wake,
     stage_recipe,
 )
@@ -151,6 +152,7 @@ def retain_for_delivery(
         "obligation": obligation,
         "wake": session_wake(None),
         "next_step": _next_step(obligation, public_ref),
+        "delivery_start": delivery_start_command(item, public_ref),
     }
     envelope["release_wait"] = block
     try:

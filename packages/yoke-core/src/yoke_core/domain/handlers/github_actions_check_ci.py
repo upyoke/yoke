@@ -6,11 +6,12 @@ via :mod:`yoke_core.domain.gh_rest_transport`, classifies the result
 into one of the canonical advisory states (``passed`` / ``failed`` /
 ``no_verdict`` / ``running`` / ``no_runs``), and returns the structured payload.
 
-An empty ``branch`` means "any ref": the run is then selected by
-``head_sha`` alone, which is how a candidate frozen without a branch of
-its own — an ephemeral preview — is verified. One of the two must be
-present; asking for neither is refused rather than answered with the
-workflow's newest unrelated run.
+An empty ``branch`` means "any ref": the run is then the one that proves
+``head_sha`` (:mod:`yoke_core.domain.ci_commit_proof`) whichever branch
+started it, which is how the deploy gate verifies a release commit and a
+candidate with no branch of its own. One of the two must be present; asking
+for neither is refused rather than answered with the workflow's newest
+unrelated run.
 
 GitHub Actions ``queued`` collapses into ``running`` by operator policy:
 pre-run and in-progress share one "work in flight"

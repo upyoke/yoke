@@ -12,7 +12,15 @@ from __future__ import annotations
 
 from unittest import mock
 
-from runtime.api.engines.runs_start_for_item_test_support import _patches
+from runtime.api.engines.runs_start_for_item_test_support import (
+    BOUND,
+    _patches,
+    _source_patches,
+)
+from yoke_core.domain.deployment_run_ci_tested_source import (
+    START_SOURCE_FLAG,
+    ReleaseSourceRefused,
+)
 from yoke_core.domain.deployment_run_create_write import CompositionRefused, CreatedRun
 from yoke_core.domain.deployment_run_takeover_authority import (
     RESERVED_FOR_STEERING_CODE,
@@ -65,7 +73,7 @@ def test_explicit_kwargs_override_item_row():
         "create_item_run",
         return_value=(CreatedRun("R1", False, None), "ok"),
     )
-    tested = mock.patch.object(composer, "require_tested_lineage")
+    tested = _source_patches()
     with helpers, resolve as resolve_m, tested, create as create_m:
         result = start_for_item(
             42,
@@ -174,51 +182,68 @@ def test_create_run_failure_returns_no_run_id():
     assert result.run_id is None
 
 
-def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
-    remote_sha = "a" * 40
-    helpers, resolve, tested, create = _patches(
-        target=("persistent", 103, "stage"),
-    )
-    with (
-        helpers,
-        resolve,
-        tested,
-        create as create_m,
-        mock.patch.object(
-            composer,
-            "_resolve_remote_release_head",
-            return_value=(remote_sha, ""),
-        ) as resolve_head,
-    ):
+def test_run_without_lineage_binds_the_source_create_binds():
+    helpers, resolve, tested, create = _patches()
+    with helpers, resolve, tested, create as create_m:
         result = start_for_item(42)
 
     assert result.ok is True
-    resolve_head.assert_called_once_with(
-        "yoke",
-        "persistent",
-        "stage",
-        "",
-    )
-    assert create_m.call_args.kwargs["release_lineage"] == remote_sha
+    assert result.release_lineage == BOUND
+    assert create_m.call_args.kwargs["release_lineage"] == BOUND
+    assert result.to_dict()["release_lineage"] == BOUND
 
 
-def test_explicit_sha_lineage_is_rejected_before_run_insert_when_not_remote_head():
-    candidate = "b" * 40
-    helpers, resolve, tested, create = _patches(
-        target=("persistent", 103, "stage"),
+def test_binding_names_the_start_for_item_source_flag():
+    helpers, resolve, _tested, create = _patches()
+    bind = mock.Mock(return_value=BOUND)
+    with (
+        helpers,
+        resolve,
+        create,
+        mock.patch.object(composer, "delivery_owner", return_value=None),
+        mock.patch.object(composer, "bind_tested_release_source", bind),
+    ):
+        start_for_item(42, release_lineage="b" * 40)
+
+    bind.assert_called_once_with(
+        "yoke", "to-prod", None, "b" * 40, source_flag=START_SOURCE_FLAG
     )
-    lineage_check = mock.patch.object(
-        composer,
-        "_validate_commit_release_lineage",
-        return_value="release_lineage does not equal the remote gate-branch commit",
-    )
-    with helpers, resolve, tested, create as create_m, lineage_check:
-        result = start_for_item(42, release_lineage=candidate)
+
+
+def test_an_untested_source_refuses_before_any_run_insert():
+    helpers, resolve, _tested, create = _patches()
+    refusal = ReleaseSourceRefused("release_source_untested", "no run of its own")
+    with (
+        helpers,
+        resolve,
+        create as create_m,
+        mock.patch.object(composer, "delivery_owner", return_value=None),
+        mock.patch.object(composer, "bind_tested_release_source", side_effect=refusal),
+    ):
+        result = start_for_item(42, release_lineage="b" * 40)
 
     assert result.ok is False
     assert result.error_phase == PHASE_VALIDATE_LINEAGE
-    assert "remote gate-branch commit" in result.error
+    assert result.error_code == "release_source_untested"
     create_m.assert_not_called()
+
+
+def test_prepare_binds_no_source_and_asks_no_owner():
+    helpers, resolve, _tested, create = _patches()
+    owner, bind = mock.Mock(), mock.Mock()
+    with (
+        helpers,
+        resolve,
+        create as create_m,
+        mock.patch.object(composer, "delivery_owner", owner),
+        mock.patch.object(composer, "bind_tested_release_source", bind),
+    ):
+        result = start_for_item(42, prepare=True)
+
+    assert result.ok is True
+    owner.assert_not_called()
+    bind.assert_not_called()
+    assert create_m.call_args.kwargs["release_lineage"] is None
 
 
 def test_takeover_refusal_names_its_code_and_creates_nothing():

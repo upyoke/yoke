@@ -40,7 +40,8 @@ def test_a_polling_wait_names_subject_cadence_and_bound() -> None:
 
     assert line == (
         "Waiting by design: post-push CI checks on abc123; checks every 60s; "
-        "gives up after 15m. Silence until then is expected."
+        "times out after 15m at most (a limit, not an estimate). "
+        "Silence while it waits is expected."
     )
 
 
@@ -48,8 +49,8 @@ def test_a_blocking_wait_omits_the_cadence() -> None:
     line = designed_wait_line("docker compose to report healthy", max_wait_seconds=120)
 
     assert line == (
-        "Waiting by design: docker compose to report healthy; gives up after 2m. "
-        "Silence until then is expected."
+        "Waiting by design: docker compose to report healthy; times out after 2m "
+        "at most (a limit, not an estimate). Silence while it waits is expected."
     )
 
 
@@ -63,7 +64,7 @@ def test_a_wait_with_status_lines_drops_the_silence_promise() -> None:
 
     assert line == (
         "Waiting by design: scoped QA; checks every 15s; prints a status line "
-        "every 60s; gives up after 30m."
+        "every 60s; times out after 30m at most (a limit, not an estimate)."
     )
 
 

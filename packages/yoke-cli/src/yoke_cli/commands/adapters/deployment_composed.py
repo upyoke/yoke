@@ -148,7 +148,14 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Open a delivery run for one named item on the selected "
-            "control-plane transport. Creation, any takeover of an older run "
+            "control-plane transport. A run that already holds the item, or "
+            "another project's in-flight release that carries it, is returned "
+            "instead of a second run; one that ships this project's source "
+            "without the item refuses (bound_release_in_flight). The source is "
+            "bound as `deployment-runs create` binds it: the gate branch tip, "
+            "reusing that exact commit's own CI run from any branch (merge "
+            "verification's run included) and dispatching CI only when it has "
+            "none. Creation, any takeover of an older run "
             "on the target, the item's enrollment and composition validation "
             "commit together or not at all; start revalidates before "
             "dispatch. While a live steering seat covers the project only "
@@ -167,7 +174,10 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     )
     parser.add_argument(
         "--release-lineage",
-        help="Commit to deliver; default for stage: the gate branch head.",
+        help=(
+            "Full commit SHA to deliver; it needs its own passing or running "
+            "CI run when the flow waits for CI. Default: the gate branch tip."
+        ),
     )
     parser.add_argument("--created-by", help="Who opened the run; default: operator.")
     add_session_arg(parser)

@@ -219,7 +219,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 flow=args.flow,
                 environment=args.environment,
                 release_lineage=args.release_lineage,
-                project_repo_path=args.project_repo_path,
                 created_by=args.created_by,
                 prepare=args.prepare,
             )

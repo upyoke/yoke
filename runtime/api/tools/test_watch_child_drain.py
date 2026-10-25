@@ -184,7 +184,7 @@ class TestOrdinaryOutputIsUnchanged:
 class TestDesignedWaitAnnouncementsReachTheReader:
     """The line that explains a coming silence is never left in raw only."""
 
-    _LINE = "Waiting by design: CI checks; gives up after 15m.\n"
+    _LINE = "Waiting by design: CI checks; times out after 15m at most (a limit, not an estimate).\n"
 
     def _route(self, tmp_path: Path, *, outcome_only: bool) -> list[str]:
         emitted: list[str] = []

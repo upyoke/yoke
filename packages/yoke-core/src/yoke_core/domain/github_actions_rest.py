@@ -174,10 +174,11 @@ def latest_workflow_run(
 
     Each supplied selector narrows the query and an absent one is omitted
     rather than sent empty, because GitHub reads ``branch=`` as a branch
-    literally named "" and matches nothing.  A branch-bound release keeps
-    both filters, so a commit reached from a differently named ref cannot
-    satisfy it; a candidate frozen with no branch of its own is still
-    verifiable through ``head_sha`` alone.
+    literally named "" and matches nothing.  A ``head_sha`` lookup with no
+    branch answers with the run that proves that exact commit
+    (:func:`~yoke_core.domain.ci_commit_proof.proof_run`), whatever branch
+    started it, so a release commit tested on its lane branch is not tested
+    again on the gate branch.
 
     Supplying neither selector is refused: the newest run of a workflow on
     any commit proves nothing about the commit being authorized.
@@ -215,6 +216,10 @@ def latest_workflow_run(
         raise RestTransportError(
             "GitHub workflow-runs response contained a malformed run"
         )
+    if head_sha and not branch:
+        from yoke_core.domain.ci_commit_proof import proof_run
+
+        return proof_run(runs, head_sha)
     return newest_run(runs)
 
 

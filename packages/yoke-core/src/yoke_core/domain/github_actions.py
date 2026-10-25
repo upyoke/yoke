@@ -25,6 +25,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
     GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS,
 )
+from yoke_core.domain.ci_commit_proof import proof_run
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_cli import build_parser as _build_parser
 from yoke_core.domain.github_actions_rest import (
@@ -186,7 +187,7 @@ def cmd_find_run(
     *,
     project: str,
 ) -> None:
-    """Find a run by commit SHA. Exit 0=found / 1=not_found."""
+    """Find the run that proves a commit (ci_commit_proof). Exit 0=found / 1=not_found."""
     token = resolve_token(
         project,
         repo,
@@ -195,7 +196,7 @@ def cmd_find_run(
     try:
         data = rest_get(
             f"/repos/{repo}/actions/workflows/{workflow}/runs",
-            query={"head_sha": commit_sha, "per_page": "1"},
+            query={"head_sha": commit_sha, "per_page": "100"},
             token=token,
         )
     except RestTransportError as exc:
@@ -217,15 +218,15 @@ def cmd_find_run(
             file=sys.stderr,
         )
         sys.exit(1)
-    if runs:
-        first = runs[0]
-        if not isinstance(first, dict) or first.get("id") in (None, ""):
-            print(
-                "Error: workflow-runs response contained a malformed run",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        print(str(first["id"]))
+    if any(not isinstance(run, dict) or run.get("id") in (None, "") for run in runs):
+        print(
+            "Error: workflow-runs response contained a malformed run",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    found = proof_run(runs, commit_sha)
+    if found is not None:
+        print(str(found["id"]))
         sys.exit(0)
     print("not_found")
     sys.exit(1)

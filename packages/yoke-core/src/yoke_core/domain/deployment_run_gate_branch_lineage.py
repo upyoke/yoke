@@ -1,9 +1,8 @@
-"""Which gate-branch commits a release created without a source may bind.
+"""Where on the gate branch a release created without a source may bind.
 
-A release created without ``--source-ref`` binds the gate branch tip, or
-the commit tested by a new dispatch on that branch. Only runs GitHub
-recorded for the branch itself count: a merge-queue (``merge_group``) or pull
-request run tests a commit that is not, or not yet, on it.
+A release created without an explicit source binds the gate branch tip, or
+the commit tested by a new dispatch on that branch. Which run proves that
+commit is :mod:`yoke_core.domain.ci_commit_proof`'s question, not this one.
 
 The chosen commit must also carry the release it replaces. A commit that does
 not descend from the lineage the previous succeeded run shipped for the same
@@ -14,7 +13,7 @@ before anything is bound.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from yoke_contracts.refusal_recovery import compose_refusal
 
@@ -23,26 +22,7 @@ from yoke_core.domain.deployment_run_compare_response import CONTAINING_STATUSES
 if TYPE_CHECKING:
     from yoke_core.domain.deployment_run_ci_tested_source import CiGateTarget
 
-#: Run events that test a ref other than the gate branch itself.
-FOREIGN_REF_EVENTS = frozenset({"merge_group", "pull_request", "pull_request_target"})
 OFF_LINEAGE = "release_source_off_lineage"
-
-
-def runs_by_commit(data: Any, branch: str) -> Dict[str, dict]:
-    """Map each commit to the run the CI gate reads among the branch's own runs."""
-    from yoke_core.domain.github_actions_rest import newest_run
-
-    runs = data.get("workflow_runs") if isinstance(data, dict) else None
-    grouped: Dict[str, List[dict]] = {}
-    for run in runs if isinstance(runs, list) else []:
-        if (
-            isinstance(run, dict)
-            and run.get("head_sha")
-            and run.get("head_branch") == branch
-            and run.get("event") not in FOREIGN_REF_EVENTS
-        ):
-            grouped.setdefault(str(run["head_sha"]), []).append(run)
-    return {sha: newest_run(group) for sha, group in grouped.items()}
 
 
 def gate_branch_tip(target: "CiGateTarget") -> str:
@@ -73,28 +53,6 @@ def gate_branch_tip(target: "CiGateTarget") -> str:
             recovery="confirm the gate branch exists and GitHub is readable, then create again.",
         ),
     )
-
-
-def first_parent_line(commits: Any) -> List[str]:
-    """The branch tip, then each first parent, as far as *commits* reaches.
-
-    *commits* is GitHub's listing for the branch, tip first; it interleaves
-    merged-in commits by date, so the line is walked by parent, not by order.
-    """
-    listed = [
-        entry
-        for entry in (commits if isinstance(commits, list) else [])
-        if isinstance(entry, dict) and entry.get("sha")
-    ]
-    by_sha = {str(entry["sha"]): entry for entry in listed}
-    line: List[str] = []
-    sha = str(listed[0]["sha"]) if listed else ""
-    while sha in by_sha and sha not in line:
-        line.append(sha)
-        parents = by_sha[sha].get("parents")
-        first = parents[0] if isinstance(parents, list) and parents else None
-        sha = str(first.get("sha") or "") if isinstance(first, dict) else ""
-    return line
 
 
 def previous_release(project: str, environment: str) -> Optional[Tuple[str, str]]:
@@ -152,8 +110,13 @@ def _compare_status(target: "CiGateTarget", base: str, head: str) -> str:
     return status
 
 
-def require_descends_from_previous_release(target: "CiGateTarget", commit: str) -> None:
-    """Refuse a selected commit that does not carry the previous release."""
+def require_descends_from_previous_release(
+    target: "CiGateTarget", commit: str, source_flag: str
+) -> None:
+    """Refuse a selected commit that does not carry the previous release.
+
+    *source_flag* is how the calling command names an explicit source.
+    """
     from yoke_core.domain.deployment_run_ci_tested_source import ReleaseSourceRefused
 
     previous = previous_release(target.project, target.environment)
@@ -170,17 +133,14 @@ def require_descends_from_previous_release(target: "CiGateTarget", commit: str) 
         OFF_LINEAGE,
         compose_refusal(
             f"selected release commit {commit} on {target.repo}@{target.branch} does not descend from {lineage}, the lineage {run_id} last shipped for {target.project}{where} (GitHub compares them as {status}), so this release would ship a divergence. Nothing was bound.",
-            recovery=f"create with --project-repo-path CHECKOUT --source-ref COMMIT naming a tested commit that descends from {lineage}; if {lineage} is itself off {target.branch}, correct {run_id}'s lineage first.",
+            recovery=f"run the same command with {source_flag} naming a tested commit that descends from {lineage}; if {lineage} is itself off {target.branch}, correct {run_id}'s lineage first.",
         ),
     )
 
 
 __all__ = [
-    "FOREIGN_REF_EVENTS",
     "OFF_LINEAGE",
-    "first_parent_line",
     "gate_branch_tip",
     "previous_release",
     "require_descends_from_previous_release",
-    "runs_by_commit",
 ]

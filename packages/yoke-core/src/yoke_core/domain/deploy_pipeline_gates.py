@@ -210,9 +210,11 @@ def _check_ci_gate(
     """Check CI for the exact release commit before deploying.
 
     ``branch`` is the gate branch from :func:`resolve_flow_gate_branch`,
-    empty for an ephemeral candidate that has no branch of its own; that
-    candidate is verified by ``head_sha`` alone rather than through a
-    branch filter nothing can match. Returns (passed, message).
+    empty for an ephemeral candidate that has no branch of its own. A known
+    ``head_sha`` is looked up alone, so the run that proves that exact commit
+    (:mod:`yoke_core.domain.ci_commit_proof`) counts whichever branch started
+    it, as it did when the release bound the commit; ``branch`` then only
+    names the subject. Returns (passed, message).
     """
     ci_workflow = project_ci_workflow_file(project)
 
@@ -235,9 +237,10 @@ def _check_ci_gate(
     )
 
     # --branch is always sent, empty included: the adapter defaults an
-    # absent flag to main, which would filter a branchless candidate
-    # against a branch it was never released from.
-    check_args = ["check-ci", github_repo, ci_workflow, "--branch", branch]
+    # absent flag to main. A known commit sends it empty so the lookup asks
+    # about the commit, not about the branch a run started from.
+    lookup_branch = "" if head_sha else branch
+    check_args = ["check-ci", github_repo, ci_workflow, "--branch", lookup_branch]
     if head_sha:
         check_args.extend(["--head-sha", head_sha])
     check_args.extend(["--wait", "--timeout", str(timeout_sec), "--json"])
