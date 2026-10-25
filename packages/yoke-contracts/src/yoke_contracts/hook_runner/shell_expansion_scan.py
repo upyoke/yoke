@@ -17,7 +17,6 @@ _HEREDOC_RE = re.compile(
     r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|([A-Za-z_][A-Za-z0-9_]*))"
     r"(?=$|[ \t\r\n;|&<>])"
 )
-_SEPARATORS = ";|&\n"
 
 
 @dataclass(frozen=True)
@@ -41,7 +40,7 @@ class ScannedCommand:
     ``code`` keeps every heredoc operator but none of the body lines, so a
     scan over it sees only text the shell parses as command syntax. Offsets
     into ``code`` are what ``Heredoc.operator_offset`` and
-    ``command_segments`` report.
+    ``shell_statements.pipeline_spans`` report.
     """
 
     code: str
@@ -175,34 +174,6 @@ def _consume_body(
         body.append(line + "\n")
         index = next_index
     return "".join(body), index
-
-
-def command_segments(code: str) -> list[tuple[int, str]]:
-    """Split command text on unquoted separators, keeping each start offset.
-
-    Newlines separate commands just as ``;`` and ``|`` do, so a command on a
-    later line is its own segment rather than a tail of the first one.
-    """
-    segments: list[tuple[int, str]] = []
-    start = 0
-    index = 0
-    in_single = False
-    in_double = False
-    while index < len(code):
-        char = code[index]
-        if char == "\\" and not in_single:
-            index += 2
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-        elif char == '"' and not in_single:
-            in_double = not in_double
-        elif not in_single and not in_double and char in _SEPARATORS:
-            segments.append((start, code[start:index]))
-            start = index + 1
-        index += 1
-    segments.append((start, code[start:]))
-    return segments
 
 
 def double_quoted_spans(text: str) -> list[str]:

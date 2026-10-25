@@ -184,6 +184,8 @@ def test_truncated_adapter_output_is_denied(command: str):
         "tail -80 /tmp/yoke-cmd.abc123",
         "cat /tmp/out | head -1  # yoke messages list ran earlier",
         "yoke messages list --json | python3 -c 'print(1)'",
+        "yoke dev run -- python3 -m pytest $(find runtime tests -name X.py | head -1)"
+        ' >"$_tmp" 2>&1',
     ],
 )
 def test_untruncated_and_out_of_scope_shapes_stay_allowed(command: str):

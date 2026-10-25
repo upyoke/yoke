@@ -1,4 +1,4 @@
-"""Unit tests for the quote-aware pipeline splitter.
+"""Unit tests for the quote- and substitution-aware pipeline splitter.
 
 ``-separator "|"`` (quoted pipe) must
 not produce an ambiguous pipeline; real pipelines still split; quoted
@@ -11,6 +11,7 @@ from __future__ import annotations
 from yoke_contracts.hook_runner.shell_statements import (
     has_unquoted_heredoc,
     iter_pipeline_groups,
+    pipeline_spans,
     split_pipeline,
 )
 
@@ -163,3 +164,31 @@ def test_iter_pipeline_groups_splits_real_pipe_per_statement():
     assert iter_pipeline_groups('echo "a | b" | grep x') == [
         ['echo "a | b"', "grep x"],
     ]
+
+
+def test_pipes_inside_substitutions_stay_in_their_stage():
+    for cmd in (
+        "x=$(git log | head -1)",
+        "echo $(a | $(b | c) | d)",
+        "echo `a | b; c`",
+        'echo "$(a | b)"',
+        "diff <(sort a | uniq) >(tee out | wc -l)",
+        "echo $((1 | 2))",
+        "echo $(echo ')' | tr x y)",
+        "x=$(a\n| b)",
+    ):
+        assert iter_pipeline_groups(cmd) == [[cmd]], cmd
+        assert split_pipeline(cmd, shell_comments=True) == [cmd], cmd
+
+
+def test_real_pipe_after_a_substitution_still_splits():
+    assert iter_pipeline_groups("echo $(a | b) | grep x; ls") == [
+        ["echo $(a | b)", "grep x"],
+        ["ls"],
+    ]
+    assert split_pipeline("echo `a | b` | grep x") == ["echo `a | b`", "grep x"]
+    assert split_pipeline("(a | b)") == ["(a", "b)"]
+
+
+def test_pipeline_spans_report_each_stage_offset():
+    assert pipeline_spans("a |  b; $(c | d)") == [[(0, "a"), (5, "b")], [(8, "$(c | d)")]]

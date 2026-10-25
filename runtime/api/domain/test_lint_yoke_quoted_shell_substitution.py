@@ -194,6 +194,14 @@ def test_yoke_invocation_on_a_later_line_is_still_scanned():
     assert "double-quoted argument" in result[0]
 
 
+def test_pipe_inside_a_substitution_keeps_the_yoke_command_whole():
+    command = 'yoke dash --spec-file $(ls specs | head -1) --title "x $(whoami)"'
+    result = _eval(command)
+
+    assert result is not None
+    assert result[1] == "denied"
+
+
 def test_yoke_named_inside_another_command_argument_allows():
     command = 'git commit -m "note; yoke items get `X`"'
     assert _eval(command) is None
