@@ -4,7 +4,9 @@
 2. Stop the watcher and any `keep steering` task.
 3. Settle or hand off every pending landing, run and worker. Parked release
    members stay owned: never release, terminate or run QA for them.
-4. Inventory all three holding kinds, release only this session's holds
+4. Doc's linked items all done: add a short Close-out note, set State
+   `delivered`, ask, then `yoke strategy doc archive <slug>`.
+5. Inventory all three holding kinds, release only this session's holds
    (steering pair, coordination, then work), and repeat the inventories:
 
 ```text
