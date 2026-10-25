@@ -199,6 +199,7 @@ def materialize_for_item(
     item_id: int,
     transition_id: str,
     commit: bool = True,
+    replacement_scopes: dict | None = None,
 ) -> dict:
     """Snapshot each attached plan once for this item and transition."""
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -261,6 +262,16 @@ def materialize_for_item(
                         "list --item <item>` and retry materialization."
                     )
                 created.append(requirement_id)
+    if replacement_scopes:
+        from yoke_core.domain.qa_requirement_correction_selection import (
+            validate_item_correction_selection,
+        )
+
+        validate_item_correction_selection(
+            conn, item_id=item_id, transition_id=transition_id,
+            attachments=attachments, scopes=replacement_scopes,
+            requirement_ids=[*created, *existing],
+        )
     if commit:
         conn.commit()
     return _materialized(int(item_id), transition_id, attachments, created, existing)

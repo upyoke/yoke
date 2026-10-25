@@ -260,8 +260,13 @@ def run(args: List[str]) -> int:
         parser.error("standalone run does not accept transition, stage or replacements")
     if parsed.replaces and not (parsed.deployment_run_id or parsed.stage):
         parser.error(
-            "--replaces declares at materialization; for --item run "
-            "yoke qa plan materialize --item PREFIX-N --transition T --replaces ..."
+            "--replaces declares at materialization. Retain the failed case and add a "
+            "distinct corrected key. If absent from the stable item snapshot, first run "
+            "yoke qa plan rematerialize --item PREFIX-N --transition T --project P; "
+            "then yoke qa plan materialize --item PREFIX-N --transition T --project P "
+            "--replaces CORRECTED_KEY=FAILED_ID. Refresh updates rows, adds eligible cases "
+            "and retires removed cases (post-deploy may auto-link a successor). "
+            "For corrected code under the same case, retry without --replaces."
         )
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor

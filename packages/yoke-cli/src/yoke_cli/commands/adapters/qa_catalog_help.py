@@ -136,7 +136,19 @@ apply edits, add cases or retire removed cases. Deployment-run materialization
 keeps its run-scoped behavior.
 
 --replaces CASE_KEY=FAILED_REQUIREMENT_ID declares the corrected case the
-replacement of a failed one. A case it names gets no second, automatic
+replacement of a failed one. For an item, retain the failed case in the plan
+and add a distinct corrected key. If that key is absent from the stable
+snapshot, first run:
+  yoke qa plan rematerialize --item PREFIX-N --transition T --project P
+Then declare the replacement:
+  yoke qa plan materialize --item PREFIX-N --transition T --project P --replaces CORRECTED_KEY=FAILED_ID
+Rematerialize refreshes the whole subject: matching rows change, eligible
+new rows appear, and removed cases retire. Removing a post-deploy case may
+automatically link its unambiguous successor; inspect that result rather
+than declaring another replacement. Correcting code under the same case is
+a retry with `yoke qa plan run`, without --replaces.
+
+For a deployment stage, a case --replaces names gets no second, automatic
 correction from the stage's own corrected plan, so the two never collide.
 Use --replaces-requirement FAILED_REQUIREMENT_ID when that key spans host
 baselines: the corrected plan keeps the failed case's key and creates only
