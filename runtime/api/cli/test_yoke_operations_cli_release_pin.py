@@ -11,6 +11,7 @@ import pytest
 from yoke_cli.main import main as cli_main
 from yoke_cli.commands.adapters.release_pin_verify import release_pin_verify
 from yoke_contracts.release_pin_agreement import PinHealthAgreement
+from yoke_cli.commands.release_pin_agreement import fetch_probe_json
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -214,6 +215,7 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
         "desired_path": "delivery.component_pin",
         "probe_url_path": "monitoring.status_url",
         "served_pin_response_path": "build.release",
+        "opener": fetch_probe_json,
     }
 
 
