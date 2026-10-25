@@ -159,9 +159,10 @@ def test_teardown_refuses_when_the_stack_survives_removal(tmp_path: Path) -> Non
 
 
 def test_the_bundle_directory_and_its_secrets_are_asserted_absent() -> None:
-    # The bundle holds the server's owner-only secrets/ and is written into the
-    # home, so the restore has to have taken it away with everything else.
-    assert SELF_HOST_COMPOSE_PROJECT in YOKE_ABSENT_RELATIVE_DIRECTORIES
+    # The default bundle and its owner-only secrets live inside .yoke, so
+    # asserting that machine directory absent also covers the server bundle.
+    assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
+    assert SELF_HOST_COMPOSE_PROJECT == "yoke-server"
 
 
 def test_the_teardown_runs_before_the_clear_replaces_the_runtime_data() -> None:
