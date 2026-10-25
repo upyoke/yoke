@@ -17,6 +17,8 @@ import pytest
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.harness_unattended_posture import (
+    CURSOR_APPROVAL_MODE,
+    CURSOR_SANDBOX_MODE,
     claude_settings_path,
     managed_config_paths,
 )
@@ -201,6 +203,31 @@ def test_unverified_claude_surface_cannot_borrow_desktop_posture(
         or "no verified posture reader" in result.detail
     )
     assert "harness-setup --fix" not in result.detail
+
+
+@pytest.mark.parametrize("harness,surface,expected", [
+    ("codex", "codex-cli", "PASS"),
+    ("codex", "codex-desktop", "FAIL"),
+    ("codex", "codex-vscode", "FAIL"),
+    ("cursor", "cursor-cli", "PASS"),
+    ("cursor", "cursor-desktop", "FAIL"),
+])
+def test_session_posture_requires_a_verified_surface_reader(
+    tmp_path, monkeypatch, harness, surface, expected
+):
+    registered_as(monkeypatch, harness, surface)
+    configs(
+        tmp_path, monkeypatch, codex=UNATTENDED_CODEX,
+        cursor=json.dumps({"approvalMode": CURSOR_APPROVAL_MODE,
+                           "sandbox": {"mode": CURSOR_SANDBOX_MODE}}),
+    )
+    result = run(checks.hc_session_harness_unattended_posture)
+    assert result.result == expected
+    if expected == "FAIL":
+        assert "HARNESS_POSTURE_UNVERIFIED" in result.detail
+        assert f"{surface} has no verified posture reader" in result.detail
+        assert "Report the surface to Yoke support" in result.detail
+        assert "harness-setup --fix" not in result.detail
 
 
 def test_unproven_registration_names_new_session_and_hook_approval(monkeypatch):

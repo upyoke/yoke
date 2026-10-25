@@ -17,7 +17,10 @@ from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.harness_unattended_posture import POSTURE_RECOVERY
 from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
-from yoke_core.engines.doctor_hc_harness_unattended_posture import harness_posture
+from yoke_core.engines.doctor_hc_harness_unattended_posture import (
+    VERIFIED_POSTURE_SURFACES,
+    harness_posture,
+)
 from yoke_core.engines.doctor_install import (
     SESSION_REQUIRED_DETAIL,
     harness_auth,
@@ -111,10 +114,7 @@ def hc_session_harness_unattended_posture(
         return
     # The session is running this harness, so a missing config is a failure.
     verdict, detail = harness_posture(harness_id, installed=True, surface_id=surface_id)
-    if harness_id == "claude-code" and surface_id not in (
-        "claude-cli",
-        "claude-desktop",
-    ):
+    if surface_id not in VERIFIED_POSTURE_SURFACES[harness_id]:
         rec.record(POSTURE_SLUG, POSTURE_TITLE, verdict, detail)
         return
     if verdict == "PASS":

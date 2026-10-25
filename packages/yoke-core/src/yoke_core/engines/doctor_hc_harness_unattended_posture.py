@@ -38,6 +38,11 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 SLUG = "harness-unattended-posture"
 TITLE = "Every installed harness runs yoke without approval prompts"
+VERIFIED_POSTURE_SURFACES = {
+    CLAUDE_FAMILY: ("claude-cli", "claude-desktop"),
+    CODEX_FAMILY: ("codex-cli",),
+    CURSOR_FAMILY: ("cursor-cli",),
+}
 
 
 def harness_posture(
@@ -51,11 +56,7 @@ def harness_posture(
     without that entry every ``yoke`` call asks, which fails.
     """
     cli_settings = harness_id == CLAUDE_FAMILY and surface_id == "claude-cli"
-    if harness_id == CLAUDE_FAMILY and surface_id not in (
-        None,
-        "claude-cli",
-        "claude-desktop",
-    ):
+    if surface_id is not None and surface_id not in VERIFIED_POSTURE_SURFACES[harness_id]:
         return "FAIL", (
             f"HARNESS_POSTURE_UNVERIFIED: {surface_id} has no verified posture "
             "reader. Report the surface to Yoke support before onboarding; "

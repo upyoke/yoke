@@ -64,7 +64,11 @@ removes the file Yoke wrote.
 If a `yoke` command is refused with `Operation not permitted`, that is this
 posture missing, not a broken database: the CLI says so and names the repair.
 `HC-harness-unattended-posture` reports the standing posture for every
-harness on the machine. Repair all setup facets with
+harness on the machine from saved configuration. The session check can verify
+`codex-cli` only; `codex-desktop` and `codex-vscode` report
+`HARNESS_POSTURE_UNVERIFIED` because their active approval posture has no
+verified reader. Saved CLI settings cannot prove an in-session approval mode.
+Repair all setup facets with
 `yoke doctor run --only harness-setup --fix`.
 
 Setup, project install/refresh and lane preparation use the same reconcile.
