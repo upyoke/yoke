@@ -1,11 +1,9 @@
 # Usher — merge
 
 Land one item at a time; generated-task items use
-[merge-generated-tasks](merge-generated-tasks.md). Run a declared
-`ephemeral-verify` stage per lane first:
+[merge-generated-tasks](merge-generated-tasks.md).
 
 ```text
-yoke dev run -- python3 -m yoke_core.tools.step_runners ephemeral-verify PROJECT REPO BRANCH WORKFLOW DOMAIN SHA
 yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status --wait
 ```
 

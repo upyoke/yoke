@@ -81,7 +81,6 @@ failures require immediate targeted recovery.
 - Tester: seed / insert / get review verdict for an epic task: `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>` · `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH` · `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
 - Read the rules home before acting: `cat .yoke/docs/agents/rules/code-and-cli.md` · `cat .yoke/docs/documentation/index.md` · `yoke <family> --help`
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
-- Verify Python imports/tests against linked worktree source: `yoke dev import-check yoke_core` · `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
 - Run pytest foreground inside one tool call (subagent): `yoke watch pytest -- <project-test-path>/test_my_module.py -q`
 
 _Depth:_ `yoke packets render --role tester_agent --topic core --detail full`.

@@ -27,27 +27,12 @@
 
 - Call registered functions as `yoke <subcommand>` (dots → spaces, `_` → `-`). API imports,
   curl, DB-router and service-client calls are operator-debug only.
-- Launcher repair: [install](../../start/install.md). Lane checks use
-  `yoke dev run -- <command>`.
+- Launcher repair: [install](../../start/install.md).
 - Use [narrow reads](../../cli/help.md). Human reads over 28,000 bytes refuse: narrow, run
   an outlined `--section` command, or use `--full`. JSON and writes stay complete.
-- Compose refusals through `yoke_contracts.refusal_recovery.compose_refusal`: the
-  true reason and reachable recovery or escalation owner. Show refusal, timeout and crash
+- A refusal names the true reason and a reachable recovery or escalation owner. Show refusal, timeout and crash
   diagnosis and evidence where the affected person or agent looks. Report actual effects;
   silent failure is not success, and diagnosed refusals are not raw tracebacks.
-
-## Serving floors
-
-Declare new function `minimum_serving_version` on its registry entry and in
-`yoke_contracts.function_serving_floors.FUNCTION_MINIMUM_SERVING_VERSIONS`; older engines
-refuse `function_version_skew`. New fields degrade to prior behavior or refuse with
-a named floor; never invent required receipt defaults. Order rollout so live clients work during serving/DB convergence. Floor
-recovery cannot depend on the missing function, including a deploy that needs it.
-
-## Shell path-use analysis
-
-Shell classification reuses `lint_shell_path_use.analyze_shell_path_use` and
-`lint_payload_path_use.extract_payload_path_uses`; no second parser or broad read exception.
 
 ## Command output
 
