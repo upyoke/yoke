@@ -98,20 +98,20 @@ def test_create_without_a_source_binds_the_tip_with_its_own_run(private_repo):
     assert bound == HEAD
 
 
-def test_an_untested_source_refuses_naming_the_newest_tested_commit(private_repo):
+def test_an_untested_source_refuses_and_teaches_binding_the_tip(private_repo):
     with pytest.raises(tested.ReleaseSourceRefused) as refused:
         tested.bind_tested_release_source("platform", "flow", "prod", HEAD)
 
     assert refused.value.code == tested.UNTESTED
     message = str(refused.value)
-    assert f"newest commit with its own passing or running run is {TESTED}" in message
-    assert f"pass --source-ref {TESTED}" in message
+    assert TESTED not in message
+    assert "so the release binds the main tip" in message
 
 
 @pytest.mark.parametrize(
     "read",
     [
-        lambda target: tested.newest_tested_commit(target),
+        lambda target: lineage.gate_branch_tip(target),
         lambda target: lineage._compare_status(target, TESTED, HEAD),
     ],
     ids=["commits", "compare"],

@@ -31,6 +31,13 @@ DISPATCHING_STEP_RUNNER = "github-actions-workflow"
 _SHA_LENGTH = 40
 _SHA_CHARS = frozenset("0123456789abcdef")
 
+#: The source flag of each command that creates a run.
+_NAME_THE_COMMIT = (
+    "Name the commit: `yoke deployment-runs create` takes --project-repo-path "
+    "<git-toplevel> --source-ref <ref>; `yoke deployment-runs start-for-item` "
+    "takes --release-lineage <full-sha>."
+)
+
 
 class LineageRequiredError(DomainRefusal, ValueError):
     """A run was created without the lineage its flow will demand."""
@@ -88,15 +95,14 @@ def require_lineage_for_stages(
         raise LineageRequiredError(
             f"deployment flow{named} dispatches a workflow against an exact "
             "ref, so the run needs an immutable release_lineage and would "
-            "fail at execution without one. Bind it at creation with "
-            "--project-repo-path <git-toplevel> --source-ref <ref>."
+            "fail at execution without one, and the flow has no gate branch "
+            f"to bind it from. {_NAME_THE_COMMIT}"
         )
     if not looks_immutable(lineage):
         raise LineageRequiredError(
             f"release_lineage {lineage!r} names a moving ref; deployment "
             f"flow{named} dispatches against an exact commit or annotated "
-            "release tag. Bind it with --project-repo-path <git-toplevel> "
-            "--source-ref <ref>, which resolves the ref to its commit."
+            f"release tag. {_NAME_THE_COMMIT}"
         )
 
 

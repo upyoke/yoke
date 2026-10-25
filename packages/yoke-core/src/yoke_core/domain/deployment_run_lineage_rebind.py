@@ -86,11 +86,33 @@ def refuse_lineage_write(
             f"`yoke deployment-runs terminalize {run_id} --disposition "
             "cancelled --reason TEXT` and prepare a new one"
         )
+    return _tested_lineage_refusal(conn, run_id, value)
+
+
+def _tested_lineage_refusal(conn: Any, run_id: str, value: str) -> Optional[str]:
+    """Refuse a commit the run's CI gate could never pass, as creation does."""
     from yoke_core.domain.deployment_run_ci_tested_source import (
-        tested_lineage_refusal,
+        START_SOURCE_FLAG,
+        ReleaseSourceRefused,
+        require_tested_lineage,
     )
 
-    return tested_lineage_refusal(conn, run_id, value)
+    row = conn.execute(
+        "SELECT r.flow, p.slug, e.name FROM deployment_runs r "
+        "JOIN projects p ON p.id = r.project_id "
+        "LEFT JOIN environments e ON e.id = r.target_environment_id "
+        "WHERE r.id = %s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        require_tested_lineage(
+            str(row[1]), str(row[0]), row[2], value, source_flag=START_SOURCE_FLAG
+        )
+    except ReleaseSourceRefused as exc:
+        return f"Error: {exc.code}: {exc}"
+    return None
 
 
 def lineage_of(conn: Any, run_id: str) -> str:

@@ -134,7 +134,8 @@ def test_the_wait_announces_itself_once_before_the_first_read(
     err = capsys.readouterr().err
     assert err == (
         "Waiting by design: post-push CI checks on merge-sha; checks every 60s; "
-        "gives up after 15m. Silence until then is expected.\n"
+        "times out after 15m at most (a limit, not an estimate). "
+        "Silence while it waits is expected.\n"
     )
 
 

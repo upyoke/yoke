@@ -6,8 +6,10 @@ has not answered yet. A reader of that output — an operator or an agent
 following a watcher — cannot tell such a wait from a hang, so they
 interrupt healthy work or spend effort investigating it. One line at the
 start of the wait answers the question once: what is awaited, how often it
-is checked, and when the wait gives up. Per-poll repetition is not the fix;
-the bound is. A long wait that prints its own periodic status line says so
+is checked, and the longest the wait may last. That bound is a timeout, not
+an estimate: a CI suite that usually concludes in minutes may carry a
+two-hour limit, so the line names it as a limit. Per-poll repetition is not
+the fix; the bound is. A long wait that prints its own periodic status line says so
 instead of promising silence, so a quiet capture there reads as stuck.
 
 Every such line starts with :data:`DESIGNED_WAIT_PREFIX`, so watcher
@@ -64,9 +66,12 @@ def designed_wait_line(
     parts = [f"{DESIGNED_WAIT_PREFIX} {subject}"]
     if cadence:
         parts.append(cadence)
-    parts.append(f"gives up after {format_duration(max_wait_seconds)}")
+    parts.append(
+        f"times out after {format_duration(max_wait_seconds)} at most "
+        "(a limit, not an estimate)"
+    )
     line = "; ".join(parts) + "."
-    return f"{line} Silence until then is expected." if silent else line
+    return f"{line} Silence while it waits is expected." if silent else line
 
 
 def _write_stderr(line: str) -> None:

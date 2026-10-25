@@ -76,7 +76,10 @@ class RunJobsCountResponse(BaseModel):
     count: int = Field(..., ge=0)
 
 
-def _first_run(data: Any, *, exclude_run_id: str = "") -> Optional[Dict[str, Any]]:
+def _first_run(
+    data: Any, *, exclude_run_id: str = "", proves: str = ""
+) -> Optional[Dict[str, Any]]:
+    """GitHub's first listed run, or with *proves* the run proving that commit."""
     if not isinstance(data, dict):
         raise ValueError("workflow-runs response must be an object")
     runs = data.get("workflow_runs")
@@ -85,12 +88,13 @@ def _first_run(data: Any, *, exclude_run_id: str = "") -> Optional[Dict[str, Any
     for run in runs:
         if not isinstance(run, dict):
             raise ValueError("workflow-runs response contained a malformed run")
-        run_id = str(run.get("id") or "")
-        if not run_id:
+        if not str(run.get("id") or ""):
             raise ValueError("workflow-runs response contained a run without id")
-        if run_id and run_id != exclude_run_id:
-            return run
-    return None
+    if proves:
+        from yoke_core.domain.ci_commit_proof import proof_run
+
+        return proof_run(runs, proves, exclude_run_id=exclude_run_id)
+    return next((run for run in runs if str(run["id"]) != exclude_run_id), None)
 
 
 def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
@@ -106,7 +110,18 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.gh_rest_transport import RestTransportError
     from yoke_core.domain.github_actions_rest import rest_get
 
-    query = {"per_page": "10" if payload.exclude_run_id else "1"}
+    # A commit lookup with no branch or event asks which run proves that
+    # commit (ci_commit_proof), the rule release creation and the deploy
+    # gate share; it reads the commit's whole page so the newest eligible
+    # run answers, not GitHub's first listed one.
+    proves_commit = bool(
+        str(payload.head_sha or "").strip()
+        and not str(payload.branch or "").strip()
+        and not str(payload.event or "").strip()
+    )
+    query = {
+        "per_page": "100" if proves_commit else "10" if payload.exclude_run_id else "1"
+    }
     for key, value in (
         ("head_sha", payload.head_sha),
         ("branch", payload.branch),
@@ -128,6 +143,7 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         run = _first_run(
             data,
             exclude_run_id=str(payload.exclude_run_id or ""),
+            proves=str(payload.head_sha or "").strip() if proves_commit else "",
         )
     except ValueError as exc:
         return _transport_failed(str(exc))

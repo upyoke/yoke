@@ -8,11 +8,9 @@ Two independent claims are exercised:
   rather than running the ``start_for_item`` engine in-process on the client.
   The same request envelope therefore reaches the server over https, where the
   engine runs against the server's Postgres.
-* When the engine runs server-side with no machine-local checkout, a
-  caller-supplied commit ``release_lineage`` is trusted and the git / checkout
-  head resolution is skipped, so the run starts with no local checkout. When a
-  checkout IS present (the in-process path) the exact-remote-head validation
-  still runs, byte-for-byte with the prior behaviour.
+* The engine binds its release source from GitHub, as ``deployment-runs
+  create`` does, so a server with no machine-local checkout binds the gate
+  branch tip without reading any checkout or git ref.
 """
 
 from __future__ import annotations
@@ -29,13 +27,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_core.domain import deployment_run_ci_tested_source as tested
+from yoke_core.domain import deployment_run_gate_branch_lineage as lineage
 from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.engines import runs_start_for_item as composer
-from yoke_core.engines.runs_release_lineage import (
-    NO_LOCAL_CHECKOUT,
-    _resolve_remote_release_head,
-    _validate_commit_release_lineage,
-)
 from yoke_core.engines.runs_start_for_item import start_for_item
 
 # Synthetic fixture id kept off the literal so the doc-hygiene drift guard
@@ -139,113 +134,54 @@ def test_start_for_item_entry_opens_no_local_connection():
 
 
 # --------------------------------------------------------------------------
-# Release-lineage git/checkout skip when running with no machine-local checkout
+# Source binding reads GitHub, never a machine-local checkout
 # --------------------------------------------------------------------------
 
 
-def test_resolve_head_reports_no_local_checkout(monkeypatch):
-    monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
-    sha, error = _resolve_remote_release_head("yoke", "persistent", "stage")
-    assert sha == ""
-    assert error == NO_LOCAL_CHECKOUT
-
-
-def test_validate_skips_supplied_lineage_without_local_checkout(monkeypatch):
-    monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
-    # No checkout means no git head to compare against; the git resolvers must
-    # never run on this path.
-    import yoke_core.domain.deploy_pipeline_gates as gates
-
-    monkeypatch.setattr(
-        gates,
-        "resolve_flow_gate_branch",
-        lambda *_a, **_k: pytest.fail("git gate-branch resolver must not run"),
-    )
-    assert (
-        _validate_commit_release_lineage(
-            "yoke",
-            "persistent",
-            "stage",
-            _MERGE_SHA,
-        )
-        == ""
-    )
-
-
-def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
+def test_start_for_item_binds_the_tip_from_github_with_no_checkout(monkeypatch):
     monkeypatch.setattr(
         composer,
         "_lookup_item_project_and_flow",
-        lambda *_a: ("yoke", "yoke-hosted-stage-no-ci-gate"),
+        lambda *_a: ("platform", "platform-prod-commit-delivery-hosted"),
     )
     monkeypatch.setattr(
-        composer,
-        "cmd_resolve_target",
-        lambda *_a, **_k: ("persistent", "stage", "stage"),
+        composer, "cmd_resolve_target", lambda *_a, **_k: ("persistent", 7, "prod")
+    )
+    monkeypatch.setattr(composer, "delivery_owner", lambda *_a: None)
+    monkeypatch.setattr(
+        tested,
+        "ci_gate_target",
+        lambda *_a: tested.CiGateTarget(
+            "platform", "flow", "o/platform", "ci.yml", "main", "t", "prod"
+        ),
+    )
+    monkeypatch.setattr(lineage, "previous_release", lambda *_a: None)
+    runs = [{"id": 9, "run_number": 9, "head_sha": _MERGE_SHA, "head_branch": "PLAT-1",
+             "event": "workflow_dispatch", "status": "completed", "conclusion": "success"}]
+
+    def _read(_target, path, query):
+        if path.endswith("/commits"):
+            return [{"sha": _MERGE_SHA}]
+        return {"workflow_runs": runs if query.get("head_sha") == _MERGE_SHA else []}
+
+    monkeypatch.setattr(tested, "_read", _read)
+    monkeypatch.setattr(
+        tested, "dispatch_branch_ci", lambda *_a: pytest.fail("proof exists; no dispatch")
+    )
+    monkeypatch.setattr(
+        _CHECKOUT_RESOLVER,
+        lambda *_a, **_k: pytest.fail("binding must not read a checkout"),
     )
     seen = {}
 
     def _create(project, flow, item_id, **kwargs):
         seen["release_lineage"] = kwargs["release_lineage"]
-        seen["allow_pending_pair_merges"] = kwargs["allow_pending_pair_merges"]
         return (CreatedRun("run-20260730-002", False, None), "ok")
 
-    monkeypatch.setattr(composer, "require_tested_lineage", lambda *_a: None)
     monkeypatch.setattr(composer, "create_item_run", _create)
-    monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
-    import yoke_core.domain.deploy_pipeline_gates as gates
 
-    monkeypatch.setattr(
-        gates,
-        "resolve_flow_gate_branch",
-        lambda *_a, **_k: pytest.fail("git resolver must not run over https"),
-    )
-
-    result = start_for_item(TEST_ITEM_ID, release_lineage=_MERGE_SHA)
+    result = start_for_item(TEST_ITEM_ID)
 
     assert result.ok is True
-    assert result.run_id == "run-20260730-002"
-    # The client-resolved lineage is trusted and passed straight to create-run.
     assert seen["release_lineage"] == _MERGE_SHA
-    assert seen["allow_pending_pair_merges"] is False
-
-
-# --------------------------------------------------------------------------
-# In-process behaviour preserved: with a checkout present, validation still runs
-# --------------------------------------------------------------------------
-
-
-def test_validate_still_checks_remote_head_with_local_checkout(monkeypatch, tmp_path):
-    monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: tmp_path)
-    import yoke_core.domain.deploy_pipeline_gates as gates
-    import yoke_core.domain.deploy_pipeline_github_workflow as ghw
-
-    monkeypatch.setattr(
-        gates,
-        "resolve_flow_gate_branch",
-        lambda *_a, **_k: "release/stage",
-    )
-    monkeypatch.setattr(
-        ghw,
-        "_resolve_publish_sha",
-        lambda *_a, **_k: (_MERGE_SHA, ""),
-    )
-    # A lineage equal to the resolved remote head validates clean...
-    assert (
-        _validate_commit_release_lineage(
-            "yoke",
-            "persistent",
-            "stage",
-            _MERGE_SHA,
-        )
-        == ""
-    )
-    # ...and a divergent lineage is rejected, exactly as the in-process path did.
-    divergent = "b" * 40
-    message = _validate_commit_release_lineage(
-        "yoke",
-        "persistent",
-        "stage",
-        divergent,
-    )
-    assert "does not equal the exact remote gate-branch commit" in message
+    assert result.to_dict()["release_lineage"] == _MERGE_SHA

@@ -134,7 +134,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Registered environment id or name overriding the flow target",
     )
     sfi.add_argument("--release-lineage", default=None)
-    sfi.add_argument("--project-repo-path", default="")
     sfi.add_argument("--created-by", default="operator")
     sfi.add_argument(
         "--prepare",

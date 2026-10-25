@@ -1,4 +1,13 @@
-"""Bind the gate branch tip by default; explicit sources need their own CI."""
+"""Bind a release source that its flow's CI gate will pass.
+
+Without a source a release binds the gate branch tip; an explicit commit is
+kept. When the flow waits for CI the commit needs its own proof
+(:mod:`yoke_core.domain.ci_commit_proof`), from whichever branch started the
+run, so merge verification's run on the identical merged commit is reused and
+only a tip with no proof gets one dispatch. Proof is not placement: the tip
+must descend from the previous release, and composition checks it contains
+every member before anything is created.
+"""
 
 from __future__ import annotations
 
@@ -15,16 +24,21 @@ from yoke_core.domain.deployment_run_ci_gate_github import (
     CI_GATE_READ_PERMISSIONS,
     read_refusal,
 )
+from yoke_core.domain.ci_commit_proof import proof_run
 from yoke_core.domain.deployment_run_gate_branch_lineage import (
-    first_parent_line,
     gate_branch_tip,
     require_descends_from_previous_release,
-    runs_by_commit,
+)
+from yoke_core.domain.deployment_run_lineage_requirement import (
+    stages_dispatch_a_workflow,
 )
 from yoke_core.domain.domain_refusal import DomainRefusal
 
-# Run listing and explicit-source recovery search bound.
-COMMIT_WINDOW = 100
+#: Runs read per commit; GitHub's page limit.
+RUNS_PER_COMMIT = 100
+#: How each command names an explicit release source in its recovery.
+CREATE_SOURCE_FLAG = "--source-ref COMMIT --project-repo-path CHECKOUT"
+START_SOURCE_FLAG = "--release-lineage COMMIT"
 _TESTED_STATES = frozenset({"passed", "running"})
 _FULL_SHA = re.compile(r"[0-9a-f]{40}")
 UNTESTED = "release_source_untested"
@@ -40,6 +54,8 @@ class ReleaseSourceRefused(DomainRefusal):
 
 @dataclass(frozen=True)
 class CiGateTarget:
+    """Where a dispatching flow's release source is read; ``workflow`` is empty
+    when the flow does not wait for CI."""
 
     project: str
     flow: str
@@ -100,8 +116,8 @@ def _auth(project: str, flow: str, permissions: Mapping[str, str]) -> Any:
     except ProjectGithubAuthError as exc:
         raise ReleaseSourceRefused(
             UNVERIFIABLE,
-            f"flow '{flow}' waits for CI, but project '{project}' GitHub "
-            f"auth cannot reach its CI runs: {exc.code}: {exc}\n"
+            f"flow '{flow}' binds its release source from GitHub, but project "
+            f"'{project}' GitHub auth cannot read it: {exc.code}: {exc}\n"
             f"  Repair: {repair_command_hint(exc, project)}",
         ) from exc
 
@@ -121,11 +137,10 @@ def ci_gate_target(
     if facts is None:
         return None
     stages, tier, env = facts
-    if not any(_waits_for_ci(stage) for stage in stages):
+    if not stages_dispatch_a_workflow(stages):
         return None
-    workflow = project_ci_workflow_file(project)
-    if not workflow:
-        return None
+    waits = any(_waits_for_ci(stage) for stage in stages)
+    workflow = project_ci_workflow_file(project) if waits else ""
     checkout = checkout_for_project_slug(project)
     branch = resolve_flow_gate_branch(
         project, tier, env, str(checkout) if checkout is not None else ""
@@ -155,34 +170,17 @@ def _read(target: CiGateTarget, path: str, query: Dict[str, str]) -> Any:
     return data
 
 
-def _newest_run_by_commit(
-    target: CiGateTarget, query: Dict[str, str]
-) -> Dict[str, dict]:
+def _proof_state(target: CiGateTarget, sha: str) -> str:
+    """The state of the run that proves *sha*, or ``no_runs``."""
+    from yoke_core.domain.handlers.github_actions_check_ci import _classify
+
     data = _read(
         target,
         f"/repos/{target.repo}/actions/workflows/{target.workflow}/runs",
-        {"branch": target.branch, "per_page": str(COMMIT_WINDOW), **query},
+        {"head_sha": sha, "per_page": str(RUNS_PER_COMMIT)},
     )
-    return runs_by_commit(data, target.branch)
-
-
-def _state(run: Optional[dict]) -> str:
-    from yoke_core.domain.handlers.github_actions_check_ci import _classify
-
-    return _classify(run).state
-
-
-def newest_tested_commit(target: CiGateTarget) -> str:
-    runs = _newest_run_by_commit(target, {})
-    commits = _read(
-        target,
-        f"/repos/{target.repo}/commits",
-        {"sha": target.branch, "per_page": str(COMMIT_WINDOW)},
-    )
-    for sha in first_parent_line(commits):
-        if _state(runs.get(sha)) in _TESTED_STATES:
-            return sha
-    return ""
+    runs = data.get("workflow_runs") if isinstance(data, dict) else None
+    return _classify(proof_run(runs if isinstance(runs, list) else [], sha)).state
 
 
 def dispatch_branch_ci(target: CiGateTarget) -> str:
@@ -192,8 +190,8 @@ def dispatch_branch_ci(target: CiGateTarget) -> str:
     auth = _auth(target.project, target.flow, GITHUB_ACTIONS_WRITE_PERMISSION_LEVELS)
     path = f"/repos/{target.repo}/actions/workflows/{target.workflow}/dispatches"
     recovery = (
-        f"start {target.workflow} on {target.branch} by hand, "
-        "then create the run again without --source-ref. Nothing was created."
+        f"start {target.workflow} on {target.branch} by hand, then run the "
+        "same command again without an explicit source. Nothing was created."
     )
     try:
         result = rest_post(
@@ -232,35 +230,31 @@ def dispatch_branch_ci(target: CiGateTarget) -> str:
 
 
 def _untested(
-    target: CiGateTarget, lineage: str, state: str, retry: bool
+    target: CiGateTarget, lineage: str, state: str, retry: bool, source_flag: str
 ) -> ReleaseSourceRefused:
-    newest = newest_tested_commit(target)
+    tip = f"the {target.branch} tip"
     if retry:
         how = (
             "a retry keeps its candidate, so create a new run instead (no "
-            "--retry-of): omit --source-ref to use the gate branch tip."
+            f"--retry-of) and without a source, so it binds {tip}."
         )
-    elif newest:
-        how = f"pass --source-ref {newest} with --project-repo-path CHECKOUT."
     else:
         how = (
-            f"omit --source-ref: creation then dispatches {target.workflow} "
-            f"on {target.branch} and binds the commit that run tests if its tip has no run; "
-            "a failed tip must be fixed first."
+            f"omit {source_flag} so the release binds {tip}: its own passing "
+            f"or running {target.workflow} run is reused, and only a tip with "
+            "no run gets one dispatch. Or name a commit whose own run passed."
         )
-    tested = (
-        f" The newest commit with its own passing or running run is {newest}."
-        if newest
-        else ""
-    )
     finding = (
         "has no run of its own" if state == "no_runs" else f"has run state {state}"
     )
     return ReleaseSourceRefused(
         UNTESTED,
         compose_refusal(
-            f"release commit {lineage} {finding} in {target.workflow} on {target.repo}@{target.branch}, so flow '{target.flow}' would block at its CI gate. Nothing was bound.{tested}",
-            recovery=f"{how}",
+            f"release commit {lineage} {finding} in {target.workflow} on "
+            f"{target.repo} (runs on any branch at exactly this commit count; "
+            "pull_request and merge_group runs do not), so flow "
+            f"'{target.flow}' would block at its CI gate. Nothing was bound.",
+            recovery=how,
         ),
     )
 
@@ -272,6 +266,7 @@ def require_tested_lineage(
     release_lineage: Optional[str],
     *,
     retry: bool = False,
+    source_flag: str = CREATE_SOURCE_FLAG,
 ) -> None:
     lineage = (release_lineage or "").strip()
     if not _FULL_SHA.fullmatch(lineage):
@@ -279,12 +274,11 @@ def require_tested_lineage(
         # at execution, where the gate reads the peeled commit's own run.
         return
     target = ci_gate_target(project, flow, environment)
-    if target is None:
+    if target is None or not target.workflow:
         return
-    own = _newest_run_by_commit(target, {"head_sha": lineage}).get(lineage)
-    state = _state(own)
+    state = _proof_state(target, lineage)
     if state not in _TESTED_STATES:
-        raise _untested(target, lineage, state, retry)
+        raise _untested(target, lineage, state, retry, source_flag)
 
 
 def bind_tested_release_source(
@@ -294,57 +288,51 @@ def bind_tested_release_source(
     release_lineage: Optional[str],
     *,
     retry: bool = False,
+    source_flag: str = CREATE_SOURCE_FLAG,
 ) -> Optional[str]:
+    """The commit a new release binds, or ``None`` when its flow binds none.
+
+    *source_flag* is how the calling command names an explicit source, so
+    every recovery names a flag that command accepts.
+    """
     if (release_lineage or "").strip():
-        require_tested_lineage(project, flow, environment, release_lineage, retry=retry)
+        require_tested_lineage(project, flow, environment, release_lineage,
+                               retry=retry, source_flag=source_flag)
         return release_lineage
     target = ci_gate_target(project, flow, environment)
     if target is None:
         return release_lineage
     selected = gate_branch_tip(target)
-    own = _newest_run_by_commit(target, {"head_sha": selected}).get(selected)
-    state = _state(own)
+    state = _proof_state(target, selected) if target.workflow else "passed"
     if state == "no_runs":
         selected = dispatch_branch_ci(target)
     elif state not in _TESTED_STATES:
         raise ReleaseSourceRefused(
             "release_source_ci_failed",
             compose_refusal(
-                f"gate branch tip {selected} on {target.repo}@{target.branch} has {target.workflow} run state {state}. Nothing was bound.",
-                recovery=f"fix {target.branch} and rerun CI, or name --source-ref with a passing run and --project-repo-path CHECKOUT.",
+                f"gate branch tip {selected} on {target.repo}@{target.branch} "
+                f"has {target.workflow} run state {state}: its newest run on "
+                "exactly that commit did not pass, and an older green attempt "
+                "never stands in for it. Nothing was bound.",
+                recovery=(
+                    f"fix {target.branch} or rerun that commit's CI, then run "
+                    "the same command again."
+                ),
             ),
         )
-    require_descends_from_previous_release(target, selected)
+    require_descends_from_previous_release(target, selected, source_flag)
     return selected
 
 
-def tested_lineage_refusal(conn: Any, run_id: str, value: str) -> Optional[str]:
-    row = conn.execute(
-        "SELECT r.flow, p.slug, e.name FROM deployment_runs r "
-        "JOIN projects p ON p.id = r.project_id "
-        "LEFT JOIN environments e ON e.id = r.target_environment_id "
-        "WHERE r.id = %s",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    try:
-        require_tested_lineage(str(row[1]), str(row[0]), row[2], value)
-    except ReleaseSourceRefused as exc:
-        return f"Error: {exc.code}: {exc}"
-    return None
-
-
 __all__ = [
-    "COMMIT_WINDOW",
+    "CREATE_SOURCE_FLAG",
     "CiGateTarget",
     "ReleaseSourceRefused",
     "UNTESTED",
     "UNVERIFIABLE",
     "bind_tested_release_source",
     "ci_gate_target",
+    "START_SOURCE_FLAG",
     "dispatch_branch_ci",
-    "newest_tested_commit",
     "require_tested_lineage",
-    "tested_lineage_refusal",
 ]

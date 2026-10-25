@@ -1,7 +1,8 @@
 """Mocked primitives the ``runs start-for-item`` composer wraps.
 
-The composer resolves the target, then creates the run with its item enrolled
-and composition validated in one transaction. Every test of it stubs those
+The composer resolves the target, asks whether a run already owns the item's
+delivery, binds the release source, then creates the run with its item
+enrolled and composition validated in one transaction. Every test of it stubs those
 steps so the surface stays deterministic and needs no live GitHub or
 deployment service; sharing the stubs keeps one description of what the
 composer sits on top of.
@@ -13,6 +14,20 @@ from unittest import mock
 
 from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.engines import runs_start_for_item as composer
+
+#: The commit the stubbed source binding returns when none was named.
+BOUND = "d" * 40
+
+
+def _source_patches(owner=None):
+    """No run owns the delivery, and the source binds :data:`BOUND`."""
+    return mock.patch.multiple(
+        composer,
+        delivery_owner=mock.Mock(return_value=owner),
+        bind_tested_release_source=mock.Mock(
+            side_effect=lambda _p, _f, _e, lineage, **_k: lineage or BOUND
+        ),
+    )
 
 
 def _patches(
@@ -36,7 +51,7 @@ def _patches(
         side_effect=resolve_raises if resolve_raises else None,
         return_value=target,
     )
-    tested = mock.patch.object(composer, "require_tested_lineage", return_value=None)
+    tested = _source_patches()
     create = mock.patch.object(
         composer,
         "create_item_run",
@@ -46,4 +61,4 @@ def _patches(
     return helpers, resolve, tested, create
 
 
-__all__ = ["_patches"]
+__all__ = ["BOUND", "_patches", "_source_patches"]

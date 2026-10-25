@@ -114,6 +114,26 @@ def delivery_obligation(item: Mapping[str, Any]) -> dict[str, Any]:
         return {"kind": OWES_UNREAD, "detail": str(exc)}
 
 
+def delivery_start_command(item: Mapping[str, Any], public_ref: str) -> str:
+    """The one command that starts, or finds, this item's delivery."""
+    project = _project_slug(item)
+    return f"yoke deployment-runs start-for-item {public_ref}" + (
+        f" --project {project}" if project else ""
+    )
+
+
+def _start_line(block: Mapping[str, Any]) -> list[str]:
+    command = str(block.get("delivery_start") or "")
+    if not command:
+        return []
+    return [
+        f"delivery starts with: `{command}` — it returns the run or release "
+        "already carrying this item, or binds the gate branch tip and reuses "
+        "that commit's own CI run; a worker whose deploys steering batches "
+        "leaves it to steering"
+    ]
+
+
 def session_wake(session: Any) -> dict[str, Any]:
     """Whether a stopped session on this registered surface can be woken."""
     if not isinstance(session, Mapping) or not session.get("executor_surface"):
@@ -233,6 +253,7 @@ def awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list[
     wake = wake if isinstance(wake, Mapping) else {}
     lines = [
         *([f"waiting on: {pending}"] if pending else []),
+        *_start_line(block),
         _owes_line(obligation, public_ref),
         _wake_line(wake, parked),
         *_claim_and_next_lines(obligation, wake, public_ref),
@@ -258,6 +279,7 @@ __all__ = [
     "WAKE_UNREAD",
     "awaiting_delivery_lines",
     "delivery_obligation",
+    "delivery_start_command",
     "session_wake",
     "stage_recipe",
 ]

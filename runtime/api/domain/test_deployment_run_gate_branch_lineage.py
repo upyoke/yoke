@@ -69,13 +69,6 @@ def test_an_unreadable_comparison_fails_closed(answer, expected):
     assert expected in str(refused.value)
 
 
-def test_a_listing_without_parents_is_just_its_tip():
-    assert lineage.first_parent_line([{"sha": SELECTED}, {"sha": PREVIOUS}]) == [
-        SELECTED
-    ]
-    assert lineage.first_parent_line(None) == []
-
-
 def test_a_blocker_names_the_two_commits_it_compared():
     named = _compared_lineages(
         {

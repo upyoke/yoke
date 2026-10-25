@@ -145,7 +145,8 @@ def test_every_changed_server_observation_is_announced(monkeypatch):
     # The wait names itself and its bound before the first observation.
     announcement, *observations = announced
     assert announcement.startswith(DESIGNED_WAIT_PREFIX)
-    assert "gives up after" in announcement
+    assert "times out after" in announcement
+    assert "not an estimate" in announcement
     assert all(line.startswith(route_mod.POLL_LINE_PREFIX) for line in observations)
     assert "queue-entry=AWAITING_CHECKS" in observations[0]
     assert "elapsed:" in observations[0]

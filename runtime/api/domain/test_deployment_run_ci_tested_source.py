@@ -1,4 +1,4 @@
-"""A CI-gated release binds a commit that has its own CI run."""
+"""A CI-gated release binds a commit with its own CI proof, from any branch."""
 
 from __future__ import annotations
 
@@ -106,13 +106,14 @@ def test_default_refuses_tip_whose_newest_run_is_unusable(gated, conclusion):
     ):
         tested.bind_tested_release_source("platform", "flow", None, "")
     assert refused.value.code == "release_source_ci_failed"
-    assert HEAD in str(refused.value)
-    assert "fix main and rerun CI" in str(refused.value)
-    assert "--source-ref with a passing run" in str(refused.value)
+    message = str(refused.value)
+    assert HEAD in message
+    assert "an older green attempt never stands in for it" in message
+    assert "fix main or rerun that commit's CI" in message
     dispatch.assert_not_called()
 
 
-def test_explicit_untested_commit_refuses_naming_the_newest_tested(gated):
+def test_explicit_untested_commit_never_suggests_an_older_green_commit(gated):
     runs = [_run(MIDDLE, "completed", "success", 2)]
     with (
         mock.patch.object(tested, "_read", side_effect=_github(runs)),
@@ -123,8 +124,27 @@ def test_explicit_untested_commit_refuses_naming_the_newest_tested(gated):
     assert refused.value.code == "release_source_untested"
     message = str(refused.value)
     assert f"release commit {HEAD} has no run of its own" in message
-    assert f"pass --source-ref {MIDDLE}" in message
+    # An older green commit may omit the very merge being delivered.
+    assert MIDDLE not in message
+    assert (
+        "omit --source-ref COMMIT --project-repo-path CHECKOUT so the release "
+        "binds the main tip"
+    ) in message
     assert "Nothing was bound" in message
+
+
+def test_start_for_item_recovery_names_its_own_source_flag(gated):
+    with (
+        mock.patch.object(tested, "_read", side_effect=_github([])),
+        pytest.raises(tested.ReleaseSourceRefused) as refused,
+    ):
+        tested.bind_tested_release_source(
+            "platform", "flow", None, HEAD, source_flag=tested.START_SOURCE_FLAG
+        )
+
+    message = str(refused.value)
+    assert "omit --release-lineage COMMIT so the release binds" in message
+    assert "--source-ref" not in message
 
 
 def test_explicit_commit_with_its_own_run_is_kept(gated):
@@ -159,9 +179,7 @@ def test_explicit_untested_commit_with_no_tested_commit_teaches_dispatch(gated):
         tested.bind_tested_release_source("platform", "flow", None, HEAD)
 
     dispatch.assert_not_called()
-    assert "omit --source-ref: creation then dispatches platform-ci.yml" in str(
-        refused.value
-    )
+    assert "only a tip with no run gets one dispatch" in str(refused.value)
 
 
 def test_flow_without_a_ci_gate_keeps_the_given_lineage():
@@ -176,17 +194,11 @@ def test_flow_without_a_ci_gate_keeps_the_given_lineage():
 
 
 @pytest.mark.parametrize(
-    "event,branch",
-    [
-        ("merge_group", "main"),
-        ("pull_request", "main"),
-        ("pull_request_target", "main"),
-        ("push", "lane"),
-    ],
+    "event", ["merge_group", "pull_request", "pull_request_target"]
 )
-def test_default_dispatches_when_tip_has_only_foreign_runs(gated, event, branch):
+def test_default_dispatches_when_tip_has_only_foreign_runs(gated, event):
     runs = [
-        _run(HEAD, "completed", "success", 3, event=event, branch=branch),
+        _run(HEAD, "completed", "success", 3, event=event),
         _run(MIDDLE, "completed", "success", 1),
     ]
     with (

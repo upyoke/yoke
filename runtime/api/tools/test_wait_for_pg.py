@@ -93,7 +93,7 @@ def test_wait_exhausts_attempts_and_reports_last_error():
     # The first failure announces the bounded wait; the last reports giving up.
     assert len(messages) == 2
     assert messages[0].startswith(DESIGNED_WAIT_PREFIX)
-    assert "gives up after 2s" in messages[0]
+    assert "times out after 2s at most" in messages[0]
     # Neither line leaks the password; the failure names the last error.
     assert all("topsecret" not in message for message in messages)
     assert "boom-547" in messages[1]

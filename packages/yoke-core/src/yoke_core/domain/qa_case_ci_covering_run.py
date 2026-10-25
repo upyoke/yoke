@@ -60,9 +60,11 @@ def find_run_for_tree(
     ``event`` narrows the lookup to runs GitHub triggered that way, which
     is what a merge-queue project needs: only the landing pull request's
     own entry run can satisfy that project's required check. Leaving it
-    empty asks about the commit rather than about how a run started,
-    which is what the dispatch path wants — a run it dispatched earlier
-    and lost is evidence about this tree however it was triggered.
+    empty asks which run proves the commit
+    (:mod:`yoke_core.domain.ci_commit_proof`), the rule release creation
+    and the deploy gate apply to the same commit later: a run dispatched
+    earlier and lost counts from any branch, while a pull request or merge
+    queue run, which tested another tree, does not.
 
     ``status`` narrows to runs in that state; empty asks for the newest
     run whatever it is doing, so an in-flight run is visible to attach to
