@@ -3,7 +3,7 @@
  "title": "Startup and missed orientation use one emitted context path",
  "status": "observed",
  "audience": "agent",
- "when": "Session startup, resume or hooks installed during a conversation",
+ "when": "Session startup, resume or, in Claude Code, hooks installed during a conversation",
  "need": "Codex keeps early startup orientation when ready and retries missing or unconfirmed output on a later prompt. Claude keeps prompt timing; Cursor keeps startup and tool-result timing. A successful valid emitted envelope stops repeats independently from registration and resume work.",
  "disclosure": "current cue",
  "surface": "Shared client composer, harness envelope and existing attempt/delivered markers",
