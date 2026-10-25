@@ -180,7 +180,7 @@ class TestHandleFailedLog:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["failed_job_count"] == 0
-        assert "No failed jobs in run 123" in outcome.result_payload["output"]
+        assert "No failed jobs yet in run 123" in outcome.result_payload["output"]
 
     def test_missing_run_returns_not_found(self, _resolver_ok, monkeypatch):
         from yoke_core.domain.gh_rest_transport import RestNotFoundError
