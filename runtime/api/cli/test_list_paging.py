@@ -1,18 +1,16 @@
-"""Long list reads keep complete JSON pages and bounded human summaries."""
+"""Long list reads keep complete rows, explicit continuation, and shared overflow recovery."""
 
 from __future__ import annotations
 
 import io
 import json
 from contextlib import redirect_stderr, redirect_stdout
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
 
 from yoke_cli.main import main
-from yoke_cli.commands.adapters.list_paging import list_writer
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.list_paging import ListPageRequest, page_result
 
@@ -45,7 +43,7 @@ LISTS = [
 ]
 
 
-def run_list(monkeypatch, argv, key, *, legacy=False):
+def run_list(monkeypatch, argv, key, *, large=False):
     requests = []
     rows = [
         dict(
@@ -53,9 +51,9 @@ def run_list(monkeypatch, argv, key, *, legacy=False):
             note_num=n,
             slug=str(n),
             task_num=n,
-            title="界" * 10000,
-            body="body\n|" * 10000,
-            raw_result={"captured": "x" * 40000},
+            title="界" * (10000 if large else 3),
+            body="body\n|" * (10000 if large else 2),
+            raw_result={"captured": "x" * (40000 if large else 4)},
         )
         for n in range(61)
     ]
@@ -64,8 +62,6 @@ def run_list(monkeypatch, argv, key, *, legacy=False):
         requests.append(request)
         # The transport preserves the server's explicit page metadata.
         result = page_result({key: rows}, key, request.payload)
-        if legacy:
-            result.pop("offset", None)
         return FunctionCallResponse(
             success=True,
             function=request.function,
@@ -86,14 +82,14 @@ def run_list(monkeypatch, argv, key, *, legacy=False):
 
 
 @pytest.mark.parametrize("argv,key", LISTS)
-def test_default_list_is_bounded_and_teaches_continuation(monkeypatch, argv, key):
+def test_default_list_teaches_continuation(monkeypatch, argv, key):
     code, out, err, requests = run_list(monkeypatch, argv, key)
     assert code == 0, err
     assert requests[-1].payload["limit"] == 25
     assert requests[-1].payload["offset"] == 0
     assert len(out.encode("utf-8")) < 28000
-    assert "Next page: --offset 25" in out
-    assert "Details:" in out
+    assert "More rows. Next page:" in out
+    assert "--offset 25" in out
 
 
 @pytest.mark.parametrize("argv,key", LISTS)
@@ -101,7 +97,7 @@ def test_json_pages_are_complete_and_reachable(monkeypatch, argv, key):
     found = []
     for offset in (0, 25, 50):
         code, out, err, _ = run_list(
-            monkeypatch, [*argv, "--offset", str(offset), "--json"], key
+            monkeypatch, [*argv, "--offset", str(offset), "--json"], key, large=True
         )
         assert code == 0, err
         result = json.loads(out)["result"]
@@ -130,31 +126,24 @@ def test_invalid_page_inputs_are_usage_errors(monkeypatch, argv, key):
     assert not requests
 
 
-def test_byte_bound_continues_after_last_printed_row():
-    rows = [
-        {
-            field: "界" * 10000
-            for field in (
-                "direction",
-                "other_item",
-                "gate_point",
-                "satisfaction",
-                "rationale",
-            )
-        }
-        for _ in range(500)
-    ]
-    response = SimpleNamespace(
-        result={"dependencies": rows, "offset": 7, "next_offset": 507}
-    )
-    out = io.StringIO()
-    list_writer("items.dependency.list")(response, out, io.StringIO())
-    text = out.getvalue()
-    served = len([line for line in text.splitlines() if line.startswith("界")])
-    assert 0 < served < 500
-    assert f"Next page: --offset {7 + served}" in text
-    assert "…" in text
-    assert len(text.encode("utf-8")) < 28000
+def test_large_default_page_uses_shared_overflow_recovery(monkeypatch):
+    argv, key = LISTS[0]
+    code, out, err, _ = run_list(monkeypatch, argv, key, large=True)
+    assert code != 0
+    assert "read_output_limit_exceeded" in err
+    assert "--limit" in err
+    assert "--full" in err
+    assert out == ""
+
+
+def test_next_page_command_keeps_filters_and_replaces_offset(monkeypatch):
+    argv, key = LISTS[0]
+    code, out, err, _ = run_list(monkeypatch, [*argv, "--offset", "25"], key)
+    assert code == 0, err
+    next_line = next(line for line in out.splitlines() if "Next page:" in line)
+    assert f"--item {REF}" in next_line
+    assert "--offset 50" in next_line
+    assert "--offset 25" not in next_line
 
 
 @pytest.mark.parametrize("payload", [{"limit": 0}, {"limit": 501}, {"offset": -1}])
@@ -173,13 +162,35 @@ def test_empty_and_past_end_pages_have_no_continuation():
         assert result["current_run_id"] == 1
 
 
-def test_older_server_cannot_silently_repeat_an_offset_page(monkeypatch):
-    argv, key = LISTS[0]
-    code, out, err, _ = run_list(
-        monkeypatch, [*argv, "--offset", "25"], key, legacy=True
+@pytest.mark.parametrize(
+    "argv,key",
+    [
+        (["sessions", "list", "--project", "example"], "rows"),
+        (["ouroboros", "field-note", "list", "--project", "example"], "entries"),
+        (
+            [
+                "events",
+                "performance",
+                "detail",
+                "--since",
+                "2026-01-01T00:00:00Z",
+                "--until",
+                "2026-01-02T00:00:00Z",
+            ],
+            "rows",
+        ),
+    ],
+)
+def test_existing_paged_commands_keep_page_arguments_and_continuation(
+    monkeypatch, argv, key
+):
+    code, out, err, requests = run_list(
+        monkeypatch, [*argv, "--limit", "2", "--offset", "1"], key
     )
-    assert code == 1
-    assert "list_paging_unavailable" in err
-    assert "next-release" in err
-    assert "Upgrade the control plane" in err
-    assert " | " not in out
+    assert code == 0, err
+    assert requests[-1].payload["limit"] == 2
+    assert requests[-1].payload["offset"] == 1
+    next_line = next(line for line in out.splitlines() if "Next page:" in line)
+    assert "--offset 3" in next_line
+    if "--project" in argv:
+        assert "--project example" in next_line

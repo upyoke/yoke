@@ -4,20 +4,19 @@
 [Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Delivery
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
 [run members](../../deployments/model/run-members.md#target-occupancy-serializes-deploys-no-claim-is-taken).
 
 ## Deployment runs
 
-- Merge before release; the hosted flow owns the commits and proof. Remote changes need a local commit.
+- Merge before release; the hosted flow owns the commits and proof. Remote changes start
+  from a local commit.
 - Creating or driving a run takes no claim. `/yoke usher PREFIX-N` uses
   `yoke deployment-runs start-for-item`; drive with `yoke watch deploy -- RUN_ID`.
 - A run occupies its target servers until its QA settles. `target_occupied` names the holder:
   wait for it or follow its recovery. A run with a live driver answers only to that session.
-- A busy run (`run_busy`) retries; it never fails. Re-run a stopped driver with
-  `yoke watch deploy -- RUN_ID`. Never start a parallel run.
+- A busy run (`run_busy`) never fails; the driver retries. Re-run a stopped driver with
+  `yoke watch deploy -- RUN_ID`. Never start a second run beside it.
 - A newer run on the same flow and target takes over a run waiting only on item QA. Live
   member QA moves intact ([run members](../../deployments/model/run-members.md)). While a
   steering seat covers the project, only the seat holder or the older run's creator may. Others
@@ -26,7 +25,7 @@ Model: [delivery](../../deployments/index.md); occupancy, takeover and drivers:
   named refusal. Never look for control-plane database credentials to deploy.
 - Retire a flow with `yoke deployment-flows set-status FLOW disabled`; change one with
   `yoke deployment-flows version`. Never delete a flow a run references.
-- Before retrying or failing a start with a lost reply, read
+- Before retrying a start whose response was lost, or marking it failed, read
   [start diagnostics](../../deployments/start-diagnostics.md).
 
 ## Binding-based multi-project delivery

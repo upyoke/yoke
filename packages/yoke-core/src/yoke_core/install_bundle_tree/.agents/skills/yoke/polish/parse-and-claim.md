@@ -1,8 +1,6 @@
 # Polish — claim and enter
 
-Lists: `next_offset` → `--offset`; keep filters.
-
-Claim before reading:
+Claim before any other read:
 
 ```text
 yoke sessions touch --mode polish
@@ -11,7 +9,7 @@ yoke workflows item get PREFIX-N --json
 yoke item-worktrees list PREFIX-N --json
 ```
 
-The live binding must be `polish`; else use
+The binding containing the live status must be `polish`; else use
 [stage handoff](../shared/stage-handoff.md). No registered lane stops.
 At the entry stage, take the one declared forward edge with
 `yoke lifecycle transition`.

@@ -4,8 +4,6 @@
 [Yoke](../index.md) > Strategy
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 The workbench **Strategy** tab shows the project's planning corpus. Authority
 is the database (`strategy_docs` rows). Files under `.yoke/strategy/` are
 gitignored local renders.

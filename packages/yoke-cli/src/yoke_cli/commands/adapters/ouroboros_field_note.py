@@ -11,6 +11,8 @@ readers and ``scratch dispatch-inputs`` live in
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -75,20 +77,7 @@ def ouroboros_field_note_list(args: List[str]) -> int:
             "$YOKE_PROJECT, then this checkout's project)."
         ),
     )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Most notes to return (default 50, max 500).",
-    )
-    parser.add_argument(
-        "--offset",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Notes to skip before the first one returned (default 0).",
-    )
+    add_page_args(parser, limit=None, offset=None, page_size=50)
     parser.add_argument(
         "--count",
         action="store_true",
@@ -113,7 +102,8 @@ def ouroboros_field_note_list(args: List[str]) -> int:
         payload["offset"] = parsed.offset
     if parsed.count:
         payload["count"] = True
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="ouroboros.field_note.list",
         target=TargetRef(kind="global"),
         payload=payload,
@@ -132,7 +122,9 @@ def ouroboros_field_note_get(args: List[str]) -> int:
         prog="yoke ouroboros field-note get",
         usage=OUROBOROS_FIELD_NOTE_GET_USAGE,
     )
-    parser.add_argument("entry_id", metavar="ENTRY_ID", help="Field note id (a number).")
+    parser.add_argument(
+        "entry_id", metavar="ENTRY_ID", help="Field note id (a number)."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, OUROBOROS_FIELD_NOTE_GET_USAGE)

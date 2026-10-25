@@ -1,7 +1,5 @@
 # Feed — Gather (read-only)
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 ```text
 yoke strategy doc get MASTER-PLAN
 yoke items list --project <project> --frozen 0 --fields "id,title,status"

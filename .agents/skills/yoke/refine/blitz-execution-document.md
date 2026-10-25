@@ -1,7 +1,5 @@
 # Refine — Blitz Execution Document
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 ## Select exactly one document
 From `yoke strategy doc list`, use the explicit slug or the one matching
 unarchived project document stating outcomes, slices, verification and

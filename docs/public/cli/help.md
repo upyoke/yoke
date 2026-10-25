@@ -72,17 +72,7 @@ Suggested root/category/command targets of 40/80/120 lines and
 40 lines and 2,400 characters. These targets are advisory; individual command
 size tests guard the routine projections.
 
-List reads use `--limit` (default 25, maximum 500) and `--offset` (default 0).
-This covers QA requirements, methods, runs, plans and activity; path claims;
-item dependencies; item worktree lists and inventory; epic tasks and progress
-notes; and strategy documents. Keep the same filters and follow the printed
-`Next page: --offset N` until no next offset remains. The limit is an upper
-bound: a human summary may serve fewer rows to stay within the output budget.
-Its next offset starts after the last row actually printed. JSON pages retain
-all fields and report `next_offset`; `null` means no next page. `--full` expands
-the same page, so it never replaces following continuation offsets. Summaries
-mark shortened values with an ellipsis; use the named detail read or `--full`
-for their complete text.
+List reads use `--limit`/`--offset`; follow the next-page command.
 
 ## Deliberate data and machine formats
 

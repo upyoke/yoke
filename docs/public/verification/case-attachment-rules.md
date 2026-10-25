@@ -4,8 +4,6 @@
 [Yoke](../index.md) > [Verification](index.md) > Starting state and activity
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Declare a Machine case's starting state and read its subject, execution and evidence through the shared activity projection.
 
 ## Machine case starting state

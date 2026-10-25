@@ -4,8 +4,6 @@
 [Yoke](../index.md) > [Functions](index.md) > Worktrees
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Read [envelope and authority](index.md) first. `none` means no dispatcher work-claim check; handler permissions still apply. Read command help for the live payload and serving floor.
 
 ## Registered functions

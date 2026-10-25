@@ -4,8 +4,6 @@
 [Yoke](../index.md) > [Verification](index.md) > QA CLI
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Use the registered QA commands to author requirements, execute cases and record evidence. The [database reference](../databases/reference.md) owns the domain catalog and shared payload conventions.
 
 ## Source-backed CI gates

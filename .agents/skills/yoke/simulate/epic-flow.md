@@ -1,7 +1,5 @@
 # Simulate — epic flow
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 ```text
 yoke epic-tasks list --epic {epic-ref} --json
 yoke workflow-item epic-task body-get --epic {epic-ref} --task-num {task_num}

@@ -27,7 +27,12 @@ class TestItemsList:
         assert outcome.result_payload["count"] == 1
         assert rows[0]["title"] == "Done thing"
         assert set(rows[0].keys()) == {
-            "id", "title", "status", "priority", "workflow_id", "source",
+            "id",
+            "title",
+            "status",
+            "priority",
+            "workflow_id",
+            "source",
         }
 
     def test_fields_projection_and_limit(self, test_db):
@@ -43,6 +48,7 @@ class TestItemsList:
         assert outcome.primary_success
         rows = outcome.result_payload["rows"]
         assert len(rows) == 2
+        assert [row["title"] for row in rows] == ["Item 3", "Item 2"]
         assert set(rows[0].keys()) == {"id", "title"}
 
     def test_project_field_joins_slug(self, test_db):
@@ -86,7 +92,9 @@ class TestItemsList:
 
     def test_numeric_actor_unscoped_list_sees_only_granted_projects(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        insert_item(
+            test_db, id=2, title="ExternalWebapp only", project="externalwebapp"
+        )
         actor_id = grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(
@@ -104,7 +112,9 @@ class TestItemsList:
 
     def test_numeric_actor_explicit_ungranted_project_sees_zero_rows(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        insert_item(
+            test_db, id=2, title="ExternalWebapp only", project="externalwebapp"
+        )
         actor_id = grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(
@@ -120,7 +130,9 @@ class TestItemsList:
 
     def test_numeric_actor_explicit_granted_project_sees_its_rows(self, test_db):
         insert_item(test_db, id=1, title="Yoke only", project="yoke")
-        insert_item(test_db, id=2, title="ExternalWebapp only", project="externalwebapp")
+        insert_item(
+            test_db, id=2, title="ExternalWebapp only", project="externalwebapp"
+        )
         actor_id = grant_project_viewer(test_db, "externalwebapp")
 
         outcome = items_listing.handle_items_list(

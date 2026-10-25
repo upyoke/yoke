@@ -6,7 +6,6 @@ the single owner of the both-direction projection; the
 ``items dependency list`` CLI and the ``items.dependency.list``
 function handler both consume it.
 """
-
 from __future__ import annotations
 
 from typing import List
@@ -21,15 +20,8 @@ from yoke_core.domain.item_ref_columns import (
 
 # Result names for the dependency-list projection, in SELECT order.
 DEPENDENCY_LIST_COLUMNS = (
-    "direction",
-    "other_item",
-    "gate_point",
-    "satisfaction",
-    "source",
-    "session_id",
-    "created_at",
-    "rationale",
-    "evidence_summary",
+    "direction", "other_item", "gate_point", "satisfaction", "source",
+    "session_id", "created_at", "rationale", "evidence_summary",
 )
 
 # Direction reported for an edge whose counterpart id names no item.
@@ -48,11 +40,7 @@ def _placeholder(conn) -> str:
 
 
 def _side_select(
-    conn,
-    *,
-    direction: str,
-    other_column: str,
-    own_column: str,
+    conn, *, direction: str, other_column: str, own_column: str,
 ) -> str:
     """One UNION branch: this item's edges in one direction."""
     p = _placeholder(conn)
@@ -88,7 +76,7 @@ def dependency_rows(conn, item: str) -> List[dict]:
             other_column="dependent_item_id",
             own_column="blocking_item_id",
         )
-        + " ORDER BY created_at, direction, other_item_id, gate_point",
+        + " ORDER BY created_at",
         (item_id, item_id),
     )
     projected: List[dict] = []
@@ -96,7 +84,9 @@ def dependency_rows(conn, item: str) -> List[dict]:
         values = tuple(row)
         other_id = values[1]
         other_item = (
-            render_column_item_ref(conn, other_id) if other_id is not None else ""
+            render_column_item_ref(conn, other_id)
+            if other_id is not None
+            else ""
         )
         record = {
             name: ("" if value is None else str(value))

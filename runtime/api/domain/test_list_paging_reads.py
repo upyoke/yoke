@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
+from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
+
 from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
@@ -101,3 +106,27 @@ def test_activity_sql_applies_offset_before_hydrating_rows():
     sql, params = query.call_args.args[1:]
     assert sql.endswith("LIMIT %s OFFSET %s")
     assert params == (3, 4, 12)
+
+
+@pytest.mark.parametrize(
+    "function,read",
+    [
+        ("qa.requirement.list", qa_reads.handle_qa_requirement_list),
+        ("qa.run.list", qa_reads.handle_qa_run_list),
+    ],
+)
+def test_qa_offsets_count_back_from_newest_row(test_db, function, read):
+    item = insert_item(test_db)
+    old = insert_qa_requirement(test_db, item_id=item["id"])
+    new = insert_qa_requirement(test_db, item_id=item["id"])
+    if function == "qa.run.list":
+        old = insert_qa_run(test_db, qa_requirement_id=old["id"])
+        new = insert_qa_run(test_db, qa_requirement_id=new["id"])
+    expected = [new["id"], old["id"]]
+    for offset, identifier in enumerate(expected):
+        result = read(
+            request(function, {"kind": "global"}, {"limit": 1, "offset": offset})
+        )
+        assert result.primary_success
+        assert [row["id"] for row in result.result_payload["rows"]] == [identifier]
+        assert result.result_payload["next_offset"] == (1 if offset == 0 else None)

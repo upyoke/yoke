@@ -76,6 +76,20 @@ def strategy_doc_list(args: List[str]) -> int:
     if parsed is None:
         return 2
 
+    def _human_writer(response, stdout, stderr) -> None:
+        result = response.result or {}
+        print(
+            f"project {result.get('project_slug')} ({result.get('project_id')})",
+            file=stdout,
+        )
+        for doc in result.get("docs", []):
+            marker = "  [archived]" if doc.get("archived") else ""
+            print(
+                f"{doc.get('slug')}\t{doc.get('updated_by') or '-'}\t"
+                f"{doc.get('updated_at')}\t{doc.get('bytes')} bytes{marker}",
+                file=stdout,
+            )
+
     return dispatch_list(
         parsed=parsed,
         function_id="strategy.doc.list",
@@ -83,6 +97,7 @@ def strategy_doc_list(args: List[str]) -> int:
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=_human_writer,
     )
 
 

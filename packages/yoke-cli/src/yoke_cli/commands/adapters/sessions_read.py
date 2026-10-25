@@ -6,6 +6,8 @@ the authored-file line cap.
 """
 
 from __future__ import annotations
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 from yoke_cli.transport.human_values import write_human
 from yoke_cli.commands.adapters.session_control_recipient_output import (
     recipient_project,
@@ -66,10 +68,7 @@ def sessions_list(args: List[str]) -> int:
         default=None,
         help="Only ended sessions with this cause.",
     )
-    parser.add_argument("--limit", type=int, default=None, help="Most rows to show.")
-    parser.add_argument(
-        "--offset", type=int, default=0, help="Rows to skip first; default: 0."
-    )
+    add_page_args(parser, limit=None)
     add_full_arg(
         parser,
         "all sessions and their diagnostics, holdings, usage and messageability unless --limit is named",
@@ -106,7 +105,8 @@ def sessions_list(args: List[str]) -> int:
         payload["limit"] = parsed.limit
     if parsed.session_filter is not None:
         payload["session_id"] = parsed.session_filter
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="sessions.list",
         target=TargetRef(kind="global"),
         payload=payload,

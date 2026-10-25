@@ -1,7 +1,5 @@
 # Blitz — integrate slices
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Parallel workers need registered lanes (also `--lane-role integration`), then
 rerun the ordinary worktree preparation over either HTTPS or machine-local
 Postgres; check `yoke item-worktrees list ITEM --json`:

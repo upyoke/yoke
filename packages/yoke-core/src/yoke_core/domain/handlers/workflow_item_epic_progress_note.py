@@ -156,7 +156,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             "SELECT id, note_num, body, commit_hash, synced_to_github, created_at "
             f"FROM epic_progress_notes WHERE epic_id={p} AND task_num={p} "
-            "ORDER BY note_num DESC, id DESC",
+            "ORDER BY note_num DESC",
             (epic_id, task_num),
         )
     return HandlerOutcome(

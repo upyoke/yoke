@@ -78,7 +78,9 @@ def test_full_roster_dispatches_detail_and_prints_every_field(
         kwargs["human_writer"](response, sys.stdout, sys.stderr)
         return 0
 
-    monkeypatch.setattr(roster, "dispatch_and_emit", _dispatch)
+    monkeypatch.setattr(
+        "yoke_cli.commands.adapters.list_paging.dispatch_and_emit", _dispatch
+    )
     assert (
         roster.session_control_roster_list(
             [
@@ -156,7 +158,9 @@ def test_roster_point_lookup_dispatches_the_exact_session_filter(monkeypatch) ->
         captured.update(kwargs)
         return 0
 
-    monkeypatch.setattr(roster, "dispatch_and_emit", _dispatch)
+    monkeypatch.setattr(
+        "yoke_cli.commands.adapters.list_paging.dispatch_and_emit", _dispatch
+    )
 
     assert (
         roster.session_control_roster_list(

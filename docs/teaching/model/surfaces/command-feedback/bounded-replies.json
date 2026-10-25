@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "command-feedback-cases",
  "form": "State",
- "verification": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has, or --full for complete human detail. QA requirement, method, run, plan and activity lists, path claims, item dependencies, worktree lists and inventory, epic tasks and progress notes, and strategy document lists share --limit/--offset paging. Routine human rows use bounded summaries with visible ellipses and detail reads. Follow the returned next offset with unchanged filters; --full expands only the current page and JSON retains all page fields.",
+ "verification": "Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has, or --full for complete human detail. List reads use --limit/--offset paging and explicitly name the next page when cut short.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"]
 }

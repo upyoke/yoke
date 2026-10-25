@@ -25,8 +25,7 @@ QA_REQUIREMENT_LIST_USAGE = (
 )
 
 _REQUIREMENT_LIST_HELP_DEEP = """\
-List QA requirements. Pass one filter, or none to list every requirement in
-the project. When several are passed, --item wins, then --deployment-run-id,
+List a page of QA requirements. Pass one filter, or none for project scope. When several are passed, --item wins, then --deployment-run-id,
 then --epic.
 
   yoke qa requirement list --item YOK-N
@@ -153,7 +152,7 @@ With --requirement-id, list that requirement's runs: the current run first
 (latest start time, then highest id), then the older runs, newest id first.
 A run with a missing or invalid start time refuses the list with
 qa_execution_order_ambiguous. Without --requirement-id, list every run in the
-project, oldest id first (for debugging; agents filter by requirement).
+project, newest id first (for debugging; agents filter by requirement).
 
   yoke qa run list --requirement-id 5731
 

@@ -1,7 +1,5 @@
 # Usher — collect
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 ```text
 yoke items get PREFIX-N merged_at project deploy_stage --json
 yoke items dependency list PREFIX-N --json

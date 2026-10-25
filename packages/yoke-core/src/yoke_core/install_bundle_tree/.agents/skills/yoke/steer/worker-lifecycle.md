@@ -1,10 +1,8 @@
 # Steer — worker lifecycle
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 ## Dependencies
 
-Record blocker edges before launch:
+Record blockers as edges before launch:
 
 ```text
 yoke items dependency list PREFIX-N --json
@@ -16,8 +14,9 @@ milestones, retained-owner waits and supported manual resume.
 
 ## Quiet is not dead
 
-Quiet parked or release holders keep their claim through delivery QA. Message a quiet worker first. Terminate only an
-unresponsive worker, a restaff or cleanup. One session per item.
+Parked or release-wait quiet is not failure; the holder keeps its
+claim through delivery QA. Message a quiet worker first. Terminate only an
+unresponsive worker, a restaff or cleanup. One fresh session per item.
 
 ## Survey a neighbour before an ordered edit
 
@@ -26,7 +25,7 @@ yoke claims work holder-get --path SHARED_PATH
 git -C ABSOLUTE_REGISTERED_NEIGHBOUR diff -- SHARED_PATH
 ```
 
-Read only; follow `lanes-and-claims.md`.
+Read only; then follow `lanes-and-claims.md`.
 
 ## Restaff on a different model
 
@@ -36,6 +35,6 @@ yoke sessions terminate {WORKER_SESSION_ID} --reason "restaff PREFIX-N at {_leve
 yoke qa plan adopt --item PREFIX-N --execution-id ID --reason TEXT
 ```
 
-Request a checkpoint. Launch the successor with key
+Ask for a checkpoint first. Launch the successor with key
 `steer:{_project}:PREFIX-N:restaff:{PREVIOUS_LAUNCH_ID}:{_level}`. It adopts
 any predecessor QA execution.

@@ -4,8 +4,6 @@
 [Yoke](../index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Run a saved plan immediately without an item or deployment run:
 
 ```text

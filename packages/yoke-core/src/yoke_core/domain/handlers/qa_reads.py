@@ -71,7 +71,7 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = query_rows(
             conn,
             f"SELECT {', '.join(REQ_COLUMNS)} FROM qa_requirements "
-            f"WHERE {where.format(p=_p(conn))} ORDER BY id",
+            f"WHERE {where.format(p=_p(conn))} ORDER BY id DESC",
             params,
         )
         listed = annotate_requirement_currency(conn, _rows_to_dicts(rows, REQ_COLUMNS))
@@ -167,7 +167,7 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = query_rows(
             conn,
             f"SELECT {', '.join(RUN_COLUMNS)}{actual} FROM qa_runs "
-            f"WHERE {where.format(p=_p(conn))} ORDER BY id",
+            f"WHERE {where.format(p=_p(conn))} ORDER BY id DESC",
             params,
         )
         rows, current_id = executions.run_history_with_current(rows, requirement_id)

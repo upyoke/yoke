@@ -6,8 +6,6 @@ argument-hint: ""
 
 # Implementing
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 Work only in WORKTREE_PATH. Widen claims before editing any uncovered file:
 
 ```text

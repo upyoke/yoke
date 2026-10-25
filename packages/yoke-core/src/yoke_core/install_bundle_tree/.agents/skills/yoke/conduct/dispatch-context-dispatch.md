@@ -1,7 +1,5 @@
 # Conduct — several tasks
 
-Lists: `next_offset` → `--offset`; keep filters.
-
 If `parallel_subagents` in `.yoke/harness/<harness-dir>/manifest.json` is
 `supported`, dispatch all eligible Engineers at once; else one at a time, noted once in
 the Progress Log.

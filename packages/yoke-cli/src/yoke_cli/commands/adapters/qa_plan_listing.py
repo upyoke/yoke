@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from yoke_cli.commands.adapters.list_paging import add_page_args, list_writer
-
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+from yoke_cli.transport.human_values import write_human
 
 from yoke_cli.commands._helpers import (
     add_full_arg,
     add_json_arg,
     add_session_arg,
     detail_of,
-    dispatch_and_emit,
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -56,11 +55,38 @@ def qa_plan_list(args: list[str]) -> int:
         # Sent only when asked, so an active-only listing still reads from a
         # serving build that predates retired listing.
         payload["include_retired"] = True
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="qa.plan.list",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=list_writer("qa.plan.list"),
+        human_writer=write_plan_rows,
+    )
+
+
+def write_plan_rows(response, stdout, stderr) -> None:
+    from yoke_cli.transport.output_limit import full_output_requested
+    from yoke_cli.commands.adapters.session_control_human_output import write_table
+
+    result = response.result or {}
+    if full_output_requested():
+        write_human(result, stdout)
+        return
+    write_table(
+        "QA PLANS",
+        (
+            ("ID", lambda row: row.get("id"), None),
+            ("SLUG", lambda row: row.get("slug"), 42),
+            ("CASES", lambda row: row.get("case_count"), 5),
+            ("OUTCOME", lambda row: row.get("last_outcome"), 10),
+        ),
+        result.get("rows") or [],
+        stdout,
+        empty="No QA plans found.",
+    )
+    print(
+        "Details: yoke qa plan get PLAN-ID --project P; --full adds all page fields.",
+        file=stdout,
     )
