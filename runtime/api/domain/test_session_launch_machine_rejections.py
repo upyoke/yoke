@@ -1,4 +1,4 @@
-"""A capacity refusal states each machine's own reason, stale machines collapsed."""
+"""A capacity refusal states each machine's own reason, stale machines counted."""
 
 from __future__ import annotations
 
@@ -87,9 +87,10 @@ def test_mixed_fleet_names_each_live_machine_and_collapses_stale_ones() -> None:
     message = launch_refusal_message(conn, _preview(conn))
     assert (
         "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50Z); "
-        "3 machines offline since 2026-08-14: EC2AMAZ-AEPC2MI, "
-        "Testys-Mac-mini, ip-172-31-13-189"
+        "3 machines offline (newest last seen 2026-08-14T09:00:00Z)"
     ) in message
+    for offline_name in ("EC2AMAZ-AEPC2MI", "Testys-Mac-mini", "ip-172-31-13-189"):
+        assert offline_name not in message
     assert "project_checkout_missing" not in message
     assert "surface_absent" not in message
     assert "yoke relay status" in message
@@ -101,7 +102,7 @@ def test_single_live_machine_with_expired_liveness_names_only_that_reason() -> N
 
     message = launch_refusal_message(conn, _preview(conn))
     assert "operator-mac: liveness_expired (last seen 2026-08-22T11:59:50Z)" in message
-    assert "offline since" not in message
+    assert "offline" not in message
     for other in ("project_checkout_missing", "surface_absent", "version_below"):
         assert other not in message
 
@@ -115,8 +116,8 @@ def test_level_reason_uses_the_same_per_machine_clauses() -> None:
     )
     assert ineligible_reason(snapshot, "codex-cli", {}) == (
         "no usable machine offers codex-cli (operator-mac: liveness_expired "
-        "(last seen 2026-08-22T11:59:50Z); 1 machine offline since 2026-08-14: "
-        "old-box)"
+        "(last seen 2026-08-22T11:59:50Z); 1 machine offline "
+        "(newest last seen 2026-08-14T09:00:00Z))"
     )
 
 
