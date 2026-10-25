@@ -118,7 +118,6 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     # Server: payload text plus control-plane state only.
     _D + "lint_claim_ownership_mutations": _SERVER,
     _D + "lint_db_cmd": _SERVER,
-    _D + "lint_event_registry": _SERVER,
     _D + "lint_git_stash_arg_order": _SERVER,
     _D + "lint_if_status_capture": _SERVER,
     _D + "lint_monitor_watcher_tail": _SERVER,

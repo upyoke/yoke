@@ -32,8 +32,7 @@ def _emit(
     Each event lands as ``event_kind=lifecycle, event_type=session_cwd``
     with ``severity`` defaulting to ``WARN``. Allow-path emits override
     to ``INFO`` (the call passed; it's not a warning). Each name has a row
-    in :mod:`yoke_core.domain.event_catalog`, so ``lint_event_registry``
-    allows the write.
+    in :mod:`yoke_core.domain.event_catalog`.
     """
     try:
         from yoke_core.domain import emit_event as emit_event_cli

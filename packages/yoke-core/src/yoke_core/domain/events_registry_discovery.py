@@ -209,9 +209,9 @@ def _join_continuation_lines(text: str) -> List[str]:
     return result
 
 
-#: Skill markdown emits through ``yoke events emit`` or the shell emitter; a
-#: skill file naming either is scanned for ``--name`` values.
-_SKILL_EMIT_MARKERS = ("events emit", "emit-event")
+#: Skill markdown emits through ``yoke events emit``; a skill file naming it
+#: is scanned for ``--name`` values.
+_SKILL_EMIT_MARKERS = ("events emit",)
 
 
 def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
@@ -270,7 +270,6 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
             if not any(
                 marker in content
                 for marker in (
-                    "emit-event",
                     "emit_event",
                     "_emit_",
                     "parse_args",

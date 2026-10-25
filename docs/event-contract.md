@@ -256,7 +256,7 @@ The code event catalog, `packages/yoke-core/src/yoke_core/domain/event_catalog.p
 
 - A name is registered exactly while it has a catalog row. There is no status: a registered name may be emitted.
 - Retiring a name means deleting its row in the change that removes its last producer; the next boot deletes the registry row. Historical events keep their rows in the ledger.
-- Emitting an unregistered name still records the event; the registry audit and `HC-event-registry-coverage` report it as rogue, and the `emit-event.sh` lint hook denies it before the call runs.
+- Emitting an unregistered name still records the event; the registry audit and `HC-event-registry-coverage` report it as rogue.
 
 ---
 

@@ -215,7 +215,6 @@ CHECK_OUTPUT_TITLES = {
     'lint_local_privacy': 'This command crosses a private-data boundary',
     'lint_unmatched_path_glob': 'Fix the file pattern or search option',
     'lint_db_cmd': 'Use the supported database or session command',
-    'lint_event_registry': 'This event is not registered',
     'lint_main_commit': 'Commit implementation work in your worktree',
     'lint_tc_label': 'Use descriptive test names and labels',
     'lint_long_command_polling': 'Use the watcher instead of repeatedly polling',

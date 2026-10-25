@@ -61,7 +61,7 @@ class TestDiscover:
 
         (skills_dir / "SKILL.md").write_text(
             "# Conduct\n"
-            'sh "$SCRIPT_DIR/emit-event.sh" --name "SkillEvent" --kind lifecycle\n'
+            'yoke events emit --name "SkillEvent" --kind lifecycle\n'
         )
 
         result = ec.cmd_registry_discover(str(tmp_path))
@@ -77,19 +77,6 @@ class TestDiscover:
 
         result = ec.cmd_registry_discover(str(tmp_path))
         assert "TestOnlyEvent" not in result
-
-    def test_discover_python_subprocess(self, tmp_path: Path) -> None:
-        pkg_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
-        pkg_dir.mkdir(parents=True)
-
-        (pkg_dir / "caller.py").write_text(
-            "import subprocess\n"
-            'emit_script = "emit-event.sh"\n'
-            'subprocess.run(["sh", emit_script, "--name", "PythonEmittedEvent"])\n'
-        )
-
-        result = ec.cmd_registry_discover(str(tmp_path))
-        assert "PythonEmittedEvent" in result
 
     def test_discover_harness_python_parse_args_wrapper(self, tmp_path: Path) -> None:
         harness_dir = tmp_path / "runtime" / "harness"

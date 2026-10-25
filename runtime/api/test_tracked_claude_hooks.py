@@ -8,8 +8,8 @@ and pass the same worktree-local path via ``--db``. Inside a linked worktree
 (``.worktrees/<branch>/``) with ``CLAUDE_PROJECT_DIR`` unset, ``$PWD``
 resolves to the linked worktree, so the explicit DB path bypassed the
 Python worktree-aware resolver and pointed at a stray
-``.worktrees/<branch>/data/yoke.db``. Telemetry from observe,
-lint_db_cmd, and lint_event_registry then landed in the stray DB and
+``.worktrees/<branch>/data/yoke.db``. Telemetry from observe
+and lint_db_cmd then landed in the stray DB and
 split the events ledger (see the stray-DB reproduction tests for the
 backlog/db-helper half of the fix).
 
@@ -39,14 +39,13 @@ AGENTS_DIR = REPO_ROOT / ".claude" / "agents"
 
 
 # Hook commands that resolve DB paths through the Python fallback surface
-# tracked Claude hook launchers (observe, observe_pre, lint_db_cmd,
-# lint_event_registry). Anything in this set must NOT carry an explicit
+# tracked Claude hook launchers (observe, observe_pre, lint_db_cmd).
+# Anything in this set must NOT carry an explicit
 # worktree-local DB injection.
 _PYTHON_RESOLVED_MODULES = (
     "yoke_core.domain.observe",
     "yoke_core.domain.observe_pre",
     "yoke_core.domain.lint_db_cmd",
-    "yoke_core.domain.lint_event_registry",
 )
 
 # Patterns that indicate a tracked command is bypassing the Python resolver
@@ -151,7 +150,7 @@ def test_settings_json_has_no_worktree_local_db_injection() -> None:
     assert not violations, (
         "Tracked Claude hook commands in .claude/settings.json inject a "
         "worktree-local data/yoke.db path. The Python hook surface "
-        "(observe, observe_pre, lint_db_cmd, lint_event_registry) "
+        "(observe, observe_pre, lint_db_cmd) "
         "owns DB resolution via yoke_core.domain.db_helpers.connect. "
         "Strip the YOKE_DB= prefix and --db argument. See YOK-1384.\n"
         "Violations:\n" + "\n".join(f"  - {v}" for v in violations)

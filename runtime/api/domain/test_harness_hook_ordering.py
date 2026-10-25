@@ -26,10 +26,9 @@ class TestPreToolUseBash(unittest.TestCase):
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         # Existing entries must come first, in the documented order.
         self.assertEqual(
-            chain[:5],
+            chain[:4],
             [
                 "yoke_core.domain.lint_db_cmd",
-                "yoke_core.domain.lint_event_registry",
                 "yoke_core.domain.lint_main_commit",
                 "yoke_core.domain.lint_tc_label",
                 "yoke_core.domain.lint_long_command_polling",
@@ -37,7 +36,7 @@ class TestPreToolUseBash(unittest.TestCase):
         )
         # Structural, authority, mutation, delivery, heartbeat, telemetry tail.
         self.assertEqual(
-            chain[5:],
+            chain[4:],
             [
                 "yoke_core.domain.lint_pipe_to_truncator",
                 "yoke_core.domain.lint_raw_pytest_full_suite",
