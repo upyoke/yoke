@@ -145,3 +145,42 @@ def test_output_formats_native_clock_with_null_and_opaque_body(
         )
         assert f"body: {opaque}" in output
     assert raw.result["created_at"] is clock
+
+
+@pytest.mark.parametrize("json_mode", [True, False])
+def test_failed_log_deadline_hint_uses_its_real_parser(monkeypatch, capsys, json_mode):
+    from yoke_cli.commands.adapters import github_actions_failed_log as adapter
+    from yoke_cli.transport.output_limit import read_output_scope
+    from yoke_contracts.api.function_call import FunctionError
+
+    raw = FunctionCallResponse(
+        success=False,
+        function="github_actions.failed_log",
+        version="v1",
+        error=FunctionError(
+            code="read_deadline_exceeded",
+            message="github_actions.failed_log exceeded its 25s server read deadline.",
+            recovery_hint="obsolete server advice",
+        ),
+    )
+    monkeypatch.setattr(adapter, "_call", lambda *args, **kwargs: raw)
+    args = ["example/repo", "123", "--project", "example"]
+    if json_mode:
+        args.append("--json")
+    with read_output_scope(args, raw.function):
+        assert adapter.github_actions_failed_log(args) == 4
+    output = capsys.readouterr()
+    if json_mode:
+        error = json.loads(output.out)["error"]
+        assert error["code"] == "read_deadline_exceeded"
+        assert error["message"] == raw.error.message
+        hint = error["recovery_hint"]
+    else:
+        assert raw.error.message in output.err
+        hint = output.err
+    assert "--lines" in hint
+    assert "yoke github-actions failed-log --help" in hint
+    assert "--limit" not in hint
+    assert "--offset" not in hint
+    assert "obsolete server advice" not in hint
+    assert raw.error.recovery_hint == "obsolete server advice"

@@ -36,10 +36,6 @@ def invoke_handler(entry, request):
     if not side_effect_free(entry):
         return invoke_resolved_handler(entry.handler, request)
     seconds = FUNCTION_RESPONSE_TIMEOUT_SECONDS - READ_RESPONSE_RESERVE_SECONDS
-    recovery = (
-        "Retry a narrower read: name a project or section, or use --limit and "
-        "--offset. Pickers use summary rows; request --full only for needed detail."
-    )
     try:
         with read_budget(seconds):
             # A dropped connection retries inside the same budget, so the
@@ -52,7 +48,6 @@ def invoke_handler(entry, request):
             primary_success=False,
             error=FunctionError(
                 code="read_deadline_exceeded",
-                message=f"{entry.function_id} exceeded its {seconds:g}s server read deadline. {recovery}",
-                recovery_hint=recovery,
+                message=f"{entry.function_id} exceeded its {seconds:g}s server read deadline.",
             ),
         )

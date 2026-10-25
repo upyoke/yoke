@@ -54,7 +54,8 @@ def test_overrun_read_is_refused_without_tracing_the_handler(monkeypatch, thread
             _make_request("qa.plan.list"),
         )
         assert result.error.code == "read_deadline_exceeded"
-        assert "--limit" in result.error.recovery_hint
+        assert result.error.recovery_hint is None
+        assert "--" not in result.error.message
         assert not active()
         assert traces == [trace]
 

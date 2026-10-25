@@ -45,6 +45,13 @@ def emit_response(
     )
     from yoke_cli.transport.read_sections import section_outline, select_section
 
+    if response.error is not None and response.error.code == "read_deadline_exceeded":
+        response = response.model_copy(update={
+            "error": response.error.model_copy(update={
+                "recovery_hint": read_recovery(response.function),
+            }),
+        })
+
     section = requested_section() if response.success else None
     if section is not None and (json_mode or machine_mode):
         return _refuse(
