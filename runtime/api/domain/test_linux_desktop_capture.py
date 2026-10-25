@@ -23,6 +23,7 @@ def png(*, blank=False):
 def host(monkeypatch, *, session, frames):
     captures = []
     commands = []
+    restarts = []
 
     def desktop(control, argv, **kwargs):
         captures.append(argv)
@@ -33,29 +34,44 @@ def host(monkeypatch, *, session, frames):
     def run(command, **kwargs):
         commands.append(command)
         return subprocess.CompletedProcess(
-            command, 0, frames.pop(0) if command.startswith("base64") else "", ""
+            command,
+            0,
+            frames.pop(0)
+            if command.startswith("base64")
+            else (
+                "xfwm4: cannot open display; private-secret"
+                if command.startswith("tail")
+                else ""
+            ),
+            "",
         )
 
     monkeypatch.setattr("yoke_harness.linux_desktop_session.desktop_command", desktop)
     monkeypatch.setattr(capture.time, "sleep", lambda _: None)
-    return SimpleNamespace(os="linux", _run=run), captures, commands
+    monkeypatch.setattr(
+        "yoke_harness.linux_desktop_session.ensure_desktop",
+        lambda control, **kw: restarts.append(kw),
+    )
+    return SimpleNamespace(os="linux", _run=run, restarts=restarts), captures, commands
 
 
-@pytest.mark.parametrize("session", ["started", "reused"])
-def test_only_new_desktop_waits_for_first_nonblank_frame(monkeypatch, session):
+@pytest.mark.parametrize("os", ["linux", "windows"])
+@pytest.mark.parametrize("session", ["started", "reused", "restarted"])
+def test_blank_desktop_recovers_first_frame(monkeypatch, session, os):
     control, captures, commands = host(
         monkeypatch, session=session, frames=[png(blank=True), png()]
     )
+    control.os = os
     result = capture.capture_desktop(control)
-    assert result.ok == (session == "started")
-    assert len(captures) == (2 if session == "started" else 1)
+    assert result.ok
+    assert len(captures) == 2
+    assert control.restarts == ([{"restart": True}] if session == "reused" else [])
+    assert result.evidence["desktop_session"] == (
+        "restarted" if session == "reused" else session
+    )
+    assert result.evidence["width"] == 80 and result.evidence["height"] == 60
+    assert captures[0] == captures[1]
     assert commands[-1].startswith("rm -f /tmp/yoke-desktop-")
-    if result.ok:
-        assert result.evidence["desktop_session"] == "started"
-        assert result.evidence["width"] == 80 and result.evidence["height"] == 60
-        assert captures[0] == captures[1]
-    else:
-        assert "blank desktop" in result.evidence["recovery"]
 
 
 def test_new_desktop_blank_frame_has_bounded_refusal(monkeypatch):
@@ -75,3 +91,29 @@ def test_new_desktop_malformed_png_is_not_a_render_wait(monkeypatch):
     result = capture.capture_desktop(control)
     assert not result.ok and result.error_code == "screenshot_png_invalid"
     assert len(captures) == 1
+
+
+def test_reused_desktop_restarts_once_then_reports_logs(monkeypatch):
+    control, captures, commands = host(
+        monkeypatch, session="reused", frames=[png(blank=True), png(blank=True)]
+    )
+    control.secret_values = ("private-secret",)
+    ticks = iter((0, 0, 16))
+    monkeypatch.setattr(capture.time, "monotonic", lambda: next(ticks))
+    result = capture.capture_desktop(control)
+    assert not result.ok and result.error_code == "screenshot_png_invalid"
+    assert control.restarts == [{"restart": True}]
+    assert len(captures) == 2
+    assert "desktop_session=restarted" in result.evidence["recovery"]
+    assert "xfwm4: cannot open display" in result.evidence["recovery"]
+    assert "private-secret" not in result.evidence["recovery"]
+    assert "[REDACTED]" in result.evidence["recovery"]
+    assert "~/.xsession-errors" in result.evidence["recovery"]
+    assert any("/var/log/xrdp-sesman.log" in command for command in commands)
+
+
+def test_reused_malformed_png_does_not_restart(monkeypatch):
+    control, captures, _ = host(monkeypatch, session="reused", frames=["bad"])
+    result = capture.capture_desktop(control)
+    assert not result.ok and result.error_code == "screenshot_png_invalid"
+    assert len(captures) == 1 and control.restarts == []

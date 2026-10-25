@@ -2,8 +2,8 @@
 
 Verification runs named checks that prove different routes into the host:
 ``connection`` proves SSH -- the route remote exec, resets, and machine
-assertions ride -- while ``terminal_bridge`` proves the Terminal.app route
-GUI captures ride. The receipt's one overall status and error code collapse
+assertions ride -- while ``terminal_bridge`` proves the graphical route GUI captures ride:
+Terminal.app on macOS and XFCE/Xorg on Linux or Windows WSL. The receipt's one overall status and error code collapse
 the two, so a host whose SSH works reads as broken when only its Terminal
 bridge failed. This names each surface's own outcome and the recovery that
 fits it, derived from the recorded check rows rather than stored beside them.
@@ -28,7 +28,7 @@ _SURFACE_CHECKS = (
 )
 
 
-def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
+def _failed_recovery(surface: str, *, project: str, test_machine: str, os: str) -> str:
     selector = f"--project {project} --test-machine {test_machine}"
     if surface == SSH_SURFACE:
         return (
@@ -37,6 +37,13 @@ def _failed_recovery(surface: str, *, project: str, test_machine: str) -> str:
             "machine's ssh-agent holds a key the host authorizes; "
             f"`yoke test-machine exec {selector} -- /usr/bin/true` proves "
             "the route."
+        )
+    if os in {"linux", "windows"}:
+        return (
+            "SSH still works, so remote exec, resets, and machine assertions do; "
+            "the XFCE/Xorg desktop capture failed. Inspect ~/.xsession-errors and "
+            "/var/log/xrdp-sesman.log in the Linux or Windows WSL fixture, repair "
+            f"the desktop, then rerun `yoke test-machine verify {selector}`."
         )
     return (
         "SSH still works, so remote exec, resets, and machine assertions do; "
@@ -51,6 +58,7 @@ def verification_surfaces(
     *,
     project: str,
     test_machine: str,
+    os: str,
 ) -> dict[str, dict[str, Any]]:
     """Return each verified surface's own status, keyed by surface name.
 
@@ -76,6 +84,7 @@ def verification_surfaces(
                     surface,
                     project=project,
                     test_machine=test_machine,
+                    os=os,
                 ),
             }
     return surfaces

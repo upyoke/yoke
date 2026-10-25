@@ -26,7 +26,7 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
         output = (
             base64.b64encode(png()).decode() if command.startswith("base64") else ""
         )
-        if "ensure_desktop(sys.stdin" in command:
+        if "receipt = ensure_desktop(password" in command:
             output = json.dumps(
                 {"environment": {"DISPLAY": ":12"}, "desktop_session": "reused"}
             )

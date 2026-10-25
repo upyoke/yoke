@@ -9,6 +9,7 @@ import time
 from uuid import uuid4
 
 from yoke_contracts.machine_screenshot import screenshot_png
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -22,7 +23,7 @@ def _remote_png(control, remote):
 
 
 def _linux_capture(control, remote, scrot):
-    from yoke_harness.linux_desktop_session import desktop_command
+    from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
     from yoke_harness.linux_desktop_state import (
         DESKTOP_POLL_INTERVAL_SECONDS,
         DESKTOP_READY_TIMEOUT_SECONDS,
@@ -35,13 +36,28 @@ def _linux_capture(control, remote, scrot):
         try:
             return captured, _remote_png(control, remote)
         except ValueError as exc:
-            if (
-                session != "started"
-                or str(exc.__cause__) != "blank desktop"
-                or time.monotonic() >= deadline
-            ):
+            if str(exc.__cause__) != "blank desktop":
                 raise
-        # XFCE can exist before its first frame; reuse that same desktop.
+            if session == "reused":
+                ensure_desktop(control, restart=True)
+                session = "restarted"
+                deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
+            elif time.monotonic() >= deadline:
+                logs = control._run(
+                    "tail -n 30 ~/.xsession-errors /var/log/xrdp-sesman.log 2>&1",
+                    timeout=10,
+                )
+                diagnostic = (logs.stdout + logs.stderr)[-6000:]
+                for secret in getattr(control, "secret_values", ()):
+                    diagnostic = diagnostic.replace(secret, "[REDACTED]")
+                raise ValueError(
+                    compose_refusal(
+                        "screenshot_png_invalid: blank desktop",
+                        evaluated=f"desktop_session={session}; {diagnostic}",
+                        recovery="Repair XFCE/Xorg in the Linux or Windows WSL fixture using ~/.xsession-errors and /var/log/xrdp-sesman.log, then rerun test-machine verify",
+                    )
+                ) from None
+        # XFCE can exist before its first frame; wait on the replacement too.
         time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
         captured = desktop_command(control, scrot, timeout=30)
         captured.desktop_session = session

@@ -84,6 +84,16 @@ The viewer uses `/cert:ignore`, so random local ports never consult or change
 FreeRDP's per-port certificate cache. SSH keeps its existing known-hosts check;
 direct RDP routes retain certificate verification.
 
+Linux and Windows WSL start XFCE and run desktop commands with
+`GDK_BACKEND=x11`, keeping GTK on the captured Xorg display even when WSLg
+also provides a Wayland socket. Screenshots wait for the desktop's first frame.
+A blank capture from a reused desktop restarts the fixture session once through
+the normal start path, then waits for its first frame. A connected RDP client
+or another login blocks that restart; close it before retrying. A desktop that
+stays blank refuses with `screenshot_png_invalid`, session state, and tails of
+`~/.xsession-errors` and `/var/log/xrdp-sesman.log` (including read failures).
+Repair XFCE/Xorg using those diagnostics, then rerun `yoke test-machine verify`.
+
 Desktop access reports `desktop_session=started`, `reused`, or `restarted`.
 A fixture XFCE session older than the running xrdp-sesman service is orphaned:
 sesman lost its session registry when it restarted. RDP access ends that stale

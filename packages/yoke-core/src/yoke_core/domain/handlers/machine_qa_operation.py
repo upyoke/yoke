@@ -319,6 +319,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 recorded["checks"],
                 project=contract.project,
                 test_machine=test_machine,
+                os=contract.settings["os"],
             )
     except (
         MachineQaProtocolError,
