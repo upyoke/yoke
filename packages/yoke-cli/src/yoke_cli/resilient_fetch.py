@@ -126,8 +126,9 @@ def _backoff_announcement(url: str, next_attempt: int, backoff: float) -> str:
     """
     return (
         f"Waiting by design: backoff before retrying {url} "
-        f"(attempt {next_attempt} of {MAX_ATTEMPTS}); gives up after "
-        f"{int(backoff)}s. Silence until then is expected."
+        f"(attempt {next_attempt} of {MAX_ATTEMPTS}); times out after "
+        f"{int(backoff)}s at most (a limit, not an estimate). "
+        "Silence while it waits is expected."
     )
 
 

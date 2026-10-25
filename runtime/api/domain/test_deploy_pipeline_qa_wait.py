@@ -174,8 +174,8 @@ def test_status_lines_appear_every_few_polls() -> None:
     assert result[0] == AWAITING_SCOPED_QA
     assert lines[0] == (
         "Waiting by design: scoped QA obligations on this deployment run to "
-        "settle; checks every 15s; prints a status line every 60s; gives up "
-        "after 2m."
+        "settle; checks every 15s; prints a status line every 60s; times out "
+        "after 2m at most (a limit, not an estimate)."
     )
     assert lines[1:] == [
         "Still waiting for scoped QA: 60s elapsed of 2m; 2 blocker(s) outstanding.",
