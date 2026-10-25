@@ -87,7 +87,7 @@ def test_help_epilog_teaches_per_environment_receipts() -> None:
     assert "``--project`` names the project" in epilog
     assert "project's registered environment" in epilog
     assert "--receipt-env" in epilog
-    assert "one environment's receipt never satisfies another" in epilog
+    assert "One environment's receipt never satisfies another" in epilog
     assert "release.admin_connection" in epilog
     assert "--receipt-env <control-plane>" in epilog
     assert "yoke watch preflight -- --project yoke stage --record-receipt" in epilog
