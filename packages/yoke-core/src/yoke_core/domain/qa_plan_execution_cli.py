@@ -152,11 +152,12 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
                 label = key.replace("_", "-")
                 raise QaPlanExecutionError(f"QA mission walker lacks a typed {label}")
             _qualify_walker_command(walker, key, command, prefix)
-        # Walk commands ride every current bundle; an older server's bundle
-        # without them keeps its prompt as composed.
+        # Walk and copy commands ride every current bundle; an older server's
+        # bundle without them keeps its prompt as composed.
         for key in (
             "walk_start_command",
             "walk_end_command",
+            "host_copy_command",
         ):
             command = walker.get(key)
             if isinstance(command, str) and command.startswith("yoke "):
