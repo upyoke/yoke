@@ -99,6 +99,18 @@ def _build_recovery_line(public_ref: Optional[str], triggers: Sequence[str]) -> 
     )
 
 
+def mismatch_error(public_ref: str, triggers: Sequence[str], recovery: str) -> str:
+    """The ``GATE_DB_CLAIM_PROSE_MISMATCH`` refusal, worded once for every caller."""
+    quoted = ", ".join(f"'{t}'" for t in triggers[:5])
+    if len(triggers) > 5:
+        quoted += ", ..."
+    return (
+        f"prose-vs-claim mismatch on {public_ref}: stored "
+        "db_mutation_profile is state='none' but spec/body declares "
+        f"governed DB work ({quoted}).  {recovery}"
+    )
+
+
 def check(
     prose: str,
     *,
@@ -312,6 +324,7 @@ __all__ = [
     "check",
     "check_item",
     "detect_triggers",
+    "mismatch_error",
 ]
 
 

@@ -58,6 +58,11 @@ def test_one_edge_before_review_is_entered_by_the_merge(monkeypatch) -> None:
         "implementing",
         "reviewing-implementation",
     )
+    assert result.review_gates == (
+        "db_claim_prose",
+        "db_mutation",
+        "architecture_impact",
+    )
 
 
 def test_further_back_is_refused_and_names_the_walk(monkeypatch) -> None:
@@ -154,3 +159,86 @@ def test_a_refused_review_gate_stops_the_merge_with_its_reason(monkeypatch) -> N
 
     assert "from 'implementing' to 'reviewing-implementation'" in refusal
     assert "nothing landed: db_claim_prose gate unmet" in refusal
+
+
+def _gated_entry(*gates: str) -> readiness.ReviewReadiness:
+    return readiness.ReviewReadiness(
+        source_stage="implementing",
+        review_stage="reviewing-implementation",
+        review_gates=gates,
+    )
+
+
+def _prose_answer(monkeypatch, response) -> list[dict]:
+    calls: list[dict] = []
+
+    def _dispatch(**kwargs):
+        calls.append(kwargs)
+        return response
+
+    monkeypatch.setattr(readiness, "call_dispatcher", _dispatch)
+    return calls
+
+
+def test_a_prose_mismatch_is_the_review_gate_refusal(monkeypatch) -> None:
+    calls = _prose_answer(
+        monkeypatch,
+        SimpleNamespace(
+            success=True,
+            error=None,
+            result={
+                "blocks": True,
+                "triggers": ["ALTER TABLE"],
+                "recovery": "Amend the DB claim.",
+            },
+        ),
+    )
+
+    refusal = readiness.review_entry_refusal(
+        "ITEM-41", _gated_entry("db_claim_prose", "db_mutation")
+    )
+
+    assert calls[0]["function_id"] == "db_claim.prose_check"
+    assert calls[0]["payload"] == {}
+    assert refusal == (
+        "entering 'reviewing-implementation' would refuse "
+        "GATE_DB_CLAIM_PROSE_MISMATCH: prose-vs-claim mismatch on ITEM-41: "
+        "stored db_mutation_profile is state='none' but spec/body declares "
+        "governed DB work ('ALTER TABLE').  Amend the DB claim."
+    )
+
+
+def test_clean_prose_passes_and_leaves_the_other_gates_to_the_merge(
+    monkeypatch,
+) -> None:
+    _prose_answer(
+        monkeypatch, SimpleNamespace(success=True, error=None, result={"blocks": False})
+    )
+    entry = _gated_entry("db_claim_prose", "db_mutation", "architecture_impact")
+
+    assert readiness.review_entry_refusal("ITEM-41", entry) == ""
+    assert readiness.gates_left_to_merge(entry) == (
+        "db_mutation",
+        "architecture_impact",
+    )
+
+
+def test_an_unanswered_prose_check_refuses(monkeypatch) -> None:
+    _prose_answer(
+        monkeypatch,
+        SimpleNamespace(
+            success=False, result=None, error=SimpleNamespace(message="relay down")
+        ),
+    )
+
+    refusal = readiness.review_entry_refusal("ITEM-41", _gated_entry("db_claim_prose"))
+
+    assert "read-only check could not be answered: relay down" in refusal
+    assert "`yoke db-claim prose-check ITEM-41`" in refusal
+
+
+def test_a_stage_without_the_prose_gate_asks_nothing(monkeypatch) -> None:
+    calls = _prose_answer(monkeypatch, None)
+
+    assert readiness.review_entry_refusal("ITEM-41", _gated_entry("db_mutation")) == ""
+    assert calls == []
