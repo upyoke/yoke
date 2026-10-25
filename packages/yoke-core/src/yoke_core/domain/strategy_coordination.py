@@ -7,12 +7,12 @@ from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.project_contract.strategy_doc_fields import (
     field_name,
+    find_section,
     normalize_fields,
 )
 import re
 from typing import Any, Optional
 
-from yoke_core.domain.strategy_doc_sections import find_section
 from yoke_core.domain.strategy_docs import (
     StrategyDocMissingError,
     next_updated_at,

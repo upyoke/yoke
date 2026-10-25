@@ -1,8 +1,16 @@
-"""Authored strategy card fields: shared limits, headings, and validation."""
+"""Authored strategy card fields, Markdown sections, and validation.
+
+Section identity is the heading text, matched case-insensitively at any
+heading level with any leading ``#`` marks ignored, and a section runs until
+the next heading at the same level or shallower. Headings inside fenced
+examples are not headings. The CLI section read and the strategy section
+replace share this one scanner.
+"""
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 SUMMARY_MAX_CHARS = 60
 STATE_MAX_CHARS = 16
@@ -59,6 +67,59 @@ def _headings(lines: list[str]) -> list[tuple[int, int, str]]:
         if match:
             result.append((index, len(match.group(1)), match.group(2)))
     return result
+
+
+@dataclass(frozen=True)
+class SectionSpan:
+    """Where one section's heading and body sit in a document's lines."""
+
+    #: Index of the heading line itself.
+    heading_index: int
+    #: Heading depth, which decides where the section ends.
+    level: int
+    #: First line after the heading, and first line that is no longer inside.
+    body_start: int
+    body_end: int
+
+
+def section_spans(content: str) -> tuple[tuple[str, SectionSpan], ...]:
+    """Every heading outside fenced examples, in order, with its span."""
+    lines = content.splitlines()
+    headings = _headings(lines)
+    return tuple(
+        (
+            text,
+            SectionSpan(
+                heading_index=index,
+                level=level,
+                body_start=index + 1,
+                body_end=next(
+                    (i for i, depth, _ in headings[position + 1 :] if depth <= level),
+                    len(lines),
+                ),
+            ),
+        )
+        for position, (index, level, text) in enumerate(headings)
+    )
+
+
+def section_headings(content: str) -> tuple[str, ...]:
+    """Every heading in the document, in order, as written."""
+    return tuple(text for _, _, text in _headings(content.splitlines()))
+
+
+def _section_key(heading: str) -> str:
+    text = heading.strip().lstrip("#").strip()
+    return (field_name(text) or text).casefold()
+
+
+def find_section(content: str, heading: str) -> SectionSpan | None:
+    """The span of the first section titled *heading*, or ``None``."""
+    wanted = _section_key(heading)
+    return next(
+        (span for text, span in section_spans(content) if _section_key(text) == wanted),
+        None,
+    )
 
 
 def _spans(lines: list[str]) -> list[tuple[str, int, int]]:

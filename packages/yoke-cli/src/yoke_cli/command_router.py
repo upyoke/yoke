@@ -258,7 +258,11 @@ def route_command(argv: List[str]) -> int:
         with (
             control_plane_locality(global_env),
             propagated_session_identity(argv),
-            read_output_scope(remaining, _function_id),
+            read_output_scope(
+                remaining,
+                _function_id,
+                ("yoke", *(("--env", global_env) if global_env else ()), *route_tokens),
+            ),
         ):
             try:
                 return sandbox_denial.run(adapter, remaining, argv)

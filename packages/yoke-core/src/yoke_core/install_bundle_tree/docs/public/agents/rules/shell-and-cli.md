@@ -29,8 +29,8 @@
   curl, DB-router and service-client calls are operator-debug only.
 - Launcher repair: [install](../../start/install.md). Lane checks use
   `yoke dev run -- <command>`.
-- Use [narrow reads](../../cli/help.md). Human reads over 28,000 bytes refuse atomically: narrow
-  the query or use `--full`. JSON and write replies stay complete.
+- Use [narrow reads](../../cli/help.md). Human reads over 28,000 bytes refuse: narrow, run
+  an outlined `--section` command, or use `--full`. JSON and writes stay complete.
 - Compose refusals through `yoke_contracts.refusal_recovery.compose_refusal`: the
   true reason and reachable recovery or escalation owner. Show refusal, timeout and crash
   diagnosis and evidence where the affected person or agent looks. Report actual effects;

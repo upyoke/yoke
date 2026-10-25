@@ -2,9 +2,9 @@
  "id": "bounded-command-reads",
  "title": "Bounded CLI reads and deliberate full detail",
  "status": "observed",
- "sources": ["packages/yoke-cli/src/yoke_cli/transport/output_limit.py", "docs/public/agents/rules/shell-and-cli.md"],
- "commands": ["yoke qa plan list", "yoke sessions list", "yoke steering report get"],
- "functions": ["qa.plan.list", "sessions.list", "steering.report.get"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/transport/output_limit.py", "packages/yoke-cli/src/yoke_cli/transport/read_sections.py", "docs/public/agents/rules/shell-and-cli.md"],
+ "commands": ["yoke strategy doc get", "yoke qa plan list", "yoke sessions list", "yoke steering report get"],
+ "functions": ["strategy.doc.get", "qa.plan.list", "sessions.list", "steering.report.get"],
  "position": 0,
- "summary": "Reads declare no side effects; event emission makes a function a write. The generated read catalog and dispatcher use the same classification. Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has, or --full for complete human detail."
+ "summary": "Reads declare no side effects; event emission makes a function a write. The generated read catalog and dispatcher use the same classification. Routine replies use concise command-specific projections and pages. JSON envelopes and write replies remain complete. Only oversized registered human reads refuse atomically above 28,000 UTF-8 bytes; the refusal names the field, filter, limit and paging flags that command really has, or --full for complete human detail. Every registered read takes --section HEADING to print one Markdown section; an oversized reply with headings lists each heading's size and exact --section command, so a long document read never dead-ends."
 }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 from contextlib import contextmanager
 from contextvars import ContextVar
 from collections.abc import Iterator
@@ -16,8 +17,17 @@ _READ_FUNCTION = ContextVar("registered_read_function", default=None)
 _READ_PARSER: ContextVar[argparse.ArgumentParser | None] = ContextVar(
     "registered_read_parser", default=None
 )
+_READ_COMMAND: ContextVar[tuple[str, ...]] = ContextVar(
+    "registered_read_command", default=()
+)
+_READ_SECTION: ContextVar[str | None] = ContextVar(
+    "registered_read_section", default=None
+)
+_SECTION_SUPPORTED = ContextVar("registered_read_section_supported", default=False)
 
-_PROJECTION = {"fields", "field", "include", "section", "detail", "view"}
+_PROJECTION = {
+    "fields", "field", "include", "section", "read_section", "detail", "view"
+}
 _LIMIT = {"limit", "page_size", "display_limit", "lines"}
 _PAGING = {"offset", "cursor", "page"}
 _NOT_NARROWING = {
@@ -27,18 +37,25 @@ _NOT_NARROWING = {
 
 
 @contextmanager
-def read_output_scope(args: list[str], function: str | None = None) -> Iterator[None]:
-    read_token = _READ_FUNCTION.set(function)
-    parser_token = _READ_PARSER.set(None)
-    token = _FULL_OUTPUT.set(
-        "--full" in args[: args.index("--")] if "--" in args else "--full" in args
-    )
+def read_output_scope(
+    args: list[str], function: str | None = None, route: tuple[str, ...] = ()
+) -> Iterator[None]:
+    """Scope one invocation; *route* is the typed command before *args*."""
+    tokens = [
+        _READ_FUNCTION.set(function),
+        _READ_PARSER.set(None),
+        _READ_COMMAND.set((*route, *args) if route else ()),
+        _READ_SECTION.set(None),
+        _SECTION_SUPPORTED.set(False),
+        _FULL_OUTPUT.set(
+            "--full" in args[: args.index("--")] if "--" in args else "--full" in args
+        ),
+    ]
     try:
         yield
     finally:
-        _FULL_OUTPUT.reset(token)
-        _READ_FUNCTION.reset(read_token)
-        _READ_PARSER.reset(parser_token)
+        for token in reversed(tokens):
+            token.var.reset(token)
 
 
 def output_exceeds_limit(
@@ -62,6 +79,33 @@ def registered_read_requested() -> bool:
 def record_read_parser(parser: argparse.ArgumentParser) -> None:
     """Remember the parser this read parsed with, for its recovery hint."""
     _READ_PARSER.set(parser)
+
+
+def record_read_section(heading: str | None) -> None:
+    """Remember that this read offers the shared ``--section`` and its value."""
+    _SECTION_SUPPORTED.set(True)
+    _READ_SECTION.set(heading)
+
+
+def requested_section() -> str | None:
+    return _READ_SECTION.get()
+
+
+def section_command(heading: str) -> str | None:
+    """The exact command that reads one *heading* of this read, if it can."""
+    command = _READ_COMMAND.get()
+    if not _SECTION_SUPPORTED.get() or not command:
+        return None
+    kept: list[str] = []
+    skip = False
+    for token in command:
+        if skip:
+            skip = False
+        elif token == "--section":
+            skip = True
+        elif token != "--full" and not token.startswith("--section="):
+            kept.append(token)
+    return shlex.join([*kept, "--section", heading])
 
 
 def narrowing_flags(parser: argparse.ArgumentParser) -> dict[str, list[str]]:
@@ -107,11 +151,7 @@ def read_recovery(function: str) -> str:
         return f"Run {command} --help to find how to narrow this read."
     groups = narrowing_flags(parser)
     named = "; ".join(f"{kind} {', '.join(flags)}" for kind, flags in groups.items())
-    narrow = (
-        f"Narrow {command} with its {named}"
-        if named
-        else f"{command} has no narrowing flags"
-    )
+    narrow = f"Narrow {command} with its {named}"
     full = any("--full" in action.option_strings for action in parser._actions)
     return (
         f"{narrow}; run {command} --help for the exact recipe"

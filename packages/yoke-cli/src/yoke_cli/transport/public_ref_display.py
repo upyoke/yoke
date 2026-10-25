@@ -40,8 +40,22 @@ def emit_response(
     from yoke_cli.transport.output_limit import (
         output_exceeds_limit,
         read_recovery,
+        requested_section,
+        section_command,
     )
+    from yoke_cli.transport.read_sections import section_outline, select_section
 
+    section = requested_section() if response.success else None
+    if section is not None and (json_mode or machine_mode):
+        return _refuse(
+            response,
+            "read_section_requires_human_output",
+            "--section selects one Markdown section of the human reply, so it "
+            "cannot narrow a JSON or machine-format reply; nothing was printed.",
+            "Drop --json to read the section, or drop --section to receive "
+            "the complete envelope.",
+            json_mode=json_mode,
+        )
     stdout, stderr = io.StringIO(), io.StringIO()
     if json_mode:
         print(
@@ -61,6 +75,18 @@ def emit_response(
             _write_error(display, stderr)
         else:
             _default_human_writer(display, stdout, stderr)
+    if section is not None:
+        text = stdout.getvalue()
+        selected = select_section(text, section)
+        if selected is None:
+            return _refuse(
+                response,
+                "read_section_missing",
+                f"The reply has no section titled {section!r}; nothing was printed.",
+                section_outline(text, section_command)
+                or "The reply has no Markdown headings; drop --section to read it whole.",
+            )
+        stdout = io.StringIO(selected)
     if not json_mode and not machine_mode:
         for warning in response.warnings:
             message = f"warning: {warning.code} ({warning.step}): {warning.detail}"
@@ -69,23 +95,37 @@ def emit_response(
     if not json_mode and not machine_mode and output_exceeds_limit(
         response.function, stdout.getvalue(), stderr.getvalue(), full=full
     ):
-        from yoke_contracts.api.function_call import FunctionError
-
-        refusal = response.model_copy(update={
-            "success": False,
-            "result": {},
-            "warnings": [],
-            "event_ids": [],
-            "error": FunctionError(
-                code="read_output_limit_exceeded",
-                message="The rendered read exceeds the 28000-byte CLI output limit; no partial answer was printed.",
-                recovery_hint=read_recovery(response.function),
-            ),
-        })
-        return emit_response(refusal, json_mode=False, full=True)
+        outline = section_outline(stdout.getvalue(), section_command)
+        return _refuse(
+            response,
+            "read_output_limit_exceeded",
+            "The rendered read exceeds the 28000-byte CLI output limit; no partial answer was printed.",
+            read_recovery(response.function) + (f"\n{outline}" if outline else ""),
+        )
     sys.stdout.write(stdout.getvalue())
     sys.stderr.write(stderr.getvalue())
     return 0 if response.success else 1
+
+
+def _refuse(
+    response: FunctionCallResponse,
+    code: str,
+    message: str,
+    hint: str,
+    *,
+    json_mode: bool = False,
+) -> int:
+    """Replace a read's answer with a named refusal and its recovery."""
+    from yoke_contracts.api.function_call import FunctionError
+
+    refusal = response.model_copy(update={
+        "success": False,
+        "result": {},
+        "warnings": [],
+        "event_ids": [],
+        "error": FunctionError(code=code, message=message, recovery_hint=hint),
+    })
+    return emit_response(refusal, json_mode=json_mode, full=True)
 
 
 def _default_human_writer(
