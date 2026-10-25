@@ -1,8 +1,9 @@
 """Research survives the unified guide with explicit, reversible source links."""
-import json
 from pathlib import Path
 
 import pytest
+
+from tests.teaching_prototype.yokepedia_page import page_data, page_nodes
 
 TOOLS = Path(__file__).resolve().parents[2] / 'docs/teaching/tools'
 
@@ -23,8 +24,7 @@ def guide():
     views = {}
     build_explorer(views, pages)
     assert not loaded.problems
-    nodes = {n['id']: n for name in json.loads(views['explore/manifest.json'])
-             for n in json.loads(views['explore/' + name])}
+    nodes = page_nodes(views['yokepedia.html'])
     yield loaded, pages, nodes, views
     sys.path.remove(str(TOOLS))
 
@@ -69,8 +69,7 @@ def test_proposals_and_history_do_not_change_source_output_totals(guide):
 
 def test_only_unified_guide_is_generated_and_every_node_is_reachable(guide):
     _, _, nodes, views = guide
-    assert [path for path in views if path.endswith('.html')] == ['explore/index.html']
-    assert all(path.startswith('explore/') for path in views)
+    assert list(views) == ['yokepedia.html']
     for node in nodes.values():
         seen = set()
         while node['parent']:
@@ -98,8 +97,8 @@ def test_source_citation_matches_are_exact_and_never_proof():
     model = Model()
     model.gaps['missing'] = dict(id='missing', title='A gap', status='observed',
                                 file='docs/teaching/model/gaps/missing.json', sources=['a.md:12'])
-    nodes = [dict(id='doc:a', title='A', parent=None, document='../../../../a.md'),
-             dict(id='doc:b', title='A', parent=None, document='../../../../b.md')]
+    nodes = [dict(id='doc:a', title='A', parent=None, document='../../../a.md'),
+             dict(id='doc:b', title='A', parent=None, document='../../../b.md')]
     add_research(nodes, model)
     by_id = {n['id']: n for n in nodes}
     assert by_id['doc:a']['research_links']['Gaps'][0]['reason'] == 'Cites this source file'
@@ -109,12 +108,12 @@ def test_source_citation_matches_are_exact_and_never_proof():
 
 def test_build_records_source_snapshot_not_delivery_proof(guide):
     _, _, _, views = guide
-    info = json.loads(views['explore/build-info.json'])
+    info = page_data(views['yokepedia.html'])['build']
     assert len(info['commit']) == 40
     assert len(info['input_digest']) == 64
     assert info['input_files'] > 100
     assert info['built_at']
-    assert 'rebuilding does not reverify evidence' in views['explore/explorer_research.js']
+    assert 'rebuilding does not reverify evidence' in views['yokepedia.html']
 
 
 def test_source_snapshot_changes_when_source_changes(monkeypatch, tmp_path):

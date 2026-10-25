@@ -31,7 +31,7 @@ def literal(row, names=None, depth=0):
 def source_node(add, key, title, parent, summary, path, row, kind, label):
     node = add(key, title, parent, summary)
     relative = path.relative_to(REPO).as_posix()
-    node.update(document='../../../../' + relative,
+    node.update(document='../../../' + relative,
                 document_lines=[row.lineno - 1, row.end_lineno], source_only=True,
                 form=(kind, label, relative + ':' + str(row.lineno)))
     return node
@@ -40,7 +40,7 @@ def source_node(add, key, title, parent, summary, path, row, kind, label):
 def add_setup(add):
     installer = add('installer:script', 'Install Yoke', 'source:setup',
                     'upyoke.com/install · installs the CLI and starts setup unless skipped.')
-    installer.update(document='../../../../packaging/public-installer/install', source_only=True,
+    installer.update(document='../../../packaging/public-installer/install', source_only=True,
                      form=('command', 'Install script', 'curl -fsSL https://upyoke.com/install | sh'),
                      related=['branch:install-command', 'branch:agent-setup', 'branch:terminal-setup'])
     step_order = [literal(value) for value in assignments(REPO / CLI / 'onboard_wizard_step_ids.py').values()]
@@ -130,7 +130,7 @@ def add_packets(add):
                 leaf['related'] = ['command:yoke packets render']
                 if table in table_sources:
                     source, row, columns = table_sources[table]
-                    leaf.update(document='../../../../' + source.relative_to(REPO).as_posix(),
+                    leaf.update(document='../../../' + source.relative_to(REPO).as_posix(),
                                 document_lines=[row.lineno - 1, row.end_lineno], source_only=True)
                     if isinstance(columns, (ast.List, ast.Tuple)):
                         values = [literal(column) for column in columns.elts]

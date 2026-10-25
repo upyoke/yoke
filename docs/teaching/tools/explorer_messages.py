@@ -58,7 +58,7 @@ def add_hooks(add):
                     kind = 'reply'
                 node = add(parent + ':' + module, CHECK_OUTPUT_TITLES.get(stem, names.get(stem, stem.replace('_', ' '))),
                            parent, condition + '. ' + description)
-                node.update(document='../../../../' + path.relative_to(REPO).as_posix(),
+                node.update(document='../../../' + path.relative_to(REPO).as_posix(),
                             source_only=True, hook_module=module, hook_mode=scope, order=1 if kind == 'action' else 0,
                             form=(kind, {'rule': 'Check', 'action': 'Background action',
                                          'reply': 'Message'}[kind], condition))
@@ -190,7 +190,7 @@ def add_message_sections(add, messages):
     # Both deliveries point to the same instruction source, rather than copying it.
     writing = add('hook-writing-source', 'Shared user-writing rules',
                   'hook:global:orientation:writing', 'Exact text included by the renderer.')
-    writing.update(document='../../../../' + CONTRACTS + 'user_writing_rules.py',
+    writing.update(document='../../../' + CONTRACTS + 'user_writing_rules.py',
                    source_only=True, form=('file', 'Shared instruction source', 'user_writing_rules.py'))
 
 
@@ -266,6 +266,6 @@ def add_replies(add):
     path = REPO / 'packages/yoke-cli/src/yoke_cli/config/setup_agent_response.py'
     node = add('setup-replies', 'question · browser · done · failed · refused',
                'branch:shared-setup', 'Agent setup returns one of these states in each JSON reply.')
-    node.update(document='../../../../' + path.relative_to(REPO).as_posix(), source_only=True,
+    node.update(document='../../../' + path.relative_to(REPO).as_posix(), source_only=True,
                 form=('reply', 'Setup reply states', 'yoke setup --agent'))
     node['related'] = ['branch:agent-setup']

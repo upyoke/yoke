@@ -49,10 +49,7 @@ function recordValue(value) {
   }
   return text('p', String(value));
 }
-async function fillResearch(node, body) {
-  if (!records.has(node.record)) records.set(node.record,
-    fetch(node.record).then(r => { if (!r.ok) throw Error(r.status); return r.json(); }));
-  const record = await records.get(node.record);
+function fillResearch(node, record, body) {
   const labels = {current: 'Recorded current state', desired: 'Proposed teaching',
     planned: 'Planned changes', proposed_content: 'Proposed content', text: 'Details',
     note: 'Explanation', need: 'What the reader needs', when: 'When it is needed',
@@ -75,14 +72,11 @@ async function fillResearch(node, body) {
   source.href = node.record; source.target = '_blank'; source.rel = 'noopener'; body.append(source);
 }
 
-async function showBuildInfo() {
-  const response = await fetch('build-info.json', {cache: 'no-store'});
-  if (!response.ok) return;
-  const info = await response.json();
+function showBuildInfo(info) {
   const box = document.querySelector('#build-info');
   box.append(text('p', `Built ${new Date(info.built_at).toLocaleString()} from ${info.input_files} inspected files.`));
   box.append(text('p', `Checkout: ${info.commit}${info.dirty ? ' + uncommitted changes' : ''}`));
   box.append(text('p', `Input fingerprint: ${info.input_digest}`));
   box.append(text('p', 'Source content and inventories are rebuilt from this checkout. Research retains its recorded state; rebuilding does not reverify evidence.'));
-  box.append(text('p', 'Refresh source data: yoke dev run -- python3 docs/teaching/tools/build.py'));
+  box.append(text('p', 'Refresh source data: yoke dev yokepedia'));
 }

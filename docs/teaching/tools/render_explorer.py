@@ -1,7 +1,6 @@
 """Build the unified responsive teaching guide from sources and research."""
 
 import json
-import hashlib
 from pathlib import Path
 from functools import lru_cache
 
@@ -20,7 +19,11 @@ from explorer_sources import (
     SKILL_GROUPS, ROLE_GROUPS, CONNECTIONS,
 )
 
-ROOT = 'explore/index.html'
+PAGE = 'yokepedia.html'
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[2]
+VIEWS = HERE.parent / 'views'
+SCRIPTS = ('explorer_graph.js', 'explorer_research.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -38,7 +41,7 @@ def map_nodes(model):
     def add(key, title, parent=None, summary='', status='', record=None):
         node = dict(id=key, title=title, parent=parent, summary=summary, status=status)
         if record:
-            node['record'] = '../../' + record['file'].removeprefix('docs/teaching/')
+            node['record'] = '../' + record['file'].removeprefix('docs/teaching/')
         nodes.append(node)
         return node
 
@@ -63,7 +66,7 @@ def map_nodes(model):
     add_packets(add)
     add_hooks(add)
     add_replies(add)
-    repo = Path(__file__).resolve().parents[3]
+    repo = REPO
     skill_parents, role_parents = {}, {}
     for groups, parent, mapping in ((SKILL_GROUPS, 'branch:project-skills', skill_parents),
                                     (ROLE_GROUPS, 'source:roles', role_parents)):
@@ -78,7 +81,7 @@ def map_nodes(model):
         parent = 'skill:' + name.rpartition('/')[0] if '/' in name else skill_parents.get(name, 'branch:project-skills')
         node = add('skill:' + name, name.replace('/', ' / '), parent,
                    'Read the procedure for this skill.')
-        node['document'] = '../../../../' + path.relative_to(repo).as_posix()
+        node['document'] = '../../../' + path.relative_to(repo).as_posix()
         add_sections(add, node, path)
     skill_root = repo / '.agents/skills/yoke'
     for path in sorted(skill_root.rglob('*.md')):
@@ -91,12 +94,12 @@ def map_nodes(model):
     global_docs = 'packages/yoke-contracts/src/yoke_contracts/global_skill/SKILL.md'
     node = add('skill:yoke-global', 'yoke-global (outside projects)', 'source:skills',
                'Check machine status, choose or add a project, then open a session in its folder.')
-    node['document'] = '../../../../' + global_docs
+    node['document'] = '../../../' + global_docs
     for path in sorted((repo / 'runtime/agents').glob('*.md')):
         title = path.stem.replace('-', ' ').title()
         node = add('role:' + path.stem, title, role_parents.get(path.stem, 'source:roles'),
                    'Read the instructions assigned to this agent role.')
-        node['document'] = '../../../../' + path.relative_to(repo).as_posix()
+        node['document'] = '../../../' + path.relative_to(repo).as_posix()
         add_sections(add, node, path)
     role_ids = {node['id'] for node in nodes}
     for path in sorted((repo / 'runtime/agents').glob('*/*.md')):
@@ -157,7 +160,7 @@ def map_nodes(model):
     nodes = list({node['id']: node for node in nodes}.values())
     nodes.sort(key=lambda n: (n['id'] != 'doc:docs/public/index.md', n.get('order', 0)))
     by_id = {node['id']: node for node in nodes}
-    by_id['source:rules']['document'] = '../../../../AGENTS.md'
+    by_id['source:rules']['document'] = '../../../AGENTS.md'
     by_id['source:homepage']['url'] = 'https://upyoke.com'
     by_id['branch:web-docs']['url'] = 'https://upyoke.com/docs'
     for location in ('web-docs', 'installed-docs'):
@@ -181,47 +184,87 @@ def map_nodes(model):
 
 
 def build_explorer(views, pages):
+    """Add the page to ``views``; return the generated text to privacy-scan.
+
+    Embedded documents and records are verbatim copies of tracked files whose
+    owners scan them, so the scan covers the shell, each node and build data.
+    """
     from explorer_research import add_research
     from explorer_inventory import add_inventories, source_snapshot
 
     nodes = map_nodes(pages.m)
     if pages.m.problems:
-        return
+        return {}
     add_research(nodes, pages.m)
     add_inventories(nodes, pages)
     if pages.m.problems:
-        return
-    # Small model-derived chunks keep generated files within the teaching limit.
-    chunks = []
-    batch = []
-    for node in nodes:
-        if batch and (len(batch) >= 12 or len(json.dumps(batch + [node])) > 14000):
-            name = f'nodes-{len(chunks)}.json'
-            chunks.append(name)
-            views['explore/' + name] = json.dumps(batch, separators=(',', ':')) + '\n'
-            batch = []
-        batch.append(node)
-    if batch:
-        name = f'nodes-{len(chunks)}.json'
-        chunks.append(name)
-        views['explore/' + name] = json.dumps(batch, separators=(',', ':')) + '\n'
-    views['explore/manifest.json'] = json.dumps(chunks) + '\n'
-    views['explore/build-info.json'] = json.dumps(source_snapshot(nodes, pages)) + '\n'
-    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js', 'explorer_research.js'):
-        views['explore/' + asset] = Path(__file__).with_name(asset).read_text()
-    views[ROOT] = '''<!doctype html>
+        return {}
+    data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
+                records=embedded_records(nodes, pages.m),
+                build=source_snapshot(nodes, pages))
+    if pages.m.problems:
+        return {}
+    views[PAGE] = page_html(data, pages.m)
+    scanned = {PAGE: page_html(dict(nodes=[], documents={}, records={}, build={}), pages.m),
+               PAGE + '#build': embed_json(data['build'])}
+    scanned.update((PAGE + '#' + node['id'], embed_json(node)) for node in nodes)
+    return scanned
+
+
+def embedded_documents(nodes, model):
+    """Full source text for every document node, keyed by its link."""
+    documents = {}
+    for link in dict.fromkeys(node['document'] for node in nodes if node.get('document')):
+        path = REPO / link.removeprefix('../../../')
+        try:
+            documents[link] = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError) as exc:
+            model.problem('GUIDE_SOURCE_UNREADABLE', path.relative_to(REPO).as_posix(),
+                          f'{exc}; restore the file or stop citing it, then rebuild')
+    return documents
+
+
+def embedded_records(nodes, model):
+    """Every canonical research record, keyed by its link from the page."""
+    records = {}
+    for link in dict.fromkeys(node['record'] for node in nodes if node.get('record')):
+        path = (VIEWS / link).resolve()
+        try:
+            records[link] = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError) as exc:
+            model.problem('GUIDE_SOURCE_UNREADABLE', path.relative_to(REPO).as_posix(),
+                          f'{exc}; restore the record, then rebuild')
+    return records
+
+
+def embed_json(value):
+    """JSON safe inside a script element: no less-than character survives."""
+    return json.dumps(value, ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c')
+
+
+def page_html(data, model):
+    """One self-contained page: inline style, scripts and embedded data."""
+    css = HERE.joinpath('explorer.css').read_text(encoding='utf-8')
+    scripts = [HERE.joinpath(name).read_text(encoding='utf-8') for name in SCRIPTS]
+    for name, text in [('explorer.css', css), *zip(SCRIPTS, scripts)]:
+        for unsafe in ('</style', '</script', '<!--'):
+            if unsafe in text.lower():
+                model.problem('GUIDE_ASSET_UNSAFE', 'tools/' + name,
+                              f'contains {unsafe}, which can end its inline element; '
+                              'build that text from parts, then rebuild')
+    inline = ''.join(f'<script>\n{text}</script>\n' for text in scripts)
+    return f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yoke · Teaching guide</title>
-<link rel="stylesheet" href="explorer.css">
-<script src="explorer_graph.js" defer></script>
-<script src="explorer_research.js" defer></script>
-<script src="explorer.js" defer></script>
+<title>Yokepedia</title>
+<style>
+{css}</style>
+<script id="yokepedia-data" type="application/json">{embed_json(data)}</script>
 </head>
 <body>
-<header class="site-header"><a class="brand" href="index.html">yoke <span>Teaching guide</span></a><span class="review">Design preview</span></header>
+<header class="site-header"><a class="brand" href="{PAGE}">yoke <span>Yokepedia</span></a><span class="review">Design preview</span></header>
 <nav id="view-nav" aria-label="Browse teaching"></nav>
 <div class="page-layout">
 <aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
@@ -229,13 +272,7 @@ def build_explorer(views, pages):
 <p id="notice" role="status">Loading sources…</p>
 <details id="build-info" class="research"><summary>Source freshness</summary></details>
 <aside id="connections" aria-label="Related sources" hidden></aside>
-<noscript>This guide needs JavaScript. Canonical records remain in docs/teaching/model.</noscript>
+<noscript>Yokepedia needs JavaScript. Canonical records remain in docs/teaching/model.</noscript>
 </main></div>
-</body></html>
-'''
-    for asset in ('explorer.css', 'explorer.js', 'explorer_graph.js', 'explorer_research.js'):
-        version = hashlib.sha256(views['explore/' + asset].encode()).hexdigest()[:12]
-        stem, suffix = asset.rsplit('.', 1)
-        versioned = stem + '-' + version + '.' + suffix
-        views['explore/' + versioned] = views['explore/' + asset]
-        views[ROOT] = views[ROOT].replace('"' + asset + '"', '"' + versioned + '"')
+{inline}</body></html>
+"""

@@ -49,7 +49,7 @@ def connect(by_id, source, target, group, reason):
 
 
 def source_path(value):
-    return re.sub(r':\d+(?:-\d+)?$', '', value).split('#')[0].removeprefix('../../../../')
+    return re.sub(r':\d+(?:-\d+)?$', '', value).split('#')[0].removeprefix('../../../')
 
 
 def add_research(nodes, model):
@@ -76,7 +76,7 @@ def add_research(nodes, model):
     for group in model.evidence_files:
         key = 'research-collection:' + group['id']
         node = add_node(nodes, key, group['title'], 'research-index:evidence')
-        node['record'] = '../../model/evidence/' + group['id'] + '.json'
+        node['record'] = '../model/evidence/' + group['id'] + '.json'
         by_id[key] = node
     for kind, key, record in records:
         rid = research_id(kind, key)
@@ -94,7 +94,7 @@ def add_research(nodes, model):
         elif key == 'workbench-cues' and kind == 'surface':
             parent = 'research-index:dashboard'
         node = add_node(nodes, rid, record.get('title', key), parent)
-        node.update(record='../../' + record['file'].removeprefix('docs/teaching/'),
+        node.update(record='../' + record['file'].removeprefix('docs/teaching/'),
                     record_id=key, record_kind=kind, status=record.get('status'),
                     type_label=KINDS[kind][1], status_label=STATUS.get(record.get('status'), ''))
         summary = next((record[k] for k in ('need', 'text', 'current', 'scope', 'when')

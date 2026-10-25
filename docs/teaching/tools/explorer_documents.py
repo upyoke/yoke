@@ -15,7 +15,7 @@ def heading(path):
 def document(add, key, path, parent, label='Document', title=None):
     relative = path.relative_to(REPO).as_posix()
     node = add(key, title or heading(path), parent, relative)
-    node.update(document='../../../../' + relative, form=('file', label, relative))
+    node.update(document='../../../' + relative, form=('file', label, relative))
     return node
 
 
@@ -71,7 +71,7 @@ def rule_topics(add, path, start, end, scope):
         relative = path.relative_to(REPO).as_posix()
         node = add('rules-topic:' + scope + ':' + str(first), title, 'source:rules',
                    'Shipped by Yoke' if scope == 'shared' else 'Added by the Yoke repository')
-        node.update(document='../../../../' + relative, document_lines=[first, last],
+        node.update(document='../../../' + relative, document_lines=[first, last],
                     guidance_scope=scope, form=('file', 'Rules topic', relative))
 
 
@@ -106,7 +106,7 @@ def connect_document_links(nodes):
     for node in nodes:
         if not node.get('document') or node.get('document_lines'):
             continue
-        path = REPO / node['document'].removeprefix('../../../../')
+        path = REPO / node['document'].removeprefix('../../../')
         if path.suffix != '.md':
             continue
         targets = set()
@@ -126,7 +126,7 @@ def expand_prose_topics(nodes):
         document = node.get('document', '')
         if node['id'] in parents or node.get('source_only') or not document.endswith('.md'):
             continue
-        lines = (REPO / document.removeprefix('../../../../')).read_text().splitlines()
+        lines = (REPO / document.removeprefix('../../../')).read_text().splitlines()
         first, last = node.get('document_lines', [0, len(lines)])
         text = re.sub(r'<!--.*?-->', '', '\n'.join(lines[first:last]), flags=re.S)
         if len(text.split()) < 80:

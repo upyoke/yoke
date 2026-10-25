@@ -40,7 +40,7 @@ def describe_nodes(nodes, commands):
         elif node.get('document'):
             is_skill = key.startswith('skill:')
             kind, label = 'file', 'Skill file' if is_skill else 'Agent-role file'
-            hint = node['document'].removeprefix('../../../../')
+            hint = node['document'].removeprefix('../../../')
         elif key.startswith('command:'):
             command = key.removeprefix('command:')
             if command == 'yoke':
@@ -90,13 +90,13 @@ def describe_sizes(nodes):
         if node.get('source_only'):
             continue
         document = node.get('document', '')
-        if not document.startswith('../../../../'):
+        if not document.startswith('../../../'):
             if node.get('type_label') == 'Text passage':
                 prose = node['body']
                 node['source_size'] = dict(bytes=len(prose.encode('utf-8')), chars=len(prose),
                                           lines=len(prose.splitlines()), label='Context text')
             continue
-        path = REPO / document.removeprefix('../../../../')
+        path = REPO / document.removeprefix('../../../')
         if not path.is_file():
             continue
         raw = path.read_bytes()

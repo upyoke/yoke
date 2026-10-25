@@ -10,12 +10,18 @@ executing the child proves which tree answered.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _source_pythonpath, source_dev_run, watch_qa_case
+from yoke_core.tools import (
+    _source_pythonpath,
+    source_dev_run,
+    source_dev_scanner,
+    watch_qa_case,
+)
 from runtime.api.source_pythonpath_test_helpers import provision_stub_environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 
@@ -130,30 +136,42 @@ def test_ambient_python_child_reports_the_same_selected_checkout(
     assert str(lane / "packages/yoke-cli/src/yoke_cli") in capfd.readouterr().out
 
 
-def test_mapped_main_fallback_runs_its_registered_scanner_from_that_checkout(
+def test_registered_scanner_runs_from_the_current_checkout_without_a_session(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capfd: pytest.CaptureFixture[str],
 ) -> None:
-    mapped_main = _stub_source_tree(tmp_path / "mapped-main")
-    scanner = mapped_main / next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))
-    scanner.parent.mkdir(parents=True, exist_ok=True)
+    checkout = _stub_source_tree(tmp_path / "checkout")
+    subprocess.run(["git", "init", "-q", str(checkout)], check=True)
+    relative = "docs/teaching/tools/build.py"
+    scanner = checkout / relative
+    scanner.parent.mkdir(parents=True)
     scanner.write_text(
         "import pathlib\nprint('scanner', pathlib.Path(__file__).resolve())\n"
     )
-    _select_root(monkeypatch, mapped_main, fallback_project_id=17)
     monkeypatch.setattr(
-        source_dev_run,
-        "_record_main_checkout_fallback",
-        lambda **_kwargs: None,
+        source_dev_scanner, "is_yoke_source_checkout", lambda root: root == checkout
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.source_python_environment.load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
     )
 
-    command = ["python3", next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))]
-    assert source_dev_run.run(["--", *command]) == 0
+    def _no_session(*_args):
+        raise AssertionError("a registered scanner never looks up a session")
+
+    monkeypatch.setattr(source_dev_run, "_claimed_root", _no_session)
+    monkeypatch.setattr(
+        source_dev_run.verification_tree_binding, "ambient_session_id", _no_session
+    )
+    monkeypatch.chdir(scanner.parent)
+
+    assert source_dev_run.run(["--", "python3", relative]) == 0
 
     captured = capfd.readouterr()
-    assert f"scanner {scanner}" in captured.out
-    assert f"source checkout: {mapped_main}" in captured.err
+    assert f"scanner {scanner.resolve()}" in captured.out
+    assert f"source checkout: {checkout}" in captured.err
+    assert "source authority" not in captured.err
 
 
 def test_mapped_main_fallback_refuses_an_arbitrary_nested_yoke_command(

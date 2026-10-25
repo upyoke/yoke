@@ -1,4 +1,4 @@
-"""Run source commands from a claimed lane or a read-only main surface.
+"""Run source commands from a claimed lane, or a registered scanner in place.
 
 The child uses the interpreter whose import origins were verified.
 Candidate-bound QA refuses a switch to another source checkout.
@@ -18,7 +18,11 @@ from typing import Sequence
 from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import source_python_environment
-from yoke_core.tools import _source_pythonpath, source_dev_candidate_binding
+from yoke_core.tools import (
+    _source_pythonpath,
+    source_dev_candidate_binding,
+    source_dev_scanner,
+)
 from yoke_core.tools.source_machine_home import isolated_machine_home
 
 from yoke_core.tools.source_dev_main_audit import (
@@ -26,12 +30,6 @@ from yoke_core.tools.source_dev_main_audit import (
     record_main_checkout_fallback as _record_main_checkout_fallback,
 )
 
-MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
-    {
-        "runtime/api/tools/scan_item_ref_construction.py",
-        "docs/teaching/tools/build.py",
-    }
-)
 MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX = tuple(
     shlex.split(_source_pythonpath.INSTALL_BUNDLE_SYNC_RECIPE.partition("-- ")[2])[:-1]
 )
@@ -162,23 +160,6 @@ def _mapped_main_source_root() -> tuple[Path | None, str | None, int | None]:
     return root, None, project_id
 
 
-def _main_checkout_read_only_signature(
-    command: Sequence[str],
-    root: Path,
-) -> str | None:
-    """Classify one repository-owned scanner that may run before a lane exists."""
-    if len(command) < 2 or command[0] != "python3":
-        return None
-    candidate = (root / command[1]).resolve()
-    try:
-        relative = candidate.relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return None
-    if relative not in MAIN_CHECKOUT_READ_ONLY_SCRIPTS or not candidate.is_file():
-        return None
-    return f"read-only-python-script:{relative}"
-
-
 def _claimed_target_signature(command: Sequence[str]) -> str | None:
     """Classify install-bundle sync when its destination is a claimed lane."""
     if tuple(command[:-1]) != MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX:
@@ -198,15 +179,6 @@ def _claimed_target_signature(command: Sequence[str]) -> str | None:
     return "claimed-target-python-module:install-bundle-sync"
 
 
-def _main_checkout_authority_signature(
-    command: Sequence[str],
-    root: Path,
-) -> str | None:
-    return _main_checkout_read_only_signature(command, root) or (
-        _claimed_target_signature(command)
-    )
-
-
 def run(
     command: Sequence[str],
     *,
@@ -222,21 +194,26 @@ def run(
             file=sys.stderr,
         )
         return 2
-    root, error, fallback_project_id = (
-        _claimed_root() if lane is None else _claimed_root(lane)
-    )
+    scanner = source_dev_scanner.scanner_root(args) if lane is None else None
+    if scanner is not None:
+        root, error = scanner
+        fallback_project_id = None
+    else:
+        root, error, fallback_project_id = (
+            _claimed_root() if lane is None else _claimed_root(lane)
+        )
     error = error or (source_dev_candidate_binding.refusal(root) if root else None)
     if error or root is None:
         print(f"error: {error}", file=sys.stderr)
         return 1
     authority_signature = None
     if fallback_project_id is not None:
-        authority_signature = _main_checkout_authority_signature(args, root)
+        authority_signature = _claimed_target_signature(args)
         if authority_signature is None:
             print(
-                "error: mapped-main source execution only permits registered "
-                "read-only scanners and claimed-target maintenance; prepare "
-                "and claim a Yoke source lane for arbitrary commands",
+                "error: mapped-main source execution only permits "
+                "claimed-target maintenance; prepare and claim a Yoke source "
+                "lane for arbitrary commands",
                 file=sys.stderr,
             )
             return 1
@@ -309,9 +286,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="yoke dev run",
         description=(
             "Run a command from the current session's claimed Yoke source "
-            "lane with disposable machine settings, or registered maintenance "
-            "operation from its mapped main checkout when no Yoke lane "
-            "exists, and report every checkout-owned import origin. A "
+            "lane with disposable machine settings, and report every "
+            "checkout-owned import origin. A registered read-only scanner "
+            "runs from the current directory's Yoke source checkout without "
+            "a session; claimed-target maintenance may use the mapped main "
+            "checkout when no Yoke lane exists. A "
             "nested `yoke` or `python3` command uses the checkout's declared "
             "locked .venv. Missing, stale, or incompatible environments refuse "
             "with lane-local recovery; checks never sync. Candidate-bound Command "
@@ -331,7 +310,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Explicitly allow source code to write the real machine home.",
     )
     parser.add_argument(
-        "command", nargs=argparse.REMAINDER, help="Command to run in the lane, after --."
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Command to run in the lane, after --.",
     )
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     return run(
