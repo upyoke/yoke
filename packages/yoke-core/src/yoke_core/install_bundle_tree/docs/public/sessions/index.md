@@ -131,8 +131,8 @@ they do not create separate state.
 
 A session belongs to the project whose registered folder it started in, else to
 its organization (shown as **Outside any project**), and keeps that scope. Its ID
-comes from the harness; never invent one. Item work needs a session started in
-the item's project folder ([refusals](../agents/rules/lanes-and-claims.md#session-scope-and-folder-admission)).
+comes from the harness; never invent one. A session may claim items in any project
+it can access ([session scope](../agents/rules/lanes-and-claims.md#session-scope)).
 
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows

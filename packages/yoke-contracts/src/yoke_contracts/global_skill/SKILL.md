@@ -6,9 +6,9 @@ description: "Yoke outside a project: machine status, pick or add the project to
 # Yoke outside a project
 
 Yoke is installed on this machine, but this session's folder is not inside a
-Yoke project. Item work (ideas, plans, code, reviews) happens in a session
-opened in the project's own folder; there the project's full `/yoke` skill
-takes over. This skill gets the user there.
+Yoke project. Item work (ideas, plans, code, reviews) belongs in a session
+opened in the project's own folder, because the project's full `/yoke` skill
+and rules load there. This skill gets the user there.
 
 For a first introduction to Yoke’s core words and actions, point the user to
 <https://upyoke.com/docs/start/concepts>.

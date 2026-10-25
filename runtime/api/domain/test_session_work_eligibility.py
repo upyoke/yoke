@@ -146,36 +146,43 @@ def _target(epic=False):
 
 
 @pytest.mark.parametrize("epic", [False, True])
-@pytest.mark.parametrize(
-    "project,code",
-    [(None, "SESSION_MACHINE_SCOPE_WORK_REFUSED"), (2, "SESSION_PROJECT_MISMATCH")],
-)
-def test_project_scope_refused_without_claim(work_conn, epic, project, code):
+@pytest.mark.parametrize("project", [None, 1, 2])
+def test_any_session_scope_admitted_on_item_project_levels(
+    work_conn, monkeypatch, epic, project
+):
     work_conn.execute("UPDATE harness_sessions SET project_id=?", (project,))
-    with pytest.raises(SessionError) as refusal:
-        from yoke_core.domain.sessions_lifecycle_claim import claim_work
-
-        claim_work(work_conn, session_id="session", target=_target(epic))
-    assert refusal.value.code == code
-    assert "GAR-3 (Plant trees)" in str(refusal.value)
-    assert "garden project folder" in str(refusal.value)
-    assert "sessions never switch projects" in str(refusal.value)
-    assert work_conn.execute("SELECT COUNT(*) FROM work_claims").fetchone()[0] == 0
-    assert (
-        work_conn.execute("SELECT current_item_id FROM harness_sessions").fetchone()[0]
-        is None
+    seen = []
+    monkeypatch.setattr(
+        admission, "require_work_selection", lambda conn, **kw: seen.append(kw)
     )
+    admission.require_session_work_eligibility(work_conn, "session", _target(epic))
+    assert [kw["project_id"] for kw in seen] == [1]
+    assert seen[0]["model"] == "grok-4.7-high-fast"
 
 
-def test_matching_project_session_admitted(work_conn, configured):
-    admission.require_session_work_eligibility(work_conn, "session", _target())
+def test_missing_item_refuses_work(work_conn, configured):
+    from yoke_core.domain.work_claim_targets import make_item_target
+
+    with pytest.raises(SessionError) as refusal:
+        admission.require_session_work_eligibility(
+            work_conn, "session", make_item_target(99)
+        )
+    assert refusal.value.code == "INVALID_CLAIM"
+
+
+@pytest.mark.parametrize("project", [None, 1, 2])
+def test_close_admitted_from_any_session_scope(work_conn, project):
+    work_conn.execute(
+        "UPDATE harness_sessions SET project_id=?, model='unknown'", (project,)
+    )
+    admission.require_session_close_eligibility(work_conn, "session", _target())
 
 
 def test_recheck_after_lock_refuses(work_conn, configured, monkeypatch):
     from yoke_core.domain import sessions_lifecycle_claim as claims
 
     def lock(conn, ids):
-        conn.execute("UPDATE harness_sessions SET project_id=2")
+        conn.execute("UPDATE harness_sessions SET model='unknown'")
         return {"session": None}
 
     monkeypatch.setattr(claims, "lock_session_rows_for_claim_lifecycle", lock)
@@ -189,7 +196,7 @@ def test_recheck_after_lock_refuses(work_conn, configured, monkeypatch):
     )
     with pytest.raises(SessionError) as refusal:
         claims.claim_work(work_conn, session_id="session", target=_target())
-    assert refusal.value.code == "SESSION_PROJECT_MISMATCH"
+    assert refusal.value.code == "SESSION_BELOW_INTERN"
     assert work_conn.execute("SELECT COUNT(*) FROM work_claims").fetchone()[0] == 0
     assert (
         work_conn.execute("SELECT current_item_id FROM harness_sessions").fetchone()[0]

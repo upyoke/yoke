@@ -76,7 +76,7 @@ def _placeholder_note(executor, model) -> str:
 
 
 def _session_and_item(conn, session_id, item_id):
-    """Load the claiming session row and the target item's project facts."""
+    """Load the claiming session row and the target item's project id."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     session = conn.execute(
         f"SELECT * FROM harness_sessions WHERE session_id = {marker}",
@@ -84,52 +84,28 @@ def _session_and_item(conn, session_id, item_id):
     ).fetchone()
     if session is None:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
-    project = conn.execute(
-        f"SELECT i.project_id, ir.public_ref, i.title, p.slug FROM items i "
-        f"JOIN projects p ON p.id = i.project_id "
-        f"JOIN item_refs ir ON ir.item_id = i.id WHERE i.id = {marker}",
+    item = conn.execute(
+        f"SELECT project_id FROM items WHERE id = {marker}",
         (item_id,),
     ).fetchone()
-    if project is None:
+    if item is None:
         raise SessionError("INVALID_CLAIM", "Work target item does not exist.")
-    return dict(session), project
-
-
-def _project_mismatch(conn, observed, project, *, recovery):
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    session_project = None
-    if observed.get("project_id") is not None:
-        session_project = conn.execute(
-            f"SELECT slug FROM projects WHERE id = {marker}",
-            (observed["project_id"],),
-        ).fetchone()
-    origin = (
-        f"in project {session_project[0]}" if session_project else "outside any project"
-    )
-    code = (
-        "SESSION_MACHINE_SCOPE_WORK_REFUSED"
-        if observed.get("project_id") is None
-        else "SESSION_PROJECT_MISMATCH"
-    )
-    return SessionError(
-        code,
-        f"Open a session in the {project[3]} project folder to work on "
-        f"{project[1]} ({project[2]}). This session was started {origin}; "
-        f"sessions never switch projects.{recovery}",
-    )
+    return dict(session), item[0]
 
 
 def require_session_work_eligibility(conn, session_id, target):
-    """Process-only coordination is exempt; item and epic-task claims are work."""
+    """Process-only coordination is exempt; item and epic-task claims are work.
+
+    Any session may work an item in any project; the item's project Levels
+    decide whether the session's model selection admits the work.
+    """
     item_id = target.item_id or target.epic_id
     if item_id is None:
         return
-    observed, project = _session_and_item(conn, session_id, item_id)
-    if observed.get("project_id") != project[0]:
-        raise _project_mismatch(conn, observed, project, recovery="")
+    observed, project_id = _session_and_item(conn, session_id, item_id)
     require_work_selection(
         conn,
-        project_id=project[0],
+        project_id=project_id,
         executor=observed.get("executor_surface") or observed.get("executor") or "",
         model=routing_model_of(observed.get("model"), observed.get("requested_model")),
         reasoning_effort=routing_effort_of(
@@ -141,30 +117,9 @@ def require_session_work_eligibility(conn, session_id, target):
 
 
 def require_session_close_eligibility(conn, session_id, target):
-    """Admit an administrative close: no model level, project or covering seat.
+    """Admit an administrative close from any session in any project.
 
     Closing an item does no work on it, so the session's model selection is
-    not consulted. A session in the item's project may close it; a session
-    elsewhere needs its own live steering seat covering the item.
+    not consulted; only the session and the item must exist.
     """
-    from yoke_core.domain.session_steering_authority import (
-        covering_session_seat,
-        steering_authority_message,
-    )
-
-    observed, project = _session_and_item(conn, session_id, target.item_id)
-    if observed.get("project_id") == project[0]:
-        return
-    seat = covering_session_seat(
-        conn,
-        caller_session_id=str(session_id),
-        target={"project_id": int(project[0]), "item_id": int(target.item_id)},
-    )
-    if seat is None:
-        raise _project_mismatch(
-            conn,
-            observed,
-            project,
-            recovery=" Closing an item from another project "
-            + steering_authority_message(project[3]),
-        )
+    _session_and_item(conn, session_id, target.item_id)

@@ -5,9 +5,9 @@ dependency reconciliation and GitHub close/comment are not skipped. The
 work claim still governs the write with the same implicit acquire as the
 flag verbs: take-and-release when nobody holds it, refuse a foreign
 holder. Cancel is an administrative close, not work, so the implicit
-claim skips the model-level check and a live steering seat covering the
-item's project may cancel it from a session in any project. Unlike freeze, a successful cancel also releases a claim the
-caller already held, because the item is terminal. Cancellation of the
+claim skips the model-level check; a session in any project may cancel.
+Unlike freeze, a successful cancel also releases a claim the caller already
+held, because the item is terminal. Cancellation of the
 item is cancellation of its lanes: the terminal close releases the
 item's own worktree lanes in the same transaction.
 

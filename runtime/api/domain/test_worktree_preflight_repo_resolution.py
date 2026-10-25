@@ -56,10 +56,12 @@ def test_unmapped_item_project_refuses_with_register_recipe(
         lambda _slug: None,
     )
     resolved = res.resolve_preflight_lane_target(
-        item=_item("platform"), project_flag=None, repo_root_override=None,
+        item={"project": {"slug": "platform", "id": 2}},
+        project_flag=None,
+        repo_root_override=None,
     )
     assert resolved.repo_root == ""
-    assert "yoke project register" in resolved.error
+    assert "yoke project register <checkout-path> --project-id 2" in resolved.error
     assert "wrong repository" in resolved.error
 
 

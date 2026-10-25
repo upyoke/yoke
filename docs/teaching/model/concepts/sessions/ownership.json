@@ -6,6 +6,6 @@
  "functions": ["claims.work.acquire"],
  "page": "sessions",
  "position": 2,
- "summary": "Item and epic-task claims are work: only a session registered in the item's project, running from its mapped folder, may claim them. Other attempts write nothing and name the folder to open or the checkout registration recovery. Process, steering and coordination holds keep their own target authorization. Source behavior; deployed proof is pending.",
- "sources": ["docs/public/agents/rules/lanes-and-claims.md", "packages/yoke-core/src/yoke_core/domain/session_work_eligibility.py", "runtime/api/cli/test_claims_work_folder_guard.py"]
+ "summary": "Item and epic-task claims are work: any session may claim an item in any project it can access, and the claim changes neither the session's project nor its identity. The item's project Levels admit the model selection, and claims stay exclusive. The lane still lives in the item's project checkout; an unmapped checkout refuses preparation with the exact `yoke project register` recovery. Process, steering and coordination holds keep their own target authorization. Source behavior; deployed proof is pending.",
+ "sources": ["docs/public/agents/rules/lanes-and-claims.md", "packages/yoke-core/src/yoke_core/domain/session_work_eligibility.py", "runtime/api/domain/test_session_work_eligibility.py", "packages/yoke-core/src/yoke_core/domain/worktree_preflight_repo_resolution.py"]
 }

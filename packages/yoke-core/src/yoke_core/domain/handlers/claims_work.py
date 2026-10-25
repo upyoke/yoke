@@ -103,10 +103,6 @@ _ACQUIRE_ERROR_CODES = {
     "SESSION_BELOW_INTERN": "session_below_intern",
     "ALREADY_CLAIMED": "already_claimed",
     "DOCUMENT_LOCKED": "document_locked",
-    # Folder-admission refusals keep their names: the CLI appends the
-    # caller's local folder recovery when it sees these exact codes.
-    "SESSION_MACHINE_SCOPE_WORK_REFUSED": "SESSION_MACHINE_SCOPE_WORK_REFUSED",
-    "SESSION_PROJECT_MISMATCH": "SESSION_PROJECT_MISMATCH",
 }
 
 

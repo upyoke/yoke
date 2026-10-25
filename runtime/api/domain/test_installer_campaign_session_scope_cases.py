@@ -2,7 +2,6 @@
 
 import itertools
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -24,11 +23,6 @@ KEYS = (
     "outside-project-sessions",
     "outside-project-reinstall",
     "outside-project-first-work",
-)
-FOLDER_REFUSAL = (
-    "CLAIM_FOLDER_MISMATCH: No local checkout is mapped to project scope-proof for "
-    "SCP-1 (Scope proof). Recovery: run `yoke --env local project register CHECKOUT "
-    "--project-id 7`, then open a session there; sessions never switch projects."
 )
 
 
@@ -52,24 +46,12 @@ def test_campaign_exports_the_session_scope_cases_in_order():
 class FakeCli:
     """The installed CLI's session, claim and project answers for one host."""
 
-    def __init__(
-        self,
-        tmp_path,
-        *,
-        outside_claim_refuses=True,
-        folder_refusal=FOLDER_REFUSAL,
-        folder_refusal_names_folder=True,
-        worker_claim=(0, ""),
-    ):
+    def __init__(self, tmp_path, *, claim=(0, ""), release_code=0):
         self.folders = itertools.count()
         self.tmp_path = tmp_path
         self.scopes = {}
-        self.checkout = None
-        self.outside_claim_refuses = outside_claim_refuses
-        self.folder_refusal = folder_refusal
-        self.registration_env = None
-        self.folder_refusal_names_folder = folder_refusal_names_folder
-        self.worker_claim = worker_claim
+        self.claim = claim
+        self.release_code = release_code
         self.calls = []
         # Seconds on a fake clock; begun and ended sessions record their instants.
         self.now = 0.0
@@ -98,23 +80,17 @@ class FakeCli:
     def mkdtemp(self, prefix=""):
         folder = self.tmp_path / f"{prefix}{next(self.folders)}"
         folder.mkdir()
-        if prefix.startswith("scope-proof"):
-            self.checkout = os.path.realpath(folder)
         return str(folder)
 
     def run(self, argv, *, cwd, env, **_kwargs):
         session = env.get("YOKE_SESSION_ID", "")
         args = argv[1:]
-        if args[:1] == ["--env"]:
-            self.registration_env = args[1]
-            args = args[2:]
         command = args[:3]
         self.calls.append(command)
         # A JSON read without --full can come back as a saved-response pointer.
         assert "--json" not in argv or "--full" in argv
         if command[:2] == ["sessions", "begin"]:
-            in_project = str(cwd) == self.checkout
-            self.scopes.setdefault(session, (7, None) if in_project else (None, 1))
+            self.scopes.setdefault(session, (None, 1))
             self.begun.setdefault(session, self.now)
             return self._ok({})
         if command[:2] == ["sessions", "identity"]:
@@ -126,7 +102,7 @@ class FakeCli:
         if command[:2] == ["sessions", "end-if-empty"]:
             self.ended.setdefault(session, self.now)
             return self._ok({})
-        if command[:2] in (["projects", "create"], ["project", "register"]):
+        if command[:2] == ["projects", "create"]:
             return self._ok({})
         if command[:2] == ["items", "create"]:
             if args[2:6] != ["--title", "Scope proof", "--workflow", "task"]:
@@ -134,21 +110,11 @@ class FakeCli:
                     argv, 2, stdout="", stderr=f"{ITEM_CREATE_REFUSAL} {args[2:4]}"
                 )
             return self._ok({"public_ref": "SCP-1"})
+        if command == ["claims", "work", "release"]:
+            return CompletedProcess(argv, self.release_code, stdout="", stderr="")
         assert command == ["claims", "work", "acquire"]
-        if self.scopes[session][0] == 7:
-            code, refusal = self.worker_claim
-            return self._refused(argv, refusal) if code else self._ok({})
-        if str(cwd) != self.checkout:
-            if not self.outside_claim_refuses:
-                return self._ok({})
-            return CompletedProcess(argv, 1, stdout="", stderr=self.folder_refusal)
-        folder = self.checkout if self.folder_refusal_names_folder else "elsewhere"
-        return self._refused(
-            argv,
-            "SESSION_MACHINE_SCOPE_WORK_REFUSED",
-            f"Open a session in {folder} (project scope-proof) to work on "
-            "SCP-1 (Scope proof); sessions never switch projects.",
-        )
+        code, refusal = self.claim
+        return self._refused(argv, refusal) if code else self._ok({})
 
     @staticmethod
     def _refused(argv, code, message="refused"):
@@ -213,48 +179,31 @@ def test_reinstall_keeps_the_saved_session_in_its_org(cli, monkeypatch, capsys):
     assert "reinstallation kept" in capsys.readouterr().out
 
 
-def test_first_work_refuses_outside_then_admits_a_folder_session(
+def test_first_work_claims_and_releases_from_outside_the_project(
     cli, monkeypatch, capsys
 ):
     fake = cli()
     _probe(monkeypatch, "first-work")
-    assert fake.calls.count(["claims", "work", "acquire"]) == 3
-    assert fake.registration_env == "local"
-    assert sorted(fake.scopes.values(), key=str) == [(7, None), (None, 1)]
+    assert fake.calls.count(["claims", "work", "acquire"]) == 1
+    assert fake.calls.count(["claims", "work", "release"]) == 1
+    assert list(fake.scopes.values()) == [(None, 1)]
     output = capsys.readouterr().out
-    assert FOLDER_REFUSAL in output
-    assert "claim SCP-1 exit 1:" in output
-    assert "admission and claimed the item" in output
+    assert "claim SCP-1 exit 0:" in output
+    assert "claimed and released the item and kept its organization scope" in output
 
 
 def test_first_work_accepts_a_named_model_admission_refusal(cli, monkeypatch, capsys):
-    cli(worker_claim=(1, "SESSION_BELOW_INTERN"))
+    fake = cli(claim=(1, "SESSION_BELOW_INTERN"))
     _probe(monkeypatch, "first-work")
     assert "refused only by SESSION_BELOW_INTERN" in capsys.readouterr().out
+    assert ["claims", "work", "release"] not in fake.calls
 
 
 @pytest.mark.parametrize(
     ("options", "reason"),
     [
-        ({"outside_claim_refuses": False}, "first_work_refusal_missing:"),
-        (
-            {"folder_refusal": FOLDER_REFUSAL.replace("SCP-1", "SCP-2")},
-            "first_work_refusal_missing:",
-        ),
-        (
-            {
-                "folder_refusal": FOLDER_REFUSAL.replace(
-                    "project register", "project remove"
-                )
-            },
-            "first_work_refusal_missing:",
-        ),
-        ({"folder_refusal_names_folder": False}, "first_work_scope_refusal_missing:"),
-        ({"worker_claim": (1, "")}, "first_work_recovery_failed: an unnamed"),
-        (
-            {"worker_claim": (1, "SESSION_PROJECT_MISMATCH")},
-            "first_work_recovery_failed: SESSION_PROJECT_MISMATCH",
-        ),
+        ({"claim": (1, "")}, "first_work_claim_unnamed:"),
+        ({"release_code": 1}, "first_work_release_failed:"),
     ],
 )
 def test_first_work_fails_closed_without_each_positive_fact(
