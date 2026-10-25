@@ -1,7 +1,10 @@
 {
  "id": "create-from-a-candidate",
  "title": "Create from a candidate",
- "status": "draft-copy",
+ "status": "observed",
  "page": "deployment-runs",
- "position": 0
+ "position": 0,
+ "summary": "deployment-runs create and start-for-item bind the same source: without one, the gate branch tip, reusing that commit's own CI proof from any branch and dispatching only when it has none; an explicit commit needs its own proof. Recoveries name each command's own source flag and never suggest an older green commit that may omit a member. start-for-item first returns the run already holding the item, or another project's in-flight release whose bound source contains its merge (reused); a live bound release without the merge refuses as bound_release_in_flight, naming the run and its pinned commit. Merge close-out at the release wait names the start-for-item command.",
+ "sources": ["packages/yoke-core/src/yoke_core/engines/runs_start_for_item.py", "packages/yoke-core/src/yoke_core/domain/deployment_item_delivery_owner.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_ci_tested_source.py", "packages/yoke-core/src/yoke_core/domain/release_wait_facts.py", "docs/public/agents/rules/delivery.md"],
+ "commands": ["yoke deployment-runs create", "yoke deployment-runs start-for-item"]
 }

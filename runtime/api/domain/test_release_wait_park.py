@@ -169,3 +169,23 @@ def test_an_unread_obligation_keeps_the_merge_re_entry(monkeypatch) -> None:
 
     assert block["obligation"]["kind"] == "unread"
     assert "yoke merge item ITEM-7" in block["next_step"]
+
+
+def test_the_release_wait_names_the_command_that_starts_delivery(monkeypatch):
+    from yoke_core.domain.release_wait_facts import awaiting_delivery_lines
+
+    calls: list = []
+    envelope: dict = {}
+    _wire(monkeypatch, _dispatch(calls, holder_session=SESSION))
+    park.retain_for_delivery(
+        envelope,
+        item={"project": {"slug": "platform"}},
+        item_id="PLAT-7",
+        public_ref="PLAT-7",
+        session_id=SESSION,
+    )
+
+    command = "yoke deployment-runs start-for-item PLAT-7 --project platform"
+    assert envelope["release_wait"]["delivery_start"] == command
+    lines = awaiting_delivery_lines(envelope, "PLAT-7")
+    assert any(line.startswith(f"delivery starts with: `{command}`") for line in lines)

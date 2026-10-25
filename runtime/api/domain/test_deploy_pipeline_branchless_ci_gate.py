@@ -117,6 +117,54 @@ def test_green_run_for_another_commit_cannot_satisfy_a_branchless_lookup(
     assert outcome.result_payload["run_id"] == 12
 
 
+def test_pull_request_runs_never_prove_the_commit_they_name(monkeypatch) -> None:
+    release_sha = "c" * 40
+    synthetic = {**_completed_run(21, release_sha, "main"), "event": "pull_request"}
+    universe = [synthetic]
+    monkeypatch.setattr(
+        "yoke_core.domain.project_github_auth.resolve_project_github_auth",
+        lambda project, **kwargs: _RESOLVED,
+    )
+    _serve_workflow_runs(monkeypatch, universe)
+
+    # A pull request run tested a synthetic merge, not this commit.
+    assert handle_check_ci(_branchless_check(release_sha)).result_payload[
+        "state"
+    ] == "no_runs"
+
+    lane = {**_completed_run(20, release_sha, "PLAT-258"), "event": "workflow_dispatch"}
+    universe.append(lane)
+    outcome = handle_check_ci(_branchless_check(release_sha))
+
+    # Merge verification's dispatch on the lane branch proves the merged commit.
+    assert outcome.result_payload["state"] == "passed"
+    assert outcome.result_payload["run_id"] == 20
+
+
+def test_a_branch_bound_release_commit_is_looked_up_by_commit_alone() -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def github_actions(*args: str, **_kwargs):
+        calls.append(args)
+        return _ci_response("passed")
+
+    with (
+        mock.patch.object(
+            deploy_pipeline_gates, "project_ci_workflow_file", return_value="ci.yml"
+        ),
+        mock.patch.object(
+            deploy_pipeline_gates, "_github_actions", side_effect=github_actions
+        ),
+    ):
+        passed, _message = deploy_pipeline_gates._check_ci_gate(
+            "owner/platform", "platform", 30, branch="main", head_sha="d" * 40
+        )
+
+    assert passed is True
+    check = calls[0]
+    # The run that tested this commit counts whichever branch started it.
+    assert check[check.index("--branch") + 1] == ""
+    assert check[check.index("--head-sha") + 1] == "d" * 40
 
 
 def test_itemless_preview_stage_verifies_frozen_commit_without_a_branch(

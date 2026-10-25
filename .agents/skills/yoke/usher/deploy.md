@@ -19,7 +19,10 @@ yoke --env CONTROL_PLANE watch deploy -- RUN-ID
 yoke merge item PREFIX-N --result "what shipped" --verification "RUN-ID, stages and QA"
 ```
 
-Exit 2 waits for the operator's approval; never approve it yourself.
+`reused: true` names the run already carrying the item; watch that RUN-ID, never
+start a second. `bound_release_in_flight` names another project's live release
+without it: report to steering and wait. Exit 2 waits for the operator's
+approval; never approve it yourself.
 A preview lineage or preview claim with no registered mutation: stop as
 `preview_lineage_mutation_unavailable`; escalate to the control-plane operator.
 Exit 1 or 3: release `usher-halt-deploy-stage-failure` or

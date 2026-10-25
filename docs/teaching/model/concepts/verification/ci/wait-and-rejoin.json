@@ -1,7 +1,9 @@
 {
  "id": "wait-and-rejoin",
  "title": "Wait and rejoin",
- "status": "draft-copy",
+ "status": "observed",
  "page": "verification-ci",
- "position": 3
+ "position": 3,
+ "summary": "A silent CI wait announces its subject, cadence and maximum timeout once, labelled as a limit and not an estimate; polling status lines label elapsed time and the timeout separately. No duration is sampled or estimated.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/designed_wait.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/github_actions_wait.py"]
 }

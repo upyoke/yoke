@@ -199,7 +199,11 @@ def start_for_item(
             return StartForItemResult(
                 **handle,
                 ok=False,
-                error=f"delivery-owner check failed: {exc}",
+                error=(
+                    f"could not read which run owns this item's delivery: {exc}. "
+                    "Nothing was created; repair that read, then run the same "
+                    "command again."
+                ),
                 error_code="delivery_owner_unreadable",
                 error_phase=PHASE_RESOLVE,
             )

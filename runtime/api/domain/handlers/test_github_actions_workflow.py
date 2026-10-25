@@ -153,6 +153,40 @@ class TestWorkflowFindRun:
             )
         ]
 
+    def test_a_commit_lookup_answers_with_the_run_that_proves_it(
+        self, monkeypatch, _resolved_auth,
+    ):
+        sha = "f" * 40
+        calls = []
+
+        def _run(number, event, status, branch="PLAT-258"):
+            return {"id": number, "run_number": number, "event": event,
+                    "status": status, "head_sha": sha, "head_branch": branch}
+
+        def _get(path, *, query=None, token):
+            calls.append(query)
+            return {"workflow_runs": [
+                _run(30, "pull_request", "completed", branch="main"),
+                _run(29, "workflow_dispatch", "in_progress"),
+                {**_run(28, "workflow_dispatch", "completed"), "conclusion": "success"},
+            ]}
+
+        monkeypatch.setattr("yoke_core.domain.github_actions_rest.rest_get", _get)
+        request = _find_request({
+            "project": "platform",
+            "repo": "upyoke/platform",
+            "workflow": "platform-quick-verification.yml",
+            "head_sha": sha,
+        })
+
+        outcome = handle_workflow_find_run(request)
+
+        # The pull request run tested a synthetic merge; the newer lane
+        # attempt answers even though an older one passed.
+        assert outcome.result_payload["run_id"] == "29"
+        assert outcome.result_payload["status"] == "in_progress"
+        assert calls == [{"per_page": "100", "head_sha": sha}]
+
     @pytest.mark.parametrize(
         "response",
         [None, [], {}, {"workflow_runs": {}}, {"workflow_runs": [None]}],

@@ -15,6 +15,25 @@ Installed gates updating another project's checkout continue in their leased
 CLI release. A failed restart names `qa_ci_source_restart_failed`; keep the
 updated lane and rerun the same case to rejoin any existing CI run.
 
+## Commit proof
+
+Merge verification, release creation (`deployment-runs create` and
+`start-for-item`) and the deploy-time CI gate ask the same question: which run
+of the `ci_workflow_file` workflow proves this exact commit? It is the newest
+run and attempt on exactly that commit whose event is not `pull_request`,
+`pull_request_target` or `merge_group` (those test a synthetic merge or a queue
+candidate). The branch that started it does not matter, so the run merge
+verification dispatched on the item's lane branch proves the identical commit
+once it is the gate branch tip, and delivery dispatches no second suite. A
+newer failed, cancelled or unfinished attempt is never passed over for an older
+green one. Proof is not placement: the bound commit must still descend from the
+previous release and contain every member.
+
+A tip with no eligible run at all gets one dispatch on the gate branch at
+release creation; repeating the command while that run is in flight reuses it.
+`yoke github-actions check-ci REPO WORKFLOW --branch "" --head-sha SHA` reads
+the same answer by hand.
+
 ## qa domain CLI
 
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
