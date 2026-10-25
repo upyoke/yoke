@@ -118,11 +118,14 @@ def test_cursor_surface_entrypoint_defaults_to_desktop_without_transcript(
 
 
 @BOTH
-def test_cursor_surface_entrypoint_ignores_unrecognized_invoked_as(
+def test_cursor_surface_entrypoint_is_cli_for_any_invoked_name(
     identity, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The CLI launcher exports its own basename, so the ``agent`` symlink counts."""
     monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
-    monkeypatch.setenv("CURSOR_INVOKED_AS", "something-else")
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "agent")
+    assert identity.cursor_surface_entrypoint() == "cursor-cli"
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "")
     assert identity.cursor_surface_entrypoint() == "cursor-desktop"
 
 

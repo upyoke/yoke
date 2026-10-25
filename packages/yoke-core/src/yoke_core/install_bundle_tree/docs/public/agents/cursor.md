@@ -33,7 +33,7 @@ Cursor sessions run on two surfaces with different hook coverage:
 | Surface | Discriminator | Hook coverage |
 |---------|---------------|---------------|
 | IDE agent chat | `CURSOR_INVOKED_AS` unset in hook env | Full event set, including `beforeSubmitPrompt`, `stop`, `subagentStart`/`subagentStop`, `afterFileEdit` |
-| `cursor-agent` CLI (`-p` non-interactive) | `CURSOR_INVOKED_AS=cursor-agent` | Lifecycle + tool events only; no prompt-submit, stop, or subagent lifecycle events |
+| `cursor-agent` CLI (`-p` non-interactive) | `CURSOR_INVOKED_AS` set: the launcher exports the name it ran as (`cursor-agent` or `agent`) | Lifecycle + tool events only; no prompt-submit, stop, or subagent lifecycle events |
 
 Orientation and policy enforcement anchor on events both surfaces fire: `sessionStart` (orientation via `additional_context`) and `beforeShellExecution`/`preToolUse` (gates — a hook deny holds even under `--force`).
 

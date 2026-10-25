@@ -27,7 +27,6 @@ _CLAUDE_COARSE = "claude-code"
 _CODEX_COARSE = "codex"
 _CURSOR_COARSE = "cursor"
 _CURSOR_AGENT_ENV = "CURSOR_INVOKED_AS"
-_CURSOR_AGENT_VALUE = "cursor-agent"
 _CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
 _CURSOR_CONVERSATION_ENV = "CURSOR_CONVERSATION_ID"
 _CURSOR_SURFACE_CLI = "cli"
@@ -99,8 +98,10 @@ def _compose_executor(family: str, coarse: str, raw_entrypoint: Optional[str]) -
 def cursor_surface_entrypoint() -> str:
     """Return the Cursor surface alias for the current hook process.
 
-    ``CURSOR_INVOKED_AS=cursor-agent`` marks the standalone terminal agent;
-    every other Cursor hook process is the IDE surface. This deliberately
+    A non-empty ``CURSOR_INVOKED_AS`` marks the standalone terminal agent:
+    its launcher exports the name it was started as (``cursor-agent`` or
+    the ``agent`` symlink). Every other Cursor hook process is the IDE
+    surface. This deliberately
     does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
     a session's first hook events, which is exactly when session
     registration runs, so keying the surface on it loses the alias on the
@@ -111,7 +112,7 @@ def cursor_surface_entrypoint() -> str:
     """
     surface = (
         _CURSOR_SURFACE_CLI
-        if os.environ.get(_CURSOR_AGENT_ENV) == _CURSOR_AGENT_VALUE
+        if os.environ.get(_CURSOR_AGENT_ENV)
         else _CURSOR_SURFACE_DESKTOP
     )
     return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
