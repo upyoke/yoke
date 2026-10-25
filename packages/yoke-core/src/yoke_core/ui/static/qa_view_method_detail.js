@@ -233,7 +233,7 @@ function renderMethodDetail(context, host, method, scope) {
 
 async function methodDetails(context, scope, methodId) {
   const calls = projectCalls(
-    context, scope, "qa.method.get", { method_id: methodId },
+    context, scope, "qa.method.get", { method_id: methodId, detail: "full" },
   );
   const responses = await Promise.all(calls.map(async (call) => {
     const project = call.payload.project;

@@ -50,12 +50,18 @@ def _verification(
         method_id = str(raw.get("method_id") or "").strip()
         if not method_id:
             raise ItemPostureError("verification method_id is required")
-        from yoke_core.domain.qa_catalog_reads import get_method
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.db_helpers import query_one
 
-        try:
-            get_method(conn, method_id=method_id, project=str(project_id))
-        except LookupError as exc:
-            raise ItemPostureError(str(exc)) from exc
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        method = query_one(
+            conn,
+            f"SELECT id FROM qa_methods WHERE id={marker} "
+            f"AND (project_id IS NULL OR project_id={marker})",
+            (method_id, project_id),
+        )
+        if method is None:
+            raise ItemPostureError(f"QA method {method_id!r} not found")
         return {"kind": "ad_hoc", "method_id": method_id}
     raise ItemPostureError("verification kind must be plan or ad_hoc")
 

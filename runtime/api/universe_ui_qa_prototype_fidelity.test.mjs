@@ -33,6 +33,7 @@ async function methodDetail(method) {
       async call(request) {
         assert.equal(request.function, "qa.method.get");
         assert.equal(request.payload.method_id, method.id);
+        assert.equal(request.payload.detail, "full");
         return ok({ method });
       },
     },

@@ -40,6 +40,11 @@ def build_parser(
 
 def configure_method_get(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("method_id", metavar="METHOD", help="QA method id or slug.")
+    add_full_arg(parser, "related plans and their case summaries")
+    parser.description = (
+        "Show the method settings, contracts, capabilities and used_by_plan_count. "
+        "Related plans are included only with --full."
+    )
 
 
 def configure_method_register(parser: argparse.ArgumentParser) -> None:

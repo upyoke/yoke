@@ -93,12 +93,14 @@ def qa_method_get(args: List[str]) -> int:
         args,
         prog="yoke qa method get",
         usage=(
-            "yoke qa method get METHOD [--project P] [--full] "
-            "[--session-id S] [--json]"
+            "yoke qa method get METHOD [--project P] [--full] [--session-id S] [--json]"
         ),
         function_id="qa.method.get",
         configure=configure_method_get,
-        payload=lambda parsed: {"method_id": parsed.method_id},
+        payload=lambda parsed: {
+            "method_id": parsed.method_id,
+            "detail": detail_of(parsed),
+        },
         project_required=False,
     )
 

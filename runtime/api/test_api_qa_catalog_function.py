@@ -127,7 +127,7 @@ def test_method_plan_roster_stays_inside_the_requested_project() -> None:
         )
         replace_plan_cases(conn, plan_id=external["id"], cases=[CATALOG_CASES[0]])
 
-        method = get_method(conn, method_id="command", project="yoke")
+        method = get_method(conn, method_id="command", project="yoke", full=True)
 
     assert [plan["project"] for plan in method["plans"]] == ["yoke"]
     assert [plan["slug"] for plan in method["plans"]] == ["release-readiness"]
