@@ -127,7 +127,7 @@ class TestFailedLog:
                 project="yoke",
             )
         assert exc_info.value.code == 0
-        assert "No failed jobs in run 789" in capsys.readouterr().out
+        assert "No failed jobs yet in run 789" in capsys.readouterr().out
 
     def test_every_failed_job_reaches_the_output(
         self, capsys, _resolver_ok, monkeypatch

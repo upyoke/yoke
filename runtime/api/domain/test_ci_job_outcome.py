@@ -209,14 +209,17 @@ def test_the_selection_watcher_exit_mirrors_the_effective_conclusion(
     assert CONCLUSION_EXIT[conclusion] == exit_code
 
 
-def test_no_failed_jobs_report_names_no_verdict_and_redispatch():
+def test_never_started_jobs_report_names_no_verdict_and_redispatch():
     from yoke_core.domain.github_actions_failed_job_report import (
         build_failed_job_report,
     )
     from yoke_core.domain.github_actions_failed_jobs import RunFailures
 
     report = build_failed_job_report(
-        RunFailures(), repo="upyoke/yoke", run_id=37364183364, max_lines=10
+        RunFailures(conclusion=CI_JOB_NOT_STARTED),
+        repo="upyoke/yoke",
+        run_id=37364183364,
+        max_lines=10,
     )
 
     assert "no verdict" in report.output
