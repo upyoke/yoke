@@ -91,14 +91,14 @@ def _walker_dispatch(
         "--content-file LOCAL_PATH [--filename NAME] [--content-type TYPE] [--metadata JSON]"
     )
     artifact_bytes_clause = (
-        "attach it with the bytes themselves, never a path on the target: "
-        "walk-end restores the host to its declared starting state, so a "
-        "recorded path outlives its own file and is refused. "
-        "You are driving the target from another machine, so read the "
-        "bytes back first by running `cat TARGET_PATH` through the remote "
-        "command below. Save the returned file bytes unchanged "
-        "into LOCAL_PATH in your own local scratch "
-        "directory, then attach with `--content-file LOCAL_PATH` from your machine. "
+        "attach the bytes themselves, never a path on the target. "
+        "On your machine, set LOCAL_PATH in your own local scratch directory "
+        "and run this pipeline (with pipefail enabled): "
+        f"`{host_command_base} -- base64 -i TARGET_PATH | python3 -c "
+        "'import base64,json,sys; "
+        'sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)["stdout"]))'
+        "' > LOCAL_PATH`. It decodes wrapped target base64 from the JSON stdout. "
+        "Then upload with `--content-file LOCAL_PATH` from your machine. "
         "The mission scratch path is on the target and holds staged secrets; "
         "keep your local evidence file separate. "
     )
