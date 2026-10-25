@@ -40,6 +40,15 @@ def communication_unknown(error):
     return None
 
 
+def checkin_busy(error):
+    """Recognize the named busy refusal through host-runner wrappers."""
+    while error is not None:
+        if isinstance(error, QaPlanExecutionError) and "qa_checkin_busy:" in str(error):
+            return True
+        error = error.__cause__
+    return False
+
+
 class QaPlanStopRequested(QaPlanExecutionError):
     """A recorded stop request: the walk stops and its runner settles it."""
 
