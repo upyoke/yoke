@@ -9,8 +9,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from runtime.api.tools import migration_rehearsal_secret_receipts as replay
-from runtime.api.tools import yoke_migration_fleet as fleet
+from yoke_core.tools import migration_rehearsal_secret_receipts as replay
+from yoke_core.tools import yoke_migration_rehearsal as fleet
 from yoke_core.domain.function_call_ledger import record_call
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 
@@ -88,7 +88,9 @@ def test_unscrubbed_copy_refuses_before_replay(copy, monkeypatch, capsys):
     assert SECRET not in capsys.readouterr().out
 
 
-def test_driver_heartbeat_during_replay_stays_on_driver_stream(copy, monkeypatch, capsys):
+def test_driver_heartbeat_during_replay_stays_on_driver_stream(
+    copy, monkeypatch, capsys
+):
     import threading
 
     from yoke_core.domain import deployment_start_timing as timing
@@ -171,7 +173,7 @@ def test_replay_refuses_changes_and_never_echoes_failure_payloads(
 def test_fleet_callback_preserves_order_and_refusals(
     monkeypatch, failed_check, context
 ):
-    from runtime.api.tools import migration_rehearsal_readers
+    from yoke_core.tools import migration_rehearsal_readers
 
     if context is None:
         monkeypatch.delenv(replay.REHEARSAL_MODULE_ENV, raising=False)

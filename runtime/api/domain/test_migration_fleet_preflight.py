@@ -22,7 +22,7 @@ from yoke_core.domain.migration_restore_point import (
     RESTORE_POINT_ENV,
     named_restore_point,
 )
-from runtime.api.tools.yoke_migration_fleet import (
+from yoke_core.tools.yoke_migration_rehearsal import (
     pending_names as _pending_names,
     rehearsal_plan as _yoke_rehearsal_plan,
 )

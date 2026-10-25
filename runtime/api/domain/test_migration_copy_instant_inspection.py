@@ -116,7 +116,7 @@ def test_transfer_kills_its_child_when_resource_guard_refuses():
 
 
 def test_diagnostic_mode_cannot_record_a_release_receipt(tmp_path, capsys):
-    from runtime.api.tools.preflight_fleet_migrations import main
+    from yoke_core.tools.preflight_fleet_migrations import main
 
     assert (
         main(

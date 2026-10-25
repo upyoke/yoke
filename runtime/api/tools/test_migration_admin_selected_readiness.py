@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from psycopg import conninfo
 
-from runtime.api.tools import fleet_rehearsal_receipt_write as receipt_write
-from runtime.api.tools import migration_fleet_selection
-from runtime.api.tools import preflight_fleet_migrations as preflight
+from yoke_core.tools import fleet_rehearsal_receipt_write as receipt_write
+from yoke_core.tools import migration_fleet_selection
+from yoke_core.tools import preflight_fleet_migrations as preflight
 from runtime.api.tools import report_yoke_tenant_migration_state as reporter
 from runtime.api.tools.test_adopt_migration_content_identity import (
     _argv,

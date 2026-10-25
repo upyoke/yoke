@@ -54,10 +54,18 @@ def activate_engine_artifact(raw_wheel: str) -> EngineArtifact:
     wheel = Path(raw_wheel).expanduser().resolve()
     if wheel.suffix != ".whl" or not wheel.is_file():
         raise EngineArtifactError(f"engine wheel is not a readable .whl file: {wheel}")
+    bootstrap = {
+        "yoke_core",
+        "yoke_core.tools",
+        "yoke_core.tools.preflight_fleet_migrations",
+        "yoke_core.tools.preflight_engine_artifact",
+        "yoke_core.tools.preflight_arguments",
+    }
     loaded = sorted(
         name
         for name in sys.modules
-        if name == "yoke_core" or name.startswith("yoke_core.")
+        if (name == "yoke_core" or name.startswith("yoke_core."))
+        and name not in bootstrap
     )
     if loaded:
         raise EngineArtifactError(
@@ -65,6 +73,8 @@ def activate_engine_artifact(raw_wheel: str) -> EngineArtifact:
             + ", ".join(loaded[:5])
         )
     import_root = _extract_wheel(wheel)
+    for name in bootstrap:
+        sys.modules.pop(name, None)
     sys.path.insert(0, str(import_root))
     importlib.invalidate_caches()
     try:

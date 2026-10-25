@@ -76,7 +76,7 @@ def resolve(
 
 def _engine_tenants(project: str, model_name: str) -> FleetTarget:
     from yoke_core.domain.schema_shape_source import digest_schema_shape
-    from runtime.api.tools import yoke_migration_fleet
+    from yoke_core.tools import yoke_migration_rehearsal as yoke_migration_fleet
 
     return FleetTarget(
         project=project,

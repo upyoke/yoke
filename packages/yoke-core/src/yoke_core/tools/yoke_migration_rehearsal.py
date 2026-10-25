@@ -16,7 +16,7 @@ from yoke_core.tools.yoke_migration_fleet import (
     TENANT_DATABASE_PATTERN,
     tenant_databases,
 )
-from runtime.api.tools.migration_rehearsal_release_surfaces import (
+from yoke_core.tools.migration_rehearsal_release_surfaces import (
     verify_migrated_release_surfaces,
 )
 
@@ -95,8 +95,10 @@ def load_module(name: str) -> Any:
 
 def verify_migrated_copy(conn: Any, copy_dsn: str) -> str | None:
     """Run product readers, the secret-receipt replay, then release tooling; first failure wins."""
-    from runtime.api.tools.migration_rehearsal_readers import verify_migrated_readers
-    from runtime.api.tools.migration_rehearsal_secret_receipts import verify_secret_receipt_replay
+    from yoke_core.tools.migration_rehearsal_readers import verify_migrated_readers
+    from yoke_core.tools.migration_rehearsal_secret_receipts import (
+        verify_secret_receipt_replay,
+    )
 
     failure = verify_migrated_readers(conn, copy_dsn)
     if failure is None:

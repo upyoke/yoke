@@ -1,0 +1,10 @@
+{
+ "id": "fleet-preflight",
+ "title": "Run fleet rehearsal from the installed package",
+ "status": "observed",
+ "form": "Do",
+ "verification": "Source and wheel regressions cover startup outside checkouts and controlled rehearsal/receipt boundaries. Live fleet proof remains a release check.",
+ "topics": ["databases/rehearsal/validation-rehearsal"],
+ "sources": ["packages/yoke-core/src/yoke_core/tools/watch_preflight.py", "docs/public/databases/migration-fleet.md", "tests/import_graph/wheel_smoke_preflight.py"],
+ "current": "The installed watcher runs in any directory without importing runtime. The declared project boot command still uses its project checkout. Failed subprocesses retain raw output and exit status and name the diagnostic capture and recovery. A missing packaged dependency calls for a complete release reinstall or escalation with the capture."
+}

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import migration_model_fleet_read, project_checkout_locations
-from runtime.api.tools import migration_fleet_selection as selection
+from yoke_core.tools import migration_fleet_selection as selection
 from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 
 

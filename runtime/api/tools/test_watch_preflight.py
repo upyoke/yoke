@@ -91,7 +91,9 @@ def test_help_epilog_teaches_per_environment_receipts() -> None:
     assert "release.admin_connection" in epilog
     assert "--receipt-env <control-plane>" in epilog
     assert "yoke watch preflight -- --project yoke stage --record-receipt" in epilog
-    assert "Ordinary pre-release rehearsal uses the source tree" in epilog
+    assert (
+        "Preflight runs from the installed package in any working directory." in epilog
+    )
     assert epilog.index(
         "yoke watch preflight -- --project yoke stage --record-receipt"
     ) < epilog.index("--engine-wheel /path/to/yoke_core-release.whl")
@@ -165,3 +167,22 @@ def test_fake_preflight_streams_stops_tail_and_propagates_failure(
     followed = io.StringIO()
     assert watch_tail.follow(progress, out=followed, poll_interval=0) == 0
     assert "# watch_preflight exit=7" in followed.getvalue()
+
+
+def test_preflight_uses_installed_module():
+    assert watch_preflight._preflight_argv(["--help"]) == [
+        sys.executable,
+        "-m",
+        "yoke_core.tools.preflight_fleet_migrations",
+        "--help",
+    ]
+
+
+def test_preflight_diagnoses_import_failure(tmp_path):
+    raw = tmp_path / "failure.log"
+    raw.write_text("ModuleNotFoundError: No module named 'missing'\n")
+    answer = watch_preflight.preflight_failure(1, raw)
+    assert "fleet_preflight_import_failed" in answer
+    assert str(raw) in answer
+    assert "yoke update" in answer
+    assert watch_preflight.preflight_failure(0, raw) == ""

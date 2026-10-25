@@ -47,7 +47,7 @@ def _activate_in_clean_process(wheel: Path) -> subprocess.CompletedProcess[str]:
     script = (
         "import json\n"
         "from pathlib import Path\n"
-        "from runtime.api.tools.preflight_fleet_migrations import "
+        "from yoke_core.tools.preflight_fleet_migrations import "
         "_activate_engine_artifact\n"
         f"artifact = _activate_engine_artifact({str(wheel)!r})\n"
         "from yoke_core.domain import schema_init\n"
