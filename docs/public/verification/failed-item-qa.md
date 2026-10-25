@@ -4,6 +4,8 @@
 [Yoke](../index.md) > [Verification](index.md) > Failed item QA
 <!-- /yoke:breadcrumbs -->
 
+Lists: `next_offset` → `--offset`; keep filters.
+
 The item owner keeps responsibility for failed item-scoped delivery QA.
 The release driver arranges delivery; steering ensures the correction has an
 owner and that the original owner resumes. A new item never waives failed QA.

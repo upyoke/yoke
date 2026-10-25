@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -18,7 +20,7 @@ class ProjectReadRequest(BaseModel):
     project: str = Field(..., min_length=1)
 
 
-class MethodListRequest(BaseModel):
+class MethodListRequest(ListPageRequest):
     project: Optional[str] = None
 
 
@@ -49,24 +51,15 @@ class PlanGetRequest(ProjectReadRequest):
 
 class ActivityListRequest(ProjectReadRequest):
     detail: ReadDetail = DETAIL_SUMMARY
-    #: Caps the rows returned, newest first. Only with both ``item_ids`` and
-    #: ``deployment_run_ids`` does it cap each item's rows per named run
-    #: instead, so one busy subject cannot crowd another off a card.
-    #: ``item_selection`` reports what either bound cut.
+    # CLI pages are total bounds; grouped UI reads retain their per-run bound.
     limit: int = Field(default=100, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
-    #: Narrows to the QA these items own, so a reader showing a known set of
-    #: subjects reads their evidence rather than whatever happens to be
-    #: recent. Absent reads the project; an empty list matches nothing.
     item_ids: Optional[List[int]] = Field(default=None, max_length=200)
-    #: The deployment runs a caller is drawing, so an item's answer is sized
-    #: by what is on screen rather than by how many releases it has ever been
-    #: part of. An item's run-less checks always travel. Absent reads every
-    #: run group; an empty list reads only the run-less ones.
     deployment_run_ids: Optional[List[str]] = Field(default=None, max_length=200)
 
 
-class RowsResponse(BaseModel):
+class RowsResponse(ListPageResponse):
     rows: List[Dict[str, Any]]
 
 
@@ -84,7 +77,7 @@ class ActivityTruncatedGroup(BaseModel):
 
 
 class ActivityRunGroupSelection(BaseModel):
-    """How a run-group read was bounded, and which groups it cut short."""
+    """Run-group bounds and truncated groups."""
 
     per_group_limit: int = Field(..., ge=1)
     truncated_groups: List[ActivityTruncatedGroup]
@@ -100,13 +93,9 @@ class ActivityTotalSelection(BaseModel):
 
 class ActivityListResponse(RowsResponse):
     summary: ActivitySummaryResponse
-    #: Present only for an ``item_ids`` read: per run group when the caller
-    #: named ``deployment_run_ids``, otherwise the total cap.
     item_selection: Optional[
         Union[ActivityRunGroupSelection, ActivityTotalSelection]
     ] = None
-    #: Present only for a run-scoped read: per run, the plans its members
-    #: share (drawn once under Run QA) and its removed members.
     run_sharing: Optional[Dict[str, Any]] = None
 
 
@@ -184,7 +173,10 @@ def handle_method_list(request: FunctionCallRequest) -> HandlerOutcome:
         return _error("payload_invalid", str(exc), "$.payload.project")
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")
-    return HandlerOutcome(result_payload={"rows": rows}, primary_success=True)
+    return HandlerOutcome(
+        result_payload=page_result({"rows": rows}, "rows", request.payload or {}),
+        primary_success=True,
+    )
 
 
 def handle_method_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -301,6 +293,12 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
     payload, error = _payload(request, ActivityListRequest)
     if error is not None:
         return error
+    if payload.offset and payload.deployment_run_ids is not None:
+        return _error(
+            "activity_group_offset_unsupported",
+            "Per-run group reads cannot use offsets; omit offset or read one deployment_run_id.",
+            "$.payload.offset",
+        )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_catalog_reads import read_activity
 
@@ -313,9 +311,17 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
                 item_ids=payload.item_ids,
                 deployment_run_ids=payload.deployment_run_ids,
                 limit=payload.limit,
+                offset=payload.offset,
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")
+    result.update(
+        limit=payload.limit,
+        offset=payload.offset,
+        next_offset=payload.offset + len(result["rows"])
+        if len(result["rows"]) == payload.limit
+        else None,
+    )
     if payload.detail != DETAIL_FULL:
         for row in result["rows"]:
             for key in ("instructions", "artifacts", "execution_target_json"):

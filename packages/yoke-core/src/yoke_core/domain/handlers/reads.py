@@ -11,6 +11,8 @@ All function ids registered from these modules carry
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
@@ -207,11 +209,11 @@ def _items_get_section(
 # ---------------------------------------------------------------------------
 
 
-class EpicTasksListRequest(BaseModel):
+class EpicTasksListRequest(ListPageRequest):
     pass
 
 
-class EpicTasksListResponse(BaseModel):
+class EpicTasksListResponse(ListPageResponse):
     epic_id: int
     tasks: List[Dict[str, Any]]
 
@@ -265,7 +267,9 @@ def handle_epic_tasks_list(request: FunctionCallRequest) -> HandlerOutcome:
         for r in rows
     ]
     return HandlerOutcome(
-        result_payload={"epic_id": int(epic_id), "tasks": tasks},
+        result_payload=page_result(
+            {"epic_id": int(epic_id), "tasks": tasks}, "tasks", request.payload or {}
+        ),
         primary_success=True,
     )
 

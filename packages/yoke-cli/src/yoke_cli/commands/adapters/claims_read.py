@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.claims_path_listing import (
+    CLAIMS_PATH_LIST_USAGE as CLAIMS_PATH_LIST_USAGE,
+    claims_path_list as claims_path_list,
+)
+
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -23,7 +28,6 @@ from yoke_cli.commands.adapters.claims_conflicts_read import (
     path_claims_conflicts_list as path_claims_conflicts_list,
 )
 
-
 __all__ = [
     "claims_work_holder_get",
     "claims_work_holder_list",
@@ -41,55 +45,9 @@ __all__ = [
     "PATH_CLAIMS_CONFLICTS_LIST_USAGE",
 ]
 
-
-CLAIMS_PATH_LIST_USAGE = (
-    "yoke claims path list --item PREFIX-N [--state S]... [--project P] [--full] "
-    "[--session-id S] [--json]"
+CLAIMS_PATH_GET_USAGE = (
+    "yoke claims path get CLAIM_ID [--full] [--session-id S] [--json]"
 )
-
-
-def claims_path_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke claims path list",
-        usage=CLAIMS_PATH_LIST_USAGE,
-    )
-    parser.add_argument(
-        "--item",
-        required=True,
-        metavar="PREFIX-N",
-        help="Item id (PREFIX-N).",
-    )
-    parser.add_argument(
-        "--state",
-        action="append",
-        metavar="S",
-        default=None,
-        help=(
-            "Filter by state (planned/blocked/active/released/cancelled); "
-            "repeatable and/or comma-separated. Default: all states."
-        ),
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_LIST_USAGE)
-    if parsed is None:
-        return 2
-    states: List[str] = []
-    for raw in parsed.state or []:
-        states.extend(split_comma(raw))
-    payload: Dict[str, Any] = {}
-    if states:
-        payload["states"] = states
-    return dispatch_and_emit(
-        function_id="claims.path.list",
-        target=item_target("item", parsed.item, parsed.project),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
-CLAIMS_PATH_GET_USAGE = "yoke claims path get CLAIM_ID [--full] [--session-id S] [--json]"
 
 
 def claims_path_get(args: List[str]) -> int:
@@ -97,7 +55,9 @@ def claims_path_get(args: List[str]) -> int:
         prog="yoke claims path get",
         usage=CLAIMS_PATH_GET_USAGE,
     )
-    parser.add_argument("claim_id", metavar="CLAIM_ID", help="Path claim id (a number).")
+    parser.add_argument(
+        "claim_id", metavar="CLAIM_ID", help="Path claim id (a number)."
+    )
     add_full_arg(parser, "targets, bindings and amendment history")
     add_session_arg(parser)
     add_json_arg(parser)
@@ -211,7 +171,9 @@ def claims_work_holder_get(args: List[str]) -> int:
         usage=CLAIM_WORK_HOLDER_GET_USAGE,
     )
     parser.add_argument(
-        "--item", default=None, metavar="PREFIX-N",
+        "--item",
+        default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
@@ -226,7 +188,10 @@ def claims_work_holder_get(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "item_positional", nargs="?", default=None, metavar="PREFIX-N",
+        "item_positional",
+        nargs="?",
+        default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N); same as --item.",
     )
     add_session_arg(parser)
@@ -274,11 +239,16 @@ def claims_work_current(args: List[str]) -> int:
         usage=CLAIM_WORK_CURRENT_USAGE,
     )
     parser.add_argument(
-        "--item", default=None, metavar="PREFIX-N",
+        "--item",
+        default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N). Alternative to positional.",
     )
     parser.add_argument(
-        "item_positional", nargs="?", default=None, metavar="PREFIX-N",
+        "item_positional",
+        nargs="?",
+        default=None,
+        metavar="PREFIX-N",
         help="Item id (PREFIX-N); same as --item.",
     )
     add_session_arg(parser)

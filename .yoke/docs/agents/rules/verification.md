@@ -4,7 +4,9 @@
 [Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Before running a verification command, read [command output](shell-and-cli.md#command-output).
+Lists: `next_offset` → `--offset`; keep filters.
+
+Before verification, read [command output](shell-and-cli.md#command-output).
 Model: [verification](../../verification/index.md).
 
 ## Testing
@@ -21,7 +23,7 @@ Model: [verification](../../verification/index.md).
   then `yoke qa case run --requirement-id <id>`. Commit before it; workers never push by hand.
   Never hand-run the full suite
   and then gate the same tree; rerun only after the tree changes.
-- A quiet or backgrounded gate is still running: continue it. If its watcher was killed, rerun
+- A quiet or background gate still runs: continue it. If its watcher was killed, rerun
   `yoke qa case run`; it rejoins or adopts the CI run for that commit.
 - A requirement bound to an item-scoped deployment stage runs with
   `yoke qa plan run --item PREFIX-N --stage STAGE`.

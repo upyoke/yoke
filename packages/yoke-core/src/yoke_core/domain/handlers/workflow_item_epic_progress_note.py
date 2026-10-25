@@ -19,6 +19,7 @@ merges into the journal hot path.
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
 
 from pydantic import BaseModel, Field
 
@@ -47,18 +48,18 @@ class AppendResponse(BaseModel):
     note_num: int
 
 
-class ListRequest(BaseModel):
+class ListRequest(ListPageRequest):
     """Optional list payload."""
 
-    limit: int = Field(0, ge=0)
+    pass
 
 
-class ListResponse(BaseModel):
-    """Pipe-delimited progress-note listing."""
+class ListResponse(ListPageResponse):
+    """Structured progress-note page, newest first."""
 
     epic_id: int
     task_num: int
-    body: str
+    rows: List[Dict[str, Any]]
 
 
 def _not_found(message: str) -> HandlerOutcome:
@@ -149,15 +150,25 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
         ).fetchone()
         if existing is None:
             return _not_found(f"epic_task {epic_key}/{task_num} not found")
-        body = epic.progress_note_list(
+        from yoke_core.domain.db_helpers import query_rows
+
+        rows = query_rows(
             conn,
-            epic_key,
-            task_num,
-            limit=payload.limit,
+            "SELECT id, note_num, body, commit_hash, synced_to_github, created_at "
+            f"FROM epic_progress_notes WHERE epic_id={p} AND task_num={p} "
+            "ORDER BY note_num DESC, id DESC",
+            (epic_id, task_num),
         )
-    response = ListResponse(epic_id=epic_id, task_num=task_num, body=body)
     return HandlerOutcome(
-        result_payload=response.model_dump(),
+        result_payload=page_result(
+            {
+                "epic_id": epic_id,
+                "task_num": task_num,
+                "rows": [dict(row) for row in rows],
+            },
+            "rows",
+            payload.model_dump(),
+        ),
         primary_success=True,
     )
 

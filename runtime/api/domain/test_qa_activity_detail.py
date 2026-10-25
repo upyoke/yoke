@@ -13,7 +13,10 @@ from yoke_cli.commands.adapters import qa_catalog
 from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES
 from yoke_cli.transport.public_ref_display import emit_response
 from yoke_contracts.api.function_call import (
-    ActorContext, FunctionCallRequest, FunctionCallResponse, TargetRef,
+    ActorContext,
+    FunctionCallRequest,
+    FunctionCallResponse,
+    TargetRef,
 )
 from yoke_core.domain.handlers.qa_catalog_reads import handle_activity_list
 
@@ -24,13 +27,18 @@ def test_large_case_summary_renders_and_full_preserves_bodies(capsys):
     with test_database() as conn:
         insert_item(conn, id=4890, title="Activity detail")
         requirement = insert_qa_requirement(
-            conn, item_id=4890, method_id="terminal-inspection",
-            plan_case_key="inspect", instructions=instructions,
+            conn,
+            item_id=4890,
+            method_id="terminal-inspection",
+            plan_case_key="inspect",
+            instructions=instructions,
             execution_target_json=target,
         )
         run = insert_qa_run(
-            conn, qa_requirement_id=int(requirement["id"]),
-            performed_by="host_control", verdict="pass",
+            conn,
+            qa_requirement_id=int(requirement["id"]),
+            performed_by="host_control",
+            verdict="pass",
         )
         conn.execute(
             "INSERT INTO qa_artifacts(qa_run_id, artifact_type, created_at) "
@@ -51,7 +59,8 @@ def test_large_case_summary_renders_and_full_preserves_bodies(capsys):
             request = FunctionCallRequest(
                 function="qa.activity.list",
                 actor=ActorContext(actor_id="op", session_id="s-1"),
-                target=TargetRef(kind="global"), payload=payload,
+                target=TargetRef(kind="global"),
+                payload=payload,
             )
             with patch("yoke_core.domain.db_helpers.connect", connected):
                 outcome = handle_activity_list(request)
@@ -68,7 +77,10 @@ def test_large_case_summary_renders_and_full_preserves_bodies(capsys):
     assert row["evidence_count"] == 1
     assert row["happened_at"]
     response = FunctionCallResponse(
-        success=True, function="qa.activity.list", version="v1", result=summary,
+        success=True,
+        function="qa.activity.list",
+        version="v1",
+        result=summary,
     )
     assert emit_response(response, json_mode=False) == 0
     printed = capsys.readouterr()
@@ -83,8 +95,13 @@ def test_large_case_summary_renders_and_full_preserves_bodies(capsys):
 
 @pytest.mark.parametrize("flags, detail", [([], "summary"), (["--full"], "full")])
 def test_activity_cli_passes_read_detail(flags, detail):
-    with patch.object(qa_catalog, "dispatch_and_emit", return_value=0) as dispatch:
+    with patch(
+        "yoke_cli.commands.adapters.list_paging.dispatch_and_emit", return_value=0
+    ) as dispatch:
         assert qa_catalog.qa_activity_list(["--project", "example", *flags]) == 0
     assert dispatch.call_args.kwargs["payload"] == {
-        "project": "example", "limit": 100, "detail": detail,
+        "project": "example",
+        "limit": 25,
+        "offset": 0,
+        "detail": detail,
     }

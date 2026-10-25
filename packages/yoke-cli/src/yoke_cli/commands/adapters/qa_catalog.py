@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 import argparse
 import json
 from typing import Any, Callable, List
@@ -50,6 +52,8 @@ def _global(
     parser = build_parser(prog, usage, project_required=project_required)
     if configure is not None:
         configure(parser)
+    if function_id in {"qa.method.list", "qa.activity.list"}:
+        add_page_args(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
@@ -68,7 +72,13 @@ def _global(
         )
     if parsed.project:
         built_payload = {"project": parsed.project, **built_payload}
-    return dispatch_and_emit(
+    emit = (
+        dispatch_list
+        if function_id in {"qa.method.list", "qa.activity.list"}
+        else dispatch_and_emit
+    )
+    return emit(
+        **({"parsed": parsed} if emit is dispatch_list else {}),
         function_id=function_id,
         target=TargetRef(kind="global"),
         payload=built_payload,
@@ -81,7 +91,7 @@ def qa_method_list(args: List[str]) -> int:
     return _global(
         args,
         prog="yoke qa method list",
-        usage="yoke qa method list [--project P] [--full] [--session-id S] [--json]",
+        usage="yoke qa method list [--limit N] [--offset N] [--project P] [--full] [--session-id S] [--json]",
         function_id="qa.method.list",
         payload=lambda _args: {},
         project_required=False,

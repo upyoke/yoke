@@ -140,7 +140,7 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="workflow_item.epic_progress_note.list",
         cli_invocation=(
-            "yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num N [--limit N] [--full] [--session-id S] [--json]"
+            "yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num N [--limit N] [--offset N] [--full] [--session-id S] [--json]"
         ),
     ),
     _read_entry(

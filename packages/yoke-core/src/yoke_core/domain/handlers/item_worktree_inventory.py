@@ -21,6 +21,8 @@ rows would hide the cases this exists to find.
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -32,7 +34,7 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class ItemWorktreeInventoryRequest(BaseModel):
+class ItemWorktreeInventoryRequest(ListPageRequest):
     project: str = Field(..., min_length=1)
 
 
@@ -48,7 +50,7 @@ class InventoryLane(BaseModel):
     target_branch: str
 
 
-class ItemWorktreeInventoryResponse(BaseModel):
+class ItemWorktreeInventoryResponse(ListPageResponse):
     project: str
     lanes: list[InventoryLane]
 
@@ -124,7 +126,12 @@ def handle_inventory(request: FunctionCallRequest) -> HandlerOutcome:
         project=payload.project,
         lanes=lanes,
     )
-    return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
+    return HandlerOutcome(
+        result_payload=page_result(
+            response.model_dump(), "lanes", request.payload or {}
+        ),
+        primary_success=True,
+    )
 
 
 __all__ = [

@@ -7,6 +7,8 @@ CLI prints. Both ids carry ``claim_required_kind=None`` (reads).
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
@@ -23,7 +25,7 @@ _VALID_CLAIM_STATES = frozenset(
 )
 
 
-class ClaimsPathListRequest(BaseModel):
+class ClaimsPathListRequest(ListPageRequest):
     states: List[str] = Field(
         default_factory=list,
         description=(
@@ -33,7 +35,7 @@ class ClaimsPathListRequest(BaseModel):
     )
 
 
-class ClaimsPathListResponse(BaseModel):
+class ClaimsPathListResponse(ListPageResponse):
     item_id: int
     claims: List[Dict[str, Any]]
 
@@ -80,7 +82,9 @@ def handle_claims_path_list(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"item_id": item_id, "claims": claims},
+        result_payload=page_result(
+            {"item_id": item_id, "claims": claims}, "claims", request.payload or {}
+        ),
         primary_success=True,
     )
 

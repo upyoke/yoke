@@ -4,6 +4,8 @@
 [Yoke](../index.md) > [Strategy](index.md) > Frontier
 <!-- /yoke:breadcrumbs -->
 
+Lists: `next_offset` → `--offset`; keep filters.
+
 The **Frontier** is what can run now, ranked with reasons. You steer; a
 harness executes.
 

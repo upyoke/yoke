@@ -114,7 +114,8 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     assert request.payload == {
         "project": "yoke",
         "deployment_run_id": "run-20260728-906",
-        "limit": 100,
+        "limit": 25,
+        "offset": 0,
         "detail": "summary",
     }
 
@@ -342,7 +343,7 @@ def test_method_reads_omit_project_for_the_session() -> None:
     result, request = _run("qa", "method", "list")
     assert result == 0
     assert request.function == "qa.method.list"
-    assert request.payload == {}
+    assert request.payload == {"limit": 25, "offset": 0}
     result, request = _run("qa", "method", "get", "command")
     assert result == 0
     assert request.payload == {"method_id": "command", "detail": "summary"}

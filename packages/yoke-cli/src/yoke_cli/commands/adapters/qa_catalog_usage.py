@@ -38,7 +38,7 @@ USAGE_BY_FUNCTION_ID = {
         "[--success-policy-params JSON]"
     ),
     "qa.plan.list": (
-        "yoke qa plan list --project P [--limit N] [--offset N] "
+        "yoke qa plan list --project P [--limit N] [--offset N] [--offset N] "
         "[--include-retired] [--full] [--session-id S] [--json]"
     ),
     "qa.plan.get": (
@@ -47,7 +47,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.activity.list": (
         "yoke qa activity list --project P [--deployment-run-id RUN] "
-        "[--item PREFIX-N ...] [--limit N] [--full] [--session-id S] [--json]"
+        "[--item PREFIX-N ...] [--limit N] [--offset N] [--full] [--session-id S] [--json]"
     ),
     "qa.plan.create": (
         "yoke qa plan create SLUG --project P "

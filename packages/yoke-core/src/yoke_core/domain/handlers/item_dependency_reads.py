@@ -7,9 +7,10 @@ Wraps :func:`yoke_core.domain.item_dependency_read.dependency_rows`
 
 from __future__ import annotations
 
+from yoke_contracts.list_paging import ListPageRequest, ListPageResponse, page_result
+
 from typing import Any, Dict, List
 
-from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -18,11 +19,11 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class ItemDependencyListRequest(BaseModel):
+class ItemDependencyListRequest(ListPageRequest):
     pass
 
 
-class ItemDependencyListResponse(BaseModel):
+class ItemDependencyListResponse(ListPageResponse):
     item_id: int
     dependencies: List[Dict[str, Any]]
     integration_gate: Dict[str, Any]
@@ -71,11 +72,15 @@ def handle_item_dependency_list(
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={
-            "item_id": item_id,
-            "dependencies": rows,
-            "integration_gate": integration_gate,
-        },
+        result_payload=page_result(
+            {
+                "item_id": item_id,
+                "dependencies": rows,
+                "integration_gate": integration_gate,
+            },
+            "dependencies",
+            request.payload or {},
+        ),
         primary_success=True,
     )
 

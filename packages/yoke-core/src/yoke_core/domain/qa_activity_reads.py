@@ -60,6 +60,7 @@ def _list_activity(
     item_ids: Optional[Iterable[int]] = None,
     deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
+    offset: int = 0,
     requirement_ids: Optional[Iterable[int]] = None,
 ) -> tuple[list[dict], Optional[dict[str, Any]]]:
     """Return activity rows, and how an item-scoped read was bounded.
@@ -111,6 +112,7 @@ def _list_activity(
         bounded=bounded,
         item_scoped=item_ids is not None,
         per_run_group=deployment_run_ids is not None,
+        offset=offset,
     )
     # Actual attempts own their artifacts. A durable historical judgment
     # association may resolve its original capture through the shared reader;
@@ -277,6 +279,7 @@ def list_activity(
     item_ids: Optional[Iterable[int]] = None,
     deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
+    offset: int = 0,
 ) -> list[dict]:
     """Return the rows alone; ``read_activity`` carries the bounding facts."""
     return _list_activity(
@@ -286,6 +289,7 @@ def list_activity(
         item_ids=item_ids,
         deployment_run_ids=deployment_run_ids,
         limit=limit,
+        offset=offset,
     )[0]
 
 
@@ -297,6 +301,7 @@ def read_activity(
     item_ids: Optional[Iterable[int]] = None,
     deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
+    offset: int = 0,
     day: Optional[date] = None,
 ) -> dict[str, Any]:
     """Return recent rows plus untruncated outcome counts for one UTC day."""
@@ -308,6 +313,7 @@ def read_activity(
         item_ids=item_ids,
         deployment_run_ids=deployment_run_ids,
         limit=limit,
+        offset=offset,
     )
     from yoke_core.domain.deployment_qa_run_sharing import run_qa_sharing
 

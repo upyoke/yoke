@@ -1,5 +1,7 @@
 # Tests and QA records
 
+Lists: `next_offset` → `--offset`; keep filters.
+
 ```text
 yoke qa plan materialize --item PREFIX-N --transition <verification-stage>
 yoke qa requirement list --item PREFIX-N --json
@@ -7,7 +9,7 @@ yoke qa plan run --item PREFIX-N --transition <verification-stage>
 yoke qa case run --requirement-id <id>
 ```
 
-The plan run is the one full execution; iterate with
+Run the full plan once; iterate with
 `yoke watch pytest --impacted main --bounded`. Never run a case's command
 by hand or substitute a smaller one.
 
@@ -15,7 +17,7 @@ by hand or substitute a smaller one.
 - `HUMAN_GATE`: checkpoint, route to steering or the owner, resume after.
 - A `machine_qa.operator_gate` line with `self_approving: true` needs no
   action; never forward its code.
-- Agent-verifiable requirements: commit, then record real evidence.
+- Commit before recording real agent evidence.
   Call `no_tests_declared` agent-attested, never tests run.
 
   ```text

@@ -305,4 +305,4 @@ class TestEpicProgressNote:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "workflow_item.epic_progress_note.list"
-        assert req.payload == {"limit": 10}
+        assert req.payload == {"limit": 10, "offset": 0}

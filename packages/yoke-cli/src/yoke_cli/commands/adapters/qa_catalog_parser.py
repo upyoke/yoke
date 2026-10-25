@@ -48,7 +48,9 @@ def configure_method_get(parser: argparse.ArgumentParser) -> None:
 
 
 def configure_method_register(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--slug", required=True, help="Short unique name for the method.")
+    parser.add_argument(
+        "--slug", required=True, help="Short unique name for the method."
+    )
     parser.add_argument("--name", required=True, help="Display name.")
     parser.add_argument(
         "--description", required=True, metavar="TEXT", help="What the method checks."
@@ -136,17 +138,6 @@ def configure_activity_list(parser: argparse.ArgumentParser) -> None:
         default=[],
         metavar="PREFIX-N",
         help="Only activity for this item; repeatable.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=100,
-        metavar="N",
-        help=(
-            "Most rows to show, newest first; default: 100. With --item, "
-            "item_selection says whether rows were cut and how many matched; "
-            "narrow with --deployment-run-id or raise --limit to see more."
-        ),
     )
 
 

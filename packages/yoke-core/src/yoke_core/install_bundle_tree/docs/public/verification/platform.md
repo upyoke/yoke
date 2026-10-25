@@ -4,6 +4,8 @@
 [Yoke](../index.md) > [Verification](index.md) > QA platform
 <!-- /yoke:breadcrumbs -->
 
+Lists: `next_offset` → `--offset`; keep filters.
+
 QA requirements declare an obligation; typed runs, artifacts and success policies
 record its evidence. Items need materialized requirements before entering
 `reviewing-implementation`. Write through registered `yoke qa ...` adapters;

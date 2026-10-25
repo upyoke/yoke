@@ -4,6 +4,8 @@
 [Yoke](../../index.md) > [Items](../index.md) > Item dependency model
 <!-- /yoke:breadcrumbs -->
 
+Lists: `next_offset` → `--offset`; keep filters.
+
 Read dependency edges, gate satisfaction and the canonical blocker model.
 
 ## Table: item_dependencies

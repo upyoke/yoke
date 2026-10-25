@@ -9,7 +9,8 @@ keep each authored file under the 350-line cap:
 """
 
 from __future__ import annotations
-from yoke_cli.transport.human_values import write_human
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 
 import argparse
 import sys
@@ -129,7 +130,7 @@ def epic_progress_note_append(args: List[str]) -> int:
 
 EPIC_PROGRESS_NOTE_LIST_USAGE = (
     "yoke workflow-item epic-progress-note list --epic PREFIX-N --task-num N "
-    "[--limit N] [--full] [--session-id S] [--json]"
+    "[--limit N] [--offset N] [--full] [--session-id S] [--json]"
 )
 
 
@@ -139,30 +140,23 @@ def epic_progress_note_list(args: List[str]) -> int:
         usage=EPIC_PROGRESS_NOTE_LIST_USAGE,
     )
     _epic_task_target_flags(parser)
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=0,
-        metavar="N",
-        help="Most notes to show, newest first; default 0 shows all.",
-    )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_PROGRESS_NOTE_LIST_USAGE)
     if parsed is None:
         return 2
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="workflow_item.epic_progress_note.list",
         target=_epic_task_target(parsed),
-        payload={"limit": int(parsed.limit)},
+        payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
 
 
-EPIC_TASKS_LIST_USAGE = (
-    "yoke epic-tasks list --epic PREFIX-N [--full] [--session-id S] [--json]"
-)
+EPIC_TASKS_LIST_USAGE = "yoke epic-tasks list --epic PREFIX-N [--limit N] [--offset N] [--full] [--session-id S] [--json]"
 
 
 def epic_tasks_list(args: List[str]) -> int:
@@ -173,20 +167,18 @@ def epic_tasks_list(args: List[str]) -> int:
     parser.add_argument(
         "--epic", required=True, metavar="PREFIX-N", help="Epic item id (PREFIX-N)."
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EPIC_TASKS_LIST_USAGE)
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        write_human(response.result or {}, stdout)
-
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="epic_tasks.list.run",
         target=TargetRef(kind="epic_task", public_ref=parsed.epic),
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
     )

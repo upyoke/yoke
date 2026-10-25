@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from yoke_cli.commands.adapters.list_paging import add_page_args, dispatch_list
+
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -15,7 +17,6 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 
-
 __all__ = [
     "items_dependency_add",
     "items_dependency_list",
@@ -27,9 +28,8 @@ __all__ = [
     "ITEMS_DEPENDENCY_REMOVE_USAGE",
 ]
 
-
 ITEMS_DEPENDENCY_LIST_USAGE = (
-    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--full] [--project P] "
+    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--limit N] [--offset N] [--full] [--project P] "
     "[--session-id S] [--json]"
 )
 
@@ -52,6 +52,7 @@ def items_dependency_list(args: List[str]) -> int:
         metavar="PREFIX-N",
         help="Item id (PREFIX-N). Alternative to --item.",
     )
+    add_page_args(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_LIST_USAGE)
@@ -62,7 +63,8 @@ def items_dependency_list(args: List[str]) -> int:
         return usage_error(
             "items dependency list requires --item PREFIX-N or a positional item"
         )
-    return dispatch_and_emit(
+    return dispatch_list(
+        parsed=parsed,
         function_id="items.dependency.list",
         target=item_target("item", raw_item, parsed.project),
         payload={},
