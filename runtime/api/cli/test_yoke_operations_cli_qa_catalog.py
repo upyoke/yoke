@@ -63,6 +63,7 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     assert request.payload == {
         "project": "yoke",
         "method_id": "browser-check",
+        "detail": "summary",
     }
 
     result, request = _run(
@@ -344,4 +345,4 @@ def test_method_reads_omit_project_for_the_session() -> None:
     assert request.payload == {}
     result, request = _run("qa", "method", "get", "command")
     assert result == 0
-    assert request.payload == {"method_id": "command"}
+    assert request.payload == {"method_id": "command", "detail": "summary"}

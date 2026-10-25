@@ -27,7 +27,7 @@ PLAN_CASES_SYNC_USAGE = (
 USAGE_BY_FUNCTION_ID = {
     "qa.method.list": ("yoke qa method list [--project P] [--session-id S] [--json]"),
     "qa.method.get": (
-        "yoke qa method get METHOD [--project P] [--session-id S] [--json]"
+        "yoke qa method get METHOD [--project P] [--full] [--session-id S] [--json]"
     ),
     "qa.project_method.register": (
         "yoke qa project-method register --project P --slug SLUG --name "

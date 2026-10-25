@@ -1,7 +1,9 @@
 {
  "id": "related-plans",
  "title": "Related plans",
- "status": "draft-copy",
+ "status": "observed",
  "page": "qa-methods",
- "position": 3
+ "position": 3,
+ "summary": "Default method detail keeps used_by_plan_count without enumerating plans. Explicit full detail includes related plans and case outcome summaries; the dashboard method detail requests full detail.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_catalog_reads.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/qa_catalog_parser.py", "packages/yoke-core/src/yoke_core/ui/static/qa_view_method_detail.js"]
 }

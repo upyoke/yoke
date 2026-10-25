@@ -25,6 +25,7 @@ class MethodListRequest(BaseModel):
 class MethodGetRequest(BaseModel):
     method_id: str = Field(..., min_length=1)
     project: Optional[str] = None
+    detail: ReadDetail = DETAIL_SUMMARY
 
 
 class PlanListRequest(ProjectReadRequest):
@@ -200,6 +201,7 @@ def handle_method_get(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 method_id=payload.method_id,
                 project=project,
+                full=payload.detail == DETAIL_FULL,
             )
     except MethodProjectError as exc:
         return _error("payload_invalid", str(exc), "$.payload.project")

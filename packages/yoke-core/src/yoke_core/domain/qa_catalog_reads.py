@@ -205,11 +205,14 @@ def get_method(
     *,
     method_id: str,
     project: Optional[str] = None,
+    full: bool = False,
 ) -> dict:
     rows = list_methods(conn, project=project)
     method = next((row for row in rows if row["id"] == method_id), None)
     if method is None:
         raise LookupError(f"QA method {method_id!r} not found")
+    if not full:
+        return method
     identity = _project_row(conn, project)
     plans = read_method_related_plans(
         conn,

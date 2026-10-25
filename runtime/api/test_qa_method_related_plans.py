@@ -120,27 +120,21 @@ def test_method_details_roll_up_only_their_current_case_proofs() -> None:
             case_outcome="failed",
         )
 
-        command = get_method(conn, method_id="command", project="yoke")
+        command = get_method(conn, method_id="command", project="yoke", full=True)
         with mock.patch.object(
             qa_method_related_plans,
             "query_rows",
             wraps=qa_method_related_plans.query_rows,
         ) as related_reads:
             browser = get_method(
-                conn,
-                method_id="browser-check",
-                project="yoke",
+                conn, method_id="browser-check", project="yoke", full=True
             )
         assert related_reads.call_count == 2
         inspection = get_method(
-            conn,
-            method_id="browser-inspection",
-            project="yoke",
+            conn, method_id="browser-inspection", project="yoke", full=True
         )
         machine = get_method(
-            conn,
-            method_id="machine-state-check",
-            project="yoke",
+            conn, method_id="machine-state-check", project="yoke", full=True
         )
 
     command_plan = command["plans"][0]
@@ -230,9 +224,7 @@ def test_method_rollup_expands_baselines_without_repeating_case_keys() -> None:
         )
 
         method = get_method(
-            conn,
-            method_id="machine-state-check",
-            project="yoke",
+            conn, method_id="machine-state-check", project="yoke", full=True
         )
 
     related = method["plans"][0]
@@ -311,7 +303,7 @@ def test_command_related_plans_follow_product_display_order() -> None:
                     case_outcome="passed",
                 )
 
-        method = get_method(conn, method_id="command", project="yoke")
+        method = get_method(conn, method_id="command", project="yoke", full=True)
 
     assert [plan["slug"] for plan in method["plans"]] == [
         "full-verification",

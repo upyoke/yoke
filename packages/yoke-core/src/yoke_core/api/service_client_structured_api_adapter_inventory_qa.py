@@ -62,7 +62,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.method.get",
         cli_invocation=(
-            "yoke qa method get METHOD [--project P] [--session-id S] [--json]"
+            "yoke qa method get METHOD [--project P] [--full] [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(

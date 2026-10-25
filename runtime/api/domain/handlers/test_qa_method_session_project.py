@@ -48,7 +48,7 @@ def test_explicit_project_wins(test_db, monkeypatch):
     insert_session(test_db, "method-explicit-project")
     seen: dict[str, str] = {}
 
-    def fake_get(_conn, *, method_id, project=None):
+    def fake_get(_conn, *, method_id, project=None, full=False):
         seen["project"] = project
         seen["method_id"] = method_id
         return {"id": method_id}

@@ -1,7 +1,9 @@
 {
  "id": "discover-and-inspect",
  "title": "Discover and inspect",
- "status": "draft-copy",
+ "status": "observed",
  "page": "qa-methods",
- "position": 0
+ "position": 0,
+ "summary": "Method get returns method settings, contracts, required capabilities and used_by_plan_count. Use --full only when related plans and their case summaries are needed.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_catalog_reads.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/qa_catalog_parser.py", "packages/yoke-core/src/yoke_core/ui/static/qa_view_method_detail.js"]
 }
