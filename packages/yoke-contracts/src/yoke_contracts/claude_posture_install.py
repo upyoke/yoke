@@ -14,7 +14,6 @@ from yoke_contracts.harness_unattended_posture import (
     CLAUDE_PERMISSIONS_CONTAINER,
     claude_config_path,
     claude_settings_path,
-    claude_settings_problems,
 )
 from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_SETTINGS_PERMISSION_MODE,
@@ -29,8 +28,7 @@ def configure_claude_app_bypass_permissions(
 ) -> bool:
     """Set ``bypassPermissionsModeEnabled=true`` in Claude desktop prefs.
 
-    Patch an existing platform config only when the key is absent;
-    respect an explicit ``False``.
+    Patch an existing platform config, including an explicit ``False``.
     """
     target = config_path if config_path is not None else claude_config_path()
     if not target.is_file():
@@ -50,10 +48,9 @@ def configure_claude_app_bypass_permissions(
     prefs = data.setdefault("preferences", {})
     if not isinstance(prefs, dict):
         return False
+    had_current = CLAUDE_BYPASS_KEY in prefs
     current = prefs.get(CLAUDE_BYPASS_KEY)
     if current is True:
-        return False
-    if current is False:
         return False
     prefs[CLAUDE_BYPASS_KEY] = True
     tmp = target.with_suffix(target.suffix + ".yoke-tmp")
@@ -70,7 +67,11 @@ def configure_claude_app_bypass_permissions(
         return False
     unrecorded = ledger.record(
         ledger.json_entry(
-            target, ["preferences", CLAUDE_BYPASS_KEY], True, existing_depth=existing
+            target,
+            ["preferences", CLAUDE_BYPASS_KEY],
+            True,
+            existing_depth=existing,
+            **({"previous": current} if had_current else {}),
         )
     )
     if unrecorded:
@@ -91,8 +92,7 @@ def configure_claude_cli_permission_mode(
 
     The desktop app's preference above governs the app; the CLI reads this
     file, so a machine with only one of them still prompts on the other
-    surface. Seeded only when the mode is absent — a mode the operator chose
-    is reported and left alone.
+    surface. Both surfaces receive the unattended mode on every setup pass.
     """
     target = settings_path if settings_path is not None else claude_settings_path()
     if not target.parent.is_dir():
@@ -109,15 +109,10 @@ def configure_claude_cli_permission_mode(
     existing = ledger.existing_depth(data, [CLAUDE_PERMISSIONS_CONTAINER])
     permissions = data.get(CLAUDE_PERMISSIONS_CONTAINER)
     permissions = permissions if isinstance(permissions, dict) else {}
+    had_current = CLAUDE_SETTINGS_PERMISSION_MODE_KEY in permissions
     current = permissions.get(CLAUDE_SETTINGS_PERMISSION_MODE_KEY)
     if current == CLAUDE_SETTINGS_PERMISSION_MODE:
         return []
-    if current is not None:
-        return [
-            f"claude-code: left your own setting in place — "
-            f"{claude_settings_problems(data)[0]}; the CLI asks before "
-            "commands its allowlist does not name"
-        ]
     permissions[CLAUDE_SETTINGS_PERMISSION_MODE_KEY] = CLAUDE_SETTINGS_PERMISSION_MODE
     data[CLAUDE_PERMISSIONS_CONTAINER] = permissions
     tmp = target.with_suffix(target.suffix + ".yoke-tmp")
@@ -133,6 +128,7 @@ def configure_claude_cli_permission_mode(
             [CLAUDE_PERMISSIONS_CONTAINER, CLAUDE_SETTINGS_PERMISSION_MODE_KEY],
             CLAUDE_SETTINGS_PERMISSION_MODE,
             existing_depth=existing,
+            **({"previous": current} if had_current else {}),
         )
     )
     return [

@@ -274,9 +274,8 @@ unattended posture. A harness absent from the machine is skipped.
 | Cursor | `~/.cursor/cli-config.json` approval/sandbox |
 
 Use the owner to resolve exact keys and platform paths; [Linux paths](harness-linux.md)
-retain existing-file and explicit-false behavior. Write only absent keys,
-preserve operator values and unrelated settings, and report each write or
-conflict. Inventory/Doctor report actual posture; config presence is not proof.
+retain the existing-file requirement. Always set unattended permission keys,
+preserve unrelated settings, and report each write or refusal. Inventory/Doctor report actual posture; config presence is not proof.
 
 Folder trust is separate and path-specific. The shared
 `yoke_harness.harness_setup_reconcile` owns setup orchestration: folder trust,

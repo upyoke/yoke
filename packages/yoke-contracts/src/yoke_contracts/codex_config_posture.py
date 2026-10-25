@@ -3,8 +3,7 @@
 This is another tool's config file: it holds the operator's model choices,
 hook trust, and directory trust beside the two keys Yoke needs. So the pass
 edits rather than rewrites — every byte outside the keys it manages survives,
-and a key the operator has already set to something else is reported, never
-overwritten. What the keys are and why lives in
+and managed posture keys always receive unattended values. What the keys are and why lives in
 :mod:`yoke_contracts.harness_unattended_posture`.
 
 Comments written *inside* the value of a managed key are the one thing an
@@ -72,16 +71,18 @@ def _key_line(lines: List[str], end: int, key: str) -> Optional[int]:
     """Index of a ``key = ...`` line among the top-level keys, or ``None``."""
     for index in range(end):
         stripped = lines[index].strip()
-        if not stripped.startswith(key):
-            continue
-        if stripped[len(key) :].lstrip().startswith("="):
-            return index
+        for spelling in (key, f'"{key}"', f"'{key}'"):
+            if stripped.startswith(spelling) and stripped[
+                len(spelling) :
+            ].lstrip().startswith("="):
+                return index
     return None
 
 
 def _new_record() -> Dict[str, Any]:
     return {
         "set_keys": [],
+        "previous": {},
         "conflicts": [],
         "trusted_checkout": "",
         "created_file": False,
@@ -96,9 +97,7 @@ def changed(record: Dict[str, Any]) -> bool:
 def plan(text: str, checkout: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
     """Return the config text the unattended posture requires, plus changes.
 
-    An operator value that differs from what Yoke needs is recorded as a
-    conflict and left exactly as it is: widening what a harness runs without
-    asking is not a decision to make behind someone's back twice.
+    Existing posture values are replaced; unrelated keys stay unchanged.
     """
     record = _new_record()
     config = parse_config(text)
@@ -107,11 +106,10 @@ def plan(text: str, checkout: Optional[str] = None) -> Tuple[str, Dict[str, Any]
         current = config.get(key)
         if current == value:
             continue
-        if current is None:
-            wanted.append((key, value))
-            record["set_keys"].append(key)
-        else:
-            record["conflicts"].append(f"{key} = {current!r} (Yoke needs {value!r})")
+        if key in config:
+            record["previous"][key] = top_level_assignment(text, key)
+        wanted.append((key, value))
+        record["set_keys"].append(key)
 
     trust_key = codex_project_trust_key(checkout) if checkout else ""
     if trust_key:
@@ -137,7 +135,16 @@ def _apply(text: str, wanted: List[Tuple[str, str]], record: Dict[str, Any]) -> 
     lines = text.splitlines()
     if wanted:
         end = _top_level_span(lines)
-        inserts = [f"{key} = {_toml_string(value)}" for key, value in wanted]
+        inserts = []
+        for key, value in wanted:
+            replacement = f"{key} = {_toml_string(value)}"
+            index = _key_line(lines, end, key)
+            if index is None:
+                inserts.append(replacement)
+                continue
+            _start, stop = _assignment_span(lines, key)
+            lines[index:stop] = [replacement]
+            end = _top_level_span(lines)
         # Keep a blank line before whatever table followed, so the inserted
         # keys read as top-level rather than as part of that table.
         if end < len(lines) and lines[end].strip():
@@ -158,11 +165,53 @@ def _apply(text: str, wanted: List[Tuple[str, str]], record: Dict[str, Any]) -> 
 def record_written(target: Path, record: Dict[str, Any]) -> List[str]:
     """Record what a written :func:`plan` changed; return unrecorded reports."""
     values = dict(CODEX_POSTURE_KEYS)
-    entries = [ledger.codex_key_entry(target, k, values[k]) for k in record["set_keys"]]
+    entries = [
+        ledger.codex_key_entry(
+            target,
+            k,
+            values[k],
+            **({"previous": record["previous"][k]} if k in record["previous"] else {}),
+        )
+        for k in record["set_keys"]
+    ]
     if record["trusted_checkout"]:
         entries.append(ledger.codex_trust_entry(target, record["trusted_checkout"]))
     reports = (ledger.record(entry) for entry in entries)
     return [f"codex: {report}" for report in reports if report]
+
+
+def _assignment_span(lines: List[str], key: str) -> Optional[Tuple[int, int]]:
+    end = _top_level_span(lines)
+    index = _key_line(lines, end, key)
+    if index is None:
+        return None
+    for stop in range(index + 1, end + 1):
+        try:
+            parsed = parse_config("\n".join(lines[index:stop]))
+        except CodexConfigUnreadable:
+            continue
+        if key in parsed:
+            return index, stop
+    raise CodexConfigUnreadable(f"cannot locate managed key {key!r}")
+
+
+def top_level_assignment(text: str, key: str) -> str:
+    """Keep the original assignment bytes for uninstall restoration."""
+    lines = text.splitlines(keepends=True)
+    span = _assignment_span(lines, key)
+    if span is None:
+        raise CodexConfigUnreadable(f"cannot locate managed key {key!r}")
+    return "".join(lines[span[0] : span[1]])
+
+
+def replace_top_level_assignment(text: str, key: str, assignment: str) -> str:
+    """Restore one owned key while retaining every unrelated line."""
+    lines = text.splitlines(keepends=True)
+    span = _assignment_span(lines, key)
+    if span is None:
+        raise CodexConfigUnreadable(f"cannot locate managed key {key!r}")
+    lines[span[0] : span[1]] = [assignment]
+    return "".join(lines)
 
 
 def remove_top_level_key(text: str, key: str) -> Optional[str]:
@@ -214,5 +263,6 @@ __all__ = [
     "plan",
     "record_written",
     "remove_top_level_key",
+    "replace_top_level_assignment",
     "remove_trust_table",
 ]

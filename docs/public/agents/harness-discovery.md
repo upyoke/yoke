@@ -250,8 +250,8 @@ Project and machine uninstall keep their existing ownership boundaries.
 Yoke must run before any project exists, so setup also adds one `yoke`
 allow entry to each harness's machine-wide allowlist: `Bash(yoke:*)` in
 `~/.claude/settings.json`, `Shell(yoke *)` in `~/.cursor/cli-config.json`
-and a `yoke.rules` prefix rule beside Codex's `config.toml`. Your own mode
-and allow entries are kept. `HC-harness-unattended-posture` passes when
+and a `yoke.rules` prefix rule beside Codex's `config.toml`. Setup always sets
+unattended permission modes and keeps unrelated settings and allow entries. `HC-harness-unattended-posture` passes when
 your mode is kept and `yoke` is allowed, and fails, naming the missing
 entry, when neither allows `yoke`. Repair with
 `yoke doctor run --only harness-setup --fix`.

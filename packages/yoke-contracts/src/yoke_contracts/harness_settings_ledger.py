@@ -10,11 +10,12 @@ The record lives in the machine home, which uninstall deletes last, after the
 revert. Each entry is one of:
 
 - ``{"kind": "json", "file", "keys", "value", "existing_depth"}`` — a JSON
-  leaf at ``keys``;
+  leaf at ``keys``; optional ``previous`` restores the replaced value;
 - ``{"kind": "json_list_item", "file", "keys", "value", "existing_depth"}``
   — one string Yoke appended to the JSON list at ``keys``; ``existing_depth``
   counts the containers on that path, the list included, that predate it;
 - ``{"kind": "codex_key", "file", "key", "value"}`` — a top-level Codex key;
+  optional ``previous`` holds its original assignment text for restoration;
 - ``{"kind": "codex_trust", "file", "trust_key"}`` — a Codex trust table;
 - ``{"kind": "created_file", "file"}`` — a file Yoke created whole;
 - ``{"kind": "created_dir", "file"}`` — a folder or symlink Yoke created whole;
@@ -34,6 +35,8 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_contracts import platform_file_lock
 from yoke_contracts.machine_config.runtime import yoke_home
+
+_MISSING = object()
 
 LEDGER_NAME = "harness-settings-written.json"
 
@@ -62,6 +65,13 @@ def record(entry: Mapping[str, Any]) -> Optional[str]:
     path = ledger_path()
     try:
         with mutation() as entries:
+            if "previous" in entry:
+                identity = ("kind", "file", "keys", "key")
+                entries[:] = [
+                    old
+                    for old in entries
+                    if any(old.get(key) != entry.get(key) for key in identity)
+                ]
             if dict(entry) not in entries:
                 entries.append(dict(entry))
     except (OSError, ValueError) as exc:
@@ -73,7 +83,12 @@ def record(entry: Mapping[str, Any]) -> Optional[str]:
 
 
 def json_entry(
-    file: Path, keys: List[str], value: Any, *, existing_depth: int
+    file: Path,
+    keys: List[str],
+    value: Any,
+    *,
+    existing_depth: int,
+    previous: Any = _MISSING,
 ) -> Dict[str, Any]:
     """A JSON leaf; ``existing_depth`` containers on its path predate the write.
 
@@ -86,11 +101,16 @@ def json_entry(
         "keys": list(keys),
         "value": value,
         "existing_depth": existing_depth,
+        **({"previous": previous} if previous is not _MISSING else {}),
     }
 
 
 def json_list_item_entry(
-    file: Path, keys: List[str], value: Any, *, existing_depth: int
+    file: Path,
+    keys: List[str],
+    value: Any,
+    *,
+    existing_depth: int,
 ) -> Dict[str, Any]:
     """One value appended to the list at ``keys``; revert removes only it."""
     return {
@@ -111,8 +131,16 @@ def existing_depth(payload: Any, containers: List[str]) -> int:
     return depth
 
 
-def codex_key_entry(file: Path, key: str, value: str) -> Dict[str, Any]:
-    return {"kind": "codex_key", "file": str(file), "key": key, "value": value}
+def codex_key_entry(
+    file: Path, key: str, value: str, *, previous: Any = _MISSING
+) -> Dict[str, Any]:
+    return {
+        "kind": "codex_key",
+        "file": str(file),
+        "key": key,
+        "value": value,
+        **({"previous": previous} if previous is not _MISSING else {}),
+    }
 
 
 def codex_trust_entry(file: Path, trust_key: str) -> Dict[str, Any]:

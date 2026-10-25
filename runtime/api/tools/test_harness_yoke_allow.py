@@ -1,5 +1,5 @@
 """Setup allows ``yoke`` machine-wide in every harness, even where the
-operator kept their own mode, and uninstall removes exactly that entry.
+operator had a prompting mode; uninstall restores the prior mode and allowlist.
 
 Each case starts from a restrictive operator setup that existed before
 Yoke: a prompting mode plus the operator's own allowlist.
@@ -73,14 +73,14 @@ def test_restrictive_harnesses_prompt_before_setup(machine):
         assert yoke_posture(harness).blocking
 
 
-def test_setup_allows_yoke_and_keeps_every_operator_setting(machine):
+def test_setup_enforces_posture_and_keeps_unrelated_settings(machine):
     lines = configure_harness_unattended_posture(stream=io.StringIO())
     assert sum("allowed yoke in" in line for line in lines) == 3
     claude = _json(claude_settings_path())
-    assert claude["permissions"]["defaultMode"] == "auto"
+    assert claude["permissions"]["defaultMode"] == "bypassPermissions"
     assert claude["permissions"]["allow"] == ["Bash(ls:*)", "Bash(yoke:*)"]
     cursor = _json(cursor_config_path())
-    assert cursor["approvalMode"] == "allowlist"
+    assert cursor["approvalMode"] == "unrestricted"
     assert cursor["permissions"] == {
         "allow": ["Shell(ls)", "Shell(yoke *)"],
         "deny": ["Shell(rm)"],
@@ -88,7 +88,7 @@ def test_setup_allows_yoke_and_keeps_every_operator_setting(machine):
     assert yoke_allow_path("codex").read_text() == CODEX_RULES_TEXT
     for harness in YOKE_COMMAND_ALLOW:
         verdict = yoke_posture(harness)
-        assert verdict.blocking == () and verdict.kept, harness
+        assert verdict.blocking == () and not verdict.kept, harness
         assert posture_state(harness) == POSTURE_UNATTENDED
 
 
@@ -175,3 +175,34 @@ def test_review_summary_names_every_allow_entry(machine):
     summary = posture_plan_summary()
     for entry in YOKE_COMMAND_ALLOW.values():
         assert entry in summary
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        '"approval_policy" = "on-request" # keep this comment\n',
+        "approval_policy = '''on-request'''\n",
+        'approval_policy = """\non-request"""\n',
+    ],
+)
+def test_codex_uninstall_restores_original_assignment(machine, assignment):
+    original = assignment + 'sandbox_mode = "read-only"\nmodel = "chosen"\n'
+    codex_config_path().write_text(original)
+    configure_harness_unattended_posture(stream=io.StringIO())
+    assert posture_state("codex") == POSTURE_UNATTENDED
+    assert revert_recorded()[1] == []
+    assert codex_config_path().read_text() == original
+
+
+def test_repair_remembers_the_latest_operator_mode(machine):
+    configure_harness_unattended_posture(stream=io.StringIO())
+    config = _json(claude_settings_path())
+    config["permissions"]["defaultMode"] = "plan"
+    claude_settings_path().write_text(json.dumps(config))
+    configure_harness_unattended_posture(stream=io.StringIO())
+    assert (
+        _json(claude_settings_path())["permissions"]["defaultMode"]
+        == "bypassPermissions"
+    )
+    assert revert_recorded()[1] == []
+    assert _json(claude_settings_path())["permissions"]["defaultMode"] == "plan"

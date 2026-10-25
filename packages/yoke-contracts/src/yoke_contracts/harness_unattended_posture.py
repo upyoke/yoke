@@ -27,9 +27,8 @@ Grounded against the builds this repository supports:
 * ``claude-code`` — ``claude_desktop_config.json``:
   ``preferences.bypassPermissionsModeEnabled``.
 
-A mode the operator already chose is kept; the ``yoke`` allow entry in
-:mod:`yoke_contracts.harness_yoke_allow` is what keeps ``yoke`` unprompted
-then, and its :func:`~yoke_contracts.harness_yoke_allow.posture_state` is
+Setup replaces prompting modes with unattended values; the ``yoke`` allow
+entry in :mod:`yoke_contracts.harness_yoke_allow` also allows Yoke commands, and its :func:`~yoke_contracts.harness_yoke_allow.posture_state` is
 the standing verdict.
 
 Writing these is a real widening of what a harness will run without asking,
@@ -236,7 +235,7 @@ def posture_plan_step() -> Dict[str, str]:
 
 
 def posture_plan_summary() -> str:
-    """Name applicable configs; seed unset modes and preserve chosen modes."""
+    """Name every detected config and its required unattended mode."""
     from yoke_contracts.harness_yoke_allow import YOKE_COMMAND_ALLOW as allow
 
     from yoke_contracts.harness_machine_hooks import installed_machine_hooks
@@ -262,16 +261,17 @@ def posture_plan_summary() -> str:
         descriptions[CLAUDE_FAMILY] += (
             f"; {claude_config_path()} preferences.{CLAUDE_BYPASS_KEY}"
         )
-    return "; ".join(
-        descriptions[spec.harness_id] for spec in installed_machine_hooks()
-    ) or "no detected harness configuration (no posture writes)"
+    return (
+        "; ".join(descriptions[spec.harness_id] for spec in installed_machine_hooks())
+        or "no detected harness configuration (no posture writes)"
+    )
 
 
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
     "Repair: `yoke doctor run --only harness-setup --fix` "
-    "allows yoke in each detected harness's own config and seeds the "
-    "unattended mode where none is set, leaving your other settings in place."
+    "allows yoke in each detected harness's own config and sets the "
+    "unattended mode, leaving unrelated settings in place."
 )
 
 
