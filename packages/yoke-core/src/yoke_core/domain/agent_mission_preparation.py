@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.qa_plan_execution_checkin import communication_unknown
+from yoke_core.domain.qa_plan_execution_checkin import (
+    checkin_busy,
+    communication_unknown,
+)
 
 from collections.abc import Callable
 from typing import Any
@@ -156,7 +159,7 @@ def prepare_mission(
         preparation["scratch_path"] = scratch["scratch_path"]
         preparation["evidence"]["scratch_created"] = True
     except Exception as error:
-        if communication_unknown(error):
+        if communication_unknown(error) or checkin_busy(error):
             raise
         failure = _failure(error, phase, secrets)
         preparation.update(ok=False, error_code=failure["error_code"])

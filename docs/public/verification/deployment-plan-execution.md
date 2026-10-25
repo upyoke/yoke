@@ -14,20 +14,17 @@ Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
 [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
 owns the scope and target-binding contract.
 
-Only requirements with an executable method are copied from admission.
-Method-less standing requirements remain on their source item; a selected
-plan supplies the executable stage cases. A deployment-stage target (persistent environment or run preview) supplies
-`target_env` even when a correction case has no `target_envs` selector, so its
-scope matches the case it replaces.
+Admission copies executable requirements; others stay on the source item.
+The selected plan supplies stage cases. Stage targets supply `target_env`,
+including for corrections without `target_envs`, keeping replacement scope.
 
-[QA continuity](deployment-qa-continuity.md) describes current item authority,
-release takeover, cross-build observations and exact-execution recovery.
+[QA continuity](deployment-qa-continuity.md): item authority, release takeover,
+cross-build observations and exact-execution recovery.
 
-Use `--plan ID_OR_SLUG` to run an admitted frozen chain without new obligations.
-Run, stage, member/shared subject and target must match; invalid admissions
-refuse before host access. New plans fill empty stages; corrections need
-replacements. `qa_plan_selector_cursor_conflict` retains the private cursor
-and names its owner-resume recovery.
+`--plan ID_OR_SLUG` runs an admitted frozen chain without new obligations.
+Run, stage, subject and target must match before host access. New plans fill
+empty stages; corrections need replacements. `qa_plan_selector_cursor_conflict`
+retains the private cursor and names its owner-resume recovery.
 
 ## Shared plan credit
 
@@ -270,9 +267,11 @@ yoke qa plan abort --execution-id EXECUTION_ID \
 a committed abort or shared-stage settlement still succeeds. Inspect
 `yoke deployment-runs get RUN`; ask the control-plane operator to re-drive its QA stage.
 
-Owners can abort ended runs, recording run status; settled walks report state.
-A steering abort returns `stop_request`; the live owner stops at its next case,
-heartbeat or [mission walk-end](exploration-evidence.md). Without a seat,
+`qa_checkin_busy` pauses setup or cases as `blocked_on_precondition`; keep custody
+and resume the same execution after contention clears. Other setup errors fail.
+Owners can abort ended runs; settled walks report state. A steering abort returns
+`stop_request`; the owner stops at its next case, heartbeat or
+[walk-end](exploration-evidence.md). Without a seat,
 `qa_execution_stop_requires_steering` refuses.
 
 An in-flight host abort first records cancellation. Until the interrupted

@@ -1,0 +1,11 @@
+{
+ "id": "setup-checkin-busy",
+ "title": "A mission setup check-in is busy",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A QA plan receives qa_checkin_busy during mission preparation or another case phase.",
+ "need": "Read blocked_on_precondition and the refusal recovery, preserve the existing cursor and custody, and retry the same execution when contention clears. No terminal setup failure or abort is recorded for this busy refusal. Other setup failures keep their terminal failure evidence and reason.",
+ "disclosure": "current cue",
+ "surface": "Plan run result and deployment plan execution guide",
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/agent_mission_preparation.py", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_run.py", "runtime/api/domain/test_qa_plan_execution_fail_closed.py"]
+}

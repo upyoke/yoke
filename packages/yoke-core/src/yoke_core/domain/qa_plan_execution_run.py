@@ -42,6 +42,7 @@ def execute_begun_plan(
     cursor = begun.cursor
     resolved_base_url = begun.resolved_base_url
     from yoke_core.domain.qa_plan_execution_checkin import (
+        checkin_busy,
         checkin_refused,
         communication_unknown,
         paused_result,
@@ -172,7 +173,7 @@ def execute_begun_plan(
                     cursor=ordinal,
                     results=results,
                 )
-            if phase == "checkin" and checkin_refused(exc):
+            if checkin_busy(exc) or (phase == "checkin" and checkin_refused(exc)):
                 return {
                     "execution_id": execution_id,
                     "state": "blocked_on_precondition",
