@@ -237,16 +237,19 @@ def test_real_mission_setup_failure_keeps_terminal_reason() -> None:
         plan_execution_id="execution-1",
         lease_id=1,
         contract_digest="digest",
+        cases=[SimpleNamespace(method_config={})],
     )
     result = prepare_mission(
         contract,
-        execution_factory=mock.Mock(
-            side_effect=qa_plan_execution.QaPlanExecutionError(
-                "credentials unavailable"
-            )
+        execution_factory=lambda *a, **kw: SimpleNamespace(
+            material=SimpleNamespace(secrets={})
         ),
         scratch_factory=mock.Mock(side_effect=AssertionError("scratch after failure")),
+        progress_callback=mock.Mock(
+            side_effect=qa_plan_execution.QaPlanExecutionError("setup check refused")
+        ),
     )
     assert result["preparation"]["ok"] is False
     failure = result["preparation"]["evidence"]["preparation_failure"]
-    assert failure["diagnostic"] == "QaPlanExecutionError: credentials unavailable"
+    assert failure["phase"] == "preparation_heartbeat"
+    assert failure["diagnostic"] == "QaPlanExecutionError: setup check refused"
