@@ -3,8 +3,8 @@
  "title": "On refusal, preserve the real cause and necessary facts, then teach a supported recovery.",
  "status": "candidate",
  "form": "Do",
- "verification": "Desired outline; exact recipe and live delivery still need proof. Session scope refusals are one source instance: they name the item, its title and the exact mapped folder, or the checkout registration recovery.",
+ "verification": "Desired outline; exact recipe and live delivery still need proof. Lane preparation for an item whose project has no checkout on this machine is one source instance: it names the project and the exact `yoke project register` recovery with the project id.",
  "topics": ["security/boundaries", "reference/commands"],
  "position": 5,
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/claims_work_folder_guard.py", "packages/yoke-core/src/yoke_core/domain/session_work_eligibility.py"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/worktree_preflight_repo_resolution.py"]
 }

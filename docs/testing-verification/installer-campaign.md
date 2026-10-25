@@ -332,16 +332,13 @@ every session read hides a session that ends inside that window without a
 tool call. `outside-project-reinstall` reinstalls without setup and requires the
 same session to keep its organization scope through re-registration.
 `outside-project-first-work` creates an isolated project and task item. The
-outside session must read organization scope with no project; its claim outside
-must refuse `CLAIM_FOLDER_MISMATCH` naming the item and the
-`yoke --env CONNECTION project register CHECKOUT --project-id N` recovery; from the registered folder it must refuse
-`SESSION_MACHINE_SCOPE_WORK_REFUSED` naming the item and that folder. A session
-opened there must read project scope and either claim the item or refuse only
-with a named non-scope reason such as model admission.
+outside session must read organization scope with no project before and after
+it claims the item from outside the project folder, then release the claim. A
+claim refusal passes only with a named reason such as model admission.
 
 Release QA for the same candidate also owes, in local, self-host and hosted
 modes: Command proof of `yoke sessions list` and ended history, outside-project
-registration on each harness over HTTPS and local, and the claim refusal; and
+registration on each harness over HTTPS and local, and the outside claim; and
 the Browser scenario "org-scoped session in roster and detail": the
 **Outside any project** label in the Workbench roster row and session detail,
 no console error, and the session hidden from a signed-in stranger. Model

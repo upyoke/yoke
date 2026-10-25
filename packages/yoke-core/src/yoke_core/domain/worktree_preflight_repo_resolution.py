@@ -90,11 +90,12 @@ def resolve_preflight_lane_target(
     if checkout is not None:
         return PreflightLaneTarget(repo_root=str(checkout), project_slug=slug)
     if item_slug:
+        project_id = (item.get("project") or {}).get("id") or "<id>"
         return PreflightLaneTarget(error=(
             f"project {item_slug!r} has no machine-local checkout mapping, "
             "and falling back to the session's own repo would act on the "
             "wrong repository. Register the mapping first:\n"
-            f"    yoke project register <checkout-path> --project-id <id>\n"
+            f"    yoke project register <checkout-path> --project-id {project_id}\n"
             "then re-run this operation."
         ))
     return _cwd_fallback(flag_slug)

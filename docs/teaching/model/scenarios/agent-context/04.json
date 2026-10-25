@@ -4,7 +4,7 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "Projectless question, installation recovery or unfamiliar operation",
- "need": "CLI help, public product docs, reads, messaging and steering remain reachable from a session started outside any project; that session belongs to its organization. Installed .yoke/docs belongs to the project layer and cannot be assumed in an unrelated folder. Item work needs a new session opened in the item's project folder.",
+ "need": "CLI help, public product docs, reads, messaging and steering remain reachable from a session started outside any project; that session belongs to its organization. Installed .yoke/docs belongs to the project layer and cannot be assumed in an unrelated folder. Such a session may claim an item in any project, but the project's skill and rules load only in a session opened in its folder.",
  "disclosure": "current cue",
  "surface": "Root/operation help → public docs; planned global guide points to the same route",
  "gap": "Make this explicit in yoke-global and global orientation. A bare README.md in the current directory is not Yoke product help.",

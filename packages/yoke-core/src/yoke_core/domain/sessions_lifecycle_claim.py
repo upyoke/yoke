@@ -144,7 +144,7 @@ def claim_work(
     ``reason`` lands verbatim on ``work_claims.reason`` (canonical tag
     classified into ``reason_intent``) and echoes on ``WorkClaimed``.
     ``close_only`` admits an administrative close of an item instead of
-    work: no model-level check, and a covering steering seat may hold it.
+    work: no model-level check.
     """
     from yoke_core.domain.sessions import clean_stale_harness_sessions
     from .sessions_render import set_current_item

@@ -48,10 +48,10 @@ need a linked companion item there; one session may run both lanes. A lane lives
 project checkout. The release-time [consumer proof](../../verification/consumer-proof.md) gate
 owns consumer compatibility; a producer-only green run proves only the producer.
 
-## Session scope and folder admission
+## Session scope
 
-A session's project is fixed by its starting folder. Item claims require starting in the item's
-mapped checkout. Scope refusals name their recovery.
+A session's project is fixed by its starting folder. It may claim items in any project it can
+access; the lane still lives in the item's project checkout.
 
 ## Lifecycle and routing
 

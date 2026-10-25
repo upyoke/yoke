@@ -6,7 +6,6 @@ import pytest
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import runtime
 from yoke_cli.config import machine_config, writer
-from yoke_cli.commands.adapters.claims_work_folder_guard import render_folder_line
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
@@ -47,12 +46,6 @@ def test_readers_isolate_colliding_project_ids(tmp_path, monkeypatch, env, conne
     assert [p.checkout for p in machine_config.configured_projects(config)] == [repo]
     assert set(machine_config.all_registered_checkouts(config)) == set(repos.values())
     assert checkout_for_project_id(7, config_path=config) == repo
-    assert str(repo) in render_folder_line(7, "example", "ITEM", "Example work")
-    missing = render_folder_line(8, "unmapped", "ITEM", "Example work")
-    assert (
-        f"yoke --env {connection} project register CHECKOUT --project-id 8" in missing
-    )
-    assert str(other) not in missing
 
 
 def test_register_preserves_another_universe_and_reassigns_only_selected_slot(

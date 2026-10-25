@@ -204,25 +204,14 @@ class TestCancelAdmission:
         assert _row(test_db, 8411)[0] == "cancelled"
         assert _live_claims(test_db, 8411) == []
 
-    def test_a_covering_steering_seat_cancels_across_projects(self, test_db) -> None:
-        insert_item(test_db, id=8412, status="implementing")
-        _move_session_to_another_project(test_db)
-        insert_steering_claim(test_db, SESSION, project_id=1)
-        outcome = handle_cancel(_request(8412, reason="fixture retired"))
-        assert outcome.primary_success, outcome.error
-        assert _row(test_db, 8412)[0] == "cancelled"
-        assert _live_claims(test_db, 8412) == []
-
-    def test_another_project_without_a_seat_refuses_with_recovery(
+    def test_a_session_in_another_project_cancels_without_a_seat(
         self, test_db
     ) -> None:
         insert_item(test_db, id=8413, status="implementing")
         _move_session_to_another_project(test_db)
         outcome = handle_cancel(_request(8413, reason="fixture retired"))
-        assert not outcome.primary_success
-        assert outcome.error.code == "session_project_mismatch"
-        assert "yoke claims steering acquire --project" in outcome.error.message
-        assert _row(test_db, 8413)[0] == "implementing"
+        assert outcome.primary_success, outcome.error
+        assert _row(test_db, 8413)[0] == "cancelled"
         assert _live_claims(test_db, 8413) == []
 
 
