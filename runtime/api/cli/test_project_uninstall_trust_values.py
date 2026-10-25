@@ -46,17 +46,39 @@ def test_entries_without_granted_trust_leave_uninstall_complete(installed):
     assert not trust.cursor_trust_file(root).exists()
 
 
-def test_unowned_granted_claude_trust_is_still_reported(installed):
+def test_unrecorded_granted_trust_is_left_alone_and_unreported(installed):
     root, _, config = installed
     alias = root.parent / "alias"
     alias.symlink_to(root, target_is_directory=True)
     _add_claude_entries({str(alias): {"hasTrustDialogAccepted": True}})
-    report = uninstall(root, config_path=config)
-    assert report["outcome"] == "partial"
-    assert any(
-        row["harness"] == "claude-code" and row["reason"] == "trust_ownership_unknown"
-        for row in report["local_cleanup"]["trust"]
+    codex = Path.home() / ".codex/config.toml"
+    codex.write_text(
+        codex.read_text()
+        + f'\n[projects.{json.dumps(str(alias))}]\ntrust_level = "trusted"\n'
     )
+    report = uninstall(root, config_path=config)
+    assert report["outcome"] == "complete", report
+    reasons = {row["reason"] for row in report["local_cleanup"]["trust"]}
+    assert reasons == {"owned_exact_entry"}
     projects = read_json(trust.claude_state_path())["projects"]
     assert projects[str(alias)] == {"hasTrustDialogAccepted": True}
     assert str(root) not in projects
+    codex_projects = parse_config(codex.read_text())["projects"]
+    assert codex_projects[str(alias)] == {"trust_level": "trusted"}
+    assert str(root) not in codex_projects
+
+
+def test_later_harness_home_keeps_unrecorded_trust(installed, monkeypatch):
+    root, _, config = installed
+    later = Path.home() / "later-codex"
+    later.mkdir()
+    target = later / "config.toml"
+    content = f'[projects.{json.dumps(str(root))}]\ntrust_level = "trusted"\n'
+    target.write_text(content)
+    monkeypatch.setenv("CODEX_HOME", str(later))
+    report = uninstall(root, config_path=config)
+    assert target.read_text() == content
+    assert report["outcome"] == "complete", report
+    assert all(
+        row["status"] != "preserved" for row in report["local_cleanup"]["trust"]
+    )
