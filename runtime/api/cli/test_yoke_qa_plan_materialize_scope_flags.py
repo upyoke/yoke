@@ -96,6 +96,34 @@ def test_item_rematerialize_refuses_plan_filter(capsys) -> None:
     assert "item_plan_filter_unsupported" in capsys.readouterr().err
 
 
+def test_materialize_help_teaches_conditional_item_snapshot_refresh(capsys):
+    with pytest.raises(SystemExit) as stopped:
+        qa_plan_materialize_for_item(["--help"])
+    assert stopped.value.code == 0
+    text = capsys.readouterr().out
+    assert "retain the failed case" in text
+    assert "If that key is absent from the stable" in text
+    assert text.index("yoke qa plan rematerialize --item") < text.index(
+        "yoke qa plan materialize --item"
+    )
+    assert "removed cases retire" in text
+    assert "automatically link its unambiguous successor" in text
+    assert "retry with `yoke qa plan run`, without --replaces" in text
+
+
+def test_item_run_replacement_refusal_teaches_refresh_and_retry(capsys):
+    from yoke_core.domain.qa_plan_execution_cli import run
+
+    item = "APP-7"
+    with pytest.raises(SystemExit):
+        run(["--item", item, "--transition", "release", "--replaces", "fixed=17"])
+    text = capsys.readouterr().err
+    assert "Retain the failed case" in text
+    assert "If absent from the stable item snapshot" in text
+    assert text.index("yoke qa plan rematerialize") < text.index("then yoke qa plan materialize")
+    assert "retry without --replaces" in text
+
+
 class TestQaDeploymentPlanMaterialize:
     @pytest.fixture(autouse=True)
     def reset_captured(self):

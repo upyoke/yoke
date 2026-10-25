@@ -19,8 +19,6 @@ class MaterializeRequest(BaseModel):
     project: Optional[str] = Field(default=None, min_length=1)
     deployment_stage: Optional[str] = Field(default=None, min_length=1)
     deployment_member: Optional[str] = Field(default=None, min_length=1)
-    # Each corrected case key this materialization produces, paired with the
-    # exact failed requirement it replaces (qa_requirement_replacement).
     replacements: list["ReplacementDeclaration"] = Field(default_factory=list)
 
 
@@ -117,6 +115,8 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     conn,
                     item_id=int(item_id),
                     transition_id=payload.transition_id,
+                    commit=not payload.replacements,
+                    replacement_scopes=replacement_scopes,
                 )
             elif request.target.kind == "deployment_run":
                 run_id = request.target.deployment_run_id
