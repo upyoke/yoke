@@ -70,7 +70,8 @@ class SelfHostSetupError(RuntimeError):
 
 
 def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetup:
-    target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
+    target = Path(directory) if directory else bundle.default_bundle_dir()
+    target = target.expanduser().resolve()
     return SelfHostSetup(
         directory=target,
         config_path=config_path,

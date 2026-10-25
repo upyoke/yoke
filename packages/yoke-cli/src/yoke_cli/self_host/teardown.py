@@ -50,7 +50,8 @@ def tear_down(
     remove_connections: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Retire dead authorities, then remove exactly what the caller asked for."""
-    target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
+    target = Path(directory) if directory else bundle.default_bundle_dir()
+    target = target.expanduser().resolve()
     if not (target / bundle.COMPOSE_FILE_NAME).is_file():
         raise SelfHostTeardownError(
             f"no self-host bundle at {target}: it has no "

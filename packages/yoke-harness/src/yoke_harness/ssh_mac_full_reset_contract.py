@@ -27,7 +27,7 @@ from yoke_cli.config.session_relay_instance import (
     NON_PROD_RELAY_LABEL_PREFIX,
     PROD_RELAY_LABEL,
 )
-from yoke_cli.self_host.bundle import DEFAULT_BUNDLE_DIR
+from yoke_cli.self_host.bundle import default_bundle_dir
 
 
 FULL_RESET_MARKER = "YOKE_MAC_WIPE_OK"
@@ -71,12 +71,9 @@ INSTALLER_TEMP_PATH = "/tmp/yoke-install"
 YOKE_STATE_DIR_NAME = ".yoke"
 # Home-relative Yoke and uv state asserted absent after the restore. The golden
 # was captured with zero Yoke on it, so any of these reappearing means the
-# restore did not take. The self-host bundle directory is here because it holds
-# the server's owner-only secrets/ and is written where the operator ran init,
-# which for the stranger walk is the home.
+# restore did not take. The default self-host bundle is inside .yoke too.
 YOKE_ABSENT_RELATIVE_DIRECTORIES = (
     YOKE_STATE_DIR_NAME,
-    DEFAULT_BUNDLE_DIR,
     ".yoke-e2e-logs",
     ".local/share/uv",
     ".local/state/uv",
@@ -131,7 +128,7 @@ CONTAINER_RUNTIME_STOP_TIMEOUT_SECONDS = 30
 # the bundle directory. Selecting by that label removes the server's own
 # containers and volumes while leaving a user's identically imaged ones alone.
 COMPOSE_PROJECT_LABEL = "com.docker.compose.project"
-SELF_HOST_COMPOSE_PROJECT = DEFAULT_BUNDLE_DIR
+SELF_HOST_COMPOSE_PROJECT = default_bundle_dir().name
 RESET_SELF_HOST_CONTAINERS_PREFIX = "YOKE_RESET_SELF_HOST_CONTAINERS_REMOVED_"
 RESET_SELF_HOST_VOLUMES_PREFIX = "YOKE_RESET_SELF_HOST_VOLUMES_REMOVED_"
 RESET_SELF_HOST_IMAGES_PREFIX = "YOKE_RESET_SELF_HOST_IMAGES_REMOVED_"

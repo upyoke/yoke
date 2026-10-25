@@ -80,7 +80,8 @@ machine with a display.
   the Compose bundle so first boot makes you the first admin, captures the
   admin token, waits until the server answers `/v1/health`, and activates the
   owner-only local connection. Rerun it on a host whose bundle already exists to
-  restart that bundle and reconnect with its first-boot token.
+  restart that bundle and reconnect with its first-boot token. The bundle lives
+  in `~/.yoke/yoke-server`, or `YOKE_MACHINE_HOME/yoke-server` when set, outside projects.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
   first. Company sign-in (OIDC), when configured, opens the workbench with a
   one-time code so you approve your own machine. Otherwise provide a pasted

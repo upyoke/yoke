@@ -34,7 +34,7 @@ Where should this Yoke universe live?
   upyoke.com
 ```
 
-On the intended Linux host, IT can pick **Host a server here**. The wizard previews `./yoke-server`,
+On the intended Linux host, IT can pick **Host a server here**. The wizard previews `~/.yoke/yoke-server` (`YOKE_MACHINE_HOME/yoke-server` when set),
 `http://127.0.0.1:8765`, Docker/Compose, and the fact that IT owns reachable
 networking and TLS. Start creates and launches the bundle, reads the reusable administrator
 token from its owner-only file without printing it, and activates the host's

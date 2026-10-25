@@ -116,8 +116,8 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
     monkeypatch.setattr(server_connect, "connect_server", connect)
     setup = subject.new_setup(
         config_path=str(tmp_path / "machine-home" / "config.json"),
-        directory=str(tmp_path / "server"),
     )
+    assert setup.directory == bundle.default_bundle_dir().resolve()
     setup.admin_name = "Ada Lovelace"
 
     result = subject.provision(

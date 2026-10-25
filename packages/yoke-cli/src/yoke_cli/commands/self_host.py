@@ -69,9 +69,8 @@ def self_host_init(args: List[str]) -> int:
         dest="directory",
         default=None,
         help=(
-            "Bundle directory (default: ./"
-            f"{bundle.DEFAULT_BUNDLE_DIR} under the current directory — the "
-            "bundle is the operator-managed docker compose working dir)."
+            "Bundle directory (default: yoke-server under the machine home, "
+            "~/.yoke or YOKE_MACHINE_HOME)."
         ),
     )
     parser.add_argument(
@@ -224,7 +223,7 @@ def self_host_upgrade(args: List[str]) -> int:
         "--dir",
         dest="directory",
         default=None,
-        help=f"Existing bundle directory (default: ./{bundle.DEFAULT_BUNDLE_DIR}).",
+        help="Existing bundle directory (default: yoke-server under the machine home).",
     )
     parser.add_argument(
         "--channel",
