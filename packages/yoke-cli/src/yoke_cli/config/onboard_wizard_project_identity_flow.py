@@ -30,6 +30,11 @@ class ProjectIdentityFlow:
     """Resolve project identity before routing into publish or board art."""
 
     def _after_local_checkout_source(self: _Shell, value: str) -> None:
+        if apply_facts.own_folder(self, value):
+            # The folder, its project reference and its published origin are
+            # this run's Apply; the person answered with no folder there.
+            self._goto_checkout_destination()
+            return
         try:
             remote, web_url = onboard_local_checkout_identity.inspect(
                 self.result,

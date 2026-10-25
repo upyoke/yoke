@@ -14,6 +14,7 @@ from yoke_cli.config import onboard_wizard_flow_publish
 from yoke_cli.config import onboard_project
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config.onboard_wizard import WizardResult
+from yoke_cli.config.setup_run_facts import RunFacts
 
 
 class _LocalCheckoutShell(onboard_wizard_flow.WizardFlow, CloneOutcomeFlow):
@@ -24,6 +25,7 @@ class _LocalCheckoutShell(onboard_wizard_flow.WizardFlow, CloneOutcomeFlow):
             project_mode=onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
             project_checkout=str(checkout),
         )
+        self._run_facts = RunFacts()
         self.destination_visits = 0
         self.slug_visits = 0
         self.error: BaseException | None = None

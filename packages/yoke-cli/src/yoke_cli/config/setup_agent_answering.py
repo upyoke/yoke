@@ -35,16 +35,21 @@ INVOCATION_ONLY_KEYS = frozenset(
 )
 
 
-# Reopening the git installer is an action, not a choice to remember: a
-# replayed answer waits on the installer this run already opened.
+# Reopening the git installer or starting a fresh machine approval is an
+# action, not a choice to remember: a replayed answer never repeats it.
 INVOCATION_ONLY_ANSWERS = frozenset(
-    (key, "install")
-    for key in (
-        "project.project_git_install_handoff",
-        "project.project_git_install_error",
-        "project.clone_git_install_handoff",
-        "project.clone_git_install_error",
-    )
+    {
+        *(
+            (key, "install")
+            for key in (
+                "project.project_git_install_handoff",
+                "project.project_git_install_error",
+                "project.clone_git_install_handoff",
+                "project.clone_git_install_error",
+            )
+        ),
+        ("connect.hosted_machine_error", "retry"),
+    }
 )
 
 
