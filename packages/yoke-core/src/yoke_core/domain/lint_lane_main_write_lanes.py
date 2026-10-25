@@ -22,7 +22,7 @@ not to the checkout root, so the suggestion never nests one lane's
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import (
@@ -87,19 +87,25 @@ def matching_claim_for_main_target(
 
 
 def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
-    """The same repo-relative path inside *claim*'s lane."""
+    """Suggest a source destination using client paths, without probing server disk."""
     root = repo_root_from_worktree_path(claim.worktree_path)
     if not root:
         return claim.worktree_path
     try:
-        rel = Path(main_target).resolve().relative_to(Path(root).resolve())
+        rel = PurePosixPath(os.path.normpath(main_target)).relative_to(
+            PurePosixPath(os.path.normpath(root))
+        )
     except (OSError, ValueError):
         return claim.worktree_path
     parts = rel.parts
     if len(parts) >= 2 and parts[0] == _WORKTREES_DIR:
         # A foreign lane's file: keep only its lane-relative path.
         rel = Path(*parts[2:]) if len(parts) > 2 else Path(".")
-    return str((Path(claim.worktree_path) / rel).resolve())
+    if ".git" in rel.parts:
+        # No source equivalent: linked worktrees have a .git file. Without
+        # client proof the write still refuses, but cannot be redirected there.
+        return ""
+    return str(PurePosixPath(claim.worktree_path) / rel)
 
 
 __all__ = [

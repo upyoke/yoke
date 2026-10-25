@@ -34,7 +34,7 @@ FACT_SCHEMA = 1
 HEADLESS_LAUNCH_KEY = "_yoke_client_headless_launch"
 #: Scratch roots plus the state of each capture file a command names.
 CAPTURE_FILES_KEY = "_yoke_client_capture_files"
-#: Resolved form, ignore status and live lanes for each path a payload names.
+#: Resolved form, source exclusion (Git metadata or ignored), and live lanes.
 WRITE_TARGETS_KEY = "_yoke_client_write_targets"
 #: Machine-local settings (``~/.yoke/config.json``) a policy reads.
 MACHINE_SETTINGS_KEY = "_yoke_client_machine_settings"
@@ -108,7 +108,10 @@ def capture_file_state(
 
 
 def write_target(payload: Mapping[str, Any], raw: str) -> Mapping[str, Any] | None:
-    """Return ``{"path": str, "ignored": bool|None}`` for one raw operand."""
+    """Return path and source exclusion: ``ignored`` covers Git metadata too.
+
+    Only the client proves metadata through Git; absent facts stay unproven.
+    """
     fact = read_client_fact(payload, WRITE_TARGETS_KEY)
     paths = fact.get("paths") if isinstance(fact, Mapping) else None
     entry = paths.get(raw) if isinstance(paths, Mapping) else None

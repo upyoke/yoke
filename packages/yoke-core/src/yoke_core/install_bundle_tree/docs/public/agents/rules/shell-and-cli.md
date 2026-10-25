@@ -9,7 +9,7 @@
 - Each call starts fresh. Use absolute paths, `git -C ABSOLUTE_PATH`, and workdir or `cd`
   for relative writes.
 - Work claims cover their lanes, main control-plane paths and `/tmp` or `/var/folders`.
-  Main-source writes with a lane refuse; deliberate exceptions use
+  The source guard excludes client-proven Git metadata. Main exceptions use
   `# lint:allow-lane-main-write`. Read [lane rules](lanes-and-claims.md) first.
 - Foreign lanes are read-only (`foreign_lane`): read-only `git -C LANE`, `cat`, `ls` or Read.
 - Use literal absolute paths; unresolved home paths refuse.

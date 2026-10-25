@@ -184,7 +184,7 @@ def _client_target(
     included — the same answer the shell-path guard uses. An operand in a
     segment a later ``cd`` moved arrives already joined to that directory.
     The client's own resolution (``~``, symlinks, its checkout's ignore
-    rules; see :func:`~yoke_contracts.hook_runner.client_facts.write_target`)
+    rules and Git metadata; see :func:`~yoke_contracts.hook_runner.client_facts.write_target`)
     is used only when it names that same path, so a client that missed the
     command's directory cannot move the write onto main. An operand without
     an agreeing client answer is treated as tracked, so an unanswered
@@ -266,9 +266,8 @@ def collect_main_write_targets(
             continue
         root = repo_root_from_worktree_path(claim.worktree_path) or ""
         if root and (is_generated_view_write(target, root) or ignored):
-            # A generated view or an ignored path is not the tracked
-            # source this guard protects, and both are written on main by
-            # documented recipes.
+            # Client-proven Git metadata, ignored paths and generated views
+            # are outside this source-write guard; other guards still apply.
             continue
         display = target
         if display in seen:

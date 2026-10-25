@@ -46,10 +46,26 @@ def format_denial(
     derivation_block = ""
     guidance = LANE_EDIT_GUIDANCE
     if derivation is not None:
-        derivation_block = format_derivation(
-            derivation, attempted_path=attempted_path,
-        ) + "\n"
+        derivation_block = (
+            format_derivation(
+                derivation,
+                attempted_path=attempted_path,
+            )
+            + "\n"
+        )
         guidance = format_derivation_guidance(derivation, lane_path=lane_path)
+    if not lane_equivalent:
+        guidance = (
+            "Git metadata proven by the client is outside this source-write "
+            "guard. Without that proof the target remains protected; other "
+            "guards and permissions still apply."
+        )
+    destination = (
+        f"Use instead:   {lane_equivalent}\n\n"
+        if lane_equivalent
+        else "Recovery: refresh the installed client hooks and retry so the client "
+        "can prove Git metadata; this target has no lane source equivalent.\n\n"
+    )
     body = (
         "BLOCKED: source write to the main checkout while an implementation "
         "lane is held.\n\n"
@@ -57,7 +73,7 @@ def format_denial(
         f"Lane path:     {lane_path}\n"
         f"{derivation_block}"
         f"Attempted:     {attempted_path}\n"
-        f"Use instead:   {lane_equivalent}\n\n"
+        f"{destination}"
         f"{guidance}\n\n"
         f"{escape_guidance(tool_name)}"
         f"{config_line}{suffix}"

@@ -4,7 +4,8 @@ The guard (``yoke_core.domain.lint_lane_main_write``) runs on the authority,
 which derives write targets from the payload and the session's claims. Three
 answers about those targets exist only on this machine: the path an operand
 resolves to (``~``, the command's cwd, symlinks), whether the checkout's
-ignore rules cover it, and which lane worktrees are still on disk.
+ignore rules or Git metadata directories cover it, and which lane worktrees
+are still on disk.
 
 This probe does not re-derive the guard's write-position analysis. It
 answers for every path-shaped operand the payload names — a superset of the
@@ -114,14 +115,41 @@ def _git(
 
 
 def _ignored(repo: str, paths: Iterable[str]) -> dict[str, bool | None]:
-    """Ask *repo*'s ignore rules about *paths*; ``None`` when git cannot say."""
+    """Exclude proven Git metadata and ignored files from source-write policy."""
     paths = list(paths)
-    result = _git(repo, ["check-ignore", "-z", "--stdin"], "\0".join(paths) + "\0")
+    probe = _git(
+        repo, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"]
+    )
+    roots = (
+        [os.path.realpath(p) for p in probe.stdout.splitlines() if os.path.isabs(p)]
+        if probe is not None and probe.returncode == 0
+        else []
+    )
+    metadata = {
+        path
+        for path in paths
+        if any(path == root or path.startswith(root + os.sep) for root in roots)
+    }
+    answers: dict[str, bool | None] = {path: True for path in metadata}
+    repo = os.path.realpath(repo)
+    source_paths = [
+        path
+        for path in paths
+        if path not in metadata and (path == repo or path.startswith(repo + os.sep))
+    ]
+    answers.update({path: None for path in paths if path not in metadata})
+    if not source_paths:
+        return answers
+    result = _git(
+        repo, ["check-ignore", "-z", "--stdin"], "\0".join(source_paths) + "\0"
+    )
     # 0: some ignored, 1: none ignored, anything else: no usable answer.
     if result is None or result.returncode not in (0, 1):
-        return {path: None for path in paths}
-    ignored = {p for p in result.stdout.split("\0") if p}
-    return {path: path in ignored for path in paths}
+        answers.update({path: None for path in source_paths})
+    else:
+        ignored = {p for p in result.stdout.split("\0") if p}
+        answers.update({path: path in ignored for path in source_paths})
+    return answers
 
 
 def _worktrees(repo: str) -> list[str]:
@@ -138,10 +166,13 @@ def _worktrees(repo: str) -> list[str]:
 def write_targets_fact(payload: Mapping[str, object], shell: ShellParse) -> dict:
     """Report resolution, ignore status and live lanes for every operand."""
     cwd = execution_cwd(payload, shell)
-    resolved = {raw: _resolve(raw, cwd) for raw in _operands(payload, shell.command, cwd)}
+    resolved = {
+        raw: _resolve(raw, cwd) for raw in _operands(payload, shell.command, cwd)
+    }
     by_repo: dict[str, list[str]] = {}
+    cwd_repo = _repo_root(cwd)
     for path in resolved.values():
-        repo = _repo_root(path)
+        repo = _repo_root(path) or cwd_repo
         if repo:
             by_repo.setdefault(repo, []).append(path)
     ignored: dict[str, bool | None] = {}
