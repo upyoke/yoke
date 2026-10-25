@@ -266,7 +266,7 @@ def test_prepare_uses_registered_xfce_user_port_and_wsl_stdin_frame(
             command = base64.b64decode(command).decode()
         if command == "id -un":
             return subprocess.CompletedProcess(argv, 0, "fixture\n", "")
-        assert command.endswith(" 3390 1")
+        assert command.endswith(" 3390 1 0")
         assert supplied == PASSWORD + "\n"
         assert PASSWORD not in repr(argv)
         return subprocess.CompletedProcess(argv, 0, json.dumps(RECEIPT), "")
