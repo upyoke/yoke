@@ -22,7 +22,7 @@ URL = "https://review.example.test"
 def _issues(conn, item):
     return blocking_requirement_issues(
         _blocking_requirement_rows(conn, item["id"]),
-        accepted_shas=("a" * 40,),
+
         public_ref="example",
         require_any=True,
     )
@@ -170,14 +170,13 @@ def test_endpoint_command_proves_its_observed_target(test_db, observed):
     )
 
 
-def test_code_subject_retains_exact_observed_revision_requirement(test_db):
+def test_code_subject_needs_no_commit_observation(test_db):
     item = insert_item(test_db, status="release")
     requirement = insert_qa_requirement(test_db, item_id=item["id"], runner_id="ci_run")
     insert_qa_run(
         test_db, qa_requirement_id=requirement["id"], verdict="pass", raw_result="{}"
     )
-    [issue] = _issues(test_db, item)
-    assert issue.state == "outside-lane"
+    assert _issues(test_db, item) == []
     assert (
         proof_subject(
             {

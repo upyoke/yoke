@@ -38,7 +38,7 @@ def test_batch_does_not_cover_a_different_merge_identity():
     )
 
 
-def test_passing_pr_entry_run_is_stale_against_lane_and_merge_only():
+def test_passing_pr_entry_observation_counts_for_item():
     issues = blocking_requirement_issues(
         [
             {
@@ -51,13 +51,12 @@ def test_passing_pr_entry_run_is_stale_against_lane_and_merge_only():
                 "recorded_head_sha": PR_ENTRY,
             }
         ],
-        accepted_shas=(LANE, MERGE),
+
         public_ref="ITEM-1",
         require_any=True,
     )
 
-    assert len(issues) == 1
-    assert issues[0].state == "outside-lane"
+    assert issues == []
 
 
 def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
@@ -73,7 +72,7 @@ def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
                 "recorded_head_sha": PR_ENTRY,
             }
         ],
-        accepted_shas=(LANE, PR_ENTRY, MERGE),
+
         public_ref="ITEM-1",
         require_any=True,
     )

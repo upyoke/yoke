@@ -14,17 +14,15 @@ and [QA platform](platform.md).
 
 ## Item QA across lane commits
 
-Every QA method records its lane's commit at run start in
-`verification_tree.head_sha`, including machine and mission captures. Later
-evidence and review retain that start commit. Merge and done accept the latest
-completed passing run when its start commit is an ancestor of, or equal to,
-the item's merge candidate. No rerun or re-recording is needed merely because
-the lane advanced. Required merge-queue CI still tests the final commit.
+The run writer records the item's lane commit at start when available in
+`verification_tree.head_sha`, including machine and mission captures. That
+commit is an observation only. Later evidence retains it unless the evidence
+already names a verified commit; a verified commit is never overwritten.
+Merge and done accept the latest completed passing run on the item's effective
+requirement without comparing commits. Missing observations, lane advances and
+rebases require no new capture or verdict. Required merge-queue CI still tests
+the final commit.
 
-A missing or foreign start commit refuses as `outside-lane`, naming the commit
-and recovery: run the requirement from the item's claimed lane. An unreadable
-ancestry check refuses as `lane-history-unavailable`; restore the checkout's
-commit objects or the project's repository Contents read binding and retry.
 Changed configuration or target, missing subject proof, newer incomplete or
 failing attempts and required human review still block. Deployment-bound and
 post-deploy cases retain their deployed-release proof obligations.

@@ -18,7 +18,7 @@ RECOVERY = (
 
 
 def prepare_task_review_run(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Validate the Epic review bridge before ordinary commit-bound recording."""
+    """Validate the Epic review bridge before recording item QA."""
     if (
         arguments.get("qa_kind") != "implementation_review"
         or arguments.get("verdict") != "pass"
@@ -48,6 +48,18 @@ def prepare_task_review_run(arguments: dict[str, Any]) -> dict[str, Any]:
     return {**arguments, "raw_result": raw}
 
 
+def _git(root: str, *args: str) -> str | None:
+    """Read a local task checkout without borrowing item-run recording."""
+    try:
+        completed = subprocess.run(
+            ["git", *args], cwd=root, capture_output=True, text=True,
+            check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.strip() or None if completed.returncode == 0 else None
+
+
 def bind_task_review_candidate(
     conn: Any,
     requirement: dict[str, Any],
@@ -55,7 +67,7 @@ def bind_task_review_candidate(
     head_sha: str | None,
 ) -> tuple[str | None, str]:
     """Bind only a matching active worker lane owned by this review's epic."""
-    from yoke_core.domain.qa_run_commit_binding import _git, wrap_evidence
+    from yoke_core.domain.qa_run_commit_binding import wrap_evidence
 
     expected = str(head_sha or "").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected):

@@ -11,11 +11,12 @@ record its evidence. Items need materialized requirements before entering
 standalone QA use `yoke qa plan run --plan PLAN --project P`; read its `--help`
 and [standalone plans](standalone-plans.md) before execution.
 
-Every method records the item lane head when its run starts. Merge and done
-share one QA reader and accept a completed pass from any ancestor of the lane's
-merge candidate. Newer failing or incomplete attempts still block; machine and
-endpoint proof, frozen configuration and target, human review, waivers and
-release-bound proof retain their own checks. See [success policy](success-policy.md#item-qa-across-lane-commits).
+The run writer records the item lane head at start when available, as an
+observation only. Merge and done share one QA reader and accept the latest
+completed pass on the item's effective requirement without comparing commits.
+Newer failing or incomplete attempts still block; machine and endpoint proof,
+frozen configuration and target, human review, waivers and release-bound proof
+retain their checks. See [success policy](success-policy.md#item-qa-across-lane-commits).
 
 ## Four-Layer Model
 

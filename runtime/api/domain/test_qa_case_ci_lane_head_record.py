@@ -1,19 +1,4 @@
-"""Publishing a lane records the head it published.
-
-The gate rebases a lane, pushes it, and records the CI run against the commit
-the rebase produced. A rebase is not a commit, so the git post-commit hook
-that normally stamps ``item_worktrees.commit_sha`` never fires and the row
-keeps the pre-rebase head. The merge boundary then compares its recorded
-candidate against runs recorded at the new one, finds no match, and refuses
-with a outside-lane forever — a state no retry escapes, because every retry
-rebases again.
-
-Publishing is the moment that new head becomes the lane's shared identity, so
-publishing is where it is recorded. The write goes through the registered
-``project.snapshot.sync`` surface the post-commit hook itself drives, which
-keeps it correct on a relayed https project where there is no local database
-to write to.
-"""
+"""CI evidence records its observed checkout commit."""
 
 from __future__ import annotations
 

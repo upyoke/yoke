@@ -36,23 +36,6 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _names_no_verified_tree(verdict, requirement_row, raw_result) -> bool:
-    """Whether a run the terminal gate will SHA-match names no tree.
-
-    The gate matches every passing blocking run against the merged tree, so a
-    run recorded without one is unusable there however it reads here.
-    """
-    from yoke_core.domain.qa_merging_identity import recorded_head_sha
-
-    if str(verdict or "").strip().lower() != "pass":
-        return False
-    if str(requirement_row["blocking_mode"] or "") != "blocking":
-        return False
-    if requirement_row["waived_at"]:
-        return False
-    return not recorded_head_sha(raw_result)
-
-
 class QaRunRecordVerdictRequest(BaseModel):
     performed_by: str
     verdict: str
@@ -143,17 +126,6 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         except QaUndeterminedEvidenceError as exc:
             return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
 
-        if (not agent_browser) and _names_no_verified_tree(verdict, row, raw_result):
-            return _error(
-                "payload_invalid",
-                "a passing verdict on a blocking requirement must name the "
-                "tree it verified: pass --raw-result as JSON carrying "
-                '{"verification_tree": {"head_sha": "<commit>"}}. Recorded '
-                "without it, the terminal gate reads the run as <missing> and "
-                "refuses the merge even though this write and "
-                "`yoke qa gate-summary` both report the requirement satisfied.",
-                jsonpath="$.payload.raw_result",
-            )
         from yoke_core.domain.qa_pending_agent_review import (
             pending_review_verdict_refusal,
         )

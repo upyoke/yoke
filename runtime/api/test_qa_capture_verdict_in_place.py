@@ -1,12 +1,4 @@
-"""A browser review resolves its capture rather than shadowing it.
-
-The capture carries the commit its screenshots were taken against; an agent
-review row carries none. Recording the review as a second run made that
-identity-less row the requirement's latest, so the terminal gate read the
-requirement as passing with no tree behind it and refused the merge as
-outside-lane. These tests drive the real ``qa.run.record_verdict`` handler and
-the real release gate.
-"""
+"""Capture verdicts update the actual run while preserving its evidence."""
 
 from __future__ import annotations
 

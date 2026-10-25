@@ -114,7 +114,9 @@ def obligation_settled(row: Mapping[str, Any]) -> bool:
     )
 
 
-def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
+def effective_requirement(
+    conn: Any, requirement_id: int, *, rows: dict[int, dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Follow the durable correction graph to its final same-scope obligation."""
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_plan_execution_store import marker
@@ -131,11 +133,13 @@ def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
                 "replacement_graph_invalid: correction cycle; restore an acyclic same-scope chain through registered correction surfaces"
             )
         seen.add(requirement_id)
-        stored = query_one(
-            conn,
-            f"SELECT * FROM qa_requirements WHERE id={marker(conn)}",
-            (requirement_id,),
-        )
+        stored = (rows or {}).get(requirement_id)
+        if stored is None:
+            stored = query_one(
+                conn,
+                f"SELECT * FROM qa_requirements WHERE id={marker(conn)}",
+                (requirement_id,),
+            )
         if stored is None:
             raise ValueError(
                 "replacement_graph_invalid: missing successor; restore the named requirement through the control-plane operator"
@@ -167,9 +171,10 @@ def effective_obligations(
 ) -> list[dict[str, Any]]:
     """Normalize selected obligations while retaining named graph refusals."""
     selected = {}
+    cohort = {int(row["id"]): row for row in rows}
     for row in rows:
         try:
-            effective = effective_requirement(conn, int(row["id"]))
+            effective = effective_requirement(conn, int(row["id"]), rows=cohort)
         except ValueError as exc:
             if not str(exc).startswith("replacement_graph_invalid:"):
                 raise

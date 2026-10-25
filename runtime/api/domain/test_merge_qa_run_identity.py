@@ -35,7 +35,7 @@ def _capture(conn, requirement_id, ordinal, verdict, *, proof=True):
 
 def _proof(conn, item_id, tmp_path):
     item = _item(None)
-    item["qa_requirements"] = qa_rows(conn, item_id)
+    item["qa_requirements"] = qa_rows(conn, item_id, include_proof=True)
     return item, preflight(
         item, public_ref="example", repo_root=tmp_path, branch="lane"
     )
@@ -71,12 +71,12 @@ def test_current_failed_or_pending_attempt_cannot_borrow_an_old_pass(
     assert model["qa_requirements"][0]["run_id"] == current["id"]
 
 
-def test_selected_run_without_start_commit_cannot_borrow_old_proof(test_db, tmp_path):
+def test_selected_pass_without_start_commit_counts(test_db, tmp_path):
     item = insert_item(test_db)
     requirement = insert_qa_requirement(test_db, item_id=item["id"])
     current = _capture(test_db, requirement["id"], 2, "pass", proof=False)
     _capture(test_db, requirement["id"], 1, "pass")
     model, (_, error) = _proof(test_db, item["id"], tmp_path)
-    assert "outside-lane" in error
+    assert error == ""
     assert model["qa_requirements"][0]["run_id"] == current["id"]
     assert not model["qa_requirements"][0]["recorded_head_sha"]

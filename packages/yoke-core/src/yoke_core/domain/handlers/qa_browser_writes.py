@@ -106,21 +106,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             return _error(code, str(issue), jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
 
-        raw_result, bind_error = bind_recorded_raw_result(
-            verdict=verdict,
-            raw_result=raw_result,
-            performed_by=performed_by,
-            blocking_mode=row["blocking_mode"],
-            waived_at=row["waived_at"],
-            head_sha=payload.get("head_sha"),
-            item_id=row["item_id"],
-            conn=conn,
-            requirement=dict(row),
+        raw_result = bind_recorded_raw_result(
+            raw_result=raw_result, head_sha=payload.get("head_sha"),
         )
-        if bind_error:
-            return _error(
-                "payload_invalid", bind_error, jsonpath="$.payload.raw_result"
-            )
         if issue := captured_without_evidence_error(
             execution_status=execution_status,
             artifact_count=0,

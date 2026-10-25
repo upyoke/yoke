@@ -216,38 +216,34 @@ def current_passing_requirements(conn: Any, requirement_ids: Iterable[int]) -> s
     from yoke_core.domain.qa_latest_execution import latest_executions
 
     ids = tuple(sorted({int(value) for value in requirement_ids}))
-    passing = {
-        requirement_id: run
-        for requirement_id, run in latest_executions(conn, ids).items()
-        if run["verdict"] == "pass"
-        and run["completed_at"] is not None
-        and run.get("case_outcome") not in {"running", "waiting"}
-    }
-    if not passing or not _column_exists(conn, "qa_requirements", "method_config"):
-        return set(passing)
-    digest_sql = ""
-    rebind_sql = ""
-    if _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
-        digest_sql = ", execution_target_digest"
-        if _column_exists(conn, "qa_requirements", "rebound_from_digest"):
-            rebind_sql = ", rebound_from_digest, rebound_at"
-    holes = ", ".join(_marker(conn) for _ in passing)
+    if not ids:
+        return set()
     rows = query_rows(
         conn,
-        f"SELECT id, method_config{digest_sql}{rebind_sql} FROM qa_requirements "
-        f"WHERE id IN ({holes})",
-        tuple(sorted(passing)),
+        "SELECT * FROM qa_requirements WHERE id IN ("
+        + ",".join(_marker(conn) for _ in ids) + ")",
+        ids,
     )
+    return passing_requirements_for_rows(conn, rows, latest_executions(conn, ids))
+
+
+def passing_requirements_for_rows(
+    conn: Any, rows: Iterable[Any], attempts: dict[int, dict[str, Any]],
+) -> set[int]:
+    """Grade an already selected cohort without rereading requirements or runs."""
+    has_config = _column_exists(conn, "qa_requirements", "method_config")
+    digest = _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD)
+    rebind = digest and _column_exists(conn, "qa_requirements", "rebound_from_digest")
     return {
         int(row["id"])
         for row in rows
-        if _pass_proves_requirement(
-            conn,
-            row,
-            passing[int(row["id"])],
-            digest=bool(digest_sql),
-            rebind=bool(rebind_sql),
-        )
+        if (run := attempts.get(int(row["id"])))
+        and run["verdict"] == "pass"
+        and run["completed_at"] is not None
+        and run.get("case_outcome") not in {"running", "waiting"}
+        and (not has_config or _pass_proves_requirement(
+            conn, row, run, digest=digest, rebind=rebind,
+        ))
     }
 
 

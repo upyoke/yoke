@@ -1,17 +1,14 @@
-"""Require terminal QA evidence to be settled and bound to the merged tree."""
+"""Require terminal QA evidence to be settled for the item."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_requirement_issues import BlockingRequirementIssue, issue_for_requirement
-from yoke_core.domain.qa_merging_identity import (
-    accepted_merging_shas,
-)
 from yoke_core.domain.qa_obligation_settlement import (
     item_supersession_settled,
     settled_obligation_sql,
@@ -68,10 +65,8 @@ def _run_detail(row: Any) -> str:
 def blocking_requirement_issues(
     requirements: list[dict[str, Any]],
     *,
-    accepted_shas: Sequence[str],
     public_ref: str,
     require_any: bool,
-    contains_commit: Callable[[str, str], bool] | None = None,
 ) -> list[BlockingRequirementIssue]:
     """Evaluate the latest run read model for a terminal blocking set."""
     declared = [
@@ -100,9 +95,7 @@ def blocking_requirement_issues(
         issue
         for row in blocking
         if (
-            issue := issue_for_requirement(
-                row, accepted_shas=accepted_shas, contains_commit=contains_commit
-            )
+            issue := issue_for_requirement(row)
         )
         is not None
     ]
@@ -224,14 +217,10 @@ def terminal_transition_result(
     from yoke_core.domain.project_identity import render_item_ref
 
     public_ref = render_item_ref(conn, item_id)
-    from yoke_core.domain.qa_lane_history import item_lane_contains
-
     issues = blocking_requirement_issues(
         _blocking_requirement_rows(conn, item_id),
-        accepted_shas=accepted_merging_shas(conn, item_id),
         public_ref=public_ref,
         require_any=True,
-        contains_commit=item_lane_contains(conn, item_id),
     )
     errors = requirement_issue_errors(
         issues, public_ref=public_ref, target_status=target_status

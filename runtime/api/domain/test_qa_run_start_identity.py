@@ -68,7 +68,7 @@ def test_run_start_identity_survives_new_evidence_and_lane_advance(test_db, runn
     raw = test_db.execute(
         "SELECT raw_result FROM qa_runs WHERE id=%s", (run.run_id,)
     ).fetchone()[0]
-    assert recorded_head_sha(raw) == START
+    assert recorded_head_sha(raw) == LATER
     assert json.loads(raw)["evidence"] == "finished"
 
 
@@ -79,7 +79,7 @@ def test_merge_and_terminal_use_identical_machine_proof(test_db):
     terminal = {
         row["id"]: row for row in _blocking_requirement_rows(test_db, item["id"])
     }
-    merge = {row["id"]: row for row in qa_rows(test_db, item["id"])}
+    merge = {row["id"]: row for row in qa_rows(test_db, item["id"], include_proof=True)}
     for field in (
         "run_id",
         "recorded_head_sha",
@@ -112,28 +112,24 @@ def test_start_commit_does_not_replace_served_build_observation(test_db):
     raw = test_db.execute(
         "SELECT raw_result FROM qa_runs WHERE id=%s", (run.run_id,)
     ).fetchone()[0]
-    assert recorded_head_sha(raw) == START
+    assert recorded_head_sha(raw) == LATER
+    assert "verification_tree" not in json.loads(raw)
     assert json.loads(raw)["code_identity"]["sha"] == LATER
 
 
-def test_provider_answers_terminal_ancestry_without_checkout(test_db, monkeypatch):
-    from yoke_core.domain import project_checkout_locations as locations
-    from yoke_core.domain import deployment_run_carried_work_repository as repository
-    from yoke_core.domain.qa_lane_history import item_lane_contains
 
-    item = insert_item(test_db)
-    monkeypatch.setattr(locations, "checkout_for_project_id", lambda *_: None)
-    calls = []
 
-    class Source:
-        def contains_commit(self, head, commit):
-            calls.append((head, commit))
-            return commit == START
+def test_start_observation_is_retained_when_finished_evidence_has_no_commit():
+    from yoke_core.domain.qa_run_start_identity import retain_start_commit
+    from yoke_core.domain.qa_run_commit_binding import wrap_evidence
 
-    monkeypatch.setattr(
-        repository, "open_repository_provider_source", lambda *_: Source()
-    )
-    contains = item_lane_contains(test_db, item["id"])
-    assert contains(LATER, START)
-    assert contains(LATER, START)
-    assert calls == [(LATER, START)]
+    raw = retain_start_commit(wrap_evidence("started", START), '{"evidence":"finished"}')
+    assert recorded_head_sha(raw) == START
+    assert json.loads(raw)["evidence"] == "finished"
+
+
+def test_served_commit_survives_plain_evidence_update():
+    from yoke_core.domain.qa_run_start_identity import retain_start_commit
+
+    raw = retain_start_commit(json.dumps({"code_identity": {"sha": LATER}}), "finished")
+    assert recorded_head_sha(raw) == LATER

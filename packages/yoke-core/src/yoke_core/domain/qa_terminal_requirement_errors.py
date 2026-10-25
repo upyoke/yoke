@@ -14,13 +14,12 @@ def requirement_issue_errors(
     public_ref: str,
     target_status: str,
 ) -> list[str]:
-    """Render actionable missing, incomplete, and outside-lane refusals."""
+    """Render actionable refusals for unsettled item proof."""
     if not issues:
         return []
     errors = [
         f"Error: Cannot transition {public_ref} to {target_status!r} -- "
-        f"{len(issues)} blocking QA requirement(s) lack a completed verdict "
-        "from the item lane.",
+        f"{len(issues)} blocking QA requirement(s) lack current completed proof.",
         "  A waiver is an explicit, recorded, requirement-scoped operator "
         "override; it is not part of the normal merge recipe.",
     ]
@@ -39,9 +38,9 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     if not method_id:
         qa_kind = str(requirement.get("qa_kind") or "ac_verification")
         return (
-            f"Record the lane evidence with `yoke qa run add --requirement-id "
+            f"Record the evidence with `yoke qa run add --requirement-id "
             f"{requirement_id} --performed-by agent --qa-kind {qa_kind} "
-            "--verdict pass --head-sha <full-commit-sha> --raw-result "
+            "--verdict pass --raw-result "
             "'<evidence and result>'`"
         )
     if requirement.get("qa_phase") == "post_deploy":

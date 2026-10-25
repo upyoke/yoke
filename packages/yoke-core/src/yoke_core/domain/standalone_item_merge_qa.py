@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain.qa_lane_history import checkout_contains
 from yoke_core.domain.qa_phase_boundary import applies_at_pre_merge
 from yoke_core.domain.qa_terminal_settlement import (
     BlockingRequirementIssue,
@@ -115,12 +114,8 @@ def evaluate(
         commit_sha,
         blocking_requirement_issues(
             requirements,
-            accepted_shas=(commit_sha,),
             public_ref=public_ref,
             require_any=require_any,
-            contains_commit=lambda head, commit: checkout_contains(
-                str(repo_root), head, commit
-            ),
         ),
         "",
     )
