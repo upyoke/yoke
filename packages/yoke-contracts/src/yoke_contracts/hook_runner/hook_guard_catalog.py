@@ -65,13 +65,6 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         check_id=REMOTE_CLAUDE_CLI_CHECK_ID,
     ),
     GuardSpec(
-        "lint_event_registry",
-        f"{_MODULE_PREFIX}lint_event_registry",
-        False,
-        "Refuse Bash that emits unregistered/retired event names.",
-        check_id="unregistered_event",
-    ),
-    GuardSpec(
         "lint_main_commit",
         f"{_MODULE_PREFIX}lint_main_commit",
         True,

@@ -41,7 +41,6 @@ AUTHORITY_DATABASE = (
         _C + "deploy_remote:aws_machine_capability_env",
         _C + "lint_db_cmd:evaluate",
         _C + "lint_db_runner:run_hook",
-        _C + "lint_event_registry:evaluate",
         _C + "observe_db:normalize_observe_db_path",
         _C + "postgres_connection_reuse:track_test_connection",
         _C + "yoke_cloud_db_authority:_run_cli",

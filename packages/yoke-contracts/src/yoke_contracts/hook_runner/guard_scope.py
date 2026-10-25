@@ -22,7 +22,6 @@ _PROJECT = (
     "lint_db_cmd",
     "lint_db_cmd.nested_claude_cli",
     "lint_db_cmd.remote_claude_cli",
-    "lint_event_registry",
     "lint_main_commit",
     "lint_tc_label",
     "lint_long_command_polling",

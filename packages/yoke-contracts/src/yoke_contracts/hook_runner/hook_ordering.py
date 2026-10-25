@@ -24,59 +24,58 @@ PreToolUse Bash chain order rationale:
    invocations early (cheapest deny). DB-command branches preserve the
    ``lint-sqlite-cmd`` compatibility id; embedded Claude guards report their
    condition-specific ids.
-2. ``lint_event_registry`` — block emission of unregistered events.
-3. ``lint_main_commit`` — block ``git commit`` on main.
-4. ``lint_tc_label`` — TC-label hygiene.
-5. ``lint_long_command_polling`` — same-capture polling discipline.
-6–8. Shell-shape, subagent, cwd, lane, and workspace guards establish the
+2. ``lint_main_commit`` — block ``git commit`` on main.
+3. ``lint_tc_label`` — TC-label hygiene.
+4. ``lint_long_command_polling`` — same-capture polling discipline.
+5–7. Shell-shape, subagent, cwd, lane, and workspace guards establish the
    caller's safe execution boundary before claim-aware mutations run.
-9. ``path_claim_bash_guard`` — claim-aware Bash guard runs after cwd check.
-10. ``lint_structured_field_transform_shell`` — block brittle structured-field
-    transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).
-    Runs after the broad cwd/path-claim guards because it inspects command
-    shape, not path coverage.
-11. Adapter-shape lints block hand-quoted payloads, shell choreography, and
+8. ``path_claim_bash_guard`` — claim-aware Bash guard runs after cwd check.
+9. ``lint_structured_field_transform_shell`` — block brittle structured-field
+   transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).
+   Runs after the broad cwd/path-claim guards because it inspects command
+   shape, not path coverage.
+10. Adapter-shape lints block hand-quoted payloads, shell choreography, and
     hidden diagnostic stderr on the named state-changing Yoke CLI families.
     They run together after the structured-field transform shell lint.
-12. ``lint_shell_backtick_search`` /
+11. ``lint_shell_backtick_search`` /
     ``lint_yoke_quoted_shell_substitution`` / ``lint_local_privacy`` /
     ``lint_unmatched_path_glob`` — shell-footgun deniers (backticks/`$()`
     in double-quoted grep/rg or yoke args; unquoted path globs that match
     no files, teaching ``rg --files``). Shape parse first; unmatched globs
     then check the command cwd.
-13. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
+12. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
     ``python3 -c "from runtime..."`` one-liners. Shape-only denier in the
     same family as the shell-quoted payload lint above; keyed on the
     CLI-only-as-agent-interface doctrine.
-14. ``lint_no_agent_curl_against_yoke_api`` — block ``curl`` invocations
+13. ``lint_no_agent_curl_against_yoke_api`` — block ``curl`` invocations
     against ``localhost:8765/v1`` or ``/api`` / ``$YOKE_API``. Sibling shape-only
     denier sharing the agent-CLI-contract config mode key.
-15. ``lint_no_agent_session_end`` — block agent-dispatched
+14. ``lint_no_agent_session_end`` — block agent-dispatched
     ``service_client session-end`` / ``session-end-if-empty``. The
     harness owns session lifetime; agents surrender work via
     ``yoke claims work release --all-mine``. Pure shape parse, same
     family as the two siblings above.
-16. ``lint_claim_ownership_mutations`` — block claim-boundary bypass
+15. ``lint_claim_ownership_mutations`` — block claim-boundary bypass
     attempts (foreign ``--session-id`` on mutation families plus
     recent-denial replay against the same item). Runs after the
     shell-quoted payload lint because both gate mutation-family
     command shape; this one is keyed on claim ownership and reads
     recent event memory.
-17. ``lint_git_stash_arg_order`` — block ``git stash push`` with
+16. ``lint_git_stash_arg_order`` — block ``git stash push`` with
     ``-m``/``--message`` placed after ``--``. Pure shape parse, no
     subprocess fan-out; runs right before ``lint_destructive_git``
     because both inspect the same ``git stash`` namespace and the
     cheaper denier goes first.
-18. ``lint_destructive_git`` — block destructive ``git reset --hard`` /
+17. ``lint_destructive_git`` — block destructive ``git reset --hard`` /
     ``checkout -- <path>`` / ``clean -f`` / ``stash drop`` shapes that would
     wipe uncommitted work. Runs after the cwd/path-claim/structural-shape
     guards because it shells out to ``git status`` for state inspection;
     keep cheaper structural deniers ahead of the subprocess fan-out.
-19. ``hook_helpers_heartbeat`` — attestable-activity refresh; never
+18. ``hook_helpers_heartbeat`` — attestable-activity refresh; never
     blocks. Runs after every deny-class lint so a refused tool call
     does not stamp a fresh heartbeat. Replaces the deleted background
     keepalive loop.
-20. ``observe_pre`` — telemetry tail; never blocks.
+19. ``observe_pre`` — telemetry tail; never blocks.
 
 PreToolUse Edit/Write chain order rationale:
 
@@ -124,7 +123,6 @@ _PRE_BASH: tuple[str, ...] = (
     # Neutral implementation-facing hook path; each denial binds its
     # registered check identity before rendering.
     "yoke_core.domain.lint_db_cmd",
-    "yoke_core.domain.lint_event_registry",
     "yoke_core.domain.lint_main_commit",
     "yoke_core.domain.lint_tc_label",
     "yoke_core.domain.lint_long_command_polling",
