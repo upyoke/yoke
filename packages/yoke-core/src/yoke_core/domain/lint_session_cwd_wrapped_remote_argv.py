@@ -6,7 +6,7 @@ that call in its own script hides the argv from every guard, so a Test
 Machine path such as ``/Users/testy/...`` reads as a local target. When the
 refused target is in another user's home and no invocation in the call is
 ``yoke``, the refusal says to call ``host-command`` directly and names the
-supported pull step.
+supported copy command.
 """
 
 from __future__ import annotations
@@ -18,9 +18,8 @@ WRAPPED_REMOTE_ARGV_NOTE = (
     "invocation in this call is `yoke`. A wrapper script hides the argv it "
     "passes to `yoke qa mission host-command`, so no guard can see that the "
     "path is remote. Call host-command directly: its argv after `--` runs on "
-    "the Test Machine and is not a local target. To pull a file, run "
-    "`yoke qa mission host-command ... -- base64 -i REMOTE_PATH > "
-    "LOCAL.json`, then `jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE`.\n"
+    "the Test Machine and is not a local target. To copy a file here, run "
+    "`yoke qa mission host-copy ... --from REMOTE_PATH --to LOCAL_FILE`.\n"
 )
 
 _HOME_ROOTS = ("/Users/", "/home/")

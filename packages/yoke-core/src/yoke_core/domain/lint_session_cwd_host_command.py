@@ -7,7 +7,9 @@ name the Test Machine's filesystem, never this machine's, so the
 session-cwd write-authority lint must not read them as local write
 targets: doing so refused ``-- /bin/ls /Users/testy`` while letting
 path-free ``-- /bin/pwd`` through, narrowing the mission instrument to
-commands that happen to mention no path at all.
+commands that happen to mention no path at all. The ``--from`` value of
+``yoke qa mission host-copy`` names a Test Machine file the same way; its
+``--to`` value is a local write target and stays one.
 
 ``aws logs`` / ``yoke aws exec -- logs`` ``--log-group-name`` operands
 name a CloudWatch group on another machine. ``aws ssm`` /
@@ -35,6 +37,7 @@ from yoke_core.domain.lint_shell_target_tokens import unwrap_cli_file_param
 
 
 HOST_COMMAND_SUBCOMMAND = ("qa", "mission", "host-command")
+HOST_COPY_SUBCOMMAND = ("qa", "mission", "host-copy")
 TEST_MACHINE_EXEC_SUBCOMMAND = ("test-machine", "exec")
 
 # Global ``yoke`` flags whose value must not be mistaken for a subcommand.
@@ -86,15 +89,18 @@ def yoke_subcommand_positionals(
     return positionals
 
 
-def is_host_command_segment(command_base: str, tokens: Sequence[str]) -> bool:
-    """True when ``tokens`` invoke ``yoke qa mission host-command``."""
+def _invokes(
+    command_base: str, tokens: Sequence[str], subcommand: Tuple[str, ...]
+) -> bool:
     if command_base != "yoke":
         return False
-    positionals = yoke_subcommand_positionals(
-        tokens,
-        limit=len(HOST_COMMAND_SUBCOMMAND),
-    )
-    return tuple(positionals) == HOST_COMMAND_SUBCOMMAND
+    positionals = yoke_subcommand_positionals(tokens, limit=len(subcommand))
+    return tuple(positionals) == subcommand
+
+
+def is_host_command_segment(command_base: str, tokens: Sequence[str]) -> bool:
+    """True when ``tokens`` invoke ``yoke qa mission host-command``."""
+    return _invokes(command_base, tokens, HOST_COMMAND_SUBCOMMAND)
 
 
 def is_test_machine_exec_segment(command_base: str, tokens: Sequence[str]) -> bool:
@@ -128,15 +134,23 @@ def test_machine_exec_argv_indexes(
 def remote_argv_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
     """Return the token indexes that run on the remote Test Machine.
 
-    Empty for every segment that is not a host-command invocation, and
-    for a host-command invocation written without the ``--`` separator
-    (which the CLI itself rejects). Otherwise every index after the
-    separator, because the whole argv is shipped over the lease.
+    Empty for every segment that is not a host-command or host-copy
+    invocation, and for a host-command invocation written without the
+    ``--`` separator (which the CLI itself rejects). Otherwise every index
+    after the separator, because the whole argv is shipped over the lease.
+    For host-copy, only the ``--from`` value.
 
     Shell redirect syntax trailing that argv is not part of it — the
     shell performs a redirect on this machine — so the extractor
     resolves redirects before consulting this index set.
     """
+    if _invokes(command_base, tokens, HOST_COPY_SUBCOMMAND):
+        return {
+            index + 1 if token == "--from" else index
+            for index, token in enumerate(tokens)
+            if token.startswith("--from=")
+            or (token == "--from" and index + 1 < len(tokens))
+        }
     if not is_host_command_segment(command_base, tokens):
         return set()
     try:
@@ -309,6 +323,7 @@ def host_command_exemption_note(command: str | ShellParse) -> str:
 __all__ = [
     "EXEMPTION_NOTE",
     "HOST_COMMAND_SUBCOMMAND",
+    "HOST_COPY_SUBCOMMAND",
     "YOKE_VALUE_FLAGS",
     "aws_log_group_indexes",
     "aws_ssm_parameter_indexes",

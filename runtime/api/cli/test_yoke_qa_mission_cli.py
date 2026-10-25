@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from yoke_cli.commands import qa_case
-from yoke_cli.commands.qa_case import qa_mission_host_command
+from yoke_cli.commands.qa_mission import qa_mission_host_command, qa_mission_host_copy
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_core.domain import agent_mission_host_command_cli
 
@@ -34,6 +34,28 @@ def test_mission_host_command_token_routes_to_detached_adapter() -> None:
     adapter, rest = resolved
     assert adapter is qa_mission_host_command
     assert rest[-2:] == ["--", "whoami"]
+
+
+def test_mission_host_copy_token_routes_to_detached_adapter() -> None:
+    resolved = resolve_tool_shaped(
+        ["qa", "mission", "host-copy", "--execution-id", "exec-1", "--to", "x"]
+    )
+    assert resolved is not None
+    adapter, rest = resolved
+    assert adapter is qa_mission_host_copy
+    process = mock.Mock()
+    process.wait.return_value = 0
+    with (
+        mock.patch.object(
+            qa_case, "build_actor", return_value=mock.Mock(session_id="mission-session")
+        ),
+        mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen,
+    ):
+        assert qa_mission_host_copy(rest) == 0
+    assert popen.call_args.args[0][1:3] == [
+        "-m",
+        "yoke_core.domain.agent_mission_host_copy_cli",
+    ]
 
 
 def test_mission_host_command_pins_session_without_mutating_python_argv() -> None:

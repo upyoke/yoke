@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Protocol, Sequence
 
 from yoke_contracts.machine_config.capability_secrets import (
@@ -48,6 +49,10 @@ class HostControl(Protocol):
     def read_text(self, path: str) -> str | None: ...
 
     def write_text(self, path: str, content: str) -> None: ...
+
+    def copy_file_to(
+        self, path: str, destination: Path, *, max_bytes: int, refused_root: str
+    ) -> int: ...
 
     def create_fixture_operation_runner(
         self,

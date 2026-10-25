@@ -161,15 +161,18 @@ class TestDenialNamesTheExemption:
 _ROLLOUT = "/Users/testy/.codex/sessions/2026/10/20/rollout-1.jsonl"
 
 
-class TestPullAFileFromTheTestMachine:
-    """The supported pull step is a direct host-command call."""
+class TestCopyAFileFromTheTestMachine:
+    """host-copy's --from names a Test Machine file; --to is a local target."""
+
+    COPY = _SUBJECT.replace("host-command", "host-copy")
 
     def test_direct_read_of_a_test_machine_path_extracts_no_target(self):
         assert extract_command_targets(f"{_SUBJECT} -- /bin/cat {_ROLLOUT}") == []
 
-    def test_pull_step_extracts_only_its_local_redirect(self):
-        command = f"{_SUBJECT} -- base64 -i {_ROLLOUT} > /tmp/rollout.json"
-        assert extract_command_targets(command) == ["/tmp/rollout.json"]
+    def test_copy_extracts_only_its_local_destination(self):
+        for source in (f"--from {_ROLLOUT}", f"--from={_ROLLOUT}"):
+            command = f"{self.COPY} {source} --to /tmp/rollout.jsonl"
+            assert extract_command_targets(command) == ["/tmp/rollout.jsonl"]
 
 
 class TestWrappedRemoteArgvHint:
@@ -189,11 +192,12 @@ class TestWrappedRemoteArgvHint:
         )
         return reason
 
-    def test_wrapped_call_names_the_direct_host_command_and_pull_step(self):
+    def test_wrapped_call_names_the_direct_host_command_and_copy_command(self):
         reason = self._reason(self.WRAPPED)
         assert "Call host-command directly" in reason
         assert "wrapper script hides the argv" in reason
-        assert "-- base64 -i REMOTE_PATH > LOCAL.json" in reason
+        assert "host-copy ... --from REMOTE_PATH --to LOCAL_FILE" in reason
+        assert "base64" not in reason
 
     def test_a_call_with_a_yoke_invocation_gets_no_wrapper_hint(self):
         command = f"{_SUBJECT} -- /bin/ls /Users/testy > {_ROLLOUT}"

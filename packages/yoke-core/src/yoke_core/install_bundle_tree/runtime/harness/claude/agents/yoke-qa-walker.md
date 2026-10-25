@@ -119,9 +119,9 @@ that host. Driver walk-end leaves that companion debt in place.
 Never bypass the lease with SSH or copy credentials into shell. For macOS login
 keychain/window-server commands add `--gui-session`: Terminal bridge is the route,
 not SSH or `launchctl asuser`. Call host-command directly, never from your own
-script: guards exempt its remote argv only when they can see it. To pull a file,
-run `... -- base64 -i REMOTE_PATH > LOCAL.json`, then
-`jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE`.
+script: guards exempt its remote argv only when they can see it. To copy a file
+here, run the dispatch's `yoke qa mission host-copy ... --from REMOTE_PATH --to
+LOCAL_FILE`; it writes the exact bytes and refuses mission scratch paths.
 
 For session-start receiving proof, use that host-command route to read
 `hook-markers/session-orientation-delivered-SESSION_ID` in the hook's resolved

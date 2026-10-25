@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import shlex
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from yoke_harness.remote_file_copy import ZSH_READER, stream_remote_file
 from yoke_harness.ssh_mac_transport import (
     SSH_OPTIONS,
     SshMacTransport,
@@ -41,6 +43,19 @@ class SshMacHostControl(SshMacTransport):
     def write_text(self, path: str, content: str) -> None:
         if not self._upload_bytes(path, content.encode("utf-8")):
             raise RuntimeError("host_control file write failed")
+
+    def copy_file_to(
+        self, path: str, destination: Path, *, max_bytes: int, refused_root: str
+    ) -> int:
+        reader = self._zsh_command(ZSH_READER, path, str(max_bytes), refused_root)
+        return stream_remote_file(
+            self._ssh_argv(reader),
+            destination,
+            path=path,
+            max_bytes=max_bytes,
+            refused_root=refused_root,
+            secret_values=tuple(self.material.secrets.values()),
+        )
 
     def create_fixture_operation_runner(
         self,
