@@ -211,10 +211,18 @@ def claims_steering_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims steering list",
         usage=STEERING_LIST_USAGE,
+        epilog=(
+            "With --session-id and no --project, lists that session's seats in "
+            "every project you can read. Otherwise lists one project's seats: "
+            "--project, else the current folder's project."
+        ),
     )
     parser.add_argument("--project", default=None, metavar="P", help="Project slug or id.")
     parser.add_argument(
-        "--session-id", default=None, metavar="S", help="Only seats this session holds."
+        "--session-id",
+        default=None,
+        metavar="S",
+        help="Only seats this session holds, across projects unless --project is set.",
     )
     parser.add_argument(
         "--active-only",
@@ -230,11 +238,12 @@ def claims_steering_list(args: List[str]) -> int:
         payload["session_id"] = parsed.session_id
     if parsed.active_only:
         payload["active_only"] = True
+    every_project = bool(parsed.session_id) and not parsed.project
     return dispatch_and_emit(
         function_id="claims.steering.list",
         target=TargetRef(
             kind="global",
-            project_id=client_project_context(parsed.project),
+            project_id=None if every_project else client_project_context(parsed.project),
         ),
         payload=payload,
         session_id=None,

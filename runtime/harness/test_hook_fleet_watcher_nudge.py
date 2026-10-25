@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -34,6 +35,8 @@ REPORT = (
 )
 SESSION = "session-top"
 REARM = "`yoke watch fleet --print-streaming-pair -- --project yoke`"
+#: The real seat read, restored where a test answers the list itself.
+HELD_PROJECTS = presence.held_projects
 
 
 def observed(live: bool, session_id: str = SESSION) -> dict:
@@ -56,6 +59,29 @@ class ReportPort(FakePort):
 @pytest.fixture(autouse=True)
 def active_steering_session(monkeypatch):
     monkeypatch.setattr(presence, "_session_row", lambda _session: {"mode": "steer"})
+    monkeypatch.setattr(presence, "held_projects", lambda _session: ("yoke",))
+
+
+def _seat(project_id, document=None):
+    scope = {"project_id": project_id}
+    if document:
+        scope["document"] = document
+    return {"scope": scope}
+
+
+def _listing(monkeypatch, claims=None, error=None):
+    """Answer the session's steering list read; record what it was asked."""
+    calls = []
+
+    def dispatch(function_id, payload):
+        calls.append((function_id, payload))
+        return SimpleNamespace(
+            success=error is None, error=error, result={"claims": claims or []}
+        )
+
+    monkeypatch.setattr(presence, "_dispatch", dispatch)
+    monkeypatch.setattr(presence, "held_projects", HELD_PROJECTS)
+    return calls
 
 
 def _evaluate(monkeypatch, family, surface, payload, *, report=REPORT, remote=False):
@@ -106,14 +132,18 @@ def test_codex_stdout_channel_folds_the_alert_into_one_block(monkeypatch):
 
 
 def test_turn_start_without_idle_wake_names_the_scheduled_reentry():
-    report = presence.fleet_watcher_absent_nudge(REPORT, "codex", "UserPromptSubmit")
+    report = presence.fleet_watcher_absent_nudge(
+        ("yoke",), SESSION, "codex", "UserPromptSubmit"
+    )
     assert "in-turn command" in report
     assert "`keep steering`" in report
     assert ".agents/skills/yoke/steer/watching.md" in report
-    mid_turn = presence.fleet_watcher_absent_nudge(REPORT, "codex", "PostToolUse")
+    mid_turn = presence.fleet_watcher_absent_nudge(
+        ("yoke",), SESSION, "codex", "PostToolUse"
+    )
     assert "keep steering" not in mid_turn
     idle_wake = presence.fleet_watcher_absent_nudge(
-        REPORT, "cursor", "UserPromptSubmit"
+        ("yoke",), SESSION, "cursor", "UserPromptSubmit"
     )
     assert "keep steering" not in idle_wake and "in-turn" not in idle_wake
 
@@ -154,19 +184,52 @@ def test_active_modes_alert(monkeypatch, mode):
     )
 
 
-def test_document_seats_rearm_once_per_distinct_project():
-    report = "## project-a · FIRST\n## project-a · SECOND\n## project-b\n"
-    nudge = presence.fleet_watcher_absent_nudge(report, "codex", "PostToolUse")
-    assert "--project project-a --project project-b" in nudge
-    assert nudge.count("--project project-a") == 1
-    assert "FIRST" not in nudge and "SECOND" not in nudge
+def test_rearm_names_exactly_the_held_projects_not_report_headings(monkeypatch):
+    calls = _listing(
+        monkeypatch,
+        [_seat(1, "first"), _seat(1, "second"), _seat(1), _seat(7)],
+    )
+    report = (
+        "## yoke · project 1\n## slow paths · 3 over budget\n"
+        "## unattended linked work\n"
+    )
+
+    alert = presence.fleet_watcher_alert(report, hook_context(payload=observed(False)))
+
+    assert calls == [
+        ("claims.steering.list", {"session_id": SESSION, "active_only": True})
+    ]
+    assert "--print-streaming-pair -- --project 1 --project 7`" in alert
+    assert "slow" not in alert and "unattended" not in alert
+
+
+def test_session_without_seats_is_told_so_instead_of_a_guess(monkeypatch):
+    _listing(monkeypatch, [])
+
+    alert = presence.fleet_watcher_alert(REPORT, hook_context(payload=observed(False)))
+
+    assert "holds no steering seats" in alert
+    assert f"yoke claims steering list --session-id {SESSION} --active-only" in alert
+    assert "--project yoke" not in alert and "print-streaming-pair" not in alert
+
+
+def test_failed_seat_read_names_its_reason_and_the_manual_read(monkeypatch):
+    error = SimpleNamespace(code="permission_denied", message="no project access")
+    _listing(monkeypatch, error=error)
+
+    alert = presence.fleet_watcher_alert(REPORT, hook_context(payload=observed(False)))
+
+    assert "permission_denied: no project access" in alert
+    assert f"yoke claims steering list --session-id {SESSION} --active-only" in alert
 
 
 @pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
 def test_byte_ceiling_drops_the_report_and_keeps_the_alert(harness):
     budget = inline_context_bytes_for_harness(harness)
     report = f"{REPORT}\n{'x' * budget}"
-    alert = presence.fleet_watcher_absent_nudge(REPORT, harness, "PostToolUse")
+    alert = presence.fleet_watcher_absent_nudge(
+        ("yoke",), SESSION, harness, "PostToolUse"
+    )
     alert_block = f"{ALERT_BEGIN}\n{alert}\n=== END YOKE FLEET WATCHER ALERT ==="
 
     body = compose_context_list(["a hint", report, alert_block], harness_id=harness)

@@ -29,7 +29,10 @@ from yoke_core.domain import lint_long_command_polling_monitor_duplicate as guar
 from yoke_core.domain.lint_long_command_polling_constants import (
     RECENT_EVENT_LOOKBACK_SECONDS,
 )
-from yoke_core.hooks.fleet_watcher_presence import fleet_watcher_absent_nudge
+from yoke_core.hooks.fleet_watcher_presence import (
+    fleet_watcher_absent_nudge,
+    lapsed_tail_nudge,
+)
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair
 
 SESSION = "session-top"
@@ -42,7 +45,6 @@ WRAPPER = (
     f"--progress-capture {PROGRESS} -- --project yoke"
 )
 TAIL = f"python3 /bin/yoke watch tail {PROGRESS}"
-REPORT = "## yoke · project 1\n"
 
 
 def test_only_claude_declares_a_subscription_limit() -> None:
@@ -111,12 +113,13 @@ def test_a_lapsed_tail_names_the_running_wrappers_capture() -> None:
 
 
 def test_the_alert_re_arms_the_tail_instead_of_a_second_wrapper() -> None:
-    alert = fleet_watcher_absent_nudge(
-        REPORT, "claude-code", "UserPromptSubmit", PROGRESS
-    )
+    alert = lapsed_tail_nudge("claude-code", PROGRESS)
+    assert lapsed_tail_nudge("codex", PROGRESS) == ""
     assert f"yoke watch tail {PROGRESS}" in alert
     assert "timeout_ms=1800000" in alert
     assert "--print-streaming-pair" not in alert
 
-    relaunch = fleet_watcher_absent_nudge(REPORT, "claude-code", "UserPromptSubmit")
+    relaunch = fleet_watcher_absent_nudge(
+        ("1",), SESSION, "claude-code", "UserPromptSubmit"
+    )
     assert "--print-streaming-pair" in relaunch

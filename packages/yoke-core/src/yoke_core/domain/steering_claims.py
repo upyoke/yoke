@@ -286,21 +286,23 @@ def _acquire_document_pair(
 def list_claims(
     conn: Any,
     *,
-    project_id: int,
+    project_id: Optional[int] = None,
     session_id: Optional[str] = None,
     active_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """List every steering seat in one project, whatever each seat's scope.
+    """List steering seats in one project, or in every project when unset.
 
-    Project-wide and document seats are both this project's seats, so the
-    listing matches on the project inside the scope rather than on one exact
-    scope object -- otherwise a document seat would be invisible to the
-    listing a refusal points at.
+    Project-wide and document seats are both a project's seats, so the
+    project filter matches on the project inside the scope rather than on
+    one exact scope object -- otherwise a document seat would be invisible
+    to the listing a refusal points at.
     """
     p = _p(conn)
-    project_scope = scope_int_sql(conn, "scope", "project_id")
-    clauses = [f"target_kind = {p}", f"{project_scope} = {p}"]
-    params: list[Any] = [TARGET_KIND_STEERING, int(project_id)]
+    clauses = [f"target_kind = {p}"]
+    params: list[Any] = [TARGET_KIND_STEERING]
+    if project_id is not None:
+        clauses.append(f"{scope_int_sql(conn, 'scope', 'project_id')} = {p}")
+        params.append(int(project_id))
     if session_id:
         clauses.append(f"session_id = {p}")
         params.append(str(session_id))

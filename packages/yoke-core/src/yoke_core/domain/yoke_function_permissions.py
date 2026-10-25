@@ -56,6 +56,8 @@ from yoke_core.domain.yoke_function_permission_types import DispatchPermission
 from yoke_core.domain.yoke_function_permissions_by_function import (
     board_data_get_dispatch_permission,
     doctor_dispatch_permission,
+    lists_one_session_steering_everywhere,
+    steering_session_list_dispatch_permission,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -115,6 +117,12 @@ def check_dispatch_permission(
         # single project. Cross-session and item-targeted reads retain their
         # normal project-scoped authorization below.
         return DispatchPermission(None, None, None)
+    if entry.function_id == "claims.steering.list" and (
+        lists_one_session_steering_everywhere(request)
+    ):
+        return steering_session_list_dispatch_permission(
+            conn, actor_id, spec.permission_key or PERM_ITEMS_READ
+        )
     if entry.function_id == "doctor.run.run":
         return doctor_dispatch_permission(conn, entry, request, actor_id)
     if entry.function_id == "board.data.get":
