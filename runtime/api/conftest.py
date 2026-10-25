@@ -285,8 +285,9 @@ def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
     whether the item has reached the stage that definition declares for
     review. Merge tests stub the item alone and have no universe holding
     published workflow versions, so that read is answered here from the
-    same built-in canon those versions are published from. A test whose
-    subject IS the read patches over this with its own answer.
+    same built-in canon those versions are published from, and the
+    review stage's read-only prose check passes. A test whose subject IS
+    the read patches over this with its own answer.
     """
     from types import SimpleNamespace
 
@@ -297,6 +298,8 @@ def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
     from yoke_core.domain.workflow_registry import definition_digest
 
     def _serve(**kwargs):
+        if kwargs.get("function_id") == "db_claim.prose_check":
+            return SimpleNamespace(success=True, error=None, result={"blocks": False})
         payload = kwargs.get("payload") or {}
         workflow_id = str(payload.get("workflow_id") or "")
         try:

@@ -22,7 +22,9 @@ after recovery.
 Two conditions are not blockers because the merge resolves them itself: an
 item one declared edge before review (the merge enters review), and QA
 proof bound only to an older commit of this lane (the merge re-binds it).
-They are reported as ``merge_will`` notes.
+They are reported as ``merge_will`` notes. Entering review runs that stage's
+gates: the database-claim prose gate is asked here, read-only, and its
+refusal is a blocker; the note names the gates only the merge evaluates.
 """
 
 from __future__ import annotations
@@ -43,7 +45,12 @@ from yoke_core.domain.close_out_evidence_gate import (
 )
 from yoke_core.domain.merge_queue_landing_timeout import merge_item_resume_command
 from yoke_core.domain.merge_queue_route_selection import route_admission
-from yoke_core.domain.merge_review_readiness import ReviewReadiness, review_readiness
+from yoke_core.domain.merge_review_readiness import (
+    ReviewReadiness,
+    gates_left_to_merge,
+    review_entry_refusal,
+    review_readiness,
+)
 from yoke_core.domain.qa_item_stage_plan_gate import missing_item_qa_plan_refusal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_lane import (
@@ -205,10 +212,20 @@ def assess(
     if readiness.review.refusal:
         add(LandingBlocker("review stage", readiness.review.refusal))
     elif readiness.review.enters_review:
+        entry_refusal = review_entry_refusal(public_ref, readiness.review)
+        if entry_refusal:
+            add(LandingBlocker("review entry", f"{public_ref}: {entry_refusal}"))
+        left = gates_left_to_merge(readiness.review)
         readiness.merge_will.append(
             f"move {public_ref} from {readiness.review.source_stage!r} to "
-            f"{readiness.review.review_stage!r} (that stage's gates run) "
-            "with --verification as the reason"
+            f"{readiness.review.review_stage!r} with --verification as the "
+            "reason"
+            + (
+                f", evaluating that stage's gates {', '.join(left)} only then "
+                "(this check has not run them)"
+                if left
+                else ""
+            )
         )
 
     workflow_id = str((item.get("workflow") or {}).get("id") or "")

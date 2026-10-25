@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from yoke_core.domain import merge_landing_readiness as readiness_gate
+from yoke_core.domain import merge_review_readiness as review_gate
 from yoke_core.domain import qa_item_stage_plan_gate as plan_gate
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_landed as landed
@@ -149,3 +151,77 @@ def test_uncommitted_lane_files_are_a_blocker(merge, monkeypatch, tmp_path, caps
     out = capsys.readouterr().out
     assert "[clean tree]" in out
     assert "notes.txt" in out
+
+
+def _prose_blocks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The prose check refuses; every other review read keeps its answer."""
+    calls: list[str] = []
+    served = review_gate.call_dispatcher
+
+    def _dispatch(**kwargs):
+        calls.append(kwargs["function_id"])
+        if kwargs["function_id"] != "db_claim.prose_check":
+            return served(**kwargs)
+        return SimpleNamespace(
+            success=True,
+            error=None,
+            result={
+                "blocks": True,
+                "triggers": ["ALTER TABLE"],
+                "recovery": "Amend the DB claim.",
+            },
+        )
+
+    monkeypatch.setattr(review_gate, "call_dispatcher", _dispatch)
+    return calls
+
+
+def test_check_refuses_a_spec_that_trips_the_review_prose_gate(
+    merge, monkeypatch, capsys
+):
+    calls = _prose_blocks(monkeypatch)
+    merge["item"] = _item(completion_flow="")
+
+    assert _run("--check", "--result", "r", "--verification", "v") == 1
+
+    out = capsys.readouterr().out
+    assert "1 landing blocker." in out
+    assert (
+        "[review entry] ITEM-51: entering 'reviewing-implementation' would "
+        "refuse GATE_DB_CLAIM_PROSE_MISMATCH: prose-vs-claim mismatch on ITEM-51"
+    ) in out
+    assert (
+        "The merge will move ITEM-51 from 'implementing' to "
+        "'reviewing-implementation' with --verification as the reason, "
+        "evaluating that stage's gates db_mutation, architecture_impact only "
+        "then (this check has not run them)."
+    ) in out
+    # Nothing changed: no stage move, no landing, and only reads were asked.
+    assert merge["item"]["status"] == "implementing"
+    assert merge["transitions"] == []
+    assert merge["landed"] == 0
+    assert set(calls) == {"workflows.version.get", "db_claim.prose_check"}
+
+
+def test_the_merge_stops_at_the_prose_gate_before_entering_review(
+    merge, monkeypatch, capsys
+):
+    _prose_blocks(monkeypatch)
+    merge["item"] = _item(completion_flow="")
+
+    assert _run("--result", "done", "--verification", "green CI") == 1
+
+    assert "[review entry]" in capsys.readouterr().err
+    assert merge["transitions"] == []
+    assert merge["landed"] == 0
+
+
+def test_the_review_reads_the_check_asks_are_registered_without_side_effects():
+    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.yoke_function_registry import list_entries
+
+    register_all_handlers()
+    entries = {entry.function_id: entry for entry in list_entries()}
+
+    for function_id in ("workflows.version.get", "db_claim.prose_check"):
+        assert not entries[function_id].side_effects

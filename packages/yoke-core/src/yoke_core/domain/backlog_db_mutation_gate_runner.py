@@ -136,15 +136,10 @@ def _run_prose_vs_claim_check(
         conn.close()
     if not outcome.blocks:
         return None
-    triggers = ", ".join(f"'{t}'" for t in outcome.triggers[:5])
-    if len(outcome.triggers) > 5:
-        triggers += ", ..."
     return {
         "success": False,
-        "error": (
-            f"prose-vs-claim mismatch on {public_ref}: stored "
-            "db_mutation_profile is state='none' but spec/body declares "
-            f"governed DB work ({triggers}).  {outcome.recovery}"
+        "error": db_claim_prose_check.mismatch_error(
+            public_ref, outcome.triggers, outcome.recovery
         ),
         "error_code": "GATE_DB_CLAIM_PROSE_MISMATCH",
     }

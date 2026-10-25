@@ -10,6 +10,12 @@ performs that transition itself, after every other landing gate passes and
 before the branch lands, with ``--verification`` as the reason. Reaching the
 stage runs its own gates, so a gate refusal there stops the merge with the
 gate's reason. An item further back is refused with the walk it still owes.
+
+Landing readiness asks one of those gates early. The database-claim prose
+gate has a read-only form, ``db_claim.prose_check``, so when the pinned
+review stage carries it the check runs before anything lands and its
+refusal is a landing blocker. The stage's other gates have no read-only
+form and run only when the merge moves the item.
 """
 
 from __future__ import annotations
@@ -20,7 +26,9 @@ from typing import Any, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import json_helper
+from yoke_core.domain.db_claim_prose_check import mismatch_error
 from yoke_core.domain.public_item_target import public_item_target
+from yoke_core.domain.workflow_gate_catalog import GATE_DB_CLAIM_PROSE
 from yoke_core.domain.workflow_declared_transitions import (
     declares_transition,
     unreached_review_stage,
@@ -78,6 +86,8 @@ class ReviewReadiness:
     refusal: str = ""
     source_stage: str = ""
     review_stage: str = ""
+    #: The gate ids the pinned review stage runs on entry, in definition order.
+    review_gates: tuple[str, ...] = ()
 
     @property
     def enters_review(self) -> bool:
@@ -104,7 +114,13 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
     if not review_stage_id:
         return ReviewReadiness()
     if declares_transition(workflow, status, review_stage_id):
-        return ReviewReadiness(source_stage=status, review_stage=review_stage_id)
+        return ReviewReadiness(
+            source_stage=status,
+            review_stage=review_stage_id,
+            review_gates=tuple(
+                str(gate["id"]) for gate in workflow.gates_for_stage(review_stage_id)
+            ),
+        )
     return ReviewReadiness(
         refusal=(
             f"{public_ref} is at {status!r} and "
@@ -116,6 +132,48 @@ def review_readiness(item: dict[str, Any], *, public_ref: str) -> ReviewReadines
             f'{status} --to <next stage> --reason "<why>"` until it is one '
             "edge before review, then re-run this merge."
         )
+    )
+
+
+def review_entry_refusal(public_ref: str, readiness: ReviewReadiness) -> str:
+    """Ask the review stage's prose gate read-only. Empty when it would pass.
+
+    Empty too when the stage does not carry that gate. A read that cannot be
+    answered refuses: the check must not report a gate it could not ask.
+    """
+    if GATE_DB_CLAIM_PROSE not in readiness.review_gates:
+        return ""
+    response = call_dispatcher(
+        function_id="db_claim.prose_check",
+        target=public_item_target(public_ref),
+        payload={},
+    )
+    stage = readiness.review_stage
+    if not response.success:
+        error = getattr(response, "error", None)
+        detail = getattr(error, "message", None) or "prose check read failed"
+        return (
+            f"entering {stage!r} runs the database-claim prose gate, and its "
+            f"read-only check could not be answered: {detail}. Resolve the "
+            f"control-plane read (`yoke db-claim prose-check {public_ref}` "
+            "asks it alone), then re-run this merge."
+        )
+    result = response.result or {}
+    if not result.get("blocks"):
+        return ""
+    return f"entering {stage!r} would refuse GATE_DB_CLAIM_PROSE_MISMATCH: " + (
+        mismatch_error(
+            public_ref,
+            [str(trigger) for trigger in result.get("triggers") or []],
+            str(result.get("recovery") or ""),
+        )
+    )
+
+
+def gates_left_to_merge(readiness: ReviewReadiness) -> tuple[str, ...]:
+    """The review-entry gates only the merge's own transition evaluates."""
+    return tuple(
+        gate for gate in readiness.review_gates if gate != GATE_DB_CLAIM_PROSE
     )
 
 
@@ -154,6 +212,8 @@ def enter_review_stage(
 __all__ = [
     "ReviewReadiness",
     "enter_review_stage",
+    "gates_left_to_merge",
     "pinned_workflow_for_item",
+    "review_entry_refusal",
     "review_readiness",
 ]
