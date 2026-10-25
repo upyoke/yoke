@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import shlex
+from pathlib import Path
+
 from yoke_core.domain.host_control_runner import TestMachineMaterial
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationRunner,
 )
+from yoke_harness.remote_file_copy import BASH_READER, stream_remote_file
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.ssh_linux_terminal import (
     run_linux_terminal_case,
@@ -32,6 +36,20 @@ class SshLinuxHostControl(SshLinuxHostOperations):
 
     def read_text(self, path: str) -> str | None:
         return self.read_remote_text(path)
+
+    def copy_file_to(
+        self, path: str, destination: Path, *, max_bytes: int, refused_root: str
+    ) -> int:
+        # Windows hosts inherit this: their _ssh_argv runs it inside WSL.
+        reader = ["/bin/bash", "-c", BASH_READER, "host-copy", path]
+        return stream_remote_file(
+            self._ssh_argv(shlex.join([*reader, str(max_bytes), refused_root])),
+            destination,
+            path=path,
+            max_bytes=max_bytes,
+            refused_root=refused_root,
+            secret_values=self.secret_values,
+        )
 
     def capture_terminal_checkpoint(self, *, focused_window: bool = False) -> dict:
         from yoke_core.domain.machine_terminal_screenshot import (

@@ -64,10 +64,13 @@ def _walker_dispatch(
     executor = validate_method_config(
         "agent-mission", {"executor": case.get("executor")}
     )["executor"]
-    host_command_base = (
-        f"yoke qa mission host-command {subject_flag} "
-        f"--execution-id {execution_id} "
+    mission_flags = (
+        f"{subject_flag} --execution-id {execution_id} "
         f"--requirement-id {int(case['requirement_id'])}"
+    )
+    host_command_base = f"yoke qa mission host-command {mission_flags}"
+    host_copy_command = (
+        f"yoke qa mission host-copy {mission_flags} --from TARGET_PATH --to LOCAL_PATH"
     )
     host_command = f"{host_command_base} -- ARGV..."
     browser_setup_command = (
@@ -92,24 +95,15 @@ def _walker_dispatch(
     )
     artifact_bytes_clause = (
         "attach the bytes themselves, never a path on the target. "
-        "On your machine, set LOCAL_PATH in your own local scratch directory "
-        "and run this pipeline (with pipefail enabled): "
-        f"`{host_command_base} -- base64 -i TARGET_PATH | python3 -c "
-        "'import base64,json,sys; "
-        'sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)["stdout"]))'
-        "' > LOCAL_PATH`. It decodes wrapped target base64 from the JSON stdout. "
-        "Then upload with `--content-file LOCAL_PATH` from your machine. "
-        "The mission scratch path is on the target and holds staged secrets; "
-        "keep your local evidence file separate. "
+        "Copy the file into your own local scratch directory with "
+        f"`{host_copy_command}`, then upload it with `--content-file "
+        "LOCAL_PATH` from your machine. host-copy refuses paths inside the "
+        "mission scratch directory on the target, which holds staged secrets. "
     )
     scratch_path = mission_scratch_path(execution_id)
-    walk_flags = (
-        f"{subject_flag} --execution-id {execution_id} "
-        f"--requirement-id {int(case['requirement_id'])}"
-    )
-    walk_start_command = f"yoke qa mission walk-start {walk_flags}"
+    walk_start_command = f"yoke qa mission walk-start {mission_flags}"
     run_id = int(case["capture_run_id"])
-    walk_end_command = f"yoke qa mission walk-end {walk_flags} --run-id {run_id}"
+    walk_end_command = f"yoke qa mission walk-end {mission_flags} --run-id {run_id}"
     browser_intro = (
         "For named browser identities, use the managed browser. Set it up with "
         if identities
@@ -180,6 +174,7 @@ def _walker_dispatch(
         "subagent_type": descriptor.subagent_type,
         "context_policy": "project-informed",
         "host_command": host_command,
+        "host_copy_command": host_copy_command,
         "scratch_path": scratch_path,
         "walk_start_command": walk_start_command,
         "walk_end_command": walk_end_command,
@@ -341,7 +336,10 @@ def agent_mission_dispatch_contract(
         },
         "prompt": prompt,
         "host_wait_schema": {
-            "host_wait": {"test_machine": "test machine name", "rationale": "lease evidence"}
+            "host_wait": {
+                "test_machine": "test machine name",
+                "rationale": "lease evidence",
+            }
         },
         "submit_command": submit_command,
     }

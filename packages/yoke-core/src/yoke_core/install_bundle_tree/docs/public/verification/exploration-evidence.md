@@ -21,13 +21,17 @@ credentials. It accepts bounded argv rather than shell text and returns
 redacted output. Argv paths name the **Test Machine's** filesystem, so the
 session-cwd write-authority guard exempts them; a shell redirect after the
 argv still runs locally and stays enforced. Guards see that argv only on a
-direct call, so never wrap host-command in your own script. To pull a file
-from the Test Machine:
+direct call, so never wrap host-command in your own script. To copy a file
+from the Test Machine, use `host-copy` with the same mission flags:
 
 ```text
-yoke --env <connection> qa mission host-command ... -- base64 -i REMOTE_PATH > LOCAL.json
-jq -r .stdout LOCAL.json | base64 -d > LOCAL_FILE
+yoke --env <connection> qa mission host-copy ... --from REMOTE_PATH --to LOCAL_FILE
 ```
+
+It writes the file's exact bytes to `LOCAL_FILE` and prints its byte count and
+`sha256`. It refuses a file over the QA artifact limit (20 MB), a missing
+path, and any path inside the mission scratch directory, which holds staged
+secrets; each refusal names its recovery.
 
 For session-start receiving proof, read the delivered marker on the receiving
 host through the same `host-command` template with `-- cat MARKER_PATH`.

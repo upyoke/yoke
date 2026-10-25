@@ -36,6 +36,7 @@
   "qa methods list": "List the QA methods a project can use.",
   "qa mission": "Run steps of an exploratory QA walk.",
   "qa mission host-command": "Run one command on the QA host during a walk.",
+  "qa mission host-copy": "Copy one file off the QA host during a walk.",
   "qa mission walk-end": "Finish an exploratory QA walk.",
   "qa mission walk-start": "Start an exploratory QA walk.",
   "qa no": "Record that a project has no test suite.",

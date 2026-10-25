@@ -12,8 +12,7 @@ from yoke_cli.commands._helpers import show_delegate_help
 from yoke_cli.transport.dispatcher import build_actor
 
 
-_QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
-_QA_MISSION_WALK_MODULE = "yoke_core.domain.agent_mission_walk_cli"
+QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
 
 
 QA_CASE_RUN_USAGE = (
@@ -54,22 +53,6 @@ QA_PLAN_REVIEW_BEGIN_USAGE = (
     "yoke qa plan review-begin [--item PREFIX-N | --project P] "
     "--execution-id ID [--session-id S] [--json]"
 )
-QA_MISSION_HOST_COMMAND_USAGE = (
-    "yoke qa mission host-command "
-    "[--item PREFIX-N | --project P] "
-    "--execution-id ID --requirement-id N [--test-machine TEST_MACHINE] "
-    "[--gui-session] [--timeout-seconds N] [--session-id S] -- ARGV..."
-)
-QA_MISSION_WALK_START_USAGE = (
-    "yoke qa mission walk-start "
-    "[--item PREFIX-N | --project P] "
-    "--execution-id ID --requirement-id N [--session-id S]"
-)
-QA_MISSION_WALK_END_USAGE = (
-    "yoke qa mission walk-end "
-    "[--item PREFIX-N | --project P] "
-    "--execution-id ID --requirement-id N --run-id N [--timeout-seconds N] [--session-id S]"
-)
 
 
 def qa_case_run(args: List[str]) -> int:
@@ -82,7 +65,7 @@ def qa_case_run(args: List[str]) -> int:
         "--expected-sha FULL_SHA; CI refuses source mismatches before publication.",
     ):
         return 0
-    return _run_execution_module(
+    return run_execution_module(
         "yoke_core.domain.qa_case_execution_cli",
         args,
     )
@@ -109,7 +92,7 @@ def qa_plan_run(args: List[str]) -> int:
         "(source: docs/public/verification/failed-item-qa.md).",
     ):
         return 0
-    return _run_execution_module(
+    return run_execution_module(
         "yoke_core.domain.qa_plan_execution_cli",
         args,
     )
@@ -123,7 +106,7 @@ def qa_plan_adopt(args: List[str]) -> int:
         "Preserves captured evidence; retry review-begin or the exact execution resume command after adoption.",
     ):
         return 0
-    return _run_execution_module("yoke_core.domain.qa_plan_execution_adopt_cli", args)
+    return run_execution_module("yoke_core.domain.qa_plan_execution_adopt_cli", args)
 
 
 def qa_plan_reconcile(args: List[str]) -> int:
@@ -142,7 +125,7 @@ def qa_plan_reconcile(args: List[str]) -> int:
         "receipt.",
     ):
         return 0
-    return _run_execution_module(
+    return run_execution_module(
         "yoke_core.domain.qa_plan_execution_reconcile_cli", args
     )
 
@@ -156,7 +139,7 @@ def qa_plan_abort(args: List[str]) -> int:
         "cite the Progress Log or an artifact for the full rationale.",
     ):
         return 0
-    return _run_execution_module(
+    return run_execution_module(
         "yoke_core.domain.qa_plan_execution_abort_cli",
         args,
     )
@@ -169,7 +152,7 @@ def qa_plan_review_submit(args: List[str]) -> int:
         "Requires the named immutable QA case or execution; item cases require the item work claim.",
     ):
         return 0
-    return _run_execution_module(
+    return run_execution_module(
         "yoke_core.domain.qa_plan_review_cli",
         args,
     )
@@ -183,40 +166,7 @@ def qa_plan_review_begin(args: List[str]) -> int:
         "An aborted or errored execution remains terminal after review.",
     ):
         return 0
-    return _run_execution_module("yoke_core.domain.qa_plan_review_begin_cli", args)
-
-
-def qa_mission_host_command(args: List[str]) -> int:
-    if show_delegate_help(
-        args,
-        QA_MISSION_HOST_COMMAND_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
-    ):
-        return 0
-    return _run_execution_module(
-        _QA_MISSION_HOST_COMMAND_MODULE,
-        args,
-    )
-
-
-def qa_mission_walk_start(args: List[str]) -> int:
-    if show_delegate_help(
-        args,
-        QA_MISSION_WALK_START_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
-    ):
-        return 0
-    return _run_execution_module(_QA_MISSION_WALK_MODULE, ["start", *args])
-
-
-def qa_mission_walk_end(args: List[str]) -> int:
-    if show_delegate_help(
-        args,
-        QA_MISSION_WALK_END_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
-    ):
-        return 0
-    return _run_execution_module(_QA_MISSION_WALK_MODULE, ["end", *args])
+    return run_execution_module("yoke_core.domain.qa_plan_review_begin_cli", args)
 
 
 def _pin_execution_session(args: List[str]) -> Tuple[List[str], str]:
@@ -258,13 +208,13 @@ def _assert_unmodified_host_command_args(
     )
 
 
-def _run_execution_module(
+def run_execution_module(
     module: str,
     args: List[str],
 ) -> int:
     requested_args = list(args)
     child_args, session_id = _pin_execution_session(list(requested_args))
-    if module == _QA_MISSION_HOST_COMMAND_MODULE:
+    if module == QA_MISSION_HOST_COMMAND_MODULE:
         _assert_unmodified_host_command_args(requested_args, child_args)
     popen_kwargs = {"start_new_session": True}
     if session_id:
@@ -301,9 +251,6 @@ TOOL_COMMANDS = {
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "review-begin"): qa_plan_review_begin,
     ("qa", "plan", "run"): qa_plan_run,
-    ("qa", "mission", "host-command"): qa_mission_host_command,
-    ("qa", "mission", "walk-start"): qa_mission_walk_start,
-    ("qa", "mission", "walk-end"): qa_mission_walk_end,
 }
 
 USAGE = {
@@ -314,9 +261,6 @@ USAGE = {
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan review-begin": QA_PLAN_REVIEW_BEGIN_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
-    "yoke qa mission host-command": QA_MISSION_HOST_COMMAND_USAGE,
-    "yoke qa mission walk-start": QA_MISSION_WALK_START_USAGE,
-    "yoke qa mission walk-end": QA_MISSION_WALK_END_USAGE,
 }
 
 
@@ -327,15 +271,9 @@ __all__ = [
     "QA_PLAN_ABORT_USAGE",
     "QA_PLAN_RUN_USAGE",
     "QA_PLAN_REVIEW_SUBMIT_USAGE",
-    "QA_MISSION_HOST_COMMAND_USAGE",
-    "QA_MISSION_WALK_END_USAGE",
-    "QA_MISSION_WALK_START_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
-    "qa_mission_host_command",
-    "qa_mission_walk_end",
-    "qa_mission_walk_start",
     "qa_plan_abort",
     "qa_plan_review_submit",
     "qa_plan_run",
