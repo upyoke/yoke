@@ -149,7 +149,7 @@ def test_set_aside_member_holder_gets_one_notice_naming_what_it_owes(
     assert f"requirement {sources['stage']}" in bodies[0]
     assert "on stage" in bodies[0]
     assert "delivered to prod" in bodies[0]
-    assert "yoke qa plan run --deployment-run-id" in bodies[0]
+    assert f"yoke qa plan run --item YOK-{item_id} --stage STAGE" in bodies[0]
     assert "You hold its work claim" in bodies[0]
     assert f"requirement {sources['prod']}" not in bodies[0]
 

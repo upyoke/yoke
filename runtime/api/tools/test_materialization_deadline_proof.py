@@ -30,7 +30,8 @@ def test_member_project_and_public_ref_identity_are_required(
             return {"rows": [{"id": 123}]}, 0.1
         assert args[:3] == ("qa", "plan", "materialize")
         assert args[args.index("--project") + 1] == "member-project"
-        assert args[args.index("--member") + 1] == member
+        assert args[args.index("--item") + 1] == member
+        assert "--deployment-run-id" not in args
         return {
             "result": {
                 "created_requirement_ids": [],
