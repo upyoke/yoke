@@ -1,12 +1,8 @@
 """Non-zero watcher exits the watched command chose, and how to continue them.
 
-A watcher renders every non-zero child exit as a failure. The deploy
-pipeline's scoped-QA hold is not one: it parks the run at a QA stage the
-run may not pass on its own, which is the designed outcome of a flow that
-carries QA. Rendering it as a failure told the operator "terminal cause
-not diagnosed from captured output; inspect the raw capture before
-retrying" — an instruction to investigate a healthy wait, with no way to
-continue it, on the one exit that most needs its continuation named.
+A watcher renders non-zero child exits as failures unless the command's
+own report identifies a designed wait, such as a deploy held at scoped QA
+or a merge queued for landing. Each wait must name its continuation.
 
 The wait's own report is the authority for what it says. The pipeline
 prints the prefix naming the hold and knows the recovery for it, so this
@@ -22,6 +18,7 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     redrive_recovery,
 )
 from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
+from yoke_core.domain.merge_queue_landing_wait import RECOVERABLE_QUEUE_EXIT_CODE
 
 import re
 from dataclasses import dataclass
@@ -72,6 +69,18 @@ def _scoped_qa_hold(raw_capture: Path) -> DesignedWait | None:
     )
 
 
+def _merge_landing_wait(raw_capture: Path) -> DesignedWait | None:
+    """Read the queue landing report and its own backticked rerun command."""
+    with raw_capture.open(encoding="utf-8", errors="replace") as capture:
+        for line in capture:
+            text = _compact(line)
+            if text.startswith("landing_pending:"):
+                command = re.search(r"`([^`]+)`", text)
+                if command is not None:
+                    return DesignedWait(cause=text, continuation=command.group(1))
+    return None
+
+
 def designed_wait(
     *, kind: str, exit_code: int, raw_capture: Path
 ) -> DesignedWait | None:
@@ -81,6 +90,8 @@ def designed_wait(
     the hold's own report in the capture, so a resume the pipeline refused
     for trying to skip QA still renders as the failure it is.
     """
+    if kind == "merge" and exit_code == RECOVERABLE_QUEUE_EXIT_CODE:
+        return _merge_landing_wait(raw_capture)
     if kind != DEPLOY_WATCH_KIND or exit_code != EXIT_AWAITING_QA:
         return None
     return _scoped_qa_hold(raw_capture)
