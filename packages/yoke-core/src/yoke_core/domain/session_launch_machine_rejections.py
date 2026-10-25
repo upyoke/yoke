@@ -5,7 +5,7 @@ reasons into one set lets long-dead machines hide the real cause on a live
 one. Each rejection here belongs to exactly one machine and carries the
 reasons of that machine's freshest relay, so a refusal can say which machine
 failed which rule. Machines that have not reported for a day are collapsed
-into one clause so they cannot drown out the machines that matter.
+into one unnamed count so they cannot drown out the machines that matter.
 """
 
 from __future__ import annotations
@@ -109,15 +109,14 @@ def _machine_clause(entry: MachineRejection) -> str:
 
 
 def describe_machine_rejections(rejections: Sequence[MachineRejection]) -> list[str]:
-    """One clause per live machine, then one clause for all offline ones."""
+    """One clause per live machine, then one count for all offline ones."""
     offline = [entry for entry in rejections if entry.offline]
     clauses = [_machine_clause(entry) for entry in rejections if not entry.offline]
     if offline:
         newest = max(entry.last_seen_at for entry in offline if entry.last_seen_at)
-        names = ", ".join(sorted(entry.name for entry in offline))
         noun = "machine" if len(offline) == 1 else "machines"
         clauses.append(
-            f"{len(offline)} {noun} offline since {newest:%Y-%m-%d}: {names}"
+            f"{len(offline)} {noun} offline (newest last seen {_instant(newest)})"
         )
     return clauses
 

@@ -76,7 +76,14 @@ class LevelPlacement:
 def placement_refusal(
     level: Level, weighed: list[LevelCandidate], *, surface: str | None
 ) -> str:
-    blocked = "; ".join(f"{c.label}: {c.blocked}" for c in weighed)
+    # Options that share one reason (every option, when no machine is usable)
+    # share one clause, so the reason is not repeated once per option.
+    by_reason: dict[str | None, list[str]] = {}
+    for candidate in weighed:
+        by_reason.setdefault(candidate.blocked, []).append(candidate.label)
+    blocked = "; ".join(
+        f"{', '.join(labels)}: {reason}" for reason, labels in by_reason.items()
+    )
     return compose_refusal(
         f"No {level.name} option has capacity" + (f" on {surface}" if surface else ""),
         evaluated=blocked or (

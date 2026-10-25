@@ -43,7 +43,8 @@ each launch in a burst counts the earlier ones.
 Unknown quota, and unknown or stale extra usage, never mean exhaustion.
 
 When no native selection can launch, `level_no_capacity` names each refusal
-and its recovery. Unknown levels refuse `level_unknown`. The retired JUNIOR
+and its recovery. Options that share one reason share one clause, and machines
+silent for a day appear only as a count with the newest last-seen time. Unknown levels refuse `level_unknown`. The retired JUNIOR
 exhausted-to-Cursor-Opus fallback no longer exists: Cursor Opus medium resolves
 as SENIOR, and cannot be inserted into JUNIOR as an exhaustion escape.
 Capacity-stopped workers use [same-level recovery](capacity-recovery.md),

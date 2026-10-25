@@ -2,7 +2,7 @@
  "id": "no-usable-option",
  "title": "No usable option",
  "status": "observed",
- "text": "level_no_capacity reports every candidate refusal and recovery. Unknown native listings require a probe; unsupported listings require a declared adapter or another observed surface. Unknown quota is not exhausted, and another level is never borrowed.",
+ "text": "level_no_capacity reports every candidate refusal and recovery, one clause per shared reason, with offline machines as a count. Unknown native listings require a probe; unsupported listings require a declared adapter or another observed surface. Unknown quota is not exhausted, and another level is never borrowed.",
  "page": "levels",
  "position": 4
 }
