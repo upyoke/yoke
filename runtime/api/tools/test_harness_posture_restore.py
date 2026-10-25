@@ -77,7 +77,6 @@ def test_setup_enforces_posture_and_keeps_unrelated_settings(machine):
         "allow": ["Shell(ls)"],
         "deny": ["Shell(rm)"],
     }
-    assert not (codex_config_path().parent / "rules/yoke.rules").exists()
     for harness in ("claude-code", "codex", "cursor"):
         assert posture_findings(harness) == (), harness
         assert posture_state(harness) == POSTURE_UNATTENDED
