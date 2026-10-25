@@ -153,7 +153,9 @@ class TestStrandedAdvisoryBounds:
             "tool_name": "Write",
             "tool_input": {"file_path": str(target)},
         }
-        payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
+        payload.update(
+            write_targets_fact(payload, parse_shell(extract_command(payload)))
+        )
         with mock.patch.object(
             lint_lane_main_write,
             "emit_stranded_lane_advisory",
@@ -185,3 +187,46 @@ class TestStrandedAdvisoryBounds:
             verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
         assert verdict.allow is False
         emit_advisory.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "ignored, allowed", [(True, True), (None, False), (False, False)]
+)
+@pytest.mark.parametrize("harness", ["claude-code", "codex", "cursor"])
+def test_remote_metadata_fact_needs_no_corresponding_checkout(
+    conn,
+    monkeypatch,
+    harness_family,
+    harness,
+    ignored,
+    allowed,
+):
+    import subprocess
+    from yoke_contracts.hook_runner import client_facts as cf
+
+    harness_family(harness)
+    repo = Path("/client-only/project")
+    lane = _seed_lane(conn, repo, mkdir=False)
+    target = str(repo / ".git/info/exclude")
+    payload = {
+        "session_id": "sid-lane",
+        "tool_name": "Bash",
+        "cwd": str(repo),
+        "tool_input": {"command": f"echo .DS_Store >> {target}"},
+        **cf.client_fact(
+            cf.WRITE_TARGETS_KEY,
+            {
+                "paths": {target: {"path": target, "ignored": ignored}},
+                "worktrees": [str(lane)],
+            },
+        ),
+    }
+
+    def no_git(*args, **kwargs):
+        raise AssertionError("authority must not run Git")
+
+    monkeypatch.setattr(subprocess, "run", no_git)
+    with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
+    assert verdict.allow is allowed
+    assert str(lane / ".git/info/exclude") not in verdict.reason

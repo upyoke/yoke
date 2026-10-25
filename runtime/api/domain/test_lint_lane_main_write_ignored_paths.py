@@ -104,7 +104,10 @@ def _write(repo: Path, relative: str) -> dict:
         "tool_input": {"file_path": str(repo / relative), "content": "body\n"},
     }
     # The client answers for its own checkout before the payload leaves it.
-    return {**payload, **write_targets_fact(payload, parse_shell(extract_command(payload)))}
+    return {
+        **payload,
+        **write_targets_fact(payload, parse_shell(extract_command(payload))),
+    }
 
 
 def _refuse_subprocess(*_args, **_kwargs):
@@ -177,3 +180,73 @@ def test_without_the_client_fact_an_ignored_path_counts_as_tracked(conn, repo) -
         verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
 
     assert verdict.allow is False
+
+
+@pytest.mark.parametrize("relative", [".git/info/exclude", ".git/info/../info/exclude"])
+@pytest.mark.parametrize("tool", ["Write", "Bash"])
+def test_metadata_is_allowed_with_client_proof(conn, repo, monkeypatch, relative, tool):
+    _seed_lane(conn, repo)
+    payload = {
+        "session_id": SESSION,
+        "tool_name": tool,
+        "cwd": str(repo),
+        "tool_input": (
+            {"command": f"echo .DS_Store >> {relative}"}
+            if tool == "Bash"
+            else {"file_path": str(repo / relative)}
+        ),
+    }
+    payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
+    assert _evaluate_on_empty_machine(payload, monkeypatch).allow is True
+
+
+def test_unproven_metadata_refuses_without_an_impossible_lane_destination(conn, repo):
+    worktree = _seed_lane(conn, repo)
+    payload = _write(repo, ".git/info/exclude")
+    payload.pop(WRITE_TARGETS_KEY)
+    with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
+    assert verdict.allow is False
+    assert verdict.lane_equivalent == ""
+    assert str(worktree / ".git/info/exclude") not in verdict.reason
+    assert "refresh the installed client hooks" in verdict.reason
+
+
+@pytest.mark.parametrize("relative", [".git-source/new.py", "src/.git-not-metadata.py"])
+def test_new_source_files_stay_protected(conn, repo, relative):
+    worktree = _seed_lane(conn, repo)
+    with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(_write(repo, relative))
+    assert verdict.allow is False
+    assert verdict.lane_equivalent == str(worktree / relative)
+    assert not (worktree / relative).exists()
+
+
+def test_metadata_fact_does_not_bypass_destructive_git(conn, repo):
+    from yoke_core.domain import lint_destructive_git
+
+    _seed_lane(conn, repo)
+    (repo / TRACKED_SOURCE).write_text("VALUE = 2\n", encoding="utf-8")
+    payload = {
+        "session_id": SESSION,
+        "tool_name": "Bash",
+        "cwd": str(repo),
+        "tool_input": {
+            "command": f"git -C {repo} reset --hard >> {repo}/.git/info/exclude"
+        },
+    }
+    payload.update(write_targets_fact(payload, parse_shell(extract_command(payload))))
+    metadata = payload[WRITE_TARGETS_KEY]["value"]["paths"][
+        str(repo / ".git/info/exclude")
+    ]
+    assert metadata["ignored"] is True
+    # The redirection is metadata; the reset still writes source.
+    with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+        assert lint_lane_main_write.evaluate_pre_tool_use(payload).allow is False
+    with mock.patch.object(
+        lint_destructive_git, "_claimed_worktree_threats", return_value=[]
+    ):
+        result = lint_destructive_git.evaluate_payload(payload)
+    assert result is not None
+    assert result[1] == "denied"
+    assert TRACKED_SOURCE in result[0]

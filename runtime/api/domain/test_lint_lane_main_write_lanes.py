@@ -51,7 +51,9 @@ def repo(tmp_path):
 
 def _seed_lanes(conn, repo):
     register_machine_checkout(
-        repo.parent / "machine-config", repo, project_id=1,
+        repo.parent / "machine-config",
+        repo,
+        project_id=1,
     )
     seed_item(conn, item_id=ITEM_ID, branch=None, status="implementing")
     paths = []
@@ -59,7 +61,10 @@ def _seed_lanes(conn, repo):
         lane = repo / ".worktrees" / branch
         lane.mkdir(parents=True)
         insert_item_worktree(
-            conn, item_id=ITEM_ID, branch=branch, lane_role=role,
+            conn,
+            item_id=ITEM_ID,
+            branch=branch,
+            lane_role=role,
             path=str(lane),
         )
         paths.append(lane)
@@ -70,7 +75,9 @@ def _seed_lanes(conn, repo):
 
 def _evaluate(payload):
     with mock.patch.object(
-        lint_lane_main_write, "emit_denied", return_value=None,
+        lint_lane_main_write,
+        "emit_denied",
+        return_value=None,
     ):
         return lint_lane_main_write.evaluate_pre_tool_use(payload)
 
@@ -91,12 +98,14 @@ class TestHeldLanes:
 
     def test_relative_write_from_a_held_lane_workdir(self, conn, repo):
         lanes = _seed_lanes(conn, repo)
-        verdict = _evaluate({
-            "session_id": SESSION,
-            "tool_name": "Bash",
-            "cwd": str(lanes[1]),
-            "tool_input": {"command": "echo changed > src/module.py"},
-        })
+        verdict = _evaluate(
+            {
+                "session_id": SESSION,
+                "tool_name": "Bash",
+                "cwd": str(lanes[1]),
+                "tool_input": {"command": "echo changed > src/module.py"},
+            }
+        )
         assert verdict.allow is True
 
 
@@ -128,7 +137,9 @@ class TestLaneEquivalentPath:
         held = root / ".worktrees" / "held"
         held.mkdir(parents=True)
         claim = ClaimedWorktree(
-            item_id=1, task_num=None, worktree_path=str(held),
+            item_id=1,
+            task_num=None,
+            worktree_path=str(held),
         )
         other = root / ".worktrees" / "other" / "a" / "b.py"
         assert lane_equivalent_path(str(other), claim) == str(
@@ -138,7 +149,9 @@ class TestLaneEquivalentPath:
 
 class TestSessionIdentity:
     def test_env_fallback_prefers_the_codex_parent_session(
-        self, monkeypatch, harness_family,
+        self,
+        monkeypatch,
+        harness_family,
     ):
         harness_family("codex")
         for name in ("YOKE_SESSION_ID", "CLAUDE_CODE_SESSION_ID"):
@@ -151,9 +164,12 @@ class TestSessionIdentity:
 class TestApplyPatchGuidance:
     def test_apply_patch_denial_does_not_recommend_the_escape_token(self):
         text = format_denial(
-            item_label="item", lane_path="/lane", attempted_path="/root/a.py",
+            item_label="item",
+            lane_path="/lane",
+            attempted_path="/root/a.py",
             lane_equivalent="/lane/a.py",
-            suppression_seen=False, tool_name="apply_patch",
+            suppression_seen=False,
+            tool_name="apply_patch",
         )
         assert f"add `{ESCAPE_TOKEN}`" not in text
         assert "apply_patch" in text
@@ -161,8 +177,30 @@ class TestApplyPatchGuidance:
 
     def test_other_tools_keep_the_escape_recipe(self):
         text = format_denial(
-            item_label="item", lane_path="/lane", attempted_path="/root/a.py",
+            item_label="item",
+            lane_path="/lane",
+            attempted_path="/root/a.py",
             lane_equivalent="/lane/a.py",
-            suppression_seen=False, tool_name="Write",
+            suppression_seen=False,
+            tool_name="Write",
         )
         assert f"add `{ESCAPE_TOKEN}`" in text
+
+
+@pytest.mark.parametrize("target", ["new/source.py", ".git/info/exclude"])
+def test_lane_suggestion_never_resolves_against_server_filesystem(tmp_path, target):
+    from pathlib import Path
+
+    root = tmp_path / "server"
+    root.mkdir()
+    (root / "new").symlink_to(tmp_path / "unrelated", target_is_directory=True)
+    claim = ClaimedWorktree(
+        item_id=1,
+        task_num=None,
+        worktree_path=str(root / ".worktrees" / "held"),
+    )
+    with mock.patch.object(Path, "resolve", side_effect=AssertionError("server probe")):
+        suggestion = lane_equivalent_path(str(root / target), claim)
+    assert suggestion == (
+        "" if target.startswith(".git/") else str(root / ".worktrees" / "held" / target)
+    )
