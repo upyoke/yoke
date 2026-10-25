@@ -10,7 +10,7 @@ Unless it just passed, check the session; relay each failure's fix, rerun, and
 continue only when all pass:
 
 ```text
-yoke doctor run --session --project {project}
+yoke doctor run --session
 ```
 
 Never switch projects or install a harness. Missing wire-up: `yoke setup`.
