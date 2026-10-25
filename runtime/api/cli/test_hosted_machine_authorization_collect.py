@@ -97,7 +97,9 @@ def test_agent_setup_names_an_approval_collected_too_late(drive, answers):
     detail = " ".join(lines[-1]["detail"])
     assert "authorization_expired: approval_uncollected" in detail
     assert "authorization_expired: authorization_expired" not in detail
-    assert _saved()["pending_approval"] is None
+    saved = _saved()["pending_approval"]
+    assert saved["kind"] == "machine" and "device_code" not in saved
+    assert "approval_uncollected" in saved["error"]
 
 
 def _wait(answers, replies) -> object:
