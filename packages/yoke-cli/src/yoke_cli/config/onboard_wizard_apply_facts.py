@@ -63,6 +63,11 @@ def own_project_reference(shell: Any, checkout: str) -> bool:
     )
 
 
+def own_folder(shell: Any, folder: str) -> bool:
+    """True when ``folder`` did not exist until this run's Apply."""
+    return shell._run_facts.names_folder(APPLY_NEW_FOLDER, folder)
+
+
 def without_own_registration(shell: Any, projects: list[Any]) -> list[Any]:
     """Saved checkouts, minus the one this run's Apply registered."""
     facts = shell._run_facts
@@ -75,11 +80,7 @@ def without_own_registration(shell: Any, projects: list[Any]) -> list[Any]:
 
 def without_own_folder(shell: Any, folders: list[Any]) -> list[Any]:
     """Detected checkouts, minus the folder this run's Apply created."""
-    return [
-        folder
-        for folder in folders
-        if not shell._run_facts.names_folder(APPLY_NEW_FOLDER, folder)
-    ]
+    return [folder for folder in folders if not own_folder(shell, folder)]
 
 
 def _registered_checkouts(config_path: str) -> set[str]:
@@ -91,6 +92,7 @@ def _registered_checkouts(config_path: str) -> set[str]:
 
 
 __all__ = [
+    "own_folder",
     "own_project",
     "own_project_reference",
     "record",

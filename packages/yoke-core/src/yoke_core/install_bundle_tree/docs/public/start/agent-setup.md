@@ -79,8 +79,10 @@ already signed in and approve the code, or approve a Yoke machine with
 `yoke machines approve CODE` on a machine already connected. When a password
 is needed, ask the person for just that entry. When approval is done, run the
 line's `answer_command`. The same browser line again means approval has not
-finished. The code lapses after `wait.max_seconds`, and setup then offers a
-fresh one. `guidance` names how to choose differently instead.
+finished. The code lapses after `wait.max_seconds`. A lapsed or failed machine
+approval asks `connect.hosted_machine_error` on every call until it is
+answered; `retry` starts one fresh approval. `guidance` names how to choose
+differently instead.
 
 Earlier in the output, a `browser` line is a link to open on the way, such as
 the GitHub App installation page; the last line says what comes next.

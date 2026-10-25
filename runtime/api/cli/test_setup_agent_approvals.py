@@ -154,7 +154,8 @@ def test_a_denial_mints_one_fresh_code_then_asks(drive, server):
     code, lines = drive()
 
     assert (code, lines[-1]["key"]) == (0, "connect.hosted_machine_error"), lines
-    assert _saved()["pending_approval"] is None
+    error = {"kind": "machine", "error": "authorization_denied: denied"}
+    assert _saved()["pending_approval"] == error
     assert server.started == ["CODE-1", "CODE-2"]
 
 

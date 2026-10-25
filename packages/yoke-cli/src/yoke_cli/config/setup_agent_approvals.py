@@ -9,7 +9,9 @@ private setup store, prints the browser step as this call's outcome and exits.
 The next ``yoke setup --agent`` asks once: an approval continues setup, a
 pending one prints the same browser step again, and a denial, expiry or failure
 takes the wizard's own routes. The saved authorization is cleared as soon as it
-is used up.
+is used up. A machine approval that ends in the error question is saved as that
+error until the person answers it, so the next call asks the same question
+instead of starting a fresh approval.
 """
 
 from __future__ import annotations
@@ -60,6 +62,9 @@ class AgentApprovals:
     ) -> None:
         saved = self._saved_approval("machine")
         if saved and not after_denial and not replace_current:
+            if "error" in saved:
+                self._goto_hosted_machine_error(saved["error"])
+                return
             pending = _restore(Pending, saved)
             self._hosted_machine_authorization = pending
             self._hosted_machine_denial_retry_used = bool(saved["after_denial"])
@@ -99,11 +104,18 @@ class AgentApprovals:
             self._goto_hosted_machine_denied(str(exc))
             return
         except Exception as exc:  # noqa: BLE001 - the wizard's error route names each cause
-            self._forget_approval("machine")
             self._goto_hosted_machine_error(str(exc))
             return
         self._forget_approval("machine")
         accept_machine_credential(self, value)
+
+    def _goto_hosted_machine_error(self, message: str) -> None:
+        self._answers.keep_pending_approval({"kind": "machine", "error": message})
+        super()._goto_hosted_machine_error(message)
+
+    def _return_to_destination_picker(self, *, drop_current: bool = True) -> None:
+        self._forget_approval("machine")
+        super()._return_to_destination_picker(drop_current=drop_current)
 
     # ── GitHub sign-in ──────────────────────────────────────
 

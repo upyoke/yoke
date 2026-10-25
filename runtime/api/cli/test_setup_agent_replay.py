@@ -7,6 +7,7 @@ universe — must not send the replay down a different branch.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -139,8 +140,9 @@ def test_an_existing_project_cloned_in_the_project_step_takes_its_layer_answer(
     assert (folder / ".git").is_dir()
 
 
+@pytest.mark.parametrize("remote", [None, REMOTE])
 def test_change_answers_after_a_failed_apply_replays_to_review(
-    agent, tmp_path: Path, monkeypatch
+    agent, tmp_path: Path, monkeypatch, remote
 ):
     drive, fake = agent
     folder = tmp_path / "code" / "demo"
@@ -160,8 +162,14 @@ def test_change_answers_after_a_failed_apply_replays_to_review(
     def effects(_kwargs):
         # What a real Apply leaves behind before it fails.
         applied["done"] = True
-        if not folder.exists():
-            git_checkout(folder)
+        if folder.exists():
+            return
+        git_checkout(folder)
+        if remote:  # Apply published the repository before it failed.
+            subprocess.run(
+                ["git", "-C", str(folder), "remote", "add", "origin", remote],
+                check=True,
+            )
 
     monkeypatch.setattr(local_universe_setup, "inspect_local_state", inspect)
     monkeypatch.setattr(machine_config, "configured_projects", registered)

@@ -3,7 +3,9 @@
 Machine state can change between calls so a stored answer no longer fits its
 screen; the run then stops at that earlier question, not the one it was
 waiting at. The refusal prints that question with its answer command, and
-that exact answer must be accepted on the next call.
+that exact answer must be accepted on the next call. A question the run
+stopped at must be reached again: the machine approval's error question is
+saved, so its answer runs once and is never refused after a fresh approval.
 """
 
 from __future__ import annotations
@@ -17,7 +19,8 @@ from runtime.api.cli.setup_agent_test_support import (
     AgentDriver,
     isolate_agent_setup,
 )
-from yoke_cli.config import local_universe_setup
+from runtime.api.cli.test_setup_agent_approvals import Server
+from yoke_cli.config import hosted_machine_authorization, local_universe_setup
 
 pytest.importorskip("textual")
 
@@ -26,6 +29,14 @@ pytest.importorskip("textual")
 def drive(tmp_path: Path, monkeypatch, capsys) -> AgentDriver:
     isolate_agent_setup(tmp_path, monkeypatch)
     return AgentDriver(capsys)
+
+
+@pytest.fixture
+def server(monkeypatch) -> Server:
+    fake = Server()
+    monkeypatch.setattr(hosted_machine_authorization, "start", fake.start)
+    monkeypatch.setattr(hosted_machine_authorization, "poll_once", fake.poll_once)
+    return fake
 
 
 def test_the_answer_a_refusal_prints_is_accepted_next(drive, monkeypatch):
@@ -47,3 +58,32 @@ def test_the_answer_a_refusal_prints_is_accepted_next(drive, monkeypatch):
 
     assert (code, lines[-1]["state"]) == (0, "question"), lines
     assert lines[-1]["key"] == "github.machine"
+
+
+def test_a_retry_answer_starts_one_approval_and_returns_it(drive, server):
+    drive()
+    drive("connect.destination=hosted")
+    server.polls = [RuntimeError("authorization_expired: the code expired")]
+    code, lines = drive()
+    assert (code, lines[-1]["key"]) == (0, "connect.hosted_machine_error"), lines
+    assert drive() == (code, lines)  # a bare call asks again and starts nothing
+
+    code, lines = drive("connect.hosted_machine_error=retry")
+
+    assert (code, lines[-1]["state"]) == (0, "browser"), lines
+    assert lines[-1]["human"]["user_code"] == "CODE-2"
+    assert server.started == ["CODE-1", "CODE-2"]
+
+
+def test_back_from_the_approval_error_starts_nothing(drive, server):
+    drive()
+    drive("connect.destination=hosted")
+    server.polls = [RuntimeError("authorization_expired: the code expired")]
+    drive()
+
+    code, lines = drive("connect.hosted_machine_error=back")
+
+    assert (code, lines[-1]["key"]) == (0, "connect.destination"), lines
+    assert server.started == ["CODE-1"]
+    code, lines = drive("connect.destination=hosted")
+    assert (code, lines[-1]["human"]["user_code"]) == (0, "CODE-2"), lines
