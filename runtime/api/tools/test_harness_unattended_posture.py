@@ -3,7 +3,7 @@
 Covers the two config surfaces Yoke edits in place — Codex's TOML and
 Cursor's JSON — plus the pass that drives all three harnesses. The
 invariants under test are the same for both surfaces: set what is absent,
-never overwrite what the operator set, leave every unrelated setting alone,
+enforce unattended posture, leave every unrelated setting alone,
 and say out loud what changed.
 """
 
@@ -16,7 +16,9 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.harness_unattended_posture import (
+    CODEX_APPROVAL_POLICY,
     CODEX_APPROVAL_POLICY_KEY,
+    CODEX_SANDBOX_MODE,
     CODEX_SANDBOX_MODE_KEY,
     CURSOR_APPROVAL_MODE,
     CURSOR_APPROVAL_MODE_KEY,
@@ -94,14 +96,17 @@ def test_codex_plan_is_idempotent():
     assert not changed(record)
 
 
-def test_codex_plan_never_overwrites_an_operator_choice():
+def test_codex_plan_replaces_prompting_modes():
     base = 'approval_policy = "on-request"\nsandbox_mode = "read-only"\n'
     text, record = plan(base, CHECKOUT)
     parsed = parse_config(text)
-    assert parsed[CODEX_APPROVAL_POLICY_KEY] == "on-request"
-    assert parsed[CODEX_SANDBOX_MODE_KEY] == "read-only"
-    assert len(record["conflicts"]) == 2
-    assert record["set_keys"] == []
+    assert parsed[CODEX_APPROVAL_POLICY_KEY] == CODEX_APPROVAL_POLICY
+    assert parsed[CODEX_SANDBOX_MODE_KEY] == CODEX_SANDBOX_MODE
+    assert record["conflicts"] == []
+    assert set(record["set_keys"]) == {
+        CODEX_APPROVAL_POLICY_KEY,
+        CODEX_SANDBOX_MODE_KEY,
+    }
 
 
 def test_codex_plan_refuses_a_config_it_cannot_parse():
@@ -130,7 +135,6 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
     import yoke_contracts.codex_posture_install as codex_module
     from yoke_contracts import harness_posture_install as pass_module
     import yoke_contracts.cursor_posture_install as cursor_module
-    import yoke_contracts.harness_yoke_allow as allow_module
 
     monkeypatch.setattr(
         codex_module, "codex_config_path", lambda: _codex_home(tmp_path)
@@ -148,7 +152,6 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
         "configure_claude_cli_permission_mode",
         lambda **_kwargs: [],
     )
-    monkeypatch.setattr(allow_module, "configure_yoke_allow", lambda _harness: [])
     stream = io.StringIO()
     actions = pass_module.configure_harness_unattended_posture(
         checkout=Path(CHECKOUT), stream=stream
@@ -157,11 +160,14 @@ def test_the_pass_prints_every_action_exactly_once(tmp_path: Path, monkeypatch):
     assert stream.getvalue().count(actions[0]) == 1
 
 
-def test_codex_pass_reports_a_conflict_without_writing(tmp_path: Path):
+def test_codex_pass_replaces_a_prompting_mode(tmp_path: Path):
     target = _codex_home(tmp_path, 'approval_policy = "untrusted"\n')
     actions = configure_codex_unattended_posture(config_path=target)
-    assert any("left your own setting in place" in line for line in actions)
-    assert parse_config(target.read_text())[CODEX_APPROVAL_POLICY_KEY] == "untrusted"
+    assert any("enabled unattended mode" in line for line in actions)
+    assert (
+        parse_config(target.read_text())[CODEX_APPROVAL_POLICY_KEY]
+        == CODEX_APPROVAL_POLICY
+    )
 
 
 def test_cursor_pass_sets_both_keys_and_keeps_the_rest(tmp_path: Path):
@@ -178,7 +184,7 @@ def test_cursor_pass_sets_both_keys_and_keeps_the_rest(tmp_path: Path):
     assert cursor_posture_problems(payload) == ()
 
 
-def test_cursor_pass_never_overwrites_an_operator_choice(tmp_path: Path):
+def test_cursor_pass_replaces_prompting_modes(tmp_path: Path):
     target = _cursor_home(
         tmp_path,
         {
@@ -188,9 +194,13 @@ def test_cursor_pass_never_overwrites_an_operator_choice(tmp_path: Path):
     )
     actions = configure_cursor_unattended_posture(config_path=target)
     payload = json.loads(target.read_text())
-    assert payload[CURSOR_APPROVAL_MODE_KEY] == "allowlist"
-    assert len(actions) == 2
-    assert all("left your own setting in place" in line for line in actions)
+    assert payload[CURSOR_APPROVAL_MODE_KEY] == CURSOR_APPROVAL_MODE
+    assert (
+        payload[CURSOR_SANDBOX_CONTAINER][CURSOR_SANDBOX_MODE_KEY]
+        == CURSOR_SANDBOX_MODE
+    )
+    assert len(actions) == 1
+    assert "enabled unattended mode" in actions[0]
 
 
 def test_cursor_pass_skips_a_machine_with_no_cursor(tmp_path: Path):
@@ -267,7 +277,7 @@ def test_posture_state_reports_each_outcome(tmp_path: Path, monkeypatch) -> None
         POSTURE_PROMPTS,
         POSTURE_UNATTENDED,
     )
-    from yoke_contracts.harness_yoke_allow import posture_state
+    from yoke_contracts.harness_posture_read import posture_state
 
     for home, text, state in (
         ("yes", UNATTENDED_CODEX_TEXT, POSTURE_UNATTENDED),
@@ -303,7 +313,7 @@ def test_the_wizard_step_names_every_harness_file_and_key(tmp_path, monkeypatch)
         assert named in line
     for key in ("permissions.defaultMode", "approval_policy", "approvalMode"):
         assert key in line
-    assert "--skip-harness-permissions" in line
+    assert "Yoke setup, refresh and doctor repair restore unattended posture." in line
 
 
 def test_the_wizard_plans_the_step_for_every_destination():
@@ -327,4 +337,3 @@ def test_the_wizard_plans_the_step_for_every_destination():
 
     for local_destination in (True, False):
         assert POSTURE_PLAN_ACTION in _actions(local_destination=local_destination)
-    assert POSTURE_PLAN_ACTION not in _actions(harness_posture=False)

@@ -69,7 +69,6 @@ def wizard_defaults(
         project_checkout=parsed.project_checkout,
         project_clone_outcome=parsed.project_clone_outcome,
         apply=parsed.apply,
-        harness_posture=parsed.harness_posture,
         post_install=parsed.post_install,
     )
 

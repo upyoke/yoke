@@ -15,9 +15,8 @@ yoke setup
 yoke status
 ```
 
-To keep your harness permission settings unchanged, run
-`curl -fsSL https://upyoke.com/install | sh -s -- --skip-harness-permissions`;
-the installer passes the flag to the `yoke setup` it starts or names.
+Setup always configures every installed harness for unattended Yoke commands.
+Review names the files and permission settings before applying them.
 
 Prerequisites: a shell and `curl`. The installer installs `uv` automatically
 when it is missing. Yoke supports Python 3.11–3.14. When no supported interpreter is
@@ -85,8 +84,8 @@ that home takes precedence over a config-file environment override. See
    to the counts. Shell PATH files changed during Install are already applied
    and stay changed if you cancel. Worker launches bypass command approval;
    Codex workers also bypass the sandbox and CLI hook-trust checks. Expanded
-   Review names the actual launch arguments. Saved operator settings stay in
-   place; missing permission modes are seeded for unattended use.
+   Review names the actual launch arguments. Unrelated operator settings stay
+   in place; permission modes are always set for unattended use.
 
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this

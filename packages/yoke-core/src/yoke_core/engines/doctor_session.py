@@ -19,7 +19,7 @@ from yoke_cli.transport.dispatcher import build_actor
 from yoke_core.domain.control_plane_transport import relay
 from yoke_core.engines.doctor_hc_harness_unattended_posture import (
     VERIFIED_POSTURE_SURFACES,
-    harness_posture,
+    inspect_unattended_posture,
 )
 from yoke_core.engines.doctor_install import (
     SESSION_REQUIRED_DETAIL,
@@ -113,7 +113,7 @@ def hc_session_harness_unattended_posture(
         )
         return
     # The session is running this harness, so a missing config is a failure.
-    verdict, detail = harness_posture(harness_id, installed=True, surface_id=surface_id)
+    verdict, detail = inspect_unattended_posture(harness_id, installed=True, surface_id=surface_id)
     if surface_id not in VERIFIED_POSTURE_SURFACES[harness_id]:
         rec.record(POSTURE_SLUG, POSTURE_TITLE, verdict, detail)
         return

@@ -17,15 +17,14 @@ yoke setup --agent
 
 Follow the printed answers, reuse the approved connection, preserve the
 project's GitHub choice and inspect Review before applying. The permission
-pass covers every detected harness and preserves explicit existing settings.
-If Review changes a harness outside the approved scope, stop and request a
-registered scoped route or explicit approval for those additional changes.
+pass always applies unattended posture to every detected harness.
+If Review changes a harness outside the approved scope, stop and request
+explicit approval for those additional changes.
 Do not substitute a direct config edit or an internal Python helper.
 
-`--skip-harness-permissions` preserves permissions when setup must continue
-under a hold. A saved agent setup rejects changed flags: preserve its choices
-and follow its printed staged-setup discard recovery before starting with the
-new flag. This removes setup answers, not credentials or installed software.
+Setup cannot continue under a permission hold: approve unattended posture
+for every installed harness before applying. Preserve a saved agent setup's
+choices and follow its printed recovery if those choices need to change.
 
 After applying an approved plan, re-check the installed health result:
 

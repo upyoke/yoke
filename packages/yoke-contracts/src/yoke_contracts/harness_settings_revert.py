@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Tuple
 from yoke_contracts import harness_settings_ledger as ledger
 from yoke_contracts.codex_config_posture import (
     remove_top_level_key,
+    replace_top_level_assignment,
+    top_level_assignment,
     remove_trust_table,
 )
 from yoke_contracts.codex_hook_trust_toml import CodexHookTrustStoreError, mutate
@@ -64,14 +66,20 @@ def revert_entry(entry: Dict[str, Any]) -> str:
         return ""
     if kind == "json":
         return _revert_json(
-            target, list(entry["keys"]), entry["value"], int(entry["existing_depth"])
+            target,
+            list(entry["keys"]),
+            entry["value"],
+            int(entry["existing_depth"]),
+            entry.get("previous", _MISSING),
         )
     if kind == "json_list_item":
         return _revert_json_list_item(
             target, list(entry["keys"]), entry["value"], int(entry["existing_depth"])
         )
     if kind == "codex_key":
-        return _revert_codex_key(target, entry["key"], entry["value"])
+        return _revert_codex_key(
+            target, entry["key"], entry["value"], entry.get("previous", _MISSING)
+        )
     if kind == "codex_trust":
         return _revert_codex_trust(target, entry["trust_key"])
     raise ValueError(f"unknown recorded setting kind {kind!r}")
@@ -97,7 +105,9 @@ def _revert_parent_dir(target: Path) -> str:
     return f"removed empty {target}"
 
 
-def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> str:
+def _revert_json(
+    target: Path, keys: List[str], value: Any, existing: int, previous: Any = _MISSING
+) -> str:
     payload = json.loads(target.read_text(encoding="utf-8"))
     dotted = ".".join(keys)
     parents: List[Dict[str, Any]] = []
@@ -110,16 +120,25 @@ def _revert_json(target: Path, keys: List[str], value: Any, existing: int) -> st
     current = node.get(keys[-1], _MISSING) if isinstance(node, dict) else _MISSING
     if current is _MISSING:
         return ""
+    if (
+        previous is not _MISSING
+        and type(current) is type(previous)
+        and current == previous
+    ):
+        return ""
     if type(current) is not type(value) or current != value:
         return _left_alone(target, dotted, current)
-    del node[keys[-1]]
+    if previous is _MISSING:
+        del node[keys[-1]]
+    else:
+        node[keys[-1]] = previous
     # Drop emptied containers Yoke created; keep every one that predated it.
     for depth in range(len(parents) - 1, existing - 1, -1):
         if parents[depth][keys[depth]]:
             break
         del parents[depth][keys[depth]]
     _replace(target, json.dumps(payload, indent=2) + "\n")
-    return f"removed {dotted} from {target}"
+    return f"{'removed' if previous is _MISSING else 'restored'} {dotted} in {target}"
 
 
 def _revert_json_list_item(
@@ -147,17 +166,26 @@ def _revert_json_list_item(
     return f"removed {value!r} from {'.'.join(keys)} in {target}"
 
 
-def _revert_codex_key(target: Path, key: str, value: str) -> str:
+def _revert_codex_key(
+    target: Path, key: str, value: str, previous: Any = _MISSING
+) -> str:
     def plan(text, document):
         current = document.get(key, _MISSING)
         if current is _MISSING:
+            return text, ""
+        if previous is not _MISSING and top_level_assignment(text, key) == previous:
             return text, ""
         if current != value:
             return text, _left_alone(target, key, current)
         updated = remove_top_level_key(text, key)
         if updated is None:
             return text, _left_alone(target, key, current)
-        return updated, f"removed {key} from {target}"
+        if previous is not _MISSING:
+            updated = replace_top_level_assignment(text, key, previous)
+        return (
+            updated,
+            f"{'removed' if previous is _MISSING else 'restored'} {key} in {target}",
+        )
 
     return _mutate_codex(target, plan)
 

@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 
-from yoke_contracts.harness_yoke_allow import posture_state
+from yoke_contracts.harness_posture_read import posture_state
 from typing import Any, Optional
 
 from yoke_contracts.codex_hook_trust import (

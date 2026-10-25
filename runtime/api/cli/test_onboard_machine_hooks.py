@@ -29,7 +29,6 @@ def test_apply_installs_and_reports_each_harness(tmp_path):
     (_home(tmp_path) / ".cursor").mkdir(parents=True)
     events = []
     result = harness_posture_install.apply_reported(
-        include_posture=False,
         progress=lambda action, target, status: events.append((action, target, status)),
     )
 
@@ -49,7 +48,6 @@ def test_apply_reports_a_malformed_config_as_failed_with_recovery(tmp_path):
     (claude / "settings.json").write_text("{broken")
     events = []
     result = harness_posture_install.apply_reported(
-        include_posture=False,
         progress=lambda action, target, status: events.append((action, target, status)),
     )
 
@@ -67,7 +65,6 @@ def test_apply_reports_a_malformed_config_as_failed_with_recovery(tmp_path):
 def test_no_installed_harness_writes_nothing(tmp_path):
     events = []
     result = harness_posture_install.apply_reported(
-        include_posture=False,
         progress=lambda action, target, status: events.append((action, target, status)),
     )
     assert events == [] and all("skipped_no_home" in line for line in result.lines())

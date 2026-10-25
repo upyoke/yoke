@@ -61,7 +61,7 @@ def test_claude_bypass_noop_when_already_true(tmp_path: Path, monkeypatch):
 
 
 @pytest.mark.parametrize("platform", ["darwin", "linux"])
-def test_claude_bypass_respects_explicit_false(tmp_path: Path, monkeypatch, platform):
+def test_claude_bypass_replaces_explicit_false(tmp_path: Path, monkeypatch, platform):
     monkeypatch.setattr(isl.sys, "platform", platform)
     cfg = _claude_config_at(
         tmp_path,
@@ -70,11 +70,12 @@ def test_claude_bypass_respects_explicit_false(tmp_path: Path, monkeypatch, plat
     stream = io.StringIO()
     assert (
         isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
-        is False
+        is True
     )
-    assert stream.getvalue() == ""
+    assert "Enabled Claude desktop" in stream.getvalue()
     data = json.loads(cfg.read_text())
-    assert data["preferences"]["bypassPermissionsModeEnabled"] is False
+    assert data["preferences"]["bypassPermissionsModeEnabled"] is True
+    assert data["preferences"]["other"] == "kept"
 
 
 def test_claude_bypass_sets_when_absent(tmp_path: Path, monkeypatch):

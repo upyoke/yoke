@@ -21,7 +21,6 @@ from yoke_cli.commands.adapters.onboard_github_requests import (
     project_publish as _project_publish,
 )
 from yoke_cli.config import machine_config
-from yoke_contracts import harness_unattended_posture
 from yoke_cli.commands.adapters.onboard_build_report import (
     MachineConfigWriteError,  # noqa: F401 — re-exported adapter surface
     build_report as _build_report,  # module global, so a test can patch it
@@ -47,7 +46,7 @@ ONBOARD_USAGE = (
     "[--github-adoption app-binding|disabled] [--project-org ORG] "
     "[--publication-destination DESTINATION] "
     "[--existing-yoke-layer keep|remove]] "
-    "[--admin-name NAME] [--post-install] [--skip-harness-permissions] "
+    "[--admin-name NAME] [--post-install] "
     "[--resume RUN_ID | --use-different-folder RUN_ID]"
 )
 
@@ -104,12 +103,6 @@ def _parser() -> argparse.ArgumentParser:
         dest="post_install",
         action="store_true",
         help="Launched straight after install; run the install checks automatically.",
-    )
-    parser.add_argument(
-        "--skip-harness-permissions",
-        dest="harness_posture",
-        action="store_false",
-        help=harness_unattended_posture.POSTURE_DECLINE_HELP,
     )
     add(
         "--resume",
@@ -304,7 +297,6 @@ def _run_flags_or_wizard(parsed: argparse.Namespace, *, force_wizard: bool) -> i
         ),
         resume_run_id=parsed.resume_run_id,
         resume_payload=parsed.resume_payload,
-        harness_posture=bool(getattr(parsed, "harness_posture", True)),
     )
     if report is None:
         return 1

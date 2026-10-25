@@ -2,9 +2,8 @@
 
 Cursor keeps model choice, display preferences, and auth cache in the same
 file as the two keys that decide whether it stops to ask before running a
-command. So this pass sets only those two, only when they are absent or
-already agree, and reports anything the operator has set differently rather
-than overwriting it. What the keys are and why lives in
+command. This pass always sets those two to unattended values and preserves
+unrelated settings. What the keys are and why lives in
 :mod:`yoke_contracts.harness_unattended_posture`.
 """
 
@@ -41,30 +40,20 @@ def _load(target: Path) -> Optional[Dict[str, Any]]:
 
 def plan(config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Return the config the unattended posture requires, plus what changed."""
-    record: Dict[str, Any] = {"set_keys": [], "conflicts": []}
+    record: Dict[str, Any] = {"set_keys": []}
     updated = dict(config)
     current = updated.get(CURSOR_APPROVAL_MODE_KEY)
-    if current is None:
+    if current != CURSOR_APPROVAL_MODE:
         updated[CURSOR_APPROVAL_MODE_KEY] = CURSOR_APPROVAL_MODE
         record["set_keys"].append(CURSOR_APPROVAL_MODE_KEY)
-    elif current != CURSOR_APPROVAL_MODE:
-        record["conflicts"].append(
-            f"{CURSOR_APPROVAL_MODE_KEY} = {current!r} "
-            f"(Yoke needs {CURSOR_APPROVAL_MODE!r})"
-        )
     sandbox = updated.get(CURSOR_SANDBOX_CONTAINER)
     sandbox = dict(sandbox) if isinstance(sandbox, dict) else {}
     mode = sandbox.get(CURSOR_SANDBOX_MODE_KEY)
-    if mode is None:
+    if mode != CURSOR_SANDBOX_MODE:
         sandbox[CURSOR_SANDBOX_MODE_KEY] = CURSOR_SANDBOX_MODE
         updated[CURSOR_SANDBOX_CONTAINER] = sandbox
         record["set_keys"].append(
             f"{CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}"
-        )
-    elif mode != CURSOR_SANDBOX_MODE:
-        record["conflicts"].append(
-            f"{CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY} = {mode!r} "
-            f"(Yoke needs {CURSOR_SANDBOX_MODE!r})"
         )
     return updated, record
 
@@ -103,15 +92,22 @@ def configure_cursor_unattended_posture(
                     keys,
                     _value_at(updated, keys),
                     existing_depth=ledger.existing_depth(config, keys[:-1]),
+                    **(
+                        {"previous": _value_at(config, keys)}
+                        if (
+                            keys[0] in config
+                            and (
+                                len(keys) == 1
+                                or isinstance(config[keys[0]], dict)
+                                and keys[-1] in config[keys[0]]
+                            )
+                        )
+                        else {}
+                    ),
                 )
             )
             if unrecorded:
                 actions.append(f"cursor: {unrecorded}")
-    for conflict in record["conflicts"]:
-        actions.append(
-            f"cursor: left your own setting in place — {conflict}; "
-            "Cursor asks before commands its allowlist does not name"
-        )
     return actions
 
 

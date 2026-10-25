@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import argparse
-
-from yoke_contracts.harness_unattended_posture import (
-    POSTURE_DECLINE_HELP,
-)
 import os
 import subprocess
 import sys
@@ -206,11 +202,6 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--skip-harness-permissions",
-        action="store_true",
-        help=POSTURE_DECLINE_HELP,
-    )
-    parser.add_argument(
         "--repair",
         action="store_true",
         help=(
@@ -244,7 +235,6 @@ def install(
     skip_verify: bool = False,
     verify_env: Optional[str] = None,
     no_system_packages: bool = False,
-    skip_harness_permissions: bool = False,
     skip_macos_path_fix: bool = False,
     repair: bool = False,
     write_canonical: bool = False,
@@ -260,8 +250,7 @@ def install(
 
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
         report = converge_machine(cwd, home=home, force=force, stream=out)
-        if not skip_harness_permissions:
-            reconcile_harness_setup(stream=out)
+        reconcile_harness_setup(stream=out)
         configure_session_relay(stream=out)
         return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
@@ -283,8 +272,7 @@ def install(
     verify_path_includes(choice.path, stream=out)
     if not skip_verify:
         run_verification(verify_env=verify_env, stream=out)
-    if not skip_harness_permissions:
-        reconcile_harness_setup(stream=out)
+    reconcile_harness_setup(stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
     if write_canonical and not repair:
@@ -319,7 +307,6 @@ def main(argv: Optional[list] = None) -> int:
             skip_verify=args.skip_verify,
             verify_env=args.verify_env,
             no_system_packages=args.no_system_packages,
-            skip_harness_permissions=args.skip_harness_permissions,
             skip_macos_path_fix=args.skip_macos_path_fix,
             repair=args.repair,
             write_canonical=True,

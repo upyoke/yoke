@@ -22,7 +22,7 @@ from yoke_contracts.harness_folder_trust import claude_state_path, cursor_trust_
 from yoke_contracts.harness_folder_trust_grant import grant_folder_trust
 from yoke_contracts.harness_machine_hooks import HARNESS_MACHINE_HOOKS
 from yoke_contracts.harness_posture_install import configure_harness_unattended_posture
-from yoke_contracts.harness_yoke_allow import yoke_posture
+from yoke_contracts.harness_posture_read import posture_findings
 from yoke_contracts.machine_config.checkout import (
     main_checkout,
     registered_worktree_paths,
@@ -118,8 +118,8 @@ def _posture(harness: str) -> tuple[bool, str]:
             raise ValueError(
                 f"harness_config_malformed: {target}: permissions is not an object"
             )
-    verdict = yoke_posture(harness)
-    problems = verdict.blocking if verdict else (f"{target}: no {harness} config",)
+    findings = posture_findings(harness)
+    problems = findings if findings is not None else (f"{target}: no {harness} config",)
     return not problems, f"harness_posture_missing: {'; '.join(problems)}"
 
 
@@ -215,9 +215,7 @@ def _targets(
     return sorted(targets.items(), key=lambda pair: (pair[0] != pair[1], str(pair[0])))
 
 
-def _walk(
-    paths: Sequence[Path] | None, *, apply: bool, include_posture: bool = True
-) -> HarnessSetupResult:
+def _walk(paths: Sequence[Path] | None, *, apply: bool) -> HarnessSetupResult:
     rows: list[HarnessSetupRow] = []
     try:
         targets = _targets(paths, rows)
@@ -271,19 +269,18 @@ def _walk(
                         retrust_recovery(target),
                     )
                 )
-        if include_posture:
-            rows.append(
-                _facet(
-                    home,
-                    harness,
-                    "posture",
-                    lambda: _posture(harness),
-                    lambda: configure_harness_unattended_posture(
-                        harnesses=(harness,), stream=io.StringIO()
-                    ),
-                    apply,
-                )
+        rows.append(
+            _facet(
+                home,
+                harness,
+                "posture",
+                lambda: _posture(harness),
+                lambda: configure_harness_unattended_posture(
+                    harnesses=(harness,), stream=io.StringIO()
+                ),
+                apply,
             )
+        )
         rows.append(
             _facet(
                 home,
@@ -312,8 +309,6 @@ def inspect_harness_setup(paths: Sequence[Path] | None = None) -> HarnessSetupRe
     return _walk(paths, apply=False)
 
 
-def reconcile_harness_setup(
-    paths: Sequence[Path] | None = None, *, include_posture: bool = True
-) -> HarnessSetupResult:
-    """Apply every facet; an explicit setup permission decline omits posture."""
-    return _walk(paths, apply=True, include_posture=include_posture)
+def reconcile_harness_setup(paths: Sequence[Path] | None = None) -> HarnessSetupResult:
+    """Apply every facet, including unattended posture, to installed harnesses."""
+    return _walk(paths, apply=True)

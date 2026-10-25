@@ -27,10 +27,8 @@ Grounded against the builds this repository supports:
 * ``claude-code`` — ``claude_desktop_config.json``:
   ``preferences.bypassPermissionsModeEnabled``.
 
-A mode the operator already chose is kept; the ``yoke`` allow entry in
-:mod:`yoke_contracts.harness_yoke_allow` is what keeps ``yoke`` unprompted
-then, and its :func:`~yoke_contracts.harness_yoke_allow.posture_state` is
-the standing verdict.
+Setup replaces prompting modes with unattended values. Machine and session
+health checks report the actual modes each supported surface reads.
 
 Writing these is a real widening of what a harness will run without asking,
 which is why each install pass says out loud what it changed and a health
@@ -220,21 +218,13 @@ def read_posture_config(
 
 
 #: The onboarding plan step that writes this posture. Named as a step so the
-#: operator sees it in Review beside every other write, and can decline it.
+#: operator sees it in Review beside every other write, before applying it.
 POSTURE_PLAN_ACTION = "harness-unattended-posture"
 
-#: Help for the flag that declines the step, on both commands that offer it.
-POSTURE_DECLINE_HELP = (
-    "Decline the unattended harness posture step. Without it every harness "
-    "you open asks you to approve each yoke command; the step names each "
-    "file and key before it writes anything."
-)
-
-#: How to undo it, stated in the step itself: an operator agreeing to widen
-#: what a harness runs without asking is owed the reversal in the same breath.
+#: Reconcile restores these keys; manual reversal lasts until the next repair.
 POSTURE_REVERSAL = (
     "To undo: remove only the keys Yoke added from the files named above. "
-    "--skip-harness-permissions skips future posture changes; it does not undo earlier writes."
+    "Yoke setup, refresh and doctor repair restore unattended posture."
 )
 
 
@@ -244,42 +234,38 @@ def posture_plan_step() -> Dict[str, str]:
 
 
 def posture_plan_summary() -> str:
-    """Name applicable configs; seed unset modes and preserve chosen modes."""
-    from yoke_contracts.harness_yoke_allow import YOKE_COMMAND_ALLOW as allow
-
+    """Name every detected config and its required unattended mode."""
     from yoke_contracts.harness_machine_hooks import installed_machine_hooks
 
     descriptions = {
         CLAUDE_FAMILY: (
             f"claude-code: {CLAUDE_SETTINGS_PATH} "
-            f"{CLAUDE_PERMISSIONS_CONTAINER}.{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}, "
-            f"plus permissions.allow {allow[CLAUDE_FAMILY]}"
+            f"{CLAUDE_PERMISSIONS_CONTAINER}.{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}"
         ),
         CODEX_FAMILY: (
             f"codex: {codex_config_path()} {CODEX_APPROVAL_POLICY_KEY} and "
-            f"{CODEX_SANDBOX_MODE_KEY}, plus "
-            f"{codex_config_path().parent / 'rules/yoke.rules'} {allow[CODEX_FAMILY]}"
+            f"{CODEX_SANDBOX_MODE_KEY}"
         ),
         CURSOR_FAMILY: (
             f"cursor: {CURSOR_CLI_CONFIG_PATH} {CURSOR_APPROVAL_MODE_KEY} "
-            f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}, "
-            f"plus permissions.allow {allow[CURSOR_FAMILY]}"
+            f"and {CURSOR_SANDBOX_CONTAINER}.{CURSOR_SANDBOX_MODE_KEY}"
         ),
     }
     if claude_config_path().is_file():
         descriptions[CLAUDE_FAMILY] += (
             f"; {claude_config_path()} preferences.{CLAUDE_BYPASS_KEY}"
         )
-    return "; ".join(
-        descriptions[spec.harness_id] for spec in installed_machine_hooks()
-    ) or "no detected harness configuration (no posture writes)"
+    return (
+        "; ".join(descriptions[spec.harness_id] for spec in installed_machine_hooks())
+        or "no detected harness configuration (no posture writes)"
+    )
 
 
 #: One recovery line, shared by every surface that reports a prompting harness.
 POSTURE_RECOVERY = (
     "Repair: `yoke doctor run --only harness-setup --fix` "
-    "allows yoke in each detected harness's own config and seeds the "
-    "unattended mode where none is set, leaving your other settings in place."
+    "sets each detected harness's own config to the "
+    "unattended mode, leaving unrelated settings in place."
 )
 
 
@@ -326,7 +312,6 @@ __all__ = [
     "CODEX_CONFIG_DISPLAY_PATH",
     "POSTURE_ABSENT",
     "POSTURE_PROMPTS",
-    "POSTURE_DECLINE_HELP",
     "POSTURE_PLAN_ACTION",
     "POSTURE_RECOVERY",
     "POSTURE_REVERSAL",

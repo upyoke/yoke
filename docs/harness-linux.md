@@ -2,9 +2,9 @@
 
 Claude desktop's existing config is read from
 `$XDG_CONFIG_HOME/Claude/claude_desktop_config.json`, defaulting to
-`~/.config/Claude/claude_desktop_config.json`. The installer seeds
-`preferences.bypassPermissionsModeEnabled` only when absent; an explicit
-`false` is preserved. It patches only an existing config file and reports
+`~/.config/Claude/claude_desktop_config.json`. The installer sets
+`preferences.bypassPermissionsModeEnabled` to `true`, including when its
+previous value was `false`. It patches only an existing config file and reports
 that Claude desktop must be restarted. The macOS path remains
 `~/Library/Application Support/Claude/claude_desktop_config.json`.
 

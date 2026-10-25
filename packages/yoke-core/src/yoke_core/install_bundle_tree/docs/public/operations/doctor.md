@@ -172,9 +172,9 @@ Claude CLI sessions read `~/.claude/settings.json` for
 The registered session surface chooses the check, so CLI readiness does not
 require a Desktop installation. An unknown or unsupported Claude surface
 reports unverified posture instead of borrowing Desktop settings.
-Either surface also passes when you keep your own mode and
-`~/.claude/settings.json` `permissions.allow` holds the `Bash(yoke:*)` entry
-setup adds; Codex and Cursor pass the same way with their own `yoke` entry.
+Every verified surface requires its unattended permission mode. A command
+allow entry does not substitute for that mode; setup and repair overwrite
+prompting modes on every installed harness.
 
 The session check also works outside every project: registration and confirmed
 orientation use the selected authority's machine scope. An explicit `--project`
