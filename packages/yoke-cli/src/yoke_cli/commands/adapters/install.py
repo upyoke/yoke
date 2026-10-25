@@ -230,7 +230,7 @@ def project_uninstall(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project uninstall",
         usage=PROJECT_UNINSTALL_USAGE,
-        description="Remove this checkout's installed layer, installer-owned registration and exact folder trust. Shared, edited or unproven entries stay with a reason and recovery; the manifest stays for retry. Credentials, shared tools and server history stay intact.",
+        description="Remove this checkout's installed layer, installer-owned registration and the exact folder trust Yoke recorded writing. Trust Yoke did not write is left alone; trust edited after Yoke wrote it stays and is reported. Shared or unproven registration stays with a reason and recovery, and the manifest stays for retry. Credentials, shared tools and server history stay intact.",
     )
     _add_root_and_config(parser)
     parser.add_argument(

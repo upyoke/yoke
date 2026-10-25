@@ -227,3 +227,26 @@ def test_configured_github_uses_existing_disconnect(machine):
     )
     assert steps.remove(value, (), lambda _: None) == 0
     assert ["github", "disconnect", "--config", str(value.config)] in calls
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_project_uninstall_reasons_reach_aggregate_output(
+    monkeypatch, capsys, returncode
+):
+    report = {"outcome": "partial", "warnings": ["project_uninstall_why: fix it"]}
+    monkeypatch.setattr(
+        steps.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=returncode, stdout=json.dumps(report), stderr=""
+        ),
+    )
+    args = ["project", "uninstall", "/checkout", "--json"]
+    if returncode:
+        with pytest.raises(UninstallError, match="project_uninstall_why: fix it"):
+            steps.command(args)
+    else:
+        steps.command(args)
+        assert "project uninstall: project_uninstall_why: fix it" in (
+            capsys.readouterr().out
+        )

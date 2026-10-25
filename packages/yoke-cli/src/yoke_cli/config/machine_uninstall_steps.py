@@ -40,8 +40,11 @@ def command(args: list[str]) -> None:
         check=False,
         timeout=COMMAND_TIMEOUT_SECONDS,
     )
+    warnings = _project_warnings(args, result.stdout)
     if result.returncode:
-        detail = redact_api_tokens((result.stderr or result.stdout).strip()[-2048:])
+        detail = redact_api_tokens(
+            "; ".join(warnings) or (result.stderr or result.stdout).strip()[-2048:]
+        )
         raise UninstallError(
             f"uninstall_command_failed: yoke {' '.join(args)} (exit {result.returncode}); "
             f"{detail}. Repair this step and retry uninstall."
@@ -50,10 +53,19 @@ def command(args: list[str]) -> None:
         print(redact_api_tokens(result.stderr.strip()), file=sys.stderr)
     if "export" in args or args[:2] == ["self-host", "teardown"]:
         print(redact_api_tokens(result.stdout.strip()))
-    elif args[:2] == ["project", "uninstall"]:
-        report = json.loads(result.stdout)
-        for warning in report.get("warnings", []):
-            print(f"project uninstall: {warning}")
+    for warning in warnings:
+        print(f"project uninstall: {redact_api_tokens(warning)}")
+
+
+def _project_warnings(args: list[str], stdout: str) -> list[str]:
+    """Read the named reasons from a project uninstall JSON report."""
+    if args[:2] != ["project", "uninstall"]:
+        return []
+    try:
+        report = json.loads(stdout)
+    except ValueError:
+        return []
+    return list(report.get("warnings") or []) if isinstance(report, dict) else []
 
 
 def _remove_machine_hooks(emit: Callable[[str], None]) -> None:
@@ -141,6 +153,7 @@ def remove(
                         str(checkout),
                         "--config",
                         str(inventory.config),
+                        "--json",
                     ]
                 ),
             )

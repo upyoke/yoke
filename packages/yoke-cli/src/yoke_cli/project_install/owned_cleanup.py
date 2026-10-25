@@ -189,7 +189,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         or exact[0].get("project_id") != manifest.get("project_id")
     ):
         registration = _result("preserved", "registration_modified")
-    elif any(row["status"] in {"failed", "preserved"} for row in trust):
+    elif any(row["status"] == "failed" for row in trust):
         registration = _result("preserved", "trust_cleanup_unresolved")
     else:
         groups[connection].remove(exact[0])
@@ -217,7 +217,7 @@ def _cleanup(root: Path, manifest: dict, *, path=None) -> dict:
         "registration": registration,
         "trust": trust,
         "complete": registration["status"] in {"removed", "absent"}
-        and all(row["status"] in {"removed", "absent"} for row in trust),
+        and all(row["status"] != "failed" for row in trust),
     }
 
 

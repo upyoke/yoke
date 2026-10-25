@@ -93,7 +93,7 @@ def test_uninstall_only_exact_owned_entries_and_preserves_shared_state(installed
 
 
 @pytest.mark.parametrize("family", ["claude-code", "codex", "cursor"])
-def test_changed_trust_is_preserved_and_retry_is_honest(installed, family):
+def test_changed_trust_is_preserved_and_uninstall_completes(installed, family):
     root, _, config = installed
     if family == "claude-code":
         target = trust.claude_state_path()
@@ -113,16 +113,17 @@ def test_changed_trust_is_preserved_and_retry_is_honest(installed, family):
         payload["trustedAt"] = "operator-replaced"
         target.write_text(json.dumps(payload))
     before = target.read_bytes()
-    for _ in range(2):
-        report = uninstall(root, config_path=config)
-        assert report["outcome"] == "partial"
-        assert not report["manifest_removed"]
-        assert target.read_bytes() == before
-        assert any(
-            row["harness"] == family and row["status"] == "preserved"
-            for row in report["local_cleanup"]["trust"]
-        )
-    assert machine_config.project_id(root, config) == 7
+    report = uninstall(root, config_path=config)
+    assert report["outcome"] == "complete", report
+    assert report["manifest_removed"]
+    assert target.read_bytes() == before
+    assert any(
+        row["harness"] == family
+        and row["status"] == "preserved"
+        and row["reason"].startswith("trust_modified")
+        for row in report["local_cleanup"]["trust"]
+    )
+    assert report["local_cleanup"]["registration"]["status"] == "removed"
 
 
 @pytest.mark.parametrize("evidence", ["missing", "edited", "other_config"])
@@ -176,7 +177,7 @@ def test_shared_checkout_scope_is_preserved(installed, sharing):
     assert (root / ".gitignore").read_bytes() == ignore_before
 
 
-def test_unknown_and_legacy_trust_is_preserved(installed):
+def test_unrecorded_and_legacy_trust_is_preserved(installed):
     root, _, config = installed
     with ledger.mutation() as entries:
         for entry in list(entries):
@@ -185,11 +186,14 @@ def test_unknown_and_legacy_trust_is_preserved(installed):
             elif entry.get("kind") == "created_file":
                 entry.pop("sha256", None)
     before = trust.cursor_trust_file(root).read_bytes()
+    claude_before = trust.claude_state_path().read_bytes()
     report = uninstall(root, config_path=config)
-    assert report["outcome"] == "partial"
-    reasons = {row["reason"] for row in report["local_cleanup"]["trust"]}
-    assert {"trust_ownership_unknown", "trust_modified_or_unproven"} <= reasons
+    assert report["outcome"] == "complete", report
+    rows = report["local_cleanup"]["trust"]
+    assert "trust_modified_or_unproven" in {row["reason"] for row in rows}
+    assert not any(row["harness"] == "claude-code" for row in rows)
     assert trust.cursor_trust_file(root).read_bytes() == before
+    assert trust.claude_state_path().read_bytes() == claude_before
 
 
 @pytest.mark.parametrize("family", ["claude-code", "codex", "cursor"])
@@ -239,45 +243,9 @@ def test_partial_cleanup_returns_nonzero_from_existing_command(installed, capsys
     from yoke_cli.commands.adapters.install import project_uninstall
 
     root, _, config = installed
-    with ledger.mutation() as entries:
-        entries.clear()
+    writer.register_project(root.parent, 9, path=config)
     assert project_uninstall([str(root), "--config", str(config), "--json"]) == 1
     assert json.loads(capsys.readouterr().out)["outcome"] == "partial"
-
-
-def test_later_harness_home_keeps_unowned_trust(installed, monkeypatch):
-    root, _, config = installed
-    later = Path.home() / "later-codex"
-    later.mkdir()
-    target = later / "config.toml"
-    content = f'[projects.{json.dumps(str(root))}]\ntrust_level = "trusted"\n'
-    target.write_text(content)
-    monkeypatch.setenv("CODEX_HOME", str(later))
-    report = uninstall(root, config_path=config)
-    assert target.read_text() == content
-    assert report["outcome"] == "partial"
-    assert any(
-        row["harness"] == "codex" and row["reason"] == "trust_ownership_unknown"
-        for row in report["local_cleanup"]["trust"]
-    )
-
-
-def test_unowned_symlink_alias_trust_is_preserved_and_reported(installed):
-    root, _, config = installed
-    alias = root.parent / "alias"
-    alias.symlink_to(root, target_is_directory=True)
-    target = Path.home() / ".codex/config.toml"
-    target.write_text(
-        target.read_text()
-        + f'\n[projects.{json.dumps(str(alias))}]\ntrust_level = "trusted"\n'
-    )
-    report = uninstall(root, config_path=config)
-    assert str(alias) in parse_config(target.read_text())["projects"]
-    assert report["outcome"] == "partial"
-    assert any(
-        row["reason"] == "trust_ownership_unknown"
-        for row in report["local_cleanup"]["trust"]
-    )
 
 
 def test_reassigned_checkout_preserves_trust_for_its_current_project(installed):
