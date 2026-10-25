@@ -5,8 +5,8 @@
  "audience": "human",
  "when": "Starting local mode on macOS below 26.0 or with an unreadable OS version",
  "need": "Refuse before downloading or initializing embedded PostgreSQL, name the detected and required macOS versions, and teach upgrading macOS or connecting to a team server or upyoke.com. Cached binaries must not bypass the refusal.",
- "disclosure": "before embedded-engine resolution",
- "surface": "Local setup refusal and installation requirements",
- "review": "Source regression tests cover below, at and above the floor; deployed host evidence is pending release.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "runtime/api/domain/test_postgres_binaries.py", "docs/public/start/install.md"]
+ "disclosure": "on the setup local-universe screen right after choosing This machine, before any other local question; again before embedded-engine resolution at Apply",
+ "surface": "Setup local-universe screen, local setup refusal and installation requirements",
+ "review": "Source regression tests cover below, at and above the floor, and the setup screen stating the host reason with only Back; deployed host evidence is pending release.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/postgres_binaries.py", "packages/yoke-cli/src/yoke_cli/config/onboard_wizard_local_universe_summary.py", "runtime/api/cli/test_local_universe_host_support.py", "runtime/api/domain/test_postgres_binaries.py", "docs/public/start/install.md"]
 }

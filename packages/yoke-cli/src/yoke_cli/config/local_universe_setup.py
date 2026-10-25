@@ -161,8 +161,30 @@ def _record_operating_actor(report, config_path):
         ) from exc
 
 
+def _unsupported_host_reason() -> str:
+    """The engine's refusal for this host, or "" when local mode can run here."""
+    try:
+        binaries = importlib.import_module("yoke_core.domain.postgres_binaries")
+    except ModuleNotFoundError:
+        return ENGINE_MISSING_MESSAGE
+    try:
+        binaries.require_supported_host()
+    except binaries.PostgresBinariesError as exc:
+        return str(exc)
+    return ""
+
+
 def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
     """Describe whether local onboarding will create or reuse a universe."""
+    host_reason = _unsupported_host_reason()
+    if host_reason:
+        return {
+            "state": LOCAL_UNIVERSE_UNAVAILABLE,
+            "connection": False,
+            "active": False,
+            "host_unsupported": True,
+            "reason": host_reason,
+        }
     try:
         payload = machine_config.load_config(config_path)
     except machine_config.MachineConfigError as exc:
