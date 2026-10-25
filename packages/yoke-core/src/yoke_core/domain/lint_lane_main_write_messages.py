@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.lint_lane_main_write_derivation import (
     LANE_EDIT_GUIDANCE,
     TargetDerivation,
@@ -55,17 +56,14 @@ def format_denial(
         )
         guidance = format_derivation_guidance(derivation, lane_path=lane_path)
     if not lane_equivalent:
-        guidance = (
-            "Git metadata proven by the client is outside this source-write "
-            "guard. Without that proof the target remains protected; other "
-            "guards and permissions still apply."
+        guidance = compose_refusal(
+            "git_metadata_unproven: Git metadata proven by the client is outside "
+            "this source-write guard; without proof the target stays protected "
+            "and has no lane source equivalent. Other guards still apply",
+            recovery="refresh the installed client hooks and retry so the client "
+            "can prove Git metadata",
         )
-    destination = (
-        f"Use instead:   {lane_equivalent}\n\n"
-        if lane_equivalent
-        else "Recovery: refresh the installed client hooks and retry so the client "
-        "can prove Git metadata; this target has no lane source equivalent.\n\n"
-    )
+    destination = f"Use instead:   {lane_equivalent}\n\n" if lane_equivalent else ""
     body = (
         "BLOCKED: source write to the main checkout while an implementation "
         "lane is held.\n\n"
