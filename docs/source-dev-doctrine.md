@@ -55,13 +55,18 @@ Repository-only rules; linked owners hold the detail.
 
 ## Release Yoke
 
-- Steering drives releases: follow
-  [source-dev delivery](../.agents/skills/yoke/steer/source-dev-delivery.md).
-- A release is two concurrent runs on one lineage. Create both over HTTPS `prod`. Create
-  production without `--source-ref`, then pass its `release_lineage` to stage as `--source-ref`.
-  Production drives on `prod-db-admin` (it replaces its own API); stage on `prod`. Done needs
-  production delivery and every owed stage proof. This concurrency holds only because stage
-  here tests the live control plane.
+- Steering drives a release: two concurrent runs on one lineage, both created over HTTPS
+  `prod`. LINEAGE is production's `release_lineage`. Production drives on `prod-db-admin` (it
+  replaces its own API; try `prod` first); stage on `prod`. Resume with the same run and key:
+
+  ```text
+  yoke --env prod deployment-runs create yoke FLOW --environment prod --idempotency-key KEY
+  yoke --env prod deployment-runs create yoke STAGE_FLOW --environment stage --source-ref LINEAGE --idempotency-key STAGE_KEY
+  yoke --env prod-db-admin watch deploy -- PROD_RUN
+  yoke --env prod watch deploy -- STAGE_RUN
+  ```
+- Done needs production delivery and every owed stage proof. This concurrency holds only because
+  stage here tests the live control plane.
 - A correction merged during a stage run needs a new stage/production pair on the corrected
   commit; the old stage receipt does not prove it.
 - Author item QA against production. A case targets stage only with a declared `stage_reason`.
@@ -100,6 +105,14 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
 ## Code rules for this repo
 
 - CLI usage: [authoring and checks](source-dev/cli-usage-contract.md).
+- Compose refusals through `yoke_contracts.refusal_recovery.compose_refusal`.
+- Declare a new function's `minimum_serving_version` on its registry entry and in
+  `yoke_contracts.function_serving_floors.FUNCTION_MINIMUM_SERVING_VERSIONS`; older engines
+  refuse `function_version_skew`. New fields degrade to prior behavior or refuse with a named
+  floor; never invent required receipt defaults. Order rollout so live clients work during
+  serving/DB convergence. Floor recovery cannot depend on the missing function or its deploy.
+- Shell classification reuses `lint_shell_path_use.analyze_shell_path_use` and
+  `lint_payload_path_use.extract_payload_path_uses`; no second parser or broad read exception.
 
 - Product code never branches on a project name. Read the declared fact instead.
   `HC-project-name-literal` enforces it; allowances live in

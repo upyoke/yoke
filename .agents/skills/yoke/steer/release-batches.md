@@ -1,7 +1,6 @@
 # Steer — batch delivery
 
-Workers merge; steering creates runs on prod. Yoke self-deploy:
-[source-dev-delivery.md](source-dev-delivery.md).
+Workers merge; steering creates runs on prod.
 
 ```text
 yoke --env CONTROL_PLANE deployment-runs create {_project} {PROD_FLOW} --environment prod --idempotency-key PROD_KEY

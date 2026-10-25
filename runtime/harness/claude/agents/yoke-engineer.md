@@ -152,7 +152,6 @@ Read session.md **Tool Constraints** for this rule.
 - Structural patches: Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.
 - Subagent communication through its registered parent: In-process subagents receive no Fleet delivery at all. Talk to the parent through the harness-native parent/subagent channel; never send, acknowledge or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 - Project Python scripts: Put them in the project's tracked tools directory, never /tmp/*.py.
-- Verify Python imports/tests against linked worktree source: `yoke dev import-check yoke_core` · `yoke dev run -- yoke watch pytest --local -- <project-test-path> -q`
 - Run pytest foreground inside one tool call (subagent): `yoke watch pytest -- <project-test-path>/test_my_module.py -q`
 
 _Depth:_ `yoke packets render --role engineer_agent --topic core --detail full`.

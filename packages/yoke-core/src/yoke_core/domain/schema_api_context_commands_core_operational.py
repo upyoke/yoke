@@ -267,23 +267,6 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
-        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
-        "topic": "core",
-        "purpose": "Verify Python imports/tests against linked worktree source",
-        "recipe": (
-            "yoke dev import-check yoke_core\n"
-            "yoke dev run -- yoke watch pytest --local -- <project-test-path> -q"
-        ),
-        "notes": (
-            "Source verification uses the selected checkout's declared locked .venv "
-            "and QA extras/groups, verifies Python identity and source origins, and "
-            "refuses missing/stale/incompatible environments with checkout-local "
-            "uv sync --locked recovery. Checks never rewrite locks or borrow main "
-            "dependencies. Use canonical yoke watch pytest, not direct watcher modules. "
-            "Ordinary installed control-plane commands keep the installed interpreter."
-        ),
-    },
-    {
         "startup_roles": (),
         "topic": "core",
         "purpose": "Re-render agent files after editing packet seeds",

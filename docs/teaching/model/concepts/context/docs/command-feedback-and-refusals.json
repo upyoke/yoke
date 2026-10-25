@@ -5,5 +5,5 @@
  "page": "context-guidance",
  "position": 7,
  "current": "Outside hook guard deny text, Python refusals in the engine, CLI, contracts and harness use yoke_contracts.refusal_recovery.compose_refusal. The shared composer keeps the reason separate from a reachable recovery or escalation owner. Source tests reject new hand-written recovery labels; permanent migration history, standalone versioned Pack scripts, the relay entrypoint before package binding and the browser-only schema-skew reply retain their distinct source constraints.",
- "sources": ["packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py", "docs/public/agents/rules/shell-and-cli.md", "runtime/api/domain/test_refusal_recovery_source.py"]
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/refusal_recovery.py", "docs/public/agents/rules/shell-and-cli.md", "docs/source-dev-doctrine.md", "runtime/api/domain/test_refusal_recovery_source.py"]
 }
