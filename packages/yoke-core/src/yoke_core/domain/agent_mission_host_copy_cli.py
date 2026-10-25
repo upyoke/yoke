@@ -12,6 +12,7 @@ from typing import Any, Optional
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 from yoke_contracts.qa_mission_scratch import MISSION_SCRATCH_ROOT
+from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_harness.remote_file_copy import HostCopyRefused
 
 from yoke_core.domain.agent_mission_host_command_cli import (
@@ -121,16 +122,18 @@ def run(args: list[str]) -> int:
         print(f"{PROG}: {exc}", file=sys.stderr)
         return 2
     except HostControlLocalError as exc:
+        reason = f"{exc.code}: {exc}"
         print(
-            f"{PROG}: {exc.code}: {exc} Recovery: {exc.recovery_hint}", file=sys.stderr
+            f"{PROG}: {compose_refusal(reason, recovery=exc.recovery_hint)}",
+            file=sys.stderr,
         )
         return 2
     except Exception as exc:
-        print(
-            f"{PROG}: local execution failed ({type(exc).__name__}). Recovery: "
-            "check the host with `yoke test-machine verify`, then retry the copy.",
-            file=sys.stderr,
+        refusal = compose_refusal(
+            f"local execution failed ({type(exc).__name__})",
+            recovery="Check the host with `yoke test-machine verify`, then retry the copy",
         )
+        print(f"{PROG}: {refusal}", file=sys.stderr)
         return 2
     payload = {
         "execution_id": parsed.execution_id,
