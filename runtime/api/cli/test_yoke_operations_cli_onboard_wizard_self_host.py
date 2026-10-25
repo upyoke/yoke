@@ -112,7 +112,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
             await _open_preview(pilot)
             text = _body_text(app)
             assert "Host a Yoke server on this machine?" in text
-            assert f"Bundle: {server.bundle.default_bundle_dir().resolve()}" in text
+            assert f"Files: {server.bundle.default_bundle_dir().resolve()}" in text
             assert server.LOCAL_SERVER_URL in text
             assert "local-only URL" in text
             assert "Requires Docker + Compose" in text
