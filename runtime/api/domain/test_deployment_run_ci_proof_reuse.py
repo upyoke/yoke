@@ -61,7 +61,11 @@ def test_a_branchless_commit_lookup_answers_with_the_proof_run():
 def test_flow_without_ci_wait_binds_the_tip_without_reading_runs():
     target = tested.CiGateTarget("p", "f", "owner/p", "", "main", "token")
     with (
-        mock.patch.object(tested, "ci_gate_target", return_value=target),
+        mock.patch.object(
+            tested,
+            "ci_gate_target",
+            side_effect=lambda *_a, ci_only=False: None if ci_only else target,
+        ),
         mock.patch.object(lineage, "previous_release", return_value=None),
         mock.patch.object(tested, "gate_branch_tip", return_value=HEAD),
         mock.patch.object(tested, "_read") as read,

@@ -92,7 +92,7 @@ def merged(test_db, tmp_path, monkeypatch):
                         lambda *_a: (str(slug), "flow"))
     monkeypatch.setattr(composer, "cmd_resolve_target",
                         lambda *_a, **_k: ("persistent", None, ""))
-    monkeypatch.setattr(tested, "ci_gate_target", lambda *_a: tested.CiGateTarget(
+    monkeypatch.setattr(tested, "ci_gate_target", lambda *_a, **_k: tested.CiGateTarget(
         str(slug), "flow", _RESOLVED.repo, WORKFLOW, "main", "t", ""))
     created: list[str] = []
 

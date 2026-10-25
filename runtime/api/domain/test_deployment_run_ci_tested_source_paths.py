@@ -259,3 +259,16 @@ def test_default_checks_lineage_of_dispatched_commit_after_branch_moves():
         tested.bind_tested_release_source("platform", "flow", None, None)
     assert refused.value.code == lineage.OFF_LINEAGE
     compare.assert_called_once_with(TARGET, HEAD, OLDER)
+
+
+def test_an_explicit_commit_on_a_flow_without_ci_wait_reads_no_github(gate_inputs):
+    stages = [{"step_runner": "github-actions-workflow", "wait_for_ci": False}]
+    with (
+        mock.patch.object(
+            tested, "_flow_facts", return_value=(stages, "persistent", "stage")
+        ),
+        mock.patch.object(tested, "_auth") as auth,
+    ):
+        tested.require_tested_lineage("platform", "flow", None, HEAD)
+
+    auth.assert_not_called()

@@ -123,8 +123,9 @@ def _auth(project: str, flow: str, permissions: Mapping[str, str]) -> Any:
 
 
 def ci_gate_target(
-    project: str, flow: str, environment: Optional[str]
+    project: str, flow: str, environment: Optional[str], *, ci_only: bool = False
 ) -> Optional[CiGateTarget]:
+    """The flow's source target; with *ci_only*, ``None`` unless it waits for CI."""
     from yoke_core.domain.deploy_pipeline_gates import resolve_flow_gate_branch
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_slug,
@@ -141,6 +142,8 @@ def ci_gate_target(
         return None
     waits = any(_waits_for_ci(stage) for stage in stages)
     workflow = project_ci_workflow_file(project) if waits else ""
+    if ci_only and not workflow:
+        return None
     checkout = checkout_for_project_slug(project)
     branch = resolve_flow_gate_branch(
         project, tier, env, str(checkout) if checkout is not None else ""
@@ -273,8 +276,8 @@ def require_tested_lineage(
         # Empty is settled by the caller; an annotated release tag is peeled
         # at execution, where the gate reads the peeled commit's own run.
         return
-    target = ci_gate_target(project, flow, environment)
-    if target is None or not target.workflow:
+    target = ci_gate_target(project, flow, environment, ci_only=True)
+    if target is None:
         return
     state = _proof_state(target, lineage)
     if state not in _TESTED_STATES:
