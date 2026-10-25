@@ -51,6 +51,7 @@ that step (site or app, account), why, current product state and resume operatio
 send, acknowledge or cancel Fleet mail, wait in a tool loop, or keep a process
 whose progress requires the person. Main records/routes the handoff to a live
 covering steering seat, else the item's human owner.
+For a mission that needs a test message, send it from the Test Machine's own Yoke identity through `yoke qa mission host-command`, never as controller Fleet mail.
 
 ### Host contention and continuation
 
