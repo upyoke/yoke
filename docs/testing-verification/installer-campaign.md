@@ -77,7 +77,7 @@ reuse them. The second-machine case must use a different physical host, not a
 reset of the first one. A deployment member stage runs the separate host rosters:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM --project P
+yoke watch qa-plan -- --item PREFIX-N --stage STAGE --project P
 ```
 
 Omit a single-host pin for that scope. Standalone executions retain one host

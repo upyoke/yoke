@@ -62,7 +62,7 @@ Item-bound batch release — who runs what:
   Yoke: its operator or a steering seat re-enters that owner. When a stage wants its evidence it credits
   that stage by naming the stage AND itself, because a stage credits only the
   requirements bound to its own name:
-    yoke watch qa-plan -- --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N \\
+    yoke watch qa-plan -- --item PREFIX-N --stage STAGE \\
       --project P
   `--plan PLAN` goes on that line only for a stage the wake says names no
   cases; a stage already naming its own refuses it, because a plan there

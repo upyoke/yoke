@@ -119,13 +119,17 @@ def case_target_recovery(
     if deployment_run_id:
         plan = str(plan_id) if plan_id is not None else "<plan>"
         stage = str(deployment_stage or "<stage>")
-        member = f" --member {deployment_member}" if deployment_member else ""
+        subject = (
+            f"--item {deployment_member}"
+            if deployment_member
+            else f"--deployment-run-id {deployment_run_id}"
+        )
         return (
             "a deployment stage binds the member project's observed target "
             "for member QA, or the run project's target for run QA, "
             "so re-materialize this case against it with `yoke qa plan "
-            f"materialize --deployment-run-id {deployment_run_id} --stage "
-            f"{stage}{member} --plan {plan} --project {project}`, then re-run "
+            f"materialize {subject} --stage "
+            f"{stage} --plan {plan} --project {project}`, then re-run "
             "the stage's cases. When the run itself has moved on, the evidence "
             "belongs to a replacement run rather than to this one."
         )

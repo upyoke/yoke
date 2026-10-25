@@ -182,7 +182,7 @@ def set_aside_message(
         lines.append(
             f"- requirement {entry.requirement_id} ({entry.phase}) on {target}: run it "
             f"on that environment's deployment run with `yoke qa plan run "
-            f"--deployment-run-id RUN --stage STAGE --member {public_ref}`"
+            f"--item {public_ref} --stage STAGE`"
         )
     lines.append(
         f"Read `yoke qa requirement list --item {public_ref}` for each case and "
