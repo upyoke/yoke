@@ -1,8 +1,10 @@
-"""A deploy run parked at scoped QA reads as a wait, not an undiagnosed failure."""
+"""Designed deploy and merge waits retain their reasons and continuations."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from yoke_core.domain.deploy_pipeline import EXIT_AWAITING_QA
 from yoke_core.domain.deployment_run_completion_preconditions import (
@@ -94,3 +96,43 @@ def test_a_successful_deploy_still_reports_completion(tmp_path: Path) -> None:
     outcome = format_terminal_outcome(kind="deploy", exit_code=0, raw_capture=capture)
 
     assert "completed successfully" in outcome
+
+
+@pytest.mark.parametrize("exit_code", [1, 9])
+@pytest.mark.parametrize("report", [False, True])
+def test_merge_wait_requires_landing_report_and_queue_exit(
+    tmp_path: Path, exit_code: int, report: bool
+) -> None:
+    continuation = "yoke watch merge merge-worktree -- feature main item"
+    capture = _capture(
+        tmp_path,
+        [
+            "Full CI passed",
+            (
+                "landing_pending: pull request 42 is in the merge queue. "
+                f"Wait for the landing notice, then re-run `{continuation}` "
+                "to record the landing and retire the lane."
+                if report
+                else "merge_queue_landing_refused: GitHub did not confirm queue entry"
+            ),
+        ],
+    )
+
+    outcome = format_terminal_outcome(
+        kind="merge", exit_code=exit_code, raw_capture=capture
+    )
+
+    if report and exit_code == 9:
+        assert "outcome: waiting" in outcome
+        assert "failure" not in outcome
+        assert "landing_pending:" in outcome
+        assert f"continue: {continuation}" in outcome
+    else:
+        assert "outcome: waiting" not in outcome
+        assert "failure:" in outcome
+
+
+def test_landing_report_without_a_rerun_command_stays_a_failure(tmp_path: Path) -> None:
+    capture = _capture(tmp_path, ["landing_pending: missing continuation"])
+
+    assert designed_wait(kind="merge", exit_code=9, raw_capture=capture) is None
