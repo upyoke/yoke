@@ -77,6 +77,15 @@ def cluster_spec(
     )
 
 
+def unsupported_host_reason() -> str:
+    """The embedded engine's refusal for this host, or "" when it can run here."""
+    try:
+        postgres_binaries.require_supported_host()
+    except postgres_binaries.PostgresBinariesError as exc:
+        return str(exc)
+    return ""
+
+
 def ensure_engine_binaries(
     emit: Callable[[str], None] = lambda _line: None,
 ) -> Path:

@@ -45,8 +45,9 @@ Intel. The pinned embedded PostgreSQL 17.10.0 build sets this minimum.
 Before downloading or initializing it, Yoke refuses older systems with
 `embedded_postgres_macos_unsupported`, stating the detected and minimum
 versions. An unreadable version refuses as `embedded_postgres_macos_version_unknown`.
-Upgrade macOS and retry, or choose **A team server** or **upyoke.com** in
-`yoke setup`; connecting to a remote core does not run embedded PostgreSQL.
+`yoke setup` shows this reason as soon as you choose **This machine**, before
+any other question. Upgrade macOS and retry, or choose **A team server** or
+**upyoke.com**; connecting to a remote core does not run embedded PostgreSQL.
 See [Modes](modes.md#local).
 
 Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.

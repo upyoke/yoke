@@ -34,6 +34,9 @@ LOCAL = local_universe_setup.LOCAL_ENV
 class _FakeEngine:
     """Stands in for the embedded-Postgres engine behind the birth seam."""
 
+    def unsupported_host_reason(self):
+        return ""
+
     def birth(self, *, org_name=None, admin_name=None, emit=lambda _line: None):
         emit("fake engine: universe ready")
         return {

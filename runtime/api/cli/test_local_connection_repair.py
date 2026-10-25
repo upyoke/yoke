@@ -111,7 +111,8 @@ def test_stale_actor_is_rerecorded_against_the_owned_cluster(
         setup,
         "_engine",
         lambda: SimpleNamespace(
-            birth=lambda **kw: {"dsn": dsn, "human_actor_id": actor_id}
+            unsupported_host_reason=lambda: "",
+            birth=lambda **kw: {"dsn": dsn, "human_actor_id": actor_id},
         ),
     )
     monkeypatch.setattr(

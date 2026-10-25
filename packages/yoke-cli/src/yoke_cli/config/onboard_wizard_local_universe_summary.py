@@ -26,6 +26,12 @@ def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
         ]
         if not state.get("active"):
             lines.append("Apply also makes the local universe your active environment.")
+    elif state.get("host_unsupported"):
+        lines = [
+            "This machine cannot run local mode.",
+            str(state.get("reason") or ""),
+            "Choose Back, then pick A team server or upyoke.com.",
+        ]
     elif status == local_universe_setup.LOCAL_UNIVERSE_UNAVAILABLE:
         reason = str(state.get("reason") or "the saved local connection is incomplete")
         lines = [
