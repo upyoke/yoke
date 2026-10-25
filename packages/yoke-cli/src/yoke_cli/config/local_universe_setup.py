@@ -164,14 +164,9 @@ def _record_operating_actor(report, config_path):
 def _unsupported_host_reason() -> str:
     """The engine's refusal for this host, or "" when local mode can run here."""
     try:
-        binaries = importlib.import_module("yoke_core.domain.postgres_binaries")
-    except ModuleNotFoundError:
-        return ENGINE_MISSING_MESSAGE
-    try:
-        binaries.require_supported_host()
-    except binaries.PostgresBinariesError as exc:
+        return _engine().unsupported_host_reason()
+    except LocalUniverseSetupError as exc:
         return str(exc)
-    return ""
 
 
 def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
