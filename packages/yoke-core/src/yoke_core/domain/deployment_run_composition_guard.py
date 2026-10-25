@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+#: Error code of a write refused because a newer run took this run over.
+#: The successor owns the work, so the recovery is to watch it.
+RUN_SUPERSEDED_CODE = "deployment_run_superseded"
+
 
 def has_frozen_composition(conn: Any, run_id: str) -> bool:
     """The freeze marker remains authoritative across lifecycle status changes."""
@@ -35,8 +39,16 @@ def mutable_field_refusal(
     return None
 
 
+def superseded_run_refusal(run_id: str, successor: str) -> str:
+    return (
+        f"Error: {RUN_SUPERSEDED_CODE}: deployment run '{run_id}' was taken over "
+        f"by {successor}, which now owns its work; watch it with `yoke "
+        f"deployment-runs get {successor}` instead of re-driving {run_id}"
+    )
+
+
 def terminal_run_refusal(
-    run_id: str, status: str, *, advancing_to: str, action: str
+    conn: Any, run_id: str, status: str, *, advancing_to: str, action: str
 ) -> Optional[str]:
     """Refuse a write that would advance a cancelled run.
 
@@ -49,9 +61,15 @@ def terminal_run_refusal(
     ``succeeded`` evidence keeps flowing in (post-deploy QA, bookkeeping)
     after the pipeline itself marks the run done. Rewriting the SAME
     already-cancelled value is a harmless no-op, not an attempted revival.
+    A run cancelled by a takeover names its successor instead.
     """
     if status != "cancelled" or advancing_to == status:
         return None
+    row = conn.execute(
+        "SELECT superseded_by_run_id FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    if row and row[0]:
+        return superseded_run_refusal(run_id, str(row[0]))
     return (
         f"Error: deployment run '{run_id}' is cancelled; a cancelled run "
         f"cannot {action}"
@@ -59,8 +77,10 @@ def terminal_run_refusal(
 
 
 __all__ = [
+    "RUN_SUPERSEDED_CODE",
     "frozen_mutation_refusal",
     "has_frozen_composition",
     "mutable_field_refusal",
+    "superseded_run_refusal",
     "terminal_run_refusal",
 ]

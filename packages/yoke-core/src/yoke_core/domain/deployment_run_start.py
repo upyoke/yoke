@@ -21,6 +21,7 @@ from yoke_core.domain.deployment_run_composition_plan import (
 )
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
+    superseded_run_refusal,
     terminal_run_refusal,
 )
 from yoke_core.domain.deployment_run_contained_items import (
@@ -54,9 +55,10 @@ def _prepare(conn, run_id):
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
     if refusal := terminal_run_refusal(
-        run_id, row[0], advancing_to="executing", action="change status"
+        conn, run_id, row[0], advancing_to="executing", action="change status"
     ):
-        raise ValueError(refusal)
+        # start_run adds the "Error: " prefix back, so the code still leads.
+        raise ValueError(refusal.removeprefix("Error: "))
     if not requires_release_admission(conn, run_id) or has_frozen_composition(
         conn, run_id
     ):
@@ -156,11 +158,9 @@ def _admit(conn, run_id, candidate_containment):
             "SELECT superseded_by_run_id FROM deployment_runs WHERE id=%s", (run_id,)
         ).fetchone()[0]
         if successor:
-            return (
-                f"Error: deployment_run_superseded: run {run_id} transferred ownership "
-                f"to {successor}; continue that successor instead of retrying this run"
-            )
+            return superseded_run_refusal(run_id, successor)
         if refusal := terminal_run_refusal(
+            conn,
             run_id,
             status,
             advancing_to="executing",

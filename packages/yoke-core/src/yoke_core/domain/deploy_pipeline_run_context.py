@@ -22,6 +22,7 @@ from yoke_core.domain.deploy_pipeline_events import (
     emit_run_event as _emit_run_event,
 )
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
+from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
 from yoke_core.domain.deployment_run_settlement_refusal import (
     SETTLEMENT_BLOCKED_CODE,
 )
@@ -34,7 +35,8 @@ class RunFinalizationPending(RuntimeError):
     """Stages finished; the succeeded status write did not land.
 
     A settlement refusal already names each member to repair and when to
-    re-drive, so only the other failures add the bare re-drive recovery.
+    re-drive, and a superseded refusal names the successor to watch, so only
+    the other failures add the bare re-drive recovery.
     """
 
     def __init__(self, run_id: str, detail: str = "", *, code: str = "") -> None:
@@ -42,7 +44,7 @@ class RunFinalizationPending(RuntimeError):
         self.code = code
         recovery = (
             ""
-            if code == SETTLEMENT_BLOCKED_CODE
+            if code in {SETTLEMENT_BLOCKED_CODE, RUN_SUPERSEDED_CODE}
             else f"; re-drive {run_id} to finalize"
         )
         super().__init__(

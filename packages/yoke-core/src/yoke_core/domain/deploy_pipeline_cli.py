@@ -49,15 +49,25 @@ def main(
     if refusal:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
+    from yoke_core.domain.deploy_pipeline_run_updates import (
+        DeployPipelineRunUpdateError,
+    )
+
     with door:
-        return runner(
-            args.primary_arg,
-            timeout_min=args.timeout,
-            from_stage=args.from_stage,
-            fresh=args.fresh,
-            image_tag=args.image_tag,
-            product_repo_path=args.product_repo_path,
-        )
+        try:
+            return runner(
+                args.primary_arg,
+                timeout_min=args.timeout,
+                from_stage=args.from_stage,
+                fresh=args.fresh,
+                image_tag=args.image_tag,
+                product_repo_path=args.product_repo_path,
+            )
+        except DeployPipelineRunUpdateError as exc:
+            # The message names the refused write and its recovery, such as
+            # the successor run to watch once a takeover cancelled this one.
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
 
 __all__ = ["main"]

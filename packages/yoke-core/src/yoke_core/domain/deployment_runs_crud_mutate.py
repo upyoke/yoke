@@ -157,7 +157,7 @@ def cmd_update(
             if value not in VALID_STATUSES:
                 return f"Error: invalid status '{value}'"
             if refusal := terminal_run_refusal(
-                run_id, status, advancing_to=value, action="change status"
+                conn, run_id, status, advancing_to=value, action="change status"
             ):
                 return refusal
             if value == "created" and has_frozen_composition(conn, run_id):
@@ -270,7 +270,11 @@ def cmd_update(
                 return f"Error: deployment run '{run_id}' not found"
             if field == "current_stage" and (
                 refusal := terminal_run_refusal(
-                    run_id, status, advancing_to=value, action="advance to a new stage"
+                    conn,
+                    run_id,
+                    status,
+                    advancing_to=value,
+                    action="advance to a new stage",
                 )
             ):
                 return refusal

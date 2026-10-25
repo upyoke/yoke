@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_core.domain.deploy_pipeline_unknown_outcome import DeploymentOutcomeUnknown
 from yoke_core.domain import deploy_pipeline_control_plane
+from yoke_core.domain.deployment_run_composition_guard import RUN_SUPERSEDED_CODE
 from yoke_core.domain.deployment_run_settlement_refusal import (
     SETTLEMENT_BLOCKED_CODE,
 )
@@ -41,8 +42,9 @@ def _write_failure(run_id: str, write: str, code: str, detail: str) -> str:
             f"{head} got no answer ({code}): {detail}; restore the selected "
             f"control-plane connection, then re-drive {run_id}"
         )
-    if code == SETTLEMENT_BLOCKED_CODE:
-        # The refusal names every blocking member and its own recovery.
+    if code in {SETTLEMENT_BLOCKED_CODE, RUN_SUPERSEDED_CODE}:
+        # The refusal names its own recovery: each blocking member, or the
+        # successor run to watch.
         return f"{head} refused ({code}): {detail}"
     return (
         f"{head} refused ({code or 'no error code'}): {detail}; repair the "
