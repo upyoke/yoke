@@ -136,8 +136,11 @@ Item identity comes from the stored `PREFIX-N: title` session-name prefix, so a
 title change does not prevent replacement detection; itemless failures remain
 visible until settled explicitly.
 
-Inspect `yoke session-control launch get LAUNCH-ID --json` and its diagnostic
-reference before restaffing. A native that exited without registering is reported
+Inspect `yoke session-control launch get LAUNCH-ID --json` before restaffing.
+When the native exits before registration, its relay pushes a redacted stderr
+excerpt of at most 4 KiB into `result_evidence.native_stderr_excerpt`. The fleet
+report includes the excerpt (last 512 characters in human output, full in JSON),
+so it remains readable from any machine after the source relay goes offline. A native that exited without registering is reported
 as `native_exited`, with its exit code and output; it may have run without ever
 binding a Yoke session. If the cause is fixed, relaunch the work. If the failure is
 resolved or no longer needs action, use `yoke session-control launch cancel

@@ -154,6 +154,26 @@ def test_a_launch_past_its_deadline_with_no_session_is_reported(fleet):
     assert overdue[0].overdue_seconds == 3 * 3600
 
 
+def test_stored_unregistered_excerpt_reaches_fleet_json_without_a_relay(fleet):
+    from yoke_core.domain.steering_fleet_report_projection import _launch_dict
+
+    _launch(fleet, "dead-launch", deadline=LONG_AGO, state="failed",
+            result_code="native_exited_unregistered")
+    excerpt = "diagnostic context\n" + "é" * 1900 + "\nfinal error"
+    fleet.execute(
+        "UPDATE session_launches SET result_evidence = %s WHERE launch_id = %s",
+        (json.dumps({"native_stderr_excerpt": excerpt}), "dead-launch"),
+    )
+    fleet.commit()
+
+    entries = unregistered_launches(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert len(entries) == 1
+    assert entries[0].observed_session_id is None
+    assert entries[0].native_stderr_excerpt == excerpt
+    assert _launch_dict(entries[0])["native_stderr_excerpt"] == excerpt
+
+
 def test_identity_parse_failure_is_reported_before_the_deadline(fleet):
     _launch(
         fleet,

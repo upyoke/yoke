@@ -70,10 +70,8 @@ def test_a_dead_launched_native_reports_its_launch_and_its_last_words(
     assert evidence["native_diagnostic_ref"] == f"nd-{LAUNCH_ID}"
     assert evidence["exit_code"] == 1
     assert evidence["native_exit_at"] == "2026-09-03T16:12:03.000000Z"
-    # The last line the native said, so the reason survives the machine that
-    # produced it; the rest of the stream never leaves.
     assert evidence["native_stderr_tail"] == REFUSAL
-    assert "warming up" not in json.dumps(evidence)
+    assert evidence["native_stderr_excerpt"] == f"warming up\n{REFUSAL}"
 
 
 def test_a_live_launched_native_is_not_reported_at_all(tmp_path: Path) -> None:
@@ -107,3 +105,21 @@ def test_a_native_account_is_empty_rather_than_raising_without_a_capture(
 ) -> None:
     assert native_account(LAUNCH_ID, state_dir=tmp_path) == {}
     assert native_account("not-an-identifier", state_dir=tmp_path) == {}
+
+
+def test_native_excerpt_keeps_the_end_within_a_utf8_byte_budget(tmp_path):
+    path = native_diagnostic_path(f"nd-{LAUNCH_ID}", state_dir=tmp_path)
+    token = "yoke_v1_" + "x" * 43
+    path.write_bytes(compose_capture(
+        stdout=b"unrelated stdout",
+        stderr=("old output\n" + "é" * 3000 + f"\n{token}\nfinal error").encode(),
+    ))
+
+    evidence = native_account(LAUNCH_ID, state_dir=tmp_path)
+
+    excerpt = evidence["native_stderr_excerpt"]
+    assert 4000 < len(excerpt.encode()) <= 4096
+    assert excerpt.endswith("[Yoke API token redacted]\nfinal error")
+    assert token not in excerpt
+    assert "old output" not in excerpt
+    assert "unrelated stdout" not in excerpt

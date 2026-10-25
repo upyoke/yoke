@@ -116,3 +116,20 @@ def test_exited_unregistered_native_names_evidence_and_settlement():
     assert "exit 0" in line
     assert "worker never started" not in line
     assert "launch cancel launch-1" in line
+
+
+def test_unregistered_excerpt_is_bounded_and_never_offers_a_session_read():
+    line = unregistered_launch_lines((_unregistered(
+        native_session_id="never-registered",
+        evidence_id="nd-11111111-1111-4111-8111-111111111111",
+        result_code="native_exited_unregistered",
+        native_stderr_excerpt="old text\n" + "x" * 1000 + "\nfinal error",
+        exit_code=1,
+    ),))[0]
+
+    assert "final error" in line
+    assert "old text" not in line
+    assert "…" in line
+    assert "\n" not in line
+    assert "evidence get" not in line
+    assert len(line.split("last output: ")[1].split("; instruction")[0]) == 512

@@ -25,6 +25,7 @@ from typing import Any, Callable, Iterator, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_contracts.session_control.evidence import native_stderr_excerpt
 from yoke_harness.session_process_custody import custody_state
 from yoke_harness.session_relay_record_pruning import prune_dead_session_records
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
@@ -251,7 +252,7 @@ def verified_dead_sessions(
 
 
 def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
-    """Read the native's capture reference and last line for remote readers."""
+    """Read bounded native diagnostics for remote readers."""
     try:
         reference = diagnostic_reference(launch_id)
         capture = read_native_capture(
@@ -269,6 +270,9 @@ def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
     tail = capture.tail
     if tail:
         account["native_stderr_tail"] = tail
+    excerpt = native_stderr_excerpt(capture.stderr.decode("utf-8", errors="replace"))
+    if excerpt:
+        account["native_stderr_excerpt"] = excerpt
     return account
 
 

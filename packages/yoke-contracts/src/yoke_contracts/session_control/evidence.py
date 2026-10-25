@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 from yoke_contracts.timestamps import format_instant
+from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_LAUNCH_WORKSPACE_FIELD,
@@ -64,6 +65,7 @@ _TEXT_FIELDS = frozenset(
         # that produced it, and an operator reading a fleet row on another
         # machine needs the reason in the row or they read nothing at all.
         "native_stderr_tail",
+        "native_stderr_excerpt",
         "relay_id",
         # Which session the launch was talking about, why the control plane
         # turned it away, and the model labels the two sides carried. A native
@@ -128,6 +130,7 @@ _INTEGER_FIELDS = frozenset(
         "running_native_silent_for_seconds",
     }
 )
+NATIVE_STDERR_EXCERPT_MAX_BYTES = 4 * 1024
 _MAX_TEXT_LENGTH = 128
 _MAX_CAPTURE_PATH_LENGTH = 512
 _NATIVE_DIAGNOSTIC_COMMAND = "yoke relay diagnostic"
@@ -156,6 +159,14 @@ def native_diagnostic_command(reference: str) -> str:
     return f"{_NATIVE_DIAGNOSTIC_COMMAND} {valid_reference}"
 
 
+def native_stderr_excerpt(text: str) -> str:
+    """Keep the last 4 KiB of diagnostic text after token redaction."""
+    safe = redact_api_tokens(text).strip()
+    return safe.encode("utf-8")[-NATIVE_STDERR_EXCERPT_MAX_BYTES:].decode(
+        "utf-8", errors="ignore"
+    )
+
+
 def redacted_evidence_document(
     value: Mapping[str, Any] | None,
 ) -> dict[str, str | int]:
@@ -167,6 +178,9 @@ def redacted_evidence_document(
             continue
         item = source.get(key)
         if isinstance(item, str) and item.strip():
+            if key == "native_stderr_excerpt":
+                clean[key] = native_stderr_excerpt(item)
+                continue
             limit = (
                 _MAX_CAPTURE_PATH_LENGTH
                 if key
@@ -195,6 +209,8 @@ def redacted_evidence_document(
 
 __all__ = [
     "NATIVE_DIAGNOSTIC_REFERENCE_PATTERN",
+    "NATIVE_STDERR_EXCERPT_MAX_BYTES",
+    "native_stderr_excerpt",
     "native_diagnostic_command",
     "redacted_evidence_document",
     "valid_native_diagnostic_reference",

@@ -129,6 +129,7 @@ class UnregisteredLaunch:
     #: machine that produced it, so a seat elsewhere reads the reason here
     #: or reads nothing.
     native_stderr_tail: str = ""
+    native_stderr_excerpt: str = ""
     exit_code: int | None = None
     #: The diagnostic reference this launch's own result recorded, so the
     #: row names the exact capture on the machine that produced it.
@@ -237,6 +238,7 @@ def unregistered_launches(
                 native_stderr_tail=evidence_text(
                     record.get("result_evidence"), "native_stderr_tail"
                 ),
+                native_stderr_excerpt=str(evidence.get("native_stderr_excerpt") or ""),
                 exit_code=evidence_int(record.get("result_evidence"), "exit_code"),
                 evidence_id=_recorded_diagnostic(record.get("result_evidence")),
                 detail=str(detail) if detail else None,
