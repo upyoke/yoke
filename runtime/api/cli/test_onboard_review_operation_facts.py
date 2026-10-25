@@ -65,8 +65,8 @@ def test_codex_review_paths_and_keys_match_real_project_writes(machine):
     assert result.changed
     parsed = tomllib.loads(config.read_text())
     assert parsed["projects"][str(checkout)]["trust_level"] == "trusted"
-    assert parsed["approval_policy"] == "on-request"
-    assert parsed["sandbox_mode"] == "read-only"
+    assert parsed["approval_policy"] == posture.CODEX_APPROVAL_POLICY
+    assert parsed["sandbox_mode"] == posture.CODEX_SANDBOX_MODE
     assert "trusted_hash" in config.read_text()
     machine_hooks = labels.friendly_line("install-machine-hooks", "~/.codex/hooks.json")
     assert str(config.parent / "hooks.json") in machine_hooks
