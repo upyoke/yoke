@@ -70,7 +70,7 @@ def build_failed_job_report(
         else ""
     )
     if not failures.failed:
-        if unfinished:
+        if unfinished or not failures.conclusion:
             lead = f"No failed jobs yet in run {run_id} — {run_url}"
         elif failures.conclusion == "success":
             lead = f"Run {run_id}: run concluded success; no failed jobs — {run_url}"
@@ -79,7 +79,7 @@ def build_failed_job_report(
                 f"No failed jobs in run {run_id}: no verdict; "
                 f"{CANCELLED_RECOVERY}. Open {run_url}."
             )
-        elif failures.conclusion in ("", CI_JOB_NOT_STARTED):
+        elif failures.conclusion == CI_JOB_NOT_STARTED:
             lead = (
                 f"No failed jobs in run {run_id}: nothing it ran reported a "
                 "failure, so the run reached no verdict "

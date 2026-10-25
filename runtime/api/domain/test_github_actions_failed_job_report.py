@@ -152,7 +152,7 @@ class TestBuildFailedJobReport:
 
         assert report.failed_job_count == 0
         assert report.jobs == []
-        assert "No failed jobs in run 123" in report.output
+        assert "No failed jobs yet in run 123" in report.output
         assert "https://github.com/o/r/actions/runs/123" in report.output
 
     def test_unavailable_job_log_is_named_in_the_report(self):
@@ -180,7 +180,7 @@ class TestBuildFailedJobReport:
 
 
 @pytest.mark.parametrize(
-    "conclusion", ["success", "cancelled", "", "ci_job_not_started", "failure"]
+    "conclusion", ["success", "cancelled", "ci_job_not_started", "failure"]
 )
 def test_zero_failed_jobs_report_uses_run_conclusion(conclusion):
     report = build_failed_job_report(
@@ -201,3 +201,16 @@ def test_zero_failed_jobs_report_uses_run_conclusion(conclusion):
     else:
         assert "no verdict" in report.output
         assert "Re-dispatch" in report.output
+
+
+def test_empty_conclusion_without_listed_jobs_advises_reading_again():
+    report = build_failed_job_report(
+        RunFailures(conclusion="", failed=[], unfinished_job_count=0),
+        repo="o/r",
+        run_id="123",
+        max_lines=200,
+    )
+
+    assert "No failed jobs yet in run 123" in report.output
+    assert "Re-dispatch" not in report.output
+    assert "no verdict" not in report.output
