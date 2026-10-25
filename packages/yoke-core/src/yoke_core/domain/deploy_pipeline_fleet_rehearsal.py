@@ -1,9 +1,12 @@
 """Rehearse a release the fleet receipts do not yet cover.
 
-Every GitHub workflow a deployment run dispatches for a project that declares
-a ``migration_model`` is a release of that project's databases, so before it
-dispatches, the fleet each model declares in ``migration_fleet`` is checked against what the release
-commit carries. A model whose fleet is ``none`` is skipped with its declared
+Every GitHub workflow a deployment run dispatches is a release of the
+databases of each project it ships: the run's own project at its release
+commit, and each project a stage binds through ``input_bindings`` at the
+commit the run recorded for it (``deploy_pipeline_fleet_rehearsal_sources``).
+So before it dispatches, the fleet each shipped project's models declare in
+``migration_fleet`` is checked against what that project's commit carries,
+once per project, model and target environment. A model whose fleet is ``none`` is skipped with its declared
 reason; a model that declares no fleet at all refuses the dispatch with the
 declaration recipe, because an undeclared fleet and an empty one are
 different facts.
@@ -28,10 +31,11 @@ and are not rehearsed again.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Mapping, Sequence, Tuple
+from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_core.domain import deploy_pipeline_environment
 from yoke_core.domain import deploy_pipeline_fleet_release_source as release_source
+from yoke_core.domain import deploy_pipeline_fleet_rehearsal_sources as sources
 from yoke_core.domain import migration_model_fleet as fleets
 from yoke_core.domain import migration_preflight_receipt as receipt
 from yoke_core.domain.migration_model_fleet_read import read_declared
@@ -42,38 +46,55 @@ DeclaredFleet = Tuple[str, Mapping[str, Any], Mapping[str, Any]]
 
 
 def ensure_before_dispatch(
+    bound_inputs: Mapping[str, str],
     *,
     project: str,
     environment: str,
     repository: str,
     release_lineage: str,
+    input_bindings: Optional[Mapping[str, Any]] = None,
 ) -> tuple[int, str]:
-    """Run and record fleet rehearsal for whatever this release is missing."""
-    due, refusal = _declared_fleets(project)
+    """Rehearse and record what each project this dispatch ships is missing.
+
+    ``bound_inputs`` is the commit the run holds for each bound input; the
+    dispatch calls again with the prepared values when preparation re-bound
+    one, and covered projects then skip.
+    """
+    bound, refusal = sources.bound_commits(input_bindings, bound_inputs)
     if refusal:
         return 1, refusal
-    if not due:
-        return 0, ""
-    if not environment.strip():
-        return 1, (
-            f"release fleet rehearsal for project {project!r} requires a "
-            "target environment"
-        )
-    release_sha, lineage_error = _release_sha(release_lineage, repository)
-    if lineage_error:
-        return 1, lineage_error
-    for model_name, model, fleet in due:
-        rc, diagnostic = _ensure_model(
-            project,
-            model_name,
-            model,
-            fleet,
-            environment=environment,
+    for source_project in sources.shipped_projects(project, bound):
+        due, refusal = _declared_fleets(source_project)
+        if refusal:
+            return 1, refusal
+        if not due:
+            continue
+        if not environment.strip():
+            return 1, (
+                f"release fleet rehearsal for project {source_project!r} "
+                "requires a target environment"
+            )
+        source, error = sources.resolve_source(
+            source_project,
+            project=project,
             repository=repository,
-            release_sha=release_sha,
+            release_lineage=release_lineage,
+            bound=bound,
         )
-        if rc != 0:
-            return rc, diagnostic
+        if error or source is None:
+            return 1, error
+        for model_name, model, fleet in due:
+            rc, diagnostic = _ensure_model(
+                source.project,
+                model_name,
+                model,
+                fleet,
+                environment=environment,
+                repository=source.repository,
+                release_sha=source.release_sha,
+            )
+            if rc != 0:
+                return rc, diagnostic
     return 0, ""
 
 
@@ -246,14 +267,6 @@ def _uncovered_summary(
     return " and ".join(parts)
 
 
-def _release_sha(lineage: str, repository: str) -> tuple[str, str]:
-    from yoke_core.domain.deploy_pipeline_github_workflow import (
-        _resolve_release_lineage_sha,
-    )
-
-    return _resolve_release_lineage_sha(lineage, repository, "")
-
-
 def _coverage(
     project: str,
     model: str,
@@ -268,7 +281,12 @@ def _coverage(
         paths=receipt.coverage_paths(model, history, schema_digest),
     )
     if unreadable:
-        return {}, f"could not read fleet rehearsal receipts: {unreadable}"
+        return {}, (
+            f"could not read fleet rehearsal receipts of {project}/{environment} "
+            f"model {model}: {unreadable}. Each shipped project needs an "
+            f"environment named {environment!r} the release control plane can "
+            "read; register it or grant the read, then re-drive the run"
+        )
     return values, ""
 
 

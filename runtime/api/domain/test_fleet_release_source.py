@@ -102,3 +102,36 @@ def test_unknown_release_commit_names_the_recovery(tmp_path: Path) -> None:
     with pytest.raises(release_source.ReleaseSourceError, match="Fetch the commit"):
         with release_source.release_checkout(str(repo), "f" * 40):
             pass
+
+
+def test_ensure_commit_fetches_a_bound_commit_the_checkout_lacks(
+    tmp_path: Path,
+) -> None:
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    _git(origin, "init", "-q")
+    (origin / "a.txt").write_text("a")
+    _commit(origin, "first")
+    _git(origin, "config", "uploadpack.allowAnySHA1InWant", "true")
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(origin), str(clone)], check=True)
+    (origin / "b.txt").write_text("b")
+    later = _commit(origin, "later")
+
+    assert release_source.ensure_commit(str(clone), later) == ""
+    assert _git(clone, "cat-file", "-t", later) == "commit"
+    assert release_source.ensure_commit(str(clone), later) == ""
+
+
+def test_ensure_commit_names_the_fetch_recovery_when_origin_lacks_it(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    missing = "f" * 40
+
+    refusal = release_source.ensure_commit(str(repo), missing)
+
+    assert f"commit {missing} is not in" in refusal
+    assert f"fetch origin {missing}" in refusal

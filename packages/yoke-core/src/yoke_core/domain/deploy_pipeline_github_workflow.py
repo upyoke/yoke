@@ -131,7 +131,7 @@ def _dispatch_github_actions_workflow(
             head_sha=project_head_sha,
             sd=sd,
         )
-    ready = readiness.await_dispatch_readiness(ci_gate, before_dispatch)
+    ready = readiness.await_dispatch_readiness(ci_gate, before_dispatch, bound_inputs)
     if ready[0] != 0:
         return ready
 
@@ -152,6 +152,7 @@ def _dispatch_github_actions_workflow(
         run_id=run_id,
         bound_inputs=bound_inputs,
         member_items=member_items,
+        before_dispatch=before_dispatch,
     )
     workflow_ref = ""
     if not diagnostic:  # Where in the DEPLOY repo the workflow file runs from.

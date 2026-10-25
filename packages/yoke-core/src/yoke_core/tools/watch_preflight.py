@@ -106,8 +106,10 @@ The paired admin connection is that environment's
 ``release.admin_connection`` setting, not a name suffix. ``--receipt-env``
 names the control plane that records the receipt. ``--record-receipt``
 writes the receipt the release gate reads for that environment.
-one environment's receipt never satisfies another, so rehearse each
-environment a release targets. The receipt lands on that environment's
+One environment's receipt never satisfies another, so rehearse each
+environment a release targets. Before a workflow dispatch the release gate
+runs this for every project the workflow ships, including each project bound
+through ``input_bindings``, at that project's own commit. The receipt lands on that environment's
 own settings document under ``release.fleet_rehearsal.<model>``, so coverage is
 durable state rather than telemetry that can expire.
 

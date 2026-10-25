@@ -61,6 +61,31 @@ def release_checkout(repository: str, release_sha: str) -> Iterator[Path]:
         yield checkout
 
 
+def ensure_commit(repository: str, sha: str) -> str:
+    """Fetch *sha* into *repository* when it is missing; why not, or ``""``."""
+    root = str(Path(repository).expanduser())
+
+    def git(*argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-C", root, *argv],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+
+    if git("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0:
+        return ""
+    fetched = git("fetch", "--quiet", "origin", sha)
+    if fetched.returncode == 0:
+        return ""
+    return (
+        f"commit {sha} is not in {root} and fetching it from origin failed: "
+        f"{(fetched.stderr or fetched.stdout).strip()}. Run `git -C {root} "
+        f"fetch origin {sha}`, then re-drive the run"
+    )
+
+
 def engine_source_mismatch(
     repository: str,
     release_sha: str,
@@ -116,4 +141,9 @@ def _file_at(repository: str, sha: str, path: str) -> bytes:
     return result.stdout
 
 
-__all__ = ["ReleaseSourceError", "engine_source_mismatch", "release_checkout"]
+__all__ = [
+    "ReleaseSourceError",
+    "engine_source_mismatch",
+    "ensure_commit",
+    "release_checkout",
+]
