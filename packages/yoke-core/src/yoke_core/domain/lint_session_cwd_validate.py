@@ -1,7 +1,7 @@
 """Validate targets against claims, lane occupancy, status, and machine context.
 
 Known capacity operands inspect totals without granting content or mutation.
-Unresolved home operands are refused. Writes and state moves into foreign lanes
+Unresolved local home operands are refused. Writes and state moves into foreign lanes
 are refused; established plain Git inspection and foreign-lane reads remain
 exempt. Ordinary home reads use executing-machine facts. Other claimed-call
 paths must be in a held lane, control plane, or free root; a call with no
@@ -121,7 +121,7 @@ def validate_targets(
     repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
     for use in path_uses:
-        if use.path.startswith("~"):
+        if use.role != PathRole.REMOTE and use.path.startswith("~"):
             return ValidationVerdict(
                 False,
                 use.path,
