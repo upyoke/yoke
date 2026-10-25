@@ -59,6 +59,7 @@ def activate_engine_artifact(raw_wheel: str) -> EngineArtifact:
         "yoke_core.tools",
         "yoke_core.tools.preflight_fleet_migrations",
         "yoke_core.tools.preflight_engine_artifact",
+        "yoke_core.tools.preflight_arguments",
     }
     loaded = sorted(
         name
