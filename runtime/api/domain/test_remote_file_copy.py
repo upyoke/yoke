@@ -118,6 +118,11 @@ def test_each_refusal_names_its_reason_and_keeps_the_destination(
     for code, source in cases.items():
         refused = _refusal(control, source, destination, refused_root=scratch)
         assert refused.code == code
+    # The scratch guard runs first, so a refusal never reveals which staged
+    # names exist there.
+    for name in ("absent-token", "token/../absent"):
+        hidden = _refusal(control, scratch / name, destination, refused_root=scratch)
+        assert hidden.code == "host_copy_path_in_mission_scratch"
     linked = _refusal(
         control, host / "evidence" / "link", destination, refused_root=scratch
     )

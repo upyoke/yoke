@@ -36,13 +36,14 @@ REFUSED_ROOT_EXIT = 68
 UNREADABLE_EXIT = 69
 
 # Reader scripts take TARGET, MAX_BYTES and REFUSED_ROOT as $1, $2 and $3.
-# Both resolve symlinks before the refused-root check, so no link can reach
-# into that directory.
+# Both resolve symlinks and refuse anything under the refused root before any
+# other check, so no link reaches into that directory and no refusal reveals
+# which names exist there.
 ZSH_READER = (
     'target="$1"; max="$2"; [[ "$target" == /* ]] || exit 64; '
-    '[[ -e "$target" ]] || exit 66; '
     'resolved="${target:A}"; root="${3:A}"; '
     '[[ "$resolved" == "$root" || "$resolved" == "$root"/* ]] && exit 68; '
+    '[[ -e "$resolved" ]] || exit 66; '
     '[[ -f "$resolved" ]] || exit 65; [[ -r "$resolved" ]] || exit 69; '
     'size=$(/usr/bin/wc -c < "$resolved") || exit 69; '
     "(( size <= max )) || exit 67; "
@@ -50,10 +51,10 @@ ZSH_READER = (
 )
 BASH_READER = (
     'target="$1"; max="$2"; [[ "$target" == /* ]] || exit 64; '
-    '[[ -e "$target" ]] || exit 66; '
-    'resolved=$(realpath -e -- "$target") || exit 66; '
+    'resolved=$(realpath -m -- "$target") || exit 66; '
     'root=$(realpath -m -- "$3") || exit 69; '
     '[[ "$resolved" == "$root" || "$resolved" == "$root"/* ]] && exit 68; '
+    '[[ -e "$resolved" ]] || exit 66; '
     '[[ -f "$resolved" ]] || exit 65; [[ -r "$resolved" ]] || exit 69; '
     'size=$(wc -c < "$resolved") || exit 69; '
     "(( size <= max )) || exit 67; "

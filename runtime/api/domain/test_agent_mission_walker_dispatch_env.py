@@ -1,4 +1,4 @@
-"""Walker dispatch: the walk commands ride the connection, walk-start names its run."""
+"""Walker dispatch: walk and copy commands ride the connection, walk-start names its run."""
 
 from __future__ import annotations
 
@@ -45,18 +45,28 @@ def test_walk_commands_carry_the_connection_env_in_field_and_prompt() -> None:
     dispatch = agent_mission_dispatch_contract(_bundle())
     result = {"review_bundle": {"dispatch": dispatch}}
     with (
-        mock.patch.object(qa_plan_execution_cli, "_review_connection_env", return_value="prod"),
+        mock.patch.object(
+            qa_plan_execution_cli, "_review_connection_env", return_value="prod"
+        ),
         mock.patch.object(qa_plan_execution_cli, "_require_walker_dispatch_capability"),
     ):
         qa_plan_execution_cli._qualify_review_dispatch(result)
     walker = dispatch["walker_dispatches"][0]
-    assert walker["walk_start_command"] == f"yoke --env prod qa mission walk-start {FLAGS}"
+    assert (
+        walker["walk_start_command"] == f"yoke --env prod qa mission walk-start {FLAGS}"
+    )
     assert walker["walk_end_command"] == (
         f"yoke --env prod qa mission walk-end {FLAGS} --run-id 991"
     )
     assert walker["walk_start_command"] in walker["prompt"]
     assert walker["walk_end_command"] in walker["prompt"]
     assert "yoke qa mission walk-" not in walker["prompt"]
+    assert walker["host_copy_command"] == (
+        f"yoke --env prod qa mission host-copy {FLAGS} "
+        "--from TARGET_PATH --to LOCAL_PATH"
+    )
+    assert f"`{walker['host_copy_command']}`" in walker["prompt"]
+    assert "`yoke qa mission host-copy" not in walker["prompt"]
     assert "connected-machine" not in walker["prompt"]
     assert "Clean up everything the walk creates" in walker["prompt"]
     assert "walker_dispatches[].prompt to its walker unchanged" in dispatch["prompt"]
