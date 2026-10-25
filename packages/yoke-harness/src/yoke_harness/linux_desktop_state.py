@@ -49,6 +49,7 @@ def desktop_sessions(*, active_only=True):
                         "session_id": environment.get("XDG_SESSION_ID", ""),
                         "environment": {
                             "DISPLAY": environment["DISPLAY"],
+                            "GDK_BACKEND": "x11",
                             "XAUTHORITY": environment.get(
                                 "XAUTHORITY", str(Path.home() / ".Xauthority")
                             ),
@@ -269,14 +270,10 @@ def ensure_desktop(password, port=RDP_PORT, *, rdp_access=False):
             )
         try:
             result = subprocess.run(
-                [
-                    "xrdp-sesrun",
-                    "-s",
-                    "::1",
-                    "-t",
-                    "Xorg",
-                    "-F",
-                    "0",
+                ["xrdp-sesrun", "-s", "::1", "-t", "Xorg", "-F", "0"]
+                + [
+                    "-S",
+                    "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh",
                     pwd.getpwuid(os.getuid()).pw_name,
                 ],
                 input=password + "\n",

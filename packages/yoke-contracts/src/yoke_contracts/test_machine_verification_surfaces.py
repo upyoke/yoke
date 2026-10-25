@@ -2,8 +2,8 @@
 
 Verification runs named checks that prove different routes into the host:
 ``connection`` proves SSH -- the route remote exec, resets, and machine
-assertions ride -- while ``terminal_bridge`` proves the Terminal.app route
-GUI captures ride. The receipt's one overall status and error code collapse
+assertions ride -- while ``terminal_bridge`` proves the graphical route GUI captures ride:
+Terminal.app on macOS and XFCE/Xorg on Linux or Windows WSL. The receipt's one overall status and error code collapse
 the two, so a host whose SSH works reads as broken when only its Terminal
 bridge failed. This names each surface's own outcome and the recovery that
 fits it, derived from the recorded check rows rather than stored beside them.

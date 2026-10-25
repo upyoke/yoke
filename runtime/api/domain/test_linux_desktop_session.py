@@ -18,6 +18,7 @@ SESSION = {
     "session_id": "c2",
     "environment": {
         "DISPLAY": ":10",
+        "GDK_BACKEND": "x11",
         "XAUTHORITY": "/home/test/.Xauthority",
         "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
     },
@@ -60,6 +61,7 @@ def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display)
     assert len(calls) == 1
     argv, kwargs = calls[0]
     assert argv[:7] == ["xrdp-sesrun", "-s", "::1", "-t", "Xorg", "-F", "0"]
+    assert argv[7:9] == ["-S", "env GDK_BACKEND=x11 /etc/xrdp/startwm.sh"]
     assert kwargs["input"] == PASSWORD + "\n"
     assert PASSWORD not in str(argv) + str(started) + host.read_text()
     assert json.loads(host.read_text())["session"] == session

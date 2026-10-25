@@ -63,7 +63,10 @@ def test_xfce_process_must_belong_to_active_fixture_login(
     )
     if foreign:
         monkeypatch.setattr(state.os, "getuid", lambda: process.stat().st_uid + 1)
-    assert bool(state.desktop_sessions()) is expected
+    sessions = state.desktop_sessions()
+    assert bool(sessions) is expected
+    if expected:
+        assert sessions[0]["environment"]["GDK_BACKEND"] == "x11"
 
 
 def test_reset_ends_active_wayland_session(monkeypatch, tmp_path):
