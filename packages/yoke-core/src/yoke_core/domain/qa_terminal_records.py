@@ -9,6 +9,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_obligation_settlement import (
     effective_obligations,
+    item_supersession_settled,
     requirement_retracted_at_select,
 )
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
@@ -140,7 +141,16 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             if row.get("qa_kind") == "simulation"
             else False
         )
-    attempts = latest_executions(conn, [row["id"] for row in rows])
+    attempts = latest_executions(
+        conn,
+        [
+            row["id"]
+            for row in rows
+            if not row.get("waived_at")
+            and not row.get("retracted_at")
+            and not item_supersession_settled(row)
+        ],
+    )
     for row in rows:
         attempt = attempts.get(int(row["id"]), {})
         row["run_id"] = attempt.get("id")

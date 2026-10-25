@@ -19,7 +19,6 @@ class BlockingRequirementIssue:
     recovery: str
 
 
-
 def _render_shas(shas: Sequence[str]) -> str:
     return ", ".join(sha for sha in shas) if shas else "<missing>"
 
@@ -101,10 +100,13 @@ def issue_for_requirement(
         or requirement.get("qa_phase") == "post_deploy"
     ):
         return None
+    if run_sha and run_sha in accepted_shas:
+        return None
     try:
-        if run_sha and any(
-            run_sha == head or (contains_commit and contains_commit(head, run_sha))
-            for head in accepted_shas
+        if (
+            run_sha
+            and contains_commit
+            and any(contains_commit(head, run_sha) for head in accepted_shas)
         ):
             return None
     except ValueError as exc:
@@ -123,4 +125,3 @@ def issue_for_requirement(
         ),
         recovery,
     )
-

@@ -1,91 +1,82 @@
-"""Merge proof hydration follows selected identity across reordered run history."""
+"""Merge uses the common reader's native-selected run, never history order."""
 
+import json
 from itertools import permutations
-from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.domain import standalone_item_merge_qa as merge_qa
-from runtime.api.domain.test_standalone_item_merge_qa import (
-    MERGING_SHA,
-    _item,
-    _requirement,
+from runtime.api.fixtures.backlog import (
+    insert_item,
+    insert_qa_requirement,
+    insert_qa_run,
 )
+from runtime.api.domain.test_standalone_item_merge_qa import MERGING_SHA, _item
+from yoke_core.domain.item_detail_qa import qa_rows
+from yoke_core.domain.standalone_item_merge_qa import preflight
 
 
-def _run(run_id, verdict, outcome, *, completed=True):
-    return {
-        "id": run_id,
-        "verdict": verdict,
-        "execution_status": "captured" if completed else "running",
-        "case_outcome": outcome,
-        "completed_at": "2026-01-01T00:00:00Z" if completed else None,
-        "raw_result": '{"verification_tree":{"head_sha":"' + MERGING_SHA + '"}}',
-    }
+def _capture(conn, requirement_id, ordinal, verdict, *, proof=True):
+    stamp = f"2026-10-01T00:00:0{ordinal}Z"
+    return insert_qa_run(
+        conn,
+        qa_requirement_id=requirement_id,
+        verdict=verdict,
+        started_at=stamp,
+        created_at=stamp,
+        completed_at=stamp if verdict else None,
+        case_outcome="passed"
+        if verdict == "pass"
+        else ("failed" if verdict else "running"),
+        raw_result=json.dumps({"verification_tree": {"head_sha": MERGING_SHA}})
+        if proof
+        else "{}",
+    )
 
 
-def _history(monkeypatch, rows):
-    monkeypatch.setattr(
-        merge_qa,
-        "call_dispatcher",
-        lambda **kwargs: SimpleNamespace(success=True, result={"rows": rows}),
+def _proof(conn, item_id, tmp_path):
+    item = _item(None)
+    item["qa_requirements"] = qa_rows(conn, item_id)
+    return item, preflight(
+        item, public_ref="example", repo_root=tmp_path, branch="lane"
     )
 
 
 @pytest.mark.parametrize("order", list(permutations(range(3))))
 def test_newest_passing_attempt_grades_the_same_in_every_history_order(
-    tmp_path, monkeypatch, order
+    test_db, tmp_path, order
 ):
-    rows = [
-        _run(81, None, "needs_review"),
-        _run(85, "fail", "failed"),
-        _run(88, "pass", "passed"),
-    ]
-    requirement = _requirement(verdict="pass", sha="")
-    _history(monkeypatch, [rows[i] for i in order])
-    sha, error = merge_qa.preflight(
-        _item(requirement), public_ref="YOK-10", repo_root=tmp_path, branch="YOK-10"
-    )
-    assert (sha, error) == (MERGING_SHA, "")
-    assert requirement["run_id"] == 88
-    assert requirement["case_outcome"] == "passed"
+    item = insert_item(test_db)
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    captures = {}
+    for ordinal in order:
+        captures[ordinal] = _capture(
+            test_db, requirement["id"], ordinal, [None, "fail", "pass"][ordinal]
+        )
+    model, result = _proof(test_db, item["id"], tmp_path)
+    assert result == (MERGING_SHA, "")
+    assert model["qa_requirements"][0]["run_id"] == captures[2]["id"]
+    assert model["qa_requirements"][0]["case_outcome"] == "passed"
 
 
-@pytest.mark.parametrize(
-    "verdict,outcome,completed",
-    [
-        ("fail", "failed", True),
-        (None, "running", False),
-    ],
-)
+@pytest.mark.parametrize("verdict", ["fail", None])
 def test_current_failed_or_pending_attempt_cannot_borrow_an_old_pass(
-    tmp_path, monkeypatch, verdict, outcome, completed
+    test_db, tmp_path, verdict
 ):
-    requirement = _requirement(verdict=verdict, sha="", completed=completed)
-    _history(
-        monkeypatch,
-        [
-            _run(88, verdict, outcome, completed=completed),
-            _run(90, "pass", "passed"),
-        ],
-    )
-    _, error = merge_qa.preflight(
-        _item(requirement), public_ref="YOK-10", repo_root=tmp_path, branch="YOK-10"
-    )
-    assert error
-    assert requirement["run_id"] == 88
-    assert requirement["case_outcome"] == outcome
+    item = insert_item(test_db)
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    current = _capture(test_db, requirement["id"], 2, verdict)
+    _capture(test_db, requirement["id"], 1, "pass")
+    model, (_, error) = _proof(test_db, item["id"], tmp_path)
+    assert "incomplete" in error
+    assert model["qa_requirements"][0]["run_id"] == current["id"]
 
 
-@pytest.mark.parametrize("rows", [[], [_run(89, "pass", "passed")]])
-def test_missing_selected_run_refuses_without_borrowing_other_proof(
-    tmp_path, monkeypatch, rows
-):
-    requirement = _requirement(verdict="pass", sha="")
-    _history(monkeypatch, rows)
-    _, error = merge_qa.preflight(
-        _item(requirement), public_ref="YOK-10", repo_root=tmp_path, branch="YOK-10"
-    )
-    assert "recorded SHA" in error
-    assert requirement["run_id"] == 88
-    assert not requirement["recorded_head_sha"]
+def test_selected_run_without_start_commit_cannot_borrow_old_proof(test_db, tmp_path):
+    item = insert_item(test_db)
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    current = _capture(test_db, requirement["id"], 2, "pass", proof=False)
+    _capture(test_db, requirement["id"], 1, "pass")
+    model, (_, error) = _proof(test_db, item["id"], tmp_path)
+    assert "outside-lane" in error
+    assert model["qa_requirements"][0]["run_id"] == current["id"]
+    assert not model["qa_requirements"][0]["recorded_head_sha"]

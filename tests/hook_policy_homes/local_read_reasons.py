@@ -110,6 +110,7 @@ AUTHORITY_RELEASE_MACHINERY = (
         _C + "github_app_control_plane:load_github_app_public_profile",
         _C + "project_file_at_commit:_from_checkout",
         _C + "qa_execution_environment_target:runtime_environment_name",
+        _C + "qa_lane_history:item_lane_contains",
         _C + "session_private_route_qualification:_message_scope",
         _C + "session_private_route_qualification:_runtime_release",
     ),

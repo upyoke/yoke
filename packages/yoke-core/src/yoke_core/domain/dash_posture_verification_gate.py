@@ -82,6 +82,29 @@ def _requirement_consumed(
         if obligation_settled(row):
             return True
         row["passed"] = passed = has_current_passing_run(conn, int(row["id"]))
+    if passed and candidate_shas and row.get("qa_phase") == "verification":
+        from yoke_core.domain.qa_terminal_records import _blocking_requirement_rows
+        from yoke_core.domain.qa_terminal_settlement import blocking_requirement_issues
+        from yoke_core.domain.qa_lane_history import item_lane_contains
+
+        proof = next(
+            (
+                proof
+                for proof in _blocking_requirement_rows(conn, item_id)
+                if int(proof["id"]) == int(row["id"])
+            ),
+            None,
+        )
+        issues = blocking_requirement_issues(
+            [proof] if proof else [],
+            accepted_shas=candidate_shas,
+            public_ref=str(item_id),
+            require_any=True,
+            contains_commit=item_lane_contains(conn, item_id),
+        )
+        if issues:
+            row["settlement_error"] = issues[0].detail
+            return False
     if pre_merge:
         return passed
     phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
