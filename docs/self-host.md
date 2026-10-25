@@ -25,7 +25,7 @@ curl -fsSL https://upyoke.com/install | sh
 #    the generated password is never printed. A marked block in
 #    .gitignore protects .env and secrets/ without replacing your rules.
 yoke self-host init --admin-name "Your Name" --start
-cd yoke-server
+cd "${YOKE_MACHINE_HOME:-$HOME/.yoke}/yoke-server"
 
 # 3. First boot writes the reusable administrator token to an owner-only
 #    file. The log names the path and never carries the token itself.
@@ -43,7 +43,7 @@ yoke status
 
 The host command opens each mode `0600` input as its non-root operator and streams it on stdin through Docker exec. The container drops to its runtime user and writes private tmpfs copies; no host file is mounted or chowned and no credential is placed in an environment variable. The admin token returns over that same private handoff, outside Docker logs; the host atomically writes its owner-only token file and acknowledges durable storage before token creation commits. A failed handoff refuses with a reason and retry command.
 Start/restart an existing bundle with `yoke self-host init --dir PATH --protect-existing --start`. This refreshes the packaged Compose template, preserving `.env`, database credentials, and the Postgres volume. Keep runtime settings in `.env`; reapply any custom Compose changes after a template refresh. Automatic container restart is disabled: after a host/daemon restart, run that host command again so it can reopen the protected inputs. Raw Compose starts alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
-A new bundle requires `--admin-name`, written to `.env` as `YOKE_ADMIN_NAME`; first boot refuses to birth a universe without it and names the fix (set it in `.env`, then restart). `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By default it resolves the installed CLI's immutable release manifest and writes that release's exact `<repository>:<BASE.YYYYMMDDHHMM>` image to `.env`. The repository defaults to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine config, or choose **Image repository** in the self-host onboarding preview, to use a fork, mirror, or private registry. Enter a lowercase registry/repository without a tag or digest; it must carry the same immutable release version tags. Every fresh bundle therefore starts with matching CLI and server versions, and a later container restart keeps the same server. `--image` remains an explicit operator override. Generated credentials stay in host-owned files under `secrets/` rather than `.env`, whose values Compose `$`-interpolates.
+A new bundle requires `--admin-name`, written to `.env` as `YOKE_ADMIN_NAME`; first boot refuses to birth a universe without it and names the fix (set it in `.env`, then restart). The bundle defaults to `~/.yoke/yoke-server` (`YOKE_MACHINE_HOME/yoke-server` when set), outside projects. `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By default it resolves the installed CLI's immutable release manifest and writes that release's exact `<repository>:<BASE.YYYYMMDDHHMM>` image to `.env`. The repository defaults to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine config, or choose **Image repository** in the self-host onboarding preview, to use a fork, mirror, or private registry. Enter a lowercase registry/repository without a tag or digest; it must carry the same immutable release version tags. Every fresh bundle therefore starts with matching CLI and server versions, and a later container restart keeps the same server. `--image` remains an explicit operator override. Generated credentials stay in host-owned files under `secrets/` rather than `.env`, whose values Compose `$`-interpolates.
 Refresh older bundles while preserving `.env` and database credentials:
 
 ```bash
@@ -309,8 +309,8 @@ silently repoint an unrelated remote bundle.
 
 For full machine removal, use [`yoke uninstall`](public/start/uninstall.md#uninstall). `yoke self-host teardown` removes the server install. It always stops and removes the
 stack; everything further is opt-in and named for what it destroys. Run it
-from the directory that holds `yoke-server/`, or name the bundle with
-`--dir PATH` from anywhere:
+from anywhere; it defaults to the machine-home bundle. Name another bundle
+with `--dir PATH`:
 
 ```bash
 yoke self-host teardown                       # stop the stack; keep the data

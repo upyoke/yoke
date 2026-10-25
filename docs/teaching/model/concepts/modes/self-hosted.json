@@ -5,6 +5,6 @@
  "commands": ["yoke self-host init", "yoke connect"],
  "page": "modes",
  "position": 2,
- "summary": "Loopback remains the default. self-host init --listen publishes a numeric LAN, Tailscale or wildcard bind through YOKE_API_PUBLISH. Connect permits declared private-network HTTP and *.ts.net with a warning on every command; public HTTP requires HTTPS.",
+ "summary": "The server bundle defaults to yoke-server under the machine home (~/.yoke or YOKE_MACHINE_HOME), independent of the project or invoking directory; --dir selects an explicit location. Uninstall discovers bundles through Docker Compose labels. Loopback remains the default. self-host init --listen publishes a numeric LAN, Tailscale or wildcard bind through YOKE_API_PUBLISH. Connect permits declared private-network HTTP and *.ts.net with a warning on every command; public HTTP requires HTTPS.",
  "sources": ["docs/self-host.md", "docs/self-host-people.md"]
 }

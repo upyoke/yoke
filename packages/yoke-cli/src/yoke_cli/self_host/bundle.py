@@ -28,13 +28,8 @@ from yoke_cli.self_host.secure_layout import SECRETS_DIR_NAME
 from yoke_cli.self_host.env_template import env_text
 from yoke_contracts.first_admin_name import AdminNameError, validate_admin_name
 from yoke_contracts.self_host_handoff import HANDOFF_TIMEOUT_SECONDS
+from yoke_contracts.machine_config.paths import yoke_home
 
-#: Default bundle directory, created under the invoking directory. The
-#: bundle is an operator-managed working directory (``docker compose``
-#: up/logs/pull all run from it), so it stays visible where the operator
-#: ran init rather than hiding under the machine home, which holds
-#: client-side config for this machine's CLI — not server deployments.
-DEFAULT_BUNDLE_DIR = "yoke-server"
 DEFAULT_API_PORT = 8765
 
 COMPOSE_FILE_NAME = "docker-compose.yml"
@@ -57,6 +52,11 @@ _PASSWORD_ENTROPY_BYTES = 32
 
 class SelfHostBundleError(RuntimeError):
     """The self-host bundle could not be materialized."""
+
+
+def default_bundle_dir() -> Path:
+    """Keep server infrastructure in the selected machine home."""
+    return yoke_home() / "yoke-server"
 
 
 def bundle_file_paths(target: Path) -> tuple[Path, ...]:
@@ -92,7 +92,7 @@ def write_bundle(
     Returns a report safe to print: paths, image, publish spec — never
     the generated password or DSN.
     """
-    target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    target = (Path(directory) if directory else default_bundle_dir()).expanduser()
     try:
         selected_admin_name = validate_admin_name(admin_name)
     except AdminNameError as exc:
@@ -194,7 +194,7 @@ def protect_existing_bundle(
     github_app_private_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Protect an existing bundle without rewriting it or its DB secrets."""
-    target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    target = (Path(directory) if directory else default_bundle_dir()).expanduser()
     _prepare_layout(target, create=False)
     try:
         secure_layout.validate_existing_bundle_files(
@@ -239,7 +239,7 @@ def protect_existing_bundle(
 
 def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
     """Return one safely validated existing compose working directory."""
-    target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
+    target = (Path(directory) if directory else default_bundle_dir()).expanduser()
     _prepare_layout(target, create=False)
     try:
         secure_layout.validate_existing_bundle_files(
@@ -305,7 +305,7 @@ __all__ = [
     "COMPOSE_FILE_NAME",
     "DB_PASSWORD_FILE_NAME",
     "DEFAULT_API_PORT",
-    "DEFAULT_BUNDLE_DIR",
+    "default_bundle_dir",
     "DSN_FILE_NAME",
     "ENV_FILE_NAME",
     "GITIGNORE_FILE_NAME",

@@ -292,12 +292,6 @@ def test_init_refuses_clobber_without_force(target, capsys):
     assert _password(target) != first_password
 
 
-def test_default_directory_lands_under_cwd(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    report = bundle.write_bundle(admin_name="Ada Lovelace")
-    assert report["directory"] == str((tmp_path / bundle.DEFAULT_BUNDLE_DIR).resolve())
-
-
 def test_published_image_pin_shape():
     image = pinned_server_image("0.2.0.202610140334")
     assert image == f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:0.2.0.202610140334"
