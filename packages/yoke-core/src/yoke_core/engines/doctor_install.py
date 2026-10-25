@@ -10,9 +10,7 @@ from contextlib import nullcontext
 
 from yoke_contracts.engine_version import ENGINE_VERSION_HEADER, local_handshake_version
 from yoke_contracts.execution_provenance import collect_execution_provenance
-from yoke_contracts.executor_labels import harness_display_name
 from yoke_contracts.harness_cli_manifest import HARNESS_CLI_MANIFESTS
-from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
 from yoke_contracts.machine_config.schema import (
     TRANSPORT_HTTPS,
     MachineConfigContractError,
@@ -187,16 +185,11 @@ class _SessionHookUnproven(ValueError):
 
 def session_hook_recovery(reason: str = "SESSION_HOOK_UNOBSERVED") -> str:
     """The unproven-registration line: what happened and the one next step."""
-    approvals = "".join(
-        f" In {harness_display_name(harness_id)}, first approve this project's "
-        f"hooks in {gate['trust_surface']}."
-        for harness_id, gate in HARNESS_HOOK_APPROVAL.items()
-    )
     return (
         f"{reason}: registration and hook delivery for this "
         "session are not both proven. Start a new harness session in the "
         "installed project (quit and reopen the harness app if it stays open), "
-        "then rerun the same `yoke doctor run` command." + approvals
+        "then rerun the same `yoke doctor run` command."
     )
 
 
