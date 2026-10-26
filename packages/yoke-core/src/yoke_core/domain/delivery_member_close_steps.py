@@ -110,6 +110,9 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
             expected_status=status,
         )
     if preflight.failure is not None:
+        if preflight.source_status == CLOSED_OUT_STATUS:
+            # The owner closed it between the status read and the preflight.
+            return ""
         return str(preflight.failure.get("error") or "close-out preflight refused")
     return ""
 

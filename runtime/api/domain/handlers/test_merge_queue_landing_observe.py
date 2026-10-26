@@ -32,12 +32,12 @@ from yoke_core.domain.merge_queue_readiness import (
 )
 
 
-def _request(item_id: int) -> FunctionCallRequest:
+def _request(item_id: int, **payload: object) -> FunctionCallRequest:
     return FunctionCallRequest(
         function="merge_queue.landing.observe",
         actor=ActorContext(actor_id=None, session_id="s-waiter"),
         target=TargetRef(kind="item", item_id=item_id),
-        payload={},
+        payload=payload,
     )
 
 
@@ -58,11 +58,12 @@ def test_waiter_call_refreshes_every_pending_landing_once_per_cadence(
         reads.append(str(pr_number))
         return armed_awaiting_checks(ctx, pr_number)
 
-    def observe(db, project_ids, *, now):
+    def observe(db, project_ids, *, now, **kwargs):
         return observe_pending_landings(
             db,
             project_ids,
             now=now,
+            **kwargs,
             read_state=read_state,
             read_membership=not_queued,
             read_checks=checks_running,
@@ -91,7 +92,7 @@ def test_waiter_call_refreshes_every_pending_landing_once_per_cadence(
 def test_recent_in_progress_refresh_is_waitable_before_first_record(monkeypatch):
     conn = observer_connection()
 
-    def leave_refresh_in_progress(db, project_ids, *, now):
+    def leave_refresh_in_progress(db, project_ids, *, now, **_kwargs):
         db.execute(
             "INSERT INTO merge_queue_landing_refreshes "
             "(project_id,started_at,completed_at,last_error) "
@@ -116,7 +117,7 @@ def test_candidate_created_after_a_recent_sweep_waits_for_the_next_cadence(
 ):
     conn = observer_connection()
 
-    def finish_without_this_candidate(db, project_ids, *, now):
+    def finish_without_this_candidate(db, project_ids, *, now, **_kwargs):
         db.execute(
             "INSERT INTO merge_queue_landing_refreshes "
             "(project_id,started_at,completed_at,last_error) VALUES "
@@ -172,11 +173,12 @@ def _observe_with(monkeypatch, conn, *, now, read_state, reads):
         reads.append(str(pr_number))
         return read_state(ctx, pr_number)
 
-    def observe(db, project_ids, *, now):
+    def observe(db, project_ids, *, now, **kwargs):
         return observe_pending_landings(
             db,
             project_ids,
             now=now,
+            **kwargs,
             read_state=counted,
             read_membership=not_queued,
             read_checks=checks_running,
@@ -229,6 +231,32 @@ def test_stale_record_without_relay_refreshes_inline_and_reports_landing(
     assert reads == ["42"]
     assert outcome.result_payload["refreshed"] is True
     assert outcome.result_payload["stale"] is False
+    assert outcome.result_payload["record"]["state"] == LANDED
+
+
+@pytest.mark.parametrize(
+    ("swept_state", "expected_reads"), [(armed_awaiting_checks, ["42"]), (merged, [])]
+)
+def test_close_out_refreshes_a_fresh_record_unless_it_is_landed(
+    monkeypatch, swept_state, expected_reads
+):
+    conn = observer_connection()
+    # The sweep wrote its record seconds before GitHub merged the PR.
+    relay_sweep(
+        conn,
+        now=NOW - timedelta(seconds=2),
+        read_state=swept_state,
+        read_membership=not_queued,
+    )
+    reads: list[str] = []
+    _observe_with(monkeypatch, conn, now=NOW, read_state=merged, reads=reads)
+
+    outcome = handler.handle_observe_landing(
+        _request(101, refresh_unless_landed=True)
+    )
+
+    assert outcome.primary_success
+    assert reads == expected_reads
     assert outcome.result_payload["record"]["state"] == LANDED
 
 

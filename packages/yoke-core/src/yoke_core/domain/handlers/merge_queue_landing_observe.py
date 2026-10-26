@@ -15,8 +15,10 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
+from yoke_core.domain.merge_queue_landing_record_state import LANDED
 from yoke_core.domain.merge_queue_landing_refresh import (
     LANDING_RECORD_STALE_SECONDS,
+    REFRESH_CADENCE_SECONDS,
     LandingRefresh,
     read_refresh,
     record_age_seconds,
@@ -27,7 +29,8 @@ from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ObserveLandingRequest(BaseModel):
-    pass
+    # Close-out sets this: only a LANDED record may answer without a refresh.
+    refresh_unless_landed: bool = False
 
 
 class ObserveLandingResponse(BaseModel):
@@ -117,12 +120,15 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
     project cadence, so a fresh record answers without any GitHub read. When
     nothing has kept it current (a machine-local universe whose relay is not
     running), this call refreshes the project inline, so a waiter never waits
-    on a record nobody refreshes.
+    on a record nobody refreshes. ``refresh_unless_landed`` also refreshes a
+    fresh record that is not LANDED, inside the sweep cadence and while a
+    sweep runs: a record written seconds before GitHub merged must not hold
+    close-out until it ages out.
     """
     if request.target.item_id is None:
         return _error("target_invalid", "landing.observe requires target.public_ref")
     try:
-        ObserveLandingRequest.model_validate(request.payload)
+        payload = ObserveLandingRequest.model_validate(request.payload)
     except Exception as exc:  # Pydantic supplies the actionable field path.
         return _error("payload_invalid", f"landing observation payload invalid: {exc}")
 
@@ -146,9 +152,17 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
             after = before
             record = _stored_record(conn, item_id, pr_numbers)
             observation_error = ""
-            if _stale(record, before, now=current):
+            unconfirmed = payload.refresh_unless_landed and (
+                record is None or record.state != LANDED
+            )
+            if unconfirmed or _stale(record, before, now=current):
                 try:
-                    observe_pending_landings(conn, [project_id], now=current)
+                    observe_pending_landings(
+                        conn,
+                        [project_id],
+                        now=current,
+                        cadence_seconds=0.0 if unconfirmed else REFRESH_CADENCE_SECONDS,
+                    )
                 except Exception as exc:  # The refresh row carries this evidence.
                     observation_error = str(exc)
                 after = read_refresh(conn, project_id)

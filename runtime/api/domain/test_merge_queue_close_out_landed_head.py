@@ -122,6 +122,18 @@ def test_landed_record_names_its_candidate_head():
     assert head == REBASED
 
 
+def test_close_out_asks_for_a_refresh_unless_landed():
+    payloads: list[dict] = []
+
+    def dispatch(**kwargs):
+        payloads.append(kwargs["payload"])
+        return _dispatch(_record(REBASED))(**kwargs)
+
+    landed_candidate_head(f"ITEM-{7}", dispatch=dispatch)
+
+    assert payloads == [{"refresh_unless_landed": True}]
+
+
 def test_landed_record_without_a_head_does_not_invent_one():
     head, gap = landed_candidate_head(f"ITEM-{7}", dispatch=_dispatch(_record("")))
 
