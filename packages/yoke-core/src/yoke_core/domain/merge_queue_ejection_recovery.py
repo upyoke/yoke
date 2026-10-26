@@ -33,23 +33,11 @@ def recovery_instruction(readback: Any, *, target: str) -> str:
     if recovery.get("message"):
         return recovery["message"]
     member = readback.membership
-    if (
-        member is not None
-        and member.entry_state == "UNMERGEABLE"
-        and member.mergeable != "MERGEABLE"
-    ):
-        return (
-            "queue_mergeability_unknown: wait for GitHub to recompute mergeable; "
-            "if CONFLICTING, rebase the lane onto "
-            + target
-            + ", re-run the verification gate "
-            "and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item` after the entries ahead leave; a failed train still requires a correction or one recorded --retry-flake claim."
-        )
     if member is not None and member.entry_state == "UNMERGEABLE":
         return (
-            "queue_conflict: mergeable against the base; wait for entries ahead "
-            "to land or leave, then re-read mergeable. If CONFLICTING, rebase, "
-            "re-verify and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item`; a failed train requires a correction or one recorded --retry-flake claim."
+            "queue_conflict: wait for entries ahead to land or leave, then re-read "
+            f"mergeable. If CONFLICTING, rebase the lane onto {target}, re-run the "
+            "verification gate and re-run `yoke merge item`; if MERGEABLE, re-run `yoke merge item`; a failed train requires a correction or one recorded --retry-flake claim."
         )
     return ""
 
@@ -195,7 +183,7 @@ def recover_ejection(
             f"PR #{entry['pr_number']} (shared files: {', '.join(entry['shared_files']) or 'none'})"
             for entry in waiting
         )
-        message = f"queue_conflict: wait for {details or 'GitHub to remove the unmergeable entry and recompute mergeability'} to land or leave; then re-read mergeable, rebase and re-verify if CONFLICTING, or re-enqueue unchanged if MERGEABLE."
+        message = f"queue_conflict: waiting for {details or 'GitHub to remove the unmergeable entry'} to land or leave. The landing observer re-enqueues the unchanged head by itself once GitHub reports it MERGEABLE, and sends a new notice if it reports CONFLICTING; take no action and do not hold the landing."
         return replace(
             readback,
             queue_recovery={**recovery, "action": "waiting", "message": message},

@@ -150,18 +150,16 @@ def test_a_dropped_closed_pull_request_names_reopening():
     assert "closed" in observation.recovery
 
 
-def test_an_unmergeable_queue_entry_is_ejected_before_removal():
-    membership = PrQueueMembership(
-        in_queue=True, entry_state="UNMERGEABLE", mergeable="UNKNOWN"
-    )
-    observation = _classify(
-        _state(auto_merge_active=True, merge_state_status="UNKNOWN"),
-        membership,
-        target="trunk",
-    )
+def test_an_unmergeable_entry_waits_until_github_decides_mergeability():
+    def classify(mergeable):
+        membership = PrQueueMembership(
+            in_queue=True, entry_state="UNMERGEABLE", mergeable=mergeable
+        )
+        state = _state(auto_merge_active=True, merge_state_status="BLOCKED")
+        return _classify(state, membership, target="trunk")
 
+    assert classify("UNKNOWN").kind == WAITING
+    observation = classify("CONFLICTING")
     assert observation.kind == EJECTED
-    assert "rebase the lane onto trunk" in observation.recovery
-    assert "re-run the verification gate" in observation.recovery
     assert "mergeQueueEntry=UNMERGEABLE" in observation.observed
     assert "isInMergeQueue=true" in observation.observed

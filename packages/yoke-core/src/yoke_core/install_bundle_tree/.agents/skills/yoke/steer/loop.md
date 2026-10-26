@@ -60,6 +60,7 @@ For specs:
   occurrence", outside blocking QA.
 - Split missions by machine for parallel host queues; order a small
   cross-machine mission after the single-machine ones.
+- Seat-only commands: "seat does X after merge", never a worker step.
 
 Take a temporary claim to write:
 

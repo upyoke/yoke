@@ -49,7 +49,7 @@ the existing item landing marker until the stopped notice reaches its holder.
 This keeps a failed notice transport retryable on the next observation.
 
 When GitHub holds neither arming nor a viable queue entry, or the entry state
-is `UNMERGEABLE`, the observer sends one stopped-landing notice to the item's claim holder through the existing wake
+is `UNMERGEABLE` with a decided `mergeable`, the observer sends one stopped-landing notice to the item's claim holder through the existing wake
 route. An explicit `yoke github merge-queue hold <item>` stays waiting without
 a stopped notice, including after a new head is pushed, until the PR is armed
 or queued again. If automatic disarming failed, the notice names that same
@@ -60,12 +60,12 @@ the stop is still reported if a later rerun passed without restoring arming.
 base, re-run verification and re-enter `yoke merge item`. An `UNMERGEABLE`
 queue entry with `mergeable=MERGEABLE` can conflict only with the train ahead.
 The landing record snapshots the preceding PR numbers and shared changed
-files. Wait for those entries to land or leave; then re-read `mergeable`:
-`CONFLICTING` requires a rebase and verification, while `MERGEABLE` permits
-re-enqueueing the unchanged head. Shared files explain possible overlap; they
-do not prove a content conflict.
+files. Its notice asks the holder for no action: the observer re-enqueues the
+unchanged head itself, and a hold would switch that off. Shared files explain
+possible overlap; they do not prove a content conflict.
 An unreadable queue membership proves no stop and is retried on the next
-observation. So does an open pull request whose merge state GitHub reports as
+observation. So does an `UNMERGEABLE` entry while GitHub still reports
+`mergeable=UNKNOWN`, and an open pull request whose merge state GitHub reports as
 unknown: GitHub reports that while it recomputes, including mid-merge after it
 clears the queue entry and merge-when-ready, so the observation stays pending
 until a later read shows the merge or a known refusal. A merged pull request receives the normal completion notice.

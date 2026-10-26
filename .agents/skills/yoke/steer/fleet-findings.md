@@ -1,7 +1,10 @@
 # Act on every fleet finding
 
 Answer every row the same turn: act, or write one line saying why the wait is
-still sound. Live rows win over remembered plans.
+still sound. Live rows win over remembered plans. A row that should clear itself
+(unmergeable queue entry, missing notice, refused worker command) is a
+system gap: root-cause it in a subagent and file a field note before any
+manual step; never do the system's job by hand.
 
 - **Available / `unstaffed-ready`**: recheck the holder, then launch.
 - **Deadlock / waiting chains**: staff a `!` blocker, or narrow or remove the
@@ -11,7 +14,8 @@ still sound. Live rows win over remembered plans.
 yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE --gate-point coordination_only --rationale TEXT
 ```
 
-- **Waiting to land / in flight**: do not staff; quiet is expected.
+- **Waiting to land / in flight**: do not staff; quiet is expected. Leave an
+  unmergeable queue entry to its holder and observer; never message it.
 - **Unattended linked work / mail awaiting a seat**: take the named seat.
 - **Idle holder**: message it; `native_process_gone` means wake, not terminate.
 - **Undelivered message**: wake only if no attempt is moving. An ended
