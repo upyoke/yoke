@@ -229,3 +229,31 @@ def test_unresolved_cwd_home_never_becomes_a_lane_path(isolated_authority):
     )
     assert not verdict.allow
     assert verdict.authority_reason == "unresolved_executing_machine_home"
+
+
+@pytest.mark.parametrize(
+    "command,allowed",
+    [
+        (f"cat {LANE}/f | grep x > /tmp/out", True),
+        (f"grep -n x {LANE}/f > /tmp/out", True),
+        (f"echo x > {LANE}/f", False),
+        (f"cd {LANE} && git commit -m x", False),
+        (f"git -C {LANE} reset --hard", False),
+    ],
+)
+def test_pre_implementation_blocks_only_lane_writes(
+    isolated_authority, monkeypatch, command, allowed
+):
+    monkeypatch.setattr(authority, "lookup_item_status", lambda *_a: "idea")
+    verdict = guard.evaluate_pre_tool_use(
+        {
+            "session_id": SESSION,
+            "cwd": ROOT,
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+        },
+        machine_home=HOME,
+    )
+    assert verdict.allow is allowed
+    if not allowed:
+        assert verdict.failure_class == "pre_implementing_status"

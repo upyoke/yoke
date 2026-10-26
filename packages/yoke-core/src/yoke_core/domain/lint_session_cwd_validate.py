@@ -115,8 +115,11 @@ def validate_targets(
     claims = claimed_worktrees(conn, session_id=session_id)
     repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
-    mutation = is_lane_mutation(tool_name, command)
-    if read_only and not mutation and _is_read_shaped(tool_name, command):
+    if (
+        read_only
+        and not is_lane_mutation(tool_name, command)
+        and _is_read_shaped(tool_name, command)
+    ):
         return ValidationVerdict(
             allow=True, claims=claims, repo_roots=repo_roots, session_id=session_id
         )
@@ -171,7 +174,10 @@ def validate_targets(
             # status-agnostic by design.
             status = lookup_item_status(conn, worktree_match.item_id)
             workflow = lookup_item_workflow(conn, worktree_match.item_id)
-            if mutation and is_pre_implementing_status(workflow, status):
+            roles = {use.role for use in path_uses if use.path == raw}
+            if PathRole.WRITE in roles and is_pre_implementing_status(
+                workflow, status
+            ):
                 return ValidationVerdict(
                     allow=False,
                     offending_target=_resolve_for_display(raw),

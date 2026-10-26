@@ -235,7 +235,7 @@ def analyze_shell_path_use(
             else _state_move(tokens, shlex.join(tokens))
         )
         if state_move:
-            writes.extend(targets)
+            writes.extend(targets or in_segment_cwd(["."], segment_cwds, index))
         lane_move = state_move or _state_move(tokens, shlex.join(tokens))
         mutation = mutation or lane_move
         direct_write = direct_write or state_move
