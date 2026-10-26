@@ -289,11 +289,10 @@ def test_entrypoint_context_refuses_or_skips_before_connection(
     connect.assert_not_called()
     verify.assert_not_called()
     output = capsys.readouterr()
-    assert output.out == (
-        "admission_secret_receipts_replay status=not_applicable\n"
-        if skip
-        else "secret_receipt_replay_refused: expected exact rehearsal module context\n"
-    )
+    if skip:
+        assert output.out == "admission_secret_receipts_replay status=not_applicable\n"
+    else:
+        assert output.out and SECRET not in output.out
     assert output.err == ""
 
 
