@@ -22,7 +22,7 @@ from runtime.api.engines._merge_prune_test_helpers import (
 )
 from yoke_core.engines import deploy_run_worktree_retirement as _retirement
 from yoke_core.engines.deploy_run_worktree_naming import driver_worktree_path
-from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
+from yoke_core.engines import merge_landed_lane_cleanup as _lane_cleanup
 from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
 
 
@@ -33,7 +33,7 @@ def test_clean_terminal_merged_worktree_and_branch_are_pruned(
     git_io, lines = _install(monkeypatch, repo, _Conn(branch))
     cleaned_trust: list[Path] = []
     monkeypatch.setattr(
-        _safe_prune,
+        _lane_cleanup,
         "worktree_cleanup_warning",
         lambda path: cleaned_trust.append(Path(path)) or "",
     )
@@ -42,7 +42,7 @@ def test_clean_terminal_merged_worktree_and_branch_are_pruned(
 
     assert not worktree.exists()
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
-    assert any("Pruned terminal merged worktree" in line for line in lines)
+    assert any("Pruned merged worktree" in line for line in lines)
     assert sweep.removed == (str(worktree.resolve()),)
     assert sweep.preserved == ()
     assert sweep.payload()["skipped"] == ""
@@ -158,7 +158,8 @@ def test_unmerged_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
 
     assert worktree.exists()
     assert any(
-        f"worktree branch {branch} is not merged into origin/main" in line
+        f"Preserving worktree {worktree.resolve()}: branch is not merged into "
+        "origin/main" in line
         for line in lines
     )
 
@@ -167,10 +168,13 @@ def test_nonterminal_owner_preserves_merged_worktree(monkeypatch, tmp_path: Path
     repo, worktree, branch = _repo(tmp_path)
     git_io, _lines = _install(monkeypatch, repo, _Conn(branch, terminal=False))
 
-    prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
+    assert [lane.reason for lane in sweep.preserved] == [
+        "no single terminal owner: its item is still open, or it is shared"
+    ]
 
 
 def test_terminal_and_nonterminal_owners_sharing_branch_are_preserved(
@@ -322,14 +326,14 @@ def test_a_lane_removed_after_the_registry_read_is_removed(
 
     conn.execute = execute
     git_io, lines = _install(monkeypatch, repo, conn)
-    real_clear = _safe_prune.clear_lane_residue
+    real_clear = _lane_cleanup.clear_lane_residue
 
     def clear_then_gone(run_git, path, declared=frozenset()):
         if Path(path).resolve() == worktree.resolve():
             shutil.rmtree(path)
         return real_clear(run_git, path, declared)
 
-    monkeypatch.setattr(_safe_prune, "clear_lane_residue", clear_then_gone)
+    monkeypatch.setattr(_lane_cleanup, "clear_lane_residue", clear_then_gone)
 
     sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 

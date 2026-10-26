@@ -6,18 +6,19 @@ they live — so they retire together. Leaving any one behind strands the next
 reader that resolves a lane by its recorded path, and leaving all of them
 behind is what an operator eventually sweeps by hand.
 
-Two merge boundaries reach this. Queue-less standalone merges defer cleanup
-until the pushed commit's checks conclude, while queue landings merge on
-GitHub and have no inline cleanup step. Both prune the whole lane here. A
+A standalone landing retires its own lane here once the pushed commit's
+checks conclude. Every other lane — a queue landing's, or one whose item
+closes at release — retires through the machine-wide sweep
+(``merge_worktree_safe_prune``), which calls this same function for each
+lane, so the landing and the sweep never disagree about one lane. A
 remote-backed lane proves the landing against a freshly fetched
 ``origin/<target>``; a local-only repository proves it against its local
 target branch.
 
-Landing is proven by ``branch_landed_evidence`` — exact ancestry, or the
-patch equivalence that a rebased or squashed lane leaves behind — and the
-directory by the one residue policy in ``merge_worktree_cleanliness``, the
-same two readings the machine-wide sweep applies, so neither boundary
-retires a lane the other would keep.
+Landing is proven by ``branch_landed_evidence`` — exact ancestry, the patch
+equivalence that a rebased or squashed lane leaves behind, or a net change of
+nothing — and the directory by the one residue policy in
+``merge_worktree_cleanliness``.
 
 Every step fails toward preserving. A branch the target does not retain, a
 lane holding anything but named caches, an ambiguous remote, or a refused

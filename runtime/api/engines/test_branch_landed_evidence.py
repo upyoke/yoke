@@ -14,6 +14,7 @@ import pytest
 
 from yoke_core.engines.branch_landed_evidence import (
     ANCESTOR_PROOF,
+    NET_ZERO_PROOF,
     PATCH_EQUIVALENT_PROOF,
     BranchLandedEvidence,
     assess_branch_landed,
@@ -126,6 +127,36 @@ def test_a_merge_commit_on_the_branch_is_never_patch_equivalent(repo: Path):
 
     assert evidence.landed is False
     assert "merge commit equivalence cannot prove" in evidence.reason
+
+
+def _revert_lane_work(repo: Path) -> None:
+    _git(repo, "checkout", BRANCH)
+    _git(repo, "revert", "--no-edit", "HEAD")
+    _git(repo, "checkout", "main")
+
+
+def test_a_branch_whose_commits_cancel_out_is_landed_as_net_zero(repo: Path):
+    """Work committed and then reverted carries no change to lose."""
+    _revert_lane_work(repo)
+
+    evidence = assess_branch_landed(_run_git(repo), branch=BRANCH, base="main")
+
+    assert evidence == BranchLandedEvidence(True, proof=NET_ZERO_PROOF)
+
+
+def test_a_net_zero_branch_carrying_a_merge_is_landed(repo: Path):
+    """A merge keeps patch equivalence silent; the empty net change still answers."""
+    (repo / "later.txt").write_text("later\n", encoding="utf-8")
+    _git(repo, "add", "later.txt")
+    _git(repo, "commit", "-m", "later work")
+    _revert_lane_work(repo)
+    _git(repo, "checkout", BRANCH)
+    _git(repo, "merge", "--no-ff", "-m", "merge main", "main")
+    _git(repo, "checkout", "main")
+
+    evidence = assess_branch_landed(_run_git(repo), branch=BRANCH, base="main")
+
+    assert evidence == BranchLandedEvidence(True, proof=NET_ZERO_PROOF)
 
 
 def test_a_rebased_branch_is_deleted_where_git_safety_refuses(repo: Path):

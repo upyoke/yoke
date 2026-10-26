@@ -5,7 +5,9 @@ owner for it, that owner is terminal, and nothing live still holds it — a
 work claim, a planned or active path claim, or a session whose workspace is
 the lane. A cancelled item's lane is the one exception to "terminal": the
 operator discarded its work, so ``cancelled_item_owner`` names it whatever
-its tasks reached and the sweep deletes it outright. Every lookup failure
+its tasks reached and the sweep deletes it outright. A lane several tasks of
+one epic shared has no single task owner; once every one of those tasks
+finished and the epic is done or cancelled, the epic owns it. Every lookup failure
 reads as "cannot prove", which preserves the lane; the git-side sweep in
 ``merge_worktree_safe_prune`` consumes these verdicts through
 ``merge.prune.authority_verdict``, and the worktree-health check through the
@@ -50,6 +52,7 @@ def terminal_owner(
     """Return the unique terminal DB owner, never infer one from a name."""
     marker = _p(conn)
     owners: set[LaneOwner] = set()
+    item_status: dict[int, str] = {}
     try:
         where = f"iw.branch = {marker}"
         params: tuple[Any, ...] = (branch,)
@@ -65,6 +68,7 @@ def terminal_owner(
         for row in rows:
             lane_id = int(_row_value(row, "lane_id", 0))
             item_id = int(_row_value(row, "item_id", 1))
+            item_status[item_id] = str(_row_value(row, "status", 2))
             task_rows = conn.execute(
                 "SELECT epic_id, task_num, status FROM epic_tasks "
                 f"WHERE item_worktree_id = {marker}",
@@ -96,7 +100,27 @@ def terminal_owner(
             return None
     except Exception:  # noqa: BLE001 - missing/stale DB shape means preserve
         return None
-    return next(iter(owners)) if len(owners) == 1 else None
+    if len(owners) == 1:
+        return next(iter(owners))
+    return _finished_epic(owners, item_status)
+
+
+def _finished_epic(
+    owners: set[LaneOwner], item_status: dict[int, str]
+) -> LaneOwner | None:
+    """The epic whose finished tasks shared this lane, once it is closed.
+
+    Several tasks of one epic can share a lane, so no single task owns it.
+    When every one finished and the epic itself is done or cancelled, the
+    epic is the owner whose idle authority decides the prune.
+    """
+    epics = {owner.item_id for owner in owners if owner.kind == "epic_task"}
+    if len(epics) != 1 or any(owner.kind != "epic_task" for owner in owners):
+        return None
+    epic_id = next(iter(epics))
+    if item_status.get(epic_id) not in _ITEM_TERMINAL:
+        return None
+    return LaneOwner("item", epic_id)
 
 
 def cancelled_item_owner(

@@ -12,6 +12,9 @@ Every reading fails toward preserving. Unreadable history, a merge commit
 patch equivalence cannot compare, or one commit with no equivalent in the
 target keeps the branch with the reason named, because a preserved branch
 costs an operator one sweep while a wrongly deleted one costs the work.
+The third reading covers a branch whose commits cancel out — work committed
+and then reverted: when the branch's tree equals its fork point from the
+target, it carries no change to lose, whatever commits or merges it holds.
 
 ``run_git`` takes the git arguments after the executable and repository
 selection, so each caller binds its own ``-C`` or ``cwd``. A refusal reason
@@ -29,6 +32,7 @@ from yoke_core.engines.git_worktree_registry import detached_head
 
 ANCESTOR_PROOF = "ancestor"
 PATCH_EQUIVALENT_PROOF = "patch_equivalent"
+NET_ZERO_PROOF = "net_zero"
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,11 @@ def _unique_commit_count(cherry_stdout: str) -> int:
 def _revision(branch: str) -> str:
     """The commit a detached marker names, otherwise the branch itself."""
     return detached_head(branch) or branch
+
+
+def _changes_nothing(run_git: Callable[[list[str]], Any], base: str, rev: str) -> bool:
+    """Whether ``rev`` leaves its fork point from ``base`` unchanged."""
+    return run_git(["diff", "--quiet", f"{base}...{rev}"]).returncode == 0
 
 
 def assess_branch_landed(
@@ -70,6 +79,8 @@ def assess_branch_landed(
             False, reason=f"{not_merged} and its history could not be read"
         )
     if (merges.stdout or "").strip():
+        if _changes_nothing(run_git, base, rev):
+            return BranchLandedEvidence(True, proof=NET_ZERO_PROOF)
         # git cherry compares patch ids and skips merges outright, so a
         # branch carrying one has no complete equivalence proof to offer.
         return BranchLandedEvidence(
@@ -84,6 +95,8 @@ def assess_branch_landed(
         )
     unique = _unique_commit_count(cherry.stdout or "")
     if unique:
+        if _changes_nothing(run_git, base, rev):
+            return BranchLandedEvidence(True, proof=NET_ZERO_PROOF)
         plural = "s" if unique != 1 else ""
         return BranchLandedEvidence(
             False,
@@ -123,6 +136,7 @@ def delete_landed_branch(
 
 __all__ = [
     "ANCESTOR_PROOF",
+    "NET_ZERO_PROOF",
     "PATCH_EQUIVALENT_PROOF",
     "BranchLandedEvidence",
     "assess_branch_landed",

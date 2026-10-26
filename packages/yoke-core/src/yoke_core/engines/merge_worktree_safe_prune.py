@@ -1,21 +1,19 @@
 """Fail-closed sweep of merged, terminal, unclaimed lanes on this machine.
 
 The per-lane retirement at landing (``merge_landed_lane_cleanup``) can refuse
-— a dirty tree, a locked worktree, an incomplete remote delete — and nothing
-retries it on its own. A standalone landing runs this sweep after its own
-lane, and a deployment run runs it once after every member has closed, so a
-lane kept earlier is examined again at that boundary. It never widens the rules: the
-control plane must name a terminal owner with no live authority
+— a dirty tree, a locked worktree, an incomplete remote delete — and a lane
+whose item closes at release is never retired by its landing at all. The
+standing relay runs this sweep over every checkout it maps, at start and
+every 15 minutes, so those lanes retire on the machine that holds them; a
+standalone close-out, a merge, and lane creation at the worktree cap run it
+too. Each lane goes through ``prune_landed_lane``, the landing's own proof:
+the control plane must name a terminal owner with no live authority
 (``merge.prune.authority_verdict`` over the active transport), the tree must
-hold nothing but named caches once those are gone, ``origin/<target>`` must
-retain every change the branch carries, and the remote branch goes before
-any local ref. A remote proven to carry unmerged work never becomes
-deletable by sweeping again, so the local worktree and branch retire on
-their own proof and the remote is named as a leftover for a person. The
-residue and landing proofs are the shared ones the per-lane retirement
-applies, so the two boundaries never disagree about the same lane.
-Unreachable authority skips everything. What was removed and what was kept,
-each with its reason, comes back as a :class:`WorktreeSweep`.
+hold nothing but named caches, ``origin/<target>`` must retain every change
+the branch carries, and the remote branch goes before any local ref.
+Unreachable authority, or another sweep holding the checkout's lock, skips
+everything. What was removed and what was kept, each kept lane with its
+reason, comes back as a :class:`WorktreeSweep`.
 
 A lane whose owner is a cancelled item is the exception the verdict names:
 cancelling discards the work, so ``cancelled_lane_discard`` deletes its
@@ -35,12 +33,7 @@ from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_contracts.harness_lane_cleanup import worktree_cleanup_warning
 from yoke_core.engines.cancelled_lane_discard import discard_and_record
-from yoke_core.engines.branch_landed_evidence import (
-    assess_branch_landed,
-    delete_landed_branch,
-)
 from yoke_core.engines.deploy_run_worktree_retirement import (
     retire_terminal_deploy_run_worktrees,
 )
@@ -48,14 +41,12 @@ from yoke_core.engines.git_worktree_registry import (
     is_managed_worktree_path,
     registered_worktrees,
 )
-from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
-from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
-from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
-from yoke_core.engines.remote_branch_cleanup import (
-    delete_remote_branch_if_merged,
-    unmerged_remote_note,
+from yoke_core.engines.lane_sweep_lock import SWEEP_LOCK_HELD, lane_sweep_lock
+from yoke_core.engines.merge_landed_lane_cleanup import (
+    prune_landed_lane,
+    release_lane_row,
 )
-from yoke_core.engines.worktree_removal import finish_tombstones, remove_worktree
+from yoke_core.engines.worktree_removal import finish_tombstones
 
 
 @dataclass(frozen=True)
@@ -92,20 +83,6 @@ def _runtime_emit() -> Callable[..., Any]:
     return _print
 
 
-def _landed(
-    run_git: Callable[..., Any],
-    repo_root: str,
-    branch: str,
-    base: str,
-):
-    """The shared landing proof, bound to this repository."""
-    return assess_branch_landed(
-        lambda command: run_git(command, cwd=repo_root, capture=True),
-        branch=branch,
-        base=base,
-    )
-
-
 def _prune_verdict(
     branch: str, path: Path | None, state: dict[str, bool]
 ) -> dict[str, Any] | None:
@@ -131,25 +108,12 @@ def _prune_verdict(
     return resp.result or {}
 
 
-def _delete_remote_before_local(
-    *,
-    run_git: Callable[..., Any],
-    emit: Callable[..., Any],
-    repo_root: str,
-    branch: str,
-    target: str,
-) -> Any:
-    """Prove and delete ``origin/<branch>`` before discarding local refs."""
-    result = delete_remote_branch_if_merged(
-        run_git=lambda command: run_git(command, cwd=repo_root, capture=True),
-        branch=branch,
-        target_branch=target,
-    )
-    if result.status == "deleted":
-        emit(f"Deleted merged remote branch: origin/{branch}")
-    elif result.status == "preserved":
-        emit(f"Preserving remote branch origin/{branch}: {result.reason}")
-    return result
+_KEPT_VERDICTS = {
+    "active_authority": "actively claimed",
+    "no_terminal_owner": (
+        "no single terminal owner: its item is still open, or it is shared"
+    ),
+}
 
 
 def _skipped(
@@ -169,25 +133,33 @@ def prune_managed_worktrees(
     run_git: Callable[..., Any] | None = None,
     emit: Callable[..., Any] | None = None,
 ) -> WorktreeSweep:
-    """Prune clean, unclaimed, terminal lanes after remote-first delete.
+    """Prune clean, unclaimed, terminal lanes, one sweep per checkout at a time.
 
-    No origin remote or unreachable DB authority skips pruning; incomplete
-    remote cleanup keeps the local retry lane. Every kept lane is named with
-    its reason. Absent directories retire their rows too; their branches
-    retain the independent landing proof in the branch pass.
+    No origin remote, unreachable DB authority or another sweep holding the
+    checkout skips pruning. Every kept worktree is named with its reason.
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
-    root = Path(repo_root).resolve()
-    base = f"origin/{target}"
     if git(["remote", "get-url", "origin"], cwd=repo_root, capture=True).returncode:
         return _skipped(say, "no origin remote (local-only project)")
+    common = git(["rev-parse", "--git-common-dir"], cwd=repo_root, capture=True)
+    if common.returncode:
+        return _skipped(say, "git common directory unreadable")
+    with lane_sweep_lock(Path(repo_root, common.stdout.strip())) as held:
+        if not held:
+            return _skipped(say, SWEEP_LOCK_HELD)
+        return _sweep(git, say, repo_root, target)
+
+
+def _sweep(
+    git: Callable[..., Any], say: Callable[..., Any], repo_root: str, target: str
+) -> WorktreeSweep:
+    root = Path(repo_root).resolve()
     if git(["fetch", "origin", target], cwd=repo_root, capture=True).returncode:
-        return _skipped(say, f"could not refresh {base}")
+        return _skipped(say, f"could not refresh origin/{target}")
     entries = registered_worktrees(git, repo_root)
     if entries is None:
         return _skipped(say, "worktree registry unavailable")
-    declared_roots = declared_disposable_roots(repo_root)
 
     removed: list[str] = []
     preserved: list[PreservedLane] = []
@@ -218,8 +190,8 @@ def prune_managed_worktrees(
             return _skipped(say, "DB authority unavailable", tuple(removed), tuple(preserved))
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
-            if verdict.get("reason") == "active_authority":
-                keep(entry.path, "actively claimed")
+            reason = str(verdict.get("reason") or "")
+            keep(entry.path, _KEPT_VERDICTS.get(reason, reason or "not prunable"))
             continue
         if cancelled_ref := verdict.get("cancelled_item_ref"):
             lane = discard_and_record(
@@ -244,59 +216,27 @@ def prune_managed_worktrees(
                 f"worktree is locked ({entry.lock_reason or 'no reason recorded'})",
             )
             continue
+        absent, kept = not entry.path.is_dir(), ()
         try:
-            absent = not entry.path.is_dir()
             if not absent:
-                landed = _landed(git, repo_root, entry.branch, base)
-                if not landed.landed:
-                    keep(entry.path, f"worktree branch {entry.branch} {landed.reason}")
-                    continue
-                residue = clear_lane_residue(git, entry.path, declared_roots)
-                if not residue.removable_once_landed:
-                    keep(entry.path, residue.reason)
-                    continue
+                kept = _prune_lane(git, say, repo_root, entry.branch, target, item_ref)
         except FileNotFoundError:
-            absent = not entry.path.is_dir()
-            if not absent:
+            if entry.path.is_dir():
                 raise
+            absent = True
         if absent:
+            # The branch pass below proves the branch on its own.
             say(f"Pruned registration for an absent worktree: {entry.path}")
             git(["worktree", "prune"], cwd=repo_root, capture=True)
             release_lane_row(item_ref, entry.branch, emit=say)
             removed.append(str(entry.path))
             checked_out.discard(entry.branch)
-            continue
-        remote = _delete_remote_before_local(
-            run_git=git,
-            emit=say,
-            repo_root=repo_root,
-            branch=entry.branch,
-            target=target,
-        )
-        if remote.retryable:
-            keep(entry.path, f"remote cleanup incomplete: {remote.reason}")
-            continue
-        if not remote.cleanup_complete:
-            say(f"WARNING: {unmerged_remote_note(entry.branch, remote.reason)}", err=True)
-        removal = remove_worktree(repo_root, entry.path)
-        if not removal.removed and entry.path.exists():
-            keep(entry.path, f"removal refused: {removal.reason}")
-            continue
-        release_lane_row(item_ref, entry.branch, emit=say)
-        say(f"Pruned terminal merged worktree: {entry.path}")
-        if removal.removed and removal.reason:
-            say(f"WARNING: {removal.reason}", err=True)
-        if warning := worktree_cleanup_warning(entry.path):
-            say(f"WARNING: {warning}", err=True)
-        removed.append(str(entry.path))
-        checked_out.discard(entry.branch)
-        refusal = delete_landed_branch(
-            lambda command: git(command, cwd=repo_root, capture=True),
-            branch=entry.branch,
-            evidence=landed,
-        )
-        if refusal:
-            say(f"Preserved local branch: {refusal}")
+        elif entry.path.exists():
+            # The path is already named; keep only why the lane survived.
+            why = "; ".join(r.split(" preserved: ", 1)[-1] for r in kept)
+            keep(entry.path, why or "worktree removal left it on disk")
+        else:
+            removed.append(str(entry.path))
 
     branches = git(
         ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
@@ -319,27 +259,30 @@ def prune_managed_worktrees(
                 repo_root, branch, target, cancelled_ref, run_git=git, emit=say
             )
             continue
-        landed = _landed(git, repo_root, branch, base)
-        if not landed.landed:
-            continue
-        remote = _delete_remote_before_local(
-            run_git=git,
-            emit=say,
-            repo_root=repo_root,
-            branch=branch,
-            target=target,
-        )
-        if remote.retryable:
-            continue
-        if not remote.cleanup_complete:
-            say(f"WARNING: {unmerged_remote_note(branch, remote.reason)}", err=True)
-        if not delete_landed_branch(
-            lambda command: git(command, cwd=repo_root, capture=True),
-            branch=branch,
-            evidence=landed,
-        ):
-            say(f"Pruned terminal merged local branch: {branch}")
+        # No worktree here means no lane row to release: pass no item.
+        for reason in _prune_lane(git, say, repo_root, branch, target, None):
+            say(f"Preserving branch {branch}: {reason}")
     return WorktreeSweep(tuple(removed), tuple(preserved))
+
+
+def _prune_lane(
+    git: Callable[..., Any],
+    say: Callable[..., Any],
+    repo_root: str,
+    branch: str,
+    target: str,
+    item_ref: Any,
+) -> tuple[str, ...]:
+    """Retire one lane through the per-lane proof the landing applies."""
+    return prune_landed_lane(
+        repo_root=repo_root,
+        branch=branch,
+        target=target,
+        item_id=item_ref,
+        run_git=git,
+        emit=say,
+        refresh_target=False,
+    )
 
 
 __all__ = [
