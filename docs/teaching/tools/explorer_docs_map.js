@@ -1,20 +1,25 @@
 /* A page specification with source-backed relationships, not generated prose. */
-function mapTree(nodes, container, query = '') {
-  function matches(node) {
-    return (node.title + ' ' + node.summary).toLowerCase().includes(query)
-      || node.children.some(matches);
-  }
-  const list = text('ul', '', 'page-tree');
-  for (const node of nodes.filter(matches)) {
-    const li = text('li', '');
-    li.append(nodeLink(node, node.title));
+function mapTiles(nodes, container, query = '') {
+  function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
+  const candidates = query ? nodes.flatMap(descendants) : nodes;
+  const matches = candidates.filter(node =>
+    (node.title + ' ' + node.summary + ' ' + node.page_spec.outline.join(' '))
+      .toLowerCase().includes(query));
+  const grid = text('div', '', 'card-grid');
+  for (const node of matches) {
+    const summary = node.page_spec.outline.join(' · ');
+    const card = makeCard({...node, summary,
+      type_label: node.page_spec.kind === 'overview' ? 'Human overview' : 'Detailed guide'});
     const count = node.map_counts;
-    li.append(text('small', `${node.page_spec.kind} · ${count.terms} terms · ${count.commands} commands · ${count.sources} sources`));
-    li.append(text('p', node.summary));
-    if (node.children.length) mapTree(node.children, li, query);
-    list.append(li);
+    const facts = text('p', `${count.terms} terms · ${count.commands} commands · ${count.sources} sources`, 'source-size');
+    card.insertBefore(facts, card.lastElementChild);
+    if (query && node.parent !== 'view:docs-map') {
+      card.insertBefore(text('p', byId.get(node.parent).title, 'source-size'), card.children[1]);
+    }
+    grid.append(card);
   }
-  container.append(list);
+  container.append(grid);
+  if (!matches.length) container.append(text('p', 'No matching pages.'));
 }
 function renderDocsMap(node) {
   if (node.id === 'view:docs-map') {
@@ -23,7 +28,7 @@ function renderDocsMap(node) {
     search.type = 'search'; search.placeholder = 'Find a proposed page';
     search.setAttribute('aria-label', 'Find a proposed page');
     const tree = text('section', '');
-    function update() { tree.replaceChildren(); mapTree(node.children, tree, search.value.toLowerCase()); }
+    function update() { tree.replaceChildren(); mapTiles(node.children, tree, search.value.toLowerCase()); }
     search.oninput = update; world.append(search, tree); update();
     coveragePanel(node, world);
     notice.textContent = 'Draft structure for review';
@@ -38,7 +43,7 @@ function renderDocsMap(node) {
   world.append(text('p', 'Every page starts with a short plain-language explanation. Detailed commands and field contracts follow only where needed; link to agent-delivered guidance instead of copying it.', 'summary'));
   if (node.children.length) {
     const children = text('section', ''); children.append(text('h2', 'Proposed subpages'));
-    mapTree(node.children, children); world.append(children);
+    mapTiles(node.children, children); world.append(children);
   }
   mapLinks(spec.deeper_pages, 'Continue to detailed sections', world);
   mapLinks(spec.terms, 'Related index terms', world);
