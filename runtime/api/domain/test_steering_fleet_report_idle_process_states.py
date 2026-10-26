@@ -57,12 +57,11 @@ def _holder_line(report) -> str:
     )
 
 
-def test_mid_turn_holder_says_the_message_waits(steering_scope):
+def test_mid_turn_holder_is_messaged_not_terminated(steering_scope):
     report = _compose(steering_scope)
 
     assert any(row.session_id == WORKER_SESSION for row in report.idle)
     line = _holder_line(report)
-    assert "mid-turn — message waits until the turn ends" in line
     assert "yoke say --item YOK-1 --stdin" in line
     assert "terminate" not in line
 

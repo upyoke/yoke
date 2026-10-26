@@ -38,5 +38,5 @@ def message_reachability(row: Mapping[str, Any], *, resuming: bool = False) -> s
             return prefix + "between turns — message wakes it"
         return prefix + "between turns — message needs operator input on this surface"
     if row.get("turn_posture") == "running":
-        return prefix + "mid-turn — message waits until the turn ends"
+        return prefix + "mid-turn — message arrives at its next tool call"
     return prefix + DELIVERY_UNKNOWN

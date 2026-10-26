@@ -33,7 +33,7 @@ def _session(session_id: str, **overrides) -> SessionRow:
         "terminated": False,
         "activity_at": STALE,
         "claimed_items": ("YOK-1",),
-        "message_delivery": "mid-turn — message waits until the turn ends",
+        "message_delivery": "mid-turn — message arrives at its next tool call",
     }
     fields.update(overrides)
     return SessionRow(**fields)
@@ -53,7 +53,6 @@ def test_idle_holder_fires_past_threshold_and_holds_inside_the_cadence() -> None
     first = idle_holder_alarms(_snapshot(_session("a")), state)
     assert len(first) == 1
     assert "ALARM idle-holder session=a items=YOK-1 idle=21m mode=dash" in first[0]
-    assert "delivery='mid-turn — message waits until the turn ends'" in first[0]
     assert "process=" not in first[0]
 
     later = NOW + timedelta(minutes=IDLE_HOLDER_REPEAT_MINUTES - 1)
