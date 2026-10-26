@@ -269,8 +269,9 @@ Before every capture ATTEMPT, choose a distinct new destination PARENT outside
 the home, e.g. `/Users/Shared/yoke-golden-attempt-DATE-UNIQUE/home` or
 `/var/lib/yoke-golden-attempt-DATE-UNIQUE/home`. Check space and record every
 project's current golden and sidecars (`.manifest`, `.probes`, `.harness-clis`).
-Current capture retention can delete unregistered siblings, including failed
-attempts. A new basename in the same parent does not preserve them. Never
+Capture retention keeps every golden any project registered for the same host
+and user, and anything newer than the new golden; it deletes older unregistered
+siblings, including failed attempts. A new basename does not preserve them. Never
 approve deletion merely to retry; preserve existing paths/evidence and use a
 separate parent, including on failure. An already lost snapshot is not preserved.
 
@@ -326,7 +327,9 @@ credentials for an unknown exit. `test_machine_sign_in_app_quit_not_proved`
 requires quitting the named app through its UI before copying; never force past
 it. `golden_capture_copy_home_failed` retains `copy_stderr`; repair its cause
 and choose a new parent. `golden_snapshot_retention_failed` can follow successful
-registration: read removed/kept paths before any further capture. A failed
+registration: read removed/kept paths before any further capture. Verify's
+`registered_golden_missing` names each project whose registered golden is gone:
+capture a new golden for it. Never delete or move a registered golden by hand. A failed
 reset retains `reset_phase`, process state and `failed_calls` where available;
 missing stdout proves no cause. Fix the named writer/permission/transport and
 retry the sealed restore; never weaken a probe or edit a seal to make it pass.

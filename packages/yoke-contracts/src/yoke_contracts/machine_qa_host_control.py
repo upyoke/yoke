@@ -21,10 +21,12 @@ HOST_BASELINE_END_STATE = {
 RESET_OPERATION = "reset"
 RESET_OWED_OPERATION = "reset_owed"
 GOLDEN_CAPTURE_OPERATION = "golden_capture"
-# A verified capture's result names every golden registered for its machine
-# beside it, across projects, so retention keeps them; or why that is unknown.
+# A verified capture's result names every golden registered beside it for the
+# same host and user, across projects, so retention keeps them; or why that is
+# unknown. A verify begin names every such golden so verify can find each one.
 KEPT_GOLDEN_PATHS_KEY = "kept_golden_paths"
 KEPT_GOLDEN_PATHS_UNKNOWN_KEY = "kept_golden_paths_unknown"
+REGISTERED_GOLDENS_KEY = "registered_goldens"
 BRIDGE_DIAGNOSE_OPERATION = "bridge_diagnose"
 VERIFY_OPERATION = "verify"
 SCREENSHOT_OPERATION = "screenshot"

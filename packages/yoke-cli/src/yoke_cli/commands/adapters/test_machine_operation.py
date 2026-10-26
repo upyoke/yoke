@@ -141,11 +141,14 @@ def _execute(
             json_mode=json_mode,
         )
     try:
+        from yoke_contracts.machine_qa_host_control import REGISTERED_GOLDENS_KEY
+        from yoke_harness.registered_golden_check import check_contract_goldens
         from yoke_harness.test_machine_operations import (
             execute_host_operation_contract,
         )
 
         _power().power_on(execution["project"], execution["settings"])
+        check_contract_goldens(execution, begin.result.get(REGISTERED_GOLDENS_KEY))
         submission = execute_host_operation_contract(
             execution,
             probes_document=probes_document,
