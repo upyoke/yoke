@@ -10,7 +10,7 @@
  "outline": ["Record a concrete observation", "Link repeated findings", "Turn findings into work"],
  "terms": ["field-note", "ouroboros"],
  "commands": ["command:yoke ouroboros"],
- "sources": ["skill:curate", "doc:docs/public/operations/ouroboros.md"],
+ "sources": ["skill:curate", "doc:docs/public/operations/ouroboros.md", "replies:ouroboros"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 52

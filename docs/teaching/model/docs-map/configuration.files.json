@@ -10,7 +10,7 @@
  "outline": ["When to use shared files", "Upload and reference material", "Relationship to repository files"],
  "terms": ["shared-file"],
  "commands": ["command:yoke files"],
- "sources": ["doc:docs/public/projects/shared-files.md"],
+ "sources": ["doc:docs/public/projects/shared-files.md", "replies:files"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 32

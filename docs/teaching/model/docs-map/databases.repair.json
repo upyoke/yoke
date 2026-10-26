@@ -10,7 +10,7 @@
  "outline": ["Read-only diagnostics", "Find the owning schema", "Review a bounded repair", "Recover machine-owned evidence"],
  "terms": ["database", "database-model", "evidence"],
  "commands": ["command:yoke db", "command:yoke operator"],
- "sources": ["doc:docs/public/databases/reference.md", "doc:docs/public/databases/operator-data-repair.md", "doc:docs/public/databases/machine-local-evidence.md"],
+ "sources": ["doc:docs/public/databases/reference.md", "doc:docs/public/databases/operator-data-repair.md", "doc:docs/public/databases/machine-local-evidence.md", "replies:operator"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 49

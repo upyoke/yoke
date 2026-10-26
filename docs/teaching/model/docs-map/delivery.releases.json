@@ -10,7 +10,7 @@
  "outline": ["Release identity", "Deployed version and evidence", "Completion rules", "Notifications"],
  "terms": ["release", "release-authority"],
  "commands": ["command:yoke release-pin"],
- "sources": ["doc:docs/public/deployments/model/releases.md", "doc:docs/public/deployments/model/release-notices.md"],
+ "sources": ["doc:docs/public/deployments/model/releases.md", "doc:docs/public/deployments/model/release-notices.md", "replies:release-pin"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 45

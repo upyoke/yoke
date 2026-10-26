@@ -10,7 +10,7 @@
  "outline": ["Fleet coverage", "Rehearse before release", "Apply and audit", "Recover from refusal"],
  "terms": ["migration", "migration-fleet"],
  "commands": ["command:yoke watch preflight", "command:yoke migration"],
- "sources": ["doc:docs/public/databases/migrations.md", "doc:docs/public/databases/migration-fleet.md"],
+ "sources": ["doc:docs/public/databases/migrations.md", "doc:docs/public/databases/migration-fleet.md", "replies:watch"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 48

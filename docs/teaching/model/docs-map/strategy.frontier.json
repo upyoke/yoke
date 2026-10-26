@@ -10,7 +10,7 @@
  "outline": ["What the frontier shows", "Why something is blocked", "How work is selected and staffed"],
  "terms": ["charge", "frontier"],
  "commands": ["command:yoke frontier", "command:yoke charge"],
- "sources": ["skill:charge", "doc:docs/public/strategy/frontier.md", "doc:docs/public/strategy/charge-frontier.md", "doc:docs/public/strategy/charge-dispatch.md"],
+ "sources": ["skill:charge", "doc:docs/public/strategy/frontier.md", "doc:docs/public/strategy/charge-frontier.md", "doc:docs/public/strategy/charge-dispatch.md", "replies:frontier", "replies:charge"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 12

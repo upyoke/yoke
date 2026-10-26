@@ -10,7 +10,7 @@
  "outline": ["Choosing a skill", "Roles in planning, implementation and review", "Skill references versus CLI commands"],
  "terms": ["agent", "agent-role", "harness", "skill"],
  "commands": ["command:yoke agents"],
- "sources": ["source:skills", "source:roles", "doc:docs/public/agents/commands.md", "doc:docs/public/agents/maintenance-commands.md"],
+ "sources": ["source:skills", "source:roles", "doc:docs/public/agents/commands.md", "doc:docs/public/agents/maintenance-commands.md", "replies:agents"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 26

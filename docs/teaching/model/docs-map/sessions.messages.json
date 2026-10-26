@@ -10,7 +10,7 @@
  "outline": ["Messages versus decisions", "Delivery and queued messages", "Human approval and follow-up"],
  "terms": ["approval", "inbox", "session"],
  "commands": ["command:yoke inbox", "command:yoke messages", "command:yoke say", "command:yoke decision-requests"],
- "sources": ["doc:docs/public/sessions/inbox.md"],
+ "sources": ["doc:docs/public/sessions/inbox.md", "replies:decision-requests"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 22

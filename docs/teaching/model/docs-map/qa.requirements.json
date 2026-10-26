@@ -10,7 +10,7 @@
  "outline": ["Attachment creates an obligation", "Subject and target", "Latest attempt and success policy", "Review, waiver and supersession"],
  "terms": ["gate", "human-acceptance", "qa-attachment", "qa-requirement", "qa-subject", "qa-verdict", "requirement", "success-policy", "waiver"],
  "commands": ["command:yoke qa requirement", "command:yoke qa gate-summary", "command:yoke qa project-default", "command:yoke qa item-plan"],
- "sources": ["doc:docs/public/verification/requirement-discharges.md", "doc:docs/public/verification/requirement-state.md", "doc:docs/public/verification/success-policy.md"],
+ "sources": ["doc:docs/public/verification/requirement-discharges.md", "doc:docs/public/verification/requirement-state.md", "doc:docs/public/verification/success-policy.md", "replies:qa"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 36

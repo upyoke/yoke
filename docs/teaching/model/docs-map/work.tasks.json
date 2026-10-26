@@ -10,7 +10,7 @@
  "outline": ["Parent item and task responsibilities", "Dependencies between tasks", "Planning, implementation and integration"],
  "terms": ["dependency", "epic", "task", "workflow"],
  "commands": ["command:yoke epic-tasks", "command:yoke task", "command:yoke conduct", "command:yoke shepherd", "command:yoke workflow-item"],
- "sources": ["skill:shepherd", "skill:conduct", "skill:amend", "doc:docs/public/items/model/tasks.md"],
+ "sources": ["skill:shepherd", "skill:conduct", "skill:amend", "doc:docs/public/items/model/tasks.md", "role:architect", "role:engineer", "role:simulator", "packet:architect_agent", "packet:engineer_agent", "packet:simulator_agent", "replies:epic-tasks", "replies:shepherd"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 17

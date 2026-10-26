@@ -10,7 +10,7 @@
  "outline": ["Review before landing", "Merge queue", "Landing evidence", "Merge versus deployment"],
  "terms": ["delivery", "landing", "merge-queue", "review"],
  "commands": ["command:yoke item-landings", "command:yoke merge-receipt", "command:yoke github merge-queue", "command:yoke usher"],
- "sources": ["skill:polish", "skill:usher", "doc:docs/public/github/merge-queue-landings.md", "doc:docs/public/items/model/landings.md", "doc:docs/public/functions/merge-queue-landing-attempts.md"],
+ "sources": ["skill:polish", "skill:usher", "doc:docs/public/github/merge-queue-landings.md", "doc:docs/public/items/model/landings.md", "doc:docs/public/functions/merge-queue-landing-attempts.md", "replies:item-landings", "replies:merge-receipt"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 19

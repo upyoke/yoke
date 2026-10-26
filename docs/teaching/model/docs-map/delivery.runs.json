@@ -10,7 +10,7 @@
  "outline": ["Start and follow a run", "Members and carried work", "Stage receipts", "Frozen QA obligations"],
  "terms": ["deployment-run", "deployment-stage", "qa-requirement", "run-member", "stage-receipt"],
  "commands": ["command:yoke deployment-runs", "command:yoke watch deploy"],
- "sources": ["doc:docs/public/deployments/model/runs.md", "doc:docs/public/deployments/model/stage-receipts.md", "doc:docs/public/deployments/model/run-members.md", "doc:docs/public/deployments/model/member-plan-snapshots.md"],
+ "sources": ["doc:docs/public/deployments/model/runs.md", "doc:docs/public/deployments/model/stage-receipts.md", "doc:docs/public/deployments/model/run-members.md", "doc:docs/public/deployments/model/member-plan-snapshots.md", "replies:deployment-runs", "replies:watch"],
  "deeper_pages": [],
  "open_questions": ["Split run membership into reference if it crowds out the normal run walkthrough."],
  "position": 44

@@ -10,7 +10,7 @@
  "outline": ["Which connection is selected", "Remote versus local failure", "Credential recovery", "Restart or upgrade the right service"],
  "terms": ["authentication", "connection", "hosted-mode", "local-mode", "machine", "self-hosted-mode"],
  "commands": ["command:yoke connect", "command:yoke env", "command:yoke local-postgres", "command:yoke core", "command:yoke self-host"],
- "sources": ["doc:docs/public/cli/https-connection-diagnostics.md", "doc:docs/public/verification/local-connection-repair.md"],
+ "sources": ["doc:docs/public/cli/https-connection-diagnostics.md", "doc:docs/public/verification/local-connection-repair.md", "replies:env"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 54

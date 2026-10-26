@@ -10,7 +10,7 @@
  "outline": ["Health versus readiness", "Read the named recovery", "Get useful diagnostics"],
  "terms": ["doctor"],
  "commands": ["command:yoke doctor", "command:yoke status", "command:yoke watch doctor"],
- "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md"],
+ "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md", "replies:doctor", "replies:watch"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 50

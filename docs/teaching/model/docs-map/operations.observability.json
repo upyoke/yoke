@@ -10,7 +10,7 @@
  "outline": ["Event meaning and attribution", "Find logs and timing", "What missing evidence means"],
  "terms": ["event"],
  "commands": ["command:yoke events", "command:yoke watch tail"],
- "sources": ["doc:docs/public/operations/events.md", "doc:docs/public/operations/model/events.md", "doc:docs/public/operations/performance-diagnostics.md"],
+ "sources": ["doc:docs/public/operations/events.md", "doc:docs/public/operations/model/events.md", "doc:docs/public/operations/performance-diagnostics.md", "replies:events", "replies:watch"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 51

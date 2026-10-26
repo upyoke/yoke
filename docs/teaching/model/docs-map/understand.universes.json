@@ -10,7 +10,7 @@
  "outline": ["Universe versus project versus checkout", "Local, team-server and hosted choices", "Switching connections"],
  "terms": ["connection", "hosted-mode", "local-mode", "mode", "project", "self-hosted-mode"],
  "commands": ["command:yoke projects list", "command:yoke projects get", "command:yoke env", "command:yoke connection"],
- "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/projects/index.md"],
+ "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/projects/index.md", "replies:projects", "replies:env"],
  "deeper_pages": [],
  "open_questions": ["Keep hosting choice here or put it entirely under installation?"],
  "position": 2

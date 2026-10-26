@@ -10,7 +10,7 @@
  "outline": ["Outcome and acceptance criteria", "Priority and scope", "Readable body versus stored fields", "Updating or cancelling work"],
  "terms": ["acceptance-criteria", "backlog", "item", "item-body", "item-reference"],
  "commands": ["command:yoke items create", "command:yoke items get", "command:yoke items structured-field", "command:yoke items progress-log"],
- "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/model/items.md", "doc:docs/public/items/model/body-writes.md"],
+ "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/model/items.md", "doc:docs/public/items/model/body-writes.md", "role:product-manager", "replies:items"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 14

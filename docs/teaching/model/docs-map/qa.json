@@ -10,7 +10,7 @@
  "outline": ["Method, plan, case, attachment, requirement and run", "Evidence and verdict", "Where QA gates work"],
  "terms": ["evidence", "human-acceptance", "qa", "qa-activity", "qa-kind", "qa-method", "qa-plan", "qa-requirement", "qa-subject", "registered-command", "requirement", "verification"],
  "commands": ["command:yoke qa"],
- "sources": ["doc:docs/public/verification/index.md", "doc:docs/public/verification/platform.md"],
+ "sources": ["doc:docs/public/verification/index.md", "doc:docs/public/verification/platform.md", "packet:main_agent:qa", "role:tester", "packet:tester_agent", "replies:qa"],
  "deeper_pages": [],
  "open_questions": ["Keep one diagram of the relationships here; leave schemas to reference."],
  "position": 34

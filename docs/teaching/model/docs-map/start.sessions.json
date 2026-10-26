@@ -10,7 +10,7 @@
  "outline": ["Harness conversations registered as sessions", "Active, waiting, stale and ended", "Steering versus execution"],
  "terms": ["execution-level", "harness-session", "parked-session", "session", "session-liveness", "session-mode", "stale-session", "steering", "work-claim"],
  "commands": ["command:yoke sessions", "command:yoke steering"],
- "sources": ["doc:docs/public/sessions/index.md"],
+ "sources": ["doc:docs/public/sessions/index.md", "replies:sessions", "replies:steering"],
  "deeper_pages": ["sessions"],
  "open_questions": [],
  "position": 65

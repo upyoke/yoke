@@ -10,7 +10,7 @@
  "outline": ["Initial instructions", "Skills and assigned roles", "Event-driven hook messages", "On-demand packets", "Project-specific instructions"],
  "terms": ["agent", "agent-role", "agents-md", "harness", "hook"],
  "commands": ["command:yoke packets", "command:yoke agents"],
- "sources": ["source:rules", "source:skills", "source:roles", "source:packets", "source:global-hooks", "source:project-hooks", "source:instructions", "doc:docs/public/agents/index.md", "doc:docs/public/agents/harness-discovery.md"],
+ "sources": ["source:rules", "source:skills", "source:roles", "source:packets", "source:global-hooks", "source:project-hooks", "source:instructions", "doc:docs/public/agents/index.md", "doc:docs/public/agents/harness-discovery.md", "replies:packets", "replies:agents"],
  "deeper_pages": ["guidance"],
  "open_questions": [],
  "position": 66

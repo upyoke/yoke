@@ -10,7 +10,7 @@
  "outline": ["Choose a target and identity", "Actions and assertions", "Human sign-in", "Review captured evidence"],
  "terms": ["browser-identity", "browser-qa", "browser-scenario", "persona"],
  "commands": ["command:yoke browser", "command:yoke qa browser", "command:yoke qa browser-context"],
- "sources": ["doc:docs/public/verification/browser-action-evidence.md", "doc:docs/public/verification/browser-targets.md", "doc:docs/public/verification/browser-scenarios.md", "doc:docs/public/verification/browser-evidence.md", "doc:docs/public/verification/browser-identities.md"],
+ "sources": ["doc:docs/public/verification/browser-action-evidence.md", "doc:docs/public/verification/browser-targets.md", "doc:docs/public/verification/browser-scenarios.md", "doc:docs/public/verification/browser-evidence.md", "doc:docs/public/verification/browser-identities.md", "role:tester-browser", "role:tester", "replies:qa"],
  "deeper_pages": [],
  "open_questions": ["Likely split identities from scenario authoring after content review."],
  "position": 38

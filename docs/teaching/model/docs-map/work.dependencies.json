@@ -10,7 +10,7 @@
  "outline": ["Why work must wait", "Blocked versus frozen", "Who resolves a blocker"],
  "terms": ["blocked", "dependency"],
  "commands": ["command:yoke items dependency", "command:yoke items block", "command:yoke items unblock", "command:yoke items freeze", "command:yoke items thaw"],
- "sources": ["doc:docs/public/items/model/dependencies.md"],
+ "sources": ["doc:docs/public/items/model/dependencies.md", "replies:items"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 15

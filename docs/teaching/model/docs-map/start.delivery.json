@@ -10,7 +10,7 @@
  "outline": ["Environment and deployment target", "Flow definition versus run", "Release and completion evidence"],
  "terms": ["delivery", "deployment", "deployment-flow", "deployment-run", "deployment-target", "environment", "release"],
  "commands": ["command:yoke deployment-flows", "command:yoke deployment-runs"],
- "sources": ["skill:usher", "skill:approve", "doc:docs/public/deployments/index.md"],
+ "sources": ["skill:usher", "skill:approve", "doc:docs/public/deployments/index.md", "replies:deployment-flows", "replies:deployment-runs"],
  "deeper_pages": ["delivery"],
  "open_questions": [],
  "position": 69

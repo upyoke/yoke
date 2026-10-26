@@ -10,7 +10,7 @@
  "outline": ["Actor and organization", "Invite and authorize people", "Approve machines", "Roles and billing boundaries"],
  "terms": ["actor", "authentication", "authorization", "invitation", "machine", "machine-approval", "member", "organization"],
  "commands": ["command:yoke actors", "command:yoke auth", "command:yoke identity", "command:yoke invites", "command:yoke invite", "command:yoke machine", "command:yoke tokens"],
- "sources": ["doc:docs/public/projects/actors-members-billing.md", "doc:docs/public/projects/teammate-invitations.md", "doc:docs/public/projects/hosted-org-admin.md", "doc:docs/public/cli/machine-authorization.md"],
+ "sources": ["doc:docs/public/projects/actors-members-billing.md", "doc:docs/public/projects/teammate-invitations.md", "doc:docs/public/projects/hosted-org-admin.md", "doc:docs/public/cli/machine-authorization.md", "packet:main_agent:auth", "replies:actors", "replies:identity", "replies:tokens"],
  "deeper_pages": [],
  "open_questions": ["Split billing from access when the human explanation is written."],
  "position": 55

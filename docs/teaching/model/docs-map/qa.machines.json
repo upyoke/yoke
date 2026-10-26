@@ -10,7 +10,7 @@
  "outline": ["Test machine versus current machine", "Starting state and reset", "Desktop and harness checks", "Evidence and cleanup"],
  "terms": ["smoke-check", "test-machine"],
  "commands": ["command:yoke test-machine"],
- "sources": ["doc:docs/public/verification/test-machine-desktop.md", "doc:docs/public/verification/linux-golden-home.md", "doc:docs/public/verification/linux-desktop-apps.md", "doc:docs/public/verification/product-smoke.md", "doc:docs/public/verification/real-harness.md"],
+ "sources": ["doc:docs/public/verification/test-machine-desktop.md", "doc:docs/public/verification/linux-golden-home.md", "doc:docs/public/verification/linux-desktop-apps.md", "doc:docs/public/verification/product-smoke.md", "doc:docs/public/verification/real-harness.md", "replies:test-machine"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 40

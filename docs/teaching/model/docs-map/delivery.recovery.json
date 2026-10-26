@@ -10,7 +10,7 @@
  "outline": ["Find the failed stage", "Resume versus start a new run", "Cancel in-flight work", "Keep evidence of the failed attempt"],
  "terms": ["deployment-run", "deployment-stage", "evidence"],
  "commands": ["command:yoke deployment-runs failure-trace", "command:yoke deployment-runs terminalize"],
- "sources": ["doc:docs/public/deployments/start-diagnostics.md", "doc:docs/public/deployments/qa-dispatch.md", "doc:docs/public/deployments/model/ended-runs.md"],
+ "sources": ["doc:docs/public/deployments/start-diagnostics.md", "doc:docs/public/deployments/qa-dispatch.md", "doc:docs/public/deployments/model/ended-runs.md", "replies:deployment-runs"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 46

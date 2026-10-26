@@ -10,7 +10,7 @@
  "outline": ["Harness-specific discovery", "Session events", "Focused packets", "AGENTS.md and project rules"],
  "terms": ["agents-md", "context-packet", "harness", "harness-session", "hook", "watcher"],
  "commands": ["command:yoke hook", "command:yoke packets", "command:yoke codex"],
- "sources": ["source:global-hooks", "source:project-hooks", "source:rules", "source:packets", "doc:docs/public/agents/codex.md", "doc:docs/public/agents/cursor.md", "doc:docs/public/agents/rules/claude-sessions.md", "doc:docs/public/agents/rules/claude-long-commands.md"],
+ "sources": ["source:global-hooks", "source:project-hooks", "source:rules", "source:packets", "doc:docs/public/agents/codex.md", "doc:docs/public/agents/cursor.md", "doc:docs/public/agents/rules/claude-sessions.md", "doc:docs/public/agents/rules/claude-long-commands.md", "packet:main_agent", "replies:hook", "replies:packets"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 27

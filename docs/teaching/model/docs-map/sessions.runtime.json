@@ -10,7 +10,7 @@
  "outline": ["Harness session versus sign-in session", "Registration and heartbeat", "Parking and resuming", "Relay failure and recovery"],
  "terms": ["harness-session", "machine", "parked-session", "relay", "session", "session-liveness", "session-mode", "stale-session"],
  "commands": ["command:yoke session-control", "command:yoke relay", "command:yoke harness"],
- "sources": ["source:global-hooks", "source:project-hooks", "doc:docs/public/sessions/linux-relay.md", "doc:docs/public/sessions/model/sessions.md", "doc:docs/public/sessions/model/coordination.md"],
+ "sources": ["source:global-hooks", "source:project-hooks", "doc:docs/public/sessions/linux-relay.md", "doc:docs/public/sessions/model/sessions.md", "doc:docs/public/sessions/model/coordination.md", "packet:main_agent:claims", "replies:harness"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 24

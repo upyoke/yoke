@@ -10,7 +10,7 @@
  "outline": ["Who coordinates which scope", "Standing plans and work selection", "Reading waits and decisions", "Resolving contention"],
  "terms": ["current-plan", "fleet", "frontier", "steering", "steering-claim", "steering-report"],
  "commands": ["command:yoke steering report", "command:yoke claims steering", "command:yoke strategy coordination"],
- "sources": ["skill:steer", "doc:docs/public/sessions/steering-report.md", "doc:docs/public/sessions/steering-report-delivery.md", "doc:docs/public/functions/steering-report-dependencies.md"],
+ "sources": ["skill:steer", "doc:docs/public/sessions/steering-report.md", "doc:docs/public/sessions/steering-report-delivery.md", "doc:docs/public/functions/steering-report-dependencies.md", "replies:steering", "replies:claims"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 21

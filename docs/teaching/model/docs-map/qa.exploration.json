@@ -10,7 +10,7 @@
  "outline": ["Mission scope", "Walker evidence and findings", "Final judgment", "Human gates"],
  "terms": ["exploratory-mission"],
  "commands": ["command:yoke qa mission"],
- "sources": ["doc:docs/public/verification/exploration.md", "doc:docs/public/verification/exploration-evidence.md"],
+ "sources": ["doc:docs/public/verification/exploration.md", "doc:docs/public/verification/exploration-evidence.md", "role:qa-walker", "packet:qa_walker_agent", "role:boss", "replies:qa"],
  "deeper_pages": [],
  "open_questions": [],
  "position": 39
