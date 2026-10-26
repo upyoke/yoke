@@ -15,7 +15,7 @@ In an interactive terminal, the installer opens setup. If it does not, run
 `yoke setup --tui`. Follow the questions, review the proposed changes and Apply.
 See [Install](install.md#onboard-wizard) for the wizard's steps and prerequisites.
 After setup, open your coding agent in the project folder and follow the
-[project onboarding step](index.md#begin-work-on-your-project).
+[next steps](agent-setup.md#after-setup).
 
 ## Setup details and recovery
 
