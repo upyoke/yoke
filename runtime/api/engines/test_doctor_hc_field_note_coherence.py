@@ -39,8 +39,8 @@ def _run_hc() -> RecordCollector:
 
 def test_contract_tuples_are_non_empty() -> None:
     """Regression guard: clearing the enforcement scope would silently PASS."""
-    # Root help, field-note help, agent rendering and startup markers.
-    assert len(IMPORTING_CONSUMERS) == 4
+    # Field-note help, agent rendering and startup markers.
+    assert len(IMPORTING_CONSUMERS) == 3
     assert len(PACKET_SEED_CONSUMERS) == 2
 
 

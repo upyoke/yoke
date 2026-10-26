@@ -323,16 +323,6 @@ def test_old_subcommand_gone() -> None:
     assert rc != 0
 
 
-def test_root_help_keeps_field_note_footer() -> None:
-    from yoke_contracts.field_note_text import FOOTER
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = cli_main(["--help"])
-    assert rc == 0
-    assert FOOTER in buf.getvalue()
-
-
 def test_command_help_does_not_repeat_standing_guidance() -> None:
     from yoke_contracts.field_note_text import FOOTER
 

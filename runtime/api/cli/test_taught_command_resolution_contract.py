@@ -79,7 +79,6 @@ def test_audit_reads_the_surfaces_that_teach_commands() -> None:
         "AGENTS.md",
         "docs/public/agents/codex.md",
         "docs/public/agents/cursor.md",
-        "runtime/harness/claude/rules/session.md",
     ):
         assert expected in sources, f"{expected} teaches commands but is unread"
     assert any(s.startswith(".agents/skills/yoke/") for s in sources)
