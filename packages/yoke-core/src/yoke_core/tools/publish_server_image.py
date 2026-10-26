@@ -128,7 +128,7 @@ def main() -> int:
         publish(dict(os.environ))
     except (ValueError, KeyError, OSError, subprocess.SubprocessError) as exc:
         print(
-            f"image_publication_refused: {exc}; retry the publication job after correcting the named cause",
+            f"::error::image_publication_refused: {exc}; retry the publication job after correcting the named cause",
             file=sys.stderr,
         )
         return 1
