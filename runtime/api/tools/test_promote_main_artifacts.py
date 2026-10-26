@@ -214,3 +214,25 @@ def test_mismatched_image_never_reaches_attestation(
     )
     with pytest.raises(ValueError, match="main_image_identity_mismatch"):
         subject.promote(image_args(tmp_path))
+
+
+def test_promotion_refusal_reaches_release_failure_trace(monkeypatch, capsys, tmp_path):
+    from yoke_core.domain.deployment_failure_trace import terminal_error
+
+    def refuse(args):
+        raise ValueError("main_factory_failed: exact main factory failed")
+
+    monkeypatch.setattr(subject, "promote", refuse)
+    assert subject.main([
+        "image", "--repo", "owner/yoke", "--source-sha", SHA,
+        "--version", VERSION, "--destination", str(tmp_path),
+    ]) == 1
+    annotation = capsys.readouterr().err.strip()
+    assert annotation.startswith("::error::main_artifact_promotion_refused: ")
+    # GitHub Actions renders workflow error annotations in downloaded job logs.
+    logged = annotation.replace("::error::", "##[error]", 1)
+    diagnostic = terminal_error(logged + "\n##[error]Process completed with exit code 1.")
+    assert diagnostic == (
+        "main_artifact_promotion_refused: main_factory_failed: exact main factory failed; "
+        "inspect the exact main factory and retry the failed publication job"
+    )

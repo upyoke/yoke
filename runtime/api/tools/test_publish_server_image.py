@@ -84,3 +84,22 @@ def test_retry_preserves_bytes_and_old_release_cannot_move_latest(monkeypatch, l
     if publishes:
         assert f"{REPO}:latest" in publishes[0]
         assert publishes[0][-1] == f"{REPO}@{DIGEST}"
+
+
+def test_publication_refusal_reaches_release_failure_trace(monkeypatch, capsys):
+    from yoke_core.domain.deployment_failure_trace import terminal_error
+
+    def refuse(env):
+        raise ValueError("release_image_collision: immutable version differs")
+
+    monkeypatch.setattr(subject, "publish", refuse)
+    assert subject.main() == 1
+    annotation = capsys.readouterr().err.strip()
+    assert annotation.startswith("::error::image_publication_refused: ")
+    # GitHub Actions renders workflow error annotations in downloaded job logs.
+    logged = annotation.replace("::error::", "##[error]", 1)
+    diagnostic = terminal_error(logged + "\n##[error]Process completed with exit code 1.")
+    assert diagnostic == (
+        "image_publication_refused: release_image_collision: immutable version differs; "
+        "retry the publication job after correcting the named cause"
+    )

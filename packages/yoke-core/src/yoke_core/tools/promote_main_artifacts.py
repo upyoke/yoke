@@ -229,7 +229,7 @@ def main(argv=None) -> int:
         subprocess.SubprocessError,
     ) as exc:
         print(
-            f"main_artifact_promotion_refused: {exc}; inspect the exact main factory and retry the failed publication job",
+            f"::error::main_artifact_promotion_refused: {exc}; inspect the exact main factory and retry the failed publication job",
             file=sys.stderr,
         )
         return 1
