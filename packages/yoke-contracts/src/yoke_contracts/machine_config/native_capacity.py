@@ -2,8 +2,6 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
-import subprocess
 import sys
 
 from yoke_contracts.machine_config.machine_capacity import (
@@ -62,23 +60,7 @@ class NativeCapacity:
 
 def swap_headroom() -> tuple[int | None, int | None]:
     if sys.platform == "darwin":
-        try:
-            result = subprocess.run(
-                ["/usr/sbin/sysctl", "-n", "vm.swapusage"],
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            return None, None
-        if result.returncode:
-            return None, None
-        found = {}
-        for key, number, unit in re.findall(
-            r"(total|free)\s*=\s*([\d.]+)([KMGT])", result.stdout
-        ):
-            found[key] = int(float(number) * 1024 ** ("KMGT".index(unit) + 1))
-        return found.get("total"), found.get("free")
+        return 0, 0
     if sys.platform.startswith("linux"):
         try:
             fields = {}

@@ -15,11 +15,12 @@ An idle machine with no launch-capable surface polls every 5 minutes instead
 of every minute. A relay that has not probed its surfaces yet, such as a fresh
 install, keeps the one-minute cadence until it reports what it found.
 Each serialized native spawn checks current reclaimable memory and swap,
-with a three-second stagger. macOS uses `/usr/bin/vm_stat` and
-`/usr/sbin/sysctl -n vm.swapusage` independently of the relay's filtered PATH;
-Linux reads `/proc/meminfo`. Admission needs 1 GiB available memory and,
-when swap is enabled, 512 MiB free swap. Disabled swap permits launching
-with sufficient memory. Placement also respects configured machine capacity.
+with a three-second stagger. macOS uses only `/usr/bin/vm_stat`, independently
+of the relay's filtered PATH; Linux reads `/proc/meminfo`. Admission needs
+1 GiB available memory. Linux also needs 512 MiB free swap when swap is enabled.
+macOS grows swap on demand, so admission has no swap ceiling there. Disabled
+swap permits launching with sufficient memory. Placement also respects
+configured machine capacity.
 
 Launch and wake records, including Cursor, name `native_memory_headroom_low`,
 `native_swap_headroom_low` or `native_capacity_unreadable` when no native starts;
