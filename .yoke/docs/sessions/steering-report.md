@@ -52,7 +52,7 @@ Parked holders are expected waits unless native death is proven. A stopped turn
 with unfinished call is immediately idle (declared park remains a wait).
 Holder rows describe delivery rather than infer native liveness:
 
-- `mid-turn — message waits until the turn ends` from running turn posture;
+- `mid-turn — message arrives at its next tool call` from running turn posture;
 - `between turns — message wakes it` from waiting posture or a recorded exit,
   on surfaces whose manifest declares `message_stopped`;
 - `parked waiting on X` from the holder's declared park reason, whether its
