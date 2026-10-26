@@ -160,7 +160,6 @@ def test_existing_events_table_gains_actor_id_from_additive_converge(
                 event_kind TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 event_name TEXT NOT NULL,
-                org_id TEXT,
                 created_at TEXT NOT NULL
             )
             """

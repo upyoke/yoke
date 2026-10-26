@@ -125,7 +125,6 @@ def write_frontend_events(
             event_name=event["event_name"],
             severity="INFO",
             event_outcome=event.get("event_outcome"),
-            org_id=str(org_id),
             actor_id=actor_id,
             environment=environment,
             service=event["service"],

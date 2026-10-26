@@ -72,6 +72,11 @@ _BY_ID: dict[str, AuthzSpec] = {
     # org/project grants; local source-dev calls without a numeric actor remain
     # unfiltered.
     "items.list.run": AuthzSpec(ACTOR_SESSION, None),
+    "events.query.run": AuthzSpec(ACTOR_SESSION, None),
+    "events.tail.run": AuthzSpec(ACTOR_SESSION, None),
+    "events.count.run": AuthzSpec(ACTOR_SESSION, None),
+    "events.anomalies.run": AuthzSpec(ACTOR_SESSION, None),
+
     "items.search.run": AuthzSpec(ACTOR_SESSION, None),
     # Actor-visible project inventory. The handler filters rows to the actor's
     # org/project grants; local source-dev calls without a numeric actor remain

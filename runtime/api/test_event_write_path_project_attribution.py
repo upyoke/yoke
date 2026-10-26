@@ -19,7 +19,6 @@ from yoke_core.domain import emit_event as emit_event_cli
 from yoke_core.domain import events_crud
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.events import emit_event as emit_event_native
-from yoke_core.domain.events_project_identity import SESSION_SCOPED_EVENT_TYPES
 from yoke_core.domain.events_writes import cmd_insert
 from yoke_core.domain.handlers import events_reads
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
@@ -131,7 +130,7 @@ def _write(writer: str, *, event_id: str, session_id: str, event_type: str, proj
 
 
 @pytest.mark.parametrize("writer", ["native", "cli", "raw"])
-@pytest.mark.parametrize("event_type", sorted(SESSION_SCOPED_EVENT_TYPES))
+@pytest.mark.parametrize("event_type", ["hook_dispatch", "tool_call", "test", "yoke_function_dispatch"])
 def test_session_scoped_writers_follow_registered_session_project(
     events_db, writer, event_type
 ):
@@ -196,7 +195,7 @@ def test_raw_insert_without_envelope_follows_session(events_db):
     assert _project_id(events_db, "evt-raw-plain") == EXTERNAL_ID
 
 
-def test_non_session_event_keeps_boundary_project_despite_session(events_db):
+def test_every_event_type_uses_session_project_before_boundary(events_db):
     session_id = "sess-global-mention"
     event_id = "evt-non-session"
     _seed_session(events_db, session_id, executor="claude-code", project_id=EXTERNAL_ID)
@@ -210,7 +209,7 @@ def test_non_session_event_keeps_boundary_project_despite_session(events_db):
         project="yoke",
         skip_severity=True,
     )
-    assert _project_id(events_db, event_id) == YOKE_ID
+    assert _project_id(events_db, event_id) == EXTERNAL_ID
 
 
 @pytest.mark.parametrize("session_id", ["", "unknown", "sess-missing"])

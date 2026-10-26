@@ -39,6 +39,7 @@ def _apply_events_db_file_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _PROJECTS_DDL)
+        conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, project_sequence INTEGER)")
         _seed_projects(conn)
         apply_fixture_ddl(conn, _EVENTS_DDL)
     finally:

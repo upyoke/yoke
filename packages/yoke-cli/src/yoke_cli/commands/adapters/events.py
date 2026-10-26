@@ -51,14 +51,13 @@ EVENTS_EMIT_USAGE = (
     "yoke events emit --name NAME --kind KIND --type TYPE "
     "--source-type SOURCE [--severity LEVEL] [--outcome OUTCOME] "
     "[--project P] [--item PREFIX-N] [--task-num N] [--agent A] [--tool-name T] "
-    "[--org-id ID] [--environment ENV] [--request-id ID] [--trace-id ID] "
+    "[--environment ENV] [--request-id ID] [--trace-id ID] "
     "[--parent-id ID] [--tool-use-id ID] [--turn-id ID] [--hook-event-name NAME] "
     "[--anomaly-flags FLAGS] [--duration-ms MS] [--exit-code CODE] "
     "[--context JSON] [--error-context JSON] [--session-id S] [--json]"
 )
 
 _EMIT_FIELD_METAVARS = {
-    "org-id": "ID",
     "environment": "ENV",
     "request-id": "ID",
     "project": "P",
@@ -185,7 +184,6 @@ def events_emit(args: List[str]) -> int:
         "context": context,
     }
     for attr in (
-        "org_id",
         "environment",
         "request_id",
         "project",
@@ -287,10 +285,7 @@ def events_tail(args: List[str]) -> int:
         "--project",
         default=None,
         metavar="P",
-        help=(
-            "Keep only this project's events, by slug or id "
-            "(default: the checkout's mapped project)."
-        ),
+        help="Filter by project slug or id; omitted reads all authorized events.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -301,7 +296,7 @@ def events_tail(args: List[str]) -> int:
         limit = int(parsed.limit)
     except ValueError:
         return usage_error("--limit must be an integer")
-    project = client_project_context(parsed.project)
+    project = parsed.project
     payload: Dict[str, Any] = {"limit": limit}
     if project:
         payload["project"] = project

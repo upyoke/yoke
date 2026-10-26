@@ -23,7 +23,6 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
-from yoke_core.domain.events_project_identity import SESSION_SCOPED_EVENT_TYPES
 from yoke_core.domain.handlers import ouroboros_field_note as _ofn
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
@@ -206,12 +205,6 @@ class TestUnattributedNotesStayGlobal:
         assert envelope["project"] == ""
         assert "project_id" not in envelope["context"]
 
-    def test_field_note_events_are_outside_the_session_scoped_fallback(
-        self,
-    ) -> None:
-        """Adding this event type to the session-scoped set would silently
-        backfill a global note with the calling session's project."""
-        assert "ouroboros_feedback" not in SESSION_SCOPED_EVENT_TYPES
 
 
 class TestHandlerHandsTheEventItsProject:

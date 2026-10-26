@@ -20,7 +20,6 @@ class TestBuildEnvelope(unittest.TestCase):
             event_type="unit_test",
             session_id="HS456",
             exit_code=7,
-            org_id="org-1",
             environment="stage",
             request_id="req-1",
             tool_use_id="TUI123",
@@ -29,7 +28,7 @@ class TestBuildEnvelope(unittest.TestCase):
         )
         self.assertEqual(env["session_id"], "HS456")
         self.assertNotIn("user_id", env)
-        self.assertEqual(env["org_id"], "org-1")
+        self.assertNotIn("org_id", env)
         self.assertEqual(env["environment"], "stage")
         self.assertEqual(env["request_id"], "req-1")
         self.assertEqual(env["exit_code"], 7)
@@ -48,7 +47,7 @@ class TestBuildEnvelope(unittest.TestCase):
         self.assertIsNone(env["turn_id"])
         self.assertIsNone(env["hook_event_name"])
         self.assertNotIn("user_id", env)
-        self.assertIsNone(env["org_id"])
+        self.assertNotIn("org_id", env)
         self.assertIsNone(env["environment"])
         self.assertIsNone(env["request_id"])
         self.assertIsNone(env["exit_code"])
@@ -254,11 +253,11 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         placeholders = val_section.count("%s")
 
         self.assertEqual(len(columns), placeholders)
-        self.assertEqual(len(columns), 27)
+        self.assertEqual(len(columns), 26)
 
         # Verify new columns are present
         self.assertNotIn("user_id", columns)
-        self.assertIn("org_id", columns)
+        self.assertNotIn("org_id", columns)
         self.assertIn("environment", columns)
         self.assertIn("actor_id", columns)
         self.assertIn("exit_code", columns)

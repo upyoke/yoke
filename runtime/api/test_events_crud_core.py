@@ -146,7 +146,8 @@ class TestQueries:
         result = ec.cmd_list(db_path)
         assert "|" in result
         parts = result.split("|")
-        assert len(parts) == 23  # 23 columns in _EVT_SELECT_COLS
+        assert len(parts) == len(ec.EVT_COLUMN_NAMES)
+        assert "org_id" not in ec.EVT_COLUMN_NAMES
 
     def test_list_filters(self, db_path: str) -> None:
         _insert_event(db_path, event_id="f-agent", source_type="agent")

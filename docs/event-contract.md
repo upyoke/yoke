@@ -19,7 +19,6 @@ Every event is a row in the `events` table. The canonical columns are:
 | `event_type` | TEXT | Yes | `snake_case` subcategory (e.g., `task_status_change`, `sync_failure`) |
 | `event_name` | TEXT | Yes | `PascalCase` unique name (e.g., `TaskStatusChanged`, `SyncFailed`) |
 | `event_outcome` | TEXT | No | `completed`, `failed`, `skipped`, or null |
-| `org_id` | TEXT | No | Organization identifier |
 | `actor_id` | INTEGER | No | Authenticated or named system actor; references `actors(id)` |
 | `environment` | TEXT | No | `prod`, `stage`, `local` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
@@ -195,9 +194,9 @@ yoke events emit \
  --context '{"from_status":"implementing","to_status":"reviewing-implementation","note":"..."}'
 ```
 
-Indexed `events.project_id` uses `resolve_envelope_project_id_for_event` on both the native writer and `cmd_insert`: context `project_id` / `detail.project_id`, then the registered session project for `SESSION_SCOPED_EVENT_TYPES` (including `tool_call` denials), then the boundary project token. `cmd_insert` builds that input from row identity plus parseable envelope context; stored envelope session/type/project never replace the row. Unresolvable tokens stay global (`NULL`). Scripts must still pass context fields the observe hook would populate.
+Indexed `events.project_id` uses `resolve_envelope_project_id_for_event` on both the native writer and `cmd_insert`: context `project_id` / `detail.project_id`, then the item’s project, then the registered session project for every event type, then the boundary project token. `cmd_insert` builds that input from row identity plus parseable envelope context; stored envelope session/type/project/item never replace the row. Unresolvable tokens stay global (`NULL`). Scripts must still pass context fields the observe hook would populate.
 
-If `--project` is omitted but `--item` is present, the CLI emitter resolves project from the `items` row. Otherwise it uses explicit caller environment or checkout binding; unresolved telemetry remains global (`NULL`). A session-scoped event follows its registered session project.
+If `--project` is omitted but `--item` is present, the CLI emitter resolves project from the `items` row. Otherwise it uses explicit caller environment or checkout binding; unresolved telemetry remains global (`NULL`). Every event type uses the registered session project when no context or item project resolves.
 
 `yoke_core.domain.events.emit_event` receives bare numeric `item_id` values;
 the CLI resolves its complete public `--item` reference first. Stored `events.item_id` values are canonical bare-numeric text.

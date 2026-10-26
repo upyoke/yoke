@@ -6,7 +6,6 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
-    client_project_context,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -112,10 +111,6 @@ def _filters_payload(parsed: argparse.Namespace) -> Dict[str, Any]:
             payload[key] = value
     if parsed.project:
         payload["project"] = parsed.project
-    else:
-        ambient = client_project_context()
-        if ambient:
-            payload["project"] = ambient
     if parsed.current_episode:
         payload["current_episode"] = True
     return payload
@@ -128,7 +123,7 @@ def _filters_target(parsed: argparse.Namespace) -> TargetRef:
         return item_target("item", parsed.item, parsed.project)
     return TargetRef(
         kind="global",
-        project_id=client_project_context(parsed.project),
+        project_id=parsed.project,
     )
 
 

@@ -160,7 +160,6 @@ def cmd_insert(
     event_name: str,
     severity: str = "INFO",
     event_outcome: Optional[str] = None,
-    org_id: Optional[str] = None,
     actor_id: Optional[int] = None,
     environment: Optional[str] = None,
     service: str = "cli",
@@ -215,6 +214,7 @@ def cmd_insert(
                 session_id=session_id,
                 event_type=event_type,
                 project=project,
+                item_id=raw_item_id,
                 envelope=envelope,
             ),
         )
@@ -229,7 +229,7 @@ def cmd_insert(
             """INSERT INTO events (
                 event_id, source_type, session_id, severity,
                 event_kind, event_type, event_name, event_outcome,
-                org_id, actor_id, environment, service, project_id,
+                actor_id, environment, service, project_id,
                 item_id, task_num, agent, tool_name,
                 duration_ms, exit_code, trace_id,
                 anomaly_flags, tool_use_id, turn_id,
@@ -237,7 +237,7 @@ def cmd_insert(
             ) VALUES (
                 %s, %s, %s, %s,
                 %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s,
@@ -253,7 +253,6 @@ def cmd_insert(
                 event_type,
                 event_name,
                 event_outcome,
-                org_id,
                 actor_id,
                 environment,
                 service,

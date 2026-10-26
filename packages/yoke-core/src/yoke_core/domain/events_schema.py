@@ -69,7 +69,6 @@ def _create_events_table(
                 event_type TEXT NOT NULL,
                 event_name TEXT NOT NULL,
                 event_outcome TEXT,
-                org_id TEXT,
                 actor_id INTEGER REFERENCES actors(id),
                 environment TEXT,
                 service TEXT NOT NULL DEFAULT 'cli',
@@ -105,7 +104,6 @@ def _ensure_project_dependency(conn: Any) -> None:
 
 _EVENT_COLUMNS = (
     ("event_outcome", "TEXT"),
-    ("org_id", "TEXT"),
     ("actor_id", "INTEGER REFERENCES actors(id)"),
     ("environment", "TEXT"),
     ("service", "TEXT NOT NULL DEFAULT 'cli'"),

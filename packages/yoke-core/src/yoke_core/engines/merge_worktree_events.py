@@ -139,7 +139,6 @@ def _emit_telemetry(
             outcome=outcome or None,
             session_id=resolve_ambient_session_id() or "",
             event_id="",
-            org_id="",
             request_id="",
             actor_id=None,
             environment="",

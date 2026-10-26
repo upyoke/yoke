@@ -93,12 +93,12 @@ def test_anonymous_sink_sanitizes_deduplicates_and_stamps_its_own_identity(
         assert response.json() == {"accepted": 1}
     with database() as conn:
         rows = conn.execute(
-            "SELECT actor_id, project_id, org_id, envelope FROM events WHERE event_id=%s",
+            "SELECT actor_id, project_id, envelope FROM events WHERE event_id=%s",
             (payload["event_id"],),
         ).fetchall()
         assert len(rows) == 1
-        actor_id, project_id, org_id, raw = rows[0]
-        assert actor_id is None and project_id is None and org_id != "forged"
+        actor_id, project_id, raw = rows[0]
+        assert actor_id is None and project_id is None
         stored = json.loads(raw) if isinstance(raw, str) else raw
         assert stored["page_url"] == ORIGIN + "/items?utm_source=email"
         assert "private" not in stored["referrer"]

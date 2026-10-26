@@ -141,7 +141,6 @@ CORE_TABLES: dict[str, dict] = {
             ("event_type", "TEXT"),
             ("event_name", "TEXT"),
             ("event_outcome", "TEXT"),
-            ("org_id", "TEXT"),
             ("actor_id", "INTEGER"),
             ("environment", "TEXT"),
             ("service", "TEXT"),
@@ -162,6 +161,8 @@ CORE_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
+            "Event attribution reads items.project_id before the session owner; "
+            "event-writer fixtures need an items table, even with no matching row. "
             "Append-only TELEMETRY ledger — diagnosis/audit only, never "
             "application state. Status/transition questions read "
             "`item_status_transitions`; board activity reads "
