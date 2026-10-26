@@ -184,7 +184,6 @@ def open_terminal_app_window(
     """
     lines = [
         'tell application "Terminal"',
-        "activate",
         'set targetTab to do script ""',
         "set targetWindow to front window",
     ]
@@ -201,6 +200,7 @@ def open_terminal_app_window(
         lines.extend(
             [
                 "set miniaturized of targetWindow to false",
+                "activate",
                 "set index of targetWindow to 1",
                 f"set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}",
                 "set observed to bounds of targetWindow",
@@ -210,7 +210,7 @@ def open_terminal_app_window(
     lines.extend(
         [
             "delay 0.5",
-            f"do script {json.dumps(command)} in targetTab",
+            f"do script {json.dumps(command, ensure_ascii=False)} in targetTab",
             answer,
             "end tell",
         ]
@@ -311,7 +311,7 @@ def send_terminal_app_keys(
             lines.extend(
                 [
                     "set pasteText to do shell script "
-                    + json.dumps("/bin/cat " + shlex.quote(path)),
+                    + json.dumps("/bin/cat " + shlex.quote(path), ensure_ascii=False),
                     "keystroke pasteText",
                 ]
             )
@@ -320,7 +320,7 @@ def send_terminal_app_keys(
         elif key in _CONTROL_KEY_CODES:
             lines.append(f"key code {_CONTROL_KEY_CODES[key]} using {{control down}}")
         else:
-            lines.append(f"keystroke {json.dumps(key)}")
+            lines.append(f"keystroke {json.dumps(key, ensure_ascii=False)}")
         if index + 1 < len(keys):
             lines.append("delay 0.2")
     lines.extend(["end tell", 'return "true"'])
