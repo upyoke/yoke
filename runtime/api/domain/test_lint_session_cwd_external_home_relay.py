@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_core.hooks.decision_render import render_codex_decision
-
-import json
 from pathlib import Path
 
 import pytest
@@ -112,7 +109,7 @@ def test_relayed_bare_cat_allows_ordinary_client_home_reference(
 
 
 @pytest.mark.parametrize("via_symlink", [False, True], ids=["direct", "symlink"])
-def test_relayed_bare_cat_refuses_nested_dot_directory_targets(
+def test_relayed_bare_cat_allows_nested_dot_directory_targets(
     conn,
     claimed_worktree: Path,
     client_home: Path,
@@ -135,9 +132,9 @@ def test_relayed_bare_cat_refuses_nested_dot_directory_targets(
     )
     decision = _remote_evaluation(_cat(target), client_home=client_home)
 
-    assert decision.outcome is Outcome.DENY
+    assert decision.outcome is Outcome.NOOP
     assert SECRET_TEXT not in decision.message
-    assert emitted
+    assert not emitted
     assert SECRET_TEXT not in str(emitted)
 
 
@@ -156,7 +153,7 @@ def test_relayed_bare_cat_refuses_nested_dot_directory_targets(
         ),
     ],
 )
-def test_relayed_bare_cat_fails_closed_without_valid_client_home_evidence(
+def test_relayed_absolute_cat_allows_without_client_home_evidence(
     conn,
     claimed_worktree: Path,
     client_home: Path,
@@ -178,15 +175,6 @@ def test_relayed_bare_cat_fails_closed_without_valid_client_home_evidence(
         client_home=client_home,
         home_metadata=home_metadata,
     )
-    reason = json.loads(render_codex_decision([decision], "PreToolUse")[0])[
-        "hookSpecificOutput"
-    ]["permissionDecisionReason"]
-
-    assert decision.outcome is Outcome.DENY
-    assert "client machine-home metadata was missing or invalid" in reason
-    assert "Restore the canonical client-home fact in the hook relay" in reason
-    assert SECRET_TEXT not in reason
-    assert emitted[0][1]["authority_reason"] == (
-        lint_session_cwd.CLIENT_HOME_AUTHORITY_UNAVAILABLE
-    )
-    assert SECRET_TEXT not in str(emitted[0][1])
+    assert decision.outcome is Outcome.NOOP
+    assert SECRET_TEXT not in decision.message
+    assert not emitted

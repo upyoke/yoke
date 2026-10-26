@@ -1,11 +1,7 @@
 """Validate targets against claims, lane occupancy, status, and machine context.
 
-Known capacity operands inspect totals without granting content or mutation.
-Unresolved local home operands are refused. Writes and state moves into foreign lanes
-are refused; established plain Git inspection and foreign-lane reads remain
-exempt. Ordinary home reads use executing-machine facts. Other claimed-call
-paths must be in a held lane, control plane, or free root; a call with no
-operands uses its declared cwd as the synthetic target.
+Read-shaped calls pass without path checks. Mutations retain claim, lane,
+status and executing-machine authority; calls with no operands use their cwd.
 """
 
 from __future__ import annotations
@@ -30,7 +26,6 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     resolve_for_display as _resolve_for_display,
 )
 from yoke_core.domain.lint_session_cwd_home import (
-    is_external_reference_path,
     is_sanctioned_installed_read_path,
 )
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
@@ -120,6 +115,12 @@ def validate_targets(
     claims = claimed_worktrees(conn, session_id=session_id)
     repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
+    mutation = is_lane_mutation(tool_name, command)
+    if read_only and not mutation and _is_read_shaped(tool_name, command):
+        return ValidationVerdict(
+            allow=True, claims=claims, repo_roots=repo_roots, session_id=session_id
+        )
+
     for use in path_uses:
         if use.role != PathRole.REMOTE and use.path.startswith("~"):
             return ValidationVerdict(
@@ -141,14 +142,6 @@ def validate_targets(
     ]
 
     targets_to_check = governed_targets(targets_to_check, repo_roots, command)
-    # A read of a foreign lane is not a write, so it must not fail scope either.
-    mutation = is_lane_mutation(tool_name, command)
-    if not mutation:
-        targets_to_check = [
-            raw
-            for raw in targets_to_check
-            if occupying_claim(conn, target=raw, session_id=session_id) is None
-        ]
     for raw in targets_to_check:
         occupant = occupying_claim(conn, target=raw, session_id=session_id)
         if occupant is not None:
@@ -161,8 +154,6 @@ def validate_targets(
                 failure_class=FOREIGN_LANE_FAILURE_CLASS,
                 occupant=occupant,
             )
-
-    external_reads_allowed = read_only and _is_read_shaped(tool_name, command)
 
     if not session_id or not claims:
         return ValidationVerdict(
@@ -202,7 +193,6 @@ def validate_targets(
             machine_home=machine_home,
             read_only=read_only,
             path_uses=path_uses,
-            external_reads_allowed=external_reads_allowed,
             yoke_root=yoke_root,
         ):
             continue
@@ -251,7 +241,6 @@ def _is_target_authorised(
     machine_home: str | None,
     read_only: bool,
     path_uses: tuple[PathUse, ...] = (),
-    external_reads_allowed: bool = False,
     yoke_root: str = "",
 ) -> bool:
     if _is_free_path(
@@ -267,12 +256,6 @@ def _is_target_authorised(
     roles = {use.role for use in path_uses if use.path == target}
     if is_sanctioned_installed_read_path(target, machine_home=machine_home) and (
         read_only or (roles and PathRole.WRITE not in roles)
-    ):
-        return True
-    if external_reads_allowed and is_external_reference_path(
-        target,
-        repo_roots=repo_roots,
-        machine_home=machine_home,
     ):
         return True
     for claim in claims:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Sequence
 
 
 _FREE_PATH_SUFFIXES = (
@@ -87,43 +86,8 @@ def is_sanctioned_installed_read_path(
     return resolved in files
 
 
-def is_external_reference_path(
-    target: str,
-    *,
-    repo_roots: Sequence[str],
-    machine_home: str | None = None,
-) -> bool:
-    """True for home targets without dot-prefixed components, outside checkouts."""
-    home = _selected_home(machine_home)
-    if not home:
-        return False
-    resolved = str(Path(expand_machine_home(target, machine_home=home)).resolve())
-    if not _is_inside(resolved, home):
-        return False
-    relative = Path(resolved).parts[len(Path(home).parts) :]
-    if (
-        not relative
-        or any(part.startswith(".") for part in relative)
-        or ".worktrees" in relative
-    ):
-        return False
-    return not any(_is_inside(resolved, root) for root in repo_roots)
-
-
-def _is_inside(target: str, root: str) -> bool:
-    try:
-        resolved_target = str(Path(target).resolve())
-        resolved_root = str(Path(root).resolve())
-    except OSError:
-        return False
-    return resolved_target == resolved_root or resolved_target.startswith(
-        resolved_root + os.sep
-    )
-
-
 __all__ = [
     "expand_machine_home",
     "home_free_path_prefixes",
-    "is_external_reference_path",
     "is_sanctioned_installed_read_path",
 ]

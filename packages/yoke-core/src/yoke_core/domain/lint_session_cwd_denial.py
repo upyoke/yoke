@@ -45,7 +45,6 @@ def build_denial_reason(
         body = build_foreign_lane_message(
             offending_target=outcome.offending_target,
             occupant=outcome.occupant,
-            payload=payload,
         )
     else:
         body = build_scope_mismatch_block(

@@ -1,19 +1,4 @@
-"""Reading material no registered project owns is not a checkout mix-up.
-
-An operator hands an agent a reference document, an installed harness config,
-a launcher on ``PATH``. Those live outside every recorded project checkout, so
-a read-shaped call naming one has nothing to do with the wrong-checkout defect
-this guard exists to catch, and it now passes.
-
-The boundary is narrow on purpose, and each half is proved here. Project code
-stays governed — a recorded repo root, another project's checkout, a worktree
-lane under one — regardless of how read-shaped the call is. So is tool state:
-a dot-directory in the home holds harness configuration, credentials, and
-per-session scratch, and which of those may be read stays the curated
-sanctioned-installed-read decision rather than becoming a side effect of this
-one. And a write never inherits a read's exemption: an output redirect, a
-mutating verb, or a mutation chained onto a read all still refuse.
-"""
+"""Read-shaped calls pass anywhere; mutations retain lane authority."""
 
 from __future__ import annotations
 
@@ -29,6 +14,7 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import (
     lint_session_cwd,
+    lint_lane_main_write,
     lint_session_cwd_path_authority,
 )
 
@@ -134,16 +120,13 @@ class TestExternalReferenceReadsAllow:
     @pytest.mark.parametrize(
         "relative", [".cursor/hooks.json", ".local/bin", ".yoke/relay-instances"]
     )
-    def test_installed_tool_surfaces_read_through_the_curated_allowlist(
+    def test_installed_tool_surfaces_are_readable(
         self,
         conn,
         lane,
         home,
         relative,
     ):
-        # Tool state is excluded from the external-reference branch above, so
-        # the reported read-only inspections of installed surfaces are covered
-        # by the sanctioned-installed-read allowlist instead.
         installed = home / relative
         installed.parent.mkdir(parents=True, exist_ok=True)
 
@@ -168,17 +151,17 @@ class TestExternalReferenceReadsAllow:
 
 
 # ---------------------------------------------------------------------------
-# Project code stays governed — reading it is not "external"
+# Read paths include dot folders and other checkouts
 # ---------------------------------------------------------------------------
 
 
-class TestProjectCodeIsNeverExternal:
-    def test_a_path_outside_the_operator_home_still_refuses(self, conn, lane):
+class TestReadsAcrossRoots:
+    def test_a_path_outside_the_operator_home_allows(self, conn, lane):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             _read_tool("/__foreign_target__/file", lane)
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
     def test_a_payload_that_names_no_tool_still_refuses(self, conn, lane, external):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
@@ -200,19 +183,16 @@ class TestProjectCodeIsNeverExternal:
             ".codex/config.toml",
         ],
     )
-    def test_home_dot_directories_stay_governed(self, conn, lane, home, relative):
-        # Tool state — per-session scratch, credentials, harness config — is
-        # not reference material. Which of it may be read stays the curated
-        # sanctioned-installed-read decision, not a side effect of this one.
+    def test_home_dot_directories_allow(self, conn, lane, home, relative):
         target = home / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("tool state\n")
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(_read_tool(target, lane))
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
-    def test_read_of_another_items_live_lane_still_refuses(
+    def test_read_of_another_items_live_lane_allows(
         self,
         conn,
         lane,
@@ -229,7 +209,7 @@ class TestProjectCodeIsNeverExternal:
 
         assert verdict.allow is True
 
-    def test_read_of_an_unclaimed_sibling_lane_still_refuses(
+    def test_read_of_an_unclaimed_sibling_lane_allows(
         self,
         conn,
         lane,
@@ -242,11 +222,9 @@ class TestProjectCodeIsNeverExternal:
             _read_tool(sibling / "module.py", lane)
         )
 
-        assert verdict.allow is False
+        assert verdict.allow is True
 
     def test_read_of_the_projects_own_checkout_still_allows(self, conn, lane, repo):
-        # Control-plane reads were already permitted; the external-reference
-        # branch must not be read as having introduced a new ban here.
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             _read_tool(repo / "module.py", lane)
         )
@@ -302,3 +280,42 @@ class TestWriteShapesStillRefuse:
         )
 
         assert verdict.allow is False
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ls /Applications | grep chrome", "cat /usr/share/example",
+        "cat ~/.config/example", "cat ~/.codex/auth.json",
+        "rg pattern {target}", "git -C {target} diff",
+    ],
+)
+def test_claimed_session_reads_any_root(conn, lane, repo, command):
+    for target in (repo, repo / ".worktrees/unclaimed", Path("/other/checkout")):
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            _bash(command.format(target=target), lane)
+        )
+        assert verdict.allow is True
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "find {target} -delete", "find {target} -exec touch f ;",
+        "find {target} -execdir touch f ;", "find {target} -ok touch f ;",
+        "find {target} -fprint {target}/out", "find {target} -fls {target}/out",
+        "git -C {target} diff --output={target}/out",
+        "git -C {target} branch topic", "git -C {target} config k v",
+        "git -C {target} remote add origin url", "git -C {target} checkout topic",
+        "rg --pre cat pattern {target}", "rg --pre=cat pattern {target}",
+        "cat {target}/f > {target}/out", "touch {target}/f",
+    ],
+)
+def test_mutating_commands_outside_lane_refuse(conn, lane, repo, external, command):
+    seed_item(conn, item_id=ITEM_ID + 1, branch="YOK-other", repo_path=repo)
+    seed_item_claim(conn, "sid-neighbour", item_id=ITEM_ID + 1)
+    for target in (external.parent, repo, repo / ".worktrees/YOK-other"):
+        payload = _bash(command.format(target=target), lane)
+        verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
+        source_verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
+        assert not (verdict.allow and source_verdict.allow), (command, target)

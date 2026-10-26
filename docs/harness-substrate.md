@@ -76,10 +76,12 @@ yoke claims work holder-get PREFIX-N
 Write carry explicit targets; Bash uses parsed operands such as `-C`, rootdir
 and absolute paths, with declared cwd as a synthetic target when none are found.
 Claimed calls admit held lanes, control-plane roots excluding `.worktrees/`,
-free paths and declared read-only exceptions. Known capacity operands inspect
-totals without granting content/mutation. Unresolved home operands and missing
-session identity refuse. Ordinary home/reference reads use executing-machine
-facts and must earn their read-shaped exemption.
+free paths and read-shaped calls. Read-only commands pass without path checks,
+including outside home, dot folders, other checkouts and lanes; the harness
+still decides its own read permissions. Known capacity operands inspect totals
+without granting content/mutation. Mutations retain executing-machine home
+facts, unresolved-home refusals, write-target checks and Git state-move limits.
+Missing session identity refuses mutations.
 
 Foreign lane occupancy is checked before own-claim scope. Reads/plain sanctioned
 Git inspection can inspect another holder's lane; writes, redirects, compound
