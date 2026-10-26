@@ -74,7 +74,6 @@ def test_large_human_read_refuses_without_partial_answer(capsys):
     assert "marker" not in out.out
     assert "read_output_limit_exceeded" in out.err
     assert "28000" in out.err
-    assert "--full" in out.err
 
 
 @pytest.mark.parametrize("scope", [False, True])
@@ -143,7 +142,6 @@ def test_hint_names_only_flags_the_command_has():
     )
     assert "FIELD" not in hint
     assert "--json" not in hint
-    assert hint.endswith("or add --full to request the entire answer explicitly.")
 
 
 def test_hint_names_field_and_paging_flags_when_present():
@@ -159,7 +157,6 @@ def test_hint_names_field_and_paging_flags_when_present():
 def test_read_without_its_own_narrowing_flags_names_the_shared_section():
     hint = _read_hint("sessions.identity", lambda parser: None)
     assert hint.startswith("Narrow yoke sessions identity with its fields --section;")
-    assert "--full" in hint
 
 
 def test_hint_without_recorded_parser_points_at_help():

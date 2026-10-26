@@ -132,7 +132,6 @@ def test_text_without_headings_keeps_the_narrowing_hint(capsys):
     assert _emit(["PLAN"], "x" * (REPLY_LIMIT_BYTES + 1)) == 1
     err = capsys.readouterr().err
     assert "Read one section" not in err
-    assert "--full" in err
 
 
 def test_a_read_with_its_own_section_flag_keeps_it(capsys):

@@ -112,7 +112,9 @@ def _recovery(failed: Sequence[LandingCheck]) -> str:
         )
     return (
         "fix it on the lane, commit, re-run the verification gate, and "
-        "re-run `yoke merge item`"
+        "re-run `yoke merge item`; for an unrelated flaky failure, run "
+        "`yoke github-actions run rerun-failed ITEM RUN-ID` using the run id "
+        "from the check URL"
     )
 
 

@@ -8,8 +8,8 @@
  "disclosure": "current cue",
  "surface": "migration rehearse help; databases lines 15 and capability validation-binding reference.",
  "gap": "Major adoption boundary: hosted users cannot self-serve this with application DB credentials. Proposed discovery must disclose the limit before governance is accepted; the end-to-end external-user provisioning path remains to be designed/verified.",
- "review": "Pending exact recipe proof.",
- "recipes": ["yoke migration rehearse --help"],
+ "review": "The provisioning recipe selects authority inside the source runner; end-to-end external-user provisioning remains unverified.",
+ "recipes": ["yoke migration rehearse --help", "yoke dev run -- env YOKE_ENV=<name> python3 -m runtime.api.tools.authority_validation_copy"],
  "plan_notes": ["outside both"],
  "sources": ["docs/public/agents/rules/databases.md", "docs/public/databases/migration-model.md", "docs/public/databases/migration-model-pairing.md", "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py"],
  "position": 1

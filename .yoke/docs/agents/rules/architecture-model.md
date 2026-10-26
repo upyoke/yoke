@@ -4,11 +4,10 @@
 [Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Architecture model
 <!-- /yoke:breadcrumbs -->
 
-## Architecture model
+A project's `architecture_model` Project Structure family owns layers, domains, dependency
+rules, gateways and exemptions. Read its authoritative payload.
 
-A project's `architecture_model` Project Structure family holds its layers, domains, dependency
-rules, cross-cutting gateways and exemptions. The payload is the authority; read it, not prose.
-
+- Read: `yoke project-structure get --project yoke --family architecture_model`.
 - Draft: `yoke project-structure architecture-draft get --project P`. The operator reviews it;
   `project_structure.patch.apply` writes it.
 - Health: `yoke project-structure architecture-health get --project P`.
@@ -26,7 +25,7 @@ service_api -> orchestration -> harness_adapters -> skill_docs
 
 ## Item architecture impact
 
-Each item declares `architecture_impact`: `none`, `path_context_only`,
+Declare `architecture_impact`: `none`, `path_context_only`,
 `architecture_model_change` or `uncertain`. Refine or Architect must resolve `uncertain`; it
 blocks `refining-idea → refined-idea`.
 

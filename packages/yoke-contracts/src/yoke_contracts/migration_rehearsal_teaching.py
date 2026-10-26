@@ -38,7 +38,7 @@ YOKE_SOURCE_LANE_REHEARSAL_RECIPE = (
 #: In-tree, so it runs through the claimed-lane source runner rather than an
 #: ambient interpreter that resolves a different checkout's packages.
 PROVISION_RECIPE = (
-    "yoke --env <name> dev run -- python3 -m "
+    "yoke dev run -- env YOKE_ENV=<name> python3 -m "
     "runtime.api.tools.authority_validation_copy"
 )
 

@@ -192,7 +192,4 @@ def read_recovery(function: str) -> str:
     groups = narrowing_flags(parser)
     named = "; ".join(f"{kind} {', '.join(flags)}" for kind, flags in groups.items())
     narrow = f"Narrow {command} with its {named}"
-    full = any("--full" in action.option_strings for action in parser._actions)
-    return f"{narrow}; run {command} --help for the exact recipe" + (
-        ", or add --full to request the entire answer explicitly." if full else "."
-    )
+    return f"{narrow}; run {command} --help for the exact recipe."
