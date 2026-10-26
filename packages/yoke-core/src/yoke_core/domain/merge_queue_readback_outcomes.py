@@ -11,6 +11,9 @@ LANDED = "landed"
 CLOSED_UNMERGED = "closed_unmerged"
 CONFLICTED = "conflicted"
 NOT_IN_FLIGHT = "not_in_flight"
+#: Open, unarmed and waiting on required checks that have not concluded:
+#: `yoke merge item` arms only after CI passes, so this is a normal wait.
+CHECKS_PENDING = "checks_pending"
 
 ENTRY_ABSENT = "absent"
 ENTRY_NOT_READ = "not_read"
@@ -35,6 +38,7 @@ HOLD_USER_AUTHORITY_REQUIRED = "user_authority_required"
 
 __all__ = [
     "ARMED_NOT_ENQUEUED",
+    "CHECKS_PENDING",
     "CLOSED_UNMERGED",
     "CONFLICTED",
     "ENQUEUED",

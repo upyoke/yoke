@@ -232,3 +232,64 @@ def test_every_github_queue_state_is_preserved(entry_state: str) -> None:
     assert result.queue_entry_state == entry_state
     assert result.in_flight is True
     assert result.merge_when_ready == "consumed"
+
+
+def _open_unarmed(*checks: LandingCheck, status: str = "blocked"):
+    return readiness_mod.classify_readiness(
+        pr_number="42",
+        target="main",
+        state=PrLandingState(False, False, False, merge_state_status=status),
+        members=(),
+        required_checks=checks,
+    )
+
+
+_RUNNING = LandingCheck(name="test-shard-7", status="in_progress", required=True)
+_PASSED = LandingCheck(
+    name="repo-contracts", status="completed", conclusion="success", required=True
+)
+_FAILED = LandingCheck(
+    name="repo-contracts", status="completed", conclusion="failure", required=True
+)
+
+
+def test_an_open_pull_request_waiting_on_required_checks_needs_no_action() -> None:
+    """`yoke merge item` arms only after CI passes, so this is a normal wait."""
+    result = _open_unarmed(_PASSED, _RUNNING)
+
+    assert result.landing_state == "checks_pending"
+    assert result.in_flight is False
+    assert result.needs_action is False
+    assert result.describe().endswith("; waiting on required checks")
+    assert "re-run" not in result.describe()
+
+
+def test_a_failed_required_check_outranks_pending_ones() -> None:
+    result = _open_unarmed(_FAILED, _RUNNING)
+
+    assert result.landing_state == "entry_checks_failed"
+    assert result.needs_action is True
+    assert "waiting on required checks" not in result.describe()
+
+
+def test_a_conflict_outranks_pending_required_checks() -> None:
+    result = _open_unarmed(_RUNNING, status="dirty")
+
+    assert result.landing_state == "conflicted"
+    assert result.needs_action is True
+
+
+@pytest.mark.parametrize(
+    "checks",
+    (
+        (),
+        (_PASSED,),
+        (LandingCheck(name="lint-advisory", status="queued", required=False),),
+    ),
+)
+def test_an_idle_open_pull_request_keeps_the_rerun_advice(checks) -> None:
+    result = _open_unarmed(*checks)
+
+    assert result.landing_state == "not_in_flight"
+    assert result.needs_action is True
+    assert "re-run `yoke merge item`" in result.describe()

@@ -92,6 +92,11 @@ def failed_required_checks(
     )
 
 
+def has_pending_required_check(checks: Optional[Sequence[LandingCheck]]) -> bool:
+    """Whether any required check has not concluded yet."""
+    return any(check.required and not check.conclusion for check in checks or ())
+
+
 def describe_failed_checks(failed: Sequence[LandingCheck]) -> str:
     """The failed required checks and the runs that explain them."""
     return ", ".join(check.describe() for check in failed) or "none"
@@ -166,6 +171,7 @@ __all__ = [
     "disarm_merge_when_ready",
     "entry_checks_refusal",
     "failed_required_checks",
+    "has_pending_required_check",
     "no_verdict_checks",
     "only_no_verdict",
     "regate_instruction",

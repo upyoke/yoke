@@ -19,9 +19,11 @@ from yoke_core.domain.merge_queue_entry_checks import (
     ENTRY_CHECKS_FAILED,
     describe_failed_checks,
     failed_required_checks,
+    has_pending_required_check,
 )
 from yoke_core.domain.merge_queue_readback_outcomes import (
     ARMED_NOT_ENQUEUED,
+    CHECKS_PENDING,
     CLOSED_UNMERGED,
     CONFLICTED,
     ENQUEUED,
@@ -80,8 +82,9 @@ class MergeQueueReadiness:
 
     @property
     def needs_action(self) -> bool:
-        """Whether this read found no live landing to wait for."""
-        return self.landing_state not in (IN_FLIGHT, LANDED, NOT_STARTED)
+        """Whether this read found nothing a landing is waiting on."""
+        waiting = (IN_FLIGHT, LANDED, NOT_STARTED, CHECKS_PENDING)
+        return self.landing_state not in waiting
 
     @property
     def queue_readable(self) -> bool:
@@ -120,6 +123,8 @@ class MergeQueueReadiness:
             from yoke_core.domain.merge_queue_entry_checks import regate_instruction
 
             recovery = "; " + regate_instruction(self.failed_checks)
+        elif self.landing_state == CHECKS_PENDING:
+            recovery = "; waiting on required checks"
         elif self.landing_state == NOT_IN_FLIGHT:
             recovery = (
                 "; re-run `yoke merge item`; for a failed train, inspect its run, "
@@ -246,6 +251,8 @@ def classify_readiness(
         landing_state, in_flight = IN_FLIGHT, True
     elif state is None or members is None:
         landing_state, in_flight = UNREADABLE, None
+    elif has_pending_required_check(required_checks):
+        landing_state, in_flight = CHECKS_PENDING, False
     else:
         landing_state, in_flight = NOT_IN_FLIGHT, False
 
@@ -280,11 +287,8 @@ def read_merge_queue_readiness(
     """Read the PR, the target branch's queue, and required checks.
 
     Landing status and required checks share one GraphQL document per
-    pull request. A merged pull request answers everything the required
-    checks could — it already landed — so those facts are unused there;
-    they still arrived with the landing status rather than as a second
-    call. Every other outcome needs the same terminal fact the landing
-    notifier already reads.
+    pull request. A merged one already landed, so its checks go unused;
+    every other outcome needs them to tell failed, pending and idle apart.
 
     ``reads`` is one request's read memo. A caller inspecting several
     landings passes its own so the repository's queue is read once for the
