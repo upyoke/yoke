@@ -6,6 +6,8 @@
 
 Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when a query reads item ids (`items.id` or any `*item_id` column) without joining `item_refs`, and when a returned `project_sequence` lacks both `public_ref` and `public_item_prefix`.
 
+`yoke db read` returns column values as stored. It refuses a query whose result includes a declared secret column (`organizations.events_signing_key`), including through `SELECT *`, with `db_read_secret_column_refused`; select the specific columns you need instead.
+
 Source of truth: the configured Postgres authority. Agent-facing reads and
 writes route through registered `yoke ...` commands or the Yoke
 function-call surface. Everyday raw diagnostic SELECTs use
