@@ -61,7 +61,9 @@ def write_human(
         elif all(_one_line_cell(cell) for cell in value):
             print(f"{pad}{heading}: " + " | ".join(map(scalar, value)), file=stream)
         elif all(
-            isinstance(row, (list, tuple)) and all(_one_line_cell(cell) for cell in row)
+            isinstance(row, (list, tuple))
+            and row
+            and all(_one_line_cell(cell) for cell in row)
             for row in value
         ):
             for row in value:

@@ -206,3 +206,11 @@ def test_delimited_or_multiline_cells_keep_complete_values(cell, shape):
         or cell.replace("\n", "\n    ") in text
         or cell.replace("\n", "\n      ") in text
     )
+
+
+def test_empty_nested_lists_keep_explicit_empty_states():
+    from yoke_cli.transport.human_values import write_human
+
+    out = io.StringIO()
+    write_human([[]], out)
+    assert out.getvalue() == "Result entry 1:\n  Result: no entries.\n"
