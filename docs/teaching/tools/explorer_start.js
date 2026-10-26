@@ -66,6 +66,8 @@ function renderGettingStarted() {
       section.append(text(paragraph.startsWith('>') ? 'blockquote' : 'p',
         paragraph.startsWith('>') ? paragraph.slice(1) : paragraph));
     }
+    const visual = startVisual(page);
+    if (visual) section.append(visual);
     section.append(nodeLink(byId.get('page:' + page), linkLabel + ' →'));
     article.append(section);
   }

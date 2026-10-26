@@ -101,3 +101,27 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .getting-started-preview h2 { font-size: 25px; margin-bottom: 12px; }
 .getting-started-preview p { line-height: 1.7; }
 .getting-started-preview blockquote { margin: 18px 0; padding: 18px 24px; background: #e5eee5; border-left: 3px solid #76977e; font-size: 22px; font-weight: 600; }
+.start-visual { margin: 24px 0; border: 1px solid #dadcef; border-radius: 14px; overflow: hidden; background: #f7f7ff; color: #262a42; }
+.start-visual-bar { padding: 14px 20px; border-bottom: 1px solid #dadcef; background: white; font-size: 13px; font-weight: 600; }
+.start-visual-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px; padding: 18px; }
+.start-visual-card { padding: 16px; border: 1px solid #dedff0; border-radius: 9px; background: white; }
+.start-visual strong { display: block; font-size: 16px; line-height: 1.4; }
+.start-visual small { display: block; color: #555ad2; font: 11px/1.5 ui-monospace, monospace; letter-spacing: .04em; margin-bottom: 8px; }
+.getting-started-preview .start-visual p { font-size: 13px; line-height: 1.5; margin: 8px 0 0; color: #5e6378; }
+.start-visual figcaption { padding: 14px 20px; font-size: 12px; line-height: 1.5; background: white; border-top: 1px solid #dadcef; color: #62677a; }
+.start-plan { margin: 0 18px 18px; padding: 18px; border: 1px dashed #7378de; border-left: 4px solid #565ce9; border-radius: 8px; background: #ececff; }
+.start-visual-bar + .start-plan { margin-top: 18px; }
+.start-standing { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.start-hosting { text-align: center; }
+.start-hosting svg { display: block; margin: 0 auto 14px; width: 56px; height: 56px; fill: none; stroke: #565ce9; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.start-universe { margin: 0 18px 18px; padding: 18px; border: 1px dashed #878be1; border-radius: 10px; text-align: center; }
+.start-projects { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+.start-projects span { padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #dedff0; font-size: 12px; }
+.start-visual-track { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; margin: 0; counter-reset: step; }
+.start-visual-track li { flex: 1 1 110px; border-top: 3px solid #676ce4; padding-top: 14px; counter-increment: step; }
+.start-visual-track li::before { content: counter(step); display: block; margin-bottom: 10px; font: 12px ui-monospace,monospace; color: #676ce4; }
+.start-visual-track span { display: block; font-size: 12px; color: #62677a; margin-top: 5px; }
+.getting-started-preview .start-chat-prompt { margin: 20px 20px 0 auto; width: fit-content; padding: 12px 18px; border-radius: 14px 14px 2px 14px; background: #565ce9; color: white; font-size: 17px; }
+.getting-started-preview .start-chat-response { margin: 16px 20px 20px; padding: 12px; background: white; border-radius: 2px 14px 14px; }
+.getting-started-preview .start-cycle { margin: 0 20px 20px; color: #555ad2; }
+@media (max-width: 500px) { .start-standing { grid-template-columns: 1fr; } }
