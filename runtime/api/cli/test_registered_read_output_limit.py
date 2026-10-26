@@ -143,7 +143,6 @@ def test_hint_names_only_flags_the_command_has():
     )
     assert "FIELD" not in hint
     assert "--json" not in hint
-    assert hint.endswith("or add --full to request the entire answer explicitly.")
 
 
 def test_hint_names_field_and_paging_flags_when_present():

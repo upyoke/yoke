@@ -40,8 +40,8 @@ live steering seat covering the plan's project; other callers refuse with
 steering_seat_required and the seat recipe.
 
 Retirement records retired_at with the reason and the acting actor. The
-plan stays readable: `yoke qa plan get PLAN` shows it, and
-`yoke qa plan list --include-retired` lists it with its retirement. It
+plan stays readable: `yoke qa plan get PLAN --project P` shows it, and
+`yoke qa plan list --project P --include-retired` lists it with its retirement. It
 refuses edits and materialization from then on. Requirements and runs
 already recorded keep their evidence.
 

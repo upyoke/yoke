@@ -20,8 +20,6 @@ PLAN_CASES_SYNC_USAGE = (
     "--stdin) [--session-id S] [--json]\n"
     "       yoke qa plan-cases sync --project P --plan-id N (--cases-file PATH | "
     "--stdin) --source-revision FULL_SHA [--session-id S] [--json]\n"
-    "Without --source-revision, the input must be the exporter's document. "
-    "Write a manual case array with yoke qa plan-cases replace."
 )
 
 USAGE_BY_FUNCTION_ID = {

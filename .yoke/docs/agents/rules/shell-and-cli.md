@@ -43,4 +43,3 @@
   never relaunch beside it.
 - `Waiting by design:` means silence until the named bound.
 - Do not poll: short sleeps before registered captures and GitHub polling loops refuse.
-  After `ci wait recorded`, end the turn.
