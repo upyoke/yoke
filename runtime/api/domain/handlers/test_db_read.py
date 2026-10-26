@@ -74,46 +74,63 @@ def test_runner_returns_columns_rows_and_truncation() -> None:
     assert result.truncated is True
 
 
-def test_runner_redacts_sensitive_settings_even_when_column_is_aliased() -> None:
+def test_runner_returns_values_unredacted_whatever_the_column_name() -> None:
     settings = json_helper.dumps_compact(
-        {
-            "database": {"name": "example_prod"},
-            "pulumi": {
-                "encrypted_key": "opaque-ciphertext",
-                "secrets_provider": "provider-reference",
-            },
-            "github_app": {
-                "private_key_secret_arn": "secret-resource-reference",
-            },
-        }
+        {"pulumi": {"encrypted_key": "ciphertext", "secrets_provider": "ref"}}
     )
     with pg_testdb.test_database() as conn:
         conn.execute(
-            "CREATE TABLE diagnostic_settings "
-            "(settings TEXT, encrypted_key TEXT, branch TEXT)"
+            "CREATE TABLE diagnostic_settings (settings TEXT, api_token TEXT, "
+            "context_window_tokens INTEGER, credential_presence BOOLEAN, "
+            "secret_sha256 TEXT)"
         )
         conn.execute(
-            "INSERT INTO diagnostic_settings "
-            "(settings, encrypted_key, branch) VALUES (%s, %s, %s)",
-            (settings, "direct-ciphertext", "main"),
+            "INSERT INTO diagnostic_settings VALUES (%s, %s, %s, %s, %s)",
+            (settings, "token-value", 200000, True, "ab12"),
         )
         conn.commit()
 
         result = db_read.run_db_read(
-            DbReadRunRequest(
-                sql=(
-                    "SELECT settings AS config, encrypted_key, branch "
-                    "FROM diagnostic_settings"
-                )
-            )
+            DbReadRunRequest(sql="SELECT * FROM diagnostic_settings")
         )
 
-    redacted = json_helper.loads_text(result.rows[0][0])
-    assert redacted["database"]["name"] == "example_prod"
-    assert redacted["pulumi"]["encrypted_key"] == "<redacted>"
-    assert redacted["pulumi"]["secrets_provider"] == "<redacted>"
-    assert redacted["github_app"]["private_key_secret_arn"] == "<redacted>"
-    assert result.rows[0][1:] == ["<redacted>", "main"]
+    assert result.rows == [[settings, "token-value", 200000, True, "ab12"]]
+
+
+def _insert_organization(conn) -> None:
+    conn.execute(
+        "INSERT INTO organizations (slug, name, created_at, events_signing_key) "
+        "VALUES ('acme', 'Acme', now(), 'signing-secret')"
+    )
+    conn.commit()
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT events_signing_key FROM organizations",
+        "SELECT * FROM organizations",
+        "SELECT o.slug, o.events_signing_key AS k FROM organizations o",
+    ],
+)
+def test_declared_secret_column_is_refused(sql) -> None:
+    with pg_testdb.test_database() as conn:
+        _insert_organization(conn)
+        outcome = _db_read(sql)
+
+    assert not outcome.primary_success
+    assert outcome.error is not None
+    assert outcome.error.code == "db_read_secret_column_refused"
+    assert "signing-secret" not in outcome.error.message
+
+
+def test_other_organization_columns_are_returned() -> None:
+    with pg_testdb.test_database() as conn:
+        _insert_organization(conn)
+        outcome = _db_read("SELECT slug, name FROM organizations WHERE slug = 'acme'")
+
+    assert outcome.primary_success
+    assert outcome.result_payload["rows"] == [["acme", "Acme"]]
 
 
 def test_handler_returns_typed_refusal_for_mutation() -> None:
