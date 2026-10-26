@@ -23,9 +23,6 @@ from yoke_core.domain.lint_session_cwd_emit import (
     emit_mismatch_allowed_read_only,
     emit_deny_and_build_audit,
 )
-from yoke_core.domain.lint_session_cwd_pre_implementing import (
-    build_pre_implementing_verdict,
-)
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     _match_simple,
     match_read_only_signature,
@@ -34,9 +31,6 @@ from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
     build_denial_message as build_identity_failure_message,
-)
-from yoke_core.domain.lint_session_cwd_status import (
-    FAILURE_CLASS as PRE_IMPL_FAILURE_CLASS,
 )
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.lint_session_cwd_denial import (
@@ -71,10 +65,6 @@ class Verdict:
     claims: Sequence[ClaimedWorktree] = ()
     repo_roots: Sequence[str] = ()
     failure_class: str = "scope_mismatch"
-    item_id: Optional[int] = None
-    item_status: Optional[str] = None
-    mode: str = ""
-    suppression_attempted: bool = False
     occupant: Optional[LaneOccupant] = None
     authority_reason: str = ""
 
@@ -170,9 +160,6 @@ def evaluate_pre_tool_use(
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
         )
-
-    if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
-        return build_pre_implementing_verdict(outcome, payload)
 
     # Orientation with no operands may use its established read signature.
     if not targets:

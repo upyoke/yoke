@@ -11,7 +11,6 @@ Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``,
   ``local-operating-actor-authority``, ``session-cwd-binding``,
-  ``session-pre-implementing-activity``,
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
 Project harness config:
@@ -81,7 +80,6 @@ from yoke_core.engines.doctor_hc_session_actor_binding import (
 )
 from yoke_core.engines.doctor_hc_session_cwd_binding import (
     hc_session_cwd_binding,
-    hc_session_pre_implementing_activity,
 )
 from yoke_core.engines.doctor_hc_launcher_authority import (
     TITLE as LAUNCHER_AUTHORITY_TITLE,
@@ -144,14 +142,6 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "session-cwd-binding",
         "Active session cwd matches bound worktree",
         hc_session_cwd_binding,
-    ),
-    HealthCheck(
-        "session-pre-implementing-activity",
-        (
-            "Sessions must flip status to implementing before sustained "
-            "tool-call activity"
-        ),
-        hc_session_pre_implementing_activity,
     ),
     HealthCheck(
         "launcher-authority",

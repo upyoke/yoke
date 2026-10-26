@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import Optional
 
 
 def _emit(
@@ -24,7 +23,6 @@ def _emit(
     context: dict,
     *,
     session_id: str = "",
-    item_id: Optional[int] = None,
     severity: str = "WARN",
 ) -> None:
     """Run ``emit_event`` with the canonical session-cwd shape.
@@ -55,7 +53,6 @@ def _emit(
                 "--context",
                 json.dumps(context, separators=(",", ":")),
                 *(["--session-id", session_id] if session_id else []),
-                *(["--item-id", str(int(item_id))] if item_id is not None else []),
             ]
         )
         emit_event_cli.emit(args)
@@ -121,40 +118,6 @@ def emit_mismatch_allowed_read_only(
     )
 
 
-def emit_pre_implementing_status(
-    session_id: str,
-    item_id: int,
-    status: str,
-    target_path: str,
-    mode: str,
-    outcome: str,
-) -> None:
-    """Emit ``SessionCwdMismatchDenied`` for the pre-implementing-status gate.
-
-    Re-uses the existing event name so the registry seed and downstream
-    readers stay stable; ``failure_class=pre_implementing_status`` in the
-    context dict distinguishes this gate from the scope-mismatch shape.
-    ``outcome`` is one of ``blocked``, ``warn``, or
-    ``suppression_attempted`` so reviewers grepping the audit ledger can
-    cleanly separate the three populations.
-    """
-    context = {
-        "session_id": session_id,
-        "item_id": int(item_id) if item_id is not None else None,
-        "status": status,
-        "target_path": target_path,
-        "failure_class": "pre_implementing_status",
-        "mode": mode,
-    }
-    _emit(
-        name="SessionCwdMismatchDenied",
-        outcome=outcome,
-        context=context,
-        session_id=session_id,
-        item_id=int(item_id) if item_id is not None else None,
-    )
-
-
 def emit_foreign_lane_denied(
     session_id: str,
     offending_target: str,
@@ -199,9 +162,6 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
     from yoke_core.domain.lint_session_cwd_identity import (
         FAILURE_CLASS as _IDENTITY,
     )
-    from yoke_core.domain.lint_session_cwd_status import (
-        FAILURE_CLASS as _PRE_IMPL,
-    )
 
     failure_class = getattr(verdict, "failure_class", "")
     occupant = getattr(verdict, "occupant", None)
@@ -243,8 +203,7 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
             occupant_item_id=occupant.item_id,
             lane_path=occupant.lane_path,
         )
-    elif failure_class != _PRE_IMPL:
-        # The pre-implementing branch emits its own event in its module.
+    else:
         emit_mismatch_denied(
             session_id=verdict.session_id,
             offending_target=verdict.offending_target,
@@ -270,15 +229,6 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
 
         audit["identity_channels"] = _channels()
         audit["resolved_session_id"] = getattr(verdict, "session_id", "") or ""
-    if failure_class == _PRE_IMPL:
-        audit["item_id"] = getattr(verdict, "item_id", None)
-        audit["item_status"] = getattr(verdict, "item_status", None)
-        audit["mode"] = getattr(verdict, "mode", "")
-        audit["suppression_attempted"] = getattr(
-            verdict,
-            "suppression_attempted",
-            False,
-        )
     return audit
 
 
@@ -338,5 +288,4 @@ __all__ = [
     "emit_health_check_failed",
     "emit_mismatch_allowed_read_only",
     "emit_mismatch_denied",
-    "emit_pre_implementing_status",
 ]

@@ -162,7 +162,6 @@ _SHAPES = (
             "schema-drift",
             "session-checkpoint-integrity",
             "session-cwd-binding",
-            "session-pre-implementing-activity",
             "shepherd-lifecycle",
             "shepherd-spec-integrity",
             "smoke-artifact-orphan",

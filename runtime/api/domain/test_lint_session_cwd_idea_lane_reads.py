@@ -76,17 +76,3 @@ def test_playwright_module_path_at_idea_is_allowed(conn, repo):
     assert _bash(lane, f"python3 {module}").allow is True
     assert _bash(lane, "python3 -m playwright --version").allow is True
 
-
-def test_dash_write_denial_names_the_live_skill(conn, repo):
-    lane = _idea_lane(conn, repo)
-    verdict = lint_session_cwd.evaluate_pre_tool_use(
-        {
-            "session_id": HOLDER,
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(lane / "src" / "a.py")},
-        }
-    )
-    assert verdict.allow is False
-    assert "/yoke dash " in verdict.reason
-    assert "advance" not in verdict.reason
-    assert "--to implementing" in verdict.reason

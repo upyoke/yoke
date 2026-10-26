@@ -1,4 +1,4 @@
-"""Capacity inspection retains content, lane, stage, and machine boundaries."""
+"""Capacity inspection retains content, lane, and machine boundaries."""
 
 from contextlib import nullcontext
 
@@ -12,7 +12,6 @@ from yoke_core.domain.lint_shell_path_use import PathRole, analyze_shell_path_us
 from yoke_core.domain.lint_payload_path_use import extract_payload_path_uses
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, Outcome
-from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 HOME = "/clients/operator"
@@ -35,10 +34,6 @@ def isolated_authority(monkeypatch):
     )
     monkeypatch.setattr(authority, "_recorded_repo_roots", lambda _c: [ROOT])
     monkeypatch.setattr(authority, "occupying_claim", lambda *_a, **_k: None)
-    monkeypatch.setattr(authority, "lookup_item_status", lambda *_a: "implementing")
-    monkeypatch.setattr(
-        authority, "lookup_item_workflow", lambda *_a: builtin_workflow_runtime("dash")
-    )
     monkeypatch.setattr(guard, "emit_deny_and_build_audit", lambda _v: {})
     monkeypatch.setattr(guard, "emit_mismatch_allowed_read_only", lambda **_k: None)
 
@@ -129,10 +124,7 @@ def test_capacity_does_not_mutate_a_foreign_lane(isolated_authority, monkeypatch
     assert evaluate(f"df -k {foreign} && touch {foreign}/out").outcome is Outcome.DENY
 
 
-def test_capacity_does_not_relax_pre_implementation_writes(
-    isolated_authority, monkeypatch
-):
-    monkeypatch.setattr(authority, "lookup_item_status", lambda *_a: "idea")
+def test_lane_write_is_allowed_whatever_the_item_status(isolated_authority):
     uses = extract_payload_path_uses(
         {
             "tool_name": "Bash",
@@ -148,8 +140,8 @@ def test_capacity_does_not_relax_pre_implementation_writes(
         tool_name="Bash",
         path_uses=uses,
     )
-    assert not verdict.allow
-    assert verdict.failure_class == "pre_implementing_status"
+    assert verdict.allow
+    assert evaluate(f"touch {LANE}/out").outcome is Outcome.NOOP
     assert evaluate(f"df -k {LANE}").outcome is Outcome.NOOP
 
 

@@ -22,16 +22,13 @@ allows for a diagnostic surface.
 from __future__ import annotations
 
 import json
-from datetime import timedelta
-from yoke_contracts.timestamps import utc_now
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import instant_parameter, query_rows
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.lint_session_cwd_emit import emit_health_check_failed
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -46,15 +43,6 @@ _HC_DESC = (
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _rollback_quietly(conn) -> None:
-    """Clear the aborted-transaction state a swallowed statement leaves on
-    Postgres so subsequent probes on the same connection still run."""
-    try:
-        conn.rollback()
-    except Exception:
-        pass
 
 
 def _latest_observed_cwd(conn, session_id: str) -> Optional[str]:
@@ -190,136 +178,6 @@ def hc_session_cwd_binding(conn, args: DoctorArgs, rec: RecordCollector) -> None
     rec.record(_HC_NAME, _HC_DESC, "PASS", note_summary)
 
 
-_PRE_IMPL_HC_NAME = "HC-session-pre-implementing-activity"
-_PRE_IMPL_HC_DESC = (
-    "Sessions with active claims must flip status to implementing "
-    "before logging sustained tool-call activity"
-)
-# Activity thresholds: 30 minutes plus more than
-# 10 ``HarnessToolCallCompleted`` events since claim acquisition is the
-# canonical shape the gate catches.
-_PRE_IMPL_MIN_AGE_SECONDS = 30 * 60
-_PRE_IMPL_MIN_TOOL_CALLS = 10
-
-
-def hc_session_pre_implementing_activity(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
-    """Flag stuck pre-implementing sessions.
-
-    For each non-terminal ``work_claims`` row whose item is in a
-    pre-implementing status, count ``HarnessToolCallCompleted`` events
-    emitted by the holding session since the claim was acquired. Flag
-    sessions whose claim age exceeds 30 minutes AND that emitted more
-    than 10 tool-call events in that window. Skips cleanly when the
-    schema is minimal (test fixtures without ``items.status`` or
-    ``work_claims.claimed_at``).
-    """
-    if not _base._table_exists(conn, "work_claims"):
-        rec.record(
-            _PRE_IMPL_HC_NAME,
-            _PRE_IMPL_HC_DESC,
-            "PASS",
-            "work_claims table missing — nothing to check",
-        )
-        return
-    if not _base._table_exists(conn, "items"):
-        rec.record(
-            _PRE_IMPL_HC_NAME,
-            _PRE_IMPL_HC_DESC,
-            "PASS",
-            "items table missing — nothing to check",
-        )
-        return
-
-    p = _p(conn)
-    from yoke_core.domain.work_claim_targets import scope_int_sql
-
-    item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
-    cutoff = utc_now() - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
-    try:
-        rows = query_rows(
-            conn,
-            f"SELECT wc.session_id, {item_id_scope} AS item_id, "
-            "wc.claimed_at, i.status "
-            f"FROM work_claims wc JOIN items i ON i.id = {item_id_scope} "
-            "WHERE wc.released_at IS NULL "
-            "AND wc.target_kind = 'item' "
-            "AND wc.claimed_at IS NOT NULL "
-            f"AND wc.claimed_at <= {p} "
-            "ORDER BY wc.claimed_at",
-            (instant_parameter(conn, cutoff),),
-        )
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        rec.record(
-            _PRE_IMPL_HC_NAME,
-            _PRE_IMPL_HC_DESC,
-            "PASS",
-            "schema missing required columns — nothing to check",
-        )
-        return
-
-    flagged: List[str] = []
-    for row in rows:
-        session_id = row["session_id"] if isinstance(row, dict) else row[0]
-        item_id = row["item_id"] if isinstance(row, dict) else row[1]
-        claimed_at = row["claimed_at"] if isinstance(row, dict) else row[2]
-        status = row["status"] if isinstance(row, dict) else row[3]
-        if not session_id or not claimed_at:
-            continue
-        try:
-            workflow = load_item_workflow_runtime(conn, int(item_id))
-        except Exception:
-            continue
-        if not workflow.is_before_implementation(str(status)):
-            continue
-        try:
-            tool_count_rows = query_rows(
-                conn,
-                "SELECT COUNT(*) AS c FROM events "
-                f"WHERE session_id = {p} AND event_name = "
-                "'HarnessToolCallCompleted' "
-                f"AND created_at >= {p}",
-                (session_id, claimed_at),
-            )
-        except db_backend.operational_error_types(conn):
-            _rollback_quietly(conn)
-            continue
-        if not tool_count_rows:
-            continue
-        count_val = (
-            tool_count_rows[0]["c"]
-            if isinstance(tool_count_rows[0], dict)
-            else tool_count_rows[0][0]
-        )
-        if not isinstance(count_val, int) or count_val <= _PRE_IMPL_MIN_TOOL_CALLS:
-            continue
-        flagged.append(
-            f"  - session {session_id}\n"
-            f"    item:        {render_item_ref(conn, int(item_id))}\n"
-            f"    status:      {status}\n"
-            f"    claimed_at:  {claimed_at}\n"
-            f"    tool_calls:  {count_val}"
-        )
-
-    if flagged:
-        details = (
-            f"{len(flagged)} stuck pre-implementing session(s) — re-run "
-            "/yoke implement ... to finish implementation entry:\n\n"
-            + "\n".join(flagged)
-        )
-        rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "FAIL", details)
-        return
-    rec.record(
-        _PRE_IMPL_HC_NAME,
-        _PRE_IMPL_HC_DESC,
-        "PASS",
-        "no stuck pre-implementing sessions detected",
-    )
-
-
 __all__ = [
     "hc_session_cwd_binding",
-    "hc_session_pre_implementing_activity",
 ]
