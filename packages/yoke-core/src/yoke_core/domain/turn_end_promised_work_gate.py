@@ -34,6 +34,7 @@ from yoke_core.domain.turn_end_relay_continuation import (
     continue_relay_worker,
 )
 from yoke_core.domain.turn_end_session_state import (
+    ci_wait_pending,
     monitor_waiter_armed,
     session_parked,
 )
@@ -258,13 +259,15 @@ def evaluate(record: HookContext) -> HookDecision:
         if stop_is_legitimate(claim):
             return _allow()
         try:
-            parked = session_parked(conn, session_id)
+            parked = session_parked(conn, session_id) or ci_wait_pending(
+                conn, session_id
+            )
         except Exception:
             parked = False
         if parked:
-            # The declared escape hatch, honored before every hold: a
-            # parked session is quiet on purpose, and no reinjected
-            # directive it cannot act on changes that.
+            # The declared escape hatch, honored before every hold: a parked
+            # session, or one a recorded CI wait will wake, is quiet on
+            # purpose; no reinjected directive it cannot act on changes that.
             _emit_deferred(
                 conn=conn,
                 session_id=session_id,

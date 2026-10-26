@@ -33,6 +33,7 @@ def _patch(
     at_cap: bool,
     monitor_armed: bool,
     parked: bool = False,
+    ci_wait: bool = False,
 ) -> list[dict]:
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
@@ -43,6 +44,7 @@ def _patch(
     )
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda conn, sid, item_id: at_cap)
     monkeypatch.setattr(gate, "session_parked", lambda conn, sid: parked)
+    monkeypatch.setattr(gate, "ci_wait_pending", lambda conn, sid: ci_wait)
     monkeypatch.setattr(
         gate, "monitor_waiter_armed", lambda conn, sid: monitor_armed
     )
@@ -136,3 +138,25 @@ def test_a_parked_session_does_not_spend_the_cap(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_emit_deferred", lambda **kwargs: None)
 
     assert gate.evaluate(_ctx()).outcome is Outcome.ALLOW
+
+
+def test_an_open_ci_wait_lets_a_claimed_session_end_its_turn(monkeypatch) -> None:
+    """The recorded wait wakes the session with the verdict; no push is due."""
+    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
+    captured = _patch(monkeypatch, at_cap=False, monitor_armed=False, ci_wait=True)
+    decision = gate.evaluate(_ctx())
+
+    assert decision.outcome is Outcome.ALLOW
+    assert decision.next is Next.CONTINUE
+    assert captured[0]["reason"] == gate.REASON_SESSION_PARKED
+    assert captured[0]["cap_reached"] is False
+
+
+def test_once_the_ci_wait_is_notified_the_stop_is_held(monkeypatch) -> None:
+    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
+    captured = _patch(monkeypatch, at_cap=False, monitor_armed=False)
+    decision = gate.evaluate(_ctx())
+
+    assert decision.outcome is Outcome.DENY
+    assert decision.message == gate.DIRECTIVE
+    assert captured[0]["reason"] == gate.REASON_REINJECTED
