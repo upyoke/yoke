@@ -152,7 +152,7 @@ printf '%s\n' 'MESSAGE' | yoke say --steering --stdin
 yoke sessions list --liveness active --limit 25
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
-yoke messages acknowledge MESSAGE-ID
+yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...]
 # Top-level sender recovery for an undelivered message:
 yoke messages cancel MESSAGE-ID
 ```
@@ -160,6 +160,8 @@ yoke messages cancel MESSAGE-ID
 Address workers by their item and people by their actor id or registered label. A direct `--item` message sent before a claim queues for that item’s in-flight steering launch; its bound worker receives it after claiming the item. Read its message receipt to see the launch address. With no holder or eligible launch, the send refuses `zero_recipients`; inspect the named launch or staff the item before retrying. Queued mail keeps its original launch address: cancellation, expiry or a failed launch never redirects it to another worker. Inspect the message and cancel it before resending after restaffing. Use a whole listed session id when no claim addresses the recipient. Anchor selectors add recipients; filters narrow them. Preview and inspect the recipient count before sending. A peer request also addresses steering; reply to the exact requesting session and steering. A sender without applicable held work uses `--steering-scope '{"project_id": N}'` with the peer anchor.
 
 Address steering as a role with `--steering`, resolved at delivery from work you hold or last held. Without a live covering seat, the message parks for its successor; a seat that ends or releases its claim leaves unacknowledged mail for the next acquire. Acknowledgement settles it, and so does cancellation or expiry: settled mail leaves the unacknowledged list and lists under `--state expired`.
+
+Each hook batch has one acknowledgement command for exactly the admitted message ids, including stubs. The command accepts several ids and records each receipt.
 
 Injection shows a message; only `yoke messages acknowledge MESSAGE-ID` settles it. A message still unacknowledged after the acknowledgement grace (five minutes) comes back at the next injecting hook as a reminder: a short body excerpt, the full-body read command and the acknowledge command. Each later reminder waits twice as long, up to one hour, until you acknowledge it. Every harness gets reminders on the hook events its manifest lists under `inject_events`. Send a `DONE PREFIX-N` report before releasing a claim you still hold, only after that item's terminal stage. A resumed completion is its own leg. If send says `Collapsed into an earlier message`, read the earlier message: the new body was discarded. Keep an unfinished lane held.
 

@@ -149,28 +149,6 @@ def write_pre_event(envelope: Dict[str, Any]) -> bool:
     return True
 
 
-def _session_main_drift_advisory(data: Dict[str, Any]) -> str:
-    """Return the main-drift advisory for this session, or ``""``.
-
-    Returned as model context rather than printed: the chain may run on the
-    authority, whose own stderr never reaches the session.
-    """
-    session_id = data.get("session_id")
-    if not isinstance(session_id, str) or not session_id:
-        return ""
-    try:
-        from yoke_core.domain.session_main_drift import (
-            check_drift,
-            format_advisory,
-        )
-
-        advisory = check_drift(session_id, data)
-    except Exception:
-        logger.warning("observe-pre main-drift check failed", exc_info=True)
-        return ""
-    return format_advisory(advisory) if advisory is not None else ""
-
-
 def process_stdin(raw: str) -> bool:
     """Parse ``raw`` JSON, build the envelope, and write it.
 
@@ -215,20 +193,15 @@ def evaluate(record: HookContext) -> HookDecision:
     """Run the observe-pre telemetry tail against a typed :class:`HookContext`.
 
     Always returns ``NOOP`` / ``CONTINUE`` — PreToolUse telemetry must
-    never block tool execution — carrying the main-drift advisory as
-    ``additionalContext`` when another session moved ``main``. All
-    failures are swallowed.
+    never block tool execution. All failures are swallowed.
     """
-    advisory = ""
     try:
         payload = record.payload if isinstance(record.payload, dict) else {}
         if payload:
             _process_payload(payload, fallback_cwd=record.cwd)
-            advisory = _session_main_drift_advisory(payload)
     except Exception:
         logger.warning("observe-pre evaluation failed", exc_info=True)
-    fields = {"additionalContext": advisory} if advisory else {}
-    return HookDecision(outcome=Outcome.NOOP, audit_fields=fields, next=Next.CONTINUE)
+    return HookDecision(outcome=Outcome.NOOP, audit_fields={}, next=Next.CONTINUE)
 
 
 def main() -> int:

@@ -51,7 +51,6 @@ from yoke_contracts.turn_end_evidence import PAYLOAD_KEY as TURN_END_EVIDENCE_KE
 
 from yoke_harness.hooks.client_fact_probes import (
     capture_files_fact,
-    main_head_fact,
     yoke_source_root_fact,
 )
 from yoke_harness.hooks.client_write_targets import write_targets_fact
@@ -143,7 +142,6 @@ _COLLECTORS: dict[str, Callable[[Observation], dict]] = {
     cf.HEADLESS_LAUNCH_KEY: _headless_launch,
     cf.MACHINE_SETTINGS_KEY: _machine_settings,
     cf.SOURCE_ROOT_KEY: lambda obs: yoke_source_root_fact(),
-    cf.MAIN_HEAD_KEY: lambda obs: main_head_fact(obs.payload),
     cf.CAPTURE_FILES_KEY: lambda obs: capture_files_fact(obs.payload),
     cf.WRITE_TARGETS_KEY: lambda obs: write_targets_fact(obs.payload, obs.shell),
 }

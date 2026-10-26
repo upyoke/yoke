@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "verification",
  "position": 5,
- "summary": "On a watcher wake the agent writes one plain sentence saying what changed that the user cares about, keeping the concrete signal (item, PR, failing test, terminal state), and folds any digest into that sentence. A wake with nothing worth reporting gets no text. Raw matched lines and multi-line report blocks are never pasted into chat. The Monitor PreToolUse reminder, its --help, the Claude session rule, the long-command rule and the peek lint all teach this one rule. Source tests cover the reminder wording; no live wake proof is claimed.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/hint_monitor_relay.py", "packages/yoke-core/src/yoke_core/domain/hint_monitor_relay_help.py", "runtime/harness/claude/rules/session.md", "docs/public/agents/rules/claude-long-commands.md", "packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_decide.py", "runtime/api/test_hint_monitor_relay.py"]
+ "summary": "On a watcher wake the agent writes one plain sentence saying what changed, retaining the item, PR, failing test or terminal state. A wake with no user-relevant change gets no text. The standing session and long-command rules own this teaching; no Monitor reminder is injected.",
+ "sources": ["runtime/harness/claude/rules/session.md", "docs/public/agents/rules/claude-long-commands.md", "packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_decide.py"]
 }

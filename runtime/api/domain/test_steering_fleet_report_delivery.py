@@ -293,6 +293,7 @@ def test_a_change_in_either_held_scope_reports_again(steering_scope):
     assert body is not None
     assert "## externalwebapp" in body
     assert "Quiet-scope change" in body
+    assert "YOK-1" not in body
 
 
 def test_hook_and_watcher_share_one_delivery_record(steering_scope):

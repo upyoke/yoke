@@ -1,23 +1,4 @@
-"""End-to-end ``additionalContext`` delivery for the typed hint modules.
-
-These tests load the real hint module (``hint_monitor_relay``,
-``hint_file_line_limit_approach``) into a single-entry
-chain, drive ``yoke_core.hooks.runner.run_event`` with a realistic
-stdin payload, and assert the rendered ``hookSpecificOutput.additionalContext``
-envelope reaches stdout for both Claude and Codex.
-
-Coverage map:
-
-* ``hint_monitor_relay`` on a Claude ``Monitor`` PreToolUse payload
-  emits the relay-only reminder.
-* ``hint_file_line_limit_approach`` on a ``Write`` payload that crosses
-  the 350-line cap emits the cap-approach hint.
-
-Renderer-contract coverage for synthetic decisions lives
-in the sibling ``test_hook_runner_additional_context.py``; isolated renderer
-unit coverage lives in ``test_hook_runner_decision_render.py``.
-"""
-
+"""End-to-end file-line hint delivery through the shared hook runner."""
 from __future__ import annotations
 
 import json
@@ -60,66 +41,12 @@ def _capability(
 
 
 # ---------------------------------------------------------------------------
-# hint_monitor_relay through run_event (Claude-only matcher).
+# Shared additional-context rendering.
 # ---------------------------------------------------------------------------
 
 
-def test_monitor_relay_through_runner_reaches_claude_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Monitor PreToolUse payload triggers the relay reminder envelope."""
-    capability = _capability(
-        monkeypatch,
-        family="claude",
-        chain=["yoke_core.domain.hint_monitor_relay"],
-    )
-    _silence_telemetry(monkeypatch)
-
-    payload = json.dumps(
-        {
-            "tool_name": "Monitor",
-            "tool_input": {"pattern": "FAILED|%\\]"},
-            "session_id": "test-session",
-            "cwd": "/tmp",
-        }
-    )
-    text, exit_code = runner_module.run_event(
-        "PreToolUse",
-        capability=capability,
-        stdin_data=payload,
-    )
-
-    assert exit_code == 0
-    envelope = json.loads(text)
-    hook = envelope["hookSpecificOutput"]
-    assert hook["hookEventName"] == "PreToolUse"
-    assert "Monitor is a SUBSCRIPTION" in hook["additionalContext"]
 
 
-def test_monitor_relay_non_monitor_tool_emits_no_envelope(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Non-Monitor PreToolUse calls do not produce the relay envelope."""
-    capability = _capability(
-        monkeypatch,
-        family="claude",
-        chain=["yoke_core.domain.hint_monitor_relay"],
-    )
-    _silence_telemetry(monkeypatch)
-
-    payload = json.dumps(
-        {
-            "tool_name": "Bash",
-            "tool_input": {"command": "ls"},
-        }
-    )
-    text, exit_code = runner_module.run_event(
-        "PreToolUse",
-        capability=capability,
-        stdin_data=payload,
-    )
-
-    assert (text, exit_code) == ("", 0)
 
 
 # ---------------------------------------------------------------------------

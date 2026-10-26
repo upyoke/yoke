@@ -25,7 +25,7 @@ ROW_FIELDS = frozenset(
 )
 
 
-def watcher_dict(combined):
+def watcher_dict(combined, prior_fingerprint=""):
     scopes = []
     for section in combined.sections:
         report = report_dict(section.report)
@@ -51,7 +51,7 @@ def watcher_dict(combined):
         "composed_at": combined.composed_at,
         "actionable": combined.actionable,
         "fingerprint": combined.fingerprint(),
-        "digest": combined_hook_digest(combined),
+        "digest": combined_hook_digest(combined, prior_fingerprint),
         "slow_paths": [row.to_dict() for row in combined.slow_paths],
         "scopes": scopes,
     }

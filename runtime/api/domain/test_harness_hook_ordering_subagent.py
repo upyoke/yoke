@@ -27,7 +27,7 @@ class TestPreToolUseSubagentLint(unittest.TestCase):
         self.assertIn("yoke_core.domain.lint_subagent_background", chain)
         self.assertLess(
             chain.index("yoke_core.domain.lint_subagent_background"),
-            chain.index("yoke_core.domain.hint_monitor_relay"),
+            chain.index("yoke_core.domain.observe_pre"),
         )
         self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
 

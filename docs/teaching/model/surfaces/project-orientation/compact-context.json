@@ -1,0 +1,9 @@
+{
+ "id": "compact-context",
+ "title": "Compact identity and trust context",
+ "status": "observed",
+ "form": "State",
+ "topics": ["agents/harnesses"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/session_orientation.py", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py"],
+ "verification": "Candidate source retains session id, root, commit, message trust and machine advisories; repeated board, connection and startup-read instructions are removed. Bound-project orientation budget is 1.2 KB."
+}

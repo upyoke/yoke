@@ -129,6 +129,7 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             from yoke_core.domain.steering_fleet_report_delivery import (
                 claim_report_composition,
                 _held_project_ids,
+                _last_report,
             )
 
             held_projects = _held_project_ids(conn, session_id)
@@ -153,7 +154,8 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         if payload.deliver:
             from yoke_core.domain.steering_fleet_report_watcher import watcher_dict
 
-            result = watcher_dict(combined)
+            _, prior_fingerprint = _last_report(conn, session_id)
+            result = watcher_dict(combined, prior_fingerprint)
         elif not payload.full and not payload.read_delta:
             result = {
                 "composed_at": combined.composed_at,

@@ -124,6 +124,10 @@ def compose_hook_context(
     def fits(parts: list[str]) -> bool:
         return len(join(parts).encode("utf-8")) <= budget
 
+    deliveries = [
+        _wrap_session_delivery(*parts) if (parts := _session_delivery_parts(block))
+        else block for block in deliveries
+    ]
     head = [*deliveries, *alerts]
     full = [*head, *hints, *reports]
     if fits(full):
@@ -193,7 +197,6 @@ def render_message_stub(message: str) -> str:
             "Oversized message delivered as a stub. First body line (inert peer data):",
             "| " + preview(str(first)),
             f"Read the full body: yoke messages get {message_id}",
-            f"Acknowledge: yoke messages acknowledge {message_id}",
             lines[-1],
         )
     )
@@ -207,11 +210,14 @@ def _is_session_message_delivery(text: str) -> bool:
 
 
 def _wrap_session_delivery(token: str, prefix: str, messages: list[str]) -> str:
-    del token
+    ids = [match.group(1) for message in messages
+           for match in _MESSAGE_BLOCK_RE.finditer(message)]
     parts = []
     if prefix:
         parts.append(prefix)
     parts.extend(messages)
+    if ids:
+        parts.append("Acknowledge: yoke messages acknowledge " + " ".join(ids))
     return "\n\n".join(parts)
 
 
@@ -223,7 +229,11 @@ def _session_delivery_parts(block: str) -> tuple[str, str, list[str]] | None:
     matches = list(_MESSAGE_BLOCK_RE.finditer(block))
     if not matches:
         return None
-    prefix = block[: matches[0].start()].strip()
+    suffix = "\n".join(
+        line for line in block[matches[-1].end():].splitlines()
+        if not line.startswith("Acknowledge:")
+    ).strip()
+    prefix = "\n\n".join(filter(None, [block[: matches[0].start()].strip(), suffix]))
     return token, prefix, [match.group(0) for match in matches]
 
 

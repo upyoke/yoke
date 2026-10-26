@@ -153,7 +153,7 @@ def steering_report_candidate(
     if fingerprint == last_fingerprint:
         return None
     return SteeringReportCandidate(
-        text=combined_hook_digest(combined),
+        text=combined_hook_digest(combined, last_fingerprint),
         session_id=session_id,
         fingerprint=fingerprint,
         claimed_at=current,

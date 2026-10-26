@@ -103,9 +103,6 @@ MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
         "DB busy-wait budget for session-end cleanup during the hook",
         minimum=0,
     ),
-    "monitor_relay_hint_text": SettingSpec(
-        "", str, "override text for the relay-only reminder; empty uses the built-in"
-    ),
     "watcher_progress_percent_step": SettingSpec(
         5,
         int,

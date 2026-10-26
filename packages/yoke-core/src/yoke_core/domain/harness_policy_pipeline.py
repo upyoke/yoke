@@ -113,7 +113,7 @@ def tool_kind_for(tool_name: str) -> Optional[str]:
     Returns ``None`` for tools the pipeline does not model (Read,
     Monitor, ScheduleWakeup, TaskOutput, etc.). The hook-ordering
     module has chains for those tools that are exclusively observation
-    (``observe_pre`` / ``hint_monitor_relay``); they bypass dispatch.
+    (``observe_pre``); they bypass dispatch.
     """
     if not tool_name:
         return None

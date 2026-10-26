@@ -34,12 +34,6 @@ HEADING = (
     "waiting chains — blockers holding the most work; ! marks an unstarted, "
     "unstaffed blocker with work behind it in progress"
 )
-RECOVERY = (
-    "keep each edge as narrow as the work needs: staff a ! blocker or remove "
-    "its edge (`yoke items dependency remove`); narrow a heavy one with "
-    "`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE "
-    "--gate-point coordination_only` or `--satisfaction fact:merged`"
-)
 _SHOWN = 3
 
 
@@ -252,7 +246,7 @@ def waiting_chain_section(report: Any) -> list[str]:
     if not chains:
         return []
     lines = [f"  {chain.describe()}" for chain in chains[:SECTION_LIMIT]]
-    return [f"{HEADING}:", *capped(lines, len(chains)), f"  {RECOVERY}"]
+    return [f"{HEADING}:", *capped(lines, len(chains))]
 
 
 def waiting_chain_fingerprint(report: Any) -> list[Any]:

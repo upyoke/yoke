@@ -123,7 +123,7 @@ def append_steering_reports(
             str(result.get("digest") or "").strip()
             or str(result.get("body") or "").strip()
         )
-        if not fingerprint or not payload:
+        if not fingerprint or (not payload and result.get("delivered") is not False):
             raise FleetReadError(
                 STEERING_REPORT_FUNCTION,
                 "held-scope response omitted fingerprint or body",
