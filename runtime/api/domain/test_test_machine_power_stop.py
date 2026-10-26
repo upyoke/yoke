@@ -150,3 +150,36 @@ def test_the_client_transport_stops_machines_a_response_names(monkeypatch):
     assert seen == [RELEASED]
     settled_response.settle_response(_ok({}))
     assert seen == [RELEASED]
+
+
+def test_an_older_server_refusal_of_the_hold_names_its_floor():
+    from yoke_cli.transport.function_version_skew import retype_skew
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+
+    function_id = "claims.coordination_claim.acquire_if_free"
+    request = FunctionCallRequest(
+        function=function_id,
+        actor=ActorContext(actor_id="1", session_id="stopper"),
+        target=TargetRef(kind="global"),
+        payload={},
+    )
+    refused = FunctionCallResponse(
+        success=False,
+        function=function_id,
+        version="v1",
+        error=FunctionError(code="function_not_registered", message="unknown"),
+    )
+    error = retype_skew(refused, request, server_version="1.0.0", env_name="prod").error
+    assert error.code == "function_version_skew"
+    assert "minimum serving version next-release" in error.message
+
+
+def test_a_response_from_an_older_server_names_no_machines():
+    response = FunctionCallResponse.model_validate(
+        {"success": True, "function": "f", "version": "v1", "result": {}}
+    )
+    assert response.released_test_machines == []
