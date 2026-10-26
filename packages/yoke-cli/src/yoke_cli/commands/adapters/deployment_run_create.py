@@ -25,7 +25,9 @@ from yoke_cli.commands.adapters.deployment_run_create_retry import (
     build_timeout_repeat,
 )
 from yoke_cli.commands.adapters.deployment_execution_authority import (
+    _same_universe_admin_env,
     creation_connection_error,
+    execution_connection_error,
 )
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
@@ -47,12 +49,13 @@ from yoke_contracts.deployment_itemless_teaching import (
 )
 
 
-def _execute_connection() -> str:
-    """The selected connection that will address this run at execute time.
+def _execute_connection(run_id: str) -> str:
+    """The connection that will drive *run_id* at execute time.
 
     A run lives on the control plane that created it, so the connection this
     creation is dispatching through already determines the one `execute` must
-    be given. Leaving it as a placeholder for the operator to fill in is what
+    be given. A self-deploy replaces that control plane's API, so it is driven
+    through the paired same-universe ``*-db-admin`` connection instead. Leaving it as a placeholder for the operator to fill in is what
     produces a run driven through the wrong connection, which surfaces as
     'deployment run not found' — a message that reads as a missing run rather
     than a wrong control plane.
@@ -65,6 +68,8 @@ def _execute_connection() -> str:
     active = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active:
         return ""
+    if execution_connection_error(run_id):
+        return _same_universe_admin_env(active) or active
     return active
 
 
@@ -182,7 +187,7 @@ def deployment_runs_create(args: List[str]) -> int:
         if run_id and result.get("supersedes_run_id"):
             print(takeover_note(run_id, result["supersedes_run_id"]), file=stderr)
         if run_id:
-            authority = _execute_connection() or "<control-plane-env>"
+            authority = _execute_connection(run_id) or "<control-plane-env>"
             print(execute_created_run_note(authority, run_id), file=stderr)
 
     payload = {

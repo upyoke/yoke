@@ -92,7 +92,7 @@ def test_flow_list_preserves_multiline_stages(json_mode) -> None:
         text = stdout.getvalue()
         assert "id: flow-test" in text
         assert "stages:" in text
-        assert stored_stages in text
+        assert "      " + stored_stages.replace("\n", "\n      ") in text
         assert "status: active" in text
 
 

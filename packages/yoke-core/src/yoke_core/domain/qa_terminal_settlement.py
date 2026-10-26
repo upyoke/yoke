@@ -223,7 +223,7 @@ def terminal_transition_result(
         require_any=True,
     )
     errors = requirement_issue_errors(
-        issues, public_ref=public_ref, target_status=target_status
+        issues, action=f"transition {public_ref} to {target_status!r}"
     )
     if not errors:
         return None

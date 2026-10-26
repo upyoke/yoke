@@ -2,8 +2,10 @@
 
 import argparse
 import json
+from io import StringIO
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.transport.human_values import write_human
 from yoke_cli.transport.output_limit import REPLY_LIMIT_BYTES, read_output_scope
 from yoke_cli.transport.public_ref_display import emit_response
 from yoke_cli.transport.read_sections import (
@@ -141,3 +143,9 @@ def test_a_read_with_its_own_section_flag_keeps_it(capsys):
     assert "read_output_limit_exceeded" in err
     assert "Read one section" not in err
     assert [a.dest for a in parser._actions].count("section") == 1
+
+
+def test_multiline_human_values_do_not_create_sections():
+    out = StringIO()
+    write_human({"capture": "# watch_pytest start\n## captured detail\nresult"}, out)
+    assert section_outline(out.getvalue(), lambda h: f"read --section {h!r}") is None

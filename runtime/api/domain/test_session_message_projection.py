@@ -73,3 +73,52 @@ def test_named_fields_win_over_the_attempt_bound() -> None:
 def test_unknown_fields_are_reported_for_the_refusal() -> None:
     assert unknown_message_fields(_message(0), ("body", "nope")) == ["nope"]
     assert unknown_message_fields(_message(0), ("body",)) == []
+
+
+def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monkeypatch):
+    import pytest
+
+    from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import session_message_queries as queries
+    from yoke_core.domain.handlers.session_messages_common import readable_json_message
+    from yoke_core.domain.session_message_types import SessionMessageError
+
+    recipients = [{"session_id": "recipient", "state": "acknowledged"}]
+    details = {**_message(0), "recipients": recipients, "actor_recipients": []}
+    monkeypatch.setattr(queries, "message_details", lambda *_: details)
+    monkeypatch.setattr(queries, "message_visible", lambda *_, **__: True)
+    monkeypatch.setattr(queries, "project_due_receipts", lambda *_, **__: None)
+    caller = {"message_id": "m-1", "actor_id": 7, "session_id": "sender"}
+
+    with pytest.raises(SessionMessageError) as raised:
+        queries.get_message(None, **caller, fields=("state",))
+    assert raised.value.code == "message_field_unknown"
+    assert "recipients" in str(raised.value)
+    result = readable_json_message(
+        queries.get_message(None, **caller, fields=("recipients",))
+    )
+    assert result == {"message": {"recipients": recipients}}
+    def dispatch(request):
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result=result,
+        )
+
+    rc, stdout, stderr = _run_capture(
+        dispatch, "messages", "get", "m-1", "recipients"
+    )
+    assert rc == 0, stderr
+    assert "acknowledged" in stdout
+    assert "message_id" not in stdout
+    assert "body" not in stdout
+    assert "None" not in stdout
+
+    recipient = queries.get_message(None, **{**caller, "session_id": "recipient"})
+    assert readable_json_message(recipient)["state"] == "acknowledged"
+    details["actor_recipients"] = [{"actor_id": 7, "state": "pending"}]
+    actor_recipient = queries.get_message(None, **caller)
+    assert readable_json_message(actor_recipient)["state"] == "pending"

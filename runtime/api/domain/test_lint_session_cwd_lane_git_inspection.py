@@ -263,7 +263,6 @@ COMPOUND_READS = (
     "cd {lane} && git status && cat README.md",
     "cat {lane}/README.md; git -C {lane} diff",
     "git -C {lane} status\ngit -C {lane} log -5",
-    "git -c alias.peek=status -C {lane} status && git -C {lane} log",
 )
 
 
@@ -334,7 +333,7 @@ def test_git_config_value_does_not_hide_subcommand():
     from yoke_core.domain.lint_session_cwd_git_read_forms import git_subcommand
 
     assert git_subcommand(["git", "-c", "alias.peek=status", "status"]) == "status"
-    assert is_read_only_git_inspection("git -c alias.peek=status status")
+    assert not is_read_only_git_inspection("git -c alias.peek=status status")
     assert not is_read_only_git_inspection("git -c alias.peek=status peek")
 
 

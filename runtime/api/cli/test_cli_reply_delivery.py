@@ -113,7 +113,7 @@ def test_silent_human_writer_delivers_explicit_empty_state(capsys):
 def test_multiline_write_is_complete(capsys):
     payload = {"body": "\n".join(["x" * 81] * 200)}
     assert emit_response(response("items.create", payload), json_mode=False) == 0
-    assert payload["body"] in capsys.readouterr().out
+    assert capsys.readouterr().out == "body:\n  " + payload["body"].replace("\n", "\n  ") + "\n"
 
 
 def test_explicit_line_protocol_remains_complete(capsys):

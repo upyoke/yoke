@@ -164,7 +164,7 @@ def test_door_drives_only_a_deploy_replacing_its_https_api(host, refused):
         return
     assert refusal is not None
     assert refusal.startswith("use_https_env:")
-    assert f"yoke --env {SERVED_ENV} deployment-runs execute run-1" in refusal
+    assert f"yoke --env {SERVED_ENV} watch deploy -- run-1" in refusal
 
 
 @pytest.mark.parametrize(

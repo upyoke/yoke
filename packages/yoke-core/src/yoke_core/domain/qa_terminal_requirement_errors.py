@@ -11,14 +11,13 @@ if TYPE_CHECKING:
 def requirement_issue_errors(
     issues: list[BlockingRequirementIssue],
     *,
-    public_ref: str,
-    target_status: str,
+    action: str,
 ) -> list[str]:
     """Render actionable refusals for unsettled item proof."""
     if not issues:
         return []
     errors = [
-        f"Error: Cannot transition {public_ref} to {target_status!r} -- "
+        f"Error: Cannot {action} -- "
         f"{len(issues)} blocking QA requirement(s) lack current completed proof.",
         "  A waiver is an explicit, recorded, requirement-scoped operator "
         "override; it is not part of the normal merge recipe.",

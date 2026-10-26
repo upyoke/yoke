@@ -68,7 +68,7 @@ def github_actions_failed_log(args: List[str]) -> int:
             "matrix included — gets its own labelled block carrying the job "
             "name, job id, conclusion, GitHub job URL, and its failure "
             "region: pytest's FAILURES section through the short test "
-            "summary, else the step that raised the first ##[error], else "
+            "summary, else the step that raised the last ##[error], else "
             "the end of the log before teardown. Each region is bounded by "
             "--lines and an equal share of the report size, and every trim "
             "is named in place. --full also writes each failed job's "

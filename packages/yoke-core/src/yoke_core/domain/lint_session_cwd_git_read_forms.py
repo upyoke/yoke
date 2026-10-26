@@ -138,6 +138,12 @@ def classify_git(tokens: List[str]) -> Optional[str]:
     index = git_subcommand_index(tokens)
     if index is None:
         return None
+    if any(
+        token in {"-c", "--config-env", "--exec-path"}
+        or token.startswith(("--config-env=", "--exec-path="))
+        for token in tokens[1:index]
+    ):
+        return None
     sub = tokens[index]
     args = tokens[index + 1 :]
     if any(t == "--output" or t.startswith("--output=") for t in args):

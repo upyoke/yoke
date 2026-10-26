@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 from collections.abc import Mapping
 from typing import Any, TextIO
 
@@ -71,6 +72,6 @@ def write_human(
         text = scalar(value)
         if "\n" in text:
             print(f"{pad}{heading}:", file=stream)
-            print(text, file=stream)
+            print(textwrap.indent(text, pad + "  "), file=stream)
         else:
             print(f"{pad}{heading}: {text}", file=stream)

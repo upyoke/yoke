@@ -97,6 +97,58 @@ def test_memory_refusal_names_observed_and_required_bytes(tmp_path, monkeypatch)
     assert f"needs >= {capacity.MIN_NATIVE_FREE_MEMORY_BYTES} bytes" in detail
 
 
+@pytest.mark.parametrize(
+    ("job_kind", "expected"), [("launch", "not_created"), ("wake", "failed")]
+)
+def test_claude_spawner_preserves_capacity_refusal(
+    tmp_path, monkeypatch, job_kind, expected
+):
+    from uuid import uuid4
+
+    from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
+    from yoke_contracts.session_control.wake_instruction import native_wake_instruction
+    from yoke_harness import session_relay_claude as claude
+
+    job_id = str(uuid4())
+    message_id = str(uuid4())
+    context = RelayExecutionContext(
+        job_kind,
+        job_id,
+        "lease",
+        "claude-cli",
+        1,
+        tmp_path,
+        native_launch_bootstrap(job_id)
+        if job_kind == "launch"
+        else native_wake_instruction(message_id),
+        surface_version="2.1.238",
+        message_id=message_id,
+        target_session_id=str(uuid4()),
+        presentation="local",
+        wake_mode="waiting",
+        launch_attestation="attestation",
+    )
+    monkeypatch.setattr(claude, "claude_session_transcript_exists", lambda *args: True)
+
+    def refuse(*args):
+        raise admission.NativeCapacityRefusal(
+            "native_memory_headroom_low", "memory low"
+        )
+
+    def adapter(context):
+        return claude.run_claude_cli_adapter(
+            context,
+            create_spawner=refuse,
+            wake_spawner=refuse,
+            executable_finder=lambda _: "/opt/claude/bin/claude",
+            version_gate=lambda *args: True,
+        )
+
+    result = admission.run_admitted_adapter(context, adapter)
+    assert result.result_code == expected
+    assert result.evidence["result_code"] == "native_memory_headroom_low"
+
+
 def test_linux_swap_probe(monkeypatch):
     monkeypatch.setattr(capacity.sys, "platform", "linux")
     monkeypatch.setattr(
