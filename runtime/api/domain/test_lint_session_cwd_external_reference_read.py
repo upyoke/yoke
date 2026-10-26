@@ -288,14 +288,28 @@ class TestWriteShapesStillRefuse:
         "ls /Applications | grep chrome", "cat /usr/share/example",
         "cat ~/.config/example", "cat ~/.codex/auth.json",
         "rg pattern {target}", "git -C {target} diff",
+        "git -C {target} remote get-url origin",
+        "git -C {target} config --get user.email",
+        "git -C {target} branch --contains HEAD",
+        "git -C {target} branch -r --merged main",
+        "find {target} -exec grep -l x {{}} +",
     ],
 )
 def test_claimed_session_reads_any_root(conn, lane, repo, command):
     for target in (repo, repo / ".worktrees/unclaimed", Path("/other/checkout")):
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            _bash(command.format(target=target), lane)
-        )
-        assert verdict.allow is True
+        payload = _bash(command.format(target=target), lane)
+        verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
+        assert verdict.allow is True, verdict.reason
+    in_main = _bash(command.format(target=repo), repo)
+    assert lint_session_cwd.evaluate_pre_tool_use(in_main).allow is True
+    assert lint_lane_main_write.evaluate_pre_tool_use(in_main).allow is True
+
+
+def test_yoke_call_without_operands_allows_from_any_cwd(conn, lane, tmp_path):
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    payload = _bash("yoke items get X", outside)
+    assert lint_session_cwd.evaluate_pre_tool_use(payload).allow is True
 
 
 @pytest.mark.parametrize(
@@ -307,6 +321,7 @@ def test_claimed_session_reads_any_root(conn, lane, repo, command):
         "git -C {target} diff --output={target}/out",
         "git -C {target} branch topic", "git -C {target} config k v",
         "git -C {target} remote add origin url", "git -C {target} checkout topic",
+        "git -C {target} branch -D x", "find {target} -exec rm {{}} +",
         "rg --pre cat pattern {target}", "rg --pre=cat pattern {target}",
         "cat {target}/f > {target}/out", "touch {target}/f",
     ],

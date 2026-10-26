@@ -93,10 +93,10 @@ _GIT_STASH_READS = frozenset({"list", "show"})
 
 def _git_state_move(tokens: list[str]) -> bool:
     """True when this git invocation changes repository or worktree state."""
-    from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+    from yoke_core.domain.lint_session_cwd_git_read_forms import (
         GIT_MUTATING_SUBS,
         GIT_READ_ONLY_SUBS,
-        _classify_git,
+        classify_git,
         git_subcommand_index,
     )
 
@@ -104,7 +104,7 @@ def _git_state_move(tokens: list[str]) -> bool:
     if index is None:
         return False
     if tokens[index] in GIT_READ_ONLY_SUBS:
-        return _classify_git(tokens) is None
+        return classify_git(tokens) is None
     if tokens[index] == "stash":
         action = tokens[index + 1] if index + 1 < len(tokens) else ""
         return action not in _GIT_STASH_READS
@@ -171,11 +171,11 @@ def analyze_shell_path_use(
     segment_cwds: Sequence[str] = (),
 ) -> ShellPathUse:
     """Retain operand roles; ``segment_cwds`` moves relative operands per segment."""
-    from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+    from yoke_core.domain.lint_session_cwd_git_read_forms import (
         GIT_MUTATING_SUBS,
-        _match_simple,
         git_subcommand,
     )
+    from yoke_core.domain.lint_session_cwd_read_only_signatures import _match_simple
     from yoke_core.domain.lint_session_cwd_target_extract import (
         SHELL_WRITE_COMMAND_BASES,
         resolve_shell_write_operands,

@@ -33,10 +33,10 @@ from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_path_authority import (
     outside_worktree_lanes,
 )
-from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+from yoke_core.domain.lint_session_cwd_git_read_forms import (
     GIT_INSPECTION_SUBS,
     GIT_LISTING_SUBS,
-    git_subcommand_index,
+    classify_git,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
@@ -45,8 +45,6 @@ FAILURE_CLASS = "foreign_lane"
 # Any of these could chain, redirect, or substitute a second command into
 # a call this rule is about to let into somebody else's lane.
 _SHELL_METACHARACTERS = (";", "&", "|", ">", "<", "$(", "`")
-# ``git diff`` / ``log`` / ``show`` write a file when handed this flag.
-_GIT_OUTPUT_FLAG = "--output"
 
 
 def is_read_only_git_inspection(command: str | ShellSegment) -> bool:
@@ -68,19 +66,7 @@ def is_read_only_git_inspection(command: str | ShellSegment) -> bool:
     tokens = list(segment.tokens)
     if segment.argv != segment.tokens:
         return False
-    index = git_subcommand_index(tokens)
-    if index is None:
-        return False
-    if any(
-        token == _GIT_OUTPUT_FLAG or token.startswith(f"{_GIT_OUTPUT_FLAG}=")
-        for token in tokens
-    ):
-        return False
-    if tokens[index] in GIT_INSPECTION_SUBS:
-        return True
-    if tokens[index] not in GIT_LISTING_SUBS:
-        return False
-    return all(token.startswith("-") for token in tokens[index + 1 :])
+    return classify_git(tokens) is not None
 
 
 def governed_targets(
@@ -123,7 +109,8 @@ def allowed_inspection_lines() -> List[str]:
         "of reads and cd; no redirection, substitution, or --output file:",
         "",
         f"  git -C <lane> ({inspection}) ...",
-        f"  git -C <lane> ({listing})   # listing form only, no positional argument",
+        f"  git -C <lane> ({listing})   # list and get forms; no new branch,"
+        " config value or write verb",
         "",
     ]
 

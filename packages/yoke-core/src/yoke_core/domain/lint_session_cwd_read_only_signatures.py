@@ -8,10 +8,16 @@ path authority checks; mutation analysis still applies.
 from __future__ import annotations
 
 import re
+import shlex
 from typing import List, Mapping, Optional, Tuple
 
 from yoke_contracts.hook_runner.shell_expansion_scan import has_substitution
 from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
+from yoke_core.domain.lint_session_cwd_git_read_forms import (
+    GIT_MUTATING_SUBS,
+    classify_git,
+    git_subcommand,
+)
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     REDIRECT_OPERATORS,
     STDOUT_REPORTERS,
@@ -81,56 +87,6 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
     return None
 
 
-_GIT_VALUE_FLAGS = frozenset({"-C", "-c", "--config-env", "--git-dir", "--work-tree"})
-# Inspection verbs report unless an output-file flag requests a write.
-GIT_INSPECTION_SUBS = frozenset(
-    {
-        "status",
-        "log",
-        "diff",
-        "show",
-        "rev-parse",
-        "describe",
-        "ls-files",
-        "ls-tree",
-        "blame",
-        "shortlog",
-    }
-)
-# Subcommands that report when given no positional and write when given
-# one (``git branch <name>``, ``git config <key> <value>``), so callers
-# that need a can-never-write guarantee must check the argument shape.
-GIT_LISTING_SUBS = frozenset({"branch", "remote", "config"})
-GIT_READ_ONLY_SUBS = GIT_INSPECTION_SUBS | GIT_LISTING_SUBS
-GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
-
-
-def git_subcommand_index(tokens: List[str]) -> Optional[int]:
-    """Index of the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
-    if not tokens or tokens[0].rsplit("/", 1)[-1] != "git":
-        return None
-    i = 1
-    while i < len(tokens):
-        tok = tokens[i]
-        if tok in _GIT_VALUE_FLAGS:
-            i += 2
-            continue
-        if tok.startswith("--git-dir=") or tok.startswith("--work-tree="):
-            i += 1
-            continue
-        if tok.startswith("-"):
-            i += 1
-            continue
-        return i
-    return None
-
-
-def git_subcommand(tokens: List[str]) -> Optional[str]:
-    """Return the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
-    index = git_subcommand_index(tokens)
-    return None if index is None else tokens[index]
-
-
 def git_write_targets(
     segment: str | ShellSegment,
     *,
@@ -145,22 +101,6 @@ def git_write_targets(
     if parsed is None or git_subcommand(list(parsed.argv)) not in GIT_MUTATING_SUBS:
         return [], False
     return resolve_operand_targets(parsed.text, bindings=bindings)
-
-
-def _classify_git(tokens: List[str]) -> Optional[str]:
-    """``git <read-only-sub>`` including ``git -C <path> log`` orientation."""
-    index = git_subcommand_index(tokens)
-    if index is None:
-        return None
-    sub = tokens[index]
-    args = tokens[index + 1 :]
-    if any(t == "--output" or t.startswith("--output=") for t in args):
-        return None
-    if sub in GIT_LISTING_SUBS and any(not t.startswith("-") for t in args):
-        return None
-    if sub in GIT_READ_ONLY_SUBS:
-        return f"git-{sub}"
-    return None
 
 
 _SINGLE_ARG_READ_ONLY = frozenset({"wc", "ls", "cat", "head", "tail", "file", "stat"})
@@ -219,14 +159,40 @@ def _classify_grep_like(tokens: List[str]) -> Optional[str]:
     return None
 
 
+_FIND_WRITES = frozenset({"-delete", "-fprint", "-fprint0", "-fprintf", "-fls"})
+_FIND_EXECS = frozenset({"-exec", "-execdir", "-ok", "-okdir"})
+
+
+def _find_exec_commands(tokens: List[str]) -> Optional[List[List[str]]]:
+    """Commands ``-exec`` and kin run, or ``None`` when one is unterminated."""
+    commands: List[List[str]] = []
+    i = 1
+    while i < len(tokens):
+        if tokens[i] not in _FIND_EXECS:
+            i += 1
+            continue
+        start = end = i + 1
+        while end < len(tokens) and not (
+            tokens[end] == ";" or (tokens[end] == "+" and tokens[end - 1] == "{}")
+        ):
+            end += 1
+        if end >= len(tokens) or end == start:
+            return None
+        commands.append(tokens[start:end])
+        i = end + 1
+    return commands
+
+
 def _classify_find(tokens: List[str]) -> Optional[str]:
-    if tokens and tokens[0] == "find" and not any(
-        t in {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint",
-              "-fprint0", "-fprintf", "-fls"}
-        for t in tokens[1:]
-    ):
-        return "find"
-    return None
+    """``find`` reads unless it writes a file or runs a command that is not a read."""
+    if not tokens or tokens[0] != "find":
+        return None
+    if any(t in _FIND_WRITES for t in tokens[1:]):
+        return None
+    commands = _find_exec_commands(tokens)
+    if commands is None or not all(_match_simple(shlex.join(c)) for c in commands):
+        return None
+    return "find"
 
 
 def _classify_python_module(tokens: List[str]) -> Optional[str]:
@@ -263,7 +229,7 @@ def _single_segment(segment: str | ShellSegment) -> Optional[ShellSegment]:
 
 _SIMPLE_CLASSIFIERS = (
     _classify_python_module,
-    _classify_git,
+    classify_git,
     _classify_grep_like,
     _classify_find,
     _classify_stdout_reporter,
@@ -307,12 +273,6 @@ def match_read_only_signature(command: str | ShellParse) -> Optional[str]:
 
 
 __all__ = [
-    "GIT_INSPECTION_SUBS",
-    "GIT_LISTING_SUBS",
-    "GIT_MUTATING_SUBS",
-    "GIT_READ_ONLY_SUBS",
-    "git_subcommand",
-    "git_subcommand_index",
     "git_write_targets",
     "match_read_only_signature",
 ]
