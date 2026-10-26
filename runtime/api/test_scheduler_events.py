@@ -33,6 +33,7 @@ def _apply_events_schema() -> None:
     """
     conn = db_backend.connect()
     try:
+        conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER)")
         _create_events_table(conn)
         conn.commit()
     finally:

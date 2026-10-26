@@ -56,11 +56,11 @@ def seed_item(
 def add_minimal_item(
     db_path: str, item_id: int, *, project_id: int, sequence: int
 ) -> None:
-    """Create a bare ``items`` table holding one row, for schemas without one."""
+    """Ensure a bare ``items`` table and seed one public-ref fixture row."""
     conn = connect_test_db(db_path)
     try:
         conn.execute(
-            "CREATE TABLE items (id INTEGER PRIMARY KEY, "
+            "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, "
             "project_id INTEGER, project_sequence INTEGER)"
         )
         conn.execute(

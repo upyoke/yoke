@@ -121,6 +121,7 @@ def make_events_db_conn():
     conn = pg_testdb.connect_test_database(name)
     pg_testdb.drop_database_on_close(conn, name)
     apply_fixture_ddl(conn, _PROJECTS_DDL)
+    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, project_sequence INTEGER)")
     _seed_projects(conn)
     apply_fixture_ddl(conn, _EVENTS_DDL)
     conn.commit()
@@ -134,6 +135,7 @@ def _apply_events_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _PROJECTS_DDL)
+        conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, project_sequence INTEGER)")
         _seed_projects(conn)
         apply_fixture_ddl(conn, _EVENTS_DDL)
     finally:
