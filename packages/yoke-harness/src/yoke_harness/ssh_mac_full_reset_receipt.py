@@ -19,7 +19,6 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_ABSENT_PATH_PREFIX,
     RESET_ABSENT_RECOVERY,
     RESET_FAILURE_PREFIX,
-    RESET_LOAD_AVERAGE_PREFIX,
     RESET_PHASES,
     RESET_PROCESS_REAPED_PREFIX,
     RESET_RECOVERY_FAILURE_MARKER,
@@ -49,8 +48,8 @@ _COUNT_PREFIXES = {
     RESET_SELF_HOST_VOLUMES_PREFIX: "self_host_volumes_removed",
     RESET_SELF_HOST_IMAGES_PREFIX: "self_host_images_removed",
 }
-#: One line per counted outcome, plus the load average and the closing marker.
-_RECEIPT_LINE_COUNT = len(_COUNT_PREFIXES) + 2
+#: One line per counted outcome, plus the closing marker.
+_RECEIPT_LINE_COUNT = len(_COUNT_PREFIXES) + 1
 #: The character set every name reduced for the closed output contract is
 #: reduced to. The program applies the matching substitution before a captured
 #: entry name or a service label travels, so anything outside this set means
@@ -147,12 +146,8 @@ def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
     """Parse the counted success receipt the restore program emits."""
     lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
     counts: dict[str, int] = {}
-    load_average: str | None = None
     for line in lines:
         if line == FULL_RESET_MARKER:
-            continue
-        if line.startswith(RESET_LOAD_AVERAGE_PREFIX):
-            load_average = line.removeprefix(RESET_LOAD_AVERAGE_PREFIX)
             continue
         matched = False
         for prefix, field in _COUNT_PREFIXES.items():
@@ -170,16 +165,11 @@ def closed_outcomes(stdout: str) -> dict[str, str | int | float] | None:
         len(lines) != _RECEIPT_LINE_COUNT
         or lines.count(FULL_RESET_MARKER) != 1
         or set(counts) != set(_COUNT_PREFIXES.values())
-        or not load_average
     ):
-        return None
-    try:
-        load_value = float(load_average)
-    except ValueError:
         return None
     if counts["restored_entries"] < 1:
         return None
-    return {**counts, "load_average": load_value}
+    return counts
 
 
 def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
@@ -210,11 +200,7 @@ def failure_outcome(stdout: str) -> tuple[str, bool, str | None] | None:
             return None
     elif detail is not None and not recovery_failed:
         parts = tuple(detail.split())
-        if len(parts) != 3 or any(not part.isdigit() for part in parts[:2]):
-            return None
-        try:
-            float(parts[2])
-        except ValueError:
+        if len(parts) != 2 or any(not part.isdigit() for part in parts):
             return None
     return phase_names[phase], recovery_failed, None if recovery_failed else detail
 
@@ -283,7 +269,6 @@ def success_evidence(
         "process_state": {
             "reaped_processes": outcomes["reaped_processes"],
             "surviving_matches": 0,
-            "load_average": outcomes["load_average"],
         },
         # A host that had no relay loaded and one whose relay was booted out
         # both reach the same end state, and only this count tells them apart.

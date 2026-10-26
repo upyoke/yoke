@@ -330,7 +330,7 @@ and choose a new parent. `golden_snapshot_retention_failed` can follow successfu
 registration: read removed/kept paths before any further capture. Verify's
 `registered_golden_missing` names each project whose registered golden is gone:
 capture a new golden for it. Never delete or move a registered golden by hand. A failed
-reset retains `reset_phase`, process/load state and `failed_calls` where available;
+reset retains `reset_phase`, process state and `failed_calls` where available;
 missing stdout proves no cause. Fix the named writer/permission/transport and
 retry the sealed restore; never weaken a probe or edit a seal to make it pass.
 

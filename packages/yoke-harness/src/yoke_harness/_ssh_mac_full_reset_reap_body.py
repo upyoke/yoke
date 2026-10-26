@@ -61,19 +61,6 @@ count_reap_matches() {
   [[ "$reap_match_count" == <-> ]] || reap_match_count=0
 }
 
-record_load_average() {
-  load_average_1min=$(
-    /usr/bin/uptime |
-      /usr/bin/sed -E 's/.*load averages?: //' |
-      /usr/bin/awk '{print $1}'
-  )
-  cpu_count=$(/usr/sbin/sysctl -n hw.ncpu 2>/dev/null || print 0)
-}
-
-load_exceeds_capacity() {
-  [[ -n "$load_average_1min" && "$cpu_count" == <-> ]] || return 1
-  (( cpu_count > 0 && load_average_1min > cpu_count ))
-}
 """
 
 

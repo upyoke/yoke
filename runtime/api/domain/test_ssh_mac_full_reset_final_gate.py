@@ -8,7 +8,6 @@ import pytest
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     FakeResetTransport,
     GOLDEN_BASELINE_PATH,
-    assignment,
     isolated_shell_env,
     require_zsh,
 )
@@ -50,10 +49,11 @@ def _run_final_validation(
         f"count_reap_matches() {{ reap_failed_count={failed}; "
         f"reap_match_count={matches}; }}\n"
     )
+    # Model a busy host or an unavailable load probe. Neither host reading
+    # may participate in the reset's final decision.
     stubs += (
-        "record_load_average() { "
-        + assignment("load_average_1min", load)
-        + "; cpu_count=4; }\n"
+        f"function /usr/bin/uptime() {{ print -r -- 'load averages: {load}'; }}\n"
+        "function /usr/sbin/sysctl() { print 4; }\n"
     )
     return subprocess.run(
         [
@@ -84,16 +84,16 @@ def _adapt(result: subprocess.CompletedProcess):
 
 
 @pytest.mark.parametrize(
-    ("failed", "matches", "load"),
-    [(1, 0, "1.25"), (0, 2, "1.25"), (0, 0, "4.25"), (0, 0, "")],
+    ("failed", "matches"),
+    [(1, 0), (0, 2), (1, 2)],
 )
 def test_final_gate_failure_retains_phase_and_process_detail(
-    tmp_path, failed, matches, load
+    tmp_path, failed, matches
 ):
-    result = _run_final_validation(tmp_path, failed=failed, matches=matches, load=load)
+    result = _run_final_validation(tmp_path, failed=failed, matches=matches, load="1.25")
     assert result.returncode == 1
     assert result.stderr == ""
-    detail = f"{failed} {matches} {load or '0'}"
+    detail = f"{failed} {matches}"
     assert result.stdout.splitlines() == [
         RESET_FAILURE_PREFIX + RESET_PHASES["reap_processes"],
         detail,
@@ -107,13 +107,13 @@ def test_final_gate_failure_retains_phase_and_process_detail(
     assert adapted.evidence["process_state"] == {
         "surviving_reap_failures": failed,
         "surviving_matches": matches,
-        "load_average": float(load or "0"),
     }
     assert adapted.evidence["paths"][2]["outcome"] == "removed"
 
 
-def test_success_counters_follow_final_validation(tmp_path):
-    result = _run_final_validation(tmp_path, failed=0, matches=0, load="4.00")
+@pytest.mark.parametrize("load", ["4.00", "999.00", ""])
+def test_success_counters_follow_final_validation_regardless_of_host_load(tmp_path, load):
+    result = _run_final_validation(tmp_path, failed=0, matches=0, load=load)
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     assert result.stdout.splitlines()[-1] == FULL_RESET_MARKER
@@ -125,7 +125,6 @@ def test_success_counters_follow_final_validation(tmp_path):
         "self_host_volumes_removed": 0,
         "self_host_images_removed": 0,
         "reaped_processes": 0,
-        "load_average": 4.0,
     }
     adapted = _adapt(result)
     assert adapted.ok
@@ -133,5 +132,4 @@ def test_success_counters_follow_final_validation(tmp_path):
     assert adapted.evidence["process_state"] == {
         "reaped_processes": 0,
         "surviving_matches": 0,
-        "load_average": 4.0,
     }
