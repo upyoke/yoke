@@ -1,0 +1,17 @@
+{
+ "id": "start.setup",
+ "title": "Installation and onboarding",
+ "parent": "start",
+ "route": "/docs/start/setup",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a concise human explanation and link to the detailed installation and onboarding section.",
+ "outline": ["The single installation request", "Choices and human approvals", "When setup is finished", "How project onboarding follows"],
+ "terms": ["connection", "harness", "installation", "onboarding", "project-installation", "setup"],
+ "commands": ["command:yoke setup", "command:yoke onboard"],
+ "sources": ["source:setup", "doc:docs/public/start/index.md"],
+ "deeper_pages": ["setup"],
+ "open_questions": [],
+ "position": 62
+}

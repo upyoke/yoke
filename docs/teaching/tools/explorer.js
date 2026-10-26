@@ -63,6 +63,7 @@ function render() {
       `${focus.coverage} direct teaching mappings. A mapping does not prove delivery.`, 'summary'));
   }
   world.append(heading);
+  if (focus?.id === 'view:docs-map' || focus?.page_spec) { renderDocsMap(focus); return; }
   if (focus?.id === 'view:index') { renderTermIndex(focus); return; }
   const children = focus ? focus.children : roots.filter(node => !node.view);
   if (children.length) {
@@ -79,6 +80,7 @@ function render() {
     if (children.length) section.ontoggle = () => { if (section.open) fillDetail(focus, section); };
     else fillDetail(focus, section);
   }
+  if (focus) renderProposedPages(focus);
   notice.textContent = `${children.length} ${children.length === 1 ? 'entry' : 'entries'}`;
 }
 const MISSING = ' is missing from this build. Rebuild Yokepedia: yoke dev yokepedia';

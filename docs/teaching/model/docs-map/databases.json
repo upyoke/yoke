@@ -1,0 +1,17 @@
+{
+ "id": "databases",
+ "title": "Databases and migrations",
+ "parent": null,
+ "route": "/docs/databases",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain declared databases and safe changes to them.",
+ "outline": ["Database and migration model", "Environment pairing", "Migration apply records"],
+ "terms": ["database", "database-model"],
+ "commands": ["command:yoke migration", "command:yoke schema"],
+ "sources": ["doc:docs/public/databases/index.md", "doc:docs/public/databases/migration-model.md", "doc:docs/public/databases/migration-model-pairing.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 47
+}

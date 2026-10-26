@@ -1,0 +1,17 @@
+{
+ "id": "start.sessions",
+ "title": "Sessions, steering and levels",
+ "parent": "start",
+ "route": "/docs/start/sessions",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a concise human explanation and link to the detailed sessions, steering and levels section.",
+ "outline": ["Harness conversations registered as sessions", "Active, waiting, stale and ended", "Steering versus execution"],
+ "terms": ["execution-level", "harness-session", "parked-session", "session", "session-liveness", "session-mode", "stale-session", "steering", "work-claim"],
+ "commands": ["command:yoke sessions", "command:yoke steering"],
+ "sources": ["doc:docs/public/sessions/index.md"],
+ "deeper_pages": ["sessions"],
+ "open_questions": [],
+ "position": 65
+}

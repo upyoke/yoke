@@ -1,0 +1,17 @@
+{
+ "id": "work.lanes",
+ "title": "Worktrees and work ownership",
+ "parent": "work",
+ "route": "/docs/work/lanes",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain isolated checkouts and how concurrent edits are coordinated.",
+ "outline": ["Worktree and lane", "Work claims and path claims", "Overlaps and handoffs", "Cleanup"],
+ "terms": ["claim", "file-budget", "lane", "path-claim", "work-claim", "worktree"],
+ "commands": ["command:yoke worktree", "command:yoke item-worktrees", "command:yoke claims work", "command:yoke claims path"],
+ "sources": ["doc:docs/public/agents/rules/lanes-and-claims.md", "doc:docs/public/sessions/model/path-claims.md", "doc:docs/public/functions/claims.md", "doc:docs/public/functions/worktrees.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 18
+}

@@ -1,0 +1,17 @@
+{
+ "id": "setup.windows",
+ "title": "Windows and WSL",
+ "parent": "setup",
+ "route": "/docs/setup/windows",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain the Windows-specific setup choices and filesystem requirements.",
+ "outline": ["Run Yoke and agents inside WSL", "Project filesystem location", "Browser and background-process behavior"],
+ "terms": ["wsl"],
+ "commands": ["command:yoke wsl"],
+ "sources": ["branch:shared-setup", "doc:docs/public/start/windows-wsl.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 9
+}

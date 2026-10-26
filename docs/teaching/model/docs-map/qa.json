@@ -1,0 +1,17 @@
+{
+ "id": "qa",
+ "title": "Quality assurance",
+ "parent": null,
+ "route": "/docs/qa",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how checks become trustworthy evidence and gate work.",
+ "outline": ["Method, plan, case, attachment, requirement and run", "Evidence and verdict", "Where QA gates work"],
+ "terms": ["evidence", "human-acceptance", "qa", "qa-activity", "qa-kind", "qa-method", "qa-plan", "qa-requirement", "qa-subject", "registered-command", "requirement", "verification"],
+ "commands": ["command:yoke qa"],
+ "sources": ["doc:docs/public/verification/index.md", "doc:docs/public/verification/platform.md"],
+ "deeper_pages": [],
+ "open_questions": ["Keep one diagram of the relationships here; leave schemas to reference."],
+ "position": 34
+}

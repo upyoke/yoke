@@ -1,0 +1,17 @@
+{
+ "id": "reference",
+ "title": "Command and technical reference",
+ "parent": null,
+ "route": "/docs/reference",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give agents and advanced readers precise contracts without crowding human overviews.",
+ "outline": ["Find a command or family", "Read help and replies", "Follow refusals and recovery"],
+ "terms": ["cli", "command-group", "context-packet"],
+ "commands": ["command:yoke"],
+ "sources": ["source:help", "source:feedback", "doc:docs/public/cli/index.md", "doc:docs/public/cli/help.md"],
+ "deeper_pages": [],
+ "open_questions": ["The root help link is orientation only; do not count every command as covered by this page."],
+ "position": 56
+}

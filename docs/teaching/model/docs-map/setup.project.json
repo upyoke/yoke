@@ -1,0 +1,17 @@
+{
+ "id": "setup.project",
+ "title": "Connect a project checkout",
+ "parent": "setup",
+ "route": "/docs/setup/project",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain binding an existing checkout and installing project guidance.",
+ "outline": ["Project identity versus checkout", "Existing project versus new project", "Install and refresh agent guidance"],
+ "terms": ["agents-md", "connection", "harness", "project", "project-installation"],
+ "commands": ["command:yoke project", "command:yoke projects checkout-context"],
+ "sources": ["source:rules", "doc:docs/public/start/project-install.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 7
+}

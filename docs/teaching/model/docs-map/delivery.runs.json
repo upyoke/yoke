@@ -1,0 +1,17 @@
+{
+ "id": "delivery.runs",
+ "title": "Runs, stages and included work",
+ "parent": "delivery",
+ "route": "/docs/delivery/runs",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain execution, included items and retained evidence.",
+ "outline": ["Start and follow a run", "Members and carried work", "Stage receipts", "Frozen QA obligations"],
+ "terms": ["deployment-run", "deployment-stage", "qa-requirement", "run-member", "stage-receipt"],
+ "commands": ["command:yoke deployment-runs", "command:yoke watch deploy"],
+ "sources": ["doc:docs/public/deployments/model/runs.md", "doc:docs/public/deployments/model/stage-receipts.md", "doc:docs/public/deployments/model/run-members.md", "doc:docs/public/deployments/model/member-plan-snapshots.md"],
+ "deeper_pages": [],
+ "open_questions": ["Split run membership into reference if it crowds out the normal run walkthrough."],
+ "position": 44
+}

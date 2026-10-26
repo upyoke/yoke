@@ -1,0 +1,17 @@
+{
+ "id": "start.operations",
+ "title": "Operations and learning",
+ "parent": "start",
+ "route": "/docs/start/operations",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a concise human explanation and link to the detailed operations and learning section.",
+ "outline": ["Health versus readiness", "Read the named recovery", "Get useful diagnostics"],
+ "terms": ["doctor"],
+ "commands": ["command:yoke doctor", "command:yoke status", "command:yoke watch doctor"],
+ "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md"],
+ "deeper_pages": ["operations"],
+ "open_questions": [],
+ "position": 71
+}

@@ -1,0 +1,17 @@
+{
+ "id": "delivery",
+ "title": "Deployments and releases",
+ "parent": null,
+ "route": "/docs/delivery",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how code becomes a delivered change.",
+ "outline": ["Environment and deployment target", "Flow definition versus run", "Release and completion evidence"],
+ "terms": ["delivery", "deployment", "deployment-flow", "deployment-run", "deployment-target", "environment", "release"],
+ "commands": ["command:yoke deployment-flows", "command:yoke deployment-runs"],
+ "sources": ["skill:usher", "skill:approve", "doc:docs/public/deployments/index.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 42
+}

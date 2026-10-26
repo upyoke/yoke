@@ -1,0 +1,17 @@
+{
+ "id": "qa.execution",
+ "title": "Runs, evidence and results",
+ "parent": "qa",
+ "route": "/docs/qa/execution",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain running plans and interpreting outcomes and artifacts.",
+ "outline": ["Run versus requirement", "Progress and verdict", "Evidence artifacts", "Failure, interruption and recovery"],
+ "terms": ["artifact", "evidence", "qa-activity", "qa-artifact", "qa-run", "qa-verdict", "run", "standalone-qa"],
+ "commands": ["command:yoke qa run", "command:yoke qa artifact", "command:yoke qa activity", "command:yoke watch qa-case", "command:yoke watch qa-plan"],
+ "sources": ["doc:docs/public/verification/standalone-plans.md", "doc:docs/public/verification/model/qa.md", "doc:docs/public/verification/qa-cli.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 37
+}

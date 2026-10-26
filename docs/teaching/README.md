@@ -18,7 +18,7 @@ server. Agents and CI run the same build with
 `yoke dev run -- python3 docs/teaching/tools/build.py` (and `--check`) from
 the checkout they mean to build. This registered scanner needs no harness
 session or work claim. It writes only the ignored page; it never rewrites the model.
-Agents read the model JSON directly. Yokepedia displays Sources and a curated Index.
+Agents read the model JSON directly. Yokepedia displays Sources, a curated Index and a proposed Docs map.
 Model JSON files retain their identities and remain the editable source of
 research truth.
 
@@ -276,3 +276,18 @@ research text becomes authoritative current behavior. Editorial group names and
 research judgements remain authored; historical evidence is not reverified by a
 build. Rebuild and refresh after source changes; this local preview is a snapshot,
 not a background monitor of main or a released installation.
+
+## Proposed public docs map
+
+`model/docs-map/*.json` defines draft pages: parent, proposed route, reader,
+purpose, outline, index terms, command selections, source selections, deeper
+pages and open questions. This spec does not change the public navigation.
+The Docs map tab links every page and subpage to its related material.
+Command groups and source groups expand to their existing descendants.
+Root CLI help is orientation only and never maps every command.
+Coverage compares detailed-page mappings with the current index, command
+leaves and source documents/outputs; overview references do not close gaps.
+It reports unmapped entries, terms on several pages and sizing prompts.
+Mapped means related for review, not written, verified or delivered.
+All pages should start with a human summary; detailed agent teaching can
+remain in the linked context chain, skills, packets and command feedback.

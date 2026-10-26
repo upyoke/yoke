@@ -1,0 +1,17 @@
+{
+ "id": "qa.requirements",
+ "title": "Attachments, requirements and gates",
+ "parent": "qa",
+ "route": "/docs/qa/requirements",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain which checks apply to which work and what satisfies them.",
+ "outline": ["Attachment creates an obligation", "Subject and target", "Latest attempt and success policy", "Review, waiver and supersession"],
+ "terms": ["gate", "human-acceptance", "qa-attachment", "qa-requirement", "qa-subject", "qa-verdict", "requirement", "success-policy", "waiver"],
+ "commands": ["command:yoke qa requirement", "command:yoke qa gate-summary", "command:yoke qa project-default", "command:yoke qa item-plan"],
+ "sources": ["doc:docs/public/verification/requirement-discharges.md", "doc:docs/public/verification/requirement-state.md", "doc:docs/public/verification/success-policy.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 36
+}

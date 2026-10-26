@@ -84,3 +84,17 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .term-entry h2 { margin: 0 0 8px; font-size: 18px; }
 .term-entry p { margin: 0 0 8px; line-height: 1.6; }
 .term-source { display: inline-block; margin-right: 16px; font-size: 13px; }
+
+.page-tree { list-style: none; padding-left: 22px; border-left: 1px solid #dce4dc; }
+.page-tree > li { margin: 18px 0; }
+.page-tree > li > a { font-size: 18px; font-weight: 650; }
+.page-tree small { display: block; margin: 5px 0; color: #657369; }
+.page-tree p { margin: 5px 0; line-height: 1.5; }
+.map-disclosure { margin: 20px 0; }
+.map-disclosure > summary { cursor: pointer; font-weight: 600; }
+.map-links { padding-left: 22px; max-height: 420px; overflow: auto; }
+.map-links li { margin: 10px 0; }
+.map-coverage { border-top: 1px solid #dce4dc; margin-top: 36px; padding-top: 18px; }
+.map-table { border-collapse: collapse; width: 100%; }
+.map-table th, .map-table td { text-align: left; padding: 10px; border-bottom: 1px solid #dce4dc; }
+.map-chip { display: inline-block; margin: 4px 12px 4px 0; }

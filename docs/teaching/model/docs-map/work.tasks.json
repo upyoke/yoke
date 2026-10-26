@@ -1,0 +1,17 @@
+{
+ "id": "work.tasks",
+ "title": "Epics and generated tasks",
+ "parent": "work",
+ "route": "/docs/work/tasks",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain splitting larger work and coordinating its parts.",
+ "outline": ["Parent item and task responsibilities", "Dependencies between tasks", "Planning, implementation and integration"],
+ "terms": ["dependency", "epic", "task", "workflow"],
+ "commands": ["command:yoke epic-tasks", "command:yoke task", "command:yoke conduct", "command:yoke shepherd", "command:yoke workflow-item"],
+ "sources": ["skill:shepherd", "skill:conduct", "skill:amend", "doc:docs/public/items/model/tasks.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 17
+}

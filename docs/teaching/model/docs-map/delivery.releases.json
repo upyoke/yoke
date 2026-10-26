@@ -1,0 +1,17 @@
+{
+ "id": "delivery.releases",
+ "title": "Release identity and completion",
+ "parent": "delivery",
+ "route": "/docs/delivery/releases",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how Yoke knows what was deployed and when work is done.",
+ "outline": ["Release identity", "Deployed version and evidence", "Completion rules", "Notifications"],
+ "terms": ["release", "release-authority"],
+ "commands": ["command:yoke release-pin"],
+ "sources": ["doc:docs/public/deployments/model/releases.md", "doc:docs/public/deployments/model/release-notices.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 45
+}

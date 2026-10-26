@@ -1,0 +1,17 @@
+{
+ "id": "start.work",
+ "title": "Items and workflows",
+ "parent": "start",
+ "route": "/docs/start/work",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a concise human explanation and link to the detailed items and workflows section.",
+ "outline": ["What an item records", "Choosing Dash, Issue, Epic or Blitz", "What done means"],
+ "terms": ["acceptance-criteria", "backlog", "blitz", "dash", "epic", "issue", "item", "item-reference", "workflow", "workflow-pin"],
+ "commands": ["command:yoke items", "command:yoke workflows"],
+ "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/index.md", "doc:docs/public/workflows/index.md"],
+ "deeper_pages": ["work"],
+ "open_questions": [],
+ "position": 64
+}

@@ -1,0 +1,17 @@
+{
+ "id": "delivery.targets",
+ "title": "Sites, environments and flows",
+ "parent": "delivery",
+ "route": "/docs/delivery/targets",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain deployment destinations and versioned pipeline definitions.",
+ "outline": ["Site and environment", "Stages and stage order", "QA and approvals", "Versioning and disabling flows"],
+ "terms": ["approval", "deployment-flow", "deployment-stage", "deployment-target", "environment", "flow", "site"],
+ "commands": ["command:yoke projects site", "command:yoke projects environment", "command:yoke projects environment-settings", "command:yoke deployment-flows"],
+ "sources": ["doc:docs/public/deployments/model/flows.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 43
+}

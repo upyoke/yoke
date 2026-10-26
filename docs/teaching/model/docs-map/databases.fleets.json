@@ -1,0 +1,17 @@
+{
+ "id": "databases.fleets",
+ "title": "Migration rehearsal and fleets",
+ "parent": "databases",
+ "route": "/docs/databases/fleets",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain checking every database a release must change.",
+ "outline": ["Fleet coverage", "Rehearse before release", "Apply and audit", "Recover from refusal"],
+ "terms": ["migration", "migration-fleet"],
+ "commands": ["command:yoke watch preflight", "command:yoke migration"],
+ "sources": ["doc:docs/public/databases/migrations.md", "doc:docs/public/databases/migration-fleet.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 48
+}

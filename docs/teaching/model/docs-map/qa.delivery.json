@@ -1,0 +1,17 @@
+{
+ "id": "qa.delivery",
+ "title": "QA across deployment",
+ "parent": "qa",
+ "route": "/docs/qa/delivery",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain release-bound QA and producer/consumer proof.",
+ "outline": ["Before and after deployment", "Frozen plan and candidate", "Carry a failure to correction", "Exact producer and consumer pair"],
+ "terms": ["consumer-proof", "deployment-run", "post-deploy-qa", "release", "run-member"],
+ "commands": ["command:yoke qa post-deploy"],
+ "sources": ["doc:docs/public/verification/consumer-proof.md", "doc:docs/public/verification/deployment-plan-execution.md", "doc:docs/public/verification/deployment-qa-continuity.md", "doc:docs/public/verification/failed-item-qa.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 41
+}

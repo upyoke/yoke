@@ -1,0 +1,17 @@
+{
+ "id": "start.qa",
+ "title": "Quality assurance",
+ "parent": "start",
+ "route": "/docs/start/qa",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a concise human explanation and link to the detailed quality assurance section.",
+ "outline": ["Method, plan, case, attachment, requirement and run", "Evidence and verdict", "Where QA gates work"],
+ "terms": ["evidence", "human-acceptance", "qa", "qa-activity", "qa-kind", "qa-method", "qa-plan", "qa-requirement", "qa-subject", "registered-command", "requirement", "verification"],
+ "commands": ["command:yoke qa"],
+ "sources": ["doc:docs/public/verification/index.md", "doc:docs/public/verification/platform.md"],
+ "deeper_pages": ["qa"],
+ "open_questions": [],
+ "position": 68
+}

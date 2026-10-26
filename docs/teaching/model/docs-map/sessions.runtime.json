@@ -1,0 +1,17 @@
+{
+ "id": "sessions.runtime",
+ "title": "Session lifecycle and relay",
+ "parent": "sessions",
+ "route": "/docs/sessions/runtime",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain session registration, liveness, wake-up and background support.",
+ "outline": ["Harness session versus sign-in session", "Registration and heartbeat", "Parking and resuming", "Relay failure and recovery"],
+ "terms": ["harness-session", "machine", "parked-session", "relay", "session", "session-liveness", "session-mode", "stale-session"],
+ "commands": ["command:yoke session-control", "command:yoke relay", "command:yoke harness"],
+ "sources": ["source:global-hooks", "source:project-hooks", "doc:docs/public/sessions/linux-relay.md", "doc:docs/public/sessions/model/sessions.md", "doc:docs/public/sessions/model/coordination.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 24
+}

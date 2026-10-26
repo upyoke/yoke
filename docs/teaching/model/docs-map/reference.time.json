@@ -1,0 +1,17 @@
+{
+ "id": "reference.time",
+ "title": "Time and runtime contracts",
+ "parent": "reference",
+ "route": "/docs/reference/time",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Keep exact timestamp and clock rules available to implementers.",
+ "outline": ["Timestamp encoding", "Clock verification", "Writer ownership"],
+ "terms": ["event", "evidence"],
+ "commands": [],
+ "sources": ["doc:docs/public/runtime/index.md", "doc:docs/public/runtime/time/encoding.md", "doc:docs/public/runtime/time/verification.md", "doc:docs/public/runtime/time/ownership.md", "doc:docs/public/runtime/time/ownership-integrations.md", "doc:docs/public/runtime/time/ownership-verification.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 59
+}

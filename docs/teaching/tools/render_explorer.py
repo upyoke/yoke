@@ -24,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -193,9 +193,11 @@ def build_explorer(views, pages):
     from explorer_inventory import source_snapshot
 
     from explorer_terms import add_terms
+    from explorer_docs_map import add_docs_map
 
     nodes = map_nodes(pages.m)
     add_terms(nodes, pages.m)
+    add_docs_map(nodes, pages.m)
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),

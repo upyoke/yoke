@@ -1,0 +1,17 @@
+{
+ "id": "work.workflow",
+ "title": "Stages, gates and workflow configuration",
+ "parent": "work",
+ "route": "/docs/work/workflow",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain lifecycle progression and what can be configured.",
+ "outline": ["Stage and transition", "Required gates", "Pinned workflow versions", "Defaults and per-item policy"],
+ "terms": ["done", "gate", "review", "stage", "transition", "workflow", "workflow-binding", "workflow-pin"],
+ "commands": ["command:yoke lifecycle", "command:yoke advance", "command:yoke readiness", "command:yoke workflows version", "command:yoke workflows item"],
+ "sources": ["doc:docs/public/workflows/lifecycle.md", "doc:docs/public/workflows/transitions.md", "doc:docs/public/workflows/gates.md", "doc:docs/public/workflows/model/statuses.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 16
+}

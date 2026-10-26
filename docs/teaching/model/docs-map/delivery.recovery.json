@@ -1,0 +1,17 @@
+{
+ "id": "delivery.recovery",
+ "title": "Failed or interrupted deployments",
+ "parent": "delivery",
+ "route": "/docs/delivery/recovery",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain recovery from start failures, cancellation and interrupted QA.",
+ "outline": ["Find the failed stage", "Resume versus start a new run", "Cancel in-flight work", "Keep evidence of the failed attempt"],
+ "terms": ["deployment-run", "deployment-stage", "evidence"],
+ "commands": ["command:yoke deployment-runs failure-trace", "command:yoke deployment-runs terminalize"],
+ "sources": ["doc:docs/public/deployments/start-diagnostics.md", "doc:docs/public/deployments/qa-dispatch.md", "doc:docs/public/deployments/model/ended-runs.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 46
+}

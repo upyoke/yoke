@@ -2,9 +2,11 @@
 function renderViewNav() {
   const nav = document.querySelector('#view-nav');
   nav.replaceChildren();
-  const inIndex = rootOf(focus)?.id === 'view:index';
+  const view = rootOf(focus)?.view || 'sources';
   for (const [label, target, active] of [
-    ['Sources', null, !inIndex], ['Index', byId.get('view:index'), inIndex],
+    ['Sources', null, view === 'sources'],
+    ['Index', byId.get('view:index'), view === 'index'],
+    ['Docs map', byId.get('view:docs-map'), view === 'docs-map'],
   ]) {
     const button = text('button', label, active ? 'active' : '');
     button.onclick = () => choose(target);

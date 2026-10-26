@@ -1,0 +1,17 @@
+{
+ "id": "understand",
+ "title": "What Yoke is",
+ "parent": null,
+ "route": "/docs/understand",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain the product and the human/agent division of work.",
+ "outline": ["Problems Yoke helps solve", "Humans set direction and make decisions", "Agents carry work through the required steps", "Where the dashboard and CLI fit"],
+ "terms": ["control-plane", "dashboard", "universe", "workbench", "yoke"],
+ "commands": ["command:yoke status", "command:yoke ui"],
+ "sources": ["source:homepage", "doc:docs/public/index.md", "doc:docs/public/start/concepts.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 1
+}

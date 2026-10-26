@@ -1,0 +1,17 @@
+{
+ "id": "sessions.levels",
+ "title": "Levels and staffing",
+ "parent": "sessions",
+ "route": "/docs/sessions/levels",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain execution levels, model choice and available capacity.",
+ "outline": ["What levels mean", "How models and effort determine level", "Who assigns work", "Capacity and recovery"],
+ "terms": ["capacity", "execution-level", "fleet", "level", "model", "model-catalog"],
+ "commands": ["command:yoke models", "command:yoke session-control launch", "command:yoke universe level-capacity"],
+ "sources": ["source:roles", "doc:docs/public/agents/levels.md", "doc:docs/public/agents/level-launches.md", "doc:docs/public/agents/capacity-recovery.md", "doc:docs/public/sessions/fleet-policy.md", "doc:docs/public/functions/models.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 23
+}

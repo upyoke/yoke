@@ -1,0 +1,17 @@
+{
+ "id": "work.landing",
+ "title": "Review and merge",
+ "parent": "work",
+ "route": "/docs/work/landing",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how changes move from a lane into the shared branch.",
+ "outline": ["Review before landing", "Merge queue", "Landing evidence", "Merge versus deployment"],
+ "terms": ["delivery", "landing", "merge-queue", "review"],
+ "commands": ["command:yoke item-landings", "command:yoke merge-receipt", "command:yoke github merge-queue", "command:yoke usher"],
+ "sources": ["skill:polish", "skill:usher", "doc:docs/public/github/merge-queue-landings.md", "doc:docs/public/items/model/landings.md", "doc:docs/public/functions/merge-queue-landing-attempts.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 19
+}

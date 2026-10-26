@@ -1,0 +1,17 @@
+{
+ "id": "understand.universes",
+ "title": "Universes and projects",
+ "parent": "understand",
+ "route": "/docs/understand/universes",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain where shared work lives and how projects fit together.",
+ "outline": ["Universe versus project versus checkout", "Local, team-server and hosted choices", "Switching connections"],
+ "terms": ["connection", "hosted-mode", "local-mode", "mode", "project", "self-hosted-mode"],
+ "commands": ["command:yoke projects list", "command:yoke projects get", "command:yoke env", "command:yoke connection"],
+ "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/projects/index.md"],
+ "deeper_pages": [],
+ "open_questions": ["Keep hosting choice here or put it entirely under installation?"],
+ "position": 2
+}

@@ -1,0 +1,17 @@
+{
+ "id": "setup.onboard",
+ "title": "Onboard a project",
+ "parent": "setup",
+ "route": "/docs/setup/onboard",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain adopting goals, existing work and the first delivery.",
+ "outline": ["Understand the project and its existing work", "Agree direction and near-term priorities", "Configure what the first work needs", "Reach the first delivered item"],
+ "terms": ["capability", "current-plan", "item", "onboarding", "project", "strategy"],
+ "commands": ["command:yoke onboard project", "command:yoke strategy ingest"],
+ "sources": ["skill:onboard"],
+ "deeper_pages": [],
+ "open_questions": ["Needs a dedicated human page; current agent setup is not a complete onboarding guide."],
+ "position": 6
+}

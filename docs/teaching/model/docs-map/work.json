@@ -1,0 +1,17 @@
+{
+ "id": "work",
+ "title": "Items and workflows",
+ "parent": null,
+ "route": "/docs/work",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how work is recorded and carried to completion.",
+ "outline": ["What an item records", "Choosing Dash, Issue, Epic or Blitz", "What done means"],
+ "terms": ["acceptance-criteria", "backlog", "blitz", "dash", "epic", "issue", "item", "item-reference", "workflow", "workflow-pin"],
+ "commands": ["command:yoke items", "command:yoke workflows"],
+ "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/index.md", "doc:docs/public/workflows/index.md"],
+ "deeper_pages": [],
+ "open_questions": ["Introduce only the workflow differences humans need; put stage contracts in reference."],
+ "position": 13
+}

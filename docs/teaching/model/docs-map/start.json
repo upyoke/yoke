@@ -1,0 +1,17 @@
+{
+ "id": "start",
+ "title": "Getting started",
+ "parent": null,
+ "route": "/docs/start",
+ "kind": "overview",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give a short tour of Yoke and direct readers to the next explanation they need.",
+ "outline": ["What Yoke does and who it is for", "Say install upyoke.com", "What you decide and what the agent handles", "A brief introduction to each major part of Yoke"],
+ "terms": ["agent", "installation", "onboarding", "project", "setup", "universe", "yoke"],
+ "commands": [],
+ "sources": [],
+ "deeper_pages": ["start.understand", "start.setup", "start.strategy", "start.work", "start.sessions", "start.guidance", "start.configuration", "start.qa", "start.delivery", "start.databases", "start.operations", "start.access"],
+ "open_questions": [],
+ "position": 0
+}
