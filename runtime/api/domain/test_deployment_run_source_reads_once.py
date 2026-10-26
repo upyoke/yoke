@@ -10,6 +10,7 @@ creation lock only covers the database re-check.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 import threading
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSou
 from yoke_core.domain.deployment_run_create_write import CreatedRun, create_run
 from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.timestamps import parse_instant
 
 
 def _release(
@@ -258,8 +260,8 @@ class _Lanes:
     def carrying_commit(self, lane_commit, *, base, head, commits):
         return ""
 
-    def commit_time(self, sha: str) -> None:
-        return None
+    def commit_time(self, sha: str) -> datetime:
+        return parse_instant(LANDED_AT)
 
     def warnings(self) -> list:
         return []
