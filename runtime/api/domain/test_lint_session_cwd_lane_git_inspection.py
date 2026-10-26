@@ -55,6 +55,12 @@ ALLOWED_COMMANDS = (
     "git -C {lane} branch -a -vv",
     "git -C {lane} remote -v",
     "git -C {lane} config --list",
+    "git -C {lane} remote get-url origin",
+    "git -C {lane} config --get user.email",
+    "git -C {lane} branch --contains HEAD",
+    "git -C {lane} branch -r --merged main",
+    "git -C {lane} remote show origin",
+    "git -C {lane} config user.email",
 )
 
 # Writes and state moves, plus the shell shapes that reach a write
@@ -75,6 +81,13 @@ REFUSED_COMMANDS = (
     "git -C {lane} worktree prune",
     "git -C {lane} branch -d topic",
     "git -C {lane} config user.email me@example.com",
+    "git -C {lane} branch -D x",
+    "git -C {lane} branch -m a b",
+    "git -C {lane} branch --unset-upstream",
+    "git -C {lane} remote add x url",
+    "git -C {lane} remote set-url x u",
+    "git -C {lane} config user.email x",
+    "git -C {lane} config --unset k",
     "git -C {lane} status > {lane}/status.txt",
     "git -C {lane} diff | tee {lane}/diff.txt",
     "git -C {lane} status && git -C {lane} add .",
@@ -292,7 +305,7 @@ def test_script_data_and_file_operands_stay_distinct(command, expected):
 
 
 def test_git_config_value_does_not_hide_subcommand():
-    from yoke_core.domain.lint_session_cwd_read_only_signatures import git_subcommand
+    from yoke_core.domain.lint_session_cwd_git_read_forms import git_subcommand
 
     assert git_subcommand(["git", "-c", "alias.peek=status", "status"]) == "status"
     assert is_read_only_git_inspection("git -c alias.peek=status status")
