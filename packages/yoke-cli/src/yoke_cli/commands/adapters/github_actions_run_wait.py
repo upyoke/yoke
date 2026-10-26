@@ -14,9 +14,10 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.commands.adapters import github_actions_workflow
+from yoke_cli.transport.dispatcher import build_actor, emit_response
 from yoke_cli.transport.session_liveness import ClientSessionLiveness
-from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
+from yoke_contracts.api.function_call import FunctionCallResponse
 
 
 GITHUB_ACTIONS_WAIT_RUN_USAGE = (
@@ -102,11 +103,10 @@ def wait_for_run_completion(
     )
     while True:
         liveness.tick()
-        response = call_dispatcher(
+        response = github_actions_workflow._call(
             function_id="github_actions.wait_run",
-            target=TargetRef(kind="global"),
             payload=dict(payload),
-            actor=actor,
+            session_id=session_id,
         )
         result = response.result or {}
         if response.success:
