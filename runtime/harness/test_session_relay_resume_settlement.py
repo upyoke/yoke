@@ -79,13 +79,15 @@ def _spawn(tmp_path: Path, script: str):
     )
 
 
-def _await_outcome(capture_path: Path) -> None:
-    """Wait for the supervisor to seal the capture with the native's exit."""
+def _await_outcome(capture_path: Path, pid: int) -> None:
+    """Wait for the supervisor to seal the capture and for the relay to reap it."""
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         try:
             if b"exit-code:" in capture_path.read_bytes():
-                return
+                os.kill(pid, 0)
+        except ProcessLookupError:
+            return
         except OSError:
             pass
         time.sleep(0.05)
@@ -132,8 +134,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
         lease_id=LEASE_ID,
     )
     assert resumed is not None
-    _await_outcome(resumed.capture_path)
-    os.waitpid(resumed.pid, 0)
+    _await_outcome(resumed.capture_path, resumed.pid)
     assert resumed.capture_path.parent == relay / "native-diagnostics"
     assert supervision_record_path(ATTEMPT_ID, custody).exists()
 
@@ -189,8 +190,7 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
     )
 
     assert resumed is not None
-    _await_outcome(resumed.capture_path)
-    os.waitpid(resumed.pid, 0)
+    _await_outcome(resumed.capture_path, resumed.pid)
     dispatcher = _Dispatcher()
 
     settled = settle_finished_native_resumes(
@@ -224,8 +224,7 @@ def test_native_exiting_cleanly_settles_the_attempt_as_completed(
     resumed = _spawn(tmp_path, "print('resumed turn')")
 
     assert resumed is not None
-    _await_outcome(resumed.capture_path)
-    os.waitpid(resumed.pid, 0)
+    _await_outcome(resumed.capture_path, resumed.pid)
     dispatcher = _Dispatcher()
 
     settle_finished_native_resumes(

@@ -123,6 +123,7 @@ def test_the_relay_python_reaches_the_supervisor_and_stops_at_the_native(
         lambda *_args, **_kwargs: True,
     )
 
+    supervisors: list[subprocess.Popen[bytes]] = []
     started = session_relay_native_spawn.spawn_supervised_native(
         native,
         checkout=tmp_path,
@@ -131,11 +132,14 @@ def test_the_relay_python_reaches_the_supervisor_and_stops_at_the_native(
         native_session_id=None,
         binary_source="path",
         state_dir=tmp_path / "native-state",
+        process_factory=lambda *args, **kwargs: (
+            supervisors.append(subprocess.Popen(*args, **kwargs)) or supervisors[-1]
+        ),
     )
 
     assert started is not None
-    _pid, wait_status = os.waitpid(started.pid, 0)
-    assert os.waitstatus_to_exitcode(wait_status) == 0
+    # The relay's reaper waits on this supervisor too; Popen.wait is shared.
+    assert supervisors[0].wait() == 0
 
     # The supervisor is a Python process and read the inherited import path;
     # the native is not, so the one recorded startup is the supervisor's.

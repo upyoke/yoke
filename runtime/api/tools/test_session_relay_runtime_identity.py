@@ -215,6 +215,7 @@ def test_release_updates_keep_one_runtime_and_supervised_children_on_the_pin(
         "sys",
         SimpleNamespace(executable=str(second.runtime_python)),
     )
+    supervisors: list[subprocess.Popen[bytes]] = []
     started = session_relay_native_spawn.spawn_supervised_native(
         ["/usr/bin/true"],
         checkout=tmp_path,
@@ -223,11 +224,14 @@ def test_release_updates_keep_one_runtime_and_supervised_children_on_the_pin(
         native_session_id=None,
         binary_source="path",
         state_dir=tmp_path / "native-state",
+        process_factory=lambda *args, **kwargs: (
+            supervisors.append(subprocess.Popen(*args, **kwargs)) or supervisors[-1]
+        ),
     )
 
     assert started is not None
-    _pid, wait_status = os.waitpid(started.pid, 0)
-    assert os.waitstatus_to_exitcode(wait_status) == 0
+    # The relay's reaper waits on this supervisor too; Popen.wait is shared.
+    assert supervisors[0].wait() == 0
     child = json.loads(child_probe.read_text(encoding="utf-8"))
     assert child["release"] == SECOND_RELEASE
     assert Path(child["module"]).resolve().is_relative_to(second_release_root)
