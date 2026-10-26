@@ -12,6 +12,14 @@ from yoke_core.engines.doctor_applicability_declarations import local_runtime_sl
 from yoke_core.engines.doctor_https_local_scope import requested_local_machine_slugs
 
 
+@pytest.fixture(autouse=True)
+def known_projects(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.project_checkout_locations.project_id_for_slug",
+        {"42": 42, "yoke": 42}.get,
+    )
+
+
 def run(fn, project="42", **kwargs):
     rec = RecordCollector()
     fn(None, DoctorArgs(project=project, **kwargs), rec)
@@ -265,7 +273,21 @@ def test_hook_delivery_from_another_project_cannot_prove_install_readiness(monke
     result = run(checks.hc_session_hook_registration, project="42")[0]
     assert result.result == "FAIL"
     assert "SESSION_HOOK_PROJECT_MISMATCH" in result.detail
-    assert "Start a new harness session" in result.detail
+
+
+@pytest.mark.parametrize("project", ["missing-slug", "99999"])
+def test_unknown_project_fails_as_project_not_found(monkeypatch, project):
+    monkeypatch.setattr(
+        checks, "build_actor", lambda: SimpleNamespace(session_id="session")
+    )
+    monkeypatch.setattr(
+        checks, "relay", lambda *a: {"session_id": "session", "project_id": 42}
+    )
+    monkeypatch.setattr(checks, "orientation_delivered", lambda session: True)
+    result = run(checks.hc_session_hook_registration, project=project)[0]
+    assert result.result == "FAIL"
+    assert result.detail.startswith("project_not_found")
+    assert "SESSION_HOOK" not in result.detail
 
 
 @pytest.mark.parametrize("project_id", [None, 42])

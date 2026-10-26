@@ -15,7 +15,6 @@ from __future__ import annotations
 import os
 import unittest
 import uuid
-from pathlib import Path
 from unittest import mock
 
 from yoke_core.hooks.codex_payload import (
@@ -90,10 +89,6 @@ class _Invoker:
         )
 
         with (
-            mock.patch(
-                "yoke_harness.hooks.identity_codex_runtime.codex_transcript_candidates",
-                return_value=[Path(__file__)],
-            ),
             mock.patch(
                 "yoke_core.hooks.codex_payload.resolve_session_id",
                 return_value=sid,

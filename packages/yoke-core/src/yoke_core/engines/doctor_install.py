@@ -212,14 +212,17 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
         if args.project:
             from yoke_core.domain.project_checkout_locations import project_id_for_slug
 
-            requested = str(args.project)
-            expected_project = (
-                int(requested)
-                if requested.isdigit()
-                else project_id_for_slug(requested)
-            )
+            expected_project = project_id_for_slug(str(args.project))
             if expected_project is None:
-                raise _SessionHookUnproven(f"{requested!r} is not a project slug or id")
+                rec.record(
+                    "session-hook-registration",
+                    "This session received a registering hook",
+                    "FAIL",
+                    f"project_not_found: {str(args.project)!r} is not a project "
+                    "slug or id. Run `yoke projects list`, then rerun with an "
+                    "existing `--project`.",
+                )
+                return
             if str(identity.get("project_id")) != str(expected_project):
                 raise _SessionHookUnproven("SESSION_HOOK_PROJECT_MISMATCH")
         project_id = identity.get("project_id")
