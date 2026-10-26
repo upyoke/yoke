@@ -27,6 +27,12 @@ def scalar(value: Any) -> str:
     return str(value)
 
 
+def _one_line_cell(value: Any) -> bool:
+    return not isinstance(value, (Mapping, list, tuple)) and not any(
+        char in scalar(value) for char in "\n\r|"
+    )
+
+
 def write_human(
     value: Any, stream: TextIO, *, heading: str = "Result", indent: int = 0
 ) -> None:
@@ -37,7 +43,14 @@ def write_human(
             print(f"{pad}{heading}: empty.", file=stream)
         for key, child in value.items():
             name = label(key)
-            if isinstance(child, (Mapping, list, tuple)) and child:
+            if (
+                isinstance(child, (Mapping, list, tuple))
+                and child
+                and not (
+                    isinstance(child, (list, tuple))
+                    and all(_one_line_cell(v) for v in child)
+                )
+            ):
                 print(f"{pad}{name}:", file=stream)
                 write_human(child, stream, heading=name, indent=indent + 2)
             else:
@@ -45,13 +58,18 @@ def write_human(
     elif isinstance(value, (list, tuple)):
         if not value:
             print(f"{pad}{heading}: no entries.", file=stream)
+        elif all(_one_line_cell(cell) for cell in value):
+            print(f"{pad}{heading}: " + " | ".join(map(scalar, value)), file=stream)
         elif all(
-            isinstance(row, Mapping)
-            and all(
-                not isinstance(v, (Mapping, list, tuple))
-                and not (isinstance(v, str) and any(char in v for char in "\n\r|"))
-                for v in row.values()
-            )
+            isinstance(row, (list, tuple))
+            and row
+            and all(_one_line_cell(cell) for cell in row)
+            for row in value
+        ):
+            for row in value:
+                print(pad + " | ".join(map(scalar, row)), file=stream)
+        elif all(
+            isinstance(row, Mapping) and all(_one_line_cell(v) for v in row.values())
             for row in value
         ):
             columns = list(dict.fromkeys(key for row in value for key in row))
