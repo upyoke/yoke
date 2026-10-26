@@ -99,7 +99,7 @@ def test_the_client_reports_no_tail_when_capture_is_off() -> None:
 
 @pytest.mark.parametrize(
     ("body", "code"),
-    [("exec sleep 30", "timeout"), ("exit 0", "eof")],
+    [("exec sleep 30", "timeout"), ("read request; exit 0", "eof")],
 )
 def test_a_failed_initialize_leaves_no_app_server_child(
     tmp_path: Path, monkeypatch, body: str, code: str
