@@ -21,6 +21,23 @@ def test_a_host_command_without_a_machine_is_refused() -> None:
     assert "method_config.test_machine" in str(refused.value)
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke --env prod test-machine verify --project yoke --test-machine windows-lab",
+        "cd /tmp && /usr/local/bin/yoke test-machine reset --project yoke",
+    ],
+)
+def test_global_flags_and_compound_lines_still_need_a_machine(command) -> None:
+    with pytest.raises(QaMethodConfigError):
+        validate_method_config("command", {"command": command})
+
+
+def test_a_command_merely_naming_test_machine_needs_no_machine() -> None:
+    command = "echo yoke test-machine"
+    assert validate_method_config("command", {"command": command})["command"] == command
+
+
 def test_a_host_command_declaring_its_machine_is_accepted() -> None:
     config = validate_method_config(
         "command", {"command": HOST_COMMAND, "test_machine": "linux-lab"}

@@ -69,7 +69,7 @@ def _patch_resolution(monkeypatch, env=None, outputs=None):
     activations = []
     monkeypatch.setattr(
         deploy_environment_bootstrap,
-        "ensure_instance_running",
+        "ensure_origin_running",
         lambda runner, env_, aws_env, emit: activations.append("run")
         or "i-0abc",
     )

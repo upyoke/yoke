@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from yoke_contracts.coordination_claim_recovery import holder_release_command
 from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.cloud_machine_release_notice import note_released_host
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_plan_execution_store import marker as _p
@@ -230,16 +231,18 @@ def reservation_for(conn: Any, claim: Any, session_id: str) -> bool:
 
 
 def host_claim_released(conn: Any, claim: Any) -> None:
-    """A released host drops its unconsumed reservation, then serves the line."""
-    if not claim.target.test_machine or not _has_line(conn):
+    """Drop the unconsumed reservation, serve the line, note a host left free."""
+    if not claim.target.test_machine:
         return
-    p = _p(conn)
-    conn.execute(
-        f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
-        f"WHERE claim_id={p} AND state='reserved'",
-        (instant_parameter(conn, utc_now()), claim.id),
-    )
-    reserve_host_turn(conn, claim.target)
+    if _has_line(conn):
+        p = _p(conn)
+        conn.execute(
+            f"UPDATE qa_test_machine_waits SET state='cancelled',settled_at={p} "
+            f"WHERE claim_id={p} AND state='reserved'",
+            (instant_parameter(conn, utc_now()), claim.id),
+        )
+        reserve_host_turn(conn, claim.target)
+    note_released_host(conn, claim.target)
 
 
 def cancel_host_waits(

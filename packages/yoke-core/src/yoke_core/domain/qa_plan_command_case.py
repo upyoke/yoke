@@ -50,6 +50,10 @@ def begin_command_host(
         return dict(begun["result"])
     if begun.get("state") != "ready" or not isinstance(begun.get("execution"), dict):
         raise ValueError("declared-host Command admission returned no lease contract")
+    from yoke_core.domain.cloud_machine_power import power_on
+
+    # The Command reaches the host itself, so its leased host must be up first.
+    power_on(str(begun["execution"]["project"]), begun["execution"]["settings"])
     return None
 
 

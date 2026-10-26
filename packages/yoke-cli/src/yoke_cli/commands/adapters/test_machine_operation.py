@@ -9,6 +9,7 @@ machine is never left leased by an execution that has already stopped.
 from __future__ import annotations
 
 import argparse
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,11 @@ def run_host_operation(
     )
 
 
+def _power() -> Any:
+    """Cloud Test Machine start runs here, where the aws-admin key lives."""
+    return importlib.import_module("yoke_core.domain.cloud_machine_power")
+
+
 def _execute(
     *,
     operation: str,
@@ -139,6 +145,7 @@ def _execute(
             execute_host_operation_contract,
         )
 
+        _power().power_on(execution["project"], execution["settings"])
         submission = execute_host_operation_contract(
             execution,
             probes_document=probes_document,

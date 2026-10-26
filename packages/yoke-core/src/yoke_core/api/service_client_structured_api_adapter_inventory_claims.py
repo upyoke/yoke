@@ -89,6 +89,10 @@ CLAIMS_ADAPTERS = [
         "python3 -m yoke_core.api.service_client coordination-claim-acquire",
     ),
     AdapterEntry(
+        "claims.coordination_claim.acquire_if_free",
+        "python3 -m yoke_core.domain.cloud_machine_power (cloud host stop hold)",
+    ),
+    AdapterEntry(
         "claims.coordination_claim.heartbeat",
         "python3 -m yoke_core.api.service_client coordination-claim-heartbeat",
     ),

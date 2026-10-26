@@ -118,6 +118,15 @@ def _reserved(key: str) -> bool:
 
 
 def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
+    return _acquire(request, join_line=True)
+
+
+def handle_acquire_if_free(request: FunctionCallRequest) -> HandlerOutcome:
+    """Take the claim only when it is free; a refusal never joins a host line."""
+    return _acquire(request, join_line=False)
+
+
+def _acquire(request: FunctionCallRequest, *, join_line: bool) -> HandlerOutcome:
     try:
         body = AcquireRequest.model_validate(request.payload)
     except Exception as exc:
@@ -158,6 +167,8 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 if isinstance(exc, CoordinationClaimStaleHolderError)
                 else "claim_held"
             )
+            if not join_line:
+                return _err(code, str(exc))
             return _err(
                 code, _join_host_line(conn, request, body, identity, target, exc)
             )

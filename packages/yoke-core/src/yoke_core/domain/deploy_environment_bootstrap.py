@@ -44,7 +44,7 @@ from yoke_core.domain.deploy_core_container import (
 )
 from yoke_core.domain.deploy_environment_activate import (
     EnvironmentActivateError,
-    ensure_instance_running,
+    ensure_origin_running,
     wait_ssh_reachable,
 )
 from yoke_core.domain.deploy_environment_settings import (
@@ -131,7 +131,7 @@ def exec_environment_bootstrap(
         )
 
         aws_env = aws_capability_env(env.project, env.aws_region)
-        ensure_instance_running(runner, env, aws_env, emit)
+        ensure_origin_running(runner, env, aws_env, emit)
         wait_ssh_reachable(runner, env, emit)
         dsn, outputs = resolve_environment_dsn(runner, env, aws_env, emit=emit)
 

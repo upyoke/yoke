@@ -280,7 +280,7 @@ def test_onboard_dispatch_redacts_every_echo_of_transient_token(
                 recovery_hint=f"never repeat {token}",
             ),
         )
-        return dispatcher._redact_response(raw, kwargs["sensitive_values"])
+        return dispatcher._settle_response(raw, kwargs["sensitive_values"])
 
     monkeypatch.setattr(
         project_onboard_support,

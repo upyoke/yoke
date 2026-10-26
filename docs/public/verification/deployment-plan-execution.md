@@ -149,11 +149,11 @@ host is never reserved: it stays free for the operator's
 operation's successful release wakes the first waiter. A plan case whose host
 SSH cannot reach (`ssh_unavailable`: connect timeout, refusal, no route or a
 rejected key) records that failed verification itself and queues the same way
-instead of recording an error verdict. Yoke never starts a stopped host: start
-it (or repair its SSH), then run `yoke test-machine verify`. Reset and diagnosis
-receipts do not change health. Ending the session, settling the execution, or
-releasing an unused reservation cancels the wait and passes a reserved turn to
-the next waiter.
+instead of recording an error verdict. Leases start and stop cloud hosts;
+start others (or repair SSH), then run `yoke test-machine verify`. Reset and
+diagnosis receipts do not change health. Ending the session, settling the
+execution, or releasing an unused reservation cancels the wait and passes a
+reserved turn to the next waiter.
 
 Removing a release member ends its QA execution and releases its hosts when
 every mission already recorded its walk-end restore. Otherwise the removed

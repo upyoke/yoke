@@ -286,7 +286,10 @@ def materialize_test_machine(
 def resolve_contract_host_control(
     contract: TestMachineContract | Mapping[str, Any],
 ) -> tuple[HostControl, TestMachineMaterial]:
-    """Materialize a server-issued contract on the credential-owning machine."""
+    """Materialize a server-issued contract on the credential-owning machine.
+
+    A cloud Test Machine is started here, before its first host command.
+    """
     if _factory is None:
         raise HostControlLocalError(
             code="host_control_runner_unavailable",
@@ -295,6 +298,9 @@ def resolve_contract_host_control(
             recovery_hint="Run the operation through the registered Yoke CLI command.",
         )
     material = materialize_test_machine_contract(contract)
+    from yoke_core.domain.cloud_machine_power import power_on
+
+    power_on(material.project, material.settings)
     return _factory(material), material
 
 

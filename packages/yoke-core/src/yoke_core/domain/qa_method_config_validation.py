@@ -30,6 +30,27 @@ HOST_COMMAND_NEEDS_MACHINE = (
     "turn and runs under the plan's lease."
 )
 
+def calls_test_machine(command: str) -> bool:
+    """Whether the command line runs ``yoke test-machine``, global flags included.
+
+    ``yoke --env prod test-machine verify`` reaches the host as surely as the
+    bare form. Text the shell parser cannot split is matched by its words.
+    """
+    from yoke_contracts.hook_runner.shell_parse import parse_shell
+    from yoke_core.domain.lint_session_cwd_host_command import (
+        yoke_subcommand_positionals,
+    )
+
+    parsed = parse_shell(command)
+    return any(
+        segment.program == "yoke"
+        and yoke_subcommand_positionals(segment.argv, limit=1) == ["test-machine"]
+        for segment in parsed.segments
+    ) or any(
+        "yoke" in text and "test-machine" in text for text in parsed.unparsed
+    )
+
+
 _PYTHON_BODY_PREFIXES = (
     "import ",
     "from ",
@@ -142,7 +163,7 @@ def validate_method_config(
         if (
             config_contract_id == "command"
             and test_machine is None
-            and "yoke test-machine" in config["command"]
+            and calls_test_machine(config["command"])
         ):
             raise QaMethodConfigError(HOST_COMMAND_NEEDS_MACHINE)
         timeout = config.get("timeout_seconds")

@@ -109,7 +109,14 @@ def test_operation_adapter_preserves_connection_failure_result(
             success=True,
             function="test_machine.operation.begin",
             version="v1",
-            result={"execution": {"lease_id": 19, "contract_digest": "digest-19"}},
+            result={
+                "execution": {
+                    "lease_id": 19,
+                    "contract_digest": "digest-19",
+                    "project": "example",
+                    "settings": {"resource_name": "lab"},
+                }
+            },
         ),
         FunctionCallResponse(
             success=True,

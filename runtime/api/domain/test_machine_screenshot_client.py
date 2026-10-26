@@ -40,7 +40,7 @@ def test_screenshot_cli_keeps_only_accepted_png_and_fails_error_receipt(
                 success=True,
                 function="test_machine.operation.begin",
                 version="v1",
-                result={"execution": {"lease_id": 23, "contract_digest": "digest"}},
+                result={"execution": {"lease_id": 23, "contract_digest": "digest", "project": "example", "settings": {"resource_name": "lab"}}},
             ),
             FunctionCallResponse(
                 success=True,

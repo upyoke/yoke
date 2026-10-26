@@ -32,7 +32,7 @@ def deploy_seams(monkeypatch):
     )
     monkeypatch.setattr(
         deploy_ephemeral,
-        "ensure_instance_running",
+        "ensure_origin_running",
         lambda runner, env, aws_env, emit: None,
     )
     monkeypatch.setattr(
