@@ -94,11 +94,11 @@ def test_delivery_guidance_stays_in_startup_for_multiple_messages() -> None:
         FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
     ):
         assert guidance not in rendered
-    for message_id in (MESSAGE_ID, second_id):
-        assert (
-            rendered.count(f"Acknowledge: `yoke messages acknowledge {message_id}`")
-            == 1
-        )
+    commands = [line.split() for line in rendered.splitlines()
+                if line.startswith("Acknowledge:")]
+    assert len(commands) == 1
+    assert commands[0][1:4] == ["yoke", "messages", "acknowledge"]
+    assert commands[0][4:] == [MESSAGE_ID, second_id]
 
 
 def test_short_body_delivery_has_bounded_fixed_wrapper() -> None:

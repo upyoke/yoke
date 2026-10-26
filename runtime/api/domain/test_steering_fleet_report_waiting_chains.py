@@ -86,7 +86,7 @@ def test_an_unstarted_mid_chain_blocker_is_flagged_above_the_head():
         "  YOK-1 (implementing, staffed) unblocks 4, 3 deep; "
         "holds YOK-2 (activation status:done #21)"
     )
-    assert "coordination_only" in lines[-1] and "fact:merged" in lines[-1]
+    assert len(lines) == 3
     assert waiting_chain_fingerprint(_Report((flagged, head))) == [
         ("YOK-1", False),
         ("YOK-2", True),

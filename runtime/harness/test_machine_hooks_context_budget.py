@@ -121,8 +121,8 @@ def _delivery(index: int, body_bytes: int) -> tuple[str, str]:
         f"{message_id} ===\n"
         "Authenticated sender: steering\n"
         f"| {json.dumps('x' * body_bytes)}\n"
-        f"Acknowledge: `yoke messages acknowledge {message_id}`\n"
-        "=== END YOKE SESSION MESSAGE DELIVERY ==="
+        "=== END YOKE SESSION MESSAGE DELIVERY ===\n\n"
+        f"Acknowledge: yoke messages acknowledge {message_id}"
     )
     return message_id, block
 

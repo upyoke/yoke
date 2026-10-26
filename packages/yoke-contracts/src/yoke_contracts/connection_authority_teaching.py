@@ -14,13 +14,6 @@ command to the control-plane operator. Name the required operation and the
 registered surfaces checked. `yoke env list` shows configured connections.
 """
 
-# Compact session-packet stanza: kinds of authority, not a config dump.
-CONNECTION_AUTHORITY_STANZA = (
-    "Connections: `yoke env list`. HTTPS is product authority; writes use "
-    "registered `yoke` commands, `yoke db` is read-only. Escalate missing "
-    "mutations to the control-plane operator."
-)
-
 # Human footer on `yoke env list`. JSON inventory stays sanitized rows.
 ENV_LIST_AUTHORITY_FOOTER = (
     "https = normal product/API authority (registered yoke commands; "
@@ -32,7 +25,6 @@ ENV_LIST_AUTHORITY_FOOTER = (
 
 
 __all__ = [
-    "CONNECTION_AUTHORITY_STANZA",
     "DB_GROUP_TEACHING",
     "ENV_LIST_AUTHORITY_FOOTER",
 ]
