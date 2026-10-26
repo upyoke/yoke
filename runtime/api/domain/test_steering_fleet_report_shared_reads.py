@@ -118,7 +118,7 @@ def _wire_github(monkeypatch, *, queue_error: str = "") -> Counter:
     calls: Counter[str] = Counter()
     calls["elapsed"] = 0
 
-    def projection(_ctx, pr_number):
+    def projection(_ctx, pr_number, **_kwargs):
         calls[f"pr_projection:{pr_number}"] += 1
         calls["elapsed"] += 1
         return PrLandingProjection(
@@ -126,7 +126,7 @@ def _wire_github(monkeypatch, *, queue_error: str = "") -> Counter:
             required_checks=(),
         )
 
-    def queue_members(_ctx, base_branch="main"):
+    def queue_members(_ctx, base_branch="main", **_kwargs):
         calls[f"queue_members:{base_branch}"] += 1
         calls["elapsed"] += 1
         if queue_error:
