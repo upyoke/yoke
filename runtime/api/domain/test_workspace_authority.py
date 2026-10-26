@@ -64,8 +64,6 @@ def test_session_with_only_no_worktree_claims_is_no_op(
     worktree lane (idea/refine-phase items). Without worktree claims the helper
     has no authority signal to enforce — fall through to no-op (same
     posture the per-tool-call lint takes for sessions with no claims).
-    Authority for pre-implementation lifecycles is enforced by
-    ``lint_session_cwd_pre_implementing``, not by this writer guard.
     """
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
     _seed_project(patch_conn, "/opt/yoke-test")

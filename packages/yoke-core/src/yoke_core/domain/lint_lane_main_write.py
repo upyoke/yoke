@@ -61,7 +61,6 @@ from yoke_core.domain.lint_lane_main_write_emit import (
 )
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, format_denial
 from yoke_core.domain.lint_session_cwd_path_authority import derive_repo_roots
-from yoke_core.domain.lint_session_cwd_status import is_pre_implementing_status
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.lint_session_cwd_item_lookup import (
     lookup_item_status,
@@ -105,7 +104,7 @@ def _extract_session_id(payload: Mapping[str, Any]) -> str:
 def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
     status = lookup_item_status(conn, claim.item_id)
     workflow = lookup_item_workflow(conn, claim.item_id)
-    return not is_pre_implementing_status(workflow, status)
+    return not (workflow is not None and status and workflow.is_before_implementation(status))
 
 
 def evaluate_pre_tool_use(

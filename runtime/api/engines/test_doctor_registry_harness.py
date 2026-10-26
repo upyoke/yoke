@@ -24,7 +24,6 @@ _ENGINE_SESSION_SLUGS = (
     "stale-reclaim-collision",
     "local-operating-actor-authority",
     "session-cwd-binding",
-    "session-pre-implementing-activity",
 )
 _ENGINE_CONFIG_SLUGS = (
     "launcher-authority",

@@ -85,8 +85,7 @@ Missing session identity refuses mutations.
 
 Foreign lane occupancy is checked before own-claim scope. Reads/plain sanctioned
 Git inspection can inspect another holder's lane; writes, redirects, compound
-mutations and state moves refuse. A claimed pre-implementation lane refuses
-mutation by its pinned workflow/status gate. No-claim operator/maintenance
+mutations and state moves refuse. No-claim operator/maintenance
 contexts retain their defined posture after identity/foreign-lane checks; this
 is not a permission to enter another item's live lane. Client-evidenced machine
 roots and session-scoped watcher scratch preserve the same authority over relay.

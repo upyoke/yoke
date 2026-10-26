@@ -23,7 +23,7 @@ Regression sources:
 
 The tests cover quoting, compound mutation, unknown syntax, remote argv with
 local redirects, embedded Python writes, protected reads/traversal, foreign
-lanes, pre-implementation writes and client-home authority across harnesses.
+lanes and client-home authority across harnesses.
 Fail-open is an assertion failure. Keep guard verdict separate from process
 exit, and mark missing authority evidence inconclusive.
 

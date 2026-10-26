@@ -76,12 +76,6 @@ MACHINE_SETTING_KEYS: Dict[str, SettingSpec] = {
     "session_timing_retain_days": SettingSpec(
         30, int, "days of session timing samples retained before pruning", minimum=0
     ),
-    "lint_session_cwd_status_mode": SettingSpec(
-        "deny",
-        str,
-        "warn or deny for the pre-implementation session-cwd guardrail",
-        allowed_values=("warn", "deny"),
-    ),
     "path_claim_activation_db_lock_retry_initial_ms": SettingSpec(
         100,
         int,

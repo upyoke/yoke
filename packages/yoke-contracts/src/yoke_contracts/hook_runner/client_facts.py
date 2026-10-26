@@ -44,10 +44,8 @@ SOURCE_ROOT_KEY = "_yoke_client_yoke_source_root"
 MAIN_HEAD_KEY = "_yoke_client_main_head"
 
 #: Machine settings keys the chain reads through ``MACHINE_SETTINGS_KEY``.
-SESSION_CWD_STATUS_MODE_SETTING = "lint_session_cwd_status_mode"
 MONITOR_RELAY_REMINDER_SETTING = "monitor_relay_hint_text"
 FACT_MACHINE_SETTINGS: tuple[str, ...] = (
-    SESSION_CWD_STATUS_MODE_SETTING,
     MONITOR_RELAY_REMINDER_SETTING,
 )
 
@@ -150,7 +148,6 @@ __all__ = [
     "MAIN_HEAD_HISTORY",
     "MAIN_HEAD_KEY",
     "MONITOR_RELAY_REMINDER_SETTING",
-    "SESSION_CWD_STATUS_MODE_SETTING",
     "SOURCE_ROOT_KEY",
     "WRITE_TARGETS_KEY",
     "capture_file_state",

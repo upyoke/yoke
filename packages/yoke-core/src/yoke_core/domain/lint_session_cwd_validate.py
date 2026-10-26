@@ -1,7 +1,7 @@
-"""Validate targets against claims, lane occupancy, status, and machine context.
+"""Validate targets against claims, lane occupancy, and machine context.
 
-Read-shaped calls pass without path checks. Mutations retain claim, lane,
-status and executing-machine authority; calls with no operands use their cwd.
+Read-shaped calls pass without path checks. Mutations retain claim, lane
+and executing-machine authority; calls with no operands use their cwd.
 """
 
 from __future__ import annotations
@@ -32,10 +32,6 @@ from yoke_core.domain.lint_session_cwd_foreign_lane import (
     governed_targets,
     is_lane_mutation,
 )
-from yoke_core.domain.lint_session_cwd_status import (
-    FAILURE_CLASS as _PRE_IMPL_FAILURE_CLASS,
-    is_pre_implementing_status,
-)
 from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
 )
@@ -48,10 +44,6 @@ from yoke_core.domain.session_claimed_worktrees import (
 )
 from yoke_core.domain.lint_shell_path_use import PathRole, PathUse, is_capacity_target
 from yoke_core.domain.lint_payload_path_use import UNRESOLVED_HOME_PATH
-from yoke_core.domain.lint_session_cwd_item_lookup import (
-    lookup_item_status,
-    lookup_item_workflow,
-)
 
 
 SCOPE_FAILURE_CLASS = "scope_mismatch"
@@ -63,7 +55,7 @@ class ValidationVerdict:
     """Outcome of validating one tool call against session authority.
 
     ``allow=True`` means no deny payload. ``failure_class`` names the deny:
-    ``scope_mismatch``, ``pre_implementing_status``, or ``foreign_lane``.
+    ``scope_mismatch`` or ``foreign_lane``.
     The matching context fields are set on a deny.
     """
 
@@ -73,8 +65,6 @@ class ValidationVerdict:
     repo_roots: Sequence[str] = field(default_factory=tuple)
     session_id: str = ""
     failure_class: str = SCOPE_FAILURE_CLASS
-    matched_claim: Optional[ClaimedWorktree] = None
-    item_status: Optional[str] = None
     occupant: Optional[LaneOccupant] = None
 
 
@@ -164,25 +154,6 @@ def validate_targets(
         )
 
     for raw in targets_to_check:
-        worktree_match = _matching_claim(raw, claims)
-        if worktree_match is not None:
-            # Target is inside a claimed worktree — the status gate applies
-            # only to this branch. Control-plane and free-path targets stay
-            # status-agnostic by design.
-            status = lookup_item_status(conn, worktree_match.item_id)
-            workflow = lookup_item_workflow(conn, worktree_match.item_id)
-            if mutation and is_pre_implementing_status(workflow, status):
-                return ValidationVerdict(
-                    allow=False,
-                    offending_target=_resolve_for_display(raw),
-                    claims=claims,
-                    repo_roots=repo_roots,
-                    session_id=session_id,
-                    failure_class=_PRE_IMPL_FAILURE_CLASS,
-                    matched_claim=worktree_match,
-                    item_status=status,
-                )
-            continue
         if _is_target_authorised(
             raw,
             claims=claims,
@@ -296,24 +267,6 @@ def _is_free_path(
 
 def _is_under_tool_dir(target: str) -> bool:
     return _path_is_under_tool_dir(target, prefixes=TOOL_DIR_PREFIXES)
-
-
-def _matching_claim(
-    target: str,
-    claims: Sequence[ClaimedWorktree],
-) -> Optional[ClaimedWorktree]:
-    """Return the claim whose worktree contains ``target``, or ``None``.
-
-    The lookup orders by claim insertion (matching ``claimed_worktrees``),
-    so the first claim that covers the path wins. Free-path and
-    control-plane targets are out of scope here — the caller checks
-    them separately so the status gate fires only on the worktree
-    branch.
-    """
-    for claim in claims:
-        if _is_inside(target, claim.worktree_path):
-            return claim
-    return None
 
 
 __all__ = [

@@ -5,10 +5,6 @@ joined to ``items`` / ``epic_tasks`` plus the machine checkout map.
 These helpers seed that shape on a disposable Postgres test database
 (:func:`runtime.api.fixtures.pg_testdb.test_database`), whose fixture
 schema pre-seeds the ``yoke`` (id 1) and ``externalwebapp`` (id 2) project rows.
-
-Items default to ``status='implementing'`` so the pre-implementing
-status gate stays inert for tests whose subject is the scope check;
-the status-gate tests pass their status explicitly.
 """
 
 from __future__ import annotations
