@@ -7,8 +7,9 @@ LAUNCH_CANCEL_DESCRIPTION = (
     "Cancel one session launch. A launch whose session has registered but "
     "not yet received its instructions ends that session too: it is "
     "terminated, its claims released, and one native-process reap queued. "
-    "A launch whose instructions were already delivered is refused as "
-    "launch_session_working, because that session may be working; end it "
+    "A delivered launch whose registered session has ended is settled as "
+    "cancelled_session_ended. If that session is still live, cancel refuses "
+    "launch_session_working; end it "
     'deliberately with `yoke sessions terminate SESSION-ID --reason "<why>"`. '
     "A failed unregistered launch with recorded native exit evidence is settled "
     "by cancel and leaves the steering report; its diagnostic evidence is retained. "

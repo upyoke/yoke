@@ -148,8 +148,9 @@ resolved or no longer needs action, use `yoke session-control launch cancel
 LAUNCH-ID`: a failed unregistered launch with recorded native exit evidence is
 cancelled, retaining its diagnostics. A native with no recorded exit still needs
 `yoke session-control launch reconcile LAUNCH-ID` to establish its outcome before
-retry. Cancelling a session that already received its mandate remains refused;
-follow the command's named recovery.
+retry. Cancelling a delivered launch whose registered session has ended settles
+it as `cancelled_session_ended`. A session that received its mandate and is still
+live refuses `launch_session_working`; follow the command's named recovery.
 
 ## Glyph contract
 
