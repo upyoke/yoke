@@ -139,8 +139,7 @@ def preflight(
         return commit_sha, error
     errors = requirement_issue_errors(
         issues,
-        public_ref=public_ref,
-        target_status="done",
+        action=f"merge {public_ref}",
     )
     if errors:
         return commit_sha, (

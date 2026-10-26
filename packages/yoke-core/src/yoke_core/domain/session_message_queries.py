@@ -55,7 +55,9 @@ def message_with_actor_context(
     command = _acknowledgement_command(details, session_id)
     if command:
         result["acknowledgement_command"] = command
-    result["state"] = _caller_state(details, actor_id=actor_id, session_id=session_id)
+    state = _caller_state(details, actor_id=actor_id, session_id=session_id)
+    if state is not None:
+        result["state"] = state
     return result
 
 
@@ -64,7 +66,7 @@ def _caller_state(
     *,
     actor_id: int,
     session_id: str | None,
-) -> str:
+) -> str | None:
     if session_id:
         for row in details.get("recipients") or []:
             if str(row.get("session_id")) == session_id:
@@ -72,7 +74,7 @@ def _caller_state(
     for row in details.get("actor_recipients") or []:
         if int(row["actor_id"]) == actor_id:
             return str(row.get("state") or "")
-    return str(details.get("state") or "")
+    return None
 
 
 def get_message(

@@ -73,3 +73,43 @@ def test_named_fields_win_over_the_attempt_bound() -> None:
 def test_unknown_fields_are_reported_for_the_refusal() -> None:
     assert unknown_message_fields(_message(0), ("body", "nope")) == ["nope"]
     assert unknown_message_fields(_message(0), ("body",)) == []
+
+
+def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monkeypatch):
+    import io
+    from types import SimpleNamespace
+
+    import pytest
+
+    from yoke_cli.commands.adapters.session_control_common import write_message_detail_result
+    from yoke_core.domain import session_message_queries as queries
+    from yoke_core.domain.handlers.session_messages_common import readable_json_message
+    from yoke_core.domain.session_message_types import SessionMessageError
+
+    recipients = [{"session_id": "recipient", "state": "acknowledged"}]
+    details = {**_message(0), "recipients": recipients, "actor_recipients": []}
+    monkeypatch.setattr(queries, "message_details", lambda *_: details)
+    monkeypatch.setattr(queries, "message_visible", lambda *_, **__: True)
+    monkeypatch.setattr(queries, "project_due_receipts", lambda *_, **__: None)
+    caller = {"message_id": "m-1", "actor_id": 7, "session_id": "sender"}
+
+    with pytest.raises(SessionMessageError) as raised:
+        queries.get_message(None, **caller, fields=("state",))
+    assert raised.value.code == "message_field_unknown"
+    assert "recipients" in str(raised.value)
+    result = readable_json_message(
+        queries.get_message(None, **caller, fields=("recipients",))
+    )
+    assert result == {"message": {"recipients": recipients}}
+    output = io.StringIO()
+    write_message_detail_result(SimpleNamespace(result=result), output, io.StringIO())
+    assert "acknowledged" in output.getvalue()
+    assert "message_id" not in output.getvalue()
+    assert "body" not in output.getvalue()
+    assert "None" not in output.getvalue()
+
+    recipient = queries.get_message(None, **{**caller, "session_id": "recipient"})
+    assert readable_json_message(recipient)["state"] == "acknowledged"
+    details["actor_recipients"] = [{"actor_id": 7, "state": "pending"}]
+    actor_recipient = queries.get_message(None, **caller)
+    assert readable_json_message(actor_recipient)["state"] == "pending"

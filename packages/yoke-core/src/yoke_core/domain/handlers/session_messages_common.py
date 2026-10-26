@@ -80,9 +80,7 @@ def readable_json_message(message: dict[str, Any]) -> dict[str, Any]:
     """Put the body and identity where a `--json` reader looks first."""
     return {
         "message": message,
-        "message_id": message.get("message_id"),
-        "body": message.get("body"),
-        "state": message.get("state"),
+        **{key: message[key] for key in ("message_id", "body", "state") if key in message},
     }
 
 
