@@ -76,12 +76,10 @@ def test_unknown_fields_are_reported_for_the_refusal() -> None:
 
 
 def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monkeypatch):
-    import io
-    from types import SimpleNamespace
-
     import pytest
 
-    from yoke_cli.commands.adapters.session_control_common import write_message_detail_result
+    from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+    from yoke_contracts.api.function_call import FunctionCallResponse
     from yoke_core.domain import session_message_queries as queries
     from yoke_core.domain.handlers.session_messages_common import readable_json_message
     from yoke_core.domain.session_message_types import SessionMessageError
@@ -101,12 +99,23 @@ def test_nonrecipient_reads_recipient_states_without_empty_envelope_fields(monke
         queries.get_message(None, **caller, fields=("recipients",))
     )
     assert result == {"message": {"recipients": recipients}}
-    output = io.StringIO()
-    write_message_detail_result(SimpleNamespace(result=result), output, io.StringIO())
-    assert "acknowledged" in output.getvalue()
-    assert "message_id" not in output.getvalue()
-    assert "body" not in output.getvalue()
-    assert "None" not in output.getvalue()
+    def dispatch(request):
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result=result,
+        )
+
+    rc, stdout, stderr = _run_capture(
+        dispatch, "messages", "get", "m-1", "recipients"
+    )
+    assert rc == 0, stderr
+    assert "acknowledged" in stdout
+    assert "message_id" not in stdout
+    assert "body" not in stdout
+    assert "None" not in stdout
 
     recipient = queries.get_message(None, **{**caller, "session_id": "recipient"})
     assert readable_json_message(recipient)["state"] == "acknowledged"
