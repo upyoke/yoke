@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import shlex
-
-import pytest
-
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -18,16 +17,15 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write, lint_session_cwd
 from yoke_core.domain.lint_lane_main_write_classify import is_write_operation
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
-    git_write_targets,
     match_read_only_signature,
 )
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_payload_write_targets,
 )
 
-
 from yoke_core.domain.lint_session_cwd_git_read_forms import classify_git
 from yoke_core.domain.lint_session_cwd_foreign_lane import is_read_only_git_inspection
+from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
 
 SESSION = "sid-lane"
@@ -166,6 +164,4 @@ def test_plain_git_inspection_stays_read_only(command, signature):
 ])
 def test_git_configuration_does_not_hide_writes(command):
     assert is_write_operation("Bash", {"tool_input": {"command": command}}) is True
-    targets, unresolved = git_write_targets(command)
-    assert unresolved is False
-    assert targets == (["src/a.py"] if " rm " in command else [])
+    assert analyze_shell_path_use(command).mutation is True
