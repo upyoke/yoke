@@ -11,7 +11,6 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 import sys
-from yoke_core.domain import project_checkout_locations as projects
 from yoke_core.engines import doctor_install as checks
 from yoke_core.engines import doctor_install_guidance as guidance
 from yoke_core.engines import doctor_hc_machine_registry as machine
@@ -31,8 +30,7 @@ with TemporaryDirectory(prefix="install-health-") as directory:
         ]),
         "session-hook-unobserved": (checks.hc_session_hook_registration, "SESSION_HOOK_UNOBSERVED", [
             (checks, "build_actor", lambda: SimpleNamespace(session_id="fixture-session")),
-            (checks, "relay", lambda *args: {"session_id": "fixture-session", "project_id": 42}),
-            (projects, "project_id_for_slug", lambda project: 42),
+            (checks, "relay", lambda function, payload: {"value": 42} if function == "projects.get" else {"session_id": "fixture-session", "project_id": 42}),
             (checks, "orientation_delivered", lambda session: False),
         ]),
         "foreign-install-binding": (guidance.hc_install_residue, "INSTALL_RESIDUE", [

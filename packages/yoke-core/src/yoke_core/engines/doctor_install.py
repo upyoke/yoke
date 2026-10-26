@@ -20,7 +20,7 @@ from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 from yoke_cli.config import machine_config, universe_ui_daemon_state
 from yoke_cli.config.path_harness_clis import resolve_harness_clis
 from yoke_cli.transport.dispatcher import build_actor
-from yoke_core.domain.control_plane_transport import relay
+from yoke_core.domain.control_plane_transport import ControlPlaneRefused, relay
 from yoke_core.domain.project_scratch_dir import scratch_project
 from yoke_core.domain.session_orientation_delivery import orientation_delivered
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
@@ -210,10 +210,13 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
         if identity.get("session_id") != session_id:
             raise _SessionHookUnproven("SESSION_REGISTRATION_UNVERIFIED")
         if args.project:
-            from yoke_core.domain.project_checkout_locations import project_id_for_slug
-
-            expected_project = project_id_for_slug(str(args.project))
-            if expected_project is None:
+            try:
+                expected_project = relay(
+                    "projects.get", {"project": str(args.project), "field": "id"}
+                ).get("value")
+            except ControlPlaneRefused as exc:
+                if exc.code != "not_found":
+                    raise
                 rec.record(
                     "session-hook-registration",
                     "This session received a registering hook",

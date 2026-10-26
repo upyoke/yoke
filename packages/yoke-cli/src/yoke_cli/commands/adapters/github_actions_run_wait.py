@@ -133,6 +133,12 @@ def wait_for_run_completion(
             if state in {"success", "failed"}:
                 return _emit_terminal(response, json_mode=json_mode)
             status_message = str(result.get("message") or state or "running")
+        elif (
+            response.error is not None
+            and response.error.code == "github_actions_authority_required"
+        ):
+            # The connection alone decides this refusal; every poll repeats it.
+            return emit_response(response, json_mode=json_mode)
         else:
             # A status read that cannot reach the relay is not a verdict on
             # the GitHub run. Surface the transport diagnostic, then let the

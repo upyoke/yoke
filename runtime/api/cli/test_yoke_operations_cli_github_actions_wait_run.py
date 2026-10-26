@@ -204,6 +204,31 @@ def test_wait_run_dispatch_error_remains_pending_until_success() -> None:
     assert "unreadable; retrying" in err.getvalue()
 
 
+@pytest.mark.parametrize("json_flag", [[], ["--json"]])
+def test_wait_run_authority_refusal_exits_on_first_poll(json_flag) -> None:
+    response = FunctionCallResponse(
+        success=False,
+        function="github_actions.wait_run",
+        version="v1",
+        request_id="authority-required",
+        error={"code": "github_actions_authority_required", "message": "no https"},
+    )
+    sleeps: List[float] = []
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
+        patch.object(wait_mod.github_actions_workflow, "_call", return_value=response) as call,
+        patch.object(wait_mod, "ensure_handlers_loaded"),
+        patch.object(wait_mod, "now", lambda: 0),
+        patch.object(wait_mod, "sleep", sleeps.append),
+        redirect_stdout(io.StringIO()),
+        redirect_stderr(io.StringIO()),
+    ):
+        rc = cli_main(["github-actions", "wait-run", "o/r", "123", "--project", "yoke", *json_flag])
+    assert rc not in (0, 3, 4)
+    assert call.call_count == 1
+    assert sleeps == []
+
+
 def test_wait_run_unreadable_past_budget_exits_pending() -> None:
     sleeps: List[float] = []
     response = FunctionCallResponse(
