@@ -263,13 +263,20 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
 
 @pytest.mark.parametrize("verdict", ["pass", None, "fail"])
 def test_external_replacement_controls_automatic_correction(test_db, verdict) -> None:
-    run_id = f"run-external-replacement-{verdict}"
+    run_id = f"run-external-replacement-{verdict or 'pending'}"
     slug, original_id = _seed(test_db, run_id)
     record_case_verdict(test_db, original_id, "fail", evidence=True)
     replacement_slug = f"replacement-{run_id}"
     create_smoke_plan(test_db, project="yoke", slug=replacement_slug)
     replacement_id = int(
-        _materialize(test_db, run_id, plan=replacement_slug)["created_requirement_ids"][0]
+        materialize_deployment_qa_stage(
+            test_db,
+            deployment_run_id=run_id,
+            deployment_stage=ITEM_QA_STAGE,
+            deployment_member_item_id=MEMBER,
+            agent_plan=replacement_slug,
+            replacement_keys={"command-smoke"},
+        )["created_requirement_ids"][0]
     )
     declare(test_db, original_id, "command-smoke", [replacement_id])
     if verdict is not None:
