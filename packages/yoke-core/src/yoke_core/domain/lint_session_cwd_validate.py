@@ -137,8 +137,12 @@ def validate_targets(
     targets_to_check: List[str] = [
         t for t in targets if isinstance(t, str) and t.strip()
     ]
+    written = {use.path for use in path_uses if use.role == PathRole.WRITE}
     if not targets_to_check and fallback_cwd.strip():
         targets_to_check = [fallback_cwd]
+        # A targetless mutation (`git commit`) writes the directory it runs in.
+        if is_lane_mutation(tool_name, command):
+            written.add(fallback_cwd)
 
     targets_to_check = [
         raw for raw in targets_to_check if not is_capacity_target(raw, path_uses)
@@ -174,10 +178,7 @@ def validate_targets(
             # status-agnostic by design.
             status = lookup_item_status(conn, worktree_match.item_id)
             workflow = lookup_item_workflow(conn, worktree_match.item_id)
-            roles = {use.role for use in path_uses if use.path == raw}
-            if PathRole.WRITE in roles and is_pre_implementing_status(
-                workflow, status
-            ):
+            if raw in written and is_pre_implementing_status(workflow, status):
                 return ValidationVerdict(
                     allow=False,
                     offending_target=_resolve_for_display(raw),

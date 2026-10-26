@@ -239,6 +239,7 @@ def test_unresolved_cwd_home_never_becomes_a_lane_path(isolated_authority):
         (f"echo x > {LANE}/f", False),
         (f"cd {LANE} && git commit -m x", False),
         (f"git -C {LANE} reset --hard", False),
+        ("git commit -m x", False),
     ],
 )
 def test_pre_implementation_blocks_only_lane_writes(
@@ -248,7 +249,7 @@ def test_pre_implementation_blocks_only_lane_writes(
     verdict = guard.evaluate_pre_tool_use(
         {
             "session_id": SESSION,
-            "cwd": ROOT,
+            "cwd": LANE if command.startswith("git commit") else ROOT,
             "tool_name": "Bash",
             "tool_input": {"command": command},
         },

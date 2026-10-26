@@ -204,6 +204,7 @@ def analyze_shell_path_use(
     direct_write = mutation
     capacity_segments = [False for _statement in parsed.unparsed]
     unsupported = bool(parsed.unparsed)
+    moved_dir = False
     for index, segment in enumerate(parsed.segments):
         tokens = without_heredoc_operators(segment.argv)
         if not tokens:
@@ -235,7 +236,10 @@ def analyze_shell_path_use(
             else _state_move(tokens, shlex.join(tokens))
         )
         if state_move:
-            writes.extend(targets or in_segment_cwd(["."], segment_cwds, index))
+            # A targetless git state move after a cd (`cd <lane> && git commit`)
+            # writes the directory it moved to.
+            moved = base == "git" and not targets and not unknown and moved_dir
+            writes.extend(in_segment_cwd(["."], segment_cwds, index) if moved else targets)
         lane_move = state_move or _state_move(tokens, shlex.join(tokens))
         mutation = mutation or lane_move
         direct_write = direct_write or state_move
@@ -244,6 +248,7 @@ def analyze_shell_path_use(
         )
         if base == "cd" and len(tokens) == 2 and not tokens[1].startswith("-"):
             role = PathRole.READ
+            moved_dir = True
         if state_move:
             role = PathRole.WRITE
         # A read with no settled operands cannot borrow a preceding df exemption.
