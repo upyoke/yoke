@@ -143,7 +143,9 @@ def test_a_bound_release_missing_the_merge_refuses_before_creation(
     # The refusal comes before any source binding, so only the checkout
     # answers containment.
     monkeypatch.setattr(
-        "yoke_core.domain.project_github_auth.resolve_project_github_auth", _no_provider
+        "yoke_core.domain.deployment_run_carried_work_repository."
+        "resolve_project_github_auth",
+        _no_provider,
     )
     carrier = ensure_project_id(test_db, "carrier", ts=datetime.now(timezone.utc))
     pinned = merged["baseline"]
