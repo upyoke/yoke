@@ -33,7 +33,6 @@ from runtime.api.fixtures.dispatch_actor import register_session_actor
 from runtime.api.fixtures.runtime import DEFAULT_TEST_SESSION_ID
 from yoke_core.domain import delivery_member_close_effects as close_effects
 from yoke_core.domain import delivery_member_close_steps as close_out
-from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_run_collective_finalization import mark_settling
 from yoke_core.domain.deployment_run_settlement_refusal import HELD_WITH_RUN
@@ -163,11 +162,6 @@ def test_an_effects_failure_keeps_members_done_and_replay_finishes_it(
     from yoke_core.domain import standalone_item_merge
 
     synced: list[int] = []
-    monkeypatch.setattr(
-        terminal_lane_cleanup,
-        "sweep_managed_lanes",
-        lambda **_kwargs: ((), {}),
-    )
 
     def _broken(item_id: int):
         raise RuntimeError("GitHub sync unavailable")

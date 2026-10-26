@@ -23,10 +23,9 @@ whole set. Members therefore close together or not at all, whatever changes
 mid-way and however the process stops.
 
 **Effects: after the commit, idempotent and replayable.** GitHub sync,
-terminal lane cleanup, and ending the holders' now-empty sessions run over
-every member the run has closed. Each member's cleanup retires only that
-member's lanes. The machine-wide merged-lane sweep then runs once for each
-distinct checkout. No transaction is open across any of it: each member's
+and ending the holders' now-empty sessions run over every member the run
+has closed. The run retires no lanes: they live on worker machines, where
+the standing relay's periodic sweep removes them. No transaction is open across any of it: each member's
 database steps commit on their own short connection, so a connection lost
 on one member never fails the members after it. A failure here never
 reopens a closed member: the run stays ``executing`` and settling, and the next re-drive of
@@ -276,7 +275,6 @@ def _effects_phase(conn: Any, run_id: str, staged: list[Any]) -> Optional[str]:
     The members this run has closed are read from the database rather than
     from ``staged``, so a replay finishes effects an earlier pass left
     undone. Only the pass that committed a member holds its effect receipt.
-    After the loop, each distinct checkout is swept once.
 
     The read's transaction ends before the first effect: the effects spend
     minutes in git and on the network, and each effect's database step runs
@@ -285,7 +283,6 @@ def _effects_phase(conn: Any, run_id: str, staged: list[Any]) -> Optional[str]:
     """
     from yoke_core.domain.delivery_member_close_effects import (
         run_closed_member_effects,
-        sweep_closed_member_checkouts,
     )
 
     receipts = {int(written.item_id): written.receipt for written in staged}
@@ -308,10 +305,6 @@ def _effects_phase(conn: Any, run_id: str, staged: list[Any]) -> Optional[str]:
                 f"{member['public_ref']}: its post-close effects did not "
                 f"finish: {failure}"
             )
-    for warning in sweep_closed_member_checkouts(
-        [str(member["public_ref"]) for member in members]
-    ):
-        print(f"Lane cleanup warning: {warning}", flush=True)
     if not failed:
         return None
     return settle_refusal(run_id, failed, closed=True)
