@@ -27,6 +27,7 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
     base_case_key,
     case_content_digest,
 )
+from runtime.api.fixtures.qa_declared_replacement_fixture import declare
 from yoke_core.domain.qa_requirement_ops import waive_requirement
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
@@ -258,3 +259,33 @@ def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> Non
     ).fetchone()
     assert int(row["plan_id"]) == int(plan_id)
     assert str(row["plan_case_key"]) == "command-smoke"
+
+
+@pytest.mark.parametrize("verdict", ["pass", None, "fail"])
+def test_external_replacement_controls_automatic_correction(test_db, verdict) -> None:
+    run_id = f"run-external-replacement-{verdict}"
+    slug, original_id = _seed(test_db, run_id)
+    record_case_verdict(test_db, original_id, "fail", evidence=True)
+    replacement_slug = f"replacement-{run_id}"
+    create_smoke_plan(test_db, project="yoke", slug=replacement_slug)
+    replacement_id = int(
+        _materialize(test_db, run_id, plan=replacement_slug)["created_requirement_ids"][0]
+    )
+    declare(test_db, original_id, "command-smoke", [replacement_id])
+    if verdict is not None:
+        record_case_verdict(test_db, replacement_id, verdict, evidence=True)
+    _edit_plan_case(test_db, slug, "probe --corrected")
+
+    result = rematerialize_for_deployment_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
+        plan=slug,
+    )
+    created = result["created_requirement_ids"]
+    assert len(created) == (1 if verdict == "fail" else 0), result
+    assert len(_rows(test_db, run_id)) == (3 if verdict == "fail" else 2)
+    selected = _materialize(test_db, run_id, plan=slug)
+    assert selected["created_requirement_ids"] == []
+    assert selected["existing_requirement_ids"] == (created or [original_id])
