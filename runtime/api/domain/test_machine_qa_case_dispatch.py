@@ -17,6 +17,10 @@ from yoke_core.domain.machine_qa_local_execution import (
 )
 
 
+# The case flow ends its lease, so it sweeps the project's idle cloud hosts.
+FLEET = SimpleNamespace(success=True, result={"test_machines": []}, error=None)
+
+
 def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
     case = {
         "requirement_id": 41,
@@ -47,7 +51,7 @@ def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
     with (
         mock.patch(
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=[begin, submit],
+            side_effect=[begin, submit, FLEET],
         ) as dispatch,
         mock.patch(
             "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
@@ -77,8 +81,10 @@ def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
     assert [request["function_id"] for request in requests] == [
         "test_machine.case.begin",
         "test_machine.case.submit",
+        "test_machine.list",
     ]
-    assert [request["target"].qa_requirement_id for request in requests] == [41, 41]
+    assert [request["target"].qa_requirement_id for request in requests[:2]] == [41, 41]
+    assert requests[2]["payload"] == {"project": "yoke"}
     assert requests[0]["payload"] == {}
     assert requests[1]["payload"] == {
         "lease_id": 17,
@@ -120,7 +126,7 @@ def test_machine_leaf_local_failure_dispatches_abort() -> None:
     with (
         mock.patch(
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=[begin, abort],
+            side_effect=[begin, abort, FLEET],
         ) as dispatch,
         mock.patch(
             "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
@@ -146,6 +152,7 @@ def test_machine_leaf_local_failure_dispatches_abort() -> None:
     assert [request["function_id"] for request in requests] == [
         "test_machine.case.begin",
         "test_machine.case.abort",
+        "test_machine.list",
     ]
     assert requests[1]["payload"] == {
         "lease_id": 18,

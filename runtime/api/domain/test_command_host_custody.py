@@ -98,7 +98,14 @@ def test_command_uses_existing_plan_case_admission(monkeypatch, state):
 
     def dispatch(function_id, **kwargs):
         calls.append((function_id, kwargs))
-        return {"state": state, "execution": {"lease_id": 8}}
+        return {
+            "state": state,
+            "execution": {
+                "lease_id": 8,
+                "project": "yoke",
+                "settings": {"resource_name": "linux-lab"},
+            },
+        }
 
     monkeypatch.setattr(commands, "_dispatch", dispatch)
     result = commands.begin_command_host(

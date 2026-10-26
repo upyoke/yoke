@@ -34,6 +34,8 @@ def test_verify_cli_cleans_local_artifacts_after_rejected_submission(
                 "execution": {
                     "lease_id": 23,
                     "contract_digest": "digest-23",
+                    "project": "example",
+                    "settings": {"resource_name": "lab"},
                 },
             },
         ),

@@ -70,7 +70,7 @@ def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, 
 
     replies = iter([
         FunctionCallResponse(success=True, function="test_machine.operation.begin",
-                             version="v1", result={"execution": {}}),
+                             version="v1", result={"execution": {"project": "example", "settings": {"resource_name": "lab"}}}),
         FunctionCallResponse(success=True, function="test_machine.operation.submit",
                              version="v1", result={"status": status}),
     ])
