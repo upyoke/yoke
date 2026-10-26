@@ -2,7 +2,7 @@
  "id": "commit-gate-bypass-recovery",
  "title": "Installed commit checks name recovery without bypasses",
  "status": "superseded",
- "text": "Closed in source: the installed pre-commit hook checks authored-file limits and byte budgets and names splitting, shortening or repairing the checker. Path claims and implementation-entry status belong to live tool guards, not commit gates. Generated blocks, wake capability and rendered-agent drift are checked by CI repo contracts. The unused core hook chain and its suppression event were removed; no commit-message token grants path coverage.",
+ "text": "Closed in source: the installed pre-commit hook checks authored-file limits and names splitting, shortening or repairing the checker. Path claims and implementation-entry status belong to live tool guards, not commit gates. Generated blocks, wake capability and rendered-agent drift are checked by CI repo contracts. The unused core hook chain and its suppression event were removed; no commit-message token grants path coverage.",
  "surfaces": ["command-feedback"],
  "sources": ["packages/yoke-harness/src/yoke_harness/git_hooks/pre_commit.py", "runtime/harness/test_commit_gate_refusal_recovery.py", "packages/yoke-core/src/yoke_core/tools/ci_generated_surfaces.py", "packages/yoke-core/src/yoke_core/domain/lint_session_cwd_validate.py", "packages/yoke-core/src/yoke_core/domain/path_claim_bash_guard.py"]
 }

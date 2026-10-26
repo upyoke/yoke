@@ -8,7 +8,7 @@
  "location": "AGENTS.md managed block + project-owned rules; harness-specific native adapters",
  "basis": "Inspected managed rules and harness-specific native adapters",
  "note": "Project-owned additions carry local policy. Yoke’s own production rules and Platform runbooks stay in their owning projects.",
- "current": "The managed AGENTS.md block is one Always list of binding rules, a map of .yoke/docs/agents/rules operation homes and the architecture pointer (about 4.4 KB). Each operation home holds only binding actions and points at command help, refusals and model pages for detail. AGENTS.md, the Claude session rules and every operation home carry a byte budget in .yoke/project.config that fails growth. Native adapter/source files and automated install tests do not prove the complete actual payload received by an unrelated-project main or worker.",
+ "current": "The managed AGENTS.md block is one Always list of binding rules, a map of .yoke/docs/agents/rules operation homes and the architecture pointer (about 4.4 KB). Each operation home holds only binding actions and points at command help, refusals and model pages for detail. Native adapter/source files and automated install tests do not prove the complete actual payload received by an unrelated-project main or worker.",
  "desired": "Keep existing project rules; concise complete obligations with exact operation homes. Add no second project startup block.",
  "plan_notes": ["JOURNEYS static-guidance principle", "Project-context routing proposal"],
  "sources": ["AGENTS.md", "docs/public/agents/harness-discovery.md", "docs/public/agents/rules/code-and-cli.md", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py"]
