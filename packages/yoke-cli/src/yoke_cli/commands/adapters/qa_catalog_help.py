@@ -202,7 +202,6 @@ cannot be superseded.
 
 An item refresh considers shared copies only on runs it still belongs to.
 Removed members leave shared rows and live walks to the remaining members.
---plan is a deployment-only filter; with --item, remove --plan and retry.
 
 With --item and --stage, --plan selects by owner. A shared plan the member attaches
 refreshes that shared group's run-wide rows. The member's own plan refreshes

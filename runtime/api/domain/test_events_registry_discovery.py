@@ -48,3 +48,13 @@ _emit_lease_event(LEASE_EVENT, "INFO", object())
 """
 
     assert _discover_python_event_names(source) == []
+
+
+def test_emit_helper_with_event_name_constant_is_discovered() -> None:
+    source = """
+CORRECTION_EVENT_NAME = "ConstantHelperEvent"
+emit_correction(CORRECTION_EVENT_NAME, session_id="", item_id=1)
+emit_status("NotAnEvent")
+"""
+
+    assert _discover_python_event_names(source) == ["ConstantHelperEvent"]

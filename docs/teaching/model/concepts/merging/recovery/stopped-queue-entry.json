@@ -1,7 +1,8 @@
 {
  "id": "stopped-queue-entry",
  "title": "Stopped queue entry",
- "status": "draft-copy",
+ "status": "observed",
  "page": "merging",
- "position": 2
+ "position": 2,
+ "summary": "A deliberate hold waits across head changes until fresh arming or queue entry. A real stop reports failed disarming and names the hold command before correction and re-entry."
 }

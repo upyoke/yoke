@@ -61,7 +61,7 @@ Repository-only rules; linked owners hold the detail.
 
   ```text
   yoke --env prod deployment-runs create yoke FLOW --environment prod --idempotency-key KEY
-  yoke --env prod deployment-runs create yoke STAGE_FLOW --environment stage --source-ref LINEAGE --idempotency-key STAGE_KEY
+  yoke --env prod deployment-runs create yoke STAGE_FLOW --environment stage --project-repo-path CHECKOUT --source-ref LINEAGE --idempotency-key STAGE_KEY
   yoke --env prod-db-admin watch deploy -- PROD_RUN
   yoke --env prod watch deploy -- STAGE_RUN
   ```
@@ -99,7 +99,7 @@ c=/absolute/source/checkout
 env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   "$c/packages/yoke-core/src/yoke_core/tools/yoke_launcher.py" \
   --env prod-db-admin deployment-runs create yoke FLOW --environment prod \
-  --source-ref FULL_SHA --idempotency-key KEY
+  --project-repo-path "$c" --source-ref FULL_SHA --idempotency-key KEY
 ```
 
 ## Code rules for this repo

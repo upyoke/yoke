@@ -1,8 +1,13 @@
-"""The session reads behind a Stop decision: declared park, armed waiter."""
+"""The session reads behind a Stop decision: declared park, CI wait, waiter."""
 
 from __future__ import annotations
 
+import sqlite3
+
 from yoke_core.domain import turn_end_session_state as state
+from yoke_core.domain.session_ci_wait_schema import (
+    SESSION_CI_RUN_WAITS_CREATE_SQL,
+)
 from yoke_core.domain.session_tool_call_projections import (
     LAST_COMPLETED_TOOL_COLUMN,
 )
@@ -69,3 +74,31 @@ def test_waiter_not_armed_when_the_last_call_was_something_else(
     conn = _SessionConn({LAST_COMPLETED_TOOL_COLUMN: "Bash"})
 
     assert state.monitor_waiter_armed(conn, "sess-1") is False
+
+
+def _ci_wait_conn(notified_at: str | None) -> sqlite3.Connection:
+    """A real table holding one recorded wait for ``sess-1``."""
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(SESSION_CI_RUN_WAITS_CREATE_SQL)
+    conn.execute(
+        "INSERT INTO session_ci_run_waits "
+        "(session_id, project_id, repo, run_id, kind, created_at, notified_at) "
+        "VALUES ('sess-1', 1, 'upyoke/yoke', '77', 'merge_verification', "
+        "'2026-10-26T13:00:00Z', ?)",
+        (notified_at,),
+    )
+    return conn
+
+
+def test_an_open_ci_wait_is_pending() -> None:
+    assert state.ci_wait_pending(_ci_wait_conn(None), "sess-1") is True
+
+
+def test_a_notified_ci_wait_is_not_pending() -> None:
+    conn = _ci_wait_conn("2026-10-26T13:20:00Z")
+
+    assert state.ci_wait_pending(conn, "sess-1") is False
+
+
+def test_another_sessions_ci_wait_is_not_pending() -> None:
+    assert state.ci_wait_pending(_ci_wait_conn(None), "sess-2") is False

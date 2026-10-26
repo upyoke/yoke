@@ -66,6 +66,9 @@ def _is_watch_subcommand(tokens: Sequence[str]) -> bool:
     )
 
 
+_PRINT_ONLY_FLAGS = frozenset({"--print-streaming-pair", "-h", "--help"})
+
+
 def _is_yoke_watch_invocation(tokens: Sequence[str]) -> bool:
     """True when ``tokens`` invoke ``yoke watch <kind>`` as the program.
 
@@ -73,15 +76,15 @@ def _is_yoke_watch_invocation(tokens: Sequence[str]) -> bool:
     ``--env`` are not mistaken for the subcommand. Nested
     ``yoke dev run -- <command>`` is the documented lane-source wrapper;
     the remainder is another invocation, not operand prose.
-    ``--print-streaming-pair`` before any ``--`` only prints the pair and
-    runs nothing, so that call needs no watcher timeout.
+    ``--print-streaming-pair``, ``-h`` or ``--help`` before any ``--`` only
+    prints and runs nothing, so that call needs no watcher timeout.
     """
     argv = strip_env_prefix(tokens)
     if not argv or not _is_yoke_executable(argv[0]):
         return False
     if _is_watch_subcommand(argv):
         own = argv[: argv.index("--")] if "--" in argv else argv
-        return "--print-streaming-pair" not in own
+        return not _PRINT_ONLY_FLAGS.intersection(own)
     if "--" not in argv:
         return False
     return _is_yoke_watch_invocation(argv[argv.index("--") + 1 :])

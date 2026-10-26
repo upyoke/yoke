@@ -31,8 +31,7 @@ YOKE_SOURCE_REHEARSAL_RECIPE = (
 
 #: The same re-entry when several lanes exist and one must be selected.
 YOKE_SOURCE_LANE_REHEARSAL_RECIPE = (
-    "yoke dev run --lane <registered-path> -- "
-    "yoke --env <name> migration rehearse ITEM"
+    "yoke dev run --lane <registered-path> -- yoke --env <name> migration rehearse ITEM"
 )
 
 #: Provisions, hydrates, and binds the disposable validation database.
@@ -68,7 +67,7 @@ preflight -- rehearsal needs three bindings, in this order:
 
      {YOKE_SOURCE_LANE_REHEARSAL_RECIPE}
 
-   Keep `--env` on the inner rehearse, never before `dev run`: a routine
+   Keep `--env` on the inner rehearse: a routine
    command under a database-admin connection is refused (use_https_env).
 
    Rehearsal uses that exact active lane only when it belongs to ITEM and

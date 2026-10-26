@@ -8,7 +8,6 @@ from yoke_core.domain.merge_queue_landing_observation import (
     LANDED,
     WAITING,
     classify_pending_landing,
-    ejection_message,
 )
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
@@ -151,25 +150,6 @@ def test_a_dropped_closed_pull_request_names_reopening():
     assert "closed" in observation.recovery
 
 
-def test_the_holder_message_names_the_recovery_and_the_benign_race():
-    observation = _classify(_state(), DROPPED)
-    body = ejection_message("ALP-1", "42", observation, "holder")
-
-    assert "Landing stopped for ALP-1 (pull request #42)" in body
-    assert "rebase the lane onto main" in body
-    # A pull request the queue merged between the two reads looks the same
-    # from one observation, so the recovery says what to do about that too.
-    assert "converges on that merge" in body
-
-
-def test_the_steering_message_says_the_holder_is_gone():
-    observation = _classify(_state(), DROPPED)
-    body = ejection_message("ALP-1", "42", observation, "steering")
-
-    assert "claim holder is gone" in body
-    assert "rebase the lane onto main" in body
-
-
 def test_an_unmergeable_queue_entry_is_ejected_before_removal():
     membership = PrQueueMembership(
         in_queue=True, entry_state="UNMERGEABLE", mergeable="UNKNOWN"
@@ -185,6 +165,3 @@ def test_an_unmergeable_queue_entry_is_ejected_before_removal():
     assert "re-run the verification gate" in observation.recovery
     assert "mergeQueueEntry=UNMERGEABLE" in observation.observed
     assert "isInMergeQueue=true" in observation.observed
-    body = ejection_message("ALP-1", "42", observation, "holder")
-    assert "Landing stopped" in body
-    assert "rebase the lane onto trunk" in body

@@ -231,6 +231,7 @@ def verify_claim(
                 f"no active claim by session {actor_session!r} on "
                 f"{kind} {target_ref}; acquire one first: "
                 f"{recovery}",
+                recovery_hint=recovery,
             )
         allow_claim_verification(
             evidence,

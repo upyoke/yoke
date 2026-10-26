@@ -60,7 +60,6 @@ def update_lane(checkout: Path, *, branch: str, target: str, git: Callable) -> N
         )
     raise QaCaseExecutionError(
         f"rebasing {branch!r} onto origin/{target} conflicts: {detail}.{cleanup} "
-        "Resolve the conflict on the lane and re-run the gate — the rebase "
-        "happens before any gate evidence exists, so nothing is invalidated "
-        "by redoing it."
+        f"Rebase on the lane (`git -C {checkout} rebase {base}`), resolve the "
+        f"conflicts, run `git -C {checkout} rebase --continue`, and re-run the gate."
     )

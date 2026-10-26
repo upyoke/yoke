@@ -63,6 +63,8 @@ def classify_pending_landing(
         return LandingObservation(WAITING)
     if readback.merged:
         return LandingObservation(LANDED)
+    if readback.queue_recovery.get("action") == "held":
+        return LandingObservation(WAITING)
     if readback.membership is None:
         return LandingObservation(WAITING)
     if readback.admitted() or readback.undetermined():
@@ -82,6 +84,7 @@ def ejection_message(
     pr_number: str,
     observation: LandingObservation,
     route: str,
+    disarm_note: str,
 ) -> str:
     """Tell the holder its landing is over and what to do about it."""
     head = (
@@ -93,6 +96,8 @@ def ejection_message(
         "meantime, re-running `yoke merge item` converges on that merge "
         "instead. Follow the named recovery before re-entering that command."
     )
+    if disarm_note:
+        tail = f"{disarm_note}. {tail}"
     if route == HOLDER:
         return f"{head} — {observation.recovery}. {tail}"
     return (

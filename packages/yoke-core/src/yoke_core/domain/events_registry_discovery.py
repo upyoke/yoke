@@ -151,6 +151,12 @@ def _discover_python_event_names(content: str) -> List[str]:
             )
         )
         if not is_emitter:
+            # Any ``emit_*`` helper names its event when its first argument
+            # is a module-level ``*_EVENT_NAME`` constant.
+            if func_name.startswith(("emit_", "_emit_")) and node.args:
+                first = node.args[0]
+                if isinstance(first, ast.Name) and first.id in constants:
+                    discovered.append(constants[first.id])
             continue
 
         event_name = None

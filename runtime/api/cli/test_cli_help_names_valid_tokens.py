@@ -56,6 +56,16 @@ class TestGroupHelpWhereAGroupExists:
         ]
         assert len(listed) == len(set(listed))
 
+    def test_spaced_child_yields_to_its_hyphenated_sibling(self):
+        from yoke_cli.commands.command_tree import immediate_children
+
+        qa_children = immediate_children(("qa",))
+        assert ("qa", "no-tests") in qa_children
+        assert ("qa", "no") not in qa_children
+        assert ("qa", "post-deploy") in qa_children
+        assert ("qa", "post") not in qa_children
+        assert ("github", "actions") in immediate_children(("github",))
+
     def test_unknown_leaf_prints_the_real_group_members(self, capsys):
         """A guessed leaf answers with the group's actual contents, so the
         retry is a pick from a list rather than another guess."""
