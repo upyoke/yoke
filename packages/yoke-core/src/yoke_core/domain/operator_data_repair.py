@@ -11,7 +11,10 @@ from psycopg import sql
 from yoke_contracts.operator_data_repair import repair_review_digest
 
 from yoke_core.domain import operator_data_repair_audit as audit
-from yoke_core.domain.handlers.db_read import _json_safe, _is_sensitive_key
+from yoke_core.domain.operator_data_repair_values import (
+    is_sensitive_key,
+    redacted_json_safe,
+)
 from yoke_core.domain.operator_data_repair_items import (
     public_snapshots,
     resolve_item_plan,
@@ -86,13 +89,13 @@ def validate_plan(plan: RepairPlan, reviewed_sha256: str):
         )
     for column in columns:
         identifier(column)
-        if _is_sensitive_key(column):
+        if is_sensitive_key(column):
             raise RepairRefusal(
                 "repair_sensitive_evidence",
                 "Secret-bearing columns require their capability-owned command, not row repair.",
             )
     for row in plan.before + plan.after:
-        if sorted(row) != columns or _json_safe(row) != row:
+        if sorted(row) != columns or redacted_json_safe(row) != row:
             raise RepairRefusal(
                 "repair_snapshot_invalid",
                 "Use identical JSON-safe column sets without secret-bearing values in every snapshot.",
@@ -188,7 +191,7 @@ def _snapshot(conn, plan, columns, predicate: str, params=()):
             "The predicate selects more than 1000 rows; narrow the repair.",
         )
     if any(
-        isinstance(value, (str, dict, list)) and _json_safe(value) != value
+        isinstance(value, (str, dict, list)) and redacted_json_safe(value) != value
         for row in rows
         for value in row
     ):
@@ -197,7 +200,7 @@ def _snapshot(conn, plan, columns, predicate: str, params=()):
             "Selected rows contain secret-bearing JSON; use their capability-owned mutation instead.",
         )
     result = [
-        {name: _json_safe(value, column_name=name) for name, value in zip(columns, row)}
+        {name: redacted_json_safe(value, column_name=name) for name, value in zip(columns, row)}
         for row in rows
     ]
     return result
@@ -254,7 +257,7 @@ def run_repair(
         expected_keys = {
             tuple(row[key] for key in plan.key_columns) for row in plan.before
         }
-        affected_keys = {tuple(_json_safe(value) for value in row) for row in affected}
+        affected_keys = {tuple(redacted_json_safe(value) for value in row) for row in affected}
         if len(affected) != len(expected_keys) or affected_keys != expected_keys:
             raise RepairRefusal(
                 "repair_affected_rows_changed",
