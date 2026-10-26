@@ -10,7 +10,6 @@ it still finish.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -47,35 +46,6 @@ def _open_transactions(test_db: Any) -> list[str]:
     finally:
         observer.close()
     return [f"{row['pid']} {row['state']}: {row['query']}" for row in rows]
-
-
-def test_slow_lane_work_runs_with_every_connection_idle(
-    test_db: Any, monkeypatch, tmp_path: Path
-) -> None:
-    _isolate_status_effects(monkeypatch)
-    _five_ready_members(test_db)
-    _executing_run(test_db, "run-idle-lanes")
-    observed: list[list[str]] = []
-
-    def _retire(item, envelope, **_kwargs):
-        raise AssertionError("a run member's lanes retire only through the sweep")
-
-    def _sweep(**_kwargs):
-        observed.append(_open_transactions(test_db))
-        return (), {}
-
-    monkeypatch.setattr(
-        terminal_lane_cleanup, "record_terminal_lane_close_out", _retire
-    )
-    monkeypatch.setattr(terminal_lane_cleanup, "sweep_managed_lanes", _sweep)
-    monkeypatch.setattr(
-        terminal_lane_cleanup, "checkout_for_project_id", lambda _id: tmp_path
-    )
-
-    assert cmd_update("run-idle-lanes", "status", "succeeded") is None
-
-    assert observed == [[]]
-    assert _run(test_db, "run-idle-lanes") == ("succeeded", True)
 
 
 def _drop_once_for(item_ids: set[int], monkeypatch) -> list[int]:

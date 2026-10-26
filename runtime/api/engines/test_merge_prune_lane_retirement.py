@@ -25,6 +25,7 @@ from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.handlers import item_worktrees, merge_engine_internal_ops as ops
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.engines import merge_landed_lane_cleanup as lane_cleanup
 from yoke_core.engines import merge_worktree_safe_prune as prune
 from runtime.api.domain.merge_route_gate_stubs import admit_route_gates
 
@@ -159,15 +160,16 @@ def test_failed_removal_or_dirty_lane_does_not_release_row(
         (worktree / "evidence").write_text("preserve")
     else:
         monkeypatch.setattr(
-            prune,
+            lane_cleanup,
             "remove_worktree",
             lambda *_a: SimpleNamespace(removed=False, reason="filesystem busy"),
         )
-    monkeypatch.setattr(
-        prune,
-        "release_lane_row",
-        lambda *_a, **_kw: pytest.fail("released preserved lane"),
-    )
+    for module in (prune, lane_cleanup):
+        monkeypatch.setattr(
+            module,
+            "release_lane_row",
+            lambda *_a, **_kw: pytest.fail("released preserved lane"),
+        )
 
     sweep = prune.prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
 

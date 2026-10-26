@@ -1,11 +1,11 @@
-"""HC-worktree-health retires many landed lanes inside its check budget.
+"""HC-worktree-health reports many landed lanes inside its check budget.
 
 A machine holding a full set of landed lanes used to spend the budget on one
-control-plane verdict, one target fetch, one worktree listing and one ancestry
-read per lane, then abort before pruning any. These tests drive real git lanes
-through the check under the real budget: one batched verdict read, one fetch
-per target, one merged-ref read, and each lane retired as soon as it is
-proved, so an aborted run keeps what it already retired.
+control-plane verdict, one worktree listing and one ancestry read per lane.
+These tests drive real git lanes through the check under the real budget:
+one batched verdict read and one merged-ref read. The check only reports
+them; the relay's periodic lane sweep removes them, so ``--fix`` leaves
+every item lane on disk.
 """
 
 from __future__ import annotations
@@ -17,10 +17,9 @@ from unittest.mock import patch
 
 import pytest
 
-from yoke_contracts.doctor_budget import DoctorBudgetExhausted, check_budget
+from yoke_contracts.doctor_budget import check_budget
 from yoke_core.engines import doctor_hc_worktrees_health as hc
 from yoke_core.engines import doctor_worktree_lane_authority as lane_authority
-from yoke_core.engines import doctor_worktree_terminal_lanes as terminal_lanes
 from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -115,7 +114,7 @@ def _fix_within_budget() -> RecordCollector:
     return rec
 
 
-def test_eighty_landed_lanes_retire_inside_the_check_budget(landed_lanes, relay_calls):
+def test_eighty_landed_lanes_are_reported_inside_the_check_budget(landed_lanes, relay_calls):
     repo, lanes = landed_lanes
     git_commands: List[List[str]] = []
     real_run = hc._base._run
@@ -128,10 +127,10 @@ def test_eighty_landed_lanes_retire_inside_the_check_budget(landed_lanes, relay_
         rec = _fix_within_budget()
 
     [result] = rec.results
-    assert result.result == "PASS", result.detail
-    assert result.detail.count("Fixed: removed terminal lane") == LANES
-    assert not any(lane.exists() for lane in lanes)
-    assert _lane_branches(repo) == set()
+    assert result.result == "WARN", result.detail
+    assert result.detail.count("the relay's periodic lane sweep removes it") == LANES
+    assert all(lane.exists() for lane in lanes)
+    assert _lane_branches(repo) == {lane.name for lane in lanes}
     verdict_reads = [
         payload
         for function_id, payload in relay_calls
@@ -139,8 +138,7 @@ def test_eighty_landed_lanes_retire_inside_the_check_budget(landed_lanes, relay_
     ]
     assert len(verdict_reads) == 1
     assert len(verdict_reads[0]["lanes"]) == LANES
-    fetches = [cmd for cmd in git_commands if "fetch" in cmd]
-    assert fetches == [["git", "-C", str(repo), "fetch", "origin", "main"]]
+    assert not any("fetch" in cmd for cmd in git_commands)
     merged = [cmd for cmd in git_commands if "--merged" in cmd]
     assert merged == [
         [
@@ -157,33 +155,6 @@ def test_eighty_landed_lanes_retire_inside_the_check_budget(landed_lanes, relay_
     assert not any("merge-base" in cmd for cmd in git_commands)
     # Lane inventory, then one deploy-driver inventory. Neither repeats per lane.
     assert sum("worktree" in cmd and "list" in cmd for cmd in git_commands) == 2
-
-
-def test_a_run_the_budget_aborts_keeps_the_lanes_it_already_retired(
-    landed_lanes, relay_calls, monkeypatch
-):
-    repo, lanes = landed_lanes
-    retired_before_abort = 3
-    real_prune = terminal_lanes.prune_landed_lane
-    prunes: List[str] = []
-
-    def prune_until_the_budget_runs_out(**kwargs):
-        if len(prunes) == retired_before_abort:
-            raise DoctorBudgetExhausted("doctor_check_budget_exhausted")
-        prunes.append(kwargs["branch"])
-        return real_prune(**kwargs)
-
-    monkeypatch.setattr(
-        terminal_lanes, "prune_landed_lane", prune_until_the_budget_runs_out
-    )
-
-    with pytest.raises(DoctorBudgetExhausted):
-        _fix_within_budget()
-
-    retired = [lane for lane in lanes if not lane.exists()]
-    assert [lane.name for lane in retired] == prunes
-    assert len(retired) == retired_before_abort
-    assert _lane_branches(repo) == {lane.name for lane in lanes} - set(prunes)
 
 
 @pytest.mark.parametrize("landed_lanes", [2], indirect=True)

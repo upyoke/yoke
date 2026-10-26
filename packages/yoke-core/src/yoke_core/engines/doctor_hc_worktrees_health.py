@@ -9,8 +9,8 @@ Lane reads run on the checkout machine, with ownership served through
 ``doctor_worktree_lane_authority``. Unreadable ownership reports N/A. Independent
 residue reads overlap under the shared deadline; every lane remains checked.
 Terminal lanes are proved by ``doctor_worktree_terminal_lanes`` against one
-batched authority read and, under ``--fix``, retired one at a time as each is
-proved, so a run the budget cuts short keeps what it already retired.
+batched authority read and reported; the standing relay's periodic lane
+sweep removes the ones proved finished, so ``--fix`` retires no item lane.
 
 Detached self-deploy driver trees are checked against their run status and
 retired under ``--fix`` once the run is over. Open items' landed lanes are
@@ -29,13 +29,10 @@ from yoke_core.engines.deploy_run_worktree_retirement import (
     retire_terminal_deploy_run_worktrees,
 )
 from yoke_core.engines.doctor_worktree_lane_authority import LaneRow, lane_inventory
-from yoke_core.engines.git_worktree_registry import (
-    detached_head,
-    parse_worktree_porcelain,
-)
+from yoke_core.engines.git_worktree_registry import parse_worktree_porcelain
 from yoke_core.engines.doctor_worktree_terminal_lanes import (
     DEPLOY_RUN_CATEGORY,
-    TerminalLaneRetirer,
+    TerminalLaneAssessor,
     stranded_category,
     stranded_summary,
 )
@@ -54,9 +51,9 @@ from yoke_core.engines.doctor_parallel_reads import bounded_read_map
 
 _TERMINAL = ("done", "cancelled")
 _DEPLOY_RUN_RETIRABLE_LABEL = (
-    "verified-safe; this check's --fix retires it, as does the next landing "
-    "on this machine"
+    "verified-safe; this check's --fix retires it, as does the relay's lane sweep"
 )
+_SWEEP_READY_LABEL = "verified-safe; the relay's periodic lane sweep removes it"
 
 
 def _git_for_repo(repo_root: str):
@@ -167,7 +164,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return assess_lane_residue(_git_for_repo(root), path, lane_roots)
 
     residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
-    retirer = TerminalLaneRetirer(
+    assessor = TerminalLaneAssessor(
         [
             *(
                 (entry.get("branch", ""), entry["path"])
@@ -176,17 +173,15 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             ),
             *((lane.branch, lane.path) for lane in stale_branches),
         ],
-        fix=args.fix,
         git_for_repo=_git_for_repo,
         residues=residues,
         checkouts=entries,
     )
-    if retirer.authority_failure:
+    if assessor.authority_failure:
         issues.append(
             "- Cleanup authority unreadable: merge.prune.authority_verdicts did "
-            f"not answer ({retirer.authority_failure}), so every terminal lane "
-            "is preserved; rerun this check with --fix once the control plane "
-            "answers it"
+            f"not answer ({assessor.authority_failure}), so every terminal lane "
+            "is preserved; rerun this check once the control plane answers it"
         )
 
     for entry in lane_entries:
@@ -208,31 +203,15 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         # Check terminal ownership through the universal registry.
         for owner in terminal_owners(entry):
             public_ref = owner.public_ref
-            assessment = retirer.assess(
+            assessment = assessor.assess(
                 root=root, branch=branch, path=wt_path, target=owner.target_branch
             )
             category, detail = stranded_category(entry, residue, assessment)
             label = assessment.reason
             if category == "sweep-ready":
-                label = "verified-safe; the next landing on this machine sweeps it"
+                label = _SWEEP_READY_LABEL
             elif category in ("locked", "dirty"):
                 label = f"worktree is {category} ({detail})"
-            if args.fix and category == "sweep-ready":
-                preserved = retirer.prune(
-                    root=root,
-                    branch=branch,
-                    path=wt_path,
-                    target=owner.target_branch,
-                    item_id=public_ref,
-                    assessment=assessment,
-                    release_branch=owner.branch if detached_head(branch) else "",
-                )
-                if not preserved:
-                    fixed.append(
-                        f"- Fixed: removed terminal lane {branch} at {wt_path} — {public_ref}"
-                    )
-                    continue
-                category, label = "preserved", preserved[0]
             stranded.setdefault(category, []).append(
                 f"{public_ref}: {detail}" if detail else public_ref
             )
@@ -303,27 +282,15 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     for lane in stale_branches:
         branch = lane.branch
-        assessment = retirer.assess(
+        assessment = assessor.assess(
             root=str(repo_root),
             branch=branch,
             path=lane.path,
             target=lane.target_branch,
         )
-        if args.fix and assessment.safe:
-            preserved = retirer.prune(
-                root=str(repo_root),
-                branch=branch,
-                path=lane.path,
-                target=lane.target_branch,
-                item_id=lane.public_ref,
-                assessment=assessment,
-            )
-            if not preserved:
-                fixed.append(f"- Fixed: deleted terminal local branch {branch}")
-                continue
         issues.append(
             f"- Stale local branch: {branch} — {lane.public_ref}; "
-            f"{assessment.reason or 'verified-safe'}"
+            f"{assessment.reason or _SWEEP_READY_LABEL}"
         )
 
     # Terminal updates release operational lanes but retain audit history.

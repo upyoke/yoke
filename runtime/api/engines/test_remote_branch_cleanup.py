@@ -122,12 +122,14 @@ def _cleanup_with(responses, *, slept: list[float] | None = None):
 def _unique_after_ancestry_miss():
     """The patch-equivalence reading that follows an ancestry miss.
 
-    No merge commits to skip, and one commit the target has no equivalent
-    for — so the branch carries unique work and the miss stands.
+    No merge commits to skip, one commit the target has no equivalent for,
+    and a net change against the target — so the branch carries unique work
+    and the miss stands.
     """
     return [
         _completed(stdout=""),
         _completed(stdout="+ 1111111111111111111111111111111111111111\n"),
+        _completed(returncode=1),
     ]
 
 

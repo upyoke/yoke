@@ -18,6 +18,7 @@ import pytest
 from yoke_core.engines import doctor_hc_worktrees_health as hc
 from yoke_core.engines import doctor_worktree_lane_authority as lane_authority
 from yoke_core.engines import doctor_worktree_terminal_lanes as terminal_lanes
+from yoke_core.engines import merge_landed_lane_cleanup as lane_cleanup
 from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -86,7 +87,7 @@ def relayed_client(monkeypatch):
         calls["prune"].append(kwargs)
         return ()
 
-    monkeypatch.setattr(terminal_lanes, "prune_landed_lane", fake_prune)
+    monkeypatch.setattr(lane_cleanup, "prune_landed_lane", fake_prune)
     return calls
 
 
@@ -160,7 +161,7 @@ def test_missing_repo_root_uses_each_lanes_disposable_declarations(
     assert [row.result for row in rec.results] == ["PASS"]
 
 
-def test_fix_retires_a_disposable_terminal_lane_over_https(
+def test_fix_leaves_a_verified_safe_lane_to_the_relay_sweep(
     monkeypatch, relayed_client
 ) -> None:
     _install_relay(
@@ -173,10 +174,9 @@ def test_fix_retires_a_disposable_terminal_lane_over_https(
     rec = _run_check(DoctorArgs(project="platform", fix=True))
 
     [result] = rec.results
-    assert "Fixed: removed terminal lane PLAT-139" in result.detail
-    assert relayed_client["prune"], "the lane should have been pruned"
-    assert relayed_client["prune"][0]["branch"] == "PLAT-139"
-    assert relayed_client["prune"][0]["item_id"] == _LANE["public_ref"]
+    assert "the relay's periodic lane sweep removes it" in result.detail
+    assert "Fixed: removed terminal lane" not in result.detail
+    assert not relayed_client["prune"]
 
 
 def test_unservable_inventory_is_not_applicable_never_a_pass(
@@ -247,7 +247,7 @@ def test_unreachable_authority_fails_closed(monkeypatch, relayed_client) -> None
         "Cleanup authority unreadable: merge.prune.authority_verdicts did not "
         "answer (control plane unreachable)"
     ) in result.detail
-    assert "rerun this check with --fix" in result.detail
+    assert "rerun this check once the control plane answers it" in result.detail
 
 
 def test_historical_lane_count_does_not_launch_one_git_read_per_row(

@@ -3,8 +3,9 @@
 The control plane releases lane rows and claims in the status transaction.
 This module owns the matching machine-local obligation: prove that each lane
 is clean and merged, then remove its worktree and branch. A standalone
-close-out then runs the machine-wide sweep; a deployment run runs that sweep
-once after every member closes. Refusal is evidence, not a reason to unwind the committed
+close-out then runs the machine-wide sweep, because a machine with no relay
+for its active connection has no other sweep; elsewhere the relay's
+periodic sweep covers what this one misses. Refusal is evidence, not a reason to unwind the committed
 terminal transition: each preserved lane of the item's own is named on the
 returned warnings and recorded as a ``LandedLanePreserved`` event, so the
 refusal outlives the terminal output that first showed it.
@@ -159,7 +160,7 @@ def sweep_managed_lanes(
         warning = (
             "machine-wide merged-lane sweep stopped after an unexpected "
             f"refusal: {exc}. {whose} were handled above; "
-            "the next landing boundary runs the sweep again."
+            "the relay's next lane sweep runs it again."
         )
         return (warning,), {}
     return (), swept.payload()
@@ -177,7 +178,6 @@ def _cleanup_terminal_item_lanes(
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
     discard: Callable[..., DiscardedLane] = discard_cancelled_lane,
     sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
-    machine_sweep: bool = True,
 ) -> TerminalLaneCloseOut:
     """Retire every surviving lane, then sweep lanes earlier landings kept.
 
@@ -258,12 +258,10 @@ def _cleanup_terminal_item_lanes(
     if refused := record_discarded_lanes(public_ref, tuple(discarded)):
         warnings.append(refused)
 
-    sweep_payload: dict[str, Any] = {}
-    if machine_sweep:
-        sweep_warnings, sweep_payload = sweep_managed_lanes(
-            repo_root=root, target=target, emit=emit, sweep=sweep, owner=public_ref
-        )
-        warnings.extend(sweep_warnings)
+    sweep_warnings, sweep_payload = sweep_managed_lanes(
+        repo_root=root, target=target, emit=emit, sweep=sweep, owner=public_ref
+    )
+    warnings.extend(sweep_warnings)
     return TerminalLaneCloseOut(tuple(warnings), sweep_payload)
 
 
@@ -279,7 +277,6 @@ def cleanup_terminal_item_lanes(
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
     discard: Callable[..., DiscardedLane] = discard_cancelled_lane,
     sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
-    machine_sweep: bool = True,
 ) -> TerminalLaneCloseOut:
     """Retire terminal lanes without unwinding the committed transition."""
     try:
@@ -294,7 +291,6 @@ def cleanup_terminal_item_lanes(
             prune=prune,
             discard=discard,
             sweep=sweep,
-            machine_sweep=machine_sweep,
         )
     except Exception as exc:  # noqa: BLE001 - terminal state is already committed
         public_ref = str(item.get("public_ref") or "<public-ref-unavailable>")
@@ -315,7 +311,6 @@ def record_terminal_lane_close_out(
     repo_root: str | Path | None = None,
     target_branch: str = "",
     landing_recorded: bool = False,
-    machine_sweep: bool = True,
 ) -> None:
     """Retire the item's lanes and report the outcome on a result envelope.
 
@@ -331,7 +326,6 @@ def record_terminal_lane_close_out(
         repo_root=repo_root,
         target_branch=target_branch,
         landing_recorded=landing_recorded,
-        machine_sweep=machine_sweep,
         emit=lambda message, **_kw: print(message, file=sys.stderr, flush=True),
     )
     envelope.setdefault("warnings", []).extend(close.warnings)

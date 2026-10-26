@@ -39,6 +39,13 @@ RELAY_DYNAMIC_AUTHORITY_IMPORTS = {
         "the long-lived process that serves it in place of an API server",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",
+        "yoke_core.tools.session_relay_lane_sweep",
+    ): (
+        "client_local_machine_state",
+        "sweep finished lanes from the checkouts the active connection's relay maps",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py",
         "yoke_core.engines.doctor_hc_session_relay",
     ): (

@@ -1,11 +1,10 @@
 """A closed member's post-commit effects, never inside a held transaction.
 
-A run's close-out spends most of its time outside the database: GitHub
-sync per member, then one sweep of each checkout's merged lanes after every
-member has closed. A member's own lanes are not retired inline: the status
-write already released their rows and claims, and the sweep removes each
-clean, merged, unclaimed lane, so a member's close-out never waits on git.
-No transaction may stay open across that work. The server ends a
+A run's close-out spends most of its time outside the database, in GitHub
+sync per member. A run retires no lanes: the status write already released
+their rows and claims, and the lanes themselves live on worker machines,
+where the standing relay's periodic sweep removes each clean, merged,
+unclaimed one. No transaction may stay open across that work. The server ends a
 session left idle in a transaction past its bound, and every later write on
 that connection then fails with ``the connection is closed``.
 
@@ -19,11 +18,8 @@ member whose step it carried, never the members after it.
 from __future__ import annotations
 
 import io
-import sys
 from typing import Any, Callable
 
-from yoke_contracts.api.function_call import TargetRef
-from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.function_connection_loss import retry_dropped_connection
@@ -44,68 +40,6 @@ def _in_short_transaction(step: Callable[[Any], None]) -> None:
     retry_dropped_connection(_once)
 
 
-def _closed_item(public_ref: str) -> tuple[dict[str, Any], str]:
-    """The closed member as the lane sweep reads it, or why it could not.
-
-    The same ``items.detail.get`` read a standalone close-out retires lanes
-    from: the project names this machine's checkout and the target branch.
-    """
-    try:
-        response = call_dispatcher(
-            function_id="items.detail.get",
-            target=TargetRef(kind="item", public_ref=public_ref),
-            payload={},
-        )
-    except Exception as exc:  # noqa: BLE001 - reported as a cleanup warning
-        return {}, str(exc) or exc.__class__.__name__
-    if not response.success:
-        error = response.error
-        return {}, error.message if error is not None else "item read refused"
-    return (response.result or {}).get("item") or {}, ""
-
-
-def sweep_closed_member_checkouts(public_refs: list[str]) -> list[str]:
-    """Sweep each distinct checkout of these closed members once.
-
-    The run calls this after every member has closed; it is the only place
-    a run retires its members' lanes. A member whose checkout this machine
-    cannot sweep is named with the recovery that retires its lanes.
-    """
-    from yoke_core.domain.terminal_lane_cleanup import (
-        item_lane_checkout,
-        sweep_managed_lanes,
-    )
-    from yoke_core.domain.worktree_capacity import DOCTOR_RETIRE_RECIPE
-
-    def _emit(message: str, **_kw: Any) -> None:
-        print(message, file=sys.stderr, flush=True)
-
-    seen: set[tuple[str, str]] = set()
-    warnings: list[str] = []
-    for public_ref in public_refs:
-        item, refusal = _closed_item(public_ref)
-        resolved = None if refusal or not item else item_lane_checkout(item)
-        if resolved is None:
-            reason = (
-                f"the item could not be read ({refusal or 'no item returned'})"
-                if refusal or not item
-                else "checkout unavailable on this machine"
-            )
-            warnings.append(
-                f"{public_ref}: lane sweep skipped: {reason}; retire its lanes "
-                f"with `{DOCTOR_RETIRE_RECIPE}` on the machine holding them"
-            )
-            continue
-        root, target = resolved
-        key = (str(root), target)
-        if key in seen:
-            continue
-        seen.add(key)
-        found, _payload = sweep_managed_lanes(repo_root=root, target=target, emit=_emit)
-        warnings.extend(found)
-    return warnings
-
-
 def run_closed_member_effects(
     *,
     item_id: int,
@@ -117,7 +51,7 @@ def run_closed_member_effects(
     Every step is idempotent, so a replay over a member whose effects
     already ran repeats nothing harmful. ``receipt`` is the status write's
     own effect receipt, held only by the pass that committed the close.
-    Lanes are left to :func:`sweep_closed_member_checkouts`.
+    Lanes are left to the relay's periodic sweep on the machine holding them.
     Returns ``""`` when every effect finished.
     """
     from yoke_core.domain.backlog_update_effects import (
@@ -182,4 +116,4 @@ def _end_previous_claim_holders_if_empty(conn: Any, *, item_id: int) -> None:
             pass
 
 
-__all__ = ["run_closed_member_effects", "sweep_closed_member_checkouts"]
+__all__ = ["run_closed_member_effects"]
