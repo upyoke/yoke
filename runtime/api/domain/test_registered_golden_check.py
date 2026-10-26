@@ -11,7 +11,6 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.registered_golden_check import (
     REGISTERED_GOLDEN_CHECK_FAILED,
     REGISTERED_GOLDEN_MISSING,
-    check_contract_goldens,
     check_registered_goldens,
 )
 
@@ -36,7 +35,7 @@ def test_every_present_golden_passes(tmp_path):
     )
 
 
-def test_a_missing_golden_is_named_with_its_project_and_recovery(tmp_path):
+def test_a_missing_or_symlinked_golden_is_named_by_path(tmp_path):
     (tmp_path / "yoke").mkdir()
     (tmp_path / "decoy").mkdir()
     (tmp_path / "link").symlink_to(tmp_path / "decoy")
@@ -54,13 +53,9 @@ def test_a_missing_golden_is_named_with_its_project_and_recovery(tmp_path):
 
     error = raised.value
     assert error.code == REGISTERED_GOLDEN_MISSING
-    assert f"project platform (platform-mac) registers {gone}" in str(error)
-    assert "project other (other-mac)" in str(error)
-    assert "project yoke" not in str(error)
-    assert "golden-capture --project platform --test-machine platform-mac" in (
-        error.recovery_hint
-    )
-    assert "Never delete or move a registered golden by hand" in error.recovery_hint
+    link = str(tmp_path / "link")
+    registered = {str(tmp_path / "yoke"), gone, link}
+    assert {path for path in registered if path in str(error)} == {gone, link}
 
 
 def test_an_unreachable_host_refuses_by_name():
@@ -72,9 +67,3 @@ def test_an_unreachable_host_refuses_by_name():
 
     assert raised.value.code == REGISTERED_GOLDEN_CHECK_FAILED
     assert "Connection refused" in raised.value.stderr
-
-
-def test_a_server_that_names_no_goldens_checks_nothing():
-    # A contract is never even read when there is nothing to check.
-    check_contract_goldens({}, None)
-    check_contract_goldens({}, [])

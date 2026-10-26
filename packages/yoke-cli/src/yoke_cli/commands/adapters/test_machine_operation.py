@@ -141,14 +141,18 @@ def _execute(
             json_mode=json_mode,
         )
     try:
+        from yoke_contracts.machine_qa_execution import HostControlExecutionContract
         from yoke_contracts.machine_qa_host_control import REGISTERED_GOLDENS_KEY
-        from yoke_harness.registered_golden_check import check_contract_goldens
+        from yoke_harness.host_operations import host_operations_for
+        from yoke_harness.registered_golden_check import check_registered_goldens
         from yoke_harness.test_machine_operations import (
             execute_host_operation_contract,
         )
 
         _power().power_on(execution["project"], execution["settings"])
-        check_contract_goldens(execution, begin.result.get(REGISTERED_GOLDENS_KEY))
+        if registered := begin.result.get(REGISTERED_GOLDENS_KEY):  # older servers: none
+            contract = HostControlExecutionContract.model_validate(execution)
+            check_registered_goldens(host_operations_for(contract)._run, registered)
         submission = execute_host_operation_contract(
             execution,
             probes_document=probes_document,
