@@ -42,8 +42,7 @@ from yoke_core.domain.handlers.machine_qa_operation_receipt import (
 )
 from yoke_core.domain.machine_qa_golden_destination import (
     kept_golden_fields,
-    resolve_golden_capture_destination,
-    selected_test_machine_row,
+    operation_golden_inputs,
 )
 from yoke_core.domain.machine_qa_operation_shape import (
     TestMachineOperationShapeError,
@@ -153,14 +152,13 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = db_helpers.connect()
     try:
-        destination = parsed.destination
-        if parsed.operation == GOLDEN_CAPTURE_OPERATION:
-            destination = resolve_golden_capture_destination(
-                selected_test_machine_row(
-                    conn, project=parsed.project, test_machine=parsed.test_machine
-                ),
-                requested=parsed.destination,
-            )
+        destination, golden_fields = operation_golden_inputs(
+            conn,
+            project=parsed.project,
+            test_machine=parsed.test_machine,
+            operation=parsed.operation,
+            destination=parsed.destination,
+        )
         contract = begin_operation_execution(
             conn,
             project=parsed.project,
@@ -185,7 +183,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
         conn.close()
     return HandlerOutcome(
         primary_success=True,
-        result_payload={"execution": contract.model_dump(mode="json")},
+        result_payload={"execution": contract.model_dump(mode="json"), **golden_fields},
     )
 
 
@@ -310,7 +308,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             "test_machine": test_machine,
             "golden_baseline_path": golden_baseline_path,
             **kept_golden_fields(
-                conn, test_machine=test_machine, destination=golden_baseline_path
+                conn, settings=contract.settings, destination=golden_baseline_path
             ),
             **performed_at_row(recorded),
         }

@@ -331,3 +331,20 @@ def test_mac_low_disk_recovery_names_the_cleanup():
     assert "yoke test-machine golden-capture" in recovery
     assert "/var/lib/yoke-golden/yoketest" in recovery
     assert ".probes" in recovery
+
+
+def test_a_snapshot_newer_than_the_registered_golden_stays(tmp_path):
+    parent = tmp_path / "yoketest"
+    registered = parent / "yoketest-home-20261014"
+    registered.mkdir(parents=True)
+    for name, stamp in (("yoketest-home-20261001", 1000), (".yoke-golden-next", 3000)):
+        (parent / name).mkdir()
+        os.utime(parent / name, (stamp, stamp))
+    os.utime(registered, (2000, 2000))
+
+    removed = apply_retention(
+        _run, destination=str(registered), user="yoketest", kept_paths=[str(registered)]
+    )
+
+    assert removed == ["yoketest-home-20261001"]
+    assert ".yoke-golden-next" in os.listdir(parent)

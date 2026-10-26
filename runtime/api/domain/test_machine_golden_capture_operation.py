@@ -300,19 +300,3 @@ def test_capture_names_every_projects_golden_beside_it(
     assert submitted.result_payload["kept_golden_paths"] == sorted({destination, other})
     assert "kept_golden_paths_unknown" not in submitted.result_payload
 
-
-def test_an_unreadable_registration_makes_the_kept_goldens_unknown(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    conn = make_conn()
-    configure_test_machine(conn, tmp_path, monkeypatch)
-    _declare_golden_baseline(conn)
-    _register_in_second_project(conn, "{not json")
-
-    submitted, _execution = run_operation("golden_capture", control=FakeHostControl())
-
-    assert submitted.primary_success, submitted.error
-    assert "kept_golden_paths" not in submitted.result_payload
-    assert "project 2" in submitted.result_payload["kept_golden_paths_unknown"]
-    assert "settings-replace" in submitted.result_payload["kept_golden_paths_unknown"]
