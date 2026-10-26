@@ -37,7 +37,8 @@ def landed_candidate_head(
     response = control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
         function_id=OBSERVE_FUNCTION_ID,
         target=public_item_target(public_ref),
-        payload={},
+        # A non-LANDED record may predate the merge; read GitHub now.
+        payload={"refresh_unless_landed": True},
         announce=lambda _line: None,
         dispatch=dispatch,
     )

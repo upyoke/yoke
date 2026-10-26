@@ -37,7 +37,9 @@ Relay claims never read GitHub. A waiting worker's
 `merge_queue.landing.observe` call returns the stored landing record without reading GitHub while that record is newer than
 two refresh intervals. When upkeep has not kept it current, for example on
 a machine-local universe with no relay running, the call refreshes the project
-from GitHub itself, so a merge is reported within about two refresh intervals. A recorded admission or a pending observation that GitHub armed or
+from GitHub itself, so a merge is reported within about two refresh intervals.
+Close-out reads GitHub again whenever the stored record is not `LANDED`,
+so a record written just before the merge never holds close-out. A recorded admission or a pending observation that GitHub armed or
 queued that same pull request requires a full queue read even after GitHub
 clears merge-when-ready. This distinguishes a stopped landing from a pull
 request that was opened for verification and has never been armed. The durable
