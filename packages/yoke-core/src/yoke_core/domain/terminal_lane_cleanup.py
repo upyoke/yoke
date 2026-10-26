@@ -159,7 +159,7 @@ def sweep_managed_lanes(
         warning = (
             "machine-wide merged-lane sweep stopped after an unexpected "
             f"refusal: {exc}. {whose} were handled above; "
-            "the next landing boundary runs the sweep again."
+            "the relay's next lane sweep runs it again."
         )
         return (warning,), {}
     return (), swept.payload()

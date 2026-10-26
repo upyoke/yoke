@@ -29,7 +29,7 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
     tmp_path,
 ) -> None:
     instance = SimpleNamespace(
-        environment="stage",
+        environment="stage", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,
@@ -89,7 +89,7 @@ def test_daemon_runs_from_pin_and_reloads_the_environment_release(
 
 def test_source_serve_switches_to_the_pinned_executable(monkeypatch, tmp_path) -> None:
     instance = SimpleNamespace(
-        environment="prod",
+        environment="prod", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,
@@ -143,7 +143,7 @@ def test_existing_release_entrypoint_converges_before_stable_runtime_restart(
     tmp_path,
 ) -> None:
     instance = SimpleNamespace(
-        environment="prod",
+        environment="prod", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,
@@ -202,7 +202,7 @@ def test_post_deploy_restart_preserves_named_start_failure(
     tmp_path,
 ) -> None:
     instance = SimpleNamespace(
-        environment="prod",
+        environment="prod", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,
@@ -245,7 +245,7 @@ def test_post_deploy_restart_preserves_named_start_failure(
 
 def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> None:
     instance = SimpleNamespace(
-        environment="prod",
+        environment="prod", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,
@@ -277,7 +277,7 @@ def test_daemon_refuses_without_a_working_release_pin(monkeypatch, tmp_path) -> 
 
 def test_daemon_preserves_the_recorded_pin_failure(monkeypatch, tmp_path) -> None:
     instance = SimpleNamespace(
-        environment="prod",
+        environment="prod", prod=False,
         state_dir=tmp_path / "relay",
         follows_served_release=True,
         machine_active=False,

@@ -107,6 +107,15 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
     instance = resolve_relay_instance()
     if refusal := door_relay_refusal(instance):
         raise RelayInstanceError(refusal)
+    lane_sweep = importlib.import_module(
+        "yoke_core.tools.session_relay_lane_sweep"
+    ).relay_lane_sweep(instance)
+
+    def maintain() -> None:
+        # The host's own upkeep, then this machine's lane sweep when it is due.
+        if cycle_maintenance is not None:
+            cycle_maintenance()
+        lane_sweep()
     if not instance.follows_served_release:
         # Nothing to follow: this machine serves the plane it polls, so the
         # running process is already the build the universe has. With no API
@@ -114,8 +123,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         upkeep = importlib.import_module("yoke_core.domain.control_plane_upkeep")
 
         def maintain_local_universe() -> None:
-            if cycle_maintenance is not None:
-                cycle_maintenance()
+            maintain()
             upkeep.run_control_plane_upkeep()
 
         return serve_forever(
@@ -188,7 +196,7 @@ def serve_release_daemon(*, cycle_maintenance: Callable[[], None] | None = None)
         state_dir=instance.state_dir,
         inventory_provider=collect_cached_inventory,
         inventory_refresher=refresh_harness_inventory,
-        cycle_maintenance=cycle_maintenance,
+        cycle_maintenance=maintain,
         pinned_release=installed.pinned_release,
         pin_served_release=repin,
         reload_argv=["--env", instance.environment, "relay", "serve"],
