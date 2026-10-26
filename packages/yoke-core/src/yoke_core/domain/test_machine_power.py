@@ -112,6 +112,23 @@ def _aws_env(project: str) -> dict[str, str]:
         ) from exc
 
 
+def _readiness_command(os_name: str) -> tuple[str, str | None]:
+    """The login probe and its stdin: on Windows, the WSL Python host facts use.
+
+    A freshly booted Windows host accepts a login long before WSL can start
+    Python inside the 20 seconds host control allows its first command.
+    """
+    if os_name != "windows":
+        return "exit", None
+    from yoke_harness.windows_wsl_command import (
+        windows_wsl_command,
+        windows_wsl_input,
+    )
+
+    reader, framed = windows_wsl_input("/usr/bin/python3 -c pass", None)
+    return windows_wsl_command(reader), framed
+
+
 def wait_for_ssh_login(
     project: str,
     settings: Mapping[str, str],
@@ -122,7 +139,7 @@ def wait_for_ssh_login(
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
-    """Retry a key login until it succeeds; a freshly booted host is slow to log in.
+    """Retry a key login until it succeeds; a freshly booted host is slow to answer.
 
     Without the machine-local key there is nothing to try: the host-control
     runner then refuses with its own credential recovery.
@@ -135,7 +152,8 @@ def wait_for_ssh_login(
     name, host = settings["resource_name"], settings["host"]
     argv = ["ssh", "-i", str(key)]
     argv += [part for option in SSH_PROBE_OPTIONS for part in ("-o", option)]
-    argv += [f"{settings['user']}@{host}", "exit"]
+    command, probe_input = _readiness_command(settings["os"])
+    argv += [f"{settings['user']}@{host}", command]
     announce_designed_wait(
         f"Test Machine {name} to accept an SSH login on {host}",
         max_wait_seconds=timeout_s,
@@ -146,7 +164,9 @@ def wait_for_ssh_login(
     last_error = "no attempt"
     while clock() < deadline:
         try:
-            result = (runner or CommandRunner()).run(argv, timeout=SSH_LOGIN_SECONDS)
+            result = (runner or CommandRunner()).run(
+                argv, input_text=probe_input, timeout=SSH_LOGIN_SECONDS
+            )
         except subprocess.TimeoutExpired:
             last_error = f"login timed out after {SSH_LOGIN_SECONDS}s"
         else:

@@ -93,9 +93,11 @@ class _LoginRunner:
     def __init__(self, answers):
         self.answers = list(answers)
         self.calls: list[list[str]] = []
+        self.inputs: list[str | None] = []
 
-    def run(self, argv, *, timeout, **_kwargs):
+    def run(self, argv, *, timeout, input_text=None, **_kwargs):
         self.calls.append(list(argv))
+        self.inputs.append(input_text)
         answer = self.answers.pop(0)
         if isinstance(answer, Exception):
             raise answer
@@ -126,7 +128,16 @@ def test_ssh_wait_retries_logins_until_one_succeeds(ssh_key):
     )
     assert len(runner.calls) == 3 and len(sleeps) == 2
     assert runner.calls[0][:3] == ["ssh", "-i", str(ssh_key)]
+    assert runner.calls[0][-2] == "Administrator@54.0.0.1"
+    assert runner.calls[0][-1].startswith("powershell.exe ")
+    assert runner.inputs[0].splitlines()[0]  # the framed WSL Python probe
+
+
+def test_ssh_wait_on_a_non_windows_host_only_logs_in(ssh_key):
+    runner = _LoginRunner([OK])
+    wait_for_ssh_login("yoke", {**CLOUD, "os": "linux"}, lambda _l: None, runner=runner)
     assert runner.calls[0][-2:] == ["Administrator@54.0.0.1", "exit"]
+    assert runner.inputs == [None]
 
 
 def test_ssh_wait_timeout_refuses_with_the_last_error(ssh_key):
