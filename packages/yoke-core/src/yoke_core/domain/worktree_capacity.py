@@ -2,11 +2,11 @@
 
 ``max_active_worktrees`` counts the managed worktrees doing work: unmerged
 item lanes and deploy-run driver trees. An item lane whose branch already
-landed is only its worker's directory until release close-out retires it, so
-it holds no slot. When a new lane would exceed the cap, lane creation first
-runs the merged-lane sweep — the one cleanup boundary that always runs on the
-lanes' own machine — and then refuses for what remains, naming each kind of
-slot with the recovery that frees it.
+landed is only its worker's directory until the relay's lane sweep retires
+it after its item closes, so it holds no slot. When a new lane would exceed
+the cap, lane creation first runs that same sweep itself, so a full checkout
+never waits for the relay's next pass, and then refuses for what remains,
+naming each kind of slot with the recovery that frees it.
 """
 
 from __future__ import annotations
@@ -159,12 +159,11 @@ def landed_lanes_note(
 def retire_finished_lanes(repo_root: str, target: str) -> None:
     """Run the merged-lane sweep before a full checkout refuses a new lane.
 
-    A member a deployment run closes has its lanes retired on the machine that
-    settles the run, and a hosted control plane settles where no lane lives.
-    Lane creation always runs on the lanes' own machine, so a full checkout
-    first retires what the sweep proves finished — landed lanes of closed
-    items and finished runs' driver trees — then refuses for what remains.
-    The sweep names everything it removed or kept on stderr.
+    The relay sweeps every 15 minutes; lane creation runs on the lanes' own
+    machine too, so a full checkout first retires what the sweep proves
+    finished — landed lanes of closed items and finished runs' driver trees —
+    then refuses for what remains. The sweep names everything it removed or
+    kept on stderr.
     """
     from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
 
@@ -175,8 +174,9 @@ def retire_finished_lanes(repo_root: str, target: str) -> None:
         prune_managed_worktrees(repo_root=repo_root, target=target, emit=say)
     except Exception as exc:  # noqa: BLE001 - the capacity refusal follows
         say(
-            f"Merged-lane sweep stopped before lane creation: {exc}. Run "
-            f"`{DOCTOR_RETIRE_RECIPE}` to retire finished lanes."
+            f"Merged-lane sweep stopped before lane creation: {exc}. The "
+            "relay's next lane sweep retries it; check that the relay runs "
+            "with `yoke relay status`."
         )
 
 

@@ -85,11 +85,26 @@ inspect the worktree state and preserve or commit the work before retrying.
 
 ## Automatic Cleanup Contract
 
-Merge preflight automatically prunes only worktrees registered beneath the
-repository's managed `.worktrees/` or `.claude/worktrees/` roots. A candidate
-must have one exact terminal DB owner, no active work claim or harness session,
-a clean status including ignored and untracked files, and a branch tip that is
-an ancestor of the freshly fetched target. For each lane it first proves and
+The standing prod relay (`yoke relay status`) sweeps every checkout its
+connection maps once when it starts and then every 15 minutes, on a thread
+its poll loop never waits for. That periodic sweep is what retires a lane
+whose item closed anywhere else — a release settled on a hosted control
+plane, a queue landing, a lane an earlier pass kept. The relay log names
+each lane removed and each lane kept with its reason, under `lane sweep:`.
+A stage relay never sweeps: it would judge real lanes against a disposable
+rehearsal database, so it logs that it is off. Merge preflight, a standalone
+close-out and lane creation at the worktree cap run the same sweep, and only
+one sweep runs in a checkout at a time; one that finds another running skips
+with `another lane sweep is running in this checkout`.
+
+The sweep prunes only worktrees registered beneath the repository's managed
+`.worktrees/` or `.claude/worktrees/` roots, each through the same per-lane
+proof a landing applies. A candidate must have one exact terminal DB owner
+(a lane several tasks of one epic shared is owned by that epic once every
+task finished and the epic is done or cancelled), no active work claim or
+harness session, a clean status including ignored and untracked files, and a
+branch the freshly fetched target retains: by ancestry, by patch
+equivalence, or because its commits net to no change at all. For each lane it first proves and
 deletes the exact remote ref (or proves it already absent) via the shared
 `delete_remote_branch_if_merged` helper; only then is the proved-clean worktree
 removed, followed by normal `git branch -d`. Incomplete remote cleanup
@@ -129,29 +144,22 @@ local-ref cleanup is refused, the item's worktree metadata remains intact so
 ownership is not lost and a later safe sweep can retry; the done runner does
 not complete happy-path close-out while that cleanup is incomplete.
 
-A member a deployment run closes gets the same retirement of its own lanes.
-Run settlement reads the closed item through `items.detail.get` — its project
-names this machine's checkout and target branch, and its lane rows name what
-to retire. After every member has closed, the run runs the machine-wide
-merged-lane sweep once for each distinct checkout, not once per member. Only
-a machine that maps the project's checkout can reach the lanes. Anywhere else,
-and for any lane cleanup preserved,
-the settling process prints a `Lane cleanup warning:` line for each, followed by
-the recovery: once the lane is resolved, run
-`yoke watch doctor -- --only HC-worktree-health --fix` on the machine holding
-it. A preserved lane never holds the run.
+A deployment run retires no lanes. It settles where its control plane runs,
+often a hosted server with no checkout, and the status write has already
+released each member's lane rows and claims; the relay on the machine that
+holds a member's lanes removes them on its next sweep. Every lane the sweep
+keeps is named in that relay's log with its reason.
 
 `max_active_worktrees` counts the lanes doing work: unmerged item lanes and
 deploy-run driver trees. An item lane that committed work its base branch
-already carries is only its worker's directory until release close-out retires
-it, so it holds no slot. A lane that has not committed yet is starting work and
+already carries is only its worker's directory until the relay's lane sweep
+retires it after its item closes, so it holds no slot. A lane that has not committed yet is starting work and
 counts; its branch reflog shows it never moved past the commit it was created
 at.
 
-A hosted control plane settles runs where no lane lives, so lane creation is
-the boundary that always reaches them: when a new lane would exceed the cap,
-creation first runs the same merged-lane sweep against the lane's base branch,
-then counts again and refuses only for what remains.
+A full checkout does not wait for the relay's next pass: when a new lane
+would exceed the cap, creation first runs the same sweep against the lane's
+base branch, then counts again and refuses only for what remains.
 
 Unregistered directories, ambiguous owners, dirty or ignored content,
 unavailable claim/DB state, non-ancestor branches, and removal refusals are
@@ -173,36 +181,32 @@ uncommitted path count, and writes them to the item's Progress Log under
 Use those SHAs to find discarded commits while git still holds the objects.
 A closed pull request's GitHub ref stays on GitHub.
 
-Every other machine deletes its copy on its next machine-wide sweep:
+Every other machine deletes its copy on its relay's next lane sweep:
 `merge.prune.authority_verdict` names the cancelled owner as
 `cancelled_item_ref`, and the sweep deletes that lane the same way and
 records it the same way. A live session whose workspace is the lane still
 keeps it until that session ends. A step git refuses is printed as a warning
 naming the lane, and the Progress Log record lists it under `not deleted`.
 
-### Health-check repair
+### Health-check report
 
-`yoke watch doctor -- --only HC-worktree-health --fix` retires terminal item
-lanes a landing sweep missed, under the same proof. It reads every lane's
-cleanup-authority verdict in one `merge.prune.authority_verdicts` call,
-fetches each target branch once per run, and proves branch ancestry with one
-`git for-each-ref --merged` of that target. A detached commit still gets its
-own ancestry read, and a branch the target does not contain still gets the
-patch-equivalence proof. Residue status names an ignored or untracked
-directory once, not every file inside it, so the verdicts for a full set of
-lanes finish inside the shared check budget. The check then retires each
-proved lane. Cache deletion and worktree removal run off that clock, so a
-removal that outlasts the seconds remaining does not discard the verdicts
-already recorded. A removal still starts only while enough budget remains to
-record a deferral if it cannot start. A lane that fails validation is skipped and reported with the
-reason and the recovery; every other lane in that batch is still judged and,
-when proved, retired. A detached checkout is `detached@<commit>`, never an
-empty branch. A clean detached lane whose commit is already on the target
-retires; a dirty lane, or one whose commit the target does not retain, stays
-with that reason named. A run that exhausts the check budget keeps the lanes
-it already retired, so rerunning the same command continues from there. If
-the authority read itself fails, the check names the failure and preserves
-every lane.
+`yoke watch doctor -- --only HC-worktree-health` reports terminal item lanes
+still on disk, under the same proof, and removes none of them; the relay's
+periodic lane sweep does that. A lane proved finished is reported as
+`verified-safe; the relay's periodic lane sweep removes it`, and every other
+lane names why it stays: dirty, locked, claimed, unmerged, or preserved. The
+check reads every lane's cleanup-authority verdict in one
+`merge.prune.authority_verdicts` call and proves branch ancestry with one
+`git for-each-ref --merged` of each target as this checkout last fetched it.
+A detached commit still gets its own ancestry read, and a branch the target
+does not contain still gets the patch-equivalence proof. Residue status
+names an ignored or untracked directory once, not every file inside it, so
+the verdicts for a full set of lanes finish inside the shared check budget.
+A lane that fails validation is reported with the reason; every other lane
+in that batch is still judged. A detached checkout is `detached@<commit>`,
+never an empty branch. If the authority read itself fails, the check names
+the failure and preserves every lane. `--fix` still finishes interrupted
+removals and retires finished deploy-run driver trees.
 
 ### Lane residue and project-declared renders
 
@@ -238,9 +242,9 @@ sweep and `HC-worktree-health` could not see one at all while it consumed the
 same `max_active_worktrees` slot an item lane does.
 
 It is retired from its run's own status instead, by whichever of these comes
-first: a self-deploy sweeping before it pins its own source, the machine-wide
-sweep any landing or a full checkout's lane creation runs, or the health
-check's own repair:
+first: a self-deploy sweeping before it pins its own source, the relay's
+periodic lane sweep or the same sweep a landing or a full checkout's lane
+creation runs, or the health check's own repair:
 
 ```text
 yoke watch doctor -- --only HC-worktree-health --fix

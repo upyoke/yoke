@@ -72,24 +72,14 @@ def _terminal_lane(tmp_path: Path) -> tuple[Path, Path]:
     return repo, lane
 
 
-def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
+def test_doctor_reports_a_verified_safe_lane_and_fix_leaves_it_to_the_relay(
     tmp_path,
     monkeypatch,
 ):
     repo, lane = _terminal_lane(tmp_path)
-    cached = lane / "webapp" / "node_modules" / "pkg" / "index.js"
-    cached.parent.mkdir(parents=True)
-    cached.write_text("built\n", encoding="utf-8")
     conn = _make_conn()
     _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
-    conn.execute(
-        "INSERT INTO item_worktrees "
-        "(id, item_id, branch, path, lane_role, state, created_at, updated_at, released_at) "
-        "VALUES (1, 20, %s, %s, 'implementation', 'released', "
-        "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
-        "'2026-01-01T00:00:00Z')",
-        (BRANCH, str(lane)),
-    )
+    _release_lane_row(conn, 1, 20, lane)
     conn.commit()
     monkeypatch.chdir(repo)
 
@@ -101,51 +91,14 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
         _idle_authority(),
     ):
         detected = _run_hc(hc_worktree_health, conn)
-        # The terminal transaction already released the seeded lane row.
-        with patch(
-            "yoke_core.engines.merge_landed_lane_cleanup.release_lane_row",
-            return_value=None,
-        ):
-            fixed = _run_hc(hc_worktree_health, conn, fix=True)
-
-    assert _result(detected).result == "WARN"
-    assert "verified-safe" in _result(detected).detail
-    assert _result(fixed).result == "PASS"
-    assert "Fixed: removed terminal lane" in _result(fixed).detail
-    assert not lane.exists()
-    assert _git(repo, "branch", "--list", BRANCH).stdout.strip() == ""
-
-
-def test_doctor_fix_preserves_and_names_unignored_content(tmp_path, monkeypatch):
-    repo, lane = _terminal_lane(tmp_path)
-    scratch = lane / "operator-note.txt"
-    scratch.write_text("keep\n", encoding="utf-8")
-    conn = _make_conn()
-    _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
-    conn.execute(
-        "INSERT INTO item_worktrees "
-        "(id, item_id, branch, path, lane_role, state, created_at, updated_at, released_at) "
-        "VALUES (1, 20, %s, %s, 'implementation', 'released', "
-        "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
-        "'2026-01-01T00:00:00Z')",
-        (BRANCH, str(lane)),
-    )
-    conn.commit()
-    monkeypatch.chdir(repo)
-
-    with (
-        patch(
-            "yoke_core.engines.doctor_report._resolve_repo_root",
-            return_value=str(repo),
-        ),
-        _idle_authority(),
-    ):
         fixed = _run_hc(hc_worktree_health, conn, fix=True)
 
-    assert _result(fixed).result == "WARN"
-    assert "operator-note.txt" in _result(fixed).detail
-    assert scratch.read_text(encoding="utf-8") == "keep\n"
+    for result in (_result(detected), _result(fixed)):
+        assert result.result == "WARN"
+        assert "the relay's periodic lane sweep removes it" in result.detail
+    assert "Fixed:" not in _result(fixed).detail
     assert lane.exists()
+    assert _git(repo, "branch", "--list", BRANCH).stdout.strip() != ""
 
 
 def _doctor_patches(repo: Path):
@@ -227,4 +180,4 @@ def test_doctor_counts_a_clean_lane_as_sweep_ready(tmp_path, monkeypatch):
     assert detail.splitlines()[0] == (
         "- 1 released lane still on disk: sweep-ready (YOK-20)"
     )
-    assert "the next landing on this machine sweeps it" in detail
+    assert "the relay's periodic lane sweep removes it" in detail
