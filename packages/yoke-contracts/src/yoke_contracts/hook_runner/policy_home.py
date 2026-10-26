@@ -126,7 +126,6 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     _D + "lint_no_agent_session_end": _SERVER,
     _D + "lint_pipe_to_truncator": _SERVER,
     _D + "lint_raw_pytest_full_suite": _SERVER,
-    _D + "lint_shell_quoted_function_payload": _SERVER,
     _D + "lint_structured_field_transform_shell": _SERVER,
     _D + "lint_subagent_background": _SERVER,
     _D + "lint_subagent_fleet_messaging": _SERVER,

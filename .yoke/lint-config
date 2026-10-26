@@ -65,7 +65,6 @@ path_claim_bash_guard=deny
 lint_structured_field_transform_shell=deny
 
 # Refuse hand-quoted JSON payloads and adapter shell-choreography.
-lint_shell_quoted_function_payload=deny
 
 # Keep diagnostic stderr visible on state-changing Yoke adapters.
 lint_yoke_adapter_stderr_visibility=deny

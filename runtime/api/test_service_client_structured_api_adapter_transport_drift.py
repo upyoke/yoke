@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import re
+import shlex
+
+from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
+
 from yoke_cli.transport.function_version_skew import SKEW_ERROR_CODE
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.api.function_call import (
@@ -59,15 +64,11 @@ def test_https_function_not_registered_adds_the_local_env_rerun(
     assert response.success is False
     assert response.error is not None
     assert response.error.code == SKEW_ERROR_CODE
-    assert "env 'prod' does not serve function 'strategy.doc.create'" in (
-        response.error.message
-    )
-    # The paired door refuses routine calls (use_https_env), so the rerun
-    # names a machine-local universe instead.
-    assert "yoke --env sandbox strategy doc create" in (
-        response.error.recovery_hint or ""
-    )
-    assert "--env prod-db-admin" not in (response.error.recovery_hint or "")
+    recipes = re.findall(r"`([^`]+)`", response.error.recovery_hint or "")
+    expected = shlex.split(ADAPTER_USAGE["strategy.doc.create"])
+    assert [expected[0], "--env", "sandbox", *expected[1:]] in [
+        shlex.split(recipe) for recipe in recipes
+    ]
 
 
 def test_unknown_local_function_keeps_original_server_error(monkeypatch) -> None:

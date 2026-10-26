@@ -93,18 +93,6 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
     )
     assert "python3 -m yoke_core.cli.db_router runs get" not in rows
 
-
-def test_structured_adapter_inventory_tracks_db_read():
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    entry = adapter_index()["db.read.run"]
-    assert entry.cli_invocation.startswith('yoke db read "SELECT ..."')
-    assert entry.read_shape is True
-
-
-def test_markdown_renderer_is_deterministic_and_grouped():
     rows = tuple(inventory.generate_inventory(repo_root=REPO_ROOT))
     first = inventory.render_markdown(rows)
     second = inventory.render_markdown(rows)

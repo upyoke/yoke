@@ -17,9 +17,6 @@ from yoke_cli.product_boundary_teaching_sources import help_usage_recipes
 from yoke_contracts.api.function_call import ActorContext
 from yoke_contracts.function_serving_floors import FUNCTION_MINIMUM_SERVING_VERSIONS
 from yoke_contracts.timestamps import temporal_wire
-from yoke_core.api.service_client_structured_api_adapter_inventory_admission import (
-    ADMISSION_ADAPTERS,
-)
 from yoke_core.domain.handlers import _register_profile
 from yoke_core.domain.terminal_reachable_functions import TERMINAL_RECIPES
 
@@ -205,8 +202,7 @@ def test_bad_usage_does_not_dispatch(transport, capsys, args):
     assert transport.calls == []
 
 
-def test_token_recipes_reach_inventory_manifest_and_teaching():
-    inventory = {row.function_id: row.cli_invocation for row in ADMISSION_ADAPTERS}
+def test_token_recipes_reach_manifest_and_teaching():
     catalog = build_manifest()
     manifest = {
         row["function_id"]: row
@@ -215,5 +211,5 @@ def test_token_recipes_reach_inventory_manifest_and_teaching():
     }
     assert set(manifest) == set(tokens.USAGE_BY_FUNCTION_ID)
     for function_id, usage in tokens.USAGE_BY_FUNCTION_ID.items():
-        assert inventory[function_id] == manifest[function_id]["usage"] == usage
+        assert manifest[function_id]["usage"] == usage
         assert usage in help_usage_recipes()

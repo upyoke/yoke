@@ -109,7 +109,7 @@ class TestProbe:
     def test_incompatible_with_planned_sibling_surfaces(self, conn):
         target, cand_claim, other_claim = _seed_two_items_sharing(
             conn,
-            path_string="runtime/api/domain/lint_shell_quoted_function_payload.py",
+            path_string="packages/yoke-core/src/yoke_core/domain/lint_structured_field_transform_shell.py",
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
         assert len(issues) == 1
@@ -121,7 +121,7 @@ class TestProbe:
         assert issue.context["conflicting_item_id"] == _OTHER_ITEM
         assert issue.context["integration_target"] == "main"
         assert issue.context["shared_paths"] == [
-            "runtime/api/domain/lint_shell_quoted_function_payload.py",
+            "packages/yoke-core/src/yoke_core/domain/lint_structured_field_transform_shell.py",
         ]
 
     def test_same_item_idempotent_no_self_conflict(self, conn):

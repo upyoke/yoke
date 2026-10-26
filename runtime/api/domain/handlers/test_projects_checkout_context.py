@@ -33,12 +33,18 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _request(payload: dict | None = None, **kwargs):
     return build_request(
-        "projects.checkout_context.run", payload or {}, **kwargs,
+        "projects.checkout_context.run",
+        payload or {},
+        **kwargs,
     )
 
 
 def _seed_session_on_item(
-    conn, session_id: str, *, item_id: int, project_id: int,
+    conn,
+    session_id: str,
+    *,
+    item_id: int,
+    project_id: int,
 ) -> None:
     now = iso8601_now()
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
@@ -50,8 +56,13 @@ def _seed_session_on_item(
         "VALUES (%s, %s, %s, 'checkout-context inference seed', "
         "%s, %s, 'idea', %s, %s)",
         (
-            item_id, project_id, item_id, workflow_id,
-            workflow_version_id, now, now,
+            item_id,
+            project_id,
+            item_id,
+            workflow_id,
+            workflow_version_id,
+            now,
+            now,
         ),
     )
     conn.execute(
@@ -88,8 +99,10 @@ class TestResolutionLadder:
         conn = connect_test_db(tmp_db)
         try:
             _seed_session_on_item(
-                conn, "session-on-externalwebapp-item",
-                item_id=901, project_id=OTHER_PROJECT_ID,
+                conn,
+                "session-on-externalwebapp-item",
+                item_id=901,
+                project_id=OTHER_PROJECT_ID,
             )
         finally:
             conn.close()
@@ -118,9 +131,7 @@ class TestResolutionLadder:
 
 class TestValidation:
     def test_rejects_unexpected_payload_keys(self, tmp_db: str) -> None:
-        outcome = handlers.handle_projects_checkout_context(
-            _request({"field": "slug"})
-        )
+        outcome = handlers.handle_projects_checkout_context(_request({"field": "slug"}))
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
 
@@ -148,14 +159,3 @@ class TestRegistrationShape:
         assert list(entry.target_kinds) == ["global"]
         assert entry.claim_required_kind is None
         assert list(entry.side_effects) == []
-
-    def test_adapter_inventory_entry_present(self) -> None:
-        from yoke_core.api.service_client_structured_api_adapter_inventory import (
-            adapter_index,
-        )
-
-        index = adapter_index()
-        assert "projects.checkout_context.run" in index
-        entry = index["projects.checkout_context.run"]
-        assert "projects checkout-context" in entry.cli_invocation
-        assert entry.read_shape

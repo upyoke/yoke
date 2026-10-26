@@ -48,7 +48,7 @@ _ALWAYS_RUN_CONTRACTS = (
     (
         "core_contract_floor",
         (
-            "runtime/api/cli/test_adapter_inventory_usage_contract.py",
+            "runtime/api/cli/test_adapter_usage_contract.py",
             "runtime/api/cli/test_cli_usage_matches_parser.py",
             "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",

@@ -270,18 +270,6 @@ def test_delivery_cli_route_and_client_local_scope_are_registered() -> None:
     assert callable(adapter)
     assert "packets.startup_delivery.get" in CLIENT_LOCAL_BY_ID
 
-
-def test_delivery_adapter_inventory_row_names_the_read_command() -> None:
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    entry = adapter_index()["packets.startup_delivery.get"]
-    assert entry.read_shape is True
-    assert entry.cli_invocation.startswith(delivery.DELIVERY_READ_COMMAND)
-
-
-def test_delivery_human_writer_prints_a_row_per_channel() -> None:
     from yoke_cli.commands.adapters.packets import _startup_delivery_writer
 
     class _Response:

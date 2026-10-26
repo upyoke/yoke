@@ -19,9 +19,6 @@ from yoke_core.domain import lint_destructive_git as destructive_git
 from yoke_core.domain import lint_no_agent_runtime_api_import_from_c as import_guard
 from yoke_core.domain import lint_pipe_to_truncator as pipe_guard
 from yoke_core.domain.lint_db_cmd_test_helpers import _assert_allows, _assert_blocks
-from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
-    build_choreography_remediation,
-)
 
 
 def _payload(command: str, **extra: object) -> dict:
@@ -174,16 +171,6 @@ def test_dispatch_import_probe_still_blocks() -> None:
         'dispatch(request)"'
     )
     assert import_guard.evaluate_payload(_payload(command)) is not None
-
-
-def test_renderer_denial_names_a_lane_source_command_that_targets_the_worktree() -> (
-    None
-):
-    reason = build_choreography_remediation(
-        "yoke_core.domain.agents_render render", "agents.render.run"
-    )
-    assert "yoke dev run -- yoke agents render" in reason
-    assert "render --target-root <absolute-checkout>" in reason
 
 
 def test_explicit_temp_capture_cleanup_is_not_destructive_git() -> None:

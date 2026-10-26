@@ -34,7 +34,7 @@ def register(registry) -> None:
         side_effects=["work_claims_insert"],
         emitted_event_names=["LeaseAcquired"],
         guardrails=[],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
         minimum_serving_version="next-release",
     )
@@ -49,7 +49,7 @@ def register(registry) -> None:
         side_effects=["work_claims_update_heartbeat"],
         emitted_event_names=["LeaseHeartbeated"],
         guardrails=[],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
     )
     registry.register(

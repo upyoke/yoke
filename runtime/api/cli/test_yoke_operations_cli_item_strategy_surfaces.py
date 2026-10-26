@@ -7,10 +7,6 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
-from yoke_cli.commands.adapters.strategy_surfaces import USAGE_BY_FUNCTION_ID
-from yoke_core.api.service_client_structured_api_adapter_inventory_strategy import (
-    STRATEGY_ADAPTERS,
-)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -233,16 +229,6 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     assert release.payload == {
         "reason": "Operator recovered an abandoned document claim."
     }
-
-
-def test_strategy_claim_release_usage_advertises_optional_reason() -> None:
-    expected = (
-        "yoke strategy claim release (ITEM | PROCESS_KEY) "
-        "[--reason TEXT] --project P [--session-id S] [--json]"
-    )
-    assert USAGE_BY_FUNCTION_ID["strategy.claim.release"] == expected
-    inventory = {entry.function_id: entry.cli_invocation for entry in STRATEGY_ADAPTERS}
-    assert inventory["strategy.claim.release"] == expected
 
 
 def test_strategy_claim_release_process_key_routes_to_work_release() -> None:

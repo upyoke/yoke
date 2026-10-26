@@ -219,7 +219,7 @@ def register(registry) -> None:
             "prepared_run_lineage_window",
             "item_bound_composition_validation",
         ],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind="item",
     )
     registry.register(

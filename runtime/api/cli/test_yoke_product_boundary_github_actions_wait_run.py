@@ -25,20 +25,12 @@ def test_wait_run_inventory_is_https_relay_safe() -> None:
     assert row.capability_required == "project GitHub App auth"
     assert row.import_edges == ()
 
-
-def test_structured_adapter_inventory_tracks_wait_run() -> None:
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    entry = adapter_index()["github_actions.wait_run"]
-    assert entry.read_shape is True
-    assert entry.cli_invocation.startswith("yoke github-actions wait-run")
-
-
-def test_conduct_teaching_uses_registered_wait_run_surface() -> None:
     conduct = (
-        REPO_ROOT / ".agents" / "skills" / "yoke" / "conduct"
+        REPO_ROOT
+        / ".agents"
+        / "skills"
+        / "yoke"
+        / "conduct"
         / "dispatch-context-ephemeral.md"
     ).read_text(encoding="utf-8")
     assert "yoke github-actions wait-run" in conduct

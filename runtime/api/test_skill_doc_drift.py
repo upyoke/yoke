@@ -5,8 +5,7 @@ Two complementary scans:
 * **Token regressions** — explicit regex rules per known-drifted shape.
 * **Write-shape lint validation** — fenced ``bash`` blocks containing
   ``items update --stdin`` (the YOK-1748 drift class) are validated
-  against ``lint_shell_quoted_function_payload`` and
-  ``lint_structured_field_transform_shell``.
+  against ``lint_structured_field_transform_shell``.
 
 Suppression: append ``# doc-drift-allow:<reason>`` (or the inline
 HTML-comment form ``<!-- doc-drift-allow:<reason> -->``) to a line to
@@ -26,9 +25,6 @@ from typing import Iterable, List, Pattern, Tuple
 
 import pytest
 
-from yoke_core.domain.lint_shell_quoted_function_payload import (
-    evaluate_command as _lint_shell_quoted_function_payload,
-)
 from yoke_core.domain.lint_structured_field_transform_shell import (
     evaluate_command as _lint_structured_field_transform_shell,
 )
@@ -251,11 +247,6 @@ def _iter_fenced_commands() -> Iterable[_FencedCommand]:
 _ITEMS_UPDATE_STDIN_RE = re.compile(r"\bitems\s+update\b[^\n;|&]*--stdin\b")
 
 _FENCED_LINTS = (
-    (
-        "shell_quoted_function_payload",
-        _lint_shell_quoted_function_payload,
-        "Switch to the Write-tool tempfile + bare ``< /tmp/...`` redirect",
-    ),
     (
         "structured_field_transform_shell",
         _lint_structured_field_transform_shell,

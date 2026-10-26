@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from yoke_cli.transport.dispatcher import (
     build_actor,
@@ -15,12 +15,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
     TargetRef,
-)
-from yoke_core.api.service_client_structured_api_adapter_inventory import (
-    AGENT_PATH_VALUES,
-    AdapterEntry,
-    CLI_ADAPTERS,
-    adapter_index,
 )
 from yoke_core.api.service_client_shared_session_resolver import _resolve_session_id
 
@@ -80,10 +74,12 @@ def _function_not_registered_hint(function_id: str) -> str:
     source checkout can add is the concrete local-postgres rerun recipe
     for the command in hand, so this hint carries exactly that.
     """
-    entry = adapter_for(function_id)
-    if entry is None:
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
+
+    usage = ADAPTER_USAGE.get(function_id)
+    if not usage:
         return ""
-    return _local_postgres_rerun_hint(cli_invocation=entry.cli_invocation)
+    return _local_postgres_rerun_hint(cli_invocation=usage)
 
 
 def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
@@ -108,10 +104,7 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
     if not retry_envs:
         return ""
     env = retry_envs[0]
-    if cli_invocation.startswith("yoke "):
-        recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
-    else:
-        recipe = f"YOKE_ENV={env} {cli_invocation}"
+    recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
     inventory = (
         f" (configured local-postgres envs: {', '.join(inventory_envs)})"
         if inventory_envs
@@ -123,27 +116,12 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
     )
 
 
-def adapter_for(function_id: str) -> Optional[AdapterEntry]:
-    """Return the registered :class:`AdapterEntry` for *function_id*."""
-
-    return adapter_index().get(function_id)
-
-
-def function_ids_with_adapter() -> List[str]:
-    return sorted(adapter_index())
-
-
 __all__ = [
-    "AdapterEntry",
-    "AGENT_PATH_VALUES",
-    "CLI_ADAPTERS",
-    "adapter_for",
     "build_actor",
     "build_request",
     "call_dispatcher",
     "dispatch",
     "emit_response",
-    "function_ids_with_adapter",
     "_resolve_session_id",
     "response_to_dict",
 ]
