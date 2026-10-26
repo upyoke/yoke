@@ -164,7 +164,7 @@ def execution_connection_error(run_id: str) -> Optional[str]:
         return str(run.get("project") or ""), str(run.get("target_environment") or "")
 
     return _self_deploy_refusal(
-        _target, f"deployment run {run_id}", f"deployment-runs execute {run_id}"
+        _target, f"deployment run {run_id}", f"watch deploy -- {run_id}"
     )
 
 
@@ -207,7 +207,7 @@ def door_execution_error(run_id: str, https_env: str) -> Optional[str]:
         f"{USE_HTTPS_ENV}: deployment run {run_id} does not replace the API "
         f"serving {https_env!r}, so it is driven over that https env beside "
         "its database, not through this direct database door — rerun with "
-        f"`yoke --env {https_env} deployment-runs execute {run_id}`"
+        f"`yoke --env {https_env} watch deploy -- {run_id}`"
     )
 
 

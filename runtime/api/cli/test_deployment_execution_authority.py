@@ -70,9 +70,7 @@ def test_self_deploy_requires_same_universe_admin_connection():
         refusal = authority.execution_connection_error("run-1")
 
     assert refusal is not None
-    assert "self-deployment" in refusal
-    assert "prod-db-admin" in refusal
-    assert "run-1" in refusal
+    assert "`yoke --env prod-db-admin watch deploy -- run-1`" in refusal
 
 
 def test_unregistered_target_host_is_not_guessed_as_self_deploy():

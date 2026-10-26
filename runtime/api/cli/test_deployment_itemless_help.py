@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.commands.deployment_execute import deployment_runs_execute
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
     ITEMLESS_RELEASE_RECIPE,
@@ -66,7 +67,7 @@ def test_execute_help_teaches_interrupted_run_redrive() -> None:
     assert INTERRUPTED_RUN_RECOVERY.strip() in text
 
 
-def test_create_post_note_points_at_watch_deploy() -> None:
+def _create_stderr(env: dict[str, str]) -> str:
     from yoke_contracts.api.function_call import (
         FunctionCallRequest,
         FunctionCallResponse,
@@ -86,7 +87,7 @@ def test_create_post_note_points_at_watch_deploy() -> None:
             },
         )
 
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
+    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session", **env}):
         with patch(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
@@ -105,8 +106,23 @@ def test_create_post_note_points_at_watch_deploy() -> None:
                             "stage-1",
                         ]
                     )
-    assert rc == 0
+    assert rc == 0, err.getvalue()
     assert "run id: run-20260805-001" in out.getvalue()
-    assert "watch deploy -- run-20260805-001" in err.getvalue()
-    assert "deployment-runs execute" not in err.getvalue()
-    assert "warning" not in err.getvalue()
+    return err.getvalue()
+
+
+def test_create_post_note_points_at_watch_deploy() -> None:
+    err = _create_stderr({})
+    assert "watch deploy -- run-20260805-001" in err
+    assert "deployment-runs execute" not in err
+    assert "warning" not in err
+
+
+def test_self_deploy_create_note_names_the_db_admin_connection() -> None:
+    adapter = "yoke_cli.commands.adapters.deployment_run_create"
+    with (
+        patch(f"{adapter}.execution_connection_error", return_value="self-deploy"),
+        patch(f"{adapter}._same_universe_admin_env", return_value="prod-db-admin"),
+    ):
+        err = _create_stderr({ENV_OVERRIDE: "prod"})
+    assert "yoke --env prod-db-admin watch deploy -- run-20260805-001" in err
