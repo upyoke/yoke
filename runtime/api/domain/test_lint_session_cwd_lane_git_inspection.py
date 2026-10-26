@@ -24,7 +24,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain import lint_session_cwd
+from yoke_core.domain import lint_lane_main_write, lint_session_cwd
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
     is_read_only_git_inspection,
@@ -61,6 +61,16 @@ ALLOWED_COMMANDS = (
     "git -C {lane} branch -r --merged main",
     "git -C {lane} remote show origin",
     "git -C {lane} config user.email",
+    "git -C {lane} branch -v",
+    "git -C {lane} branch -vv",
+)
+
+# Writes git parses from an abbreviated long flag, an attached value or
+# a branch name after ``-v``.
+FLAG_FORM_WRITES = (
+    "branch -v newbr", "branch -vv newbr", "branch --verbose newbr",
+    "config --unset-a k", "config --remove-s sec", "config --rem sec",
+    "branch --unset-u", "branch --set-upstream-t=x", "branch -ux",
 )
 
 # Writes and state moves, plus the shell shapes that reach a write
@@ -93,6 +103,7 @@ REFUSED_COMMANDS = (
     "git -C {lane} status && git -C {lane} add .",
     "git -C {lane} log --output={lane}/log.txt",
     "git -C {lane} log --output {lane}/log.txt",
+    *(f"git -C {{lane}} {form}" for form in FLAG_FORM_WRITES),
 )
 
 # File readers of a held lane. They are not Git inspection, and they
@@ -164,6 +175,21 @@ class TestCommandClassification:
 
     def test_empty_command_does_not_classify(self):
         assert is_read_only_git_inspection("   ") is False
+
+
+@pytest.mark.parametrize(
+    "command, allow",
+    [(f"git {form}", False) for form in FLAG_FORM_WRITES]
+    + [(r"find . -exec git config --unset-a k \;", False)]
+    + [(c, True) for c in ("git branch -v", "git branch -vv",
+        "git remote get-url origin", "git config --get user.email",
+        "git branch --contains HEAD", "find . -exec grep -l x {} +")],
+)
+def test_git_flag_forms_in_main_checkout(conn, repo, command, allow):
+    _seed_lane(conn, repo, session_id=HOLDER, item_id=HELD_ITEM)
+    payload = {"session_id": HOLDER, "cwd": str(repo), "tool_name": "Bash",
+               "tool_input": {"command": command}}
+    assert lint_lane_main_write.evaluate_pre_tool_use(payload).allow is allow
 
 
 class TestNeighbourLaneInspection:
