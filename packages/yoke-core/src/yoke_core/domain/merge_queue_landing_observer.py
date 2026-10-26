@@ -244,7 +244,7 @@ def observe_pending_landings(
                     item_id=item_id,
                     project_id=project_id,
                     body_for_route=lambda route: ejection_message(
-                        public_ref, pr_number, observation, route
+                        public_ref, pr_number, observation, route, record.disarm_note
                     ),
                     idempotency_key=key,
                     now=current,
