@@ -111,6 +111,13 @@ class TestScope(unittest.TestCase):
             )
         )
 
+    def test_watch_help_is_clean(self):
+        self.assertIsNone(_eval("cd /tmp; yoke watch qa-plan --help"))
+        self.assertIsNone(_eval("yoke watch pytest -h"))
+
+    def test_help_flag_after_separator_still_needs_the_timeout(self):
+        self.assertIsNotNone(_eval("yoke watch pytest -- --help"))
+
     def test_print_flag_after_separator_still_needs_the_timeout(self):
         self.assertIsNotNone(_eval("yoke watch pytest -- --print-streaming-pair"))
 
