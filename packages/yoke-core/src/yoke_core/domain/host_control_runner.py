@@ -298,7 +298,7 @@ def resolve_contract_host_control(
             recovery_hint="Run the operation through the registered Yoke CLI command.",
         )
     material = materialize_test_machine_contract(contract)
-    from yoke_core.domain.test_machine_power import power_on
+    from yoke_core.domain.cloud_machine_power import power_on
 
     power_on(material.project, material.settings)
     return _factory(material), material

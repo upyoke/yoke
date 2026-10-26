@@ -8,9 +8,9 @@ import subprocess
 import pytest
 
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_core.domain import test_machine_power
+from yoke_core.domain import cloud_machine_power
 from yoke_core.domain.deploy_remote import CommandResult
-from yoke_core.domain.test_machine_power import (
+from yoke_core.domain.cloud_machine_power import (
     power_on,
     wait_for_ssh_login,
 )
@@ -37,12 +37,12 @@ def _ec2_actions(runner: FakeRunner) -> list[str]:
 
 @pytest.fixture
 def aws(monkeypatch):
-    monkeypatch.setattr(test_machine_power, "_aws_env", lambda project: {"P": project})
+    monkeypatch.setattr(cloud_machine_power, "_aws_env", lambda project: {"P": project})
 
 
 def test_machine_without_instance_id_is_never_touched(monkeypatch):
     monkeypatch.setattr(
-        test_machine_power, "_aws_env", lambda project: pytest.fail("no AWS call")
+        cloud_machine_power, "_aws_env", lambda project: pytest.fail("no AWS call")
     )
     runner = FakeRunner()
     power_on("yoke", MAC, runner=runner)
@@ -52,7 +52,7 @@ def test_machine_without_instance_id_is_never_touched(monkeypatch):
 def test_stopped_machine_starts_then_waits_for_an_ssh_login(monkeypatch, aws):
     waited = []
     monkeypatch.setattr(
-        test_machine_power,
+        cloud_machine_power,
         "wait_for_ssh_login",
         lambda project, settings, emit, runner: waited.append(
             (project, settings["resource_name"])
@@ -66,7 +66,7 @@ def test_stopped_machine_starts_then_waits_for_an_ssh_login(monkeypatch, aws):
 
 def test_running_machine_skips_the_ssh_wait(monkeypatch, aws):
     monkeypatch.setattr(
-        test_machine_power, "wait_for_ssh_login", lambda *a, **k: pytest.fail("no wait")
+        cloud_machine_power, "wait_for_ssh_login", lambda *a, **k: pytest.fail("no wait")
     )
     runner = FakeRunner([_json(["running"])])
     power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
@@ -102,7 +102,7 @@ def ssh_key(monkeypatch, tmp_path):
     key = tmp_path / "ssh_private_key"
     key.write_text("key", encoding="utf-8")
     monkeypatch.setattr(
-        test_machine_power, "machine_capability_secret_path", lambda *a: key
+        cloud_machine_power, "machine_capability_secret_path", lambda *a: key
     )
     return key
 
@@ -153,7 +153,7 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        test_machine_power,
+        cloud_machine_power,
         "machine_capability_secret_path",
         lambda *a: tmp_path / "missing",
     )

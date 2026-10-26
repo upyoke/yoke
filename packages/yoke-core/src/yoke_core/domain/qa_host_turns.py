@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from yoke_contracts.coordination_claim_recovery import holder_release_command
 from yoke_contracts.timestamps import format_instant, utc_now
-from yoke_core.domain.test_machine_release_notice import note_released_host
+from yoke_core.domain.cloud_machine_release_notice import note_released_host
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_plan_execution_store import marker as _p

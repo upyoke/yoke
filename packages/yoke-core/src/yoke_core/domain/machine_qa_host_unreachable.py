@@ -5,7 +5,7 @@ The authority records that as the host's failed verification, so
 ``host_unhealthy`` bars it, and queues the plan on the host's line. A later
 successful verify or golden capture heals the host and the line's turn wakes
 the plan. A host with ``cloud_instance_id`` is started before SSH is tried
-(``test_machine_power``); any other stopped host is the operator's to start.
+(``cloud_machine_power``); any other stopped host is the operator's to start.
 """
 
 from __future__ import annotations

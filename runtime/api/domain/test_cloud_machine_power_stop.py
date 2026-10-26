@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
-from yoke_core.domain import test_machine_power
+from yoke_core.domain import cloud_machine_power
 from yoke_core.domain.deploy_remote import CommandResult
-from yoke_core.domain.test_machine_power_stop import stop_released
+from yoke_core.domain.cloud_machine_power_stop import stop_released
 from runtime.api.domain.test_deploy_remote import FakeRunner
-from runtime.api.domain.test_test_machine_power import CLOUD, MAC, OK
+from runtime.api.domain.test_cloud_machine_power import CLOUD, MAC, OK
 
 RELEASED = [{"project": "yoke", "test_machine": "windows-lab"}]
 
@@ -52,8 +52,8 @@ def control_plane(monkeypatch):
         assert payload["claim_id"] == 91
         return _ok({})
 
-    monkeypatch.setattr(test_machine_power, "_dispatch", dispatch)
-    monkeypatch.setattr(test_machine_power, "_aws_env", lambda project: {})
+    monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "_aws_env", lambda project: {})
     return state
 
 
@@ -107,7 +107,7 @@ def test_a_host_without_elastic_ip_stays_running_with_a_named_reason(control_pla
 
 
 def test_releasing_the_hold_does_not_re_enter_the_stop(control_plane, monkeypatch):
-    original = test_machine_power._dispatch
+    original = cloud_machine_power._dispatch
     nested = []
 
     def dispatch(function_id, payload):
@@ -117,7 +117,7 @@ def test_releasing_the_hold_does_not_re_enter_the_stop(control_plane, monkeypatc
             nested.append(stop_released(RELEASED, runner=FakeRunner()))
         return response
 
-    monkeypatch.setattr(test_machine_power, "_dispatch", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
     stop_released(RELEASED, runner=FakeRunner([_json(["stopped"])]), emit=lambda _l: None)
     assert nested == [None]
     assert control_plane.calls.count("claims.coordination_claim.acquire_if_free") == 1
@@ -132,7 +132,7 @@ def test_a_server_without_the_hold_function_leaves_the_host_running(monkeypatch)
             error=FunctionError(code="function_version_skew", message="floor"),
         )
 
-    monkeypatch.setattr(test_machine_power, "_dispatch", dispatch)
+    monkeypatch.setattr(cloud_machine_power, "_dispatch", dispatch)
     lines: list[str] = []
     stop_released(RELEASED, runner=FakeRunner(), emit=lines.append)
     assert lines[0].startswith("test_machine_power_hold_failed:")
@@ -143,7 +143,7 @@ def test_the_client_transport_stops_machines_a_response_names(monkeypatch):
 
     seen = []
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_power_stop.stop_released", seen.append
+        "yoke_core.domain.cloud_machine_power_stop.stop_released", seen.append
     )
     response = _ok({}).model_copy(update={"released_test_machines": RELEASED})
     assert settled_response.settle_response(response).success

@@ -5,7 +5,7 @@ which lives only on executing machines, so the control plane cannot stop a
 host itself. Instead, every release of a host lease that leaves the host
 free (no waiter's turn reserved) is noted during the call, and the response
 names those hosts with ``cloud_instance_id``. Whichever client made the call,
-whatever command it was, then stops them (``test_machine_power``). The note
+whatever command it was, then stops them (``cloud_machine_power``). The note
 is a hint: the client rechecks the lease under the host's own claim first.
 """
 

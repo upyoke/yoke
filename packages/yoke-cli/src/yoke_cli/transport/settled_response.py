@@ -14,6 +14,7 @@ from typing import Sequence
 
 from yoke_cli.transport.public_ref_display import redact_response
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.refusal_recovery import compose_refusal
 
 
 def settle_response(
@@ -22,16 +23,16 @@ def settle_response(
     response = redact_response(response, tuple(sensitive_values))
     if response.released_test_machines:
         try:
-            stop = importlib.import_module("yoke_core.domain.test_machine_power_stop")
+            stop = importlib.import_module("yoke_core.domain.cloud_machine_power_stop")
         except ImportError as exc:
-            print(
+            refusal = compose_refusal(
                 "test_machine_power_stop_failed: cloud Test Machines "
                 f"{response.released_test_machines} stay running; this CLI cannot "
-                f"load the stop ({exc}). Recovery: run `yoke update`, then "
-                "`yoke test-machine verify`, whose release stops them.",
-                file=sys.stderr,
-                flush=True,
+                f"load the stop ({exc})",
+                recovery="run `yoke update`, then `yoke test-machine verify`, "
+                "whose release stops them",
             )
+            print(refusal, file=sys.stderr, flush=True)
         else:
             stop.stop_released(response.released_test_machines)
     return response

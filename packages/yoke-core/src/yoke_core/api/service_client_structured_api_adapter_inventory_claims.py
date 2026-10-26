@@ -90,7 +90,7 @@ CLAIMS_ADAPTERS = [
     ),
     AdapterEntry(
         "claims.coordination_claim.acquire_if_free",
-        "python3 -m yoke_core.domain.test_machine_power (cloud host stop hold)",
+        "python3 -m yoke_core.domain.cloud_machine_power (cloud host stop hold)",
     ),
     AdapterEntry(
         "claims.coordination_claim.heartbeat",

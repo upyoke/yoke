@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     TargetRef,
 )
-from yoke_core.domain import test_machine_release_notice as notice
+from yoke_core.domain import cloud_machine_release_notice as notice
 from yoke_core.domain.agent_mission_recording import handle_agent_mission_access
 from yoke_core.domain.coordination_claims import acquire, release
 from yoke_core.domain.handlers.claims_coordination_claim import handle_acquire_if_free

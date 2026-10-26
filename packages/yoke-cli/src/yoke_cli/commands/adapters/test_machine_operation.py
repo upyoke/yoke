@@ -101,7 +101,7 @@ def run_host_operation(
 
 def _power() -> Any:
     """Cloud Test Machine start runs here, where the aws-admin key lives."""
-    return importlib.import_module("yoke_core.domain.test_machine_power")
+    return importlib.import_module("yoke_core.domain.cloud_machine_power")
 
 
 def _execute(

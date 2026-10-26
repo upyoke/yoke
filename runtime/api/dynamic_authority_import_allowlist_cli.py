@@ -154,14 +154,14 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/test_machine_operation.py",
-        "yoke_core.domain.test_machine_power",
+        "yoke_core.domain.cloud_machine_power",
     ): (
         "machine_local_credential_custody",
         "start a cloud Test Machine with the machine-local aws-admin key",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/transport/settled_response.py",
-        "yoke_core.domain.test_machine_power_stop",
+        "yoke_core.domain.cloud_machine_power_stop",
     ): (
         "machine_local_credential_custody",
         "stop a cloud Test Machine its last lease release freed, with the "

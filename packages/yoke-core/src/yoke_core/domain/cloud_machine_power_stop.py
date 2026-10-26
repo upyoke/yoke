@@ -1,7 +1,7 @@
 """Stop a cloud Test Machine when its last lease is released.
 
 A call whose lease release leaves a cloud host free names it on its response
-(``test_machine_release_notice``); the calling client's transport then runs
+(``cloud_machine_release_notice``); the calling client's transport then runs
 :func:`stop_released`. The stop holds the host's own lease while it checks and
 stops, so a concurrent acquirer queues behind it and then finds the host
 stopping, which its start waits out. A host someone else holds keeps running.
@@ -21,10 +21,10 @@ from yoke_core.domain.ec2_instance_power import (
     instance_state,
     stop_instance,
 )
-from yoke_core.domain import test_machine_power as power
+from yoke_core.domain import cloud_machine_power as power
 
 # Set while stop_released runs, so releasing its own hold does not re-enter it.
-_stopping: ContextVar[bool] = ContextVar("test_machine_power_stopping", default=False)
+_stopping: ContextVar[bool] = ContextVar("cloud_machine_power_stopping", default=False)
 
 
 def _stop_if_running(

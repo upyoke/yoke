@@ -5,7 +5,7 @@ instance the project's aws-admin capability powers from the executing
 machine. The lease holder starts it, and waits until its key logs in, before
 the first host command. The last lease release stops it: any call whose
 release leaves the host free (no waiter's turn reserved) names it on its
-response (``test_machine_release_notice``), and the calling client, whatever
+response (``cloud_machine_release_notice``), and the calling client, whatever
 command or process it is, stops it while holding the host's own lease.
 A release no client hears (a server-side reap) leaves the host running
 until its next lease cycles; by operator choice there is no sweep.
