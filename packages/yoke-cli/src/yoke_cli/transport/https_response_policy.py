@@ -7,14 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Iterable
 
 from yoke_cli.transport.https_request_fields import (
-    _SENSITIVE_KEY_WORDS,
-    _CONTEXT_VALUE_KEYS,
-    _CONTEXT_NAME_KEYS,
-    _CAMEL_BOUNDARY,
-    _NON_WORD,
     _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION,
-    _PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION,
-    _PUBLIC_PAYLOAD_PATHS_BY_FUNCTION,
 )
 from yoke_cli.transport.response_deadline_read import (
     ResponseReadDeadlineError,
@@ -75,22 +68,9 @@ def collect_request_secrets(
     *,
     transport_token: str = "",
 ) -> tuple[str, ...]:
-    """Collect string secrets from nested request fields by key semantics."""
+    """Collect the transport bearer and declared secret payload fields."""
 
     found: set[str] = set()
-    document = request.model_dump(mode="json")
-    payload = document.get("payload")
-    public_fields = _PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION.get(request.function, ())
-    if isinstance(payload, Mapping) and public_fields:
-        document["payload"] = {
-            key: value for key, value in payload.items() if key not in public_fields
-        }
-    _collect_nested(
-        document,
-        found,
-        inherited_sensitive=False,
-        public_paths=_PUBLIC_PAYLOAD_PATHS_BY_FUNCTION.get(request.function, ()),
-    )
     _collect_declared_payload_secrets(request.function, request.payload, found)
     if transport_token:
         found.add(transport_token)
@@ -235,47 +215,6 @@ def _content_length(response: Any) -> int | None:
     return parsed if parsed >= 0 else None
 
 
-def _collect_nested(
-    value: Any,
-    found: set[str],
-    *,
-    inherited_sensitive: bool,
-    path: tuple[str, ...] = (),
-    public_paths: tuple[tuple[str, ...], ...] = (),
-) -> None:
-    if isinstance(value, str):
-        if inherited_sensitive and value:
-            found.add(value)
-        return
-    if isinstance(value, Mapping):
-        context_secret = _mapping_names_sensitive_value(value)
-        for key, item in value.items():
-            child_path = (*path, str(key))
-            if child_path in public_paths:
-                continue
-            normalized_key = _normalize_key(str(key))
-            sensitive = inherited_sensitive or _is_sensitive_key(normalized_key)
-            if context_secret and normalized_key in _CONTEXT_VALUE_KEYS:
-                sensitive = True
-            _collect_nested(
-                item,
-                found,
-                inherited_sensitive=sensitive,
-                path=child_path,
-                public_paths=public_paths,
-            )
-        return
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        for item in value:
-            _collect_nested(
-                item,
-                found,
-                inherited_sensitive=inherited_sensitive,
-                path=(*path, "*"),
-                public_paths=public_paths,
-            )
-
-
 def _collect_declared_payload_secrets(
     function_id: str,
     payload: Mapping[str, Any],
@@ -292,27 +231,6 @@ def _collect_declared_payload_secrets(
         else:
             if isinstance(value, str) and value:
                 found.add(value)
-
-
-def _mapping_names_sensitive_value(value: Mapping[Any, Any]) -> bool:
-    return any(
-        _normalize_key(str(key)) in _CONTEXT_NAME_KEYS
-        and isinstance(item, str)
-        and _is_sensitive_key(_normalize_key(item))
-        for key, item in value.items()
-    )
-
-
-def _normalize_key(value: str) -> str:
-    with_boundaries = _CAMEL_BOUNDARY.sub("_", value)
-    return _NON_WORD.sub("_", with_boundaries.lower()).strip("_")
-
-
-def _is_sensitive_key(normalized_key: str) -> bool:
-    words = frozenset(normalized_key.split("_"))
-    if words & _SENSITIVE_KEY_WORDS:
-        return True
-    return "key" in words and bool(words & {"access", "api", "private", "signing"})
 
 
 def _redaction_needles(values: Iterable[str]) -> tuple[str, ...]:

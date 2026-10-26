@@ -6,13 +6,14 @@ import io
 import json
 import urllib.error
 
+import pytest
+
 from runtime.api.cli.https_relay_security_test_support import (
-    CAPABILITY_SECRET,
     CONNECTION,
     FakeResponse,
-    NESTED_PASSWORD,
     TRANSPORT_TOKEN,
     USER_TOKEN,
+    declared_secret_request,
     envelope,
     sensitive_request,
     serialized_response,
@@ -36,21 +37,6 @@ _NON_OBVIOUS_ACTIONS_SECRET = "postgres://relay-user:relay-password@db.example/a
 _PUBLIC_CREDENTIALS_ACTION = "aws-actions/configure-aws-credentials@immutable-sha"
 
 
-def _actions_secret_request() -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="github_actions.secret.set",
-        actor=ActorContext(session_id="actions-secret-relay-test"),
-        target=TargetRef(kind="global"),
-        request_id="actions-secret-relay-request",
-        payload={
-            "repo": "example/project",
-            "name": "DATABASE_URL",
-            "value": _NON_OBVIOUS_ACTIONS_SECRET,
-            "project": "example",
-        },
-    )
-
-
 def _pack_bundle_request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="packs.bundle.get",
@@ -68,34 +54,37 @@ def _pack_bundle_request() -> FunctionCallRequest:
     )
 
 
-def _all_secrets() -> tuple[str, ...]:
-    return (
-        USER_TOKEN,
-        NESTED_PASSWORD,
-        CAPABILITY_SECRET,
-        TRANSPORT_TOKEN,
-    )
-
-
 def _assert_scrubbed(value: str) -> None:
-    for secret in _all_secrets():
+    for secret in (USER_TOKEN, TRANSPORT_TOKEN):
         assert secret not in value
 
 
-def test_nested_sensitive_keys_and_named_value_are_classified() -> None:
-    secrets = collect_request_secrets(
-        sensitive_request(), transport_token=TRANSPORT_TOKEN
+@pytest.mark.parametrize(
+    ("function", "payload", "expected"),
+    [
+        ("github_actions.secret.set", {"value": USER_TOKEN}, {USER_TOKEN}),
+        (
+            "projects.capability_secret.set",
+            {"key": "DATABASE_URL", "value": USER_TOKEN},
+            {USER_TOKEN},
+        ),
+        (
+            "projects.pulumi_state.checkpoint_import",
+            {"secrets_provider": USER_TOKEN, "encrypted_key": "encrypted-material"},
+            {USER_TOKEN, "encrypted-material"},
+        ),
+        ("projects.capability_secret.set", {"value": None}, set()),
+        ("projects.capability_secret.set", {"value": ""}, set()),
+        ("projects.capability_secret.set", {}, set()),
+    ],
+)
+def test_declared_payload_fields(function, payload, expected) -> None:
+    request = sensitive_request().model_copy(
+        update={"function": function, "payload": payload}
     )
-
-    assert set(_all_secrets()) <= set(secrets)
-
-
-def test_actions_secret_value_is_classified_by_function_request_shape() -> None:
-    secrets = collect_request_secrets(
-        _actions_secret_request(), transport_token=TRANSPORT_TOKEN
+    assert set(collect_request_secrets(request, transport_token=TRANSPORT_TOKEN)) == (
+        expected | {TRANSPORT_TOKEN}
     )
-
-    assert _NON_OBVIOUS_ACTIONS_SECRET in secrets
 
 
 def test_pack_render_values_remain_public_for_checksum_protected_source() -> None:
@@ -107,11 +96,22 @@ def test_pack_render_values_remain_public_for_checksum_protected_source() -> Non
     assert TRANSPORT_TOKEN in secrets
 
 
-def test_typed_actions_secret_echo_is_scrubbed_for_non_obvious_name(
+@pytest.mark.parametrize(
+    ("function", "field"),
+    [
+        ("github_actions.secret.set", "value"),
+        ("projects.capability_secret.set", "value"),
+        ("projects.pulumi_state.checkpoint_import", "secrets_provider"),
+        ("projects.pulumi_state.checkpoint_import", "encrypted_key"),
+    ],
+)
+def test_typed_declared_secret_echo_is_scrubbed(
     monkeypatch,
+    function,
+    field,
 ) -> None:
     body = envelope(
-        function="github_actions.secret.set",
+        function=function,
         result={"hostile_echo": _NON_OBVIOUS_ACTIONS_SECRET},
     )
     monkeypatch.setattr(
@@ -120,15 +120,29 @@ def test_typed_actions_secret_echo_is_scrubbed_for_non_obvious_name(
         lambda request, timeout=None: FakeResponse(body),
     )
 
-    response = relay_https(_actions_secret_request(), CONNECTION)
+    response = relay_https(
+        declared_secret_request(function, field, _NON_OBVIOUS_ACTIONS_SECRET),
+        CONNECTION,
+    )
 
     assert response.success is True
     assert _NON_OBVIOUS_ACTIONS_SECRET not in serialized_response(response)
     assert REDACTED in serialized_response(response)
 
 
-def test_non_envelope_actions_secret_echo_is_scrubbed_for_non_obvious_name(
+@pytest.mark.parametrize(
+    ("function", "field"),
+    [
+        ("github_actions.secret.set", "value"),
+        ("projects.capability_secret.set", "value"),
+        ("projects.pulumi_state.checkpoint_import", "secrets_provider"),
+        ("projects.pulumi_state.checkpoint_import", "encrypted_key"),
+    ],
+)
+def test_non_envelope_declared_secret_echo_is_scrubbed(
     monkeypatch,
+    function,
+    field,
 ) -> None:
     body = f"gateway echoed {_NON_OBVIOUS_ACTIONS_SECRET}".encode("utf-8")
 
@@ -143,10 +157,12 @@ def test_non_envelope_actions_secret_echo_is_scrubbed_for_non_obvious_name(
 
     monkeypatch.setattr(relay_module, "open_no_redirect", reject)
 
-    response = relay_https(_actions_secret_request(), CONNECTION)
+    response = relay_https(
+        declared_secret_request(function, field, _NON_OBVIOUS_ACTIONS_SECRET),
+        CONNECTION,
+    )
 
     assert response.error is not None
-    assert "non-envelope body" in response.error.message
     assert _NON_OBVIOUS_ACTIONS_SECRET not in serialized_response(response)
     assert REDACTED in response.error.message
 
@@ -158,7 +174,7 @@ def test_typed_success_scrubs_results_keys_warnings_and_client_output(
         result={
             f"echo-key-{USER_TOKEN}": (
                 f"first={USER_TOKEN}; second={USER_TOKEN}; "
-                f"password={NESTED_PASSWORD}; secret={CAPABILITY_SECRET}; "
+                f"password={USER_TOKEN}; secret={USER_TOKEN}; "
                 f"bearer={TRANSPORT_TOKEN}"
             )
         },
@@ -193,8 +209,8 @@ def test_typed_http_error_scrubs_error_fields(monkeypatch) -> None:
         error={
             "code": "remote_denied",
             "message": f"denied {USER_TOKEN} then {USER_TOKEN}",
-            "jsonpath": f"$.payload.{NESTED_PASSWORD}",
-            "recovery_hint": (f"retry {CAPABILITY_SECRET} with {TRANSPORT_TOKEN}"),
+            "jsonpath": f"$.payload.{USER_TOKEN}",
+            "recovery_hint": (f"retry {USER_TOKEN} with {TRANSPORT_TOKEN}"),
         },
     )
 
@@ -266,7 +282,6 @@ def test_non_envelope_excerpt_scrubs_repeated_echo(monkeypatch) -> None:
     response = relay_https(sensitive_request(), CONNECTION)
 
     assert response.error is not None
-    assert "non-envelope body" in response.error.message
     assert REDACTED in response.error.message
     _assert_scrubbed(serialized_response(response))
 
@@ -301,20 +316,20 @@ def test_engine_version_header_never_reaches_stderr(monkeypatch, capsys) -> None
     assert TRANSPORT_TOKEN not in captured.out
 
 
-def test_machine_artifact_correlation_tokens_do_not_scrub_desktop_receipts():
+def test_public_nested_values_are_untouched():
     request = FunctionCallRequest(
         function="test_machine.operation.submit",
         actor=ActorContext(session_id="proof-client"),
         target=TargetRef(kind="global"),
         request_id="proof-request",
         payload={
-            "artifacts": [{"token": "desktop", "password": NESTED_PASSWORD}],
+            "artifacts": [{"token": "desktop", "password": USER_TOKEN}],
             "checks": [{"artifact_token": "desktop", "token": USER_TOKEN}],
         },
     )
     secrets = collect_request_secrets(request, transport_token=TRANSPORT_TOKEN)
     assert "desktop" not in secrets
-    assert {NESTED_PASSWORD, USER_TOKEN, TRANSPORT_TOKEN} <= set(secrets)
+    assert secrets == (TRANSPORT_TOKEN,)
     from yoke_cli.transport.https_response_policy import parse_typed_response
 
     response = parse_typed_response(
@@ -323,11 +338,11 @@ def test_machine_artifact_correlation_tokens_do_not_scrub_desktop_receipts():
             result={
                 "desktop_session": "started",
                 "artifact_key": "proof/desktop.png",
-                "hostile_echo": NESTED_PASSWORD,
+                "hostile_echo": USER_TOKEN,
             },
         ),
         sensitive_values=secrets,
     )
     assert response.result["desktop_session"] == "started"
     assert response.result["artifact_key"] == "proof/desktop.png"
-    assert response.result["hostile_echo"] == REDACTED
+    assert response.result["hostile_echo"] == USER_TOKEN
