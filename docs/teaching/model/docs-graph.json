@@ -1,6 +1,28 @@
 {
  "areas": [
   {
+   "id": "pack-documents",
+   "title": "Pack documentation",
+   "include": ["packs/*", "docs/packs/*"],
+   "publication": "Pack-owned guides and templates; installed copies remain project-owned.",
+   "concepts": []
+  },
+  {
+   "id": "decision-records",
+   "title": "Decision records",
+   "include": ["docs/decisions/*", "docs/archive/decisions/*"],
+   "publication": "Repository decisions and retained historical reasoning.",
+   "concepts": ["documentation/current-decisions-versus-historical-records"]
+  },
+  {
+   "id": "component-documents",
+   "title": "Component documentation",
+   "include": ["packages/*", "events/*", "packaging/*", "brand/*", "ouroboros/*"],
+   "exclude": ["packages/*/install_bundle_tree/*", "packages/*/global_skill/*"],
+   "publication": "Repository-owned component reference, release guidance and learning records.",
+   "concepts": ["contributing/source"]
+  },
+  {
    "id": "docs-public",
    "title": "Public documentation",
    "include": ["docs/public/*"],
@@ -59,33 +81,13 @@
  ],
  "ungraphed": [
   {
-   "include": "packages/*",
-   "reason": "Package-internal Markdown and shipped mirrors of graphed sources.",
+   "include": "packages/*/install_bundle_tree/*",
+   "reason": "Packaged mirrors of sources already represented in the guide.",
    "gap": "ungraphed-documentation"
   },
   {
-   "include": "packs/*",
-   "reason": "Pack guidance; each Pack owns its documents.",
-   "gap": "ungraphed-documentation"
-  },
-  {
-   "include": "ouroboros/*",
-   "reason": "Learning-channel patterns, not teaching surfaces.",
-   "gap": "ungraphed-documentation"
-  },
-  {
-   "include": "brand/*",
-   "reason": "Brand assets.",
-   "gap": "ungraphed-documentation"
-  },
-  {
-   "include": "events/*",
-   "reason": "Event catalog notes.",
-   "gap": "ungraphed-documentation"
-  },
-  {
-   "include": "packaging/*",
-   "reason": "Release packaging notes.",
+   "include": "packages/*/global_skill/*",
+   "reason": "The global skill has its own source node under Skills.",
    "gap": "ungraphed-documentation"
   }
  ]

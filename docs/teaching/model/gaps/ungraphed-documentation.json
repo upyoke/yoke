@@ -1,9 +1,9 @@
 {
  "id": "ungraphed-documentation",
- "title": "Pack, package and other Markdown are not graphed",
+ "title": "Documentation coverage beyond mapped source groups",
  "status": "observed",
- "text": "The live docs graph on 2026-10-17 has no tracked Markdown page outside an area or an explicitly ungraphed pattern. docs/public/* already includes the nested public corpus, so docs-graph.json needs no change. Pack, package-internal, learning, brand, event and packaging Markdown remain explicitly ungraphed with reasons; do not infer topic completeness, installed delivery or live usefulness from area membership. JOURNEYS owns deeper topic coverage only after each remaining need has a direct home or its own evidenced gap.",
+ "text": "Sources now includes versioned Pack documentation, installed Pack guides, approved teaching decisions, historical decision files and missing repository document collections. Packaged mirrors and the separately represented global skill remain excluded from the documentation-area graph. Workbench guidance remains owned by the dashboard prototype. Journey and Research entries still need individual review before removing those tabs; this source inventory does not prove teaching completeness or live receipt.",
  "position": 15,
- "owner": "JOURNEYS documentation depth; each Pack owns its guidance",
- "sources": ["docs/teaching/model/docs-graph.json", "docs/teaching/tools/explorer_inventory.py", "docs/teaching/README.md"]
+ "owner": "Teaching source inventory",
+ "sources": ["docs/teaching/model/docs-graph.json", "docs/teaching/tools/explorer_inventory.py", "docs/teaching/README.md", "docs/teaching/tools/explorer_source_documents.py"]
 }

@@ -13,6 +13,8 @@ SOURCES = (
     ('feedback', 'Command results and error messages', 'Outcome explanations, next steps and recovery instructions.'),
     ('packets', 'Context packets', 'Focused references the agent requests before particular work.'),
     ('instructions', 'Scoped execution instructions', 'Saved rules delivered when their project or work scope applies.'),
+    ('packs', 'Pack documentation', 'Guides and templates organized by Pack and version.'),
+    ('decisions', 'Decisions', 'Current decisions and the reasoning retained in historical records.'),
     ('project', 'Project documentation', 'Yoke repository guides and runbooks, shown as project-specific examples.'),
 )
 
@@ -117,7 +119,8 @@ HOOK_LIFECYCLE = ('SessionStart', 'UserPromptSubmit', 'PreToolUse',
 def order_nodes(nodes):
     """Reading order follows encounter/lifecycle; source prose keeps its own order."""
     source_order = ('homepage', 'docs', 'setup', 'global-hooks', 'rules', 'project-hooks',
-                    'project', 'skills', 'roles', 'instructions', 'packets', 'help', 'feedback')
+                    'project', 'packs', 'decisions', 'skills', 'roles', 'instructions',
+                    'packets', 'help', 'feedback')
     sequences = {
         None: ['source:' + key for key in source_order],
         'source:help': ['command:yoke', 'branch:command-groups'],

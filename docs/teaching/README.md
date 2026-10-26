@@ -256,7 +256,7 @@ Cards have no fixed heights or nested preview layers; each title and Explore lin
 
 ## One guide, three ways to browse
 
-Sources keeps the thirteen concrete context categories. Topics follows the original
+Sources keeps the existing context categories and adds Pack documentation and Decisions. Topics follows the original
 concept hierarchy; Journeys follows scenario and lesson order. These are recorded
 situations, not executable workflow sequences. Research collects teaching plans,
 design decisions, gaps, evidence, history, and dashboard research owned elsewhere.

@@ -48,11 +48,13 @@ def add_documents(add):
     # Concrete repository documents, separate from the installed public manual.
     project = REPO / 'docs'
     paths = [p for p in project.rglob('*.md')
-             if p.relative_to(project).parts[0] not in {'public', 'archive', 'teaching'}]
+             if p.relative_to(project).parts[0] not in {'public', 'archive', 'teaching', 'packs', 'decisions'}]
     tree(add, paths, 'source:project', 'project-category:', project)
     for name in ('README.md', 'CONTRIBUTING.md'):
         if (REPO / name).is_file():
             document(add, 'doc:' + name, REPO / name, 'source:project')
+    from explorer_source_documents import add_source_documents
+    add_source_documents(add)
     add_rules(add)
 
 

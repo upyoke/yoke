@@ -14,6 +14,8 @@ SOURCE_TYPES = {
     'feedback': ('reply', 'Command output', 'Results, errors and recovery'),
     'packets': ('packet', 'Fetched context', 'Focused context fetched by the agent'),
     'instructions': ('rule', 'Scoped instructions', 'Rules supplied when their scope applies'),
+    'packs': ('file', 'Pack documents', 'Guidance owned by individual Packs'),
+    'decisions': ('file', 'Decision records', 'Current choices and retained history'),
     'project': ('file', 'Project documents', 'The project’s own knowledge and rules'),
 }
 BRANCH_TYPES = {
@@ -67,7 +69,7 @@ def describe_scope(nodes):
             return node['guidance_scope']
         if node['id'] == 'source:rules':
             return 'mixed'
-        if node['id'] == 'source:project':
+        if node['id'] in ('source:project', 'source:decisions'):
             return 'repository'
         return scope(by_id[node['parent']]) if node['parent'] else 'shared'
 
