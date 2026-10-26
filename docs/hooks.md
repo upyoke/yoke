@@ -283,11 +283,12 @@ counts. Starts or client wall inside the delivery window remain pending.
   Cursor's sole Yoke hook owner.
 - Codex: `runtime/harness/codex/hooks.json` is reached by `.codex/hooks.json`.
   Install/refresh mints normalized hashes for the authored file or refuses with
-  Hooks → Trust recovery. Preparation mirrors exact trust to each literal lane
-  path; relay workers carry native bypass for their opening registration hook.
+  Hooks → Trust recovery. Preparation refreshes main-checkout hashes before
+  mirroring byte-identical hooks to each literal lane path. Stale source trust
+  needs `yoke project refresh` in main; changed lane hooks need Hooks → Trust.
   Teardown removes lane hook/project records. Inspect deleted-path residue with
   `yoke codex hook-trust sweep --dry-run`; `yoke codex hook-trust sweep` removes
-  only that residue. Doctor checks current hashes for main/all lanes and sweep need.
+  only that residue. Doctor checks main/lane hashes and sweep need.
 
 Per-agent lifecycle hooks belong to adapter frontmatter: canonical bodies in
 `runtime/agents/`, generated Claude adapters in `runtime/harness/claude/agents/`,

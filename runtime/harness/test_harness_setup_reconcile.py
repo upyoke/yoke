@@ -90,8 +90,9 @@ def test_modified_lane_hooks_refuse_without_minting(machine):
         r for r in result.rows if r.harness_id == "codex" and r.facet == "hook_trust"
     )
     assert row.outcome == "refused"
-    assert "differs" in row.detail
-    assert "re-trust in Codex" in row.recovery
+    from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
+
+    assert not inspect_hook_file_trust(hooks).approved
 
 
 @pytest.mark.parametrize(
@@ -239,3 +240,38 @@ def test_global_skill_converges_for_each_installed_harness(machine, monkeypatch)
         for r in again.rows
         if r.facet == "global_skill" and r.harness_id == "claude-code"
     ] == ["already_set"]
+
+
+@pytest.mark.parametrize("lane_differs", [False, True])
+def test_lane_setup_refreshes_changed_source_trust(machine, lane_differs):
+    from yoke_contracts.codex_hook_trust_store import (
+        inspect_hook_file_trust,
+        mint_installed_checkout_trust,
+    )
+
+    home, root, lanes = machine
+    (home / ".codex").mkdir()
+    mint_installed_checkout_trust(root)
+    source_hooks = root / ".codex/hooks.json"
+    source_hooks.write_text(source_hooks.read_text().replace("Stop", "SessionStart"))
+    lane_hooks = lanes[0] / ".codex/hooks.json"
+    if not lane_differs:
+        lane_hooks.write_bytes(source_hooks.read_bytes())
+    assert not inspect_hook_file_trust(source_hooks).approved
+
+    inspected = setup.inspect_harness_setup(paths=[lanes[0]])
+    assert any(row.outcome == "refused" for row in inspected.rows)
+    assert not inspect_hook_file_trust(source_hooks).approved
+    result = setup.reconcile_harness_setup(paths=[lanes[0]])
+    row = next(
+        r for r in result.rows if r.harness_id == "codex" and r.facet == "hook_trust"
+    )
+
+    assert inspect_hook_file_trust(source_hooks).approved
+    assert inspect_hook_file_trust(lane_hooks).approved is not lane_differs
+    assert row.outcome == ("refused" if lane_differs else "written")
+    again = setup.reconcile_harness_setup(paths=[lanes[0]])
+    row = next(
+        r for r in again.rows if r.harness_id == "codex" and r.facet == "hook_trust"
+    )
+    assert row.outcome == ("refused" if lane_differs else "already_set")

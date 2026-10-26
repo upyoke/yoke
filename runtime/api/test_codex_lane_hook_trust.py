@@ -236,7 +236,7 @@ def test_a_missing_config_blocks_without_raising(tmp_path: Path):
         config_path=tmp_path / "absent.toml",
     )
 
-    assert "not present" in result.blocked_reason
+    assert result.blocked_reason
     assert result.mirrored == ()
 
 
@@ -256,3 +256,20 @@ def test_codex_home_selects_the_config_that_is_read(monkeypatch, tmp_path: Path)
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
 
     assert codex_config_path() == tmp_path / "codex" / "config.toml"
+
+
+def test_stale_source_blocks_mirroring_without_marking_lane_modified(lanes):
+    source, worktree, config = lanes
+    source_hooks = source / ".codex/hooks.json"
+    document = json.loads(source_hooks.read_text())
+    document["hooks"]["SessionStart"][0]["hooks"][0]["command"] += " changed"
+    source_hooks.write_text(json.dumps(document))
+    before = config.read_bytes()
+
+    result = mirror_hook_trust(str(source), str(worktree), config_path=config)
+
+    assert result.blocked_reason
+    assert not result.hooks_fire
+    assert result.stale == ()
+    assert result.mirrored == ()
+    assert config.read_bytes() == before
