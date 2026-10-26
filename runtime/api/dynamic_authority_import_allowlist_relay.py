@@ -38,6 +38,13 @@ RELAY_DYNAMIC_AUTHORITY_IMPORTS = {
         "run the control plane's upkeep each cycle of a local universe's relay, "
         "the long-lived process that serves it in place of an API server",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py",
+        "yoke_core.engines.doctor_hc_session_relay",
+    ): (
+        "client_local_diagnostics",
+        "setup waits for a fresh relay's first heartbeat with the relay check's own read",
+    ),
 }
 
 __all__ = ["RELAY_DYNAMIC_AUTHORITY_IMPORTS"]

@@ -1,10 +1,11 @@
-"""Doctor health check for the local machine relay."""
+"""Doctor health check for the local machine relay, and setup's first-heartbeat wait."""
 
 from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Any, Mapping
+import time
+from typing import Any, Callable, Mapping
 from datetime import datetime
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
@@ -20,7 +21,8 @@ from yoke_contracts.machine_config.credential_sources import (
     CREDENTIAL_KIND_TOKEN_FILE,
 )
 from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
-from yoke_core.domain.control_plane_transport import relay
+from yoke_core.domain.control_plane_transport import local_connection_or_none, relay
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.session_relay_storage import marker, utc_now
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -107,6 +109,46 @@ def _recent_relay(
     return (str(row[0]), format_instant(row[1])) if row is not None else None
 
 
+def _connected_now(machine_id: str) -> bool:
+    conn = local_connection_or_none(connect)
+    try:
+        return _recent_relay(conn, machine_id, utc_now()) is not None
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def wait_for_connected_relay(
+    timeout_seconds: float,
+    *,
+    poll_seconds: float = 1.0,
+    connected: Callable[[str], bool] = _connected_now,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> bool:
+    """Wait until this machine's relay reports connected; True once it does.
+
+    Setup calls this right after a fresh install, because starting the relay
+    can pin a release and restart before its first heartbeat. A read that
+    fails is retried until the deadline. False leaves the verdict to
+    ``hc_session_relay``, which never waits and reports the FAIL with its
+    repair.
+    """
+    machine_id = _machine_id()
+    if not machine_id:
+        return False
+    deadline = clock() + timeout_seconds
+    while True:
+        try:
+            if connected(machine_id):
+                return True
+        except Exception:  # noqa: BLE001 - readiness reports the lasting cause
+            pass
+        if clock() + poll_seconds > deadline:
+            return False
+        sleep(poll_seconds)
+
+
 def hc_session_relay(
     conn: Any,
     args: DoctorArgs,
@@ -182,4 +224,4 @@ def hc_session_relay(
     )
 
 
-__all__ = ["SLUG", "TITLE", "hc_session_relay"]
+__all__ = ["SLUG", "TITLE", "hc_session_relay", "wait_for_connected_relay"]

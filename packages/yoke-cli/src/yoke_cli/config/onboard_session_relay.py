@@ -8,6 +8,7 @@ so retrying onboarding leaves a satisfied relay running.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 from pathlib import Path
 import subprocess
 import sys
@@ -22,6 +23,7 @@ from yoke_contracts import terminal_detached_process
 RELAY_INSTALL_TIMEOUT_SECONDS = 300
 #: Reading status inspects the user service and shakes hands with the plane.
 RELAY_STATUS_TIMEOUT_SECONDS = 60
+RELAY_CONNECT_WAIT_SECONDS = 30  # a fresh relay may pin a release and restart
 #: How much of the installer's own output the failure carries, from its tail,
 #: where the diagnosis lands.
 RELAY_DETAIL_MAX_CHARS = 1200
@@ -173,10 +175,8 @@ def is_satisfied(
 ) -> bool:
     """Whether this relay already needs no lifecycle write.
 
-    The installer owns that judgement, so setup asks it rather than deciding
-    from a subset of the facts. Any refusal to answer -- a crash, a timeout,
-    an unreadable config -- is not satisfied, so an unreadable relay is
-    repaired rather than skipped.
+    The installer owns that judgement. Any refusal to answer -- a crash, a
+    timeout, an unreadable config -- is not satisfied, so it is repaired.
     """
     try:
         completed = _run(
@@ -199,6 +199,7 @@ def install(
     runner: Callable[
         ..., subprocess.CompletedProcess[str]
     ] = terminal_detached_process.run,
+    wait_for_connection: Callable[[float], bool] | None = None,
 ) -> RelayInstallOutcome:
     if not is_supported(local_destination=local_destination):
         return RelayInstallOutcome(installed=False, reused=False)
@@ -229,15 +230,20 @@ def install(
             f"exit {completed.returncode}): "
             f"{installer_detail(completed)}. {_recovery(environment)}"
         )
+    (wait_for_connection or _wait_for_connection)(RELAY_CONNECT_WAIT_SECONDS)
     return RelayInstallOutcome(installed=True, reused=False)
+
+
+def _wait_for_connection(timeout_seconds: float) -> bool:
+    check = importlib.import_module("yoke_core.engines.doctor_hc_session_relay")
+    return check.wait_for_connected_relay(timeout_seconds)
 
 
 def installer_detail(completed: subprocess.CompletedProcess[str]) -> str:
     """The installer's own diagnosis, credential-redacted and bounded.
 
-    The installer already names its refusal and recovery; this preserves that
-    text instead of replacing it. Redaction runs before the cap so a secret
-    can never survive by sitting outside the window.
+    Preserves the installer's own refusal and recovery. Redaction runs before
+    the cap so a secret can never survive outside the window.
     """
     raw = str(completed.stderr or "") + str(completed.stdout or "")
     redacted = sanitize_text(raw)

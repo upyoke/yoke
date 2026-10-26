@@ -254,3 +254,68 @@ def test_linux_doctor_reports_unsupervised_without_systemd(monkeypatch, tmp_path
     relay_hc.hc_session_relay(None, DoctorArgs(), rec)
     assert rec.results[0].result == "N/A"
     assert "not supervised" in rec.results[0].detail
+
+
+class _FakeClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def test_setup_wait_returns_once_the_fresh_relay_heartbeats_then_doctor_passes(
+    monkeypatch, tmp_path: Path
+) -> None:
+    conn = launch_connection()
+    monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine-1")
+    clock = _FakeClock()
+
+    def connected(machine_id: str) -> bool:
+        if clock.now >= 3:
+            add_relay(conn, connected_until="2099-01-01T00:00:00Z")
+        return relay_hc._recent_relay(conn, machine_id, relay_hc.utc_now()) is not None
+
+    assert relay_hc.wait_for_connected_relay(
+        30, connected=connected, sleep=clock.sleep, clock=clock
+    )
+    assert clock.sleeps == [1.0, 1.0, 1.0]
+
+    _bind_instance(monkeypatch, tmp_path)
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **_kwargs: "")
+    rec = RecordCollector()
+    relay_hc.hc_session_relay(conn, DoctorArgs(), rec)
+    assert rec.results[0].result == "PASS"
+
+
+def test_setup_wait_gives_up_at_its_bound_and_doctor_fails_without_waiting(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine-1")
+    clock = _FakeClock()
+    reads: list[str] = []
+
+    def never_connected(machine_id: str) -> bool:
+        reads.append(machine_id)
+        if len(reads) == 1:
+            raise ConnectionError("plane not reachable yet")
+        return False
+
+    assert not relay_hc.wait_for_connected_relay(
+        30, connected=never_connected, sleep=clock.sleep, clock=clock
+    )
+    assert clock.now <= 30
+    assert len(reads) == 31
+
+    _bind_instance(monkeypatch, tmp_path)
+    monkeypatch.setattr(relay_hc, "_recent_relay", lambda *_args: None)
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **_kwargs: "")
+    monkeypatch.setattr(relay_hc.time, "sleep", pytest.fail)
+    rec = RecordCollector()
+    relay_hc.hc_session_relay(None, DoctorArgs(), rec)
+    assert rec.results[0].result == "FAIL"

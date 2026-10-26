@@ -25,7 +25,10 @@ def test_linux_plans_and_installs_both_build_sources(monkeypatch, tmp_path):
             )
 
         outcome = relay.install(
-            local_destination=local, environment="selected", runner=run
+            local_destination=local,
+            environment="selected",
+            runner=run,
+            wait_for_connection=lambda _seconds: True,
         )
         assert outcome.installed and not outcome.reused
         assert len(calls) == 2
