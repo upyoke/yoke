@@ -271,7 +271,7 @@ def _message_by_id(args: List[str], operation: str) -> int:
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("message_id", metavar="MESSAGE-ID",
+    parser.add_argument("message_id", metavar="MESSAGE-ID", help="Message id(s).",
                         nargs="+" if operation == "acknowledge" else None)
     if operation == "get":
         parser.add_argument(
