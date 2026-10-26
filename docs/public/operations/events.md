@@ -8,6 +8,14 @@ Read workbench telemetry, collector admission and durable visitor attribution.
 
 ## Events
 
+Event query, count, anomalies and tail read all retained events the actor may read.
+The checkout does not add a project filter; use `--project P` to select one explicitly.
+A project filter requires `events.read` on that project. Organization admins can also
+read project-less events when no project filter is selected. Event attribution uses
+context project, then item project, then session project for every event type, then
+the supplied project token; unknown ownership stays project-less. Events are disposable
+telemetry and never establish required operational state.
+
 Preview disposable universe records with `yoke universe prune --dry-run`.
 An organization administrator can review defaults with
 `yoke universe retention get`; [universe retention](../universe-retention.md)
@@ -86,8 +94,8 @@ remains disposable: using Yoke never depends on its successful delivery.
 Each refusal also records one `FrontendCollectorRefused` backend event (reason,
 status, route, truncated Origin, serving host; no body, cookie, key or client
 address), at most once per reason, status and route per minute, so floods stay
-bounded. The rows carry no project, so read them with `yoke db read`:
-`yoke db read "SELECT created_at, event_outcome, envelope::jsonb -> 'context' -> 'detail' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"`.
+bounded. Organization admins can read these project-less rows with
+`yoke events query --event-name FrontendCollectorRefused --limit 20`.
 Accepted frontend events take `created_at` from the collector's receipt time;
 the envelope keeps the client `event_time` with `received_at` and
 `client_time_offset_seconds`, and rows more than 300 seconds off carry

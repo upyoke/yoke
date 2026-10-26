@@ -215,8 +215,8 @@ def test_invisible_project_is_refused_rather_than_read_unscoped(test_db):
     )
 
     assert not outcome.primary_success
-    assert outcome.error.code == "permission_denied"
-    assert "reload the first page" in outcome.error.message
+    assert outcome.error.code == "events_scope_denied"
+    assert "events.read" in outcome.error.message
 
 
 def test_unscoped_history_stays_inside_the_actor_visible_projects(test_db):

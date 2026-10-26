@@ -27,7 +27,6 @@ _INSERT_FLAG_MAP = {
         "event_type",
         "event_name",
         "event_outcome",
-        "org_id",
         "actor_id",
         "environment",
         "service",

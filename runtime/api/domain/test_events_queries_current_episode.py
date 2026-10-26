@@ -51,7 +51,6 @@ CREATE TABLE events (
     context TEXT,
     outcome TEXT,
     severity TEXT,
-    org_id TEXT,
     agent TEXT,
     service TEXT,
     actor_id INTEGER,

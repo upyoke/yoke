@@ -42,20 +42,16 @@ def authorized_predicate(
     params: list[Any] = list(selected)
     # Universe-attributed rows are never assigned to a project. They require
     # an actual org-admin grant, not an owner grant on one visible project.
-    if projects is None and actor is not None:
+    from yoke_core.domain.actor_state import actor_is_active
+
+    if projects is None and actor is not None and actor_is_active(conn, actor):
         rows = conn.execute(
             "SELECT a.org_id FROM actor_org_roles a JOIN roles r ON r.id=a.role_id "
             "WHERE a.actor_id=%s AND r.name='admin'",
             (actor,),
         ).fetchall()
-        orgs = [str(row[0]) for row in rows]
-        if orgs:
-            predicate = (
-                f"({predicate} OR (e.project_id IS NULL AND e.org_id IN ("
-                + ",".join("%s" for _ in orgs)
-                + ")))"
-            )
-            params.extend(orgs)
+        if rows:
+            predicate = f"({predicate} OR e.project_id IS NULL)"
     return predicate, params
 
 

@@ -22,11 +22,10 @@ event_kind TEXT NOT NULL -- taxonomy tier 1 (e.g., 'system', 'domain', 'user')
 event_type TEXT NOT NULL -- taxonomy tier 2 (e.g., 'tool_call', 'session')
 event_name TEXT NOT NULL -- PascalCase event name (e.g., 'HarnessToolCallCompleted')
 event_outcome TEXT -- nullable outcome (e.g., 'completed', 'failed')
-org_id TEXT -- organization identifier
 actor_id INTEGER -- nullable Yoke control-plane subject; references actors(id)
 environment TEXT -- runtime environment (e.g., 'dev', 'prod')
 service TEXT NOT NULL DEFAULT 'cli' -- emitting service
-project_id INTEGER -- nullable project context; references projects(id); no implicit attribution
+project_id INTEGER -- nullable indexed ownership; context, item, session, then project token
 item_id TEXT -- owned backlog join key; public reads project it to public_ref
 task_num INTEGER -- epic task number
 agent TEXT -- agent role (e.g., 'engineer', 'tester')

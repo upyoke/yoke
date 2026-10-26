@@ -1,9 +1,10 @@
 {
  "id": "events",
  "title": "Events",
- "status": "draft-copy",
- "commands": ["yoke events count", "yoke events emit", "yoke events query", "yoke events tail"],
- "functions": ["events.count.run", "events.emit", "events.query.run", "events.tail.run"],
+ "status": "observed",
+ "commands": ["yoke events count", "yoke events emit", "yoke events query", "yoke events tail", "yoke events anomalies"],
+ "functions": ["events.count.run", "events.emit", "events.query.run", "events.tail.run", "events.anomalies.run"],
  "page": "observability",
- "position": 0
+ "position": 0,
+ "summary": "Events are disposable telemetry. Attribution uses explicit context project, item project, session project for every event type, then the project token. Query, count, anomalies and tail read all events authorized for the actor unless --project is explicit. Only organization admins can read project-less events."
 }

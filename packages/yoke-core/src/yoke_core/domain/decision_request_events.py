@@ -46,7 +46,6 @@ def append_decision_event(
         event_type="decision_request",
         source_type="backend",
         session_id=session_id,
-        org_id=str(org_id) if org_id is not None else None,
         project=project,
         agent=str(actor_id) if actor_id is not None else "engine",
         context=dict(context),

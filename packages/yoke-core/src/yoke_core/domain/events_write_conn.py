@@ -51,7 +51,6 @@ def event_insert_params(
         envelope["session_id"],
         envelope["severity"],
         envelope.get("event_outcome"),
-        envelope.get("org_id"),
         envelope.get("environment"),
         envelope.get("service", "cli"),
         project_id,

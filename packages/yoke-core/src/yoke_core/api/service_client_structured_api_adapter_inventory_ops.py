@@ -96,7 +96,7 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="events.emit",
         cli_invocation=(
-            "yoke events emit --name NAME --kind KIND --type TYPE --source-type SOURCE [--severity LEVEL] [--outcome OUTCOME] [--project P] [--item PREFIX-N] [--task-num N] [--agent A] [--tool-name T] [--org-id ID] [--environment ENV] [--request-id ID] [--trace-id ID] [--parent-id ID] [--tool-use-id ID] [--turn-id ID] [--hook-event-name NAME] [--anomaly-flags FLAGS] [--duration-ms MS] [--exit-code CODE] [--context JSON] [--error-context JSON] [--session-id S] [--json]"
+            "yoke events emit --name NAME --kind KIND --type TYPE --source-type SOURCE [--severity LEVEL] [--outcome OUTCOME] [--project P] [--item PREFIX-N] [--task-num N] [--agent A] [--tool-name T] [--environment ENV] [--request-id ID] [--trace-id ID] [--parent-id ID] [--tool-use-id ID] [--turn-id ID] [--hook-event-name NAME] [--anomaly-flags FLAGS] [--duration-ms MS] [--exit-code CODE] [--context JSON] [--error-context JSON] [--session-id S] [--json]"
         ),
     ),
     _read_entry(

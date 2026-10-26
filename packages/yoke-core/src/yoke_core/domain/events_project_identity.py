@@ -11,14 +11,6 @@ from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 
 GLOBAL_EVENT_PROJECT_TOKENS = {"", "all", "global", "multi"}
-SESSION_SCOPED_EVENT_TYPES = {
-    "hook_dispatch",
-    "hook_execution_failure",
-    "hook_guardrail_evaluated",
-    "session_hook_failure",
-    "session_lifecycle",
-    "tool_call",
-}
 
 
 def _placeholder(conn: Any) -> str:
@@ -160,6 +152,7 @@ def resolution_envelope_for_event_row(
     session_id: str,
     event_type: str,
     project: Any,
+    item_id: Any = None,
     envelope: Any = None,
 ) -> dict[str, Any]:
     """Build resolver input from canonical row identity plus valid context.
@@ -172,6 +165,7 @@ def resolution_envelope_for_event_row(
         "session_id": session_id,
         "event_type": event_type,
         "project": project,
+        "item_id": item_id,
     }
     parsed = _parse_envelope_mapping(envelope)
     if parsed is None:
@@ -192,19 +186,14 @@ def resolve_envelope_project_id_for_event(
     if context_project_id is not None:
         return resolve_project_id_for_event(conn, db_path, context_project_id)
 
-    session_id = str(envelope.get("session_id") or "").strip()
-    event_type = str(envelope.get("event_type") or "").strip()
-    if (
-        session_id
-        and session_id != "unknown"
-        and event_type in SESSION_SCOPED_EVENT_TYPES
-    ):
-        project_id = _session_project_id(conn, session_id)
-        if project_id is not None:
-            return resolve_project_id_for_event(conn, db_path, project_id)
+    project_id = working_project_for_event(
+        conn=conn,
+        item_id=resolve_item_id_for_event(conn, db_path, envelope.get("item_id")),
+        session_id=str(envelope.get("session_id") or "").strip(),
+    )
+    if project_id is not None:
+        return resolve_project_id_for_event(conn, db_path, project_id)
 
-    # No context project, no session project: the event indexes as
-    # global rather than being attributed to any particular project.
     return resolve_project_id_for_event(conn, db_path, envelope.get("project"))
 
 

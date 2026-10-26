@@ -154,46 +154,6 @@ def decode_cursor(value: Optional[str]) -> Optional[Tuple[datetime, int]]:
         ) from None
 
 
-def project_scope_clause(
-    conn: Any,
-    actor_id: Any,
-    project: Optional[str],
-) -> Tuple[str, List[Any]]:
-    """Return the authorized project predicate for one history request.
-
-    A criterion that names no project the caller can read is refused by name.
-    Falling through to an unscoped read would answer a wider question than
-    the operator asked, using rows they may not be allowed to see.
-    """
-    from yoke_core.domain.actor_project_visibility import (
-        actor_visible_project_ids,
-        numeric_actor_id,
-    )
-    from yoke_core.domain.project_identity import resolve_project
-
-    visible = actor_visible_project_ids(conn, numeric_actor_id(actor_id))
-    criterion = str(project or "").strip()
-    if criterion:
-        identity = resolve_project(
-            conn,
-            criterion,
-            required=False,
-            visible_project_ids=visible,
-        )
-        if identity is None:
-            raise ValueError(
-                f"project {criterion!r} is not a project you can read; "
-                "choose a visible project and reload the first page"
-            )
-        return "project_id = %s", [identity.id]
-    if visible is None:
-        return "", []
-    if not visible:
-        return "1 = 0", []
-    ids = sorted(visible)
-    return f"project_id IN ({', '.join('%s' for _ in ids)})", list(ids)
-
-
 def _compact(decorated: Dict[str, Any]) -> Dict[str, Any]:
     return {field: decorated.get(field) for field in HISTORY_FIELDS}
 
@@ -278,26 +238,11 @@ def history_outcome(
             "correct it and reload the first page",
             f"$.payload.history{'.' + path if path else ''}",
         )
-    # The project criterion is authorized here instead of riding the shared
-    # filter grammar, which resolves any existing project without asking
-    # whether this caller may read it.
-    project = payload.pop("project", None)
     where, params, where_error = where_from_payload(request, payload)
     if where_error is not None:
         return where_error
     conn = connect()
     try:
-        try:
-            clause, clause_params = project_scope_clause(
-                conn,
-                request.actor.actor_id if request.actor else None,
-                project,
-            )
-        except ValueError as exc:
-            return _refused("permission_denied", str(exc), "$.payload.project")
-        if clause:
-            where = f"{where} AND {clause}" if where else f"WHERE {clause}"
-            params = [*params, *clause_params]
         try:
             result = read_event_history(
                 conn,
@@ -322,6 +267,5 @@ __all__ = [
     "encode_cursor",
     "history_outcome",
     "presentation_facts",
-    "project_scope_clause",
     "read_event_history",
 ]
