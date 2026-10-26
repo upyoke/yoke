@@ -120,6 +120,10 @@ heartbeat, and authorization. Without systemd as PID 1 (including containers
 or WSL configured without systemd), it reports that the relay is not supervised
 and why. Enable systemd in WSL or use a systemd Linux host. If the user manager
 is unavailable, log in through a PAM session that starts it and retry.
+Doctor never waits for a heartbeat. After a fresh install, setup waits up to
+30 seconds for the relay's first connected heartbeat before its readiness check,
+because starting the relay can pin a release and restart; a relay that never
+connects still reports the doctor failure and its repair.
 
 The login lifetime follows systemd's user manager and the host's logout delay;
 closing one shell while other sessions remain does not stop the relay.

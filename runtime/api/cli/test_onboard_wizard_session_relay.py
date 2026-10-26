@@ -143,17 +143,20 @@ def test_apply_bridge_runs_packaged_installer_without_credentials(
 ) -> None:
     monkeypatch.setattr(onboard_session_relay.sys, "platform", "darwin")
     runner, calls = _recording_runner(_result(1), _result(0))
+    waits: list[float] = []
 
     outcome = onboard_session_relay.install(
         local_destination=local_destination,
         environment="upyoke",
         config_path="/tmp/machine-config.json",
         runner=runner,
+        wait_for_connection=waits.append,
     )
 
     assert outcome == onboard_session_relay.RelayInstallOutcome(
         installed=True, reused=False
     )
+    assert waits == [onboard_session_relay.RELAY_CONNECT_WAIT_SECONDS]
     status_command, install_command = calls
     assert status_command == [
         sys.executable,
@@ -174,15 +177,20 @@ def test_a_satisfied_relay_is_reused_and_never_reinstalled(monkeypatch) -> None:
     """The on-screen retry must not unload the login item it just installed."""
     monkeypatch.setattr(onboard_session_relay.sys, "platform", "darwin")
     runner, calls = _recording_runner(_result(0))
+    waits: list[float] = []
 
     outcome = onboard_session_relay.install(
-        local_destination=False, environment="upyoke", runner=runner
+        local_destination=False,
+        environment="upyoke",
+        runner=runner,
+        wait_for_connection=waits.append,
     )
 
     assert outcome == onboard_session_relay.RelayInstallOutcome(
         installed=True, reused=True
     )
     assert [command[3] for command in calls] == ["status"]
+    assert waits == []
 
 
 def test_an_unreadable_status_repairs_rather_than_skipping(monkeypatch) -> None:
@@ -192,7 +200,10 @@ def test_an_unreadable_status_repairs_rather_than_skipping(monkeypatch) -> None:
     )
 
     outcome = onboard_session_relay.install(
-        local_destination=False, environment="upyoke", runner=runner
+        local_destination=False,
+        environment="upyoke",
+        runner=runner,
+        wait_for_connection=lambda _seconds: False,
     )
 
     assert outcome.installed and not outcome.reused

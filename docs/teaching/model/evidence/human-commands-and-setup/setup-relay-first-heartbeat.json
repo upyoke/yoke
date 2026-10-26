@@ -1,0 +1,9 @@
+{
+ "id": "setup-relay-first-heartbeat",
+ "title": "Setup waits for a fresh relay's first heartbeat",
+ "status": "observed",
+ "scope": "Candidate source and unit tests; no production-install claim",
+ "current": "After a fresh relay install (not a reused one), setup polls for up to 30 seconds until this machine's relay reports connected, then runs readiness. A relay that never connects leaves readiness with the unchanged session-relay FAIL and repair. The doctor check itself never waits.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py", "packages/yoke-core/src/yoke_core/engines/doctor_hc_session_relay.py", "runtime/api/engines/test_doctor_hc_session_relay.py", "runtime/api/cli/test_onboard_wizard_session_relay.py"],
+ "position": 95
+}
