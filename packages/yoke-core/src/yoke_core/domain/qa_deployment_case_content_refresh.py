@@ -156,7 +156,6 @@ def carried_by_declared_replacement(conn: Any, rows: list[Mapping[str, Any]]) ->
         replacement_id = row.get("replacement_requirement_id")
         if (
             replacement_id
-            and not obligation_settled(row)
             and int(replacement_id) not in own
             and determinate_verdict(conn, int(replacement_id)) != "fail"
         ):

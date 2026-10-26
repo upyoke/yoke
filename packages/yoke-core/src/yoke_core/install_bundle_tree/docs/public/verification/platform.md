@@ -148,7 +148,9 @@ On an item, a removed post_deploy case replaced by exactly one created row
 item; a removed case with no single successor is waived.
 Deployment convergence is per case: unjudged refreshes, changed failed gets
 one declared corrected replacement, passed stands. An explicit --replaces
-case gets no second automatic correction. Read both commands' --help.
+case gets no second automatic correction while its external replacement is
+pending or passed, including after settlement. A failed replacement permits
+an automatic correction. Read both commands' --help.
 
 Task blocking requirements gate that task's reviewed-implementation/done;
 tasks mirror parent statuses including cascading release. Parent review also
