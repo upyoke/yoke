@@ -219,3 +219,18 @@ def test_mint_does_not_create_absent_codex_home(tmp_path):
     result = mint_installed_checkout_trust(checkout, config_path=home / "config.toml")
     assert result.skipped_reason == "codex_not_installed"
     assert not home.exists()
+
+
+def test_removing_start_source_filter_renews_trust(tmp_path):
+    checkout = _checkout(tmp_path, "project")
+    hooks = checkout / ".codex/hooks.json"
+    config = _config(tmp_path / "config.toml")
+    mint_installed_checkout_trust(checkout, config_path=config)
+    before = codex_hook_hashes(hooks)
+    document = json.loads(hooks.read_text())
+    del document["hooks"]["SessionStart"][0]["matcher"]
+    hooks.write_text(json.dumps(document))
+    assert codex_hook_hashes(hooks) != before
+    assert not inspect_hook_file_trust(hooks, config_path=config).approved
+    mint_installed_checkout_trust(checkout, config_path=config)
+    assert inspect_hook_file_trust(hooks, config_path=config).approved

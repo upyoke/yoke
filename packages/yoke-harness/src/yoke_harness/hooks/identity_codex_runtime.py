@@ -39,7 +39,7 @@ CODEX_TRANSCRIPT_ROOT_NAMES = ("sessions", "archived_sessions")
 
 def codex_transcript_roots() -> list[Path]:
     """Return Codex's transcript stores, newest-first search order."""
-    home = Path.home() / ".codex"
+    home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
     return [home / name for name in CODEX_TRANSCRIPT_ROOT_NAMES]
 
 
@@ -55,6 +55,13 @@ def codex_transcript_candidates(
             candidates.extend(root.rglob(f"*{thread_id}.jsonl"))
     candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     return candidates
+
+
+def codex_transcript_exists(session_id: str, transcript_path: str = "") -> bool:
+    """Saved sessions can register; ephemeral in-memory turns cannot."""
+    if transcript_path:
+        return Path(transcript_path).is_file()
+    return any(path.is_file() for path in codex_transcript_candidates(session_id))
 
 
 def _codex_model_from_transcript(thread_id: str) -> Optional[str]:

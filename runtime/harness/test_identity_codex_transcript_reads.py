@@ -153,3 +153,26 @@ def test_identity_head_and_tail_reads_project_oversized_rows(
         "codex-cli-rs"
     )
     assert identity_codex_runtime._codex_model_from_transcript("t") == "gpt-5-codex"
+
+
+@pytest.mark.parametrize("store", ["sessions", "archived_sessions"])
+def test_custom_codex_home_resolves_rollouts(tmp_path, monkeypatch, store):
+    home = tmp_path / "custom-codex"
+    directory = home / store / "2026"
+    directory.mkdir(parents=True)
+    rollout = _rollout(
+        directory / "rollout-thread.jsonl",
+        [
+            _session_meta("codex_cli_rs"),
+            {"type": "turn_context", "payload": {"model": "gpt-5-codex"}},
+        ],
+    )
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    assert identity_codex_runtime.codex_transcript_candidates("thread") == [rollout]
+    assert (
+        identity_codex_runtime._codex_model_from_transcript("thread") == "gpt-5-codex"
+    )
+    assert (
+        identity_codex_runtime._codex_entrypoint_from_transcript("thread")
+        == "codex-cli-rs"
+    )

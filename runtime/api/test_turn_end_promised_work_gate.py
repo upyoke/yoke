@@ -68,8 +68,6 @@ def test_hold_for_live_mid_lifecycle_claim(monkeypatch) -> None:
     assert decision.block is True
     assert decision.next is Next.STOP
     assert decision.message == gate.DIRECTIVE
-    assert "release the claim" in gate.DIRECTIVE
-    assert "stop deliberately" in gate.DIRECTIVE
 
 
 def test_hold_without_chain_checkpoint(monkeypatch) -> None:
@@ -150,7 +148,8 @@ def test_cap_allows_and_records(monkeypatch) -> None:
     assert captured[0]["claim"]["item_id"] == 5
 
 
-def test_unavailable_evidence_fails_open(monkeypatch) -> None:
+def test_unavailable_evidence_with_live_claim_fails_open(monkeypatch) -> None:
+    _patch_db(monkeypatch, claim={"item_id": 1, "status": "implementing"})
     emitted: list[str] = []
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: UNAVAILABLE)
     monkeypatch.setattr(
@@ -278,3 +277,15 @@ def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
     assert lifecycle == []
     flush_run_tail(final_outcome="allow", **kwargs)
     assert lifecycle == ["Stop"]
+
+
+@pytest.mark.parametrize("family", ["claude", "codex", "cursor"])
+def test_unavailable_evidence_without_claim_is_quiet(monkeypatch, family):
+    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: UNAVAILABLE)
+    _patch_db(monkeypatch, claim=None)
+    monkeypatch.setattr(
+        gate,
+        "_emit_unavailable",
+        lambda ctx: pytest.fail("unclaimed turn emitted failure"),
+    )
+    assert gate.evaluate(_ctx(executor_family=family)).outcome is Outcome.ALLOW

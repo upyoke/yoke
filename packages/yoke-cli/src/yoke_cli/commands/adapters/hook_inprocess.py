@@ -72,6 +72,19 @@ def evaluate_inprocess(
     from yoke_harness.hooks.command_workdir_stamp import stamp_command_workdir
     from yoke_harness.hooks.identity import detect_executor
 
+    if event_name == "UserPromptSubmit" and detect_executor() == "codex":
+        from yoke_harness.hooks.relay_identity_guard import parse_hook_payload
+        from yoke_harness.hooks.identity_codex_runtime import codex_transcript_exists
+
+        payload = parse_hook_payload(stdin_data)
+        session_id = str(payload.get("session_id") or payload.get("thread_id") or "")
+        if session_id and not codex_transcript_exists(
+            session_id, str(payload.get("transcript_path") or "")
+        ):
+            if on_complete is not None:
+                on_complete()
+            return 0
+
     # Every evaluation path — relayed, local universe, local subset — reads
     # the command's workdir from stdin, and only this machine can recover it.
     stdin_data = stamp_command_workdir(stdin_data, detect_executor())

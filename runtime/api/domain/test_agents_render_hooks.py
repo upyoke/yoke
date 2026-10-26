@@ -172,3 +172,11 @@ def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
             f"yoke hook evaluate {runner_event}" in entry["command"]
             for entry in block["hooks"][native_event]
         )
+
+
+def test_codex_session_start_accepts_every_source():
+    from yoke_core.domain.agents_render_hooks import render_codex_hooks_block
+
+    entries = render_codex_hooks_block()["SessionStart"]
+    assert len(entries) == 1
+    assert "matcher" not in entries[0]

@@ -158,6 +158,11 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     session_id = _codex.resolve_session_id(raw)
     if not session_id:
         return ""
+    from yoke_harness.hooks.identity_codex_runtime import codex_transcript_exists
+
+    transcript_path = _field(record.payload, "transcript_path")
+    if not codex_transcript_exists(session_id, transcript_path):
+        return ""
     if not _first_prompt(session_id, codex=True):
         return ""
     # First prompt may safety-net register. Do not heartbeat: a wake-

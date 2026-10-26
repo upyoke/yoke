@@ -45,6 +45,7 @@ from yoke_contracts.hook_runner.config_owner import (
 # runner. The matcher fans out at the manifest level, but the per-matcher
 # dispatch happens behind the CLI via the loaded ``AdapterCapability``.
 
+
 def _claude_command(event: str) -> str:
     # GUI apps may omit the launcher directories from PATH; the shared builder
     # uses the bounded hook PATH without reading operator shell startup files.
@@ -146,6 +147,8 @@ _CODEX_VERB_BY_EVENT = {
     "PostToolUse": "PostToolUse",
     "Stop": "Stop",
 }
+
+
 # Codex hook subprocesses do not reliably inherit ``CODEX_THREAD_ID`` from the
 # Codex Desktop launcher, so the shared builder pins the Codex family and
 # provider in the command. Codex project commands carry no owner marker, so
@@ -156,7 +159,7 @@ def _codex_command(event_name: str) -> str:
 
 # Codex matcher composition: PreToolUse and PostToolUse fan out into the
 # Bash matcher plus the apply_patch|Write|Edit composite matcher. Other
-# events use either no matcher or the SessionStart startup|resume matcher.
+# events use no matcher.
 
 _CODEX_PRE_POST_TOOL_MATCHERS = (
     "Bash",
@@ -164,7 +167,6 @@ _CODEX_PRE_POST_TOOL_MATCHERS = (
 )
 
 _CODEX_PERMISSION_MATCHER = "apply_patch|Write|Edit"
-_CODEX_SESSION_START_MATCHER = "startup|resume"
 
 
 def _codex_entry(matcher: str | None, verb: str) -> dict:
@@ -183,10 +185,8 @@ def render_codex_hooks_block() -> dict:
     the post-task-001 content byte-for-byte once written canonically.
     """
     block: dict[str, list[dict]] = {}
-    # SessionStart — startup|resume matcher.
-    block["SessionStart"] = [
-        _codex_entry(_CODEX_SESSION_START_MATCHER, _CODEX_VERB_BY_EVENT["SessionStart"])
-    ]
+    # SessionStart — every source, including forks and context resets.
+    block["SessionStart"] = [_codex_entry(None, _CODEX_VERB_BY_EVENT["SessionStart"])]
     # UserPromptSubmit — no matcher.
     block["UserPromptSubmit"] = [
         _codex_entry(None, _CODEX_VERB_BY_EVENT["UserPromptSubmit"])

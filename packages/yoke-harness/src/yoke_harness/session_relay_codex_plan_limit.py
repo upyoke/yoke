@@ -15,6 +15,7 @@ operator the number as well as the explanation.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -83,7 +84,7 @@ def app_server_reading(observed_at: str) -> tuple[dict[str, Any] | None, str, st
 
 def _usage_mirror_reading(observed_at: str) -> tuple[dict[str, Any] | None, str]:
     """Read the same bucket from the HTTP usage mirror, or name the refusal."""
-    path = Path.home() / ".codex" / "auth.json"
+    path = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "auth.json"
     try:
         auth = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:

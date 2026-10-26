@@ -13,7 +13,6 @@ from yoke_harness import session_relay_codex_plan_limit as codex_limits
 from yoke_harness.session_relay_codex_app_server_client import CodexAppServerError
 from yoke_harness.session_relay_failure_log import FailureReporter
 
-
 NOW = "2026-08-30T01:00:00.000000Z"
 _OK_APP_SERVER_RESULT = {
     "rateLimitsByLimitId": {
@@ -286,10 +285,12 @@ def test_the_client_is_closed_even_when_the_exchange_fails(monkeypatch) -> None:
     assert client.closed is True
 
 
+@pytest.mark.parametrize("custom_home", [False, True])
 def test_the_mirror_reads_the_primary_window_from_stored_credentials(
-    monkeypatch, tmp_path: Path
+    monkeypatch, tmp_path: Path, custom_home
 ) -> None:
-    codex_home = tmp_path / ".codex"
+    codex_home = tmp_path / ("custom-codex" if custom_home else ".codex")
+    monkeypatch.setenv("CODEX_HOME", str(codex_home) if custom_home else "")
     codex_home.mkdir()
     (codex_home / "auth.json").write_text(
         json.dumps({"tokens": {"access_token": "t", "account_id": "a"}}),

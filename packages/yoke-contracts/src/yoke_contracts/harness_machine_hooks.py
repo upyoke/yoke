@@ -156,7 +156,7 @@ HARNESS_MACHINE_HOOKS: Mapping[str, HarnessMachineHooks] = {
         project_configs=(".codex/hooks.json",),
         project_config_in_ancestors=True,
         events=(
-            MachineHookEvent("SessionStart", "SessionStart", "startup|resume"),
+            MachineHookEvent("SessionStart", "SessionStart"),
             MachineHookEvent("UserPromptSubmit", "UserPromptSubmit"),
             MachineHookEvent("PreToolUse", "PreToolUse", "Bash"),
             MachineHookEvent("Stop", "Stop"),

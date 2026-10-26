@@ -25,6 +25,7 @@ from yoke_core.domain.session_orientation_delivery import (
     confirm_orientation_delivery,
     orientation_delivered,
     record_orientation_attempt,
+    reset_orientation_delivery,
 )
 
 
@@ -262,6 +263,12 @@ def _orientation_for_hook(
         return None
     if not cwd:
         return None
+    if (
+        executor == "codex"
+        and event_name == startup_event
+        and payload.get("source") in {"clear", "compact"}
+    ):
+        reset_orientation_delivery(session_id)
     if orientation_delivered(session_id):
         return None
     lost_earlier = record_orientation_attempt(session_id)

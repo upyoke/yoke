@@ -202,7 +202,10 @@ def test_delivered_marker_fingerprints_exact_emitted_body(
         "yoke_core.domain.session_orientation.orientation_for_hook", compose
     )
     cursor = executor == CURSOR_EXECUTOR_ID
+    transcript = tmp_path / "s-1.jsonl"
+    transcript.touch()
     payload = {
+        "transcript_path": str(transcript),
         "session_id": "s-1",
         "conversation_id": "s-1",
         "workspace_roots": ["/repo"],

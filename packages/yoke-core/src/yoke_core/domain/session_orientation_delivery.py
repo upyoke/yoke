@@ -35,6 +35,7 @@ __all__ = [
     "confirm_orientation_delivery",
     "orientation_delivered",
     "record_orientation_attempt",
+    "reset_orientation_delivery",
 ]
 
 
@@ -124,3 +125,15 @@ def confirm_orientation_delivery(emitted_body: str) -> None:
             "Restore write access to the hook-markers directory or set "
             "YOKE_SCRATCH_ROOT to a writable path; retry the context-bearing hook.\n"
         )
+
+
+def reset_orientation_delivery(session_id: str) -> None:
+    """A cleared context needs a fresh delivery, including retry after a lost hook."""
+    for marker in (_attempt_marker(session_id), _delivered_marker(session_id)):
+        try:
+            marker.unlink(missing_ok=True)
+        except OSError as exc:
+            sys.stderr.write(
+                f"WARNING: orientation_delivery_reset_failed: {marker}: {exc}. "
+                "Restore write access to the hook-markers directory and retry SessionStart.\n"
+            )
