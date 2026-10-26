@@ -259,14 +259,15 @@ def _resolve_item_metadata(
         recovery="Restore item and lane metadata reads, then retry run completion.",
         warnings=warnings,
     )
-    # A lane names its item's contribution only once the item has landed.
-    # An open lane's head keeps moving while workers commit, so reading it
-    # would turn unrelated lane activity into new repository questions
-    # between release preparation and its locked validation. Each lane's
-    # recorded sha is asked first; its branch only when that sha misses.
+    # Only landed lanes contribute. Resolve recorded SHAs first; branches
+    # with missing SHAs are relevant only inside this release's landing window.
     landed = [row for row in rows if _landed_at(row)]
     shas = source.resolve_commits(_tokens(landed, "commit_sha", 5))
-    missed = [row for row in landed if not shas.get(_token(row, "commit_sha", 5))]
+    missed = [
+        row for row in landed
+        if _cell(row, "landing_in_window", 6)
+        and not shas.get(_token(row, "commit_sha", 5))
+    ]
     branches = source.resolve_commits(_tokens(missed, "branch", 4))
     for row in rows:
         item_id = _cell(row, "id", 0)
