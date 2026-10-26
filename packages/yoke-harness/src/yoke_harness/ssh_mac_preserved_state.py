@@ -73,6 +73,9 @@ def render_preserved_state_contract() -> str:
     preserved = " -o ".join(
         "-path " + shlex.quote("./" + path) for path in PRESERVED_HOME_ENTRIES
     )
+    # macOS deletes cache files while copying. Omit caches from capture only;
+    # reset still clears them, and they never enter the preserved manifest.
+    capture_exclusions = preserved + " -o -path ./Library/Caches"
     return "\n".join(
         (
             "os_managed_entries=(" + shlex.join(OS_MANAGED_HOME_ENTRIES) + ")",
@@ -93,7 +96,7 @@ def render_preserved_state_contract() -> str:
             f'  /usr/bin/find "$home" -xdev ! -user "$capture_user" {ownership} -print',
             "}",
             "list_capture_entries() {",
-            f"  /usr/bin/find . -mindepth 1 \\( {preserved} \\) -prune -o "
+            f"  /usr/bin/find . -mindepth 1 \\( {capture_exclusions} \\) -prune -o "
             "! -type s ! -type p -print0",
             "}",
         )
