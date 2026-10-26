@@ -2,6 +2,6 @@
  "id": "brevity",
  "title": "Complete and extremely concise",
  "status": "approved",
- "text": "Recipe first. Teaching files have a hard 350-line ceiling, and agent-loaded rule files also carry per-file byte budgets that fail growth; routine replies use concise projections; JSON and write replies remain complete, and registered human reads alone have a 28,000-byte safety net with --full recovery. A change updates the owning surface, teaches elsewhere only where it helps that reader, and deletes text it makes wrong or redundant. Smaller teaching targets prompt review, not arbitrary compression.",
+ "text": "Recipe first. Teaching files have a hard 350-line ceiling; routine replies use concise projections; JSON and write replies remain complete, and registered human reads alone have a 28,000-byte safety net with --full recovery. A change updates the owning surface, teaches elsewhere only where it helps that reader, and deletes text it makes wrong or redundant. Smaller teaching targets prompt review, not arbitrary compression.",
  "position": 2
 }

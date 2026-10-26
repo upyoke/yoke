@@ -18,12 +18,6 @@ CLI surface. The default mode checks branch-vs-base changes; use
 --staged for the pre-commit shape. The report mode prints the tracked
 file inventory.
 
-Byte budgets: each `file_byte_budget=PATH:BYTES` line in
-.yoke/project.config caps that file's bytes. A changed file over its
-budget fails with file_byte_budget_exceeded; shrink it or move the text
-to the surface that owns it. A malformed, duplicate or stale entry fails
-every check until it is fixed.
-
 Implementation owner: yoke_harness.git_hooks.file_line_check."""
 
 

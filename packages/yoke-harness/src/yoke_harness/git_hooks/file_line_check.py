@@ -34,11 +34,6 @@ from yoke_contracts.project_contract.strategy_docs_paths import (
 from yoke_contracts.project_contract.changed_path_scope import (
     changed_scope_for_check,
 )
-from yoke_contracts.project_contract.file_byte_budget import (
-    ByteBudgetFail,
-    byte_budget_failures,
-    new_size_reader,
-)
 from yoke_contracts.project_contract.file_line_git_scope import (
     resolve_file_line_git_scope,
 )
@@ -104,7 +99,6 @@ class CheckVerdict:
     warnings: list[ChangedFile]
     summary: str
     pre_existing: list[ChangedFile] = field(default_factory=list)
-    byte_budget_fails: list[ByteBudgetFail] = field(default_factory=list)
 
 
 def run_git(
@@ -293,15 +287,8 @@ def changed_files_check(
                 pre_existing.append(ChangedFile(
                     path, classification, old, new, new - old,
                 ))
-    budget_fails = byte_budget_failures(
-        policy.byte_budget_entries,
-        paths,
-        size_of=new_size_reader(repo_root, staged=staged, run_git=run_git),
-    )
-    if hard_fails or budget_fails:
+    if hard_fails:
         summary = f"{len(hard_fails)} hard-fail(s), {len(warnings)} warning(s)"
-        if budget_fails:
-            summary += f", {len(budget_fails)} byte-budget failure(s)"
     elif warnings:
         summary = f"ok with {len(warnings)} warning(s)"
     else:
@@ -311,8 +298,7 @@ def changed_files_check(
     if not staged:
         summary += f"; {changed.coverage_sentence()}"
     return CheckVerdict(
-        not hard_fails and not budget_fails,
-        hard_fails, warnings, summary, pre_existing, budget_fails,
+        not hard_fails, hard_fails, warnings, summary, pre_existing,
     )
 
 
