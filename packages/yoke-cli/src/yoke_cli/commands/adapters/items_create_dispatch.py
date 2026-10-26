@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from yoke_cli.commands import _helpers
+from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_summary
+from yoke_cli.transport.human_values import write_human
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import FunctionError, TargetRef
 from yoke_contracts.function_serving_floors import declared_argument_floors
@@ -52,6 +54,23 @@ def _spec_floor_refusal(response, *, preview: bool = True):
     )
 
 
+def _write_create_receipt(response, stdout, _stderr):
+    result = response.result
+    stdout.write(
+        render_item_instruction_summary(
+            result.get("execution_instructions") or [], result.get("public_ref", "ITEM")
+        )
+    )
+    write_human(
+        {
+            key: value
+            for key, value in result.items()
+            if key != "execution_instructions"
+        },
+        stdout,
+    )
+
+
 def dispatch_create(*, target: TargetRef, payload: dict, session_id, json_mode: bool):
     _helpers.ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -71,7 +90,9 @@ def dispatch_create(*, target: TargetRef, payload: dict, session_id, json_mode: 
     ):
         proof = _spec_floor_refusal(proof)
     if not proof.success or payload.get("dry_run"):
-        return _helpers.emit_response(proof, json_mode=json_mode)
+        return _helpers.emit_response(
+            proof, json_mode=json_mode, human_writer=_write_create_receipt
+        )
 
     def verify_receipt(response, _actor):
         if response.success and response.result.get("spec_accepted") is not True:
@@ -85,4 +106,5 @@ def dispatch_create(*, target: TargetRef, payload: dict, session_id, json_mode: 
         session_id=session_id,
         json_mode=json_mode,
         response_recovery=verify_receipt,
+        human_writer=_write_create_receipt,
     )

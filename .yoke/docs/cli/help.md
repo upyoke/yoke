@@ -36,8 +36,11 @@ reports `project_required`. Access, ambiguity and capability failures retain
 their own meanings.
 
 Routine reads use command-specific summary fields and pages. Use the named
-field, page or `--full` recipe for detail. JSON output and write receipts
-always retain their complete selected result, warnings and recovery.
+field, page or `--full` recipe for detail. Write receipts print what changed;
+`--json` prints the complete result. Warnings and recovery remain visible.
+`sessions touch` prints the session id, mode, last heartbeat and reason when set.
+`items create` names applicable execution instructions and their full-text read.
+Launch receipts name the command for the full options table.
 
 `deployment-runs get RUN-ID` shows status, current stage and membership counts.
 Select named fields (`status current_stage`, `member_items membership_removals`)

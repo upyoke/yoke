@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import io
 
+import pytest
+
+from yoke_cli.transport.output_limit import read_output_scope
+
 from yoke_cli.commands.adapters.session_control_launch_output import (
     write_launch_result,
 )
@@ -258,28 +262,34 @@ def test_a_level_preview_with_no_capacity_says_so() -> None:
     assert "none had capacity" in output.getvalue()
 
 
-def test_a_level_launch_record_shows_its_selection_and_placement() -> None:
+@pytest.mark.parametrize("full", [False, True])
+def test_a_level_launch_record_shows_its_selection_and_placement(full) -> None:
     output = io.StringIO()
 
-    write_launch_result(
-        {
-            "launch": {
-                "launch_id": "launch-1",
-                "selection": "level",
-                "requested_level": "SENIOR",
-                "level_placement": _PLACEMENT,
-                "requested_surface": "claude-cli",
-                "selected_surface": "claude-cli",
-            }
-        },
-        output,
-    )
+    with read_output_scope(["--full"] if full else [], "session_control.launch.create"):
+        write_launch_result(
+            {
+                "launch": {
+                    "launch_id": "launch-1",
+                    "selection": "level",
+                    "requested_level": "SENIOR",
+                    "level_placement": _PLACEMENT,
+                    "requested_surface": "claude-cli",
+                    "selected_surface": "claude-cli",
+                }
+            },
+            output,
+        )
 
     rendered = output.getvalue()
     assert "Selection" in rendered
     assert "level" in rendered
     assert "SENIOR (universe)" in rendered
-    assert "LEVEL OPTIONS WEIGHED" in rendered
+    assert ("LEVEL OPTIONS WEIGHED" in rendered) is full
+    assert ("codex-cli gpt-6-sol high on m1" in rendered) is full
+    assert (
+        "Options weighed: yoke session-control launch get launch-1 --full" in rendered
+    ) is not full
 
 
 def test_an_override_launch_record_shows_no_level_rows() -> None:

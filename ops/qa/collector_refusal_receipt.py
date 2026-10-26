@@ -27,7 +27,10 @@ REFUSAL_WAIT_SECONDS = 15
 
 def read(sql):
     result = subprocess.run(
-        ["yoke", "db", "read", sql], text=True, capture_output=True, check=False
+        ["yoke", "db", "read", sql, "--format", "json"],
+        text=True,
+        capture_output=True,
+        check=False,
     )
     try:
         envelope = json.loads(result.stdout)

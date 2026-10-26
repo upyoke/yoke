@@ -52,6 +52,8 @@ def stored_device(event_id):
             "SELECT envelope::jsonb ->> 'browser', envelope::jsonb ->> 'os', "
             "envelope::jsonb ->> 'device_type' FROM events "
             f"WHERE event_id = '{event_id}'",
+            "--format",
+            "json",
         ],
         text=True,
         capture_output=True,
