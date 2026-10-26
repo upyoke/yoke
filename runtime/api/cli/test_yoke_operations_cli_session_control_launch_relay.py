@@ -201,7 +201,6 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert rendered_get.splitlines()[0] == "LAUNCH"
     assert "State / result" in rendered_get
     assert "Fallback allowed" in rendered_get
-    assert "Fallback used" in rendered_get
     assert "Selected surface" in rendered_get
     assert "no" in rendered_get
     assert "Deadline (UTC)" in rendered_get

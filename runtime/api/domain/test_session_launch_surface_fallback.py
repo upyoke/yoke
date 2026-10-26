@@ -86,7 +86,6 @@ def test_exact_surface_wins_and_unsupported_alternatives_are_ignored() -> None:
     )
 
     assert preview.selected_surface == "codex-cli"
-    assert preview.fallback_used is False
     assert preview.selected_relay and preview.selected_relay.relay_id == "exact"
     assert [relay.relay_id for relay in preview.eligible_relays] == ["exact"]
 
@@ -145,7 +144,6 @@ def test_fallback_is_same_family_version_proven_and_deterministic() -> None:
     )
 
     assert preview.selected_surface == "codex-cli"
-    assert preview.fallback_used is True
     assert [relay.relay_id for relay in preview.eligible_relays] == ["cli"]
     assert refused.outcome == "unsupported_surface"
     assert refused.launchable is False
@@ -178,7 +176,7 @@ def test_selected_surface_drives_native_job_and_registration() -> None:
 
     assert launch.requested_surface == "codex-vscode"
     assert launch.selected_surface == "codex-cli"
-    assert outcome.preview.fallback_used is True
+    assert outcome.preview.selected_surface == "codex-cli"
     assert job.surface == "codex-cli"
     reported = report_launch_attempt(
         conn,

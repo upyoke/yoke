@@ -238,7 +238,6 @@ class LaunchPreviewResponse(BaseModel):
     requested_reasoning_effort: Optional[str] = None
     requested_context_window_tokens: Optional[int] = None
     selected_surface: Optional[str] = None
-    fallback_used: bool = False
     launchable: bool
     considered_machine_ids: List[str] = Field(default_factory=list)
     rejection_codes: List[str] = Field(default_factory=list)

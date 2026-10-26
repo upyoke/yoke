@@ -158,14 +158,6 @@ export function appendLaunchDetail(documentNode, body, launch, mutate) {
     "fact-line session-launch-model-request",
     `Explicit request · ${explicitSelection.join(" · ")}`,
   ));
-  if (
-    launch.selected_surface
-    && launch.selected_surface !== launch.requested_surface
-  ) {
-    body.appendChild(el(
-      documentNode, "p", "session-launch-guidance", "Same-family fallback used.",
-    ));
-  }
   appendLaunchTimeline(documentNode, body, launch);
   appendLaunchIdentity(documentNode, body, launch);
   if (launch.registered_session_id) {
