@@ -61,6 +61,7 @@ def _entry(function_id: str, args: tuple, kwargs: dict) -> RegistryEntry:
         guardrails=tuple(kwargs["guardrails"]),
         adapter_status=kwargs["adapter_status"],
         claim_required_kind=kwargs["claim_required_kind"],
+        ambient_session_required=kwargs.get("ambient_session_required", True),
     )
 
 
@@ -306,3 +307,40 @@ def test_registrar_exposes_read_and_claimed_release_contracts() -> None:
         )
         == PERM_ITEMS_WRITE
     )
+
+
+def test_sessionless_merged_lane_release_retires_the_active_row(test_db, monkeypatch):
+    from yoke_core.domain.yoke_function_actor_identity import bind_actor_identity
+
+    insert_item(test_db, id=948, workflow_id="issue", status="implemented")
+    record_item_worktree(
+        test_db,
+        item_id=948,
+        branch="merged",
+        path="/tmp/merged",
+        lane_role=LANE_IMPLEMENTATION,
+    )
+    _use_test_connection(monkeypatch, test_db)
+    entries = {}
+
+    class Registry:
+        def register(self, function_id, *args, **kwargs):
+            entries[function_id] = (args, kwargs)
+
+    _register_item_worktrees.register(Registry())
+    function_id = "item_worktrees.release_merged_lane"
+    args, kwargs = entries[function_id]
+    entry = _entry(function_id, args, kwargs)
+    request = FunctionCallRequest(
+        function=function_id,
+        actor=ActorContext(session_id=""),
+        target=TargetRef(kind="item", item_id=948),
+        payload={"branch": "merged"},
+    )
+    identity = bind_actor_identity(entry, request, ambient_session_id="")
+    assert identity.error is None
+    for expected in (1, 0):
+        outcome = entry.handler(identity.bound_request)
+        assert outcome.primary_success is True
+        assert outcome.result_payload["released_count"] == expected
+        assert list_item_worktrees(test_db, 948, active_only=True) == []

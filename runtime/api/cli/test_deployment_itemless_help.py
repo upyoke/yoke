@@ -6,6 +6,10 @@ import io
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
+import pytest
+
+from yoke_cli.transport.https import HttpsConnection
+
 from yoke_cli.main import main as cli_main
 from yoke_cli.commands.deployment_execute import deployment_runs_execute
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
@@ -118,11 +122,44 @@ def test_create_post_note_points_at_watch_deploy() -> None:
     assert "warning" not in err
 
 
-def test_self_deploy_create_note_names_the_db_admin_connection() -> None:
-    adapter = "yoke_cli.commands.adapters.deployment_run_create"
+@pytest.mark.parametrize(
+    "host, expected",
+    [
+        ("control.example", "prod-db-admin"),
+        ("stage.example", "prod"),
+        (None, "<control-plane-env>"),
+    ],
+)
+def test_create_note_names_only_proven_execution_authority(host, expected) -> None:
+    authority = "yoke_cli.commands.adapters.deployment_execution_authority"
+    run_read = {"return_value": {"project": "customer", "target_environment": "prod"}}
+    if host is None:
+        run_read = {"side_effect": RuntimeError("run unavailable")}
     with (
-        patch(f"{adapter}.execution_connection_error", return_value="self-deploy"),
-        patch(f"{adapter}._same_universe_admin_env", return_value="prod-db-admin"),
+        patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=HttpsConnection(
+                api_url="https://control.example/v1", token="token", env="prod"
+            ),
+        ),
+        patch(f"{authority}._run", **run_read),
+        patch(
+            "yoke_cli.config.machine_config.load_config",
+            return_value={
+                "connections": {"prod-db-admin": {"transport": "local-postgres"}}
+            },
+        ),
+        patch(
+            "yoke_cli.commands.pulumi_stack_config_loader."
+            "load_project_renderer_settings_snapshot",
+            return_value={
+                "renderer_settings": {
+                    "environments": [
+                        {"name": "prod", "settings": {"hosts": {"api": host}}}
+                    ]
+                }
+            },
+        ),
     ):
         err = _create_stderr({ENV_OVERRIDE: "prod"})
-    assert "yoke --env prod-db-admin watch deploy -- run-20260805-001" in err
+    assert f"yoke --env {expected} watch deploy -- run-20260805-001" in err

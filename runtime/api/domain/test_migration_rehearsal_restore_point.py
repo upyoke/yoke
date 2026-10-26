@@ -82,6 +82,7 @@ def test_validation_copy_covers_batch_and_nested_applies_without_dumps(
 
     def verify(commands, **kwargs):
         assert commands == ["verify-copy"]
+        assert kwargs["cwd"] == apply_env["worktree"]
         assert kwargs["env_var"] == "YOKE_PG_DSN"
         assert kwargs["validation_db_path"] == apply_env["validation_dsn"]
         verified_modules.append(kwargs["module_identifier"])

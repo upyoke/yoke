@@ -27,7 +27,8 @@ from yoke_cli.commands.adapters.deployment_run_create_retry import (
 from yoke_cli.commands.adapters.deployment_execution_authority import (
     _same_universe_admin_env,
     creation_connection_error,
-    execution_connection_error,
+    run_target,
+    target_host_relationship,
 )
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
@@ -68,7 +69,13 @@ def _execute_connection(run_id: str) -> str:
     active = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active:
         return ""
-    if execution_connection_error(run_id):
+    try:
+        same_host, _, _ = target_host_relationship(lambda: run_target(run_id))
+    except Exception:  # noqa: BLE001 - keep the unresolved recipe placeholder
+        return ""
+    if same_host is None:
+        return ""
+    if same_host:
         return _same_universe_admin_env(active) or active
     return active
 
