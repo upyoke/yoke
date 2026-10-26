@@ -87,23 +87,20 @@ def run_host_operation(
             probes_document = Path(probes_file).read_text(encoding="utf-8")
         except OSError as exc:
             return usage_error(f"probes file must be readable: {exc}")
-    try:
-        return _execute(
-            operation=operation,
-            project=parsed.project,
-            test_machine=parsed.test_machine,
-            baseline=getattr(parsed, "baseline", None),
-            destination=getattr(parsed, "destination", None),
-            probes_document=probes_document,
-            session_id=parsed.session_id,
-            json_mode=parsed.json_mode,
-        )
-    finally:
-        _power().power_off_released()
+    return _execute(
+        operation=operation,
+        project=parsed.project,
+        test_machine=parsed.test_machine,
+        baseline=getattr(parsed, "baseline", None),
+        destination=getattr(parsed, "destination", None),
+        probes_document=probes_document,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
 
 
 def _power() -> Any:
-    """Cloud Test Machine power runs here, where the aws-admin key lives."""
+    """Cloud Test Machine start runs here, where the aws-admin key lives."""
     return importlib.import_module("yoke_core.domain.test_machine_power")
 
 

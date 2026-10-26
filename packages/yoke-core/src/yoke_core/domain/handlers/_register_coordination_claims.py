@@ -24,6 +24,21 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
+        "claims.coordination_claim.acquire_if_free",
+        _claims.handle_acquire_if_free,
+        _claims.AcquireRequest,
+        _claims.AcquireResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
+        target_kinds=["global"],
+        side_effects=["work_claims_insert"],
+        emitted_event_names=["LeaseAcquired"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
         "claims.coordination_claim.heartbeat",
         _claims.handle_heartbeat,
         _claims.HeartbeatRequest,

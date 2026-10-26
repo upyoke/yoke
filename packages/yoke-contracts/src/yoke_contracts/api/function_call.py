@@ -174,6 +174,11 @@ class FunctionCallResponse(BaseModel):
     warnings: List[FunctionWarning] = Field(default_factory=list)
     error: Optional[FunctionError] = None
     event_ids: List[int] = Field(default_factory=list)
+    #: Cloud Test Machines this call's lease releases left free, as
+    #: {"project", "test_machine"}; the calling client stops them.
+    released_test_machines: List[Dict[str, str]] = Field(
+        default_factory=list, exclude_if=lambda value: not value
+    )
 
     @field_serializer("result")
     def _wire_result(self, value: Dict[str, Any]) -> Dict[str, Any]:

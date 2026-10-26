@@ -11,6 +11,7 @@ Read [envelope and authority](index.md) first. `none` means no dispatcher work-c
 | Function id | Claim policy |
 |---|---|
 | `claims.coordination_claim.acquire` | `none` |
+| `claims.coordination_claim.acquire_if_free` | `none` |
 | `claims.coordination_claim.heartbeat` | `none` |
 | `claims.coordination_claim.list` | `none` |
 | `claims.coordination_claim.operator_release` | `steering` |

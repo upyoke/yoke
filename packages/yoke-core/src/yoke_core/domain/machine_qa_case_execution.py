@@ -182,18 +182,13 @@ def execute_materialized_machine_case(
     to refuse an incompatible generic-runner dispatch before that boundary.
     """
     requirement_id = _require_machine_case(case)
-    from yoke_core.domain.test_machine_power import power_off_released
-
-    try:
-        result = _execute_issued_contract(
-            begin_function="test_machine.case.begin",
-            submit_function="test_machine.case.submit",
-            abort_function="test_machine.case.abort",
-            requirement_id=requirement_id,
-            actor=actor,
-        )
-    finally:
-        power_off_released()
+    result = _execute_issued_contract(
+        begin_function="test_machine.case.begin",
+        submit_function="test_machine.case.submit",
+        abort_function="test_machine.case.abort",
+        requirement_id=requirement_id,
+        actor=actor,
+    )
     if int(result.get("requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(
             "test_machine.case.submit returned the wrong requirement"

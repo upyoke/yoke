@@ -199,10 +199,6 @@ def run(args: List[str]) -> int:
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
-    from yoke_core.domain.test_machine_power import power_off_released
-
-    # The verdict releases a retained mission lease this process probed.
-    power_off_released()
     print(json.dumps(result, sort_keys=True))
     if result.get("submission") == "persisted":
         return 0

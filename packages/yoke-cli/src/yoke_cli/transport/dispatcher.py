@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.transport.public_ref_display import redact_response as _redact_response
+from yoke_cli.transport.settled_response import settle_response as _settle_response
 
 import importlib
 import os
@@ -157,7 +157,7 @@ def call_dispatcher(
     if refused is not None:
         return _refusal(request, refused)
     if local_only:
-        return _redact_response(
+        return _settle_response(
             _call_local(request, _local_dispatch, client_local=True),
             sensitive_values,
         )
@@ -167,7 +167,7 @@ def call_dispatcher(
         try:
             relay_env = qa_evidence_plane.evidence_relay_env(function_id)
         except qa_evidence_plane.EvidencePlaneUnresolved as exc:
-            return _redact_response(
+            return _settle_response(
                 _error_response(request, exc.code, str(exc)), sensitive_values
             )
 
@@ -192,7 +192,7 @@ def call_dispatcher(
             request, self_deploy_env, lambda https: relay(https, 1),
             lambda: _call_local(request, _local_dispatch),
         )
-        return _redact_response(answer, sensitive_values)
+        return _settle_response(answer, sensitive_values)
     try:
         # Only a caller that named a plane changes how the connection is
         # resolved; the ordinary path keeps the plain call it always made.
@@ -202,12 +202,12 @@ def call_dispatcher(
             else https_transport.resolve_https_connection()
         )
     except https_transport.TransportError as exc:
-        return _redact_response(
+        return _settle_response(
             _error_response(request, "https_transport_misconfigured", str(exc)),
             sensitive_values,
         )
     if https is None and relay_env:
-        return _redact_response(
+        return _settle_response(
             _error_response(
                 request,
                 "relay_env_unavailable",
@@ -220,14 +220,14 @@ def call_dispatcher(
             sensitive_values,
         )
     if https is not None:
-        return _redact_response(relay(https), sensitive_values)
+        return _settle_response(relay(https), sensitive_values)
     refused = direct_database_access.use_https_env_error(function_id)
     answer = (
         _call_local(request, _local_dispatch)
         if refused is None
         else _refusal(request, refused)
     )
-    return _redact_response(answer, sensitive_values)
+    return _settle_response(answer, sensitive_values)
 
 
 def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:

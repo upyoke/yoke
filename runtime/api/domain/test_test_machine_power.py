@@ -1,4 +1,4 @@
-"""Cloud Test Machines start for a lease and stop when no lease holds them."""
+"""Cloud Test Machines start for a lease and wait until a login works."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain import test_machine_power
 from yoke_core.domain.deploy_remote import CommandResult
 from yoke_core.domain.test_machine_power import (
-    power_off_released,
     power_on,
     wait_for_ssh_login,
 )
@@ -34,12 +33,6 @@ def _json(value) -> CommandResult:
 
 def _ec2_actions(runner: FakeRunner) -> list[str]:
     return [call["argv"][2] for call in runner.calls]
-
-
-@pytest.fixture(autouse=True)
-def powered(monkeypatch):
-    """Each test starts with no machine recorded as powered by this process."""
-    monkeypatch.setattr(test_machine_power, "_powered", {})
 
 
 @pytest.fixture
@@ -167,95 +160,3 @@ def test_ssh_wait_without_the_machine_key_leaves_the_refusal_to_host_control(
     runner = _LoginRunner([])
     wait_for_ssh_login("yoke", CLOUD, lambda _l: None, runner=runner)
     assert runner.calls == []
-
-
-@pytest.fixture
-def leases(monkeypatch, aws):
-    """Active lease per machine as test_machine.get reports it."""
-    held: dict[str, dict | None] = {}
-
-    def call(function_id, payload):
-        assert function_id == "test_machine.get" and payload["project"] == "yoke"
-        return {"active_lease": held.get(payload["test_machine"])}
-
-    monkeypatch.setattr(test_machine_power, "_call", call)
-    return held
-
-
-def _lease_cloud_machine(runner: FakeRunner) -> None:
-    power_on("yoke", CLOUD, runner=runner, emit=lambda _l: None)
-
-
-def test_last_release_stops_the_machine_this_process_powered(leases):
-    runner = FakeRunner([_json(["running"]), _json(["running"]), _json(["54.0.0.1"]), OK])
-    _lease_cloud_machine(runner)
-    power_off_released(runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == [
-        "describe-instances",
-        "describe-instances",
-        "describe-addresses",
-        "stop-instances",
-    ]
-    assert test_machine_power._powered == {}
-
-
-def test_another_lease_keeps_the_machine_running(leases):
-    leases["windows-lab"] = {"id": 7}
-    runner = FakeRunner([_json(["running"])])
-    _lease_cloud_machine(runner)
-    power_off_released(runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == ["describe-instances"]
-
-
-def test_machines_without_instance_id_are_never_stopped(leases):
-    runner = FakeRunner()
-    power_on("yoke", MAC, runner=runner)
-    power_off_released(runner=runner, emit=lambda _l: None)
-    assert runner.calls == []
-
-
-def test_already_stopped_machine_gets_no_stop(leases):
-    runner = FakeRunner([_json(["running"]), _json(["stopped"])])
-    _lease_cloud_machine(runner)
-    power_off_released(runner=runner, emit=lambda _l: None)
-    assert _ec2_actions(runner) == ["describe-instances", "describe-instances"]
-
-
-def test_machine_without_elastic_ip_stays_running_with_a_named_reason(leases):
-    runner = FakeRunner([_json(["running"]), _json(["running"]), _json([])])
-    _lease_cloud_machine(runner)
-    lines: list[str] = []
-    power_off_released(runner=runner, emit=lines.append)
-    assert "stop-instances" not in _ec2_actions(runner)
-    assert lines[0].startswith("test_machine_power_stop_skipped: idle Test Machine")
-    assert "Recovery: declare an Elastic IP" in lines[0]
-
-
-def test_stop_failure_is_reported_and_never_raised(leases):
-    runner = FakeRunner(
-        [
-            _json(["running"]),
-            _json(["running"]),
-            _json(["54.0.0.1"]),
-            CommandResult(1, "", "Denied"),
-        ]
-    )
-    _lease_cloud_machine(runner)
-    lines: list[str] = []
-    power_off_released(runner=runner, emit=lines.append)
-    assert lines[-1].startswith("test_machine_power_stop_failed:")
-    assert "ec2 stop-instances --instance-ids i-1" in lines[-1]
-
-
-def test_lease_read_failure_is_reported_and_never_raised(monkeypatch, aws):
-    monkeypatch.setattr(test_machine_power, "_powered", {("yoke", "windows-lab"): CLOUD})
-
-    def call(function_id, payload):
-        raise ConnectionError("control plane unreachable")
-
-    monkeypatch.setattr(test_machine_power, "_call", call)
-    lines: list[str] = []
-    power_off_released(emit=lines.append)
-    assert lines[0].startswith("test_machine_power_stop_failed: Test Machine windows-lab")
-    assert "yoke test-machine verify --project yoke --test-machine windows-lab" in lines[0]
-    assert test_machine_power._powered == {}

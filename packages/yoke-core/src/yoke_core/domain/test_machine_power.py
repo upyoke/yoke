@@ -3,12 +3,11 @@
 A Test Machine whose settings record ``cloud_instance_id`` is an EC2
 instance the project's aws-admin capability powers from the executing
 machine. The lease holder starts it, and waits until its key logs in, before
-the first host command. When the flow that leased it ends, the process stops
-it unless another lease now holds it; a queued waiter's reserved turn is a
-lease, so the machine runs until the last one ends. A lease the server
-releases with no client flow ending (a reaped execution, a manual claim
-release) leaves the machine running until its next lease ends. Machines
-without the setting are never touched.
+the first host command. The last lease release stops it: any call whose
+release leaves the host free (no waiter's turn reserved) names it on its
+response (``test_machine_release_notice``), and the calling client, whatever
+command or process it is, stops it while holding the host's own lease.
+Machines without the setting are never touched.
 """
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.capability_secrets import TEST_MACHINE_CAPABILITY
 from yoke_contracts.designed_wait import announce_designed_wait, poll_every
 from yoke_contracts.machine_qa_failures import HostControlLocalError
-from yoke_contracts.refusal_recovery import compose_refusal
 from yoke_core.domain.capability_machine_secrets import (
     machine_capability_secret_path,
 )
@@ -36,9 +34,6 @@ from yoke_core.domain.deploy_remote import (
 from yoke_core.domain.ec2_instance_power import (
     Ec2InstancePowerError,
     ensure_instance_running,
-    has_elastic_ip,
-    instance_state,
-    stop_instance,
 )
 
 SSH_WAIT_SECONDS = 600
@@ -59,27 +54,28 @@ def _refused(code: str, detail: str, recovery: str) -> HostControlLocalError:
     )
 
 
-# Cloud machines this process started or found running for a lease, keyed by
-# (project, resource_name); power_off_released settles them at the flow's end.
-_powered: dict[tuple[str, str], dict[str, str]] = {}
 
 
 def _emit(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
-def _call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _dispatch(function_id: str, payload: dict[str, Any]) -> Any:
     from yoke_core.api.service_client_structured_api_adapter import (
         build_actor,
         call_dispatcher,
     )
 
-    response = call_dispatcher(
+    return call_dispatcher(
         function_id=function_id,
         target=TargetRef(kind="global"),
         payload=payload,
         actor=build_actor(),
     )
+
+
+def _call(function_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    response = _dispatch(function_id, payload)
     if response.success:
         return dict(response.result or {})
     error = response.error
@@ -202,7 +198,6 @@ def power_on(
         return
     name = str(settings["resource_name"])
     aws_env = _aws_env(project)
-    _powered[(project, name)] = dict(settings)
     try:
         prior = ensure_instance_running(
             runner or CommandRunner(), instance_id, aws_env, emit
@@ -219,79 +214,7 @@ def power_on(
         wait_for_ssh_login(project, settings, emit, runner=runner)
 
 
-def _stop_if_running(
-    runner: CommandRunner,
-    project: str,
-    settings: Mapping[str, str],
-    aws_env: dict[str, str],
-    emit: Callable[[str], None],
-) -> None:
-    name = settings["resource_name"]
-    instance_id = settings["cloud_instance_id"]
-    try:
-        if instance_state(runner, instance_id, aws_env) not in ("pending", "running"):
-            return
-        if not has_elastic_ip(runner, instance_id, aws_env):
-            emit(
-                compose_refusal(
-                    f"test_machine_power_stop_skipped: idle Test Machine {name} "
-                    f"({instance_id}) has no Elastic IP, so a stop would change "
-                    f"the public address its registered host {settings['host']} "
-                    "names; it stays running",
-                    recovery="declare an Elastic IP for the instance in the "
-                    "project's infrastructure; its next lease release stops it",
-                )
-            )
-            return
-        emit(f"  Test Machine {name} has no lease")
-        stop_instance(runner, instance_id, aws_env, emit)
-    except Ec2InstancePowerError as exc:
-        emit(
-            compose_refusal(
-                f"test_machine_power_stop_failed: idle Test Machine {name} "
-                f"is still running: {exc}",
-                recovery="fix the named cause; its next lease release retries, or "
-                f"run `yoke aws exec --project {project} -- ec2 stop-instances "
-                f"--instance-ids {instance_id}`",
-            )
-        )
-
-
-def power_off_released(
-    *,
-    runner: CommandRunner | None = None,
-    emit: Callable[[str], None] = _emit,
-) -> None:
-    """Stop each cloud machine this process powered once its last lease ends.
-
-    Called after a flow ends its lease. A machine another lease (or a queued
-    waiter's reserved turn) now holds keeps running. A failure is printed as
-    a named refusal and never replaces the flow's own result.
-    """
-    while _powered:
-        (project, name), settings = _powered.popitem()
-        try:
-            detail = _call("test_machine.get", {"project": project, "test_machine": name})
-            if detail.get("active_lease") is not None:
-                continue
-            _stop_if_running(
-                runner or CommandRunner(), project, settings, _aws_env(project), emit
-            )
-        except HostControlLocalError as exc:
-            emit(compose_refusal(f"{exc.code}: {exc}", recovery=exc.recovery_hint))
-        except Exception as exc:  # noqa: BLE001 - a stop never masks its flow
-            emit(
-                compose_refusal(
-                    f"test_machine_power_stop_failed: Test Machine {name} may still "
-                    f"be running ({type(exc).__name__}: {exc})",
-                    recovery=f"run `yoke test-machine verify --project {project} "
-                    f"--test-machine {name}`, whose release stops it",
-                )
-            )
-
-
 __all__ = [
-    "power_off_released",
     "power_on",
     "wait_for_ssh_login",
 ]
