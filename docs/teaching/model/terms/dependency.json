@@ -1,0 +1,7 @@
+{
+ "id": "dependency",
+ "term": "Dependency",
+ "definition": "A relationship that requires one piece of work or condition before another can proceed.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

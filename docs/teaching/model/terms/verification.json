@@ -1,0 +1,7 @@
+{
+ "id": "verification",
+ "term": "Verification",
+ "definition": "Checking behavior and evidence against the required outcome.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "control-plane",
+ "term": "Control plane",
+ "definition": "The shared system that records and coordinates work, policy and delivery.",
+ "status": "draft",
+ "sources": ["docs/public/index.md"]
+}

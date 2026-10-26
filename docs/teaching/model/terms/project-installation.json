@@ -1,0 +1,7 @@
+{
+ "id": "project-installation",
+ "term": "Project installation",
+ "definition": "Adding or refreshing the Yoke guidance and harness configuration for a checkout.",
+ "status": "draft",
+ "sources": ["docs/public/start/project-install.md"]
+}

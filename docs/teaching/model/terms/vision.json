@@ -1,0 +1,7 @@
+{
+ "id": "vision",
+ "term": "Vision",
+ "definition": "The strategy document describing the project's chosen future state.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"]
+}

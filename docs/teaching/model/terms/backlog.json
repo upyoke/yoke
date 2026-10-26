@@ -1,0 +1,7 @@
+{
+ "id": "backlog",
+ "term": "Backlog",
+ "definition": "The recorded work for a project, including work that is not ready to start.",
+ "status": "draft",
+ "sources": ["docs/public/items/index.md"]
+}

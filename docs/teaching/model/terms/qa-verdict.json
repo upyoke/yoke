@@ -1,0 +1,7 @@
+{
+ "id": "qa-verdict",
+ "term": "QA verdict",
+ "definition": "The recorded judgment of a check's outcome, supported by its evidence.",
+ "status": "draft",
+ "sources": ["docs/public/verification/requirement-state.md"]
+}

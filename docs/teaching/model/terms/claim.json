@@ -1,0 +1,7 @@
+{
+ "id": "claim",
+ "term": "Claim",
+ "definition": "Recorded ownership of work, paths or steering scope that coordinates concurrent activity.",
+ "status": "draft",
+ "sources": ["docs/public/functions/claims.md"]
+}

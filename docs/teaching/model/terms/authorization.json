@@ -1,0 +1,7 @@
+{
+ "id": "authorization",
+ "term": "Authorization",
+ "definition": "The permissions that determine what an authenticated identity may do.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"]
+}

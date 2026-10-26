@@ -1,0 +1,7 @@
+{
+ "id": "setup-checklist",
+ "term": "Setup checklist",
+ "definition": "Saved setup choices and current readiness facts, including the next action.",
+ "status": "draft",
+ "sources": ["docs/public/start/agent-setup.md"]
+}

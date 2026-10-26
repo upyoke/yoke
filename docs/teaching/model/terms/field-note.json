@@ -1,0 +1,7 @@
+{
+ "id": "field-note",
+ "term": "Field note",
+ "definition": "An observation about a failure, missing guidance or improvement opportunity.",
+ "status": "draft",
+ "sources": ["docs/public/operations/ouroboros.md"]
+}

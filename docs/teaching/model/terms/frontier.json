@@ -1,0 +1,7 @@
+{
+ "id": "frontier",
+ "term": "Frontier",
+ "definition": "The view of available, blocked, active and completed work used to choose what happens next.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/frontier.md"]
+}

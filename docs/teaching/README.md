@@ -18,7 +18,7 @@ server. Agents and CI run the same build with
 `yoke dev run -- python3 docs/teaching/tools/build.py` (and `--check`) from
 the checkout they mean to build. This registered scanner needs no harness
 session or work claim. It writes only the ignored page; it never rewrites the model.
-Agents read the model JSON directly. Yokepedia displays Sources.
+Agents read the model JSON directly. Yokepedia displays Sources and a curated Index.
 Model JSON files retain their identities and remain the editable source of
 research truth.
 
@@ -256,12 +256,18 @@ Cards have no fixed heights or nested preview layers; each title and Explore lin
 
 ## Sources guide
 
-Sources is the only browsing section. Pack documentation and Decisions sit
+Sources catalogs the teaching surfaces; Index lists curated terms. Pack documentation and Decisions sit
 alongside the other context sources. The guide does not generate topic trees,
 journeys, research pages, coverage inventories or links to those pages.
 Approved decisions remain readable under Decisions, with their original fields
 and citations. Shared model records remain available to repository tooling;
 they are not additional browsing sections.
+
+The Index is owned by `model/terms/*.json`, one term per file with an id,
+term, definition, draft status and source paths. `explorer_terms.py` checks
+unique names and source links; Yokepedia renders an alphabetical searchable
+list. Terms link into Sources. The index is internal teaching material and
+is not published in `docs/public` or the install bundle.
 
 Source freshness shows the build time, checkout commit, dirty state and a digest
 of inspected files plus registry identities. Each build re-reads documents, runtime

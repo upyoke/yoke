@@ -24,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -192,7 +192,10 @@ def build_explorer(views, pages):
     """
     from explorer_inventory import source_snapshot
 
+    from explorer_terms import add_terms
+
     nodes = map_nodes(pages.m)
+    add_terms(nodes, pages.m)
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
@@ -261,6 +264,7 @@ def page_html(data, model):
 </head>
 <body>
 <header class="site-header"><a class="brand" href="{PAGE}">yoke <span>Yokepedia</span></a><span class="review">Design preview</span></header>
+<nav id="view-nav" aria-label="Browse Yokepedia"></nav>
 <div class="page-layout">
 <aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
 <main id="main"><nav id="trail" aria-label="Breadcrumbs"></nav><div id="world"></div>

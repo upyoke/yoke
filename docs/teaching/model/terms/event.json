@@ -1,0 +1,7 @@
+{
+ "id": "event",
+ "term": "Event",
+ "definition": "A recorded occurrence used for observability, attribution and diagnosis.",
+ "status": "draft",
+ "sources": ["docs/public/operations/events.md"]
+}

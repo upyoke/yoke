@@ -1,0 +1,7 @@
+{
+ "id": "landing",
+ "term": "Landing",
+ "definition": "The recorded arrival of a change in its integration branch.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/landings.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "level",
+ "term": "Level",
+ "definition": "See execution level; this is about staffing agent work, not a branch or checkout.",
+ "status": "draft",
+ "sources": ["docs/public/agents/levels.md"]
+}

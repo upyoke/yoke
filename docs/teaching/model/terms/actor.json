@@ -1,0 +1,7 @@
+{
+ "id": "actor",
+ "term": "Actor",
+ "definition": "An identity authorized to perform operations in a universe.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"]
+}

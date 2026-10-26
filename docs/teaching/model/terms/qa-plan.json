@@ -1,0 +1,7 @@
+{
+ "id": "qa-plan",
+ "term": "QA plan",
+ "definition": "A project-owned collection of ordered cases and their attachments.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"]
+}

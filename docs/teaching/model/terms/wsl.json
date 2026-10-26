@@ -1,0 +1,7 @@
+{
+ "id": "wsl",
+ "term": "WSL",
+ "definition": "The Linux environment on Windows used for supported Yoke and agent setup.",
+ "status": "draft",
+ "sources": ["docs/public/start/windows-wsl.md"]
+}

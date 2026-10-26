@@ -1,0 +1,7 @@
+{
+ "id": "approval",
+ "term": "Approval",
+ "definition": "A human decision required before an operation or deployment stage can proceed.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

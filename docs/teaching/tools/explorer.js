@@ -51,7 +51,7 @@ function makeCard(node) {
 }
 function render() {
   world.replaceChildren();
-  updateTrail(); updateSourceList(); updateConnections();
+  updateTrail(); updateSourceList(); updateConnections(); renderViewNav();
   const heading = text('section', '', 'page-heading');
   if (focus) heading.append(typeBadge(focus));
   heading.append(text('h1', focus ? focus.title : 'What teaches Yoke'));
@@ -63,7 +63,8 @@ function render() {
       `${focus.coverage} direct teaching mappings. A mapping does not prove delivery.`, 'summary'));
   }
   world.append(heading);
-  const children = focus ? focus.children : roots;
+  if (focus?.id === 'view:index') { renderTermIndex(focus); return; }
+  const children = focus ? focus.children : roots.filter(node => !node.view);
   if (children.length) {
     const grid = text('div', '', 'card-grid');
     children.forEach(node => grid.append(makeCard(node)));

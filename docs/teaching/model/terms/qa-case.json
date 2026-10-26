@@ -1,0 +1,7 @@
+{
+ "id": "qa-case",
+ "term": "QA case",
+ "definition": "One defined check in a plan, using a method and its configuration.",
+ "status": "draft",
+ "sources": ["docs/public/verification/case-attachment.md"]
+}

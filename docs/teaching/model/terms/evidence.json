@@ -1,0 +1,7 @@
+{
+ "id": "evidence",
+ "term": "Evidence",
+ "definition": "Recorded material supporting a result; its subject and scope determine what it proves.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

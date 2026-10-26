@@ -1,0 +1,7 @@
+{
+ "id": "standalone-qa",
+ "term": "Standalone QA",
+ "definition": "Running a project QA plan independently of a work item's progression.",
+ "status": "draft",
+ "sources": ["docs/public/verification/standalone-plans.md"]
+}

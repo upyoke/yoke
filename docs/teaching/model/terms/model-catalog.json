@@ -1,0 +1,7 @@
+{
+ "id": "model-catalog",
+ "term": "Model catalog",
+ "definition": "The versioned catalog of models used in execution-level configuration.",
+ "status": "draft",
+ "sources": ["docs/public/functions/models.md"]
+}

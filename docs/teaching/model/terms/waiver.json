@@ -1,0 +1,7 @@
+{
+ "id": "waiver",
+ "term": "Waiver",
+ "definition": "An authorized decision that discharges a QA obligation without a passing attempt.",
+ "status": "draft",
+ "sources": ["docs/public/verification/requirement-discharges.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "backup",
+ "term": "Backup",
+ "definition": "A saved universe export that can be used to restore its data.",
+ "status": "draft",
+ "sources": ["docs/public/start/uninstall.md"]
+}

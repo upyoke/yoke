@@ -1,0 +1,7 @@
+{
+ "id": "worktree",
+ "term": "Worktree",
+ "definition": "A separate Git checkout used to isolate changes.",
+ "status": "draft",
+ "sources": ["docs/public/functions/worktrees.md"]
+}

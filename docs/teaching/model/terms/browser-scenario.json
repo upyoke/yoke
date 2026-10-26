@@ -1,0 +1,7 @@
+{
+ "id": "browser-scenario",
+ "term": "Browser scenario",
+ "definition": "The actions and assertions that describe a browser check.",
+ "status": "draft",
+ "sources": ["docs/public/verification/browser-scenarios.md"]
+}

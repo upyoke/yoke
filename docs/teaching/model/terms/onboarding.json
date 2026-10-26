@@ -1,0 +1,7 @@
+{
+ "id": "onboarding",
+ "term": "Onboarding",
+ "definition": "Helping a project adopt Yoke, connect its existing work and reach its first delivery.",
+ "status": "draft",
+ "sources": ["docs/public/start/agent-setup.md"]
+}

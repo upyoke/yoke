@@ -1,0 +1,7 @@
+{
+ "id": "smoke-check",
+ "term": "Smoke check",
+ "definition": "A focused QA check of essential behavior.",
+ "status": "draft",
+ "sources": ["docs/public/verification/product-smoke.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "qa-artifact",
+ "term": "QA artifact",
+ "definition": "A log, screenshot, trace or other supporting material attached to QA evidence.",
+ "status": "draft",
+ "sources": ["docs/public/verification/model/qa.md"]
+}

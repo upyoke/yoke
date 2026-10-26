@@ -1,0 +1,7 @@
+{
+ "id": "workflow-pin",
+ "term": "Workflow pin",
+ "definition": "The specific workflow version an existing item follows.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

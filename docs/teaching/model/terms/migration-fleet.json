@@ -1,0 +1,7 @@
+{
+ "id": "migration-fleet",
+ "term": "Migration fleet",
+ "definition": "The set of live databases a release must account for and rehearse against.",
+ "status": "draft",
+ "sources": ["docs/public/databases/migration-fleet.md"]
+}

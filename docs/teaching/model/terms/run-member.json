@@ -1,0 +1,7 @@
+{
+ "id": "run-member",
+ "term": "Run member",
+ "definition": "An item admitted to a deployment run, with associated delivery and QA obligations.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/run-members.md"]
+}

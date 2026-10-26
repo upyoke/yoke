@@ -1,0 +1,7 @@
+{
+ "id": "provider",
+ "term": "Provider",
+ "definition": "A service supplying a configured capability, such as model access or infrastructure.",
+ "status": "draft",
+ "sources": ["docs/public/projects/capabilities.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "hook",
+ "term": "Hook",
+ "definition": "A harness-triggered entry point that supplies guidance or performs checks at session events.",
+ "status": "draft",
+ "sources": ["docs/public/agents/harness-discovery.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "harness-session",
+ "term": "Harness session",
+ "definition": "An agent conversation registered with Yoke, including its identity, liveness and work ownership.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/model/sessions.md"]
+}

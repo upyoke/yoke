@@ -1,0 +1,7 @@
+{
+ "id": "uninstall",
+ "term": "Uninstall",
+ "definition": "Removing Yoke software or project guidance, with choices about retained data.",
+ "status": "draft",
+ "sources": ["docs/public/start/uninstall.md"]
+}

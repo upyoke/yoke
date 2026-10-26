@@ -1,0 +1,7 @@
+{
+ "id": "consumer-proof",
+ "term": "Consumer proof",
+ "definition": "Evidence that a particular producer version works with a particular consumer version.",
+ "status": "draft",
+ "sources": ["docs/public/verification/consumer-proof.md"]
+}

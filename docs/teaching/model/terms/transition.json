@@ -1,0 +1,7 @@
+{
+ "id": "transition",
+ "term": "Transition",
+ "definition": "Advancing an item between workflow stages under its rules and gates.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/transitions.md"]
+}

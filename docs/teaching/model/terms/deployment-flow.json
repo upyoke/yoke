@@ -1,0 +1,7 @@
+{
+ "id": "deployment-flow",
+ "term": "Deployment flow",
+ "definition": "A versioned sequence of stages that deployment runs execute.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

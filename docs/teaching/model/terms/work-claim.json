@@ -1,0 +1,7 @@
+{
+ "id": "work-claim",
+ "term": "Work claim",
+ "definition": "Recorded ownership of an item by the session responsible for it.",
+ "status": "draft",
+ "sources": ["docs/public/functions/claims.md"]
+}

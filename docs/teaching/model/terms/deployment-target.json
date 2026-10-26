@@ -1,0 +1,7 @@
+{
+ "id": "deployment-target",
+ "term": "Deployment target",
+ "definition": "The destination against which deployment or deployed QA operates.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

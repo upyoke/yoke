@@ -1,0 +1,7 @@
+{
+ "id": "mode",
+ "term": "Mode",
+ "definition": "May mean where Yoke runs, how setup is presented, or what a session is doing; use the qualified name.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "acceptance-criteria",
+ "term": "Acceptance criteria",
+ "definition": "The conditions a change must meet to satisfy its intended outcome.",
+ "status": "draft",
+ "sources": ["docs/public/items/index.md"]
+}

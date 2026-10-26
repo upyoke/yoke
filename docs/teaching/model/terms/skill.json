@@ -1,0 +1,7 @@
+{
+ "id": "skill",
+ "term": "Skill",
+ "definition": "A named procedure an agent reads to perform a kind of work.",
+ "status": "draft",
+ "sources": ["docs/public/agents/commands.md"]
+}

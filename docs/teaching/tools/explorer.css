@@ -76,3 +76,11 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .research-status { font-size: 12px; line-height: 1.5; color: #876539; }
 .detail { overflow-wrap: anywhere; }
 .detail h3 { font-size: 16px; margin-bottom: 6px; }
+
+#view-nav { display: flex; gap: 8px; padding: 14px 28px; border-bottom: 1px solid #dfe5df; background: white; }
+#view-nav .active { background: #e5eee5; font-weight: 650; }
+.term-search { width: min(100%, 460px); padding: 12px; margin: 8px 0 24px; border: 1px solid #c9d5cc; border-radius: 6px; font: inherit; }
+.term-entry { padding: 18px 0; border-bottom: 1px solid #dfe5df; }
+.term-entry h2 { margin: 0 0 8px; font-size: 18px; }
+.term-entry p { margin: 0 0 8px; line-height: 1.6; }
+.term-source { display: inline-block; margin-right: 16px; font-size: 13px; }

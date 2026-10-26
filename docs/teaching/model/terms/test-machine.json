@@ -1,0 +1,7 @@
+{
+ "id": "test-machine",
+ "term": "Test machine",
+ "definition": "A configured machine used to execute QA with the required desktop or runtime.",
+ "status": "draft",
+ "sources": ["docs/public/verification/test-machine-desktop.md"]
+}

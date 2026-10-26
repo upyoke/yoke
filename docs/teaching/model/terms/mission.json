@@ -1,0 +1,7 @@
+{
+ "id": "mission",
+ "term": "Mission",
+ "definition": "The strategy document stating the project's purpose; an exploratory mission is a separate QA concept.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"]
+}

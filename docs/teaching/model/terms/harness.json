@@ -1,0 +1,7 @@
+{
+ "id": "harness",
+ "term": "Harness",
+ "definition": "The application hosting a coding agent, such as Claude Code, Codex or Cursor.",
+ "status": "draft",
+ "sources": ["docs/public/agents/harness-discovery.md"]
+}

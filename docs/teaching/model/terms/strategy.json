@@ -1,0 +1,7 @@
+{
+ "id": "strategy",
+ "term": "Strategy",
+ "definition": "The project's direction, priorities and planning documents.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"]
+}

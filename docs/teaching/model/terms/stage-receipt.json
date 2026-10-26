@@ -1,0 +1,7 @@
+{
+ "id": "stage-receipt",
+ "term": "Stage receipt",
+ "definition": "Durable evidence of a non-QA deployment-stage attempt.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/stage-receipts.md"]
+}

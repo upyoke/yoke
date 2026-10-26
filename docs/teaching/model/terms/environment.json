@@ -1,0 +1,7 @@
+{
+ "id": "environment",
+ "term": "Environment",
+ "definition": "For deployment, a named destination; in CLI connection selection, a saved connection profile. These are different uses.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

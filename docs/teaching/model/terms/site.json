@@ -1,0 +1,7 @@
+{
+ "id": "site",
+ "term": "Site",
+ "definition": "A named grouping used when declaring deployment environments.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "local-mode",
+ "term": "Local mode",
+ "definition": "Running a private Yoke universe on this machine.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

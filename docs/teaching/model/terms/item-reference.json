@@ -1,0 +1,7 @@
+{
+ "id": "item-reference",
+ "term": "Item reference",
+ "definition": "The project-prefixed identifier people use to name a work item.",
+ "status": "draft",
+ "sources": ["docs/public/items/index.md"]
+}

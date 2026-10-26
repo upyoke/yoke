@@ -1,0 +1,7 @@
+{
+ "id": "fleet",
+ "term": "Fleet",
+ "definition": "The collection of sessions and execution resources available to coordinate work.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/fleet-policy.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "qa-subject",
+ "term": "QA subject",
+ "definition": "The item, task or deployment run a requirement is about.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

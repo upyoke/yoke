@@ -1,0 +1,7 @@
+{
+ "id": "dashboard",
+ "term": "Dashboard",
+ "definition": "The web interface for viewing and managing Yoke work and configuration.",
+ "status": "draft",
+ "sources": ["docs/public/start/concepts.md"]
+}

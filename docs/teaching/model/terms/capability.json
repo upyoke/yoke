@@ -1,0 +1,7 @@
+{
+ "id": "capability",
+ "term": "Capability",
+ "definition": "A configured resource or integration a project can use, such as a provider or test machine.",
+ "status": "draft",
+ "sources": ["docs/public/projects/capabilities.md"]
+}

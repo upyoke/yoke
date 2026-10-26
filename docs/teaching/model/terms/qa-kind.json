@@ -1,0 +1,7 @@
+{
+ "id": "qa-kind",
+ "term": "QA kind",
+ "definition": "The purpose of a check, such as smoke testing or implementation review.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

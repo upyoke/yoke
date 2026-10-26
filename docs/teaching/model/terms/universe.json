@@ -1,0 +1,7 @@
+{
+ "id": "universe",
+ "term": "Universe",
+ "definition": "The shared store of projects, work records and configuration that Yoke manages.",
+ "status": "draft",
+ "sources": ["docs/public/start/concepts.md"]
+}

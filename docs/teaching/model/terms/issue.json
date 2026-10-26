@@ -1,0 +1,7 @@
+{
+ "id": "issue",
+ "term": "Issue",
+ "definition": "A Yoke workflow for a bounded change; a GitHub issue is a separate record that may mirror it.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

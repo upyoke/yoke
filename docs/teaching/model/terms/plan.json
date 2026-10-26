@@ -1,0 +1,7 @@
+{
+ "id": "plan",
+ "term": "Plan",
+ "definition": "May mean a strategy document, an implementation plan or a QA plan; these have different owners and purposes.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"]
+}

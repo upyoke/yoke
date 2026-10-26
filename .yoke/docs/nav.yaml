@@ -16,14 +16,6 @@ root:
         - {title: "Windows and WSL", summary: "Keep Yoke, agents and checkouts inside supported Linux on Windows.", path: "start/windows-wsl.md"}
         - {title: "Terminal setup (optional)", summary: "Set up Yoke yourself in a terminal instead of through your agent.", path: "start/terminal-onboarding.md"}
         - {title: "Uninstall", summary: "Preserve chosen data and remove machine or project guidance.", path: "start/uninstall.md"}
-    - title: Index
-      summary: Find terms, distinguish meanings and open their documentation.
-      path: term-index/index.md
-      children:
-        - {title: "A–D", summary: "Acceptance criteria through done.", path: "term-index/a-d.md"}
-        - {title: "E–L", summary: "Environment through local mode.", path: "term-index/e-l.md"}
-        - {title: "M–R", summary: "Machine through run member.", path: "term-index/m-r.md"}
-        - {title: "S–Z", summary: "Secret through Yoke.", path: "term-index/s-z.md"}
     - title: Agents
       summary: Use harness guidance, command maps and operation homes before acting.
       path: agents/index.md

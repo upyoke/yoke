@@ -1,0 +1,7 @@
+{
+ "id": "registered-command",
+ "term": "Registered command",
+ "definition": "A project's declared test command bound to a QA scope and case.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"]
+}

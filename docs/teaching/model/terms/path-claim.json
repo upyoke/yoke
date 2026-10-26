@@ -1,0 +1,7 @@
+{
+ "id": "path-claim",
+ "term": "Path claim",
+ "definition": "Recorded ownership of file paths used to coordinate overlapping work.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/model/path-claims.md"]
+}

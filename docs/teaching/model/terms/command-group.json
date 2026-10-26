@@ -1,0 +1,7 @@
+{
+ "id": "command-group",
+ "term": "Command group",
+ "definition": "Related CLI commands under a shared prefix, with their own help.",
+ "status": "draft",
+ "sources": ["docs/public/cli/help.md"]
+}

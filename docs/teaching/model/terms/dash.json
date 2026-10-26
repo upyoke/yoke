@@ -1,0 +1,7 @@
+{
+ "id": "dash",
+ "term": "Dash",
+ "definition": "A workflow for direct execution from an agreed specification.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "member",
+ "term": "Member",
+ "definition": "A person belonging to an organization, or an item included in a deployment run; qualify the term.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"]
+}

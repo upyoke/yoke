@@ -1,0 +1,7 @@
+{
+ "id": "blitz",
+ "term": "Blitz",
+ "definition": "A workflow that carries out work defined by a linked strategy document.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

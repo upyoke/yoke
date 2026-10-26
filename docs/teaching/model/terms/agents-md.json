@@ -1,0 +1,7 @@
+{
+ "id": "agents-md",
+ "term": "AGENTS.md",
+ "definition": "Repository instructions loaded by supported coding agents.",
+ "status": "draft",
+ "sources": ["docs/public/agents/harness-discovery.md"]
+}

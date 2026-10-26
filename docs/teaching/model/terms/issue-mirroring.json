@@ -1,0 +1,7 @@
+{
+ "id": "issue-mirroring",
+ "term": "Issue mirroring",
+ "definition": "Copying backlog records into GitHub Issues under the project's sync policy.",
+ "status": "draft",
+ "sources": ["docs/public/github/sync.md"]
+}

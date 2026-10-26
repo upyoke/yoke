@@ -1,0 +1,7 @@
+{
+ "id": "agent-role",
+ "term": "Agent role",
+ "definition": "Instructions defining a worker's responsibility, such as implementation or review.",
+ "status": "draft",
+ "sources": ["docs/public/agents/index.md"]
+}

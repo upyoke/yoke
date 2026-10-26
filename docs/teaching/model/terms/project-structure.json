@@ -1,0 +1,7 @@
+{
+ "id": "project-structure",
+ "term": "Project structure",
+ "definition": "The declared organization of a project's source, tests and other components.",
+ "status": "draft",
+ "sources": ["docs/public/databases/model/projects.md"]
+}

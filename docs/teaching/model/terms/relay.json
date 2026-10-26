@@ -1,0 +1,7 @@
+{
+ "id": "relay",
+ "term": "Relay",
+ "definition": "The background service that supports session communication and supervision on a machine.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/linux-relay.md"]
+}
