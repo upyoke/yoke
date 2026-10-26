@@ -112,21 +112,22 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
 
     def test_claim_coordination_function_coverage_present(self):
         """Extra claim-adjacent surfaces are also registered."""
-        extras = [
-            "claims.work.holder_get",
-            "claims.work.holder_list",
-            "claims.path.activation_run",
-            "claims.path.coordination_decision_build",
-            "claims.coordination_claim.acquire",
-            "claims.coordination_claim.heartbeat",
-            "claims.coordination_claim.release",
-            "claims.coordination_claim.operator_release",
-            "claims.coordination_claim.list",
-        ]
-        for fid in extras:
+        expected = {
+            "claims.work.holder_get": "live",
+            "claims.work.holder_list": "live",
+            "claims.path.activation_run": "live",
+            "claims.path.coordination_decision_build": "live",
+            "claims.coordination_claim.acquire": "live",
+            "claims.coordination_claim.acquire_if_free": "internal",
+            "claims.coordination_claim.heartbeat": "internal",
+            "claims.coordination_claim.release": "live",
+            "claims.coordination_claim.operator_release": "live",
+            "claims.coordination_claim.list": "live",
+        }
+        for fid, adapter_status in expected.items():
             entry = lookup(fid)
             self.assertIsNotNone(entry, f"{fid} not registered")
-            self.assertIn(entry.adapter_status, ("live", "deprecated", "retired"))
+            self.assertEqual(entry.adapter_status, adapter_status, fid)
 
 
 # ---------------------------------------------------------------------------
