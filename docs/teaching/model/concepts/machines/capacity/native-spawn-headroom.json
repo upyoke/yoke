@@ -1,0 +1,7 @@
+{
+ "id": "native-spawn-headroom",
+ "title": "Native spawn headroom",
+ "status": "observed",
+ "summary": "Every native launch and wake checks at least 1 GiB available memory with a three-second spawn stagger. macOS probes only vm_stat and has no swap ceiling because swap grows on demand. Linux reads /proc/meminfo and also requires 512 MiB free swap when swap is enabled. Low or unreadable capacity refuses before spawning; the launch or wake record names the reason, observed bytes and recovery.",
+ "sources": ["docs/public/sessions/fleet-policy.md", "packages/yoke-contracts/src/yoke_contracts/machine_config/native_capacity.py", "runtime/harness/test_native_capacity_probes.py", "runtime/harness/test_native_launch_admission.py"]
+}

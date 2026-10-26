@@ -77,7 +77,6 @@ def test_capacity_refusal_is_a_named_launch_result(tmp_path):
     assert isinstance(result, RelayAdapterResult)
     assert result.result_code == "not_created"
     assert result.evidence["result_code"] == "native_swap_headroom_low"
-    assert "swap free 1 bytes of 1073741824 bytes" in result.evidence["skip_reason"]
     assert "Recovery:" in result.evidence["skip_reason"]
 
 
@@ -96,22 +95,6 @@ def test_memory_refusal_names_observed_and_required_bytes(tmp_path, monkeypatch)
     assert result.evidence["result_code"] == "native_memory_headroom_low"
     assert "available memory 1 bytes" in detail
     assert f"needs >= {capacity.MIN_NATIVE_FREE_MEMORY_BYTES} bytes" in detail
-    assert "swap free 1073741824 bytes of 1073741824 bytes" in detail
-    assert f"needs >= {capacity.MIN_NATIVE_SWAP_FREE_BYTES} bytes" in detail
-
-
-def test_macos_swap_probe(monkeypatch):
-    from types import SimpleNamespace
-
-    monkeypatch.setattr(capacity.sys, "platform", "darwin")
-    monkeypatch.setattr(
-        capacity.subprocess,
-        "run",
-        lambda *a, **kw: SimpleNamespace(
-            returncode=0, stdout="total = 1024.00M used = 256.00M free = 768.00M"
-        ),
-    )
-    assert capacity.swap_headroom() == (1024**3, 768 * 1024**2)
 
 
 def test_linux_swap_probe(monkeypatch):
