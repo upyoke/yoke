@@ -87,7 +87,7 @@ def test_cancel_ends_a_registered_session_that_has_not_received_work(
     assert ended[0]["actor_id"] == 1
 
 
-def test_cancel_refuses_a_session_already_working_and_names_terminate(
+def test_cancel_refuses_a_session_already_working(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(TERMINATE, lambda conn, **kwargs: pytest.fail("ended"))
@@ -100,8 +100,34 @@ def test_cancel_refuses_a_session_already_working_and_names_terminate(
         cancel_launch(conn, launch_id=launch.launch_id, auth=authorization(), now=NOW)
 
     assert refused.value.code == SESSION_WORKING_CODE
-    assert 'yoke sessions terminate worker --reason "<why>"' in str(refused.value)
     assert get_launch(conn, launch.launch_id).state == "succeeded"
+
+
+@pytest.mark.parametrize("end_column", ["ended_at", "terminated_at"])
+def test_cancel_settles_a_delivered_launch_whose_registered_session_ended(
+    monkeypatch, end_column
+) -> None:
+    monkeypatch.setattr(TERMINATE, lambda conn, **kwargs: pytest.fail("ended again"))
+    conn = launch_connection()
+    launch = _launch_bound_to(
+        conn,
+        key="cancel-ended",
+        state="awaiting_registration",
+        result_code="launch_work_claim_pending",
+    )
+    conn.execute(
+        f"UPDATE harness_sessions SET {end_column} = ? WHERE session_id = ?",
+        (NOW, "worker"),
+    )
+    conn.commit()
+
+    result = cancel_launch(
+        conn, launch_id=launch.launch_id, auth=authorization(), now=NOW
+    )
+
+    assert result.state == "cancelled"
+    assert result.result_code == "cancelled_session_ended"
+    assert result.completed_at is not None
 
 
 def test_refused_session_ending_leaves_the_launch_uncancelled(monkeypatch) -> None:

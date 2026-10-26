@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from yoke_contracts.session_control.liveness import ended_session_sql
 from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
     get_launch,
+    marker,
     update_launch,
     utc_now,
 )
@@ -61,7 +63,22 @@ def cancel_launch(
             registered_session_id=launch.registered_session_id,
         )["instruction_delivery"]
         if delivery == "delivered":
-            raise _working_refusal(launch)
+            ended = conn.execute(
+                f"SELECT 1 FROM harness_sessions s WHERE s.session_id = {marker(conn)} "
+                f"AND {ended_session_sql('s')}",
+                (launch.registered_session_id,),
+            ).fetchone()
+            if ended is None:
+                raise _working_refusal(launch)
+            result = update_launch(
+                conn,
+                launch_id,
+                state="cancelled",
+                completed_at=current,
+                result_code="cancelled_session_ended",
+            )
+            conn.commit()
+            return result
         if launch.registered_session_id:
             result = _end_unworked_session(conn, launch, auth=auth, now=current)
         elif launch.state == "failed" and json_helper.loads_text(
