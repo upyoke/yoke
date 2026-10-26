@@ -45,7 +45,11 @@ class MergeQueueReads:
     required checks share one key because they share one upstream call.
     """
 
+    request: Callable[..., Any] | None = None
     _answers: dict[tuple[str, str, str], Any] = field(default_factory=dict)
+
+    def _request_kwargs(self) -> dict[str, Any]:
+        return {"request": self.request} if self.request is not None else {}
 
     def _read(self, key: tuple[str, str, str], factory: Callable[[], Any]) -> Any:
         if key not in self._answers:
@@ -55,7 +59,9 @@ class MergeQueueReads:
     def _projection(self, ctx: MergeContext, pr_number: str) -> PrLandingProjection:
         return self._read(
             ("pr_landing_and_checks", str(ctx.project), str(pr_number)),
-            lambda: read_pr_landing_and_required_checks(ctx, pr_number),
+            lambda: read_pr_landing_and_required_checks(
+                ctx, pr_number, **self._request_kwargs()
+            ),
         )
 
     def pr_landing_state(
@@ -71,7 +77,9 @@ class MergeQueueReads:
         """Current merge-queue entries for one repository's base branch."""
         return self._read(
             ("queue_members", str(ctx.project), str(base_branch)),
-            lambda: read_queue_members(ctx, base_branch=base_branch),
+            lambda: read_queue_members(
+                ctx, base_branch=base_branch, **self._request_kwargs()
+            ),
         )
 
     def required_checks(

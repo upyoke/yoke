@@ -25,6 +25,9 @@ from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report_test_machines import ResetDebt
 from dataclasses import dataclass, field
+from functools import partial
+
+from yoke_core.domain.gh_rest_transport import request_with_retry
 from typing import Any, Callable, Mapping
 
 from yoke_core.domain.dependency_cycles import DependencyCycle
@@ -246,7 +249,12 @@ class FleetReportReads:
     include_inventory: bool = True
     #: Reuse a schedule pass a few seconds old instead of recomputing it.
     reuse_schedule: bool = False
-    landings: MergeQueueReads = field(default_factory=MergeQueueReads)
+    # A failed landing read stays unreadable until the next report; never back off.
+    landings: MergeQueueReads = field(
+        default_factory=lambda: MergeQueueReads(
+            request=partial(request_with_retry, max_attempts=1)
+        )
+    )
     _memo: dict[tuple[Any, ...], Any] = field(default_factory=dict)
 
     def cached(self, key: tuple[Any, ...], factory: Callable[[], Any]) -> Any:

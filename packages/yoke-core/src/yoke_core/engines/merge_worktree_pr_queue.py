@@ -1,17 +1,13 @@
-"""Merge-queue entry, membership, and landing-state reads for an item PR.
+"""Merge-queue reads and arming.
 
-Queue entry is GitHub's merge-when-ready over GraphQL. Arming and queue
-membership are two states, not one: GitHub consumes ``autoMergeRequest``
-when it forms the entry, so ``leave_merge_queue`` alone only clears an
-arming that has not been consumed yet. ``dequeue_pull_request`` removes the
-entry itself, and holding a candidate needs both. Membership reads power
-train admission.
+GitHub consumes autoMergeRequest when it forms a queue entry. Holding a
+candidate clears both the arming and the entry; membership reads power admission.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.engines.merge_worktree_landing_state import PrLandingState
@@ -130,6 +126,7 @@ def graphql_with_auth(
     query: str,
     variables: dict[str, Any],
     required_permissions: Mapping[str, str],
+    request: Callable[..., Any] | None = None,
 ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """POST one GraphQL document; return ``(data, error_detail)``."""
     return _graphql_with_auth(
@@ -137,7 +134,7 @@ def graphql_with_auth(
         query=query,
         variables=variables,
         required_permissions=required_permissions,
-        request=request_with_retry,
+        request=request or request_with_retry,
     )
 
 
@@ -290,7 +287,8 @@ def read_pr_landing_state(
 
 
 def read_queue_members(
-    ctx: MergeContext, *, base_branch: str = "main"
+    ctx: MergeContext, *, base_branch: str = "main",
+    request: Callable[..., Any] | None = None,
 ) -> tuple[Optional[list[QueueMember]], Optional[str]]:
     """Read queue order; refuse unavailable or incomplete listings."""
     auth, auth_err = resolve_auth_detail(ctx, PR_READ)
@@ -302,6 +300,7 @@ def read_queue_members(
         query=_MERGE_QUEUE_ENTRIES_QUERY,
         variables={"owner": owner, "name": name, "branch": base_branch},
         required_permissions=PR_READ,
+        **({"request": request} if request is not None else {}),
     )
     if err:
         return None, err

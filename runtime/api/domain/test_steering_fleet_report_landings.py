@@ -36,12 +36,12 @@ def _wire(monkeypatch, *, state: PrLandingState, members, checks=()) -> None:
     monkeypatch.setattr(
         reads_mod,
         "read_pr_landing_and_required_checks",
-        lambda _ctx, _pr: PrLandingProjection(state=state, required_checks=checks),
+        lambda _ctx, _pr, **_kwargs: PrLandingProjection(state=state, required_checks=checks),
     )
     monkeypatch.setattr(
         reads_mod,
         "read_queue_members",
-        lambda _ctx, base_branch="main": (list(members), None),
+        lambda _ctx, base_branch="main", **_kwargs: (list(members), None),
     )
 
 

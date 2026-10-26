@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CHECKS_READ_PERMISSION_LEVELS as CHECKS_READ,
@@ -260,6 +260,8 @@ def _unreadable(reason: str) -> PrLandingProjection:
 def read_pr_landing_and_required_checks(
     ctx: MergeContext,
     pr_num: str,
+    *,
+    request: Callable[..., Any] | None = None,
 ) -> PrLandingProjection:
     """Landing status and required checks for ``pr_num`` in one GraphQL read.
 
@@ -282,6 +284,7 @@ def read_pr_landing_and_required_checks(
         query=_PR_LANDING_AND_CHECKS_QUERY,
         variables={"owner": owner, "name": name, "number": number},
         required_permissions=PR_READ,
+        **({"request": request} if request is not None else {}),
     )
     if err:
         return _unreadable(f"pull-request landing read failed: {err}")
