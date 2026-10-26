@@ -61,10 +61,7 @@ TABLE_SURFACES: tuple[str, ...] = ("docs/hook-parity-map.md",)
 
 # Surfaces carrying the compact list: working documents where an agent needs
 # the answer in passing, not a reference table.
-COMPACT_SURFACES: tuple[str, ...] = (
-    ".agents/skills/yoke/steer/loop.md",
-    "runtime/harness/claude/rules/session.md",
-)
+COMPACT_SURFACES: tuple[str, ...] = (".agents/skills/yoke/steer/loop.md",)
 
 INVENTORY: tuple[str, ...] = TABLE_SURFACES + COMPACT_SURFACES
 

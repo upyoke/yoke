@@ -1,11 +1,10 @@
 # Yoke — Project Rules
+<!-- BEGIN YOKE MANAGED BLOCK -->
+<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
 <!-- BEGIN GENERATED: field-note-directive -->
 File a field note each time a recipe, help text or refusal is wrong or missing, or you spot a bug outside your task — before moving on. If you already filed the same problem, add `--correlation-id <that note's id>`:
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 <!-- END GENERATED: field-note-directive -->
-
-<!-- BEGIN YOKE MANAGED BLOCK -->
-<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
 These rules bind now. Rule loading per harness: `.yoke/docs/agents/harness-discovery.md`.
 
 ## Standing authority
@@ -26,7 +25,7 @@ Each message to the user is one or two sentences unless they ask for more. Write
   The 350-line authored-file limit always holds.
 - Run Yoke operations through `yoke <subcommand>`, never runtime API, client or HTTP calls.
   SQL is diagnostic only: `yoke db read "SELECT ..."`, with `<>`. Never print secrets.
-- Each shell call starts fresh: use absolute paths and `git -C`. Capture long output once.
+- Use absolute paths and `git -C` in every shell call. Capture long output once.
 - Check a name, path, flag or live state against evidence before you assert it. Use full
   commit hashes and the bare integer `item_id`.
 - Name code for what it does now. Names and prose carry no work-item, plan, phase or criterion
@@ -39,8 +38,8 @@ Each message to the user is one or two sentences unless they ask for more. Write
   Update a test this item's change made stale; never weaken a behavior assertion to pass.
 - Never discard changes, stashes or files without user authority.
 - Write items only through typed `yoke` item commands. Never hand-edit generated views.
-- File bugs through `/yoke idea` or a field note. Find the root cause; describe a failure as a
-  system gap, never as agent error.
+- A failure the system should have handled is a system gap: before any manual recovery,
+  root-cause it (a subagent if nontrivial) and file a field note or `/yoke idea`.
 - On a watcher wake, tell the user in one sentence what changed (item, PR, failing test), or
   nothing. Fleet mail is only for blockers, conflicts, red gates, decisions, results.
 - After compaction, reload the current-phase skill. Answer a user message before you continue. Never

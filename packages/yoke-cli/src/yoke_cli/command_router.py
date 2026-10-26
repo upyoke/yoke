@@ -45,7 +45,6 @@ from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_cli.invocation_locality import control_plane_locality
 from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
-from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 
 
 _BARE_SETUP_COMMAND = "yoke setup"
@@ -57,12 +56,8 @@ _NONINTERACTIVE_SETUP_COMMAND = (
 )
 
 
-def _render_help() -> str:
-    return render_root_help() + "\n\n" + FIELD_NOTE_FOOTER
-
-
 def _emit_help(*, explicit_env: Optional[str] = None) -> int:
-    print(_render_help())
+    print(render_root_help())
     drift = render_manifest_drift(explicit_env=explicit_env)
     if drift:
         print(drift)

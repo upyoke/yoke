@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_contracts.project_contract.managed_block import MANAGED_BLOCK_END
+from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
+from yoke_contracts.project_contract.managed_block import (
+    MANAGED_BLOCK_END,
+    extract_block_body,
+)
 from yoke_core.domain import (
     install_bundle,
     install_bundle_sources,
@@ -78,9 +82,15 @@ def test_packaged_snapshot_carries_root_source_files() -> None:
         )
 
 
+def test_packaged_managed_rules_carry_the_field_note_directive() -> None:
+    body = extract_block_body((PACKAGED_ROOT / "AGENTS.md").read_text(encoding="utf-8"))
+    assert body is not None
+    assert body.count(FIELD_NOTE_FOOTER) == 1
+
+
 def test_packaged_snapshot_excludes_repo_internal_teaching() -> None:
     markers = (
-        "# Yoke Repo Internals",
+        "## Yoke repository",
         "origin/cla-signatures",
         "yoke-hosted-stage-consumer-bound",
     )

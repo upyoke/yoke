@@ -64,6 +64,7 @@ def test_monitor_armed_holds_even_at_cap(monkeypatch) -> None:
     assert decision.next is Next.STOP
     assert decision.message == gate.MONITOR_DIRECTIVE
     assert captured[0]["reason"] == gate.REASON_MONITOR_ARMED
+    assert gate.PARK_RECIPE in decision.message
     assert captured[0]["cap_reached"] is False
 
 

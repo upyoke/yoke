@@ -19,7 +19,7 @@ from yoke_core.domain.scheduler_types import NextStep
 from yoke_core.domain.session_launch_mandate import item_entrypoint
 from yoke_core.domain.yaml_helper import parse_document
 from yoke_core.tools import render_skill_registry_inline
-from yoke_core.tools.render_field_note_inline import INVENTORY
+from yoke_core.tools.render_field_note_inline import BEGIN_MARKER, INVENTORY
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -34,10 +34,8 @@ def test_registry_covers_each_installed_skill_exactly_once():
     assert paths == installed
     assert len(paths) == len(SKILLS) == len({skill.id for skill in SKILLS})
     router = ".agents/skills/yoke/SKILL.md"
-    assert router in INVENTORY
-    assert (
-        "<!-- BEGIN GENERATED: field-note-directive -->" in (ROOT / router).read_text()
-    )
+    assert router not in INVENTORY
+    assert BEGIN_MARKER not in (ROOT / router).read_text()
     assert not paths & set(INVENTORY)
     assert {skill.session_mode for skill in SKILLS} <= SESSION_MODES
 

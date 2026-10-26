@@ -130,7 +130,6 @@ def test_missing_release_manifest_has_named_recovery(tmp_path, failure):
 def test_installed_rules_name_the_installed_harness_manifest(bundle):
     files = {entry["path"]: entry["content"] for entry in bundle["files"]}
     for path in (
-        ".claude/rules/session.md",
         ".agents/skills/yoke/steer/loop.md",
         ".yoke/docs/agents/rules/lanes-and-claims.md",
     ):

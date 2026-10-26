@@ -57,9 +57,10 @@ REASON_MONITOR_ARMED = "monitor_waiter_live"
 REASON_CONTINUATION_UNSUPPORTED = "stop_denial_continuation_unsupported"
 REASON_SESSION_PARKED = "session_parked"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
+PARK_RECIPE = "yoke sessions touch --mode parked --reason claim"
 MONITOR_DIRECTIVE = (
-    "A Monitor waiter is still armed. Do not end this turn. "
-    "Ending it kills the waiter with no wake."
+    "A Monitor waiter is still armed; ending this turn kills it with no wake. "
+    f"To wait while you hold a claim, run `{PARK_RECIPE}` first, then stop."
 )
 
 
@@ -343,7 +344,7 @@ def evaluate(record: HookContext) -> HookDecision:
 
 
 __all__ = (
-    "CHECK_ID DIRECTIVE EVIDENCE_UNAVAILABLE_REASON MONITOR_DIRECTIVE "
+    "CHECK_ID DIRECTIVE EVIDENCE_UNAVAILABLE_REASON MONITOR_DIRECTIVE PARK_RECIPE "
     "REASON_CAP_REACHED REASON_CONTINUATION_UNSUPPORTED REASON_MONITOR_ARMED "
     "REASON_REINJECTED REASON_SESSION_PARKED evaluate"
 ).split()

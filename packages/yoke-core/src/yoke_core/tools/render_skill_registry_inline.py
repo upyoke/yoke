@@ -62,24 +62,15 @@ def content_for_path(path: str) -> str:
                     if skill.kind == "internal"
                 ),
                 "",
-                "**Plan-mode guard.** Classify the selected skill before dispatch:",
-                "",
-                "- Execute-class commands: "
+                "**Plan-mode guard.** Exit plan mode before "
                 + _names(skill for skill in SKILLS if skill.plan_mode == "exit")
-                + ".",
-                "- "
+                + ", before an "
                 + _names(skill for skill in SKILLS if skill.plan_mode == "idea_write")
-                + " write paths exit plan mode.",
-                "- "
+                + " write or after "
                 + _names(skill for skill in SKILLS if skill.plan_mode == "refine_gate")
-                + " exits after Gate 0.",
-                "- Planning-class commands: "
-                + _names(skill for skill in SKILLS if skill.produces_tasks)
-                + " planning and "
-                + _names(skill for skill in SKILLS if skill.plan_mode == "refine_gate")
-                + " Gate 0 preserve plan mode.",
-                "- Every other skill preserves plan mode.",
-                "- On exit, call `ExitPlanMode` when available and emit: `Plan mode auto-exited — Yoke work item is the plan.` Harnesses without that tool emit the same note and continue.",
+                + " Gate 0 (call `ExitPlanMode` when available, then say `Plan mode"
+                " auto-exited — Yoke work item is the plan.`); every other step"
+                " preserves plan mode.",
             ]
         )
     else:

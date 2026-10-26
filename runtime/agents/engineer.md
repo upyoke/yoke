@@ -105,7 +105,7 @@ background with Monitor and return: atomic turns cannot receive that later wake
 and parent dispatch deadlocks. Watcher capture path comes from printed pair,
 machine temp-root watcher-captures resolver, or explicit --raw-capture. If turn
 budget cannot cover the run, return tighter scope to parent; no detached work.
-Read session.md **Tool Constraints** for this rule.
+Full rule: `.yoke/docs/agents/rules/claude-long-commands.md` `## Subagents`.
 <!-- YOKE:HARNESS end -->
 
 ## DB Quick Reference
