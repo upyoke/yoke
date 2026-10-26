@@ -18013,7 +18013,6 @@
   "runtime/api/domain/test_lint_session_cwd_host_command_remote_argv.py::TestWrappedRemoteArgvHint::test_linux_other_user_home_gets_the_hint": 0.002794,
   "runtime/api/domain/test_lint_session_cwd_host_command_remote_argv.py::TestWrappedRemoteArgvHint::test_own_home_and_shared_targets_get_no_wrapper_hint": 0.002794,
   "runtime/api/domain/test_lint_session_cwd_host_command_remote_argv.py::TestWrappedRemoteArgvHint::test_wrapped_call_names_the_direct_host_command_and_pull_step": 0.002794,
-  "runtime/api/domain/test_lint_session_cwd_idea_lane_reads.py::test_dash_write_denial_names_the_live_skill": 0.115014,
   "runtime/api/domain/test_lint_session_cwd_idea_lane_reads.py::test_playwright_module_path_at_idea_is_allowed": 0.126189,
   "runtime/api/domain/test_lint_session_cwd_idea_lane_reads.py::test_two_file_cat_at_idea_is_allowed": 0.110823,
   "runtime/api/domain/test_lint_session_cwd_identity.py::TestCursorConversationOnPayload::test_mapped_conversation_allows_own_lane": 0.214664,
