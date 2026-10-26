@@ -36,7 +36,6 @@ from yoke_contracts.fleet_watcher_observation import FLEET_WATCHER_OBSERVATION_K
 from yoke_contracts.hook_runner.client_facts import (
     CAPTURE_FILES_KEY,
     HEADLESS_LAUNCH_KEY,
-    MACHINE_SETTINGS_KEY,
     SOURCE_ROOT_KEY,
     WRITE_TARGETS_KEY,
 )
@@ -105,7 +104,6 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
         CLIENT_SCRATCH_ROOT_KEY,
         CLIENT_CLAUDE_JOB_TMP_KEY,
         SOURCE_ROOT_KEY,
-        MACHINE_SETTINGS_KEY,
     ),
     _D + "observe_pre": _SERVER,
     _D + "path_claim_bash_guard": _facts(

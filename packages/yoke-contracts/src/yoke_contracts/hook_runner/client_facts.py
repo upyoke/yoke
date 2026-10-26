@@ -36,12 +36,8 @@ HEADLESS_LAUNCH_KEY = "_yoke_client_headless_launch"
 CAPTURE_FILES_KEY = "_yoke_client_capture_files"
 #: Resolved form, source exclusion (Git metadata or ignored), and live lanes.
 WRITE_TARGETS_KEY = "_yoke_client_write_targets"
-#: Machine-local settings (``~/.yoke/config.json``) a policy reads.
-MACHINE_SETTINGS_KEY = "_yoke_client_machine_settings"
 #: The Yoke source checkout this client's installed code runs from.
 SOURCE_ROOT_KEY = "_yoke_client_yoke_source_root"
-FACT_MACHINE_SETTINGS: tuple[str, ...] = ()
-
 
 def client_fact(key: str, value: Any) -> dict[str, Any]:
     """Wrap one observed *value* for the payload under *key*."""
@@ -59,15 +55,6 @@ def read_client_fact(payload: Mapping[str, Any], key: str) -> Any:
 def headless_launch(payload: Mapping[str, Any]) -> bool:
     """True only when the client reported a relay launch or resume."""
     return read_client_fact(payload, HEADLESS_LAUNCH_KEY) is True
-
-
-def machine_setting(payload: Mapping[str, Any], key: str) -> str:
-    """Return the client's value for one machine setting, or ``""``."""
-    values = read_client_fact(payload, MACHINE_SETTINGS_KEY)
-    if not isinstance(values, Mapping):
-        return ""
-    value = values.get(key)
-    return value.strip() if isinstance(value, str) else ""
 
 
 def yoke_source_root(payload: Mapping[str, Any]) -> str:
@@ -117,10 +104,8 @@ def live_worktrees(payload: Mapping[str, Any]) -> frozenset[str] | None:
 
 __all__ = [
     "CAPTURE_FILES_KEY",
-    "FACT_MACHINE_SETTINGS",
     "FACT_SCHEMA",
     "HEADLESS_LAUNCH_KEY",
-    "MACHINE_SETTINGS_KEY",
     "SOURCE_ROOT_KEY",
     "WRITE_TARGETS_KEY",
     "capture_file_state",
@@ -128,7 +113,6 @@ __all__ = [
     "client_fact",
     "headless_launch",
     "live_worktrees",
-    "machine_setting",
     "read_client_fact",
     "write_target",
     "yoke_source_root",
