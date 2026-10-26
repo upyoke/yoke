@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
@@ -19,6 +22,10 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_payload_write_targets,
 )
+
+from yoke_core.domain.lint_session_cwd_git_read_forms import classify_git
+from yoke_core.domain.lint_session_cwd_foreign_lane import is_read_only_git_inspection
+from yoke_core.domain.lint_shell_path_use import analyze_shell_path_use
 
 
 SESSION = "sid-lane"
@@ -115,3 +122,46 @@ def test_git_commit_on_main_still_denies(tmp_path):
             ))
     assert verdict.allow is False
     assert str(repo.resolve()) in verdict.reason
+
+
+@pytest.mark.parametrize("command", [
+    "git -c core.fsmonitor=x status",
+    "git --config-env=core.pager=X log",
+    "git --config-env core.pager=X log",
+    "git --exec-path=/x log",
+    "git --exec-path /x log",
+])
+def test_git_execution_overrides_are_not_reads(command):
+    assert classify_git(shlex.split(command)) is None
+    assert match_read_only_signature(command) is None
+    assert is_read_only_git_inspection(command) is False
+
+
+@pytest.mark.parametrize("prefix", [
+    "GIT_PAGER=x", "GIT_EXTERNAL_DIFF=x", "GIT_CONFIG_PARAMETERS=...", "OTHER=x",
+])
+@pytest.mark.parametrize("verb", ["status", "diff", "log"])
+def test_git_environment_prefixes_are_not_reads(prefix, verb):
+    command = f"{prefix} git {verb}"
+    assert match_read_only_signature(command) is None
+    assert is_read_only_git_inspection(command) is False
+
+
+@pytest.mark.parametrize("command, signature", [
+    ("git status", "git-status"),
+    ("git -C /repo status", "git-status"),
+    ("git --git-dir=/repo/.git log", "git-log"),
+])
+def test_plain_git_inspection_stays_read_only(command, signature):
+    assert classify_git(shlex.split(command)) == signature
+    assert match_read_only_signature(command) == signature
+    assert is_read_only_git_inspection(command) is True
+
+
+@pytest.mark.parametrize("command", [
+    "git -c user.name=T commit",
+    "git -c core.x=y rm src/a.py",
+])
+def test_git_configuration_does_not_hide_writes(command):
+    assert is_write_operation("Bash", {"tool_input": {"command": command}}) is True
+    assert analyze_shell_path_use(command).mutation is True

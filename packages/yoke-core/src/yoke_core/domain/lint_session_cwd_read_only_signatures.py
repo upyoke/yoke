@@ -249,6 +249,8 @@ def _match_simple(segment: str | ShellSegment) -> Optional[str]:
     ):
         return None
     tokens = list(parsed.argv)
+    if tokens[0].rsplit("/", 1)[-1] == "git" and parsed.assignments:
+        return None
     for classifier in _SIMPLE_CLASSIFIERS:
         label = classifier(tokens)
         if label:
