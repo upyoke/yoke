@@ -1,7 +1,9 @@
 {
  "id": "capacity-and-quota",
  "title": "Capacity and quota",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Native spawn admission refuses unsafe or unreadable memory and swap headroom before starting a process. The shared admission handler preserves the capacity code: Claude CLI launch refusals report not_created and wake refusals report failed, so an unstarted launch does not require reconciliation before retry. Recovery names freeing headroom or restoring the OS capacity probe before retrying. Source and regression tests establish this behavior; deployed proof is pending.",
+ "sources": ["packages/yoke-harness/src/yoke_harness/session_launch_admission.py", "packages/yoke-harness/src/yoke_harness/session_relay_claude.py", "runtime/harness/test_native_launch_admission.py"],
  "page": "frontier",
  "position": 3
 }

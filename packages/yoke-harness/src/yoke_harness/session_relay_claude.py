@@ -6,6 +6,7 @@ from functools import partial
 from typing import Callable
 from uuid import UUID
 
+from yoke_harness.session_launch_admission import NativeCapacityRefusal
 from yoke_harness.session_relay_native_create import immediate_native_refusal
 from yoke_harness.session_relay_claude_native import (
     ClaudeNativeInvocation as ClaudeNativeInvocation,
@@ -150,6 +151,8 @@ def _run_create(
 ) -> RelayAdapterResult:
     try:
         started = create_spawner(invocation)
+    except NativeCapacityRefusal:
+        raise
     except Exception as exc:  # native exceptions stay private on this relay
         _contain_failed_launch(invocation)
         return _result(
@@ -259,6 +262,8 @@ def run_claude_cli_adapter(
         return _result(context, "failed", "transcript_missing")
     try:
         resumed = wake_spawner(context, invocation)
+    except NativeCapacityRefusal:
+        raise
     except Exception as exc:  # native exceptions stay private on this relay
         return _result(
             context,
