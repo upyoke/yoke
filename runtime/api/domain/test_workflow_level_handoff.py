@@ -53,6 +53,7 @@ def test_different_effective_level_names_exact_successor_command(monkeypatch):
     assert handoff["level"] == "JUNIOR"
     assert f"--item {ref}" in handoff["next_command"]
     assert "--level" not in handoff["next_command"]
+    assert "\n## Stage-level handoff\n" in open(__file__.rsplit("/runtime/", 1)[0] + "/" + handoff["read"].split("#")[0]).read()
 
 
 @pytest.mark.parametrize("target_level", ["SENIOR", None])

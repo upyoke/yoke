@@ -51,7 +51,7 @@ def _mandate(*, extras: str = "") -> str:
     )
 
 
-def test_composed_launch_delivers_full_item_instructions(monkeypatch):
+def test_composed_launch_omits_item_instructions(monkeypatch):
     _stub_route(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
@@ -66,10 +66,7 @@ def test_composed_launch_delivers_full_item_instructions(monkeypatch):
         idempotency_key="instruction-launch",
     )
     body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
-    assert body.startswith(
-        "Operator execution instructions (obey these):\nRequired operator instruction"
-    )
-    assert body.count("Required operator instruction") == 1
+    assert "Required operator instruction" not in body
 
 
 def test_composed_mandate_leads_with_the_entrypoint_and_names_the_legs() -> None:
