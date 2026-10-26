@@ -40,6 +40,7 @@ from yoke_harness.session_launch_admission import (
 )
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
+from yoke_harness.session_relay_detached_worker import reap_in_background
 from yoke_harness.session_relay_native_capture_format import (
     STATE_RUNNING,
     compose_capture,
@@ -123,6 +124,7 @@ def _stop_uncontained(process: subprocess.Popen[bytes]) -> None:
             os.killpg(process.pid, signal.SIGKILL)
         except OSError:
             process.kill()
+        process.wait()
 
 
 def spawn_supervised_native(
@@ -201,6 +203,7 @@ def spawn_supervised_native(
         _stop_uncontained(process)
         capture_path.unlink(missing_ok=True)
         return None
+    reap_in_background(process)
     return SupervisedNative(
         process.pid,
         str(argv[0]),

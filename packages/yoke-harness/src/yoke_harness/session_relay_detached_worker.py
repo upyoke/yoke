@@ -33,7 +33,8 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
         process.wait(timeout=2)
 
 
-def _reap(process: subprocess.Popen[bytes]) -> None:
+def reap_in_background(process: subprocess.Popen[bytes]) -> None:
+    """Wait for a child that outlives this call, so its exit never leaves a zombie."""
     threading.Thread(
         target=process.wait,
         daemon=True,
@@ -117,7 +118,7 @@ def run_detached_json_worker(
         except OSError:
             pass
         if process.poll() is None:
-            _reap(process)
+            reap_in_background(process)
         else:
             process.wait()
     if outcome is not None:
@@ -128,5 +129,6 @@ def run_detached_json_worker(
 __all__ = [
     "MAX_HANDOFF_BYTES",
     "START_TIMEOUT_SECONDS",
+    "reap_in_background",
     "run_detached_json_worker",
 ]

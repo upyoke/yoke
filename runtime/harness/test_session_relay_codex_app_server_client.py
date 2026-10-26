@@ -11,9 +11,18 @@ redacted copy of its message via ``_rpc_error``.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import tempfile
 
-from yoke_harness.session_relay_codex_app_server_client import _Client, _rpc_error
+import pytest
+
+from yoke_harness import session_relay_codex_app_server_client as client_module
+from yoke_harness.session_relay_codex_app_server_client import (
+    CodexAppServerError,
+    _Client,
+    _rpc_error,
+)
 from yoke_harness.session_relay_codex_app_server_reasons import (
     app_server_failure_reason,
 )
@@ -86,3 +95,31 @@ def test_the_client_reports_no_tail_when_capture_is_off() -> None:
     client.stderr_file = None
 
     assert client.stderr_tail() == ""
+
+
+@pytest.mark.parametrize(
+    ("body", "code"),
+    [("exec sleep 30", "timeout"), ("read request; exit 0", "eof")],
+)
+def test_a_failed_initialize_leaves_no_app_server_child(
+    tmp_path: Path, monkeypatch, body: str, code: str
+) -> None:
+    binary = tmp_path / "codex"
+    binary.write_text(f"#!/bin/sh\n{body}\n")
+    binary.chmod(0o755)
+    started = []
+    spawn = client_module.spawn_admitted_process
+    monkeypatch.setattr(client_module, "resolve_native_cli", lambda _name: str(binary))
+    monkeypatch.setattr(
+        client_module,
+        "spawn_admitted_process",
+        lambda *args, **kwargs: started.append(spawn(*args, **kwargs)) or started[-1],
+    )
+
+    with pytest.raises(CodexAppServerError) as failure:
+        _Client("codex", tmp_path, {}, 0.5)
+
+    assert failure.value.code == code
+    assert started[0].returncode is not None
+    with pytest.raises(ChildProcessError):
+        os.waitpid(started[0].pid, os.WNOHANG)

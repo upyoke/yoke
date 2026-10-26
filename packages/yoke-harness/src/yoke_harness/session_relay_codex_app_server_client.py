@@ -152,17 +152,22 @@ class _Client:
             raise CodexAppServerError(
                 f"app-server unavailable: {type(exc).__name__}", "spawn", code="spawn"
             ) from exc
-        if self.process.stdin is None or self.process.stdout is None:
-            raise CodexAppServerError(
-                "app-server pipes unavailable", "spawn", code="pipes"
+        try:
+            if self.process.stdin is None or self.process.stdout is None:
+                raise CodexAppServerError(
+                    "app-server pipes unavailable", "spawn", code="pipes"
+                )
+            self.selector = selectors.DefaultSelector()
+            self.selector.register(self.process.stdout, selectors.EVENT_READ)
+            self.request(
+                "initialize",
+                {"clientInfo": {"name": "yoke_session_relay", "version": "1"}},
             )
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(self.process.stdout, selectors.EVENT_READ)
-        self.request(
-            "initialize",
-            {"clientInfo": {"name": "yoke_session_relay", "version": "1"}},
-        )
-        self.notify("initialized", {})
+            self.notify("initialized", {})
+        except BaseException:
+            # No caller holds a client yet, so nobody else can stop the child.
+            self.close()
+            raise
 
     def _send(self, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, separators=(",", ":")).encode() + b"\n"
