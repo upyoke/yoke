@@ -1,4 +1,4 @@
-"""Failed archive transport retains bounded-window evidence without replay."""
+"""Failed archive transport retains bounded-window evidence; success keeps none."""
 
 import json
 from pathlib import Path
@@ -12,7 +12,7 @@ from yoke_harness.ssh_linux_golden_diagnostics import run_golden_command
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 
 
-@pytest.mark.parametrize("exit_code", [0, 255, 124])
+@pytest.mark.parametrize("exit_code", [255, 124])
 def test_golden_debug_and_journal_preserve_original_result(
     tmp_path, monkeypatch, exit_code
 ):
@@ -60,6 +60,32 @@ def test_golden_debug_and_journal_preserve_original_result(
         )
     assert "Connection closed" in Path(evidence["ssh_client_log"]).read_text()
     assert "SECRET" not in json.dumps(evidence)
+
+
+def test_successful_golden_command_removes_its_logs_without_a_journal_read(
+    tmp_path, monkeypatch
+):
+    from yoke_harness import ssh_linux_golden_diagnostics as diagnostics
+
+    directory = tmp_path / "private-logs"
+    directory.mkdir(mode=0o700)
+    monkeypatch.setattr(diagnostics.tempfile, "mkdtemp", lambda **kw: str(directory))
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        kwargs["debug_log"].write_text("debug1: Connection closed\n")
+        return subprocess.CompletedProcess([], 0, '{"ok":true}', "")
+
+    control = object.__new__(SshTestMachineTransport)
+    control._run, control.secret_values = run, ()
+    result, evidence = run_golden_command(
+        control, "archive", input_text="input", timeout=1200
+    )
+    assert result.returncode == 0 and calls == ["archive"]
+    assert not directory.exists()
+    assert evidence["status"] == "command_succeeded"
+    assert "ssh_client_log" not in evidence and "sshd_journal_log" not in evidence
 
 
 def test_non_ssh_archive_control_keeps_its_existing_call_contract():

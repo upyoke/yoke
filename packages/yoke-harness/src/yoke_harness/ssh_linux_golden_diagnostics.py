@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import shlex
+import shutil
 import tempfile
 
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
@@ -35,7 +36,7 @@ def _sanitize(text, secrets):
 
 
 def run_golden_command(control, command, *, input_text, timeout):
-    """Run once through the existing SSH transport; journal failure is evidence."""
+    """Run once through the existing SSH transport; keep logs only on failure."""
     if not isinstance(control, SshTestMachineTransport):
         return control._run(command, input_text=input_text, timeout=timeout), {
             "status": "not_ssh_transport"
@@ -49,6 +50,14 @@ def run_golden_command(control, command, *, input_text, timeout):
         command, input_text=input_text, timeout=timeout, debug_log=client_log
     )
     finished = datetime.now(timezone.utc)
+    if result.returncode == 0:
+        # Transport logs only diagnose failures; a success leaves nothing behind.
+        shutil.rmtree(directory)
+        return result, {
+            "status": "command_succeeded",
+            "started_at": started.isoformat(),
+            "completed_at": finished.isoformat(),
+        }
     client_log.write_text(_sanitize(client_log.read_text(errors="replace"), secrets))
     journal_command = shlex.join(
         [

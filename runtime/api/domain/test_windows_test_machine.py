@@ -8,6 +8,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -159,9 +160,10 @@ def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
 
     def run(argv, **kwargs):
         calls.append((argv, kwargs.get("input")))
-        return subprocess.CompletedProcess(argv, 0, "archive-ok", "archive-err")
+        return subprocess.CompletedProcess(argv, 255, "archive-ok", "archive-err")
 
     monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     control = object.__new__(SshWindowsHostOperations)
     control._key_path = Path("/private/key")
     control._host = "windows.invalid"
@@ -174,7 +176,7 @@ def test_windows_golden_command_forwards_private_ssh_log(tmp_path, monkeypatch):
         control, command, input_text=stdin, timeout=30
     )
     reader, framed_input = windows_wsl_input(command, stdin)
-    assert result.returncode == 0
+    assert result.returncode == 255
     assert result.stdout == "archive-ok" and result.stderr == "archive-err"
     assert len(calls) == 2
     debug_argv, debug_input = calls[0]

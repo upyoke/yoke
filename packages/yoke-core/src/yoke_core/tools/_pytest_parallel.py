@@ -28,7 +28,9 @@ through untouched.
 
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import sys
 import tempfile
 from typing import Optional, Sequence
@@ -219,9 +221,10 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
         isolated["PATH"] = os.pathsep.join(
             [str(binaries), isolated.get("PATH", os.defpath)]
         )
-    isolated[machine_config_runtime.HOME_ENV] = tempfile.mkdtemp(
-        prefix="yoke-pytest-non-admin-"
-    )
+    home = tempfile.mkdtemp(prefix="yoke-pytest-non-admin-")
+    # The child exits before this process does; nothing else removes it.
+    atexit.register(shutil.rmtree, home, True)
+    isolated[machine_config_runtime.HOME_ENV] = home
     isolated.pop(machine_config_runtime.CONFIG_FILE_ENV, None)
     if not isolated.get("YOKE_SESSION_ID"):
         from yoke_core.domain.session_ambient_identity import (
