@@ -8,7 +8,6 @@ import importlib
 import io
 import json
 import os
-from pathlib import Path
 
 from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
@@ -94,16 +93,15 @@ def main() -> int:
         print("secret_receipt_replay_refused: expected exact rehearsal module context")
         return 1
     target = os.environ.get("YOKE_DB", "")
-    archive = os.environ.get(RESTORE_POINT_ENV, "")
+    restore_point = os.environ.get(RESTORE_POINT_ENV, "")
     if (
         not target
         or target != os.environ.get("YOKE_PG_DSN")
-        or not archive
-        or not Path(archive).is_file()
-        or Path(archive).stat().st_size == 0
+        or not restore_point
     ):
         print(
-            "secret_receipt_replay_refused: matching validation bindings and archive required"
+            "secret_receipt_replay_refused: matching validation bindings and named "
+            "restore point required; rerun governed rehearsal"
         )
         return 1
     try:

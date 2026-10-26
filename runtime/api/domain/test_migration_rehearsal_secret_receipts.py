@@ -206,25 +206,21 @@ def test_fleet_callback_preserves_order_and_refusals(
 
 
 @pytest.mark.parametrize(
-    "binding", ("missing", "mismatch", "archive-missing", "archive-empty")
+    "binding", ("missing", "mismatch", "restore-point-missing")
 )
-def test_entrypoint_requires_verified_bindings_and_archive(
+def test_entrypoint_requires_verified_bindings_and_restore_point(
     monkeypatch, tmp_path, binding, capsys
 ):
     monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
-    archive = tmp_path / "validation.sql"
-    archive.write_text("baseline")
     monkeypatch.setenv("YOKE_DB", "fixture-validation")
     monkeypatch.setenv("YOKE_PG_DSN", "fixture-validation")
-    monkeypatch.setenv(RESTORE_POINT_ENV, str(archive))
+    monkeypatch.setenv(RESTORE_POINT_ENV, "validation-copy:fixture-validation")
     if binding == "missing":
         monkeypatch.delenv("YOKE_DB")
     elif binding == "mismatch":
         monkeypatch.setenv("YOKE_PG_DSN", "different")
-    elif binding == "archive-missing":
-        archive.unlink()
     else:
-        archive.write_text("")
+        monkeypatch.delenv(RESTORE_POINT_ENV)
     connect = Mock()
     monkeypatch.setattr(replay.db_backend, "connect_psycopg", connect)
     assert replay.main() == 1
@@ -240,11 +236,9 @@ def test_entrypoint_binds_exact_copy_and_rolls_back_failed_proof(
     failure,
 ):
     monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
-    archive = tmp_path / "validation.sql"
-    archive.write_text("baseline")
     monkeypatch.setenv("YOKE_DB", "fixture-validation")
     monkeypatch.setenv("YOKE_PG_DSN", "fixture-validation")
-    monkeypatch.setenv(RESTORE_POINT_ENV, str(archive))
+    monkeypatch.setenv(RESTORE_POINT_ENV, "validation-copy:fixture-validation")
     targets = []
     monkeypatch.setattr(
         replay.db_backend,
@@ -304,12 +298,10 @@ def test_entrypoint_context_refuses_or_skips_before_connection(
 
 
 def test_entrypoint_runs_replay_proof_after_scrub(copy, monkeypatch, tmp_path, capsys):
-    archive = tmp_path / "validation.sql"
-    archive.write_text("baseline")
     monkeypatch.setenv(replay.REHEARSAL_MODULE_ENV, replay.ENTRY_NAME)
     monkeypatch.setenv("YOKE_DB", "fixture-validation")
     monkeypatch.setenv("YOKE_PG_DSN", "fixture-validation")
-    monkeypatch.setenv(RESTORE_POINT_ENV, str(archive))
+    monkeypatch.setenv(RESTORE_POINT_ENV, "validation-copy:fixture-validation")
     monkeypatch.setattr(replay.db_backend, "connect_psycopg", lambda target: copy)
     _entry().apply(copy)
     capsys.readouterr()

@@ -157,18 +157,11 @@ yoke --env <name> migration rehearse PREFIX-N
 
 Rehearsal runs the declared entries against the validation surface and records
 the receipt the evidence gate reads in `migration_audit` on the control plane
-that holds the item. Before the first apply, it archives that exact validation
-database under the claimed checkout's `.yoke/backups/` using a private directory
-and file. One archive covers the batch; each module's `migration_audit.backup_path`
-is committed and verified before mutation. Missing archives or receipts refuse
-apply. An authority snapshot or the hydration helper's temporary dump cannot
-substitute for this validation baseline.
-
-The archive remains after the command exits for recovery. Read `backup_path`
-from the module's audit receipt to locate it; preserve it until normal backup
-retirement. Apply, invariants and attested verification commands share that named
-restore point. On failure, retain the receipt and archive, fix the cause, restore
-the validation baseline when needed, and rerun the governed rehearsal.
+that holds the item. The disposable validation copy is the named restore point
+through apply, invariants and attested verification commands, including nested
+history applies. Rehearsal writes no backup archive and records an empty
+`migration_audit.backup_path`. To reset, rerun `authority_validation_copy`, fix
+the cause of any failure, and rerun the governed rehearsal.
 
 Attested commands run after each module's apply and invariants. The runner sets
 reserved `YOKE_MIGRATION_REHEARSAL_MODULE` to that module's exact identifier,
