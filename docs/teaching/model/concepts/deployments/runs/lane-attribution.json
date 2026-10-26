@@ -1,0 +1,7 @@
+{
+ "id": "lane-attribution",
+ "title": "Lane attribution within a release range",
+ "status": "observed",
+ "summary": "Recorded lane commit SHAs remain exact attribution evidence. Branch lookup is limited to landed lanes within the release range's landing-time window so historical branches do not consume the provider lookup budget or produce misleading warnings. An unresolved in-window branch still reports lane_branch_refs_unresolvable.",
+ "sources": ["docs/public/deployments/model/runs.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_carried_work_sources.py", "runtime/api/domain/test_carried_work_lane_window.py"]
+}

@@ -204,7 +204,7 @@ def test_lane_resolution_git_does_not_scale_with_item_count(
         # Odd lanes record a sha the checkout lacks, so their branch answers.
         rows = [
             (index, "2026-10-16T00:00:00Z", None, None, f"lane-{index}")
-            + ((lanes[index] if index % 2 == 0 else "f" * 40), False)
+            + ((lanes[index] if index % 2 == 0 else "f" * 40), True)
             for index in range(item_count)
         ]
         monkeypatch.setattr(sources, "_safe_rows", lambda *a, **k: rows)

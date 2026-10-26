@@ -144,10 +144,10 @@ def test_batched_lane_lookup_attributes_what_per_ref_lookup_did(monkeypatch):
     landed = "2026-10-16T00:00:00Z"
     rows = [
         (7, landed, None, None, "branch-7", "sha-7", False),  # sha answers
-        (8, landed, None, None, "branch-8", "gone-8", False),  # sha misses
-        (9, None, landed, None, "branch-9", None, False),  # no recorded sha
+        (8, landed, None, None, "branch-8", "gone-8", True),  # sha misses
+        (9, None, landed, None, "branch-9", None, True),  # no recorded sha
         (10, None, None, "abc", "branch-10", "sha-10", False),  # never landed
-        (11, landed, None, None, "gone-11", "gone-11", False),  # nothing answers
+        (11, landed, None, None, "gone-11", "gone-11", True),  # nothing answers
     ]
     monkeypatch.setattr(sources, "_safe_rows", lambda *args, **kwargs: rows)
     lanes, resolved = _Lanes(), {}
