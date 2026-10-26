@@ -93,3 +93,6 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .map-table { border-collapse: collapse; width: 100%; }
 .map-table th, .map-table td { text-align: left; padding: 10px; border-bottom: 1px solid #dce4dc; }
 .map-chip { display: inline-block; margin: 4px 12px 4px 0; }
+.docs-map-branch { grid-column: 1 / -1; min-width: 0; margin-bottom: 24px; }
+.docs-map-children { margin: 18px 0 0 20px; padding-left: 20px; border-left: 2px solid #b7cbbb; }
+.docs-map-children > .source-size { margin: 0 0 12px; }

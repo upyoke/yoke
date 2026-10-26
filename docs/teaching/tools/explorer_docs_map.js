@@ -1,10 +1,10 @@
 /* A page specification with source-backed relationships, not generated prose. */
 function mapTiles(nodes, container, query = '') {
-  function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
-  const candidates = query ? nodes.flatMap(descendants) : nodes;
-  const matches = candidates.filter(node =>
+  function matchesPage(node) { return (
     (node.title + ' ' + node.summary + ' ' + node.page_spec.outline.join(' '))
-      .toLowerCase().includes(query));
+      .toLowerCase().includes(query)); }
+  function matchesBranch(node) { return matchesPage(node) || node.children.some(matchesBranch); }
+  const matches = nodes.filter(matchesBranch);
   const grid = text('div', '', 'card-grid');
   for (const node of matches) {
     const summary = node.page_spec.outline.join(' · ');
@@ -13,10 +13,18 @@ function mapTiles(nodes, container, query = '') {
     const count = node.map_counts;
     const facts = text('p', `${count.terms} terms · ${count.commands} commands · ${count.sources} sources`, 'source-size');
     card.insertBefore(facts, card.lastElementChild);
-    if (query && node.parent !== 'view:docs-map') {
-      card.insertBefore(text('p', byId.get(node.parent).title, 'source-size'), card.children[1]);
+    if (node.children.length) {
+      const branch = text('section', '', 'docs-map-branch');
+      branch.setAttribute('aria-label', node.title + ' and subpages');
+      branch.append(card);
+      const children = text('div', '', 'docs-map-children');
+      children.append(text('p', 'Subpages of ' + node.title, 'source-size'));
+      mapTiles(node.children, children, matchesPage(node) ? '' : query);
+      branch.append(children);
+      grid.append(branch);
+    } else {
+      grid.append(card);
     }
-    grid.append(card);
   }
   container.append(grid);
   if (!matches.length) container.append(text('p', 'No matching pages.'));
