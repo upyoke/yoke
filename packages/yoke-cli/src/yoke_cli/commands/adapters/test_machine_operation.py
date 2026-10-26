@@ -99,7 +99,7 @@ def run_host_operation(
             json_mode=parsed.json_mode,
         )
     finally:
-        _power().power_off_idle(parsed.project)
+        _power().power_off_released()
 
 
 def _power() -> Any:

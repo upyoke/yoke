@@ -222,7 +222,7 @@ def execute_plan(
             error=exc,
         ) from exc
     from yoke_core.domain.qa_plan_execution_run import execute_begun_plan
-    from yoke_core.domain.test_machine_power import host_case_projects, power_off_idle
+    from yoke_core.domain.test_machine_power import power_off_released
 
     try:
         return execute_begun_plan(
@@ -239,8 +239,7 @@ def execute_plan(
             call_plan_function=_call_plan_function,
         )
     finally:
-        for host_project in host_case_projects(begun.requirements):
-            power_off_idle(host_project)
+        power_off_released()
 
 
 __all__ = ["QaPlanExecutionError", "execute_plan", "ordered_plan_requirements"]
