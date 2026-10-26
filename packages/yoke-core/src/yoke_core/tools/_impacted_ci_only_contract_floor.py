@@ -19,6 +19,8 @@ always a file the contract does not import — the one that just grew the call.
 The hook-policy local-read member has the same shape: it walks every module a
 server-run hook policy reaches and classifies each process launch or file
 read, so the module that breaks it is one it never imports.
+The refusal-recovery source member scans every file ``git ls-files``
+lists under ``packages`` and ``runtime`` for hand-written recovery labels.
 
 Lanes run impacted selection, so this family must execute on every local
 impacted run. Keep the set fast (roughly 30 seconds) — the budget member is
@@ -31,6 +33,7 @@ CI_ONLY_CONTRACT_FLOOR_TESTS = (
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/domain/test_github_operation_permission_scopes.py",
     "runtime/api/domain/test_lint_item_ref_construction.py",
+    "runtime/api/domain/test_refusal_recovery_source.py",
     "runtime/api/domain/test_schema_api_context_packet_budget.py",
     "runtime/api/tools/test_atlas_integrity_contract.py",
     "runtime/api/tools/test_impacted_tests_bounded.py",
