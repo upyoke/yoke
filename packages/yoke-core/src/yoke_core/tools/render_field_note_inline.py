@@ -56,10 +56,9 @@ REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_field_note_inline"
 _SHARED_LONG_FORM_PATH: str = "runtime/agents/_shared/ouroboros-field-note.md"
 
 
-# Every /yoke subcommand is read through the root router, so the skill tree
-# carries the directive once there.
+# Every session loads the AGENTS.md managed block, so skills and the Claude
+# session rules do not repeat the directive.
 INVENTORY: tuple[str, ...] = (
-    ".agents/skills/yoke/SKILL.md",
     "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",
@@ -68,7 +67,6 @@ INVENTORY: tuple[str, ...] = (
     ".yoke/docs/workflows/lifecycle.md",
     "docs/local-setup.md",
     ".yoke/strategy/FUTURE-NOTES.md",
-    "runtime/harness/claude/rules/session.md",
     _SHARED_LONG_FORM_PATH,
 )
 

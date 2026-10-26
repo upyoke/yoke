@@ -6,7 +6,7 @@
  "audience": "Human terminal users and agents discovering commands",
  "scope": "Global; usable without a project or completed setup",
  "trigger": "Explicit help request; bare yoke after valid machine configuration",
- "current": "Both spellings already work and print the same large generated command catalog. Bare yoke first checks machine configuration and may route to setup. yoke help TOPIC is not currently topic routing; yoke <group> --help is.",
+ "current": "Both spellings already work and print the same large generated command catalog. Bare yoke first checks machine configuration and may route to setup. yoke help TOPIC is not currently topic routing; yoke <group> --help is. Root help carries no field-note footer; the AGENTS.md managed region teaches field notes.",
  "proposed_purpose": "Answer what to do next and how to find exact commands in one screen.",
  "content": ["One sentence: Yoke keeps plans, work, proof and delivery together while agents do the work.", "Set up this machine: yoke setup.", "Check your current connection and checkout: yoke status.", "Open the workbench: yoke ui.", "Work with an agent: distinguish /yoke help in a project from the planned global project chooser.", "Find exact commands with yoke <group> --help and the full generated command reference; link the overview, contents and troubleshooting."],
  "scope_variants": {

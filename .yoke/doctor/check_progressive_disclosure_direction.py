@@ -75,8 +75,6 @@ _EXPLICIT_CITATION_ALIASES = {
     (_LIFECYCLE_DOC, "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
     (_BOOTSTRAP_DOC, "manifest-schema.md"): "runtime/harness/manifest-schema.md",
     ("runtime/agents/boss.md", "reference.md"): ".yoke/docs/databases/reference.md",
-    ("runtime/agents/engineer.md", "session.md"): _SESSION_RULES,
-    ("runtime/agents/tester.md", "session.md"): _SESSION_RULES,
     (
         f"{_SKILL_ROOT}/shared/tester-dispatch-template.md",
         "dispatch-context.md",

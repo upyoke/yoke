@@ -25,23 +25,16 @@ def test_catalog_renders_one_entry_per_recipe() -> None:
 
 
 @pytest.mark.parametrize(
-    "command", ["items get", "claims path widen", "sessions", "dev", "project snapshot"]
+    "command",
+    ["", "items get", "claims path widen", "sessions", "dev", "project snapshot"],
 )
-def test_subcommand_help_has_no_standing_trailers(command, capsys) -> None:
+def test_help_has_no_standing_trailers(command, capsys) -> None:
     from yoke_cli.main import main
 
     assert main(command.split() + ["--help"]) == 0
     output = capsys.readouterr().out
     assert arr.FOOTER not in output
     assert FIELD_NOTE_FOOTER not in output
-
-
-def test_root_help_keeps_the_standing_read_and_field_note_guidance(capsys) -> None:
-    from yoke_cli.main import main
-
-    assert main(["--help"]) == 0
-    output = capsys.readouterr().out
-    assert FIELD_NOTE_FOOTER in output
 
 
 @pytest.mark.parametrize(

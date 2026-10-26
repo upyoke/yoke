@@ -32,6 +32,9 @@ Repository-only rules; linked owners hold the detail.
   a tunnel; any call outside `yoke_contracts.direct_database_access` refuses
   `use_https_env`. Every real record stays on prod, including stage receipts. Stage is
   disposable. Connections: `yoke env list`.
+- Platform's database (`yoke_platform`) is read-only here:
+  `yoke --env platform-prod-registry-db-admin db read "SELECT ..."` (stage:
+  `platform-stage-registry-db-admin`).
 - Raw query is read-only. A sanctioned row repair with no domain command uses
   `yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run` from a
   live steering seat after the operator approves the digest; then rerun without `--dry-run`.
@@ -76,7 +79,8 @@ Repository-only rules; linked owners hold the detail.
   [release pin recording](release-pin-recording.md).
 - One Yoke release ships Platform at the `main` commit the run bound at start; delivery-ready
   PLAT items in that commit ride as members. Platform work merged later needs its own run.
-  Re-read the pin after any Yoke release before you start a Platform run.
+  Re-read the pin after any Yoke release before you start a Platform run, and start one only
+  when no Platform flow is in flight.
 - Consumer proof belongs to release. The bridge runs `platform-release-pin-check.yml` on the
   exact Yoke/Platform pair before tagging. A failed pair names the producer commit range; inspect
   it before you assign the fix. Why:
@@ -138,6 +142,10 @@ env YOKE_SOURCE_DEV=1 YOKE_HOME="$c" "$c/.venv/bin/python3" \
   fixtures and tools for the same packages. Resolve modules through the packet's `package_roots`.
 - Skills: `.agents/skills/yoke/`. Agents: `runtime/agents/`; adapters via `yoke agents render`.
 - Hooks: `runtime/harness/claude/settings.json` and `runtime/harness/codex/hooks.json`.
+  Harness manifest schema: `runtime/harness/manifest-schema.md`.
+- Install-bundle docs are authored under `docs/public/`. After a change, run
+  `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`
+  and commit every changed path together.
 - Machine config: `~/.yoke/config.json`; machines: [machine registry](machine-registry.md).
 
 ## Review, teaching and cleanup

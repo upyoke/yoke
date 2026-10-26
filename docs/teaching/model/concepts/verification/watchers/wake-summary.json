@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "verification",
  "position": 5,
- "summary": "On a watcher wake the agent writes one plain sentence saying what changed, retaining the item, PR, failing test or terminal state. A wake with no user-relevant change gets no text. The standing session and long-command rules own this teaching; no Monitor reminder is injected.",
- "sources": ["runtime/harness/claude/rules/session.md", "docs/public/agents/rules/claude-long-commands.md", "packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_decide.py"]
+ "summary": "On a watcher wake the agent writes one plain sentence saying what changed, retaining the item, PR, failing test or terminal state. A wake with no user-relevant change gets no text. The AGENTS.md always rules and the long-command rules own this teaching; no Monitor reminder is injected.",
+ "sources": ["AGENTS.md", "docs/public/agents/rules/claude-long-commands.md", "packages/yoke-core/src/yoke_core/domain/lint_long_command_polling_decide.py"]
 }

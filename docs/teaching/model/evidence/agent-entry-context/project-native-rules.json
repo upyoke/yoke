@@ -4,10 +4,10 @@
  "status": "observed",
  "scope": "installed project / selected lane",
  "moment": "Native project instruction load before action; native hierarchy rules vary by harness",
- "current": "Project AGENTS.md managed region is installed once; project-owned text remains outside it. Claude also gets .claude/rules/session.md. Codex/Cursor use AGENTS.md. Native discovery has minimum engines and configuration conditions.",
+ "current": "Project AGENTS.md managed region is installed once; project-owned text remains outside it. The managed region opens with the field-note directive, so every installed session receives it. Claude also gets .claude/rules/session.md, which only names the long-command watch pair and points to the long-command rule home; hook, session-end and Monitor-park recovery live in the operation homes and in the refusals themselves. Codex/Cursor use AGENTS.md. The Yoke repository adds only a two-line pointer to docs/source-dev-doctrine.md outside the managed region. Native discovery has minimum engines and configuration conditions.",
  "planned": "JOURNEYS keeps static project guidance in AGENTS/rules.",
  "proposed_content": ["Stable obligations that must bind before acting: scoped authority, claims/lanes, durable owners, output/data trust, required operation-home lookup and recovery after context loss.", "A short product-help versus project-knowledge distinction and the registered context_routing lookup.", "Keep current state, full command catalogs, full phase procedures and adoption situation catalogs out of this always-loaded channel.", "Keep Yoke-repo private prod/stage and source-dev rules outside the shipped managed region."],
  "plan_notes": ["JOURNEYS locked principles 2/4/5", "installed help/context access repair"],
- "sources": ["AGENTS.md:10", "AGENTS.md:35", "AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/agents/harness-discovery.md:9"],
+ "sources": ["AGENTS.md:4", "AGENTS.md:40", "AGENTS.md:78", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/agents/harness-discovery.md:9"],
  "position": 3
 }

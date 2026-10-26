@@ -180,8 +180,7 @@ def test_rules_combine_shared_topics_and_only_local_additions(explorer):
     assert topics and all(n['id'].startswith('rules-topic:') for n in topics)
     assert len([n for n in topics if n['title'] == 'Standing authority']) == 1
     assert {n['title'] for n in topics if n['guidance_scope'] == 'repository'} == {
-        'Control-Plane Authority — Hard Rule (this installation)',
-        'Yoke Repo Internals', 'Source-Dev Doctrine'}
+        'Yoke repository'}
     assert any(n['title'] == 'Rule loading and field notes' and
                n['guidance_scope'] == 'shared' for n in topics)
     local = (TOOLS.parents[2] / 'AGENTS.md').read_text().splitlines()

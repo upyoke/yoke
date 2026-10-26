@@ -84,8 +84,8 @@ def format_reason(
         "If the turn budget cannot accommodate the foreground run, ask "
         "the parent orchestrator for a tighter dispatch scope. Growing "
         "the budget to fit a self-armed background pattern is not a "
-        "workaround. See `runtime/harness/claude/rules/session.md` "
-        "`## Long commands and waits` for the full rule."
+        "workaround. See `.yoke/docs/agents/rules/claude-long-commands.md` "
+        "`## Subagents` for the full rule."
     )
     text = "DENIED: " + body + guidance
     if suppressed:

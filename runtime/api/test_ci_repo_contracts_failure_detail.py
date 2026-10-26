@@ -1,4 +1,4 @@
-"""The authored-file-limit contract names each failing file and its limit."""
+"""Repo contracts name each failure and the recipe that repairs it."""
 
 from __future__ import annotations
 
@@ -30,3 +30,20 @@ def test_authored_file_limit_failure_names_each_file_and_limit(
 
     assert ok is False
     assert f"runtime/big.py: 353 lines, limit {flc.LIMIT}" in detail
+
+
+def test_install_bundle_tree_failure_names_the_sync_recipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from yoke_core.domain import install_bundle_tree_sync
+    from yoke_core.tools._source_pythonpath import INSTALL_BUNDLE_SYNC_RECIPE
+
+    monkeypatch.setattr(
+        install_bundle_tree_sync, "detect_drift", lambda **_kw: ["AGENTS.md"]
+    )
+    scope = crc.ChangedPathScope(base_sha="0" * 40, paths=())
+
+    ok, detail = crc.check_install_bundle_tree(Path("."), scope)
+
+    assert ok is False
+    assert INSTALL_BUNDLE_SYNC_RECIPE in detail

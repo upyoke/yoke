@@ -233,13 +233,17 @@ def check_install_bundle_tree(
     repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.domain import install_bundle_tree_sync
+    from yoke_core.tools._source_pythonpath import INSTALL_BUNDLE_SYNC_RECIPE
 
     drift = install_bundle_tree_sync.detect_drift(target_root=repo_root)
     if not drift:
         return True, "packaged install-bundle tree matches source"
     preview = "; ".join(drift[:3])
     more = f" (+{len(drift) - 3} more)" if len(drift) > 3 else ""
-    return False, f"install-bundle tree drift: {preview}{more}"
+    return False, (
+        f"install-bundle tree drift: {preview}{more}; "
+        f"run `{INSTALL_BUNDLE_SYNC_RECIPE}` and commit every changed path"
+    )
 
 
 CONTRACTS: Tuple[Tuple[str, ContractFn], ...] = (
