@@ -35,3 +35,11 @@ def test_ages_do_not_change_digest_identity():
     before = CombinedFleetReport(NOW, (ScopedFleetReport("scope", report),))
     after = replace(before, sections=(ScopedFleetReport("scope", replace(report, idle=(replace(report.idle[0], idle_seconds=3000),))),))
     assert before.fingerprint() == after.fingerprint()
+
+
+def test_removed_scopes_have_stable_order():
+    current = CombinedFleetReport(NOW, ())
+    prior = json.loads(current.fingerprint())
+    prior.update({"scope:z-last": "last", "scope:a-first": "first"})
+    body = combined_hook_digest(current, json.dumps(prior))
+    assert body.index("## a-first") < body.index("## z-last")

@@ -42,7 +42,7 @@ def combined_hook_digest(
         body = scope_actionable_digest(section.report, rows)
         if body or f"scope:{section.descriptor}" in prior:
             parts.extend([f"## {section.descriptor}", body or "  none", ""])
-    for key in prior.keys() - current.keys():
+    for key in sorted(prior.keys() - current.keys()):
         if key.startswith("scope:"):
             parts.extend([f"## {key.removeprefix('scope:')}", "  no longer held", ""])
     parts.extend([

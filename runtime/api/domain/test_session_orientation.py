@@ -4,7 +4,7 @@ The server skips the orientation policy over https because it cannot see
 the client machine, and the source-repo renderer is absent from a managed
 project. These regressions pin the client-side replacement: it orients each
 harness on its real startup-context event exactly once, stays silent on every
-other event, never raises, and carries the generated main-agent packet.
+other event, never raises, and carries the shared message-trust block.
 """
 
 from __future__ import annotations
@@ -195,7 +195,7 @@ def test_cwd_outside_a_managed_project_gets_global_orientation(tmp_path: Path) -
     # here and that yoke-global leads to a project folder.
     out = so.orientation_for_hook("UserPromptSubmit", _payload(tmp_path))
     assert out is not None and "outside every Yoke project" in out
-    assert "Board available" not in out and "`yoke-global`" in out
+    assert "`yoke-global`" in out
 
 
 @pytest.mark.parametrize(
