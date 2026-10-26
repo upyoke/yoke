@@ -24,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_start.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -198,6 +198,9 @@ def build_explorer(views, pages):
     nodes = map_nodes(pages.m)
     add_terms(nodes, pages.m)
     add_docs_map(nodes, pages.m)
+    nodes.append(dict(id='view:getting-started', title='Getting started', parent=None,
+                      summary='', view='getting-started', node_type='page',
+                      type_label='Page preview', guidance_scope='repository'))
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),

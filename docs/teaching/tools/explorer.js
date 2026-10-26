@@ -52,6 +52,7 @@ function makeCard(node) {
 function render() {
   world.replaceChildren();
   updateTrail(); updateSourceList(); updateConnections(); renderViewNav();
+  if (focus?.id === 'view:getting-started') { renderGettingStarted(); return; }
   const heading = text('section', '', 'page-heading');
   if (focus) heading.append(typeBadge(focus));
   heading.append(text('h1', focus ? focus.title : 'What teaches Yoke'));
