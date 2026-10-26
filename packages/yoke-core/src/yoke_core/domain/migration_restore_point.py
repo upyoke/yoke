@@ -46,10 +46,10 @@ BACKUP_REASON = "pre-migration-apply"
 
 
 @contextmanager
-def named_restore_point(dump: Path) -> Iterator[None]:
-    """Bind the copy's own dump as its destructive-history restore point."""
+def named_restore_point(identifier: str | Path) -> Iterator[None]:
+    """Bind a named restore point through nested applies and verification."""
     previous = os.environ.get(RESTORE_POINT_ENV)
-    os.environ[RESTORE_POINT_ENV] = str(dump)
+    os.environ[RESTORE_POINT_ENV] = str(identifier)
     try:
         yield
     finally:

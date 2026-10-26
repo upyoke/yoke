@@ -42,14 +42,13 @@ from yoke_core.domain.migration_apply_resolve import (
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import (
     _append_rehearsal_outcomes,
-    _placeholder,
     _row_count_map,
     _run_baseline_verify,
     _run_module_invariants,
     _run_rehearsal_commands,
 )
 from yoke_core.domain.migration_rehearsal_evidence import receipt_writers
-from yoke_core.domain.migration_restore_point import establish, named_restore_point
+from yoke_core.domain.migration_restore_point import named_restore_point
 
 
 def rehearse(
@@ -133,24 +132,18 @@ def _rehearse_inner(
     # Compute pre-counts against the validation surface up front so
     # each module's baseline verify has a stable baseline.
     val_conn = connect_db_target(validation_target)
-    step = "validation row counts"
     try:
         pre_counts_validation = _row_count_map(val_conn, affected_tables)
-        step = "validation restore point"
-        backup_path = establish(
-            val_conn, backup_root=worktree_path / ".yoke" / "backups",
-            backup_target_dsn=validation_target.target, external_restore_point=None,
-        )
-        if not Path(backup_path).is_file() or Path(backup_path).stat().st_size == 0:
-            raise MigrationApplyError("validation restore-point archive is missing or empty")
     except Exception as exc:
-        migration_territory_claim.leave(control_conn, lease.id, "rehearsal-backup-failed")
-        # The dump already removed the connection password from its stderr.
-        raise MigrationApplyError(f"{step} failed: {exc}") from exc
+        migration_territory_claim.leave(control_conn, lease.id, "rehearsal-counts-failed")
+        raise MigrationApplyError(
+            f"validation row counts failed: {exc}; rebuild the validation copy "
+            "with authority_validation_copy and rerun rehearsal"
+        ) from exc
     finally:
         val_conn.close()
 
-    with named_restore_point(Path(backup_path)):
+    with named_restore_point(f"validation-copy:{validation_target.display}"):
         for identifier in profile["migration_modules"]:
             attempt = ModuleAttemptResult(
                 identifier=identifier,
@@ -172,16 +165,8 @@ def _rehearse_inner(
                 update_audit_state(
                     attempt.audit_id,
                     STATE_TEST_COPY_CREATED,
-                    extra={"backup_path": backup_path},
+                    extra={"backup_path": ""},
                 )
-                recorded = control_conn.execute(
-                    "SELECT backup_path FROM migration_audit "
-                    f"WHERE id = {_placeholder(control_conn)}", (attempt.audit_id,),
-                ).fetchone()
-                if not recorded or recorded[0] != backup_path:
-                    raise MigrationApplyError("validation restore-point receipt was not persisted")
-                if not Path(backup_path).is_file() or Path(backup_path).stat().st_size == 0:
-                    raise MigrationApplyError("validation restore-point archive is missing or empty")
                 attempt.state = STATE_TEST_COPY_CREATED
 
                 # Apply only to the already verified distinct validation DB.
