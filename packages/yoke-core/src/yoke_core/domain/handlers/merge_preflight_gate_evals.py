@@ -21,8 +21,7 @@ and :func:`yoke_core.domain.advance_blocked_gate.evaluate`. The terminal
 success statuses and every block narrative stay client-side in
 :mod:`yoke_core.engines.merge_worktree_prepare_preflight`; these handlers
 return only the raw verdict data. They are ``adapter_status='internal'``
-(pure preflight glue, never an agent CLI surface), so they carry no CLI
-adapter inventory row.
+(pure preflight glue, never an agent CLI surface).
 """
 
 from __future__ import annotations

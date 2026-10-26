@@ -3,7 +3,7 @@
 Covers the server-side project ladder (explicit client hint on
 ``target.project_id`` — numeric or slug — or the typed
 ``project_context_required`` teaching), payload/target validation, and
-the registration + adapter-inventory shape.
+the function registration.
 """
 
 from __future__ import annotations

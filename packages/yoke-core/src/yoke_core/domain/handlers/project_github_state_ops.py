@@ -15,7 +15,7 @@ local user token are resolved by the caller from its own credential sources
 after this state comes back.
 
 ``adapter_status='internal'`` — auth-resolution glue, never an agent CLI
-surface, so these carry no CLI adapter inventory row.
+surface.
 """
 
 from __future__ import annotations

@@ -257,8 +257,7 @@ def register(registry) -> None:
     )
     # claims.path.survey_ensure — validate selected-Dash coverage against
     # the live survey. Internal: the transport-aware worktree preflight
-    # calls it after resolving the work-claim holder; not an agent CLI
-    # surface, so it carries no adapter inventory row.
+    # calls it after resolving the work-claim holder.
     registry.register(
         "claims.path.survey_ensure",
         _cpa.handle_survey_ensure,

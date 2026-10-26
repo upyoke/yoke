@@ -32,7 +32,7 @@ def register(registry) -> None:
         side_effects=["path_snapshot_write", "path_target_write"],
         guardrails=[],
         # Engine-relayed glue (post-merge / hook snapshot pre-warm), never an
-        # agent CLI surface, so it carries no CLI adapter inventory row.
+        # agent CLI surface.
         adapter_status="internal",
         claim_required_kind=None,
         ambient_session_required=False,

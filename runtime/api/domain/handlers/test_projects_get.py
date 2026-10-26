@@ -263,7 +263,7 @@ class TestProjectsGet(unittest.TestCase):
 
 
 class TestProjectsGetAdapterRegistration(unittest.TestCase):
-    """Projects.get is registered and appears in the adapter inventory."""
+    """Projects.get has a registered handler."""
 
     def test_function_id_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
