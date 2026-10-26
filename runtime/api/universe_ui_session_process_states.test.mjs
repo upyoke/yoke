@@ -24,15 +24,13 @@ function holder(nativeProcess) {
 
 const NOW = Date.parse("2026-08-22T12:00:00Z");
 
-test("an exited worker a message resumes reads exited, never terminate", () => {
+test("an exited worker a message resumes shows no process state", () => {
   const exited = sessionHealthState(holder({
     state: "gone",
     observed_at: "2026-08-22T11:59:00Z",
     resumable_from_transcript: true,
   }), NOW);
-  assert.equal(exited.state, "process-exited");
-  assert.match(exited.detail, /message it to resume from transcript/);
-  assert.doesNotMatch(exited.detail, /terminate/);
+  assert.equal(exited, null);
 
   const resuming = sessionHealthState(holder({
     state: "resuming",

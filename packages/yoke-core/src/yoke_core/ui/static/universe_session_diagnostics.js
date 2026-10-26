@@ -86,8 +86,9 @@ function selfParkedStatus(row) {
 
 // A recorded native exit is not a dead worker. A headless worker's process
 // exits between turns and the next message resumes it from its transcript,
-// so the card says which of the three it is and never offers termination
-// for a worker a message would bring back.
+// so that exit is internal and shows nothing. The card names only the two
+// states an operator acts on: a wake already resuming the worker, and a
+// surface that cannot resume by message.
 
 function processHealth(process) {
   if (!process) return null;
@@ -98,14 +99,7 @@ function processHealth(process) {
       detail: "a wake is resuming it from its transcript — not dead; let it start",
     };
   }
-  if (process.state !== "gone") return null;
-  if (process.resumable_from_transcript) {
-    return {
-      state: "process-exited",
-      label: "process exited",
-      detail: "idle between turns, claims held — message it to resume from transcript",
-    };
-  }
+  if (process.state !== "gone" || process.resumable_from_transcript) return null;
   return {
     state: "process-gone",
     label: "process gone",

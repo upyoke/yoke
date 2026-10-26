@@ -41,7 +41,7 @@ test("every state a session card can show carries a deliberate family", () => {
   // other pill families across the UI.
   const shown = [
     "active", "waiting", "parked", "probed", "stale",
-    "quiet", "process-gone", "process-exited", "resuming", "ended",
+    "quiet", "process-gone", "resuming", "ended",
     "unknown",
   ];
   const families = new Map(shown.map((s) => [s, pillFamilyForState(s)]));
@@ -53,7 +53,6 @@ test("every state a session card can show carries a deliberate family", () => {
     ["stale", "warn"],
     ["quiet", "warn"],
     ["process-gone", "crit"],
-    ["process-exited", "warn"],
     ["resuming", "run"],
     ["ended", "idle"],
     ["unknown", "idle"],
