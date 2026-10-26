@@ -3,10 +3,9 @@
 The control plane releases lane rows and claims in the status transaction.
 This module owns the matching machine-local obligation: prove that each lane
 is clean and merged, then remove its worktree and branch. A standalone
-close-out then runs the machine-wide sweep, because a machine with no prod
-relay — a local-only install, or one that never installed a relay — has no
-other sweep; elsewhere the relay's periodic sweep covers what this one
-misses. Refusal is evidence, not a reason to unwind the committed
+close-out then runs the machine-wide sweep, because a machine with no relay
+for its active connection has no other sweep; elsewhere the relay's
+periodic sweep covers what this one misses. Refusal is evidence, not a reason to unwind the committed
 terminal transition: each preserved lane of the item's own is named on the
 returned warnings and recorded as a ``LandedLanePreserved`` event, so the
 refusal outlives the terminal output that first showed it.

@@ -181,7 +181,6 @@ def test_only_the_active_connections_relay_is_machine_active(tmp_path) -> None:
 def _serve_relay(monkeypatch, tmp_path, *, machine_active: bool) -> list[str]:
     instance = SimpleNamespace(
         environment="prod",
-        prod=False,
         state_dir=tmp_path,
         follows_served_release=True,
         machine_active=machine_active,

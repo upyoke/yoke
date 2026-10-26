@@ -8,9 +8,11 @@ starts, then every 15 minutes — through ``sweep_managed_lanes``, the same
 fail-closed path every other caller uses. Unmerged, dirty, claimed or open
 lanes are kept, and every lane removed or kept is named in the relay log.
 
-Only the prod relay sweeps. A stage relay judges lanes against a disposable
-rehearsal database that may call a real lane finished, so it never deletes
-one; it says so once in its log instead.
+Only the relay for the machine's active connection (``active_env``) sweeps:
+it serves the control plane the machine's own work runs against. Any other
+relay — a stage relay beside prod, judging lanes against a disposable
+rehearsal database that may call a real lane finished — never deletes one;
+it says so once in its log instead.
 
 The sweep runs on its own thread, so the relay's poll loop never waits on
 git or the network, and a sweep still running when the next one is due is
@@ -131,14 +133,14 @@ class RelayLaneSweep:
 
 
 def relay_lane_sweep(instance: Any) -> RelayLaneSweep:
-    """The sweep for one relay instance; off unless it is the prod relay."""
-    if instance.prod:
+    """The sweep for one relay instance; off unless it is the active connection's."""
+    if instance.machine_active:
         return RelayLaneSweep()
     return RelayLaneSweep(
         off_reason=(
-            f"off: relay env {instance.environment!r} is not the prod "
-            "connection, and only the prod relay judges lanes against a "
-            "control plane real work lives in"
+            f"off: relay env {instance.environment!r} is not this machine's "
+            "active connection (active_env), and only that relay judges lanes "
+            "against the control plane the machine's work runs on"
         )
     )
 

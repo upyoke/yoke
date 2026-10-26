@@ -43,7 +43,7 @@ RELAY_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.tools.session_relay_lane_sweep",
     ): (
         "client_local_machine_state",
-        "sweep finished lanes from the checkouts this machine's prod relay maps",
+        "sweep finished lanes from the checkouts the active connection's relay maps",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/onboard_session_relay.py",

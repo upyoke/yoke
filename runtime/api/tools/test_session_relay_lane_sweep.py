@@ -1,8 +1,8 @@
 """The standing relay sweeps finished lanes on its own machine.
 
 It sweeps once at start and then every interval, on a thread the poll loop
-never waits for, only from the prod relay, and never beside another sweep
-of the same checkout.
+never waits for, only from the relay for the machine's active connection,
+and never beside another sweep of the same checkout.
 """
 
 from __future__ import annotations
@@ -72,10 +72,10 @@ def test_a_running_sweep_never_blocks_the_poll_or_starts_twice():
     _finish(sweep)
 
 
-def test_only_the_prod_relay_sweeps_and_a_stage_relay_says_why_once():
+def test_only_the_active_connections_relay_sweeps_and_another_says_why_once():
     runs, lines = [], []
     stage = relay_sweep.relay_lane_sweep(
-        SimpleNamespace(prod=False, environment="stage")
+        SimpleNamespace(machine_active=False, environment="stage")
     )
     stage._sweep = lambda **_kw: runs.append(1)
     stage._log = lines.append
@@ -85,9 +85,9 @@ def test_only_the_prod_relay_sweeps_and_a_stage_relay_says_why_once():
 
     assert runs == []
     assert len(lines) == 1
-    assert "relay env 'stage' is not the prod connection" in lines[0]
+    assert "relay env 'stage' is not this machine's active connection" in lines[0]
     assert relay_sweep.relay_lane_sweep(
-        SimpleNamespace(prod=True, environment="prod")
+        SimpleNamespace(machine_active=True, environment="prod")
     )._off_reason == ""
 
 

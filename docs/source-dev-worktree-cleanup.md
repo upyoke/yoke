@@ -85,14 +85,16 @@ inspect the worktree state and preserve or commit the work before retrying.
 
 ## Automatic Cleanup Contract
 
-The standing prod relay (`yoke relay status`) sweeps every checkout its
-connection maps once when it starts and then every 15 minutes, on a thread
-its poll loop never waits for. That periodic sweep is what retires a lane
+The standing relay for the machine's active connection (`active_env`; check
+it with `yoke relay status`) sweeps every checkout that connection maps once
+when it starts and then every 15 minutes, on a thread its poll loop never
+waits for. That periodic sweep is what retires a lane
 whose item closed anywhere else — a release settled on a hosted control
 plane, a queue landing, a lane an earlier pass kept. The relay log names
 each lane removed and each lane kept with its reason, under `lane sweep:`.
-A stage relay never sweeps: it would judge real lanes against a disposable
-rehearsal database, so it logs that it is off. Merge preflight, a standalone
+Any other relay, such as a stage relay beside prod, never sweeps: it would
+judge real lanes against a disposable rehearsal database, so it logs that it
+is off. Merge preflight, a standalone
 close-out and lane creation at the worktree cap run the same sweep, and only
 one sweep runs in a checkout at a time; one that finds another running skips
 with `another lane sweep is running in this checkout`.

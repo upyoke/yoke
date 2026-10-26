@@ -23,7 +23,7 @@ def test_local_universe_daemon_serves_without_following_a_release(
     """
     instance = SimpleNamespace(
         environment="local",
-        prod=False,
+        machine_active=False,
         state_dir=tmp_path / "relay",
         follows_served_release=False,
     )
@@ -73,7 +73,7 @@ def test_local_universe_daemon_runs_upkeep_after_each_cycle_maintenance(
 
     instance = SimpleNamespace(
         environment="local",
-        prod=False,
+        machine_active=False,
         state_dir=tmp_path / "relay",
         follows_served_release=False,
     )
