@@ -1,6 +1,6 @@
 """Real-CLI parity matrix.
 
-For each adapter inventory entry that is wired through the dispatcher,
+For each selected CLI command wired through the dispatcher,
 invoke the real CLI via ``main(argv)`` and compare the call payload
 captured at the handler boundary against a direct
 :func:`yoke_core.api.service_client_structured_api_adapter.call_dispatcher`
@@ -15,9 +15,7 @@ previous matrix test missed (CLI never built a FunctionCallRequest at
 all) is structurally caught here because the patch target is the
 handler's domain owner, not a synthetic registry entry.
 
-xfail markers cover inventory entries whose CLI has not yet been wired
-through the dispatcher in this slice — adding wiring shrinks the xfail
-count, never grows it.
+
 """
 
 from __future__ import annotations

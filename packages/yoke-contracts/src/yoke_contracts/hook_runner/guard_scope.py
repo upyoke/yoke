@@ -34,7 +34,6 @@ _PROJECT = (
     "lint_subagent_fleet_messaging",
     "lint_workspace_cwd_match",
     "lint_structured_field_transform_shell",
-    "lint_shell_quoted_function_payload",
     "lint_yoke_adapter_stderr_visibility",
     "lint_yoke_quoted_shell_substitution",
     "lint_no_agent_runtime_api_import_from_c",

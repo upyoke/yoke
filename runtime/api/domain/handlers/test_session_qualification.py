@@ -7,9 +7,6 @@ import pytest
 from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
     require_exact_cli_idle_policy,
 )
-from yoke_cli.commands.adapters.session_control_qualification import (
-    QUALIFICATION_OPEN_USAGE,
-)
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_LEASE_PREFIX,
@@ -19,7 +16,6 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     grant_actor_project_role,
 )
-from yoke_core.api.service_client_structured_api_adapter import adapter_for
 from yoke_core.domain.handlers import (
     _register_session_control,
     claims_coordination_claim,
@@ -119,10 +115,6 @@ def test_registration_is_operator_override_and_stage_guarded() -> None:
         assert entry.side_effects == ("work_claims_insert",)
         assert entry.target_kinds == ("global",)
         assert "stage_only_exact_release" in entry.guardrails
-        adapter = adapter_for("session_control.qualification.open")
-        assert adapter is not None
-        assert adapter.cli_invocation == QUALIFICATION_OPEN_USAGE
-        assert adapter.agent_path == "direct"
         acknowledge = yoke_function_registry.lookup(
             "session_control.message.acknowledge"
         )

@@ -16,9 +16,6 @@ from yoke_cli.manifest import build_manifest
 from yoke_cli.product_boundary_teaching_sources import help_usage_recipes
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
 from yoke_contracts.function_serving_floors import FUNCTION_MINIMUM_SERVING_VERSIONS
-from yoke_core.api.service_client_structured_api_adapter_inventory_admission import (
-    ADMISSION_ADAPTERS,
-)
 
 transport = _transport_fixture
 ACTIONS = [
@@ -247,8 +244,7 @@ def test_bad_ref_is_usage_error_without_reads(answers, capsys, ref):
     assert answers.calls == []
 
 
-def test_invite_recipes_reach_inventory_manifest_and_teaching():
-    inventory = {row.function_id: row.cli_invocation for row in ADMISSION_ADAPTERS}
+def test_invite_recipes_reach_manifest_and_teaching():
     catalog = build_manifest()
     manifest = {
         row["function_id"]: row
@@ -261,7 +257,7 @@ def test_invite_recipes_reach_inventory_manifest_and_teaching():
         if key.startswith("teammate_invites.")
     }
     for function_id, usage in commands.USAGE_BY_FUNCTION_ID.items():
-        assert inventory[function_id] == usage and usage in help_usage_recipes()
+        assert usage in help_usage_recipes()
         if function_id in manifest:
             assert manifest[function_id]["usage"] == usage
     for action in ("create", "list", "revoke"):

@@ -303,23 +303,18 @@ def test_help_exposes_steering_grammar(operation: str) -> None:
     assert f"yoke claims steering {operation}" in stdout.getvalue()
 
 
-def test_registry_inventory_and_usage_expose_all_operations() -> None:
+def test_registry_and_usage_expose_all_operations() -> None:
     from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
 
     expected = {
         "acquire": "claims.steering.acquire",
         "release": "claims.steering.release",
         "list": "claims.steering.list",
     }
-    inventory = adapter_index()
     for operation, function_id in expected.items():
         assert SUBCOMMAND_REGISTRY[("claims", "steering", operation)][0] == function_id
         assert function_id in ADAPTER_USAGE
-        assert function_id in inventory
 
 
 def test_function_registry_exposes_steering_contracts() -> None:

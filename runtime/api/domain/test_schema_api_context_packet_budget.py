@@ -120,8 +120,7 @@ def test_headroom_and_over_budget_derive_from_usage(report: dict) -> None:
         report["aggregate_byte_budget"] - report["aggregate_bytes"]
     )
     assert report["aggregate_over_budget"] is (
-        report["aggregate_over_line_budget"]
-        or report["aggregate_over_byte_budget"]
+        report["aggregate_over_line_budget"] or report["aggregate_over_byte_budget"]
     )
 
 
@@ -156,9 +155,7 @@ def test_estimated_tokens_accompany_every_byte_figure(report: dict) -> None:
     )
 
 
-def test_over_line_budget_message_names_the_read_command(
-    capsys, monkeypatch
-) -> None:
+def test_over_line_budget_message_names_the_read_command(capsys, monkeypatch) -> None:
     monkeypatch.setattr(sac_cli, "check_role_packet_size", lambda role: (999, 425))
     monkeypatch.setattr(sac_cli, "check_role_packet_bytes", lambda role: (1, 2))
     monkeypatch.setattr(sac_cli, "check_aggregate_size", lambda: (10, 2630))
@@ -170,14 +167,10 @@ def test_over_line_budget_message_names_the_read_command(
     assert budget.BUDGET_READ_COMMAND in err
 
 
-def test_over_byte_budget_message_names_both_axes_in_words(
-    capsys, monkeypatch
-) -> None:
+def test_over_byte_budget_message_names_both_axes_in_words(capsys, monkeypatch) -> None:
     """The refusal states bytes and the token estimate, never bytes alone."""
     monkeypatch.setattr(sac_cli, "check_role_packet_size", lambda role: (1, 425))
-    monkeypatch.setattr(
-        sac_cli, "check_role_packet_bytes", lambda role: (99999, 30000)
-    )
+    monkeypatch.setattr(sac_cli, "check_role_packet_bytes", lambda role: (99999, 30000))
     monkeypatch.setattr(sac_cli, "check_aggregate_size", lambda: (10, 2630))
     monkeypatch.setattr(sac_cli, "check_aggregate_bytes", lambda: (10, 2630))
     assert sac_cli.main(["check"]) == 1
@@ -264,18 +257,6 @@ def test_cli_route_and_client_local_scope_are_registered() -> None:
     assert callable(adapter)
     assert "packets.budget.get" in CLIENT_LOCAL_BY_ID
 
-
-def test_adapter_inventory_row_names_the_read_command() -> None:
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    entry = adapter_index()["packets.budget.get"]
-    assert entry.read_shape is True
-    assert entry.cli_invocation.startswith(budget.BUDGET_READ_COMMAND)
-
-
-def test_human_writer_prints_both_axes_per_role_and_the_aggregate() -> None:
     from yoke_cli.commands.adapters.packets import _packet_budget_writer
 
     class _Response:

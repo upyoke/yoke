@@ -34,9 +34,8 @@ PreToolUse Bash chain order rationale:
    transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).
    Runs after the broad cwd/path-claim guards because it inspects command
    shape, not path coverage.
-10. Adapter-shape lints block hand-quoted payloads, shell choreography, and
-    hidden diagnostic stderr on the named state-changing Yoke CLI families.
-    They run together after the structured-field transform shell lint.
+10. ``lint_yoke_adapter_stderr_visibility`` keeps diagnostic stderr visible
+    on the named state-changing Yoke CLI families.
 11. ``lint_shell_backtick_search`` /
     ``lint_yoke_quoted_shell_substitution`` / ``lint_local_privacy`` /
     ``lint_unmatched_path_glob`` — shell-footgun deniers (backticks/`$()`
@@ -45,8 +44,7 @@ PreToolUse Bash chain order rationale:
     then check the command cwd.
 12. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
     ``python3 -c "from runtime..."`` one-liners. Shape-only denier in the
-    same family as the shell-quoted payload lint above; keyed on the
-    CLI-only-as-agent-interface doctrine.
+    keyed on the CLI-only-as-agent-interface doctrine.
 13. ``lint_no_agent_curl_against_yoke_api`` — block ``curl`` invocations
     against ``localhost:8765/v1`` or ``/api`` / ``$YOKE_API``. Sibling shape-only
     denier sharing the agent-CLI-contract config mode key.
@@ -58,9 +56,8 @@ PreToolUse Bash chain order rationale:
 15. ``lint_claim_ownership_mutations`` — block claim-boundary bypass
     attempts (foreign ``--session-id`` on mutation families plus
     recent-denial replay against the same item). Runs after the
-    shell-quoted payload lint because both gate mutation-family
-    command shape; this one is keyed on claim ownership and reads
-    recent event memory.
+    runtime-interface guards; this one is keyed on claim ownership and
+    reads recent event memory.
 16. ``lint_git_stash_arg_order`` — block ``git stash push`` with
     ``-m``/``--message`` placed after ``--``. Pure shape parse, no
     subprocess fan-out; runs right before ``lint_destructive_git``
@@ -138,7 +135,6 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_workspace_cwd_match",
     "yoke_core.domain.path_claim_bash_guard",
     "yoke_core.domain.lint_structured_field_transform_shell",
-    "yoke_core.domain.lint_shell_quoted_function_payload",
     "yoke_core.domain.lint_yoke_adapter_stderr_visibility",
     "yoke_core.domain.lint_shell_backtick_search",
     "yoke_core.domain.lint_yoke_quoted_shell_substitution",

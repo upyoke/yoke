@@ -4,7 +4,8 @@ import ast
 import re
 from inventory import live_registries
 from explorer_documents import REPO
-from explorer_runtime import CORE, source_node, literal, add_reply_fields, HOOK_DESCRIPTIONS, CHECK_OUTPUT_TITLES
+from explorer_runtime import CORE, source_node, literal, add_reply_fields
+from explorer_delivery import HOOK_DESCRIPTIONS, CHECK_OUTPUT_TITLES
 
 CONTRACTS = 'packages/yoke-contracts/src/yoke_contracts/'
 HOOKS = 'packages/yoke-core/src/yoke_core/hooks/'

@@ -25,18 +25,6 @@ def test_failed_log_inventory_is_https_relay_safe() -> None:
     assert row.capability_required == "project GitHub App auth"
     assert row.import_edges == ()
 
-
-def test_structured_adapter_inventory_tracks_failed_log() -> None:
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    entry = adapter_index()["github_actions.failed_log"]
-    assert entry.read_shape is True
-    assert entry.cli_invocation.startswith("yoke github-actions failed-log")
-
-
-def test_conduct_teaching_uses_registered_failed_log_surface() -> None:
     audit = inventory.generate_teaching_audit(repo_root=REPO_ROOT)
     by_form = {row.command_form: row for row in audit.surfaces}
 

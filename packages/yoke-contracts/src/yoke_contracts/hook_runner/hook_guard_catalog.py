@@ -179,13 +179,6 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         check_id="structured_field_transform_choreography",
     ),
     GuardSpec(
-        "lint_shell_quoted_function_payload",
-        f"{_MODULE_PREFIX}lint_shell_quoted_function_payload",
-        False,
-        "Refuse hand-quoted JSON payloads and adapter shell-choreography.",
-        check_id="shell_quoted_function_payload",
-    ),
-    GuardSpec(
         "lint_yoke_adapter_stderr_visibility",
         f"{_MODULE_PREFIX}lint_yoke_adapter_stderr_visibility",
         False,

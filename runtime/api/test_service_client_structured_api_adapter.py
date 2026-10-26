@@ -1,26 +1,4 @@
-"""Parity matrix test for the CLI-to-dispatcher adapter.
-
-Covers:
-- Each (CLI invocation, equivalent dispatch call) pair produces
-  identical typed result payloads. The test calls
-  :func:`yoke_core.api.service_client_structured_api_adapter.call_dispatcher`
-  once and the same dispatcher entrypoint twice with identical inputs,
-  asserts the responses match, and asserts the registry's recorded
-  ``YokeFunctionCalled`` event row carries the same payload shape both
-  times.
-- Every retained adapter supports ``--json`` mode and
-  returns the typed envelope verbatim. The test imports the typed
-  envelope, dispatches a synthetic function via the adapter, and asserts
-  the JSON output is a verbatim ``response.model_dump(mode="json")``.
-- The parity matrix is generated from the registry + the
-  retained-adapter inventory, so adding a new function id with
-  ``adapter_status="live"`` without an adapter inventory entry fails the
-  test. The reverse — an inventory entry for an unregistered function
-  id — also fails so stale inventory rows get caught.
-- ``adapter_for`` returns a structured result, not a shell
-  exit-code probe; capability checks need no ``2>&1; echo $?``
-  choreography.
-"""
+"""CLI dispatch parity, response emission and live-function usage coverage."""
 
 from __future__ import annotations
 
@@ -43,15 +21,10 @@ from yoke_core.domain.yoke_function_registry import (
     reset_registry_for_tests,
 )
 from yoke_core.api.service_client_structured_api_adapter import (
-    AdapterEntry,
-    CLI_ADAPTERS,
-    AGENT_PATH_VALUES,
-    adapter_for,
     build_actor,
     build_request,
     call_dispatcher,
     emit_response,
-    function_ids_with_adapter,
 )
 
 
@@ -75,77 +48,27 @@ def _live_function_ids() -> set[str]:
     }
 
 
-class TestRegistryInventoryParity:
-    """Adapter inventory tracks the live registry one-to-one."""
+def test_every_live_function_has_adapter_usage() -> None:
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
-    def test_every_live_function_has_an_adapter_entry(self) -> None:
-        live = _live_function_ids()
-        adapters = set(function_ids_with_adapter())
-        missing = sorted(live - adapters)
-        assert not missing, (
-            "Registered function ids with adapter_status='live' that have no "
-            "CLI adapter inventory entry: "
-            f"{missing}. Add an AdapterEntry in "
-            "service_client_structured_api_adapter_inventory.CLI_ADAPTERS for "
-            "each id, or mark the handler adapter_status='internal'."
-        )
+    missing = sorted(
+        function_id
+        for function_id in _live_function_ids()
+        if not ADAPTER_USAGE.get(function_id)
+    )
+    assert not missing, (
+        f"Live functions without CLI usage: {missing}. Add their usage to "
+        "ADAPTER_USAGE or mark code-only handlers adapter_status='internal'."
+    )
 
-    def test_every_adapter_entry_targets_a_registered_function(self) -> None:
-        live = _live_function_ids()
-        adapters = set(function_ids_with_adapter())
-        stale = sorted(adapters - live)
-        assert not stale, (
-            "Adapter inventory entries whose function id is NOT registered "
-            f"live: {stale}. Either register the handler or remove the "
-            "stale inventory row."
-        )
 
-    def test_adapter_entries_carry_documented_invocation(self) -> None:
-        for entry in CLI_ADAPTERS:
-            assert entry.function_id, f"adapter missing function_id: {entry}"
-            assert entry.cli_invocation, (
-                f"adapter for {entry.function_id} missing cli_invocation"
-            )
-            assert entry.agent_path in AGENT_PATH_VALUES
+def test_live_function_without_usage_fails_parity(monkeypatch) -> None:
+    from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
-    def test_service_client_invocations_name_real_subcommands(self) -> None:
-        from yoke_core.api.service_client import COMMANDS
-
-        prefix = "python3 -m yoke_core.api.service_client "
-        bad = []
-        for entry in CLI_ADAPTERS:
-            if not entry.cli_invocation.startswith(prefix):
-                continue
-            sub = entry.cli_invocation[len(prefix) :].split()[0]
-            if sub not in COMMANDS:
-                bad.append((entry.function_id, sub))
-        assert not bad, (
-            f"inventory CLI invocations name subcommands not in COMMANDS: {bad}"
-        )
-
-    def test_skill_orchestrated_entries_carry_caveats(self) -> None:
-        for entry in CLI_ADAPTERS:
-            if entry.agent_path != "skill-orchestrated":
-                continue
-            assert entry.canonical_skill_invocation
-            assert entry.direct_use_caveat
-        lifecycle = adapter_for("lifecycle.transition.execute")
-        assert lifecycle is not None
-        assert lifecycle.agent_path == "direct"
-        assert "structural gate" in lifecycle.notes
-        for function_id in ("claims.work.acquire", "claims.work.release"):
-            claim_entry = adapter_for(function_id)
-            assert claim_entry is not None
-            assert claim_entry.agent_path == "direct"
-            assert claim_entry.cli_invocation.startswith("yoke claims work ")
-
-    def test_adapter_for_returns_structured_result(self) -> None:
-        """Structured lookup, no shell exit-code probes."""
-        sample = CLI_ADAPTERS[0]
-        result = adapter_for(sample.function_id)
-        assert isinstance(result, AdapterEntry)
-        assert result.function_id == sample.function_id
-        assert adapter_for("does.not.exist") is None
+    function_id = next(iter(_live_function_ids()))
+    monkeypatch.delitem(ADAPTER_USAGE, function_id)
+    with pytest.raises(AssertionError):
+        test_every_live_function_has_adapter_usage()
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Dict
 
+from yoke_cli.commands import qa_case
+from yoke_cli.commands.adapters import claims, settings
 from yoke_cli.commands.adapters import actors
 from yoke_cli.commands.adapters import claims_coordination_claim
 from yoke_cli.commands.adapters import claims_steering
@@ -40,6 +42,25 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(steering_report.USAGE_BY_FUNCTION_ID)
     target.update(universe_levels.USAGE_BY_FUNCTION_ID)
     target.update(universe_retention.USAGE_BY_FUNCTION_ID)
+    target.update(
+        {
+            "claims.work.release_session_scoped": claims.CLAIM_WORK_RELEASE_USAGE,
+            "organizations.settings.get": settings.USAGES["get"],
+            "organizations.settings.merge": settings.USAGES["set"],
+            "universe.levels.get": settings.USAGES["get"],
+            "universe.levels.set": settings.USAGES["set"],
+            "universe.levels.reset": settings.USAGES["unset"],
+            "universe.cursor_quota_order.get": settings.USAGES["get"],
+            "universe.cursor_quota_order.set": settings.USAGES["set"],
+            "qa.case_execution.begin": qa_case.QA_CASE_RUN_USAGE,
+            "qa.plan_execution.begin": qa_case.QA_PLAN_RUN_USAGE,
+            "qa.plan_execution.abort": qa_case.QA_PLAN_ABORT_USAGE,
+            "qa.plan_execution.adopt": qa_case.QA_PLAN_ADOPT_USAGE,
+            "qa.plan_execution.reconcile": qa_case.QA_PLAN_RECONCILE_USAGE,
+            "qa.plan_review.begin": qa_case.QA_PLAN_REVIEW_BEGIN_USAGE,
+            "qa.plan_review.submit": qa_case.QA_PLAN_REVIEW_SUBMIT_USAGE,
+        }
+    )
 
 
 __all__ = ["extend_adapter_usage"]

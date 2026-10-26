@@ -13,7 +13,7 @@ on an https-connected machine, which would leave concurrent merges
 unserialized on exactly the transport most sessions use.
 
 ``adapter_status='internal'`` — merge glue, never an agent CLI surface, so
-these carry no CLI adapter inventory row.
+these have no direct CLI command.
 """
 
 from __future__ import annotations

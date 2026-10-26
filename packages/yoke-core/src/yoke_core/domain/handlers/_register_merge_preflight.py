@@ -4,7 +4,7 @@ These three ``merge.preflight.*`` functions are pure control-plane reads the
 transport-aware merge preflight relays to so its refusal gates run over an
 https control plane as well as a local Postgres connection. They are
 ``adapter_status='internal'`` (preflight glue, never an agent CLI surface),
-so they need no CLI adapter inventory row.
+so they have no direct CLI command.
 """
 
 from __future__ import annotations

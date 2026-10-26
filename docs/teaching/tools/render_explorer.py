@@ -8,7 +8,8 @@ from inventory import live_registries
 from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
 from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
 from explorer_sources import order_nodes
-from explorer_runtime import add_setup, add_packets, add_delivery_topics
+from explorer_runtime import add_setup, add_packets
+from explorer_delivery import add_delivery_topics
 from explorer_messages import add_hooks, add_replies
 
 

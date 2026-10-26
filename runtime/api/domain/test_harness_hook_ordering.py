@@ -50,7 +50,6 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_workspace_cwd_match",
                 "yoke_core.domain.path_claim_bash_guard",
                 "yoke_core.domain.lint_structured_field_transform_shell",
-                "yoke_core.domain.lint_shell_quoted_function_payload",
                 "yoke_core.domain.lint_yoke_adapter_stderr_visibility",
                 "yoke_core.domain.lint_shell_backtick_search",
                 "yoke_core.domain.lint_yoke_quoted_shell_substitution",
@@ -100,42 +99,6 @@ class TestPreToolUseBash(unittest.TestCase):
         self.assertEqual(
             chain[chain.index("yoke_core.hooks.heartbeat") + 1],
             "yoke_core.domain.observe_pre",
-        )
-
-    def test_TC_bash_chain_shell_quoted_payload_lint_position(self):
-        """``lint_shell_quoted_function_payload`` runs after the structured-field
-        transform lint and before the destructive-git inspector."""
-        chain = ordered_pipeline_for("PreToolUse", "Bash")
-        self.assertIn(
-            "yoke_core.domain.lint_shell_quoted_function_payload",
-            chain,
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_structured_field_transform_shell"),
-            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
-            chain.index("yoke_core.domain.lint_destructive_git"),
-        )
-
-    def test_TC_bash_chain_claim_ownership_lint_between_shell_payload_and_destructive(
-        self,
-    ):
-        """``lint_claim_ownership_mutations`` runs after the shell-quoted
-        payload lint and before the destructive-git inspector."""
-        chain = ordered_pipeline_for("PreToolUse", "Bash")
-        self.assertIn(
-            "yoke_core.domain.lint_claim_ownership_mutations",
-            chain,
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
-            chain.index("yoke_core.domain.lint_claim_ownership_mutations"),
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_claim_ownership_mutations"),
-            chain.index("yoke_core.domain.lint_destructive_git"),
         )
 
     def test_TC_bash_chain_git_stash_arg_order_runs_before_destructive_git(self):

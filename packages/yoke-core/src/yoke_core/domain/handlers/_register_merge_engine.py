@@ -4,7 +4,7 @@ These functions are the transport-aware forms of the prune authority
 verdict (per lane, and batched for a machine-wide lane sweep) and
 integrated-tree verification-command resolution the merge engine relays so the finalize path works over an https control plane as well as a
 local Postgres connection. Both are ``adapter_status='internal'`` (merge glue,
-never an agent CLI surface), so they need no CLI adapter inventory row.
+never an agent CLI surface).
 """
 
 from __future__ import annotations

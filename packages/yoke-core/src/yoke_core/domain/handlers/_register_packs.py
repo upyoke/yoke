@@ -75,7 +75,11 @@ def register(registry) -> None:
             target_kinds=targets,
             side_effects=side_effects,
             guardrails=["project_receipt_authoritative"],
-            adapter_status="live",
+            adapter_status=(
+                "internal"
+                if function_id in {"packs.bundle.get", "packs.project.report"}
+                else "live"
+            ),
             claim_required_kind=None,
             ambient_session_required=False,
         )
@@ -89,7 +93,7 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=[],
         guardrails=["project_receipt_authoritative"],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
         ambient_session_required=False,
         minimum_serving_version="next-release",

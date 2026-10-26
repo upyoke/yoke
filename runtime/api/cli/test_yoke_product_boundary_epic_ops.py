@@ -35,23 +35,3 @@ def test_epic_ops_wrappers_are_https_relay_product_surfaces() -> None:
         assert row.function_id == function_id
         assert row.disposition == inventory.HTTPS_RELAY
         assert row.transport_branch == "https-relay"
-
-
-def test_structured_adapter_inventory_tracks_epic_ops() -> None:
-    from yoke_core.api.service_client_structured_api_adapter_inventory import (
-        adapter_index,
-    )
-
-    index = adapter_index()
-    assert index["workflow_item.epic_task.simulation_get"].read_shape is True
-    assert index["workflow_item.epic_task.history_insert"].read_shape is False
-    assert index[
-        "workflow_item.epic_dispatch_chain.refresh_activation"
-    ].cli_invocation.startswith(
-        "yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N "
-        "--worktree NAME --task-num N"
-    )
-    assert index["conduct.epic_task.update_status"].read_shape is False
-    assert "yoke conduct epic-task update-status" in (
-        index["conduct.epic_task.update_status"].cli_invocation
-    )

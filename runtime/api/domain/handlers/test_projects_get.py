@@ -192,6 +192,7 @@ class TestProjectsGet(unittest.TestCase):
         cannot see. The visibility refusal must short-circuit before any
         second connection is opened.
         """
+
         class _Connection:
             def close(self):
                 pass
@@ -215,7 +216,9 @@ class TestProjectsGet(unittest.TestCase):
                 "yoke_core.domain.project_identity.resolve_project",
                 return_value=None,
             ),
-            patch("yoke_core.domain.projects_crud._read_resolved_project") as read_resolved,
+            patch(
+                "yoke_core.domain.projects_crud._read_resolved_project"
+            ) as read_resolved,
             patch("yoke_core.domain.projects_crud.cmd_get") as get,
         ):
             outcome = projects_get.handle_projects_get(request)
@@ -260,7 +263,7 @@ class TestProjectsGet(unittest.TestCase):
 
 
 class TestProjectsGetAdapterRegistration(unittest.TestCase):
-    """Projects.get is registered and appears in the adapter inventory."""
+    """Projects.get has a registered handler."""
 
     def test_function_id_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
@@ -275,19 +278,6 @@ class TestProjectsGetAdapterRegistration(unittest.TestCase):
         self.assertEqual(list(entry.target_kinds), ["global"])
         self.assertIsNone(entry.claim_required_kind)
 
-    def test_adapter_entry_present(self):
-        from yoke_core.api.service_client_structured_api_adapter_inventory import (
-            adapter_index,
-        )
-
-        index = adapter_index()
-        self.assertIn("projects.get", index)
-        entry = index["projects.get"]
-        self.assertIn("projects get", entry.cli_invocation)
-        self.assertTrue(entry.read_shape)
-
-
-class TestProjectsGetDispatcher(unittest.TestCase):
     """Direct dispatcher call returns the field value without a work claim."""
 
     def test_direct_dispatch_returns_field_value(self):

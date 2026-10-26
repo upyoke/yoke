@@ -1,16 +1,4 @@
-"""Shared remediation messages for the structured-field lints.
-
-Single-source-of-truth module shared by:
-
-* :mod:`yoke_core.domain.lint_structured_field_transform_shell` — uses
-  :data:`REMEDIATION_TEXT` as its denial body and :data:`REMEDIATION_API_FIRST`
-  to point operators at the function-call surface.
-* :mod:`yoke_core.domain.lint_shell_quoted_function_payload` — uses
-  :data:`REMEDIATION_API_FIRST` to phrase its remediation.
-
-The constants live here (not inside either lint module) so the lint files
-themselves stay small and their recovery messages stay consistent.
-"""
+"""Remediation messages for structured-field shell transforms."""
 
 from __future__ import annotations
 

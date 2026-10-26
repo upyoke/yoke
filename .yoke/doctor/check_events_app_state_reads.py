@@ -193,7 +193,6 @@ ALLOWED_INDIRECT_EVENTS_READERS: tuple[str, ...] = (
     f"{_CLI_SOURCE_ROOT}/commands/adapters/usage.py",
     f"{_CLI_SOURCE_ROOT}/commands/registry.py",
     f"{_CLI_SOURCE_ROOT}/operation_inventory_data.py",
-    f"{_CORE_API_SOURCE_ROOT}/service_client_structured_api_adapter_inventory.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/handlers/_register_events_reads.py",
     f"{_CORE_UI_SOURCE_ROOT}/function_proxy.py",
     # -- teaching: packets and doc renderers that quote the function id
