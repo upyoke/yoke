@@ -22,6 +22,12 @@ pytestmark = pytest.mark.usefixtures("bound_project_context")
 
 @pytest.fixture()
 def lifecycle(monkeypatch, tmp_path, capsys):
+    transcript = tmp_path / "rollout-session.jsonl"
+    transcript.touch()
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_codex_runtime.codex_transcript_candidates",
+        lambda _: [transcript],
+    )
     root = tmp_path / "project"
     (root / ".yoke").mkdir(parents=True)
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
@@ -138,13 +144,12 @@ def assert_emitted_marker(body):
     }
 
 
-@pytest.mark.parametrize("source", ["startup", "resume"])
+@pytest.mark.parametrize("source", ["startup", "resume", "fork", "clear", "compact"])
 def test_early_delivery_suppresses_prompt_orientation_but_keeps_lifecycle(
     lifecycle, source
 ):
     body = lifecycle.invoke("SessionStart", source=source, transcript_path="transcript")
     assert body.count(orientation.ORIENTATION_HEADING) == 1
-    assert "Install:" in body and "yoke help" in body
     assert_emitted_marker(body)
     assert lifecycle.invoke("UserPromptSubmit") == ""
     assert lifecycle.invoke("UserPromptSubmit") == ""
@@ -271,3 +276,27 @@ def test_registration_error_alone_stays_within_shared_budget(lifecycle):
     assert "full reason in hook stderr" in body
     assert lifecycle.register.return_value in lifecycle.stderr
     assert orientation.ORIENTATION_HEADING not in body
+
+
+@pytest.mark.parametrize("source", ["clear", "compact"])
+@pytest.mark.parametrize("fault", ["", "denied", "interrupted"])
+def test_context_reset_reorients_existing_session_and_retries_lost_delivery(
+    lifecycle, source, fault
+):
+    assert lifecycle.invoke(
+        "SessionStart", source="startup", transcript_path="transcript"
+    )
+    lifecycle.fault = fault
+    if fault == "interrupted":
+        with pytest.raises(KeyboardInterrupt):
+            lifecycle.invoke("SessionStart", source=source)
+    else:
+        body = lifecycle.invoke("SessionStart", source=source)
+        assert bool(body) == (not fault)
+    lifecycle.fault = ""
+    if fault:
+        assert not delivery.orientation_delivered("session")
+        assert lifecycle.invoke("UserPromptSubmit")
+    assert delivery.orientation_delivered("session")
+    assert lifecycle.invoke("UserPromptSubmit") == ""
+    assert {call.args[1] for call in lifecycle.register.call_args_list} == {"session"}

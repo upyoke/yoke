@@ -206,8 +206,7 @@
     "events": [
       {
         "native_event": "SessionStart",
-        "verb": "SessionStart",
-        "matcher": "startup|resume"
+        "verb": "SessionStart"
       },
       {
         "native_event": "UserPromptSubmit",

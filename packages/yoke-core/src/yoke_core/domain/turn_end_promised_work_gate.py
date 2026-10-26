@@ -237,9 +237,6 @@ def evaluate(record: HookContext) -> HookDecision:
     ):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     evidence = _evidence_for(record)
-    if evidence is UNAVAILABLE or not evidence.available:
-        _emit_unavailable(record)
-        return _allow()
     if evidence.question:
         return _allow()
     session_id = record.session_id
@@ -254,6 +251,9 @@ def evaluate(record: HookContext) -> HookDecision:
     try:
         claim = _live_claim(conn, session_id)
         if claim is None:
+            return _allow()
+        if evidence is UNAVAILABLE or not evidence.available:
+            _emit_unavailable(record)
             return _allow()
         if stop_is_legitimate(claim):
             return _allow()

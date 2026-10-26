@@ -1,7 +1,9 @@
 {
  "id": "codex",
  "title": "Codex",
- "status": "draft-copy",
+ "status": "observed",
  "page": "agents",
- "position": 1
+ "position": 1,
+ "current": "All SessionStart sources run the hook. Saved forks retain their own session identity and start cache; prompt fallback requires a saved transcript. Transcript and usage credentials honor CODEX_HOME. Project refresh renews changed hook trust.",
+ "sources": ["docs/public/agents/codex.md", "packages/yoke-core/src/yoke_core/hooks/session_dispatch.py", "packages/yoke-harness/src/yoke_harness/hooks/identity_codex_runtime.py", "packages/yoke-harness/src/yoke_harness/session_relay_codex_plan_limit.py"]
 }

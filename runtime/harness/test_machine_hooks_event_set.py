@@ -77,9 +77,9 @@ def test_mid_turn_message_delivery_is_installed(harness_id):
 def test_cursor_delivers_mid_turn_messages_on_matcherless_post_tool_use():
     spec = HARNESS_MACHINE_HOOKS["cursor"]
     assert _mid_turn_delivery_verb("cursor") == "PostToolUse"
-    assert [(e.native_event, e.matcher) for e in spec.events if e.verb == "PostToolUse"] == [
-        ("postToolUse", None)
-    ]
+    assert [
+        (e.native_event, e.matcher) for e in spec.events if e.verb == "PostToolUse"
+    ] == [("postToolUse", None)]
 
 
 @pytest.mark.parametrize("harness_id", sorted(HARNESS_MACHINE_HOOKS))
@@ -91,3 +91,12 @@ def test_no_project_only_event_is_installed(harness_id):
         | {_mid_turn_delivery_verb(harness_id)}
     )
     assert {event.verb for event in spec.events} <= allowed
+
+
+@pytest.mark.parametrize("harness_id", sorted(HARNESS_MACHINE_HOOKS))
+def test_session_start_accepts_every_source(harness_id):
+    events = [
+        e for e in HARNESS_MACHINE_HOOKS[harness_id].events if e.verb == "SessionStart"
+    ]
+    assert events
+    assert all(e.matcher is None for e in events)
