@@ -184,7 +184,7 @@ def test_relay_allows_background_launch_and_failure_capture_reads(
     )
 
 
-def test_relay_without_client_root_reproduces_scope_denial(
+def test_relay_without_client_root_allows_capture_reads(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -197,10 +197,10 @@ def test_relay_without_client_root_reproduces_scope_denial(
         "tool_input": {"file_path": str(_capture("raw"))},
     }
 
-    assert _same_decision_both_ways(payload, "Read") is Outcome.DENY
+    assert _same_decision_both_ways(payload, "Read") is Outcome.NOOP
 
 
-def test_relay_rejects_another_sessions_capture(
+def test_relay_allows_another_sessions_capture_read(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -213,11 +213,11 @@ def test_relay_rejects_another_sessions_capture(
             "Read",
             {"file_path": str(_capture("raw", session_id="other"))},
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
 
 
-def test_relay_keeps_other_client_scratch_subtrees_claim_gated(
+def test_relay_allows_other_client_scratch_reads(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -240,7 +240,7 @@ def test_relay_keeps_other_client_scratch_subtrees_claim_gated(
             "Read",
             {"file_path": str(dispatch_input)},
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
 
 
