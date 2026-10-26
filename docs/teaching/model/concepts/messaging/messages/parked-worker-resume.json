@@ -1,0 +1,9 @@
+{
+ "id": "parked-worker-resume",
+ "title": "A message resumes a parked worker",
+ "status": "observed",
+ "summary": "A headless worker's process exits between turns; that exit is internal, and its next message resumes it from its transcript. The session card shows such a worker as parked with no process chip, and only names a wake already resuming it or a surface that cannot resume by message. The harness wake lines state per harness which surfaces resume on a message, from `message_stopped` in each manifest's `session_control`. These are source behaviors; deployed proof is pending.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js", "packages/yoke-core/src/yoke_core/tools/render_harness_capability_inline.py", "packages/yoke-contracts/src/yoke_contracts/session_control/capabilities.py"],
+ "page": "messaging",
+ "position": 9
+}
