@@ -163,7 +163,7 @@ def deployment_runs_create(args: List[str]) -> int:
         return usage_error("--retry-of cannot be combined with --source-ref")
     if (parsed.project_repo_path is None) != (parsed.source_ref is None):
         return usage_error(
-            "--project-repo-path and --source-ref are given together: the "
+            "--project-repo-path and --source-ref must be given together: the "
             "checkout resolves the named commit. Omit both to bind the "
             "gate branch tip."
         )

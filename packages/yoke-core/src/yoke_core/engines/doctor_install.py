@@ -218,9 +218,9 @@ def hc_session_hook_registration(conn, args: DoctorArgs, rec: RecordCollector) -
                 if requested.isdigit()
                 else project_id_for_slug(requested)
             )
-            if expected_project is None or str(identity.get("project_id")) != str(
-                expected_project
-            ):
+            if expected_project is None:
+                raise _SessionHookUnproven(f"{requested!r} is not a project slug or id")
+            if str(identity.get("project_id")) != str(expected_project):
                 raise _SessionHookUnproven("SESSION_HOOK_PROJECT_MISMATCH")
         project_id = identity.get("project_id")
         # Outside-project hooks use the authority's machine scratch namespace.

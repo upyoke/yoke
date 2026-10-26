@@ -124,7 +124,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "startup_roles": ("main_agent",),
         "topic": "core",
-        "purpose": "Inspect open work",
+        "purpose": "Recent items",
         "recipe": (
             "# Recent item scan:\n"
             'yoke items list --project all --fields "id,status,title" '
