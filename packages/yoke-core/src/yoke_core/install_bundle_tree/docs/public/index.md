@@ -38,6 +38,7 @@ item from the frontier for the current session.
 
 <!-- yoke:contents -->
 - [Get started](start/index.md) — Let your coding agent guide setup and your first project.
+- [Index](term-index/index.md) — Find terms, distinguish meanings and open their documentation.
 - [Agents](agents/index.md) — Use harness guidance, command maps and operation homes before acting.
 - [Projects](projects/index.md) — Add projects and configure their capabilities, guidance and shared files.
 - [GitHub](github/index.md) — Connect repository access, mirror issues and inspect merge evidence.
