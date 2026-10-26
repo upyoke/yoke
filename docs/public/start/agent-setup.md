@@ -4,10 +4,13 @@
 [Yoke](../index.md) > [Get started](index.md) > Agent setup
 <!-- /yoke:breadcrumbs -->
 
-A coding agent (Claude Code, Codex, Cursor or any other) can run `yoke setup`
-for a person. In agent mode, setup asks the wizard's own questions one at a
-time as JSON lines. The agent shows each question to the person and answers
-it with a command.
+Agent setup is the recommended way to get started. Ask your coding agent to
+install Yoke and guide you through the choices; you approve changes and complete
+browser sign-in yourself. Start with [Get started](index.md) for the short guide.
+
+The details below are for the agent running setup. In agent mode, setup asks
+one question at a time as JSON lines. The agent shows each question to the
+person and answers it with a command.
 
 ## When agent mode runs
 

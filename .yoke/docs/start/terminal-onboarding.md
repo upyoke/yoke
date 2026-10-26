@@ -1,8 +1,23 @@
-# Copy links and codes during onboarding
+# Terminal setup (optional)
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Terminal onboarding
+[Yoke](../index.md) > [Get started](index.md) > Terminal setup (optional)
 <!-- /yoke:breadcrumbs -->
+
+Use this path if you prefer to install and configure Yoke yourself in a terminal.
+For the recommended agent-led path, follow [Get started](index.md).
+
+```bash
+curl -fsSL https://upyoke.com/install | sh
+```
+
+In an interactive terminal, the installer opens setup. If it does not, run
+`yoke setup --tui`. Follow the questions, review the proposed changes and Apply.
+See [Install](install.md#onboard-wizard) for the wizard's steps and prerequisites.
+After setup, open your coding agent in the project folder and follow the
+[project onboarding step](index.md#begin-work-on-your-project).
+
+## Setup details and recovery
 
 Read saved setup in the project's checkout:
 

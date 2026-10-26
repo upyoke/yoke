@@ -4,98 +4,69 @@
 [Yoke](../index.md) > Get started
 <!-- /yoke:breadcrumbs -->
 
-Install Yoke, connect this machine to a universe, then ask your coding agent to
-add your project and help file its first item. You need no Yoke source checkout.
-Use a shell with `curl`; the installer offers to install `uv` if it is missing.
-On Windows, start in [WSL Ubuntu](windows-wsl.md).
+Start with your coding agent. It installs Yoke, walks you through setup and
+helps you begin work on your project. You choose where Yoke runs and approve
+the changes; the agent handles the commands.
 
-## Install
+## Ask your agent to install Yoke
 
-```bash
-curl -fsSL https://upyoke.com/install | sh
-```
+Open Claude Code, Codex or Cursor in your project's folder and say:
 
-The installer puts the `yoke` command on PATH and opens setup in an interactive
-terminal. If setup did not open, run `yoke setup`. Open a new terminal if the
-installer requests it. See [Install](install.md) for prerequisites and recovery.
+> Install Yoke from upyoke.com and help me set up this project using agent mode.
 
-## Choose a mode and connect
+You do not need a Yoke source checkout. On Windows, run your agent and keep
+your project inside [WSL Ubuntu](windows-wsl.md).
 
-In setup's Account step, choose where Yoke and its database live:
+The agent follows the installer and uses `yoke setup --agent` to continue.
+It presents setup's questions one at a time and explains the choices.
+[Agent setup](agent-setup.md) describes the commands and replies for the agent;
+[Install](install.md) covers prerequisites and recovery.
 
-- **This machine:** a private local universe, reachable here only; no signup
-  or token. No other computer can connect to it.
-- **A team server:** connect to your own Yoke server by its reachable URL.
-- **Host a server here:** for a team or multiple computers; needs Docker.
-  Preview and create a server on a host you control.
-- **upyoke.com:** hosted by Yoke with browser sign-in; private beta, requires a
-  beta code.
+## Choose where Yoke runs
 
-[Modes](modes.md) explains ownership, networking and switching later. Review
-setup's proposed writes before Apply. Browser sign-in and machine approval
-remain human actions: open the offered link, sign in and approve your own
-machine. Over SSH, use the [terminal copy view](terminal-onboarding.md).
+Your agent will ask where to keep your work:
 
-To connect an already-installed machine separately, use the current CLI recipes:
+- **This machine:** a private local universe, reachable only from this computer.
+- **A team server:** connect to a Yoke server you or your team already run.
+- **Host a server here:** create a server for a team or multiple computers;
+  this needs Docker.
+- **upyoke.com:** hosted by Yoke; private beta, requiring a beta code.
 
-```bash
-yoke connect                 # hosted browser sign-in
-# or: yoke connect https://<server>
-yoke status
-```
+A universe holds your projects and work records. [Modes](modes.md) explains
+these choices and how to switch later.
 
-Expected: status names the active connection and reports this machine's setup.
-For a local universe, choose **This machine** in `yoke setup` instead of running
-`yoke connect`. A refusal names the cause and recovery; finish it before filing
-work. See [onboarding](install.md#onboard-wizard) for server token options.
+Your agent shows what setup will change before you approve Apply. When browser
+sign-in or machine approval is needed, it gives you the link; you complete that
+step yourself. Then the agent continues setup with your chosen project.
 
-## Add your first project
+## Begin work on your project
 
-Open Claude Code, Codex or Cursor yourself in your project's checkout. Ask its
-agent: “Add this checkout to my connected Yoke universe, then use the installed
-Yoke skill to onboard with me.” Invoke `$yoke onboard` in Codex or
-`/yoke onboard` in Claude Code or Cursor. The agent checks existing project bindings, asks for the project's
-identity and previews the supported project setup. Approve the choices it
-shows; the agent adds the project. Yoke does not open an interactive agent
-session for you.
+Follow the final setup instructions. If a new agent session is needed, open it
+in the project folder as directed. Your agent checks that the session is ready
+and follows Yoke's next action.
 
-Expected: the checkout carries its Yoke operating guidance, `yoke status` names
-its project mapping, and the Yoke onboard skill connects existing work to a first
-delivery. If the project already exists and only needs guidance, see
-[Project installation](project-install.md). [Concepts](concepts.md) explains
-universes, projects, items and workflows.
+Ask it:
 
-## File your first item
+> Help me onboard this project, understand its existing work and choose a first
+> small change to deliver.
 
-Ask the agent to capture one small outcome with `/yoke idea`, or use the CLI
-from any folder. Replace `P` with your project's slug. First read its current
-creation instructions:
+The agent uses Yoke's onboarding guidance to capture your goals and existing
+work, then helps you file and carry out the first change. You can describe what
+you want in ordinary language; you do not need to file items with CLI commands.
+[Concepts](concepts.md) explains the terms you will encounter.
 
-```bash
-yoke workflow execution-instruction resolve --workflow dash --project P --full
-```
+## Optional: set up directly in a terminal
 
-Write `first-change.md` with the agreed outcome, scope and verification. Follow
-the instructions you just read, then file and inspect it:
-
-```bash
-yoke items create --title "First small change" --workflow dash --project P \
-  --spec-file first-change.md --execution-instructions-considered
-yoke items list --project P --limit 5
-```
-
-Expected: the create reply names a new item ref and status, and the list shows
-it. This records work; use the project's declared workflow to carry it through
-implementation and verification. See [items and sessions](../items/index.md)
-for the next supported action.
+If you prefer to run setup yourself, use [Terminal setup](terminal-onboarding.md).
+You can return to your coding agent after installation.
 
 <!-- yoke:contents -->
-- [Agent setup](agent-setup.md) — Relay setup questions and preserve human choices and secret boundaries.
-- [Install](install.md) — Prepare the CLI and complete machine onboarding.
+- [Agent setup](agent-setup.md) — Recommended setup through your coding agent; commands and replies.
+- [Install](install.md) — Installation prerequisites, configuration details and recovery.
 - [Modes](modes.md) — Choose local, hosted or self-hosted ownership.
 - [Concepts](concepts.md) — Understand universes, projects, items and workflows.
 - [Project installation](project-install.md) — Install repository guidance and manage source launcher ownership.
-- [Terminal onboarding](terminal-onboarding.md) — Copy approval links and resume setup in local or remote terminals.
 - [Windows and WSL](windows-wsl.md) — Keep Yoke, agents and checkouts inside supported Linux on Windows.
+- [Terminal setup (optional)](terminal-onboarding.md) — Set up Yoke yourself in a terminal instead of through your agent.
 - [Uninstall](uninstall.md) — Preserve chosen data and remove machine or project guidance.
 <!-- /yoke:contents -->

@@ -5,16 +5,16 @@ root:
   path: index.md
   children:
     - title: Get started
-      summary: Install, connect, add a project and file your first item.
+      summary: Let your coding agent guide setup and your first project.
       path: start/index.md
       children:
-        - {title: "Agent setup", summary: "Relay setup questions and preserve human choices and secret boundaries.", path: "start/agent-setup.md"}
-        - {title: "Install", summary: "Prepare the CLI and complete machine onboarding.", path: "start/install.md"}
+        - {title: "Agent setup", summary: "Recommended setup through your coding agent; commands and replies.", path: "start/agent-setup.md"}
+        - {title: "Install", summary: "Installation prerequisites, configuration details and recovery.", path: "start/install.md"}
         - {title: "Modes", summary: "Choose local, hosted or self-hosted ownership.", path: "start/modes.md"}
         - {title: "Concepts", summary: "Understand universes, projects, items and workflows.", path: "start/concepts.md"}
         - {title: "Project installation", summary: "Install repository guidance and manage source launcher ownership.", path: "start/project-install.md"}
-        - {title: "Terminal onboarding", summary: "Copy approval links and resume setup in local or remote terminals.", path: "start/terminal-onboarding.md"}
         - {title: "Windows and WSL", summary: "Keep Yoke, agents and checkouts inside supported Linux on Windows.", path: "start/windows-wsl.md"}
+        - {title: "Terminal setup (optional)", summary: "Set up Yoke yourself in a terminal instead of through your agent.", path: "start/terminal-onboarding.md"}
         - {title: "Uninstall", summary: "Preserve chosen data and remove machine or project guidance.", path: "start/uninstall.md"}
     - title: Agents
       summary: Use harness guidance, command maps and operation homes before acting.

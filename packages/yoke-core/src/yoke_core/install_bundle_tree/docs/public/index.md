@@ -32,12 +32,12 @@ item from the frontier for the current session.
 ## Read next
 
 - [Modes](start/modes.md) — Local, Cloud, Self-hosted
-- [Install](start/install.md) — one installer, then onboard
+- [Get started](start/index.md) — ask your coding agent to install Yoke and guide setup
 - [Maintaining a private fork](projects/private-forks.md) — operator-supplied releases and indexes
 - [Concepts](start/concepts.md) — universe, projects, items, workflows
 
 <!-- yoke:contents -->
-- [Get started](start/index.md) — Install, connect, add a project and file your first item.
+- [Get started](start/index.md) — Let your coding agent guide setup and your first project.
 - [Agents](agents/index.md) — Use harness guidance, command maps and operation homes before acting.
 - [Projects](projects/index.md) — Add projects and configure their capabilities, guidance and shared files.
 - [GitHub](github/index.md) — Connect repository access, mirror issues and inspect merge evidence.

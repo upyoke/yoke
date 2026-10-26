@@ -4,16 +4,22 @@
 [Yoke](../index.md) > [Get started](index.md) > Install
 <!-- /yoke:breadcrumbs -->
 
-Install the released CLI and connect this machine through setup. For the
-complete path from a new machine to its first work item, follow
-[Get started](index.md); project-only installation and removal have their own
-pages below.
+For the recommended setup, ask your coding agent to install Yoke and guide you
+through [Get started](index.md). This page holds installation prerequisites,
+configuration details and recovery instructions.
+
+The agent installs the released CLI, then continues setup in agent mode:
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
-yoke setup
+yoke setup --agent
 yoke status
 ```
+
+The installer selects agent mode when run without a terminal. Use
+`yoke setup --agent` explicitly when continuing through an agent that allocates
+a terminal. If you prefer to do setup yourself, use the optional
+[Terminal setup](terminal-onboarding.md) path.
 
 Setup always configures every installed harness for unattended Yoke commands.
 Review names the files and permission settings before applying them.
@@ -68,7 +74,9 @@ that home takes precedence over a config-file environment override. See
 
 ## Onboard wizard
 
-`yoke setup` is a full-screen wizard:
+The optional terminal path uses `yoke setup --tui`, a full-screen wizard.
+For the recommended agent path, see [Agent setup](agent-setup.md).
+The wizard has these steps:
 
 1. **Install / PATH** — checks required tools and repairs PATH automatically,
    then opens Account. Install appears only when a check fails or a required
