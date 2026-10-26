@@ -12,17 +12,19 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_contracts.machine_config.test_machine import (
-    TEST_MACHINE_CAPABILITY_PREFIX,
     TestMachineCapabilityError,
     validate_golden_baseline_path,
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_host_control import (
+    GOLDEN_CAPTURE_OPERATION,
     KEPT_GOLDEN_PATHS_KEY,
     KEPT_GOLDEN_PATHS_UNKNOWN_KEY,
+    REGISTERED_GOLDENS_KEY,
+    VERIFY_OPERATION,
 )
 
 from yoke_core.domain import db_backend
@@ -30,6 +32,10 @@ from yoke_core.domain.machine_qa_capability_rows import (
     TestMachineCapabilityRow,
     select_test_machine_row,
     test_machine_capability_rows,
+)
+from yoke_core.domain.machine_qa_shared_home import (
+    leased_shared_home,
+    shared_home_registrations,
 )
 from yoke_core.domain.project_identity import resolve_project
 
@@ -128,46 +134,80 @@ def record_captured_golden_baseline(
 def kept_golden_fields(
     conn: Any,
     *,
-    test_machine: str,
+    settings: Mapping[str, str],
     destination: str | None,
 ) -> dict[str, Any]:
     """Name every registered golden beside a capture so retention keeps it.
 
-    One physical machine can be registered in several projects, each with its
-    own golden in the same parent. Retention runs on the operator's machine and
-    can only see the capturing project, so the server names every project's
-    registered golden for this machine in that parent. A registration it cannot
-    read makes the answer unknown rather than incomplete.
+    Several projects can register the same host and user, each with its own
+    golden in the same parent. Retention runs on the operator's machine and
+    can only see the capturing project, so the server names every golden
+    registered for this host and user in that parent. A registration it cannot
+    read, or another name for this home that is leased now, makes the answer
+    unknown rather than incomplete.
     """
     if not destination:
         return {}
     parent = PurePosixPath(destination).parent
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = conn.execute(
-        "SELECT c.project_id,COALESCE(c.settings,'{}') FROM project_capabilities c "
-        f"WHERE c.type={marker} ORDER BY c.project_id",
-        (TEST_MACHINE_CAPABILITY_PREFIX + test_machine,),
-    ).fetchall()
+    try:
+        rows = shared_home_registrations(conn, settings)
+    except TestMachineCapabilityError as exc:
+        return {
+            KEPT_GOLDEN_PATHS_UNKNOWN_KEY: (
+                f"a stored test machine is unreadable, so the goldens sharing "
+                f"this home are unknown ({exc})"
+            )
+        }
+    leased = leased_shared_home(conn, rows, test_machine=settings["resource_name"])
+    if leased is not None:
+        return {KEPT_GOLDEN_PATHS_UNKNOWN_KEY: leased}
     kept = {destination}
-    for project_id, settings in rows:
-        try:
-            path = json.loads(settings).get(GOLDEN_BASELINE_PATH_KEY)
-        except (TypeError, ValueError, AttributeError):
-            return {
-                KEPT_GOLDEN_PATHS_UNKNOWN_KEY: (
-                    f"project {project_id}'s registration of {test_machine!r} has "
-                    "unreadable settings, so its golden is unknown; repair it "
-                    "through yoke test-machine settings-replace"
-                )
-            }
-        if isinstance(path, str) and PurePosixPath(path).parent == parent:
+    for row in rows:
+        path = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
+        if path and PurePosixPath(path).parent == parent:
             kept.add(path)
     return {KEPT_GOLDEN_PATHS_KEY: sorted(kept)}
+
+
+def registered_golden_fields(
+    conn: Any, settings: Mapping[str, str]
+) -> dict[str, Any]:
+    """Name every golden registered for this host and user, for verify to find."""
+    return {
+        REGISTERED_GOLDENS_KEY: [
+            {
+                "project": row.project,
+                "test_machine": row.test_machine,
+                "path": row.settings[GOLDEN_BASELINE_PATH_KEY],
+            }
+            for row in shared_home_registrations(conn, settings)
+            if row.settings.get(GOLDEN_BASELINE_PATH_KEY)
+        ]
+    }
+
+
+def operation_golden_inputs(
+    conn: Any,
+    *,
+    project: str,
+    test_machine: str | None,
+    operation: str,
+    destination: str | None,
+) -> tuple[str | None, dict[str, Any]]:
+    """Resolve a capture's destination, or name the goldens a verify checks."""
+    if operation not in (GOLDEN_CAPTURE_OPERATION, VERIFY_OPERATION):
+        return destination, {}
+    row = selected_test_machine_row(conn, project=project, test_machine=test_machine)
+    if operation == VERIFY_OPERATION:
+        return destination, registered_golden_fields(conn, row.settings)
+    return resolve_golden_capture_destination(row, requested=destination), {}
 
 
 __all__ = [
     "GOLDEN_BASELINE_PATH_KEY",
     "kept_golden_fields",
+    "operation_golden_inputs",
+    "registered_golden_fields",
     "selected_test_machine_row",
     "timestamped_golden_directory_name",
     "record_captured_golden_baseline",

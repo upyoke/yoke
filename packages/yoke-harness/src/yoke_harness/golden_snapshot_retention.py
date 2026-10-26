@@ -5,10 +5,11 @@ rollback copy. A directory named for the test user is that user's golden
 root: every other child is a snapshot, including dated homes, mixed captures,
 ``.yoke-golden-*`` temporaries and retired browser profiles. A shared parent
 drops only this user's ``USER-home-*`` and ``home-*`` snapshots, so another
-user's baseline stays. One machine can be registered in several projects
-that share a parent, so every golden registered for this machine stays with
-its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars. A symlink, or a
-name whose removal fails, is kept and named while the rest still go.
+user's baseline stays. One host and user can be registered in several projects
+that share a parent, so every golden registered for that home stays with
+its ``.probes``, ``.manifest`` and ``.harness-clis`` sidecars. Anything newer
+than the new golden stays too: it belongs to a capture that started after this
+one finished. A symlink, or a name whose removal fails, is kept and named.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ LINUX_CAPTURE_SPACE_CHECK = """\
                 "Remove every snapshot under "
                 + str(baseline.parent)
                 + " except each project's registered golden for this "
-                "machine (yoke test-machine get shows golden_baseline_path) "
+                "host and user (yoke test-machine get shows golden_baseline_path) "
                 "and their .probes, .manifest and .harness-clis files, then retry: yoke "
                 "test-machine golden-capture"
             ),
@@ -190,7 +191,7 @@ def _recovery(destination: str, parent: str) -> str:
     return (
         f"The registered golden {destination} is already recorded. "
         f"Remove every other snapshot under {parent}, but keep {destination}, "
-        "every golden another project registered for this machine (yoke "
+        "every golden another project registered for this host and user (yoke "
         "test-machine get --project P --test-machine TEST_MACHINE names it as "
         "golden_baseline_path), and their .probes, .manifest "
         "and .harness-clis files. Do not capture again until those leftovers are gone."
@@ -206,8 +207,8 @@ def apply_retention(
 ) -> list[str]:
     """List ``destination``'s parent through ``run`` and delete retired snapshots.
 
-    ``kept_paths`` are every golden registered for this machine; each one in
-    this parent stays.
+    ``kept_paths`` are every golden registered for this host and user; each
+    one in this parent stays, and so does anything newer than ``destination``.
     """
     parent_path = PurePosixPath(destination).parent
     parent = parent_path.as_posix()
@@ -223,7 +224,8 @@ def apply_retention(
             _recovery(destination, parent),
         )
     listed = run(
-        f"find {shlex.quote(parent)} -mindepth 1 -maxdepth 1 -print0",
+        f"find {shlex.quote(parent)} -mindepth 1 -maxdepth 1 "
+        f"! -newer {shlex.quote(destination)} -print0",
         timeout=60,
     )
     if getattr(listed, "returncode", 1) != 0:
@@ -275,7 +277,8 @@ def retain_after_verified_capture(
     if isinstance(unknown, str) and unknown:
         raise SnapshotRetentionError(
             f"Retired snapshots under {parent} were kept: {unknown}.",
-            _recovery(destination, parent),
+            "Wait until no other machine on this host and user is leased. "
+            + _recovery(destination, parent),
         )
     kept_paths = payload.get(KEPT_GOLDEN_PATHS_KEY)
     if not isinstance(kept_paths, list) or destination not in kept_paths:
