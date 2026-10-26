@@ -290,7 +290,6 @@ def execute_full_test_machine_reset(
             failure_evidence["process_state"] = {
                 "surviving_reap_failures": int(reap_parts[0]),
                 "surviving_matches": int(reap_parts[1]),
-                "load_average": float(reap_parts[2]),
             }
     return HostActionResult(
         False,

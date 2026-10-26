@@ -202,7 +202,7 @@ def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
         "\n".join(
             (
                 RESET_FAILURE_PREFIX + RESET_PHASES["reap_processes"],
-                "1 2 3.50",
+                "1 2",
             )
         ),
         reset_returncode=1,
@@ -215,7 +215,6 @@ def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
     assert result.evidence["process_state"] == {
         "surviving_reap_failures": 1,
         "surviving_matches": 2,
-        "load_average": 3.5,
     }
 
 

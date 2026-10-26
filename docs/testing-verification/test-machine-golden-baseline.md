@@ -327,7 +327,7 @@ requires quitting the named app through its UI before copying; never force past
 it. `golden_capture_copy_home_failed` retains `copy_stderr`; repair its cause
 and choose a new parent. `golden_snapshot_retention_failed` can follow successful
 registration: read removed/kept paths before any further capture. A failed
-reset retains `reset_phase`, process/load state and `failed_calls` where available;
+reset retains `reset_phase`, process state and `failed_calls` where available;
 missing stdout proves no cause. Fix the named writer/permission/transport and
 retry the sealed restore; never weaken a probe or edit a seal to make it pass.
 
