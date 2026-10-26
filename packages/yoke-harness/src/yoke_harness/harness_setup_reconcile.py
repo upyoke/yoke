@@ -129,6 +129,8 @@ def _hooks(path: Path, source: Path, *, apply: bool) -> tuple[bool, str]:
             mint_installed_checkout_trust(path)
         result = inspect_hook_file_trust(path / ".codex/hooks.json")
         return result.approved, result.summary()
+    if apply:
+        mint_installed_checkout_trust(source)
     result = (mirror_hook_trust if apply else inspect_hook_trust)(
         str(source), str(path)
     )
@@ -152,7 +154,7 @@ def _facet(
     inspect: Callable,
     write: Callable,
     apply: bool,
-    recovery: str = RECOVERY,
+    recovery: str | Callable[[], str] = RECOVERY,
 ) -> HarnessSetupRow:
     try:
         ready, detail = inspect()
@@ -169,7 +171,7 @@ def _facet(
             name,
             outcome,
             "" if ready else f"harness_setup_incomplete: {detail}; {output}",
-            "" if ready else recovery,
+            "" if ready else recovery() if callable(recovery) else recovery,
         )
     except Exception as exc:  # each facet must leave the rest runnable
         return HarnessSetupRow(
@@ -266,7 +268,14 @@ def _walk(paths: Sequence[Path] | None, *, apply: bool) -> HarnessSetupResult:
                         lambda: _hooks(target, source, apply=False),
                         lambda: _hooks(target, source, apply=True),
                         apply,
-                        retrust_recovery(target),
+                        lambda: (
+                            f"Run `yoke project refresh` in {source}."
+                            if target != source
+                            and not inspect_hook_file_trust(
+                                source / ".codex/hooks.json"
+                            ).approved
+                            else retrust_recovery(target)
+                        ),
                     )
                 )
         rows.append(

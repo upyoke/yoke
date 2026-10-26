@@ -15,9 +15,9 @@ registration, no telemetry, no guardrails. Worktree provisioning closes that
 gap by mirroring trust onto the worktree's path.
 
 Worktree trust is mirrored, never minted: only byte-identical content receives
-a hash the operator already granted. Project install separately mints trust for
-the Yoke-authored main-checkout file. Changed content needs the operator's own
-Codex trust decision.
+a current source hash. Lane setup refreshes trust for the Yoke-authored
+main-checkout file before mirroring it. Content changed only in a lane needs
+the operator's own Codex trust decision.
 """
 
 from __future__ import annotations
@@ -181,9 +181,13 @@ def inspect_hook_trust(
     result = _with(
         result,
         source_trusted=tuple(sorted(source_trusted)),
-        stale=source_stale,
     )
-    if not source_trusted and not source_stale:
+    if source_stale:
+        return _blocked(
+            result,
+            f"source_hook_trust_stale: Run `yoke project refresh` in {source_checkout}.",
+        )
+    if not source_trusted:
         return _blocked(result, REASON_SOURCE_UNTRUSTED)
     if not target_hooks.exists():
         return _blocked(result, f"{REASON_NO_TARGET_HOOKS}: {target_hooks}")
@@ -206,12 +210,11 @@ def inspect_hook_trust(
         )
     )
     missing = tuple(sorted(set(source_trusted) - set(target_entries)))
-    stale = tuple(sorted(set(source_stale) | set(target_stale)))
     result = _with(
         result,
         already_trusted=already,
         missing=missing,
-        stale=stale,
+        stale=target_stale,
     )
     if not identical:
         return _blocked(result, REASON_CONTENT_DIFFERS)

@@ -1,7 +1,13 @@
 {
  "id": "hook-trust",
  "title": "Hook trust",
- "status": "draft-copy",
+ "status": "observed",
  "page": "machines",
- "position": 2
+ "position": 2,
+ "current": "Codex trust is keyed by the literal hooks path. Lane setup refreshes the installed main checkout hashes before mirroring only byte-identical hooks into a lane. Stale source trust directs project refresh in the main checkout; modified lane content still needs an explicit trust decision.",
+ "sources": [
+  "packages/yoke-harness/src/yoke_harness/harness_setup_reconcile.py",
+  "packages/yoke-contracts/src/yoke_contracts/codex_lane_hook_trust.py",
+  "docs/hooks.md"
+ ]
 }
