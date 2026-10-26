@@ -46,10 +46,10 @@ _WRITE_VERBS = {
     ),
     "config": frozenset("set unset rename-section remove-section edit".split()),
 }
+# ``-v`` / ``--verbose`` stay out: with a name, ``branch -v`` creates it.
 _READ_FORMS = {
     "branch": frozenset(
-        "-l --list --contains --no-contains --merged --no-merged --points-at"
-        " -v -vv --verbose".split()
+        "-l --list --contains --no-contains --merged --no-merged --points-at".split()
     ),
     "config": frozenset(
         "-l --list --get --get-all --get-regexp --get-urlmatch --get-color"
@@ -88,12 +88,34 @@ def git_subcommand(tokens: List[str]) -> Optional[str]:
     return None if index is None else tokens[index]
 
 
+def _is_write_flag(sub: str, token: str) -> bool:
+    """True when ``token`` selects a write flag the way git parses it.
+
+    A long flag matches any write flag it abbreviates, as git accepts
+    unique prefixes. A short cluster matches by letter, up to a letter
+    whose value is attached (``-uorigin``, ``-f<file>``).
+    """
+    writes = _WRITE_FLAGS.get(sub, frozenset())
+    if token.startswith("--"):
+        name = token.split("=", 1)[0]
+        return len(name) > 2 and any(flag.startswith(name) for flag in writes)
+    value_flags = _CONFIG_VALUE_FLAGS if sub == "config" else frozenset()
+    for letter in token[1:]:
+        if f"-{letter}" in writes:
+            return True
+        if f"-{letter}" in value_flags:
+            return False
+    return False
+
+
 def _listing_is_read(sub: str, args: List[str]) -> bool:
     flags, positionals = set(), []
     i = 0
     while i < len(args):
         token = args[i]
         if token.startswith("-"):
+            if _is_write_flag(sub, token):
+                return False
             flags.add(token.split("=", 1)[0])
             if sub == "config" and token in _CONFIG_VALUE_FLAGS:
                 i += 1
@@ -101,8 +123,6 @@ def _listing_is_read(sub: str, args: List[str]) -> bool:
             positionals.append(token)
         i += 1
     first = positionals[0] if positionals else ""
-    if flags & _WRITE_FLAGS.get(sub, frozenset()):
-        return False
     if first in _WRITE_VERBS.get(sub, frozenset()):
         return False
     if sub == "remote":
