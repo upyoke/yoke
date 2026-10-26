@@ -25,14 +25,15 @@ Watcher subscription and continuation depend on these generated facts:
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
 `agent_wake` in `runtime/harness/<harness-dir>/manifest.json`, rendered from
-`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
+`yoke_contracts.harness_wake_capability`; the message column is `message_stopped` in
+`session_control`. Change the contract and re-render; never
 restate one of these facts on a document's own authority.
 
-| Harness | Idle wake (resume an ended turn) | Timer wake | Verified on |
-|---|---|---|---|
-| `claude-code` | supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice | supported (`ScheduleWakeup`) | `claude-cli` |
-| `codex` | none | none | `codex-cli` |
-| `cursor` | supported (`notify_on_output`) | none | `cursor-cli` |
+| Harness | Idle wake (resume an ended turn) | Timer wake | Message resumes a parked worker | Verified on |
+|---|---|---|---|---|
+| `claude-code` | supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice | supported (`ScheduleWakeup`) | claude-cli | `claude-cli` |
+| `codex` | none | none | codex-cli | `codex-cli` |
+| `cursor` | supported (`notify_on_output`) | none | cursor-cli | `cursor-cli` |
 
 Evidence behind each row:
 

@@ -1,9 +1,9 @@
 <!-- BEGIN GENERATED: harness-wake-capability -->
-Source: `agent_wake` in `.yoke/harness/<harness-dir>/manifest.json`, from `yoke_contracts.harness_wake_capability`.
+Source: `agent_wake` and `session_control` (`message_stopped`) in `.yoke/harness/<harness-dir>/manifest.json`.
 
-- `claude-code` — idle wake: supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice; timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
-- `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
-- `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
+- `claude-code` — idle wake: supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice; timer wake: supported (`ScheduleWakeup`); message resumes a parked worker: claude-cli. Verified on claude-cli.
+- `codex` — idle wake: none; timer wake: none; message resumes a parked worker: codex-cli. Verified on codex-cli.
+- `cursor` — idle wake: supported (`notify_on_output`); timer wake: none; message resumes a parked worker: cursor-cli. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->
 
 

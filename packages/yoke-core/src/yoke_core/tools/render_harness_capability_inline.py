@@ -34,6 +34,7 @@ from yoke_contracts.harness_wake_capability import (
     HARNESS_WAKE_CAPABILITIES,
     HarnessWakeCapability,
 )
+from yoke_contracts.session_control.capabilities import capabilities_for_harness
 from yoke_core.domain.agents_render_workspace import resolve_target_root_for_cli
 from yoke_core.tools.generated_block_render import (
     RenderResult,
@@ -49,6 +50,7 @@ BEGIN_MARKER: str = begin_marker(SLUG)
 END_MARKER: str = end_marker(SLUG)
 
 MANIFEST_FIELD: str = "agent_wake"
+SESSION_CONTROL_FIELD: str = "session_control"
 MANIFEST_PATH_TEMPLATE: str = "runtime/harness/<harness-dir>/manifest.json"
 CANONICAL_MODULE: str = "yoke_contracts.harness_wake_capability"
 REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_harness_capability_inline"
@@ -119,13 +121,23 @@ def _idle_phrase(cap: HarnessWakeCapability) -> str:
     return phrase
 
 
+def _message_resume_phrase(harness_id: str) -> str:
+    surfaces = [
+        surface
+        for surface, facts in capabilities_for_harness(harness_id).items()
+        if facts["message_stopped"] == "supported"
+    ]
+    return ", ".join(surfaces) or "none"
+
+
 def _harness_line(harness_id: str, cap: HarnessWakeCapability) -> str:
     idle = _idle_phrase(cap)
     timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
+    resume = _message_resume_phrase(harness_id)
     verified = cap.verified_on_surface or "not verified"
     return (
-        f"- `{harness_id}` — idle wake: {idle}; timer wake: {timer}. "
-        f"Verified on {verified}."
+        f"- `{harness_id}` — idle wake: {idle}; timer wake: {timer}; "
+        f"message resumes a parked worker: {resume}. Verified on {verified}."
     )
 
 
@@ -133,7 +145,8 @@ def _provenance_lines(manifest_path: str) -> list[str]:
     return [
         "Wake capability is a manifest fact, not prose. Source of truth:",
         f"`{MANIFEST_FIELD}` in `{manifest_path}`, rendered from",
-        f"`{CANONICAL_MODULE}`. Change the contract and re-render; never",
+        f"`{CANONICAL_MODULE}`; the message column is `message_stopped` in",
+        f"`{SESSION_CONTROL_FIELD}`. Change the contract and re-render; never",
         "restate one of these facts on a document's own authority.",
     ]
 
@@ -141,8 +154,8 @@ def _provenance_lines(manifest_path: str) -> list[str]:
 def build_compact_block() -> str:
     """Return the short per-harness list used by working documents."""
     lines = [
-        f"Source: `{MANIFEST_FIELD}` in `.yoke/harness/<harness-dir>/manifest.json`, "
-        f"from `{CANONICAL_MODULE}`.",
+        f"Source: `{MANIFEST_FIELD}` and `{SESSION_CONTROL_FIELD}` "
+        "(`message_stopped`) in `.yoke/harness/<harness-dir>/manifest.json`.",
         "",
     ]
     for harness_id, cap in HARNESS_WAKE_CAPABILITIES.items():
@@ -155,14 +168,18 @@ def build_table_block() -> str:
     lines = [
         *_provenance_lines(MANIFEST_PATH_TEMPLATE),
         "",
-        "| Harness | Idle wake (resume an ended turn) | Timer wake | Verified on |",
-        "|---|---|---|---|",
+        "| Harness | Idle wake (resume an ended turn) | Timer wake "
+        "| Message resumes a parked worker | Verified on |",
+        "|---|---|---|---|---|",
     ]
     for harness_id, cap in HARNESS_WAKE_CAPABILITIES.items():
         idle = _idle_phrase(cap)
         timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
+        resume = _message_resume_phrase(harness_id)
         verified = cap.verified_on_surface or "not verified"
-        lines.append(f"| `{harness_id}` | {idle} | {timer} | `{verified}` |")
+        lines.append(
+            f"| `{harness_id}` | {idle} | {timer} | {resume} | `{verified}` |"
+        )
     lines.append("")
     lines.append("Evidence behind each row:")
     lines.append("")
