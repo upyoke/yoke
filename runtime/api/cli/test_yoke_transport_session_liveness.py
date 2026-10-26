@@ -127,8 +127,8 @@ def test_wait_run_ticks_liveness_inside_the_poll_scope() -> None:
             _recording_liveness(events),
         ),
         patch.object(
-            github_actions_run_wait,
-            "call_dispatcher",
+            github_actions_run_wait.github_actions_workflow,
+            "_call",
             return_value=_response("github_actions.wait_run", "success"),
         ),
     ):

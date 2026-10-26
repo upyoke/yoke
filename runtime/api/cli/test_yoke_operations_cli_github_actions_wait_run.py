@@ -69,7 +69,7 @@ def _run_wait(*argv: str, states: List[tuple[str, str]], clock=None):
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with (
-            patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher),
+            patch.object(wait_mod.github_actions_workflow, "_call", side_effect=stub_call_dispatcher),
             patch.object(wait_mod, "ensure_handlers_loaded"),
             patch.object(wait_mod, "now", lambda: next(ticks)),
             patch.object(wait_mod, "sleep", sleeps.append),
@@ -177,7 +177,7 @@ def test_wait_run_dispatch_error_remains_pending_until_success() -> None:
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with (
-            patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher),
+            patch.object(wait_mod.github_actions_workflow, "_call", side_effect=stub_call_dispatcher),
             patch.object(wait_mod, "ensure_handlers_loaded"),
             patch.object(wait_mod, "now", lambda: next(ticks)),
             patch.object(wait_mod, "sleep", sleeps.append),
@@ -217,7 +217,7 @@ def test_wait_run_unreadable_past_budget_exits_pending() -> None:
 
     with (
         patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
-        patch.object(wait_mod, "call_dispatcher", return_value=response),
+        patch.object(wait_mod.github_actions_workflow, "_call", return_value=response),
         patch.object(wait_mod, "ensure_handlers_loaded"),
         patch.object(wait_mod, "now", side_effect=lambda: next(ticks)),
         patch.object(wait_mod, "sleep", side_effect=sleeps.append),
@@ -265,3 +265,38 @@ def test_wait_run_missing_args_prints_sanctioned_usage() -> None:
     assert rc == 2
     assert out.getvalue() == ""
     assert "yoke github-actions wait-run" in err.getvalue()
+
+
+def test_wait_run_local_authority_uses_local_dispatch() -> None:
+    workflow = wait_mod.github_actions_workflow
+    local_dispatch = object()
+    response = _response("github_actions.wait_run", "success", message="success")
+    with (
+        patch.dict("os.environ", {"YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY": "1"}),
+        patch.object(wait_mod, "ensure_handlers_loaded"),
+        patch.object(workflow, "ensure_handlers_loaded"),
+        patch.object(wait_mod, "ClientSessionLiveness"),
+        patch.object(
+            workflow.local_github,
+            "resolve_github_actions_bootstrap_dispatch",
+            return_value=local_dispatch,
+        ),
+        patch.object(workflow, "call_dispatcher", return_value=response) as dispatch,
+        patch.object(workflow, "build_actor") as build_actor,
+    ):
+        result = wait_mod.wait_for_run_completion(
+            {"repo": "o/r", "run_id": "123", "project": "yoke"},
+            session_id="test-session",
+            json_mode=False,
+            timeout_sec=600,
+        )
+    assert result == 0
+    dispatch.assert_called_once_with(
+        function_id="github_actions.wait_run",
+        target=workflow.TargetRef(kind="global"),
+        payload={"repo": "o/r", "run_id": "123", "project": "yoke"},
+        actor=build_actor.return_value,
+        request_id=None,
+        local_only=True,
+        _local_dispatch=local_dispatch,
+    )
