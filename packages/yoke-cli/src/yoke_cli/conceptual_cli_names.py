@@ -14,6 +14,7 @@ from yoke_cli.commands.adapters.conflict_survey_status import (
     CONFLICT_SURVEY_STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.dash import DASH_SURVEY_USAGE
+from yoke_cli.commands.adapters.qa_requirement_add_help import QA_REQUIREMENT_ADD_USAGE
 from yoke_cli.commands.adapters.qa_read import (
     QA_REQUIREMENT_LIST_USAGE,
     QA_RUN_LIST_USAGE,
@@ -26,6 +27,7 @@ from yoke_contracts.session_control.launch_bootstrap import (
 
 # Conceptual argv prefix -> ((canonical cli form, one-line recipe), ...)
 CONCEPTUAL_CLI_NAMES: dict[tuple[str, ...], tuple[tuple[str, str], ...]] = {
+    ("qa", "case", "create"): (("yoke qa requirement add", QA_REQUIREMENT_ADD_USAGE),),
     ("qa", "evidence", "list"): (
         ("yoke qa requirement list", QA_REQUIREMENT_LIST_USAGE),
         ("yoke qa run list", QA_RUN_LIST_USAGE),
@@ -36,7 +38,10 @@ CONCEPTUAL_CLI_NAMES: dict[tuple[str, ...], tuple[tuple[str, str], ...]] = {
     ),
     ("messages", "send"): (("yoke say", SAY_USAGE),),
     ("say", "inbox"): (
-        ("yoke messages get MESSAGE-ID", "Messages arrive through the session hook; read a known message with `yoke messages get MESSAGE-ID` and acknowledge it with `yoke messages acknowledge MESSAGE-ID`."),
+        (
+            "yoke messages get MESSAGE-ID",
+            "Messages arrive through the session hook; read a known message with `yoke messages get MESSAGE-ID` and acknowledge it with `yoke messages acknowledge MESSAGE-ID`.",
+        ),
     ),
     ("sessions", "register"): (
         (

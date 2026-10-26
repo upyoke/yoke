@@ -293,8 +293,8 @@ def run(
             file=sys.stderr,
         )
         print(
-            "Re-run `python3 -m yoke_core.engines.done_transition "
-            f"{public_ref}` "
+            "Re-run `yoke merge item "
+            f'{public_ref} --result "<result>" --verification "<evidence>"` '
             "to resume from step 6.",
             file=sys.stderr,
         )
