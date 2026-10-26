@@ -11,9 +11,7 @@ import urllib.request
 import pytest
 
 from runtime.api.cli.https_relay_security_test_support import (
-    CAPABILITY_SECRET,
     CONNECTION,
-    NESTED_PASSWORD,
     TRANSPORT_TOKEN,
     USER_TOKEN,
     sensitive_request,
@@ -123,7 +121,7 @@ def test_bounded_json_preserves_certificate_evidence(wrapped, replay_safe):
 
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_certificate_diagnostic_redacts_all_relay_secrets(monkeypatch, wrapped):
-    secrets = (TRANSPORT_TOKEN, USER_TOKEN, NESTED_PASSWORD, CAPABILITY_SECRET)
+    secrets = (TRANSPORT_TOKEN, USER_TOKEN)
     failure = certificate_error(
         62, "Hostname mismatch " + " ".join(secrets) + "\n\x1b[31m" + "x" * 2048
     )

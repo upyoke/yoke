@@ -1,7 +1,9 @@
 {
  "id": "redaction",
  "title": "Redaction",
- "status": "draft-copy",
+ "status": "observed",
  "page": "security",
- "position": 3
+ "position": 3,
+ "summary": "HTTPS relay response scrubbing uses the transport bearer, declared secret payload paths and caller sensitive_values. Capability secret values and Pulumi checkpoint state fields are declared by function; public payload values such as desktop artifact tokens remain intact.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/transport/https_request_fields.py", "packages/yoke-cli/src/yoke_cli/transport/https_response_policy.py", "runtime/api/cli/test_yoke_https_relay_redaction.py"]
 }

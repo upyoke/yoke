@@ -15,8 +15,6 @@ from yoke_contracts.api.function_call import (
 
 
 USER_TOKEN = "ghu-user-token-must-not-escape"
-NESTED_PASSWORD = "nested-password-must-not-escape"
-CAPABILITY_SECRET = "capability-secret-must-not-escape"
 TRANSPORT_TOKEN = "relay-bearer-must-not-escape"
 CONNECTION = HttpsConnection(
     api_url="https://api.example",
@@ -26,19 +24,32 @@ CONNECTION = HttpsConnection(
 
 def sensitive_request() -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="projects.github_binding.bind",
+        function="projects.capability_secret.set",
         actor=ActorContext(session_id="sensitive-relay-test"),
         target=TargetRef(kind="global"),
         request_id="sensitive-relay-request",
         payload={
-            "github_user_access_token": USER_TOKEN,
-            "nested": {
-                "credentials": {"password": NESTED_PASSWORD},
-            },
-            "capability": {
-                "key": "secret_access_key",
-                "value": CAPABILITY_SECRET,
-            },
+            "project": "example",
+            "cap_type": "database",
+            "key": "DATABASE_URL",
+            "value": USER_TOKEN,
+        },
+    )
+
+
+def declared_secret_request(
+    function: str, field: str, value: str
+) -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function=function,
+        actor=ActorContext(session_id="actions-secret-relay-test"),
+        target=TargetRef(kind="global"),
+        request_id="actions-secret-relay-request",
+        payload={
+            "repo": "example/project",
+            "name": "DATABASE_URL",
+            field: value,
+            "project": "example",
         },
     )
 
@@ -92,13 +103,12 @@ def serialized_response(response: Any) -> str:
 
 
 __all__ = [
-    "CAPABILITY_SECRET",
     "CONNECTION",
     "FakeResponse",
-    "NESTED_PASSWORD",
     "NoReadResponse",
     "TRANSPORT_TOKEN",
     "USER_TOKEN",
+    "declared_secret_request",
     "envelope",
     "sensitive_request",
     "serialized_response",
