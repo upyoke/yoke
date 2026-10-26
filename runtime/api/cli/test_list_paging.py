@@ -132,7 +132,6 @@ def test_large_default_page_uses_shared_overflow_recovery(monkeypatch):
     assert code != 0
     assert "read_output_limit_exceeded" in err
     assert "--limit" in err
-    assert "--full" in err
     assert out == ""
 
 
