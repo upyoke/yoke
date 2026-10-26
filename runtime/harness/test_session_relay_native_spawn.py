@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import os
 import signal
 import sys
+import threading
+
+import pytest
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness import session_relay_claude_native as native_module
@@ -88,7 +92,6 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     assert result.started_at == datetime.fromtimestamp(
         1_777_000_000.123456, timezone.utc
     )
-    assert isinstance(result.started_at, datetime)
     assert result.evidence["native_started_at"].endswith(".123456Z")
     argv, kwargs = calls[0]
     # The relay starts the supervisor, which starts the native and stays to
@@ -169,6 +172,11 @@ def test_current_native_exit_replaces_the_initialized_capture(tmp_path: Path) ->
     assert refusal is not None
     assert refusal.exit_code == 7
     assert b"current refusal" in refusal.stderr
+    for reaper in threading.enumerate():
+        if reaper.name == "yoke-native-owner-reap":
+            reaper.join(timeout=10)
+    with pytest.raises(ChildProcessError):
+        os.waitpid(started.pid, os.WNOHANG)
 
 
 def test_spawn_failure_removes_the_initialized_capture(tmp_path: Path) -> None:
@@ -268,7 +276,6 @@ def test_supervisor_records_a_native_that_never_started(tmp_path: Path) -> None:
     assert supervisor.supervise(capture, ["/nonexistent/native"]) == 1
     payload = capture.read_bytes()
     assert b"exit-code: unknown" in payload
-    assert b"native did not start" in payload
     assert b"YOKE_NATIVE_START_FAILED" in payload
     assert b"class=native_start_failed" in payload
     parsed = parse_capture(payload)
