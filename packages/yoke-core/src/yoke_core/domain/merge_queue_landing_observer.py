@@ -228,7 +228,7 @@ def observe_pending_landings(
                 # this head; with one, dedupe only that arming's notice.
                 head_sha = readback.state.head_sha if readback.state else ""
                 head_key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                if readback.queue_recovery.get("ahead"):
+                if "ahead" in readback.queue_recovery:
                     head_key += ":" + readback.queue_recovery.get("action", "")
                 episode = row.get("merge_queue_enqueued_at")
                 episode = parse_instant(episode) if episode not in (None, "") else None

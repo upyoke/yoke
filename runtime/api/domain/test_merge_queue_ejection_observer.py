@@ -13,10 +13,12 @@ Required-check-triggered ejections live in
 from __future__ import annotations
 
 import json
+from functools import partial
 
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     GITHUB_MERGED_AT,
     INJECTED_AT,
+    armed_awaiting_checks,
     ejected_message_id,
     inject,
     merged,
@@ -33,6 +35,9 @@ from yoke_core.domain.merge_queue_landing_observer import observe_pending_landin
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
 from yoke_core.domain.merge_queue_landing_refresh import read_refresh
 from yoke_core.domain.merge_queue_landing_record_state import CONFLICTED
+from yoke_core.domain.merge_queue_ejection_recovery import recover_ejection
+from yoke_core.engines.merge_worktree_pr_membership import PrQueueMembership
+from yoke_core.engines.merge_worktree_pr_queue import QueueMember
 
 
 def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
@@ -165,3 +170,34 @@ def test_an_unreadable_membership_cannot_prove_an_ejection():
     )
     assert observed["ejected"] == 0
     assert message_count(conn) == 0
+
+
+def test_an_unmergeable_entry_notifies_once_github_decides(monkeypatch):
+    """GitHub reports mergeable=UNKNOWN while it recomputes; that is no stop."""
+    conn = observer_connection()
+    monkeypatch.setattr(
+        landing_observer,
+        "recover_ejection",
+        partial(
+            recover_ejection,
+            read_queue=lambda *_a, **_kw: ([QueueMember("42", "feature")], None),
+            read_files=lambda *_a: ((), None),
+        ),
+    )
+
+    def entry(mergeable):
+        member = PrQueueMembership(
+            in_queue=True, entry_state="UNMERGEABLE", mergeable=mergeable
+        )
+        return observe(
+            conn,
+            read_state=armed_awaiting_checks,
+            read_membership=lambda _ctx, _pr: (member, None),
+        )
+
+    assert entry("UNKNOWN")["ejected"] == 0
+    assert message_count(conn) == 0
+    assert entry("CONFLICTING")["ejected"] == 1
+    entry("CONFLICTING")
+    assert message_count(conn) == 1
+    assert read_landing_record(conn, 101).state == CONFLICTED

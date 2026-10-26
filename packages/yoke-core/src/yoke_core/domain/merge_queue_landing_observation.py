@@ -56,8 +56,9 @@ def classify_pending_landing(
     queue yet or is armed and waiting for its own checks, and so does an
     open pull request whose merge state GitHub reports unknown: GitHub
     reports that while it recomputes, including mid-merge after it clears
-    the queue entry and merge-when-ready. An UNMERGEABLE entry is an
-    ejection even before GitHub removes it from the queue.
+    the queue entry and merge-when-ready, and so does an UNMERGEABLE entry
+    whose mergeability GitHub has not decided. A decided UNMERGEABLE entry
+    is an ejection even before GitHub removes it from the queue.
     """
     if readback.state is None:
         return LandingObservation(WAITING)

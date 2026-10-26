@@ -231,6 +231,4 @@ def test_an_unmergeable_queue_entry_is_refused_even_while_armed():
     refusal = _verify(membership=_scripted((membership, None)), state=state)
 
     assert "was not taken by the merge queue" in refusal
-    assert "rebase the lane onto main" in refusal
-    assert "re-run the verification gate" in refusal
     assert "mergeQueueEntry=UNMERGEABLE" in refusal

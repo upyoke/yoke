@@ -125,14 +125,17 @@ class LandingReadback:
         return self.state.auto_merge_active and landing_eligible(self.state)
 
     def undetermined(self) -> bool:
-        """Open and unrefused, but GitHub reports unknown: e.g. mid-merge."""
+        """Open and unrefused, but GitHub has not decided: mid-merge, or an
+        UNMERGEABLE entry whose mergeability it is still recomputing."""
         state, member = self.state, self.membership
         if state is None or state.merged or state.closed or self.failed_required:
             return False
-        refused = member is not None and (
-            member.mergeable == "CONFLICTING" or member.entry_state == "UNMERGEABLE"
-        )
-        return not refused and (state.merge_state_status or "").lower() == "unknown"
+        merge_state = (state.merge_state_status or "").lower()
+        if member is not None and member.entry_state == "UNMERGEABLE":
+            decided = member.mergeable in {"MERGEABLE", "CONFLICTING"}
+            return not decided and merge_state != "dirty"
+        refused = member is not None and member.mergeable == "CONFLICTING"
+        return not refused and merge_state == "unknown"
 
     def describe(self) -> str:
         """The four fields behind an admission decision, as named readings."""

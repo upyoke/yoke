@@ -56,12 +56,12 @@ For specs:
 
 - Blocking cases create release preconditions: a throwaway walk to stop,
   a fixture PR to eject, or short traffic.
-- Put real-event or long-wait evidence on the item: "record the next real
-  occurrence", outside blocking QA.
-- Split missions by machine for parallel host queues; order a small
-  cross-machine mission after the single-machine ones.
+- Real-event or long-wait evidence: "record the next real occurrence" on the
+  item, outside blocking QA.
+- Split missions by machine; run a small cross-machine one last.
+- Seat-only commands: "seat does X after merge", not a worker step.
 
-Take a temporary claim to write:
+Write under a temporary claim:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason steering
