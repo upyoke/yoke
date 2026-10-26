@@ -18,7 +18,7 @@ server. Agents and CI run the same build with
 `yoke dev run -- python3 docs/teaching/tools/build.py` (and `--check`) from
 the checkout they mean to build. This registered scanner needs no harness
 session or work claim. It writes only the ignored page; it never rewrites the model.
-Agents read the model JSON directly. Yokepedia is the only reading interface.
+Agents read the model JSON directly. Yokepedia displays Sources.
 Model JSON files retain their identities and remain the editable source of
 research truth.
 
@@ -39,7 +39,7 @@ the overview it displays on entry. Under The docs, the overview and actual
 category/file tree appear once; agent replies and terminal screens sit under setup.
 Dashboard teaching stays with the dashboard prototype. Instructions for
 resuming work sit under Skills; changing work state is not teaching content.
-Replaced proposals are retained in History. Research proposals appear in attached research sections, separate from actual source content.
+Topics, Journeys and Research are not included in Yokepedia.
 
 Source groups in `tools/explorer_sources.py` are editorial navigation, not
 new authorities. New surfaces must be assigned to a group; the build reports
@@ -254,28 +254,14 @@ Command help separates root output from the command-group tree. Every group has 
 Cards have no fixed heights or nested preview layers; each title and Explore link opens the next level.
 
 
-## One guide, three ways to browse
+## Sources guide
 
-Sources keeps the existing context categories and adds Pack documentation and Decisions. Topics follows the original
-concept hierarchy; Journeys follows scenario and lesson order. These are recorded
-situations, not executable workflow sequences. Research collects teaching plans,
-design decisions, gaps, evidence, history, and dashboard research owned elsewhere.
-No research record is deleted or promoted into shipped instructions by this view.
-
-`explorer_research.py` connects explicit topic/surface references, named commands
-and skills, and exact cited source files. Connections show their basis; shared-file
-evidence is related research, never automatically proof of a claim. Source pages
-keep these links in expandable Connected teaching sections. Unattached decisions
-and gaps remain accessible through Research; topic pages show direct teaching
-mapping counts, including zero. Parent mappings do not cover child topics.
-
-The page embeds each original record for full content, including every field and
-citation. Research has its own status explanation and no agent-output size badge:
-research prose is not delivered context. History isolates superseded proposals.
-`explorer_inventory.py` folds registry coverage and document-link counts into the
-same UI, with connections from Command help, Public docs and Project documentation.
-The guide displays each record independently; old page paths and anchors are retired.
-
+Sources is the only browsing section. Pack documentation and Decisions sit
+alongside the other context sources. The guide does not generate topic trees,
+journeys, research pages, coverage inventories or links to those pages.
+Approved decisions remain readable under Decisions, with their original fields
+and citations. Shared model records remain available to repository tooling;
+they are not additional browsing sections.
 
 Source freshness shows the build time, checkout commit, dirty state and a digest
 of inspected files plus registry identities. Each build re-reads documents, runtime

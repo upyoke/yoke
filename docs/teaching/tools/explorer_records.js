@@ -1,38 +1,4 @@
-/* Research is attached to sources; it never masquerades as delivered context. */
-function viewOf(node) {
-  return rootOf(node)?.view || 'sources';
-}
-function renderViewNav() {
-  const nav = document.querySelector('#view-nav');
-  nav.replaceChildren();
-  for (const [id, title] of [['sources', 'Sources'], ['topics', 'Topics'],
-    ['journeys', 'Journeys'], ['research', 'Research']]) {
-    const link = text('button', title, viewOf(focus) === id ? 'active' : '');
-    link.onclick = () => choose(byId.get('view:' + id) || null);
-    nav.append(link);
-  }
-}
-function researchLinks(node, container) {
-  const groups = Object.entries(node.research_links || {}).filter(([, links]) => links.length);
-  if (!groups.length) return;
-  const section = text('section', '', 'research-links');
-  section.append(text('h2', 'Connected teaching'));
-  section.append(text('p', 'Recorded relationships and source citations; these do not establish live delivery.', 'summary'));
-  for (const [label, links] of groups) {
-    const disclosure = text('details', '', 'research');
-    disclosure.append(text('summary', `${label} · ${links.length}`));
-    const list = text('ul', '', 'reference-list');
-    for (const edge of links) {
-      const target = byId.get(edge.target);
-      if (!target) continue;
-      const item = text('li', '');
-      item.append(nodeLink(target, target.title), text('small', edge.reason));
-      list.append(item);
-    }
-    disclosure.append(list); section.append(disclosure);
-  }
-  container.append(section);
-}
+/* Decision records and source build information. */
 function recordValue(value) {
   if (Array.isArray(value)) {
     const list = text('ul', '');
@@ -49,7 +15,7 @@ function recordValue(value) {
   }
   return text('p', String(value));
 }
-function fillResearch(node, record, body) {
+function fillRecord(node, record, body) {
   const labels = {current: 'Recorded current state', desired: 'Proposed teaching',
     planned: 'Planned changes', proposed_content: 'Proposed content', text: 'Details',
     note: 'Explanation', need: 'What the reader needs', when: 'When it is needed',
@@ -68,7 +34,7 @@ function fillResearch(node, record, body) {
     row.append(text('b', key.replaceAll('_', ' ')), recordValue(value)); notes.append(row);
   }
   body.append(notes);
-  const source = text('a', 'Open canonical research record ↗');
+  const source = text('a', 'Open decision record ↗');
   source.href = node.record; source.target = '_blank'; source.rel = 'noopener'; body.append(source);
 }
 
@@ -77,6 +43,6 @@ function showBuildInfo(info) {
   box.append(text('p', `Built ${new Date(info.built_at).toLocaleString()} from ${info.input_files} inspected files.`));
   box.append(text('p', `Checkout: ${info.commit}${info.dirty ? ' + uncommitted changes' : ''}`));
   box.append(text('p', `Input fingerprint: ${info.input_digest}`));
-  box.append(text('p', 'Source content and inventories are rebuilt from this checkout. Research retains its recorded state; rebuilding does not reverify evidence.'));
+  box.append(text('p', 'Source content and inventories are rebuilt from this checkout. Decision records retain their recorded state; rebuilding does not reverify evidence.'));
   box.append(text('p', 'Refresh source data: yoke dev yokepedia'));
 }

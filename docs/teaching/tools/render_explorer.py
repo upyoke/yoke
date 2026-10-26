@@ -1,4 +1,4 @@
-"""Build the unified responsive teaching guide from sources and research."""
+"""Build the responsive Sources guide."""
 
 import json
 from pathlib import Path
@@ -24,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_research.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -190,14 +190,9 @@ def build_explorer(views, pages):
     Embedded documents and records are verbatim copies of tracked files whose
     owners scan them, so the scan covers the shell, each node and build data.
     """
-    from explorer_research import add_research
-    from explorer_inventory import add_inventories, source_snapshot
+    from explorer_inventory import source_snapshot
 
     nodes = map_nodes(pages.m)
-    if pages.m.problems:
-        return {}
-    add_research(nodes, pages.m)
-    add_inventories(nodes, pages)
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
@@ -266,7 +261,6 @@ def page_html(data, model):
 </head>
 <body>
 <header class="site-header"><a class="brand" href="{PAGE}">yoke <span>Yokepedia</span></a><span class="review">Design preview</span></header>
-<nav id="view-nav" aria-label="Browse teaching"></nav>
 <div class="page-layout">
 <aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
 <main id="main"><nav id="trail" aria-label="Breadcrumbs"></nav><div id="world"></div>

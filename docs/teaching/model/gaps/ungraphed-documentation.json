@@ -2,7 +2,7 @@
  "id": "ungraphed-documentation",
  "title": "Documentation coverage beyond mapped source groups",
  "status": "observed",
- "text": "Sources now includes versioned Pack documentation, installed Pack guides, approved teaching decisions, historical decision files and missing repository document collections. Packaged mirrors and the separately represented global skill remain excluded from the documentation-area graph. Workbench guidance remains owned by the dashboard prototype. Journey and Research entries still need individual review before removing those tabs; this source inventory does not prove teaching completeness or live receipt.",
+ "text": "Sources now includes versioned Pack documentation, installed Pack guides, approved teaching decisions, historical decision files and missing repository document collections. Packaged mirrors and the separately represented global skill remain excluded from the documentation-area graph. Workbench guidance remains owned by the dashboard prototype. Yokepedia displays only Sources; topic, journey and research pages are removed. The source inventory does not prove teaching completeness or live receipt.",
  "position": 15,
  "owner": "Teaching source inventory",
  "sources": ["docs/teaching/model/docs-graph.json", "docs/teaching/tools/explorer_inventory.py", "docs/teaching/README.md", "docs/teaching/tools/explorer_source_documents.py"]

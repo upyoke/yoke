@@ -9,7 +9,7 @@ function updateSourceList() {
   const overview = text('button', 'Overview', !focus ? 'active overview' : 'overview');
   overview.onclick = home;
   list.append(overview);
-  roots.filter(node => !node.view).forEach(node => {
+  roots.forEach(node => {
     const button = text('button', '', rootOf(focus) === node ? 'active' : '');
     const dot = text('span', '', 'source-dot');
     dot.style.background = '#688b7b';
