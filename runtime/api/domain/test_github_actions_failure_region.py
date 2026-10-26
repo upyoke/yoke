@@ -54,6 +54,28 @@ class TestLocate:
         ]
         assert not any("added package" in line for line in region.lines)
 
+    def test_recovered_early_error_yields_to_the_step_that_failed_the_job(self):
+        text = "\n".join(
+            [
+                "##[group]Run actions/checkout@v4",
+                "##[error]getaddrinfo EAI_AGAIN github.com",
+                "Retrying in 10 seconds",
+                "Checked out ref",
+                "##[group]Run actions/download-artifact@v4",
+                "Downloading artifact",
+                "##[error]read ECONNRESET",
+            ]
+        )
+
+        region = failure_region(text, max_lines=20, max_bytes=UNBOUNDED)
+
+        assert region.kind == REGION_ERROR_STEP
+        assert region.lines == [
+            "##[group]Run actions/download-artifact@v4",
+            "Downloading artifact",
+            "##[error]read ECONNRESET",
+        ]
+
     def test_log_without_markers_falls_back_to_its_end_before_teardown(self):
         text = "\n".join([*(f"line {i}" for i in range(30)), "Post job cleanup.", "x"])
 

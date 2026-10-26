@@ -6,8 +6,9 @@ module finds the failure region instead:
 
 1. pytest's ``FAILURES`` / ``ERRORS`` section through the end of its
    step, which carries every assertion and the short test summary;
-2. otherwise the step holding the first ``##[error]`` annotation, which
-   ends at the error that failed it;
+2. otherwise the step holding the last ``##[error]`` annotation, which
+   ends at the error that failed it (an earlier error may come from a
+   step that recovered on retry);
 3. otherwise the log itself, with post-job teardown removed.
 
 The region is bounded by lines and bytes. A pytest region keeps its head
@@ -91,8 +92,8 @@ def _locate(lines: Sequence[str]) -> Tuple[str, int, int]:
     for index, line in enumerate(lines):
         if _PYTEST_SECTION.match(line.strip()):
             return REGION_PYTEST, index, _step_end(lines, index)
-    for index, line in enumerate(lines):
-        if line.startswith(_ERROR_ANNOTATION):
+    for index in range(len(lines) - 1, -1, -1):
+        if lines[index].startswith(_ERROR_ANNOTATION):
             return REGION_ERROR_STEP, _step_start(lines, index), _step_end(lines, index)
     return REGION_LOG, 0, len(lines)
 
