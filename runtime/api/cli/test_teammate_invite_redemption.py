@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
 from threading import Barrier
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -28,7 +29,7 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_contracts.teammate_invite_wire import INVITE_REDEEM_PATH
 from yoke_contracts.timestamps import utc_now
 from yoke_core.api import app_factory
-from yoke_core.domain import events, machine_credentials
+from yoke_core.domain import events, machine_authorization_limits, machine_credentials
 from yoke_core.domain.api_tokens import verify_token
 
 ORIGIN = "https://team.example"
@@ -132,8 +133,11 @@ def test_connected_actor_and_secret_free_facts(
         [404, 410, 410, 410, 409, 403, 429],
     ),
 )
-def test_route_refusal_privacy(endpoint, store, caplog, reason, status):
+def test_route_refusal_privacy(endpoint, store, monkeypatch, caplog, reason, status):
     client, created, machine = endpoint
+    # One frozen instant 0.1s before a minute boundary keeps all requests in one window.
+    frozen = SimpleNamespace(time=lambda: 30_000_000 * 60 + 59.9)
+    monkeypatch.setattr(machine_authorization_limits, "time", frozen)
     conn, _, inviter, _ = store
     tokens = []
     if reason in {"expired", "revoked"}:
