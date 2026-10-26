@@ -127,6 +127,8 @@ def regate_instruction(failed: Sequence[LandingCheck]) -> str:
 
 def disarm_merge_when_ready(ctx: MergeContext, pr_num: str) -> str:
     """Disarm auto-merge; return a clause for the refusal, never raise."""
+    from yoke_core.domain.merge_queue_push_safety import HOLD_COMMAND
+
     result: QueueEntryResult = leave_merge_queue(ctx, pr_num)
     if result.success:
         return "merge-when-ready disarmed"
@@ -140,8 +142,8 @@ def disarm_merge_when_ready(ctx: MergeContext, pr_num: str) -> str:
     if already_clear:
         return "merge-when-ready already cleared"
     return (
-        f"merge-when-ready disarm failed: {detail}. Disable it on the "
-        "pull request before pushing a fix, or GitHub may auto-merge the "
+        f"merge-when-ready disarm failed: {detail}. Run `{HOLD_COMMAND}` "
+        "before pushing a fix, or GitHub may auto-merge the "
         "next green without this gate recording a verdict"
     )
 

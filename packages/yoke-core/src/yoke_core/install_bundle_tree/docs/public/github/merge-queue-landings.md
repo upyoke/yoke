@@ -48,7 +48,11 @@ This keeps a failed notice transport retryable on the next observation.
 
 When GitHub holds neither arming nor a viable queue entry, or the entry state
 is `UNMERGEABLE`, the observer sends one stopped-landing notice to the item's claim holder through the existing wake
-route. Required checks that failed or were cancelled appear in the notice;
+route. An explicit `yoke github merge-queue hold <item>` stays waiting without
+a stopped notice, including after a new head is pushed, until the PR is armed
+or queued again. If automatic disarming failed, the notice names that same
+hold command: run it before pushing a fix or re-entering `yoke merge item`.
+Required checks that failed or were cancelled appear in the notice;
 the stop is still reported if a later rerun passed without restoring arming.
 `mergeable=CONFLICTING` means the PR conflicts with the base: rebase onto the
 base, re-run verification and re-enter `yoke merge item`. An `UNMERGEABLE`

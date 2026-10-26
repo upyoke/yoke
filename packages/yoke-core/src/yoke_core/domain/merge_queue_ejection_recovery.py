@@ -111,11 +111,16 @@ def recover_ejection(
         dict(previous.recovery)
         if previous
         and previous.pr_number == pr_number
-        and previous.head_sha == state.head_sha
+        and (
+            previous.head_sha == state.head_sha
+            or previous.recovery.get("action") == "held"
+        )
         else {}
     )
     if recovery.get("action") == "held":
-        return replace(readback, queue_recovery=recovery)
+        if not state.auto_merge_active and not member.in_queue:
+            return replace(readback, queue_recovery=recovery)
+        recovery = {}
     dropped = not readback.admitted() and not readback.undetermined()
     if (
         dropped
