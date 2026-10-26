@@ -73,17 +73,16 @@ def test_execute_help_teaches_interrupted_run_redrive() -> None:
 
 def _create_stderr(env: dict[str, str]) -> str:
     from yoke_contracts.api.function_call import (
-        FunctionCallRequest,
         FunctionCallResponse,
     )
 
-    def stub(request: FunctionCallRequest) -> FunctionCallResponse:
+    def stub(*, function_id, **_kwargs) -> FunctionCallResponse:
         return FunctionCallResponse(
             success=True,
-            function=request.function,
-            version=request.version,
-            request_id=request.request_id,
+            function=function_id,
+            version="v1",
             result={
+                "target_environment_name": "prod",
                 "run_id": "run-20260805-001",
                 "status": "created",
                 "idempotency_key": "stage-1",
@@ -92,9 +91,13 @@ def _create_stderr(env: dict[str, str]) -> str:
         )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session", **env}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=stub,
+        with (
+            patch("yoke_cli.commands._helpers.call_dispatcher", side_effect=stub),
+            patch(
+                "yoke_cli.commands.adapters.deployment_execution_authority."
+                "call_dispatcher",
+                side_effect=stub,
+            ),
         ):
             with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 out = io.StringIO()
