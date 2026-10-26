@@ -174,7 +174,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     # Queue branches and commit subjects are unbounded. Drop optional Git
     # context before it can crowd the authority/trust instructions out of
     # the smallest harness channel; the checkout identity remains intact.
-    budget = min(INLINE_CONTEXT_BYTES.values())
+    budget = min(1200, min(INLINE_CONTEXT_BYTES.values()))
     from yoke_core.domain.session_orientation_setup import render_with_setup
 
     return render_with_setup(
