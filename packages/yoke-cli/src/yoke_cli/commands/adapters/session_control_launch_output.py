@@ -81,13 +81,6 @@ def _write_launch_detail(
         *level_rows(launch.get("level_placement")),
         ("Requested surface", launch.get("requested_surface")),
         ("Selected surface", launch.get("selected_surface")),
-        (
-            "Fallback used",
-            bool(
-                launch.get("selected_surface")
-                and launch.get("selected_surface") != launch.get("requested_surface")
-            ),
-        ),
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Placement", launch.get("placement_reason")),

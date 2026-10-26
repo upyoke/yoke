@@ -133,7 +133,6 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
                     "at session registration" if carries_selection else "not requested",
                 ),
                 ("Selected surface", result.get("selected_surface")),
-                ("Fallback used", bool(result.get("fallback_used"))),
                 ("Launchable", bool(result.get("launchable"))),
                 (
                     "Considered machines",

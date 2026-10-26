@@ -172,18 +172,11 @@ class LaunchPreview:
     def selected_surface(self) -> str | None:
         return self.selected_relay.surface if self.selected_relay else None
 
-    @property
-    def fallback_used(self) -> bool:
-        return bool(
-            self.selected_surface and self.selected_surface != self.requested_surface
-        )
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "outcome": self.outcome,
             "requested_surface": self.requested_surface,
             "selected_surface": self.selected_surface,
-            "fallback_used": self.fallback_used,
             "launchable": self.launchable,
             "considered_machine_ids": list(self.considered_machine_ids),
             "rejection_codes": list(self.rejection_codes),
