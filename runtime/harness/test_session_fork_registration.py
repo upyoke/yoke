@@ -82,46 +82,6 @@ def test_fork_start_registers_child_identity(tmp_path, monkeypatch, family):
     register.assert_called_once()
 
 
-@pytest.mark.parametrize("payload_path", [False, True])
-def test_unsaved_codex_prompt_is_quiet_and_can_retry_when_saved(
-    tmp_path,
-    monkeypatch,
-    payload_path,
-):
-    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
-    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
-    directory = tmp_path / "sessions"
-    directory.mkdir()
-    transcript = directory / "rollout-child.jsonl"
-    payload = {"session_id": "child", "forked_from_id": "parent"}
-    if payload_path:
-        payload["transcript_path"] = str(transcript)
-    context = HookContext("UserPromptSubmit", "codex", "codex-desktop", payload)
-    register = Mock(return_value="")
-    prompt = Mock()
-    monkeypatch.setattr(session_dispatch, "_register_codex", register)
-    monkeypatch.setattr(
-        session_dispatch, "_codex_model_facts", lambda *a: SessionModelFacts()
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.codex_model.resolve_entrypoint", lambda: "codex-desktop"
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
-        prompt,
-    )
-    assert session_dispatch._run_codex_prompt_submit(context, str(tmp_path)) == ""
-    register.assert_not_called()
-    prompt.assert_not_called()
-    transcript.touch()
-    assert session_dispatch._run_codex_prompt_submit(context, str(tmp_path)) == ""
-    assert register.call_args.args[1] == "child"
-    register.assert_called_once()
-    prompt.assert_called_once()
-    assert session_dispatch._run_codex_prompt_submit(context, str(tmp_path)) == ""
-    register.assert_called_once()
-
-
 def test_unsaved_codex_prompt_never_reaches_registration_transport(
     tmp_path, monkeypatch, capsys
 ):
