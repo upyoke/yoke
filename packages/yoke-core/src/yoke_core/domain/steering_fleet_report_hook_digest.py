@@ -24,8 +24,6 @@ def combined_hook_digest(
         prior = {}
     if not isinstance(prior, dict):
         prior = {}
-    if current == prior:
-        return ""
     changed = {key for key, value in current.items() if prior.get(key) != value}
     parts = [REPORT_BEGIN]
     if "unattended" in changed and (combined.unattended or "unattended" in prior):

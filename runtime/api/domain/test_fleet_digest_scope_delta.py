@@ -27,7 +27,9 @@ def test_scope_delta_matches_hook_and_watcher():
     assert "left" not in body
     assert "work-2" not in body
     assert watcher_dict(changed, prior)["digest"] == body
-    assert combined_hook_digest(changed, changed.fingerprint()) == ""
+    # The response stays valid even when the shared delivery gate suppresses it.
+    assert watcher_dict(changed, changed.fingerprint())["digest"]
+
 
 
 def test_ages_do_not_change_digest_identity():
@@ -43,3 +45,20 @@ def test_removed_scopes_have_stable_order():
     prior.update({"scope:z-last": "last", "scope:a-first": "first"})
     body = combined_hook_digest(current, json.dumps(prior))
     assert body.index("## a-first") < body.index("## z-last")
+
+
+def test_unchanged_watcher_response_emits_nothing():
+    from io import StringIO
+    from types import SimpleNamespace
+    from yoke_core.domain.fleet_delta_reports import ReportState, append_steering_reports
+
+    report = CombinedFleetReport(NOW, (ScopedFleetReport("scope", _report(1, NOW)),))
+    response = watcher_dict(report, report.fingerprint())
+    response["delivered"] = False
+    stream = StringIO()
+    append_steering_reports(
+        ["project"], observed_at=NOW, stream=stream, state=ReportState(),
+        call=lambda *_: SimpleNamespace(success=True, result={"settings_json": "{}"}),
+        report=response,
+    )
+    assert stream.getvalue() == ""
