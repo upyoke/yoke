@@ -40,13 +40,25 @@ def discovery_routes() -> set[tuple[str, ...]]:
     return listed_routes() | set(GROUP_ROUTES) | set(GUIDANCE_ROUTES)
 
 
+def _children(prefix: tuple[str, ...], routes) -> set[tuple[str, ...]]:
+    return {
+        route[: len(prefix) + 1]
+        for route in routes
+        if len(route) > len(prefix) and route[: len(prefix)] == prefix
+    }
+
+
 def immediate_children(prefix: tuple[str, ...]) -> list[tuple[str, ...]]:
+    """Children of ``prefix``; a spaced child yields to its hyphenated sibling."""
+    routes = discovery_routes()
+    children = _children(prefix, routes)
+    spaced_only = children - _children(prefix, routes - set(SPACED_GROUP_ROUTE_REGISTRY))
+    names = {child[-1] for child in children}
     return sorted(
-        {
-            route[: len(prefix) + 1]
-            for route in discovery_routes()
-            if len(route) > len(prefix) and route[: len(prefix)] == prefix
-        }
+        child
+        for child in children
+        if child not in spaced_only
+        or not any(name.startswith(child[-1] + "-") for name in names)
     )
 
 

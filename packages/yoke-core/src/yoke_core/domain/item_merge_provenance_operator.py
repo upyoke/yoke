@@ -48,7 +48,7 @@ from typing import Any, Dict, Optional
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
-MERGED_AT_CORRECTION_EVENT = "OperatorMergedAtCorrection"
+MERGED_AT_CORRECTION_EVENT_NAME = "OperatorMergedAtCorrection"
 
 
 class MergedAtCorrectionError(RuntimeError):
@@ -125,7 +125,7 @@ def operator_correct_merged_at(
     """Human-only repair of a terminal item's unset ``merged_at``.
 
     Refuses invocation from a hook context (``YOKE_HOOK_EVENT`` set), emits
-    a WARN :data:`MERGED_AT_CORRECTION_EVENT` *before* the update lands
+    a WARN :data:`MERGED_AT_CORRECTION_EVENT_NAME` *before* the update lands
     (ledger-first), and then writes the timestamp.
 
     Returns a summary dict describing the corrected item; raises
@@ -156,7 +156,7 @@ def operator_correct_merged_at(
         "operator_reason": operator_reason,
     }
     emit_correction(
-        MERGED_AT_CORRECTION_EVENT,
+        MERGED_AT_CORRECTION_EVENT_NAME,
         session_id=session_id or "",
         item_id=int(item_id),
         context=context,
@@ -219,7 +219,7 @@ def emit_correction(
 
 
 __all__ = [
-    "MERGED_AT_CORRECTION_EVENT",
+    "MERGED_AT_CORRECTION_EVENT_NAME",
     "MergedAtCorrectionError",
     "MergedAtCorrectionHookContextError",
     "emit_correction",

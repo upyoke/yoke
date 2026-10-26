@@ -40,7 +40,7 @@ from yoke_core.domain.item_merge_provenance_operator import (
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
-LANDING_PULL_REQUEST_CORRECTION_EVENT = "OperatorLandingPullRequestCorrection"
+LANDING_PULL_REQUEST_CORRECTION_EVENT_NAME = "OperatorLandingPullRequestCorrection"
 
 
 def operator_correct_landing_pull_request(
@@ -93,7 +93,7 @@ def operator_correct_landing_pull_request(
         "operator_reason": operator_reason,
     }
     emit_correction(
-        LANDING_PULL_REQUEST_CORRECTION_EVENT,
+        LANDING_PULL_REQUEST_CORRECTION_EVENT_NAME,
         session_id=session_id or "",
         item_id=int(item_id),
         context=context,
@@ -206,6 +206,6 @@ def _stored_merged_at(merged_at: str, *, pr_number: str, repo: str) -> datetime:
 
 
 __all__ = [
-    "LANDING_PULL_REQUEST_CORRECTION_EVENT",
+    "LANDING_PULL_REQUEST_CORRECTION_EVENT_NAME",
     "operator_correct_landing_pull_request",
 ]

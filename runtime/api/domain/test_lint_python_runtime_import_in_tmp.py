@@ -249,7 +249,7 @@ class TestEvaluateTypedEntry(unittest.TestCase):
         self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertEqual(guard_audit_outcome(decision), "denied")
         self.assertEqual(
-            decision.audit_fields["check_id"], "python_runtime_import_in_tmp"
+            decision.audit_fields["check_id"], "lint-python-runtime-import-in-tmp"
         )
 
     def test_noop_for_allowed_shape(self) -> None:

@@ -52,7 +52,7 @@ from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
-CHECK_ID = "python_runtime_import_in_tmp"
+CHECK_ID = "lint-python-runtime-import-in-tmp"
 _BYPASS_TOKEN = "# lint:no-tmp-runtime-import-check"
 
 # Free-path roots under which a Python file with ``runtime.*`` imports
@@ -213,7 +213,7 @@ def evaluate_fields(file_path: str, content: str) -> Optional[str]:
         return None
     if not _content_imports_runtime(content):
         return None
-    return attach_check_id(_DENY_REASON, check_id="lint-python-runtime-import-in-tmp")
+    return attach_check_id(_DENY_REASON, check_id=CHECK_ID)
 
 
 def evaluate_payload(payload: dict) -> Optional[str]:

@@ -228,7 +228,7 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         f"{_MODULE_PREFIX}lint_no_agent_runtime_api_import_from_c",
         True,
         'Refuse `python3 -c "from runtime..."` agent reach-in.',
-        check_id="python_runtime_import_in_tmp",
+        check_id="lint-no-agent-runtime-api-import-from-c",
     ),
     GuardSpec(
         "lint_no_agent_curl_against_yoke_api",
