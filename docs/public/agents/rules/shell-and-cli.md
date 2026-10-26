@@ -11,7 +11,8 @@
 - Work claims cover their lanes, main control-plane paths and `/tmp` or `/var/folders`.
   Source guard excludes client-proven Git metadata; main exceptions use
   `# lint:allow-lane-main-write`. See [lane rules](lanes-and-claims.md).
-- Foreign lanes are read-only (`foreign_lane`): read-only `git -C LANE`, `cat`, `ls` or Read.
+- Reads pass anywhere the harness permits. Writes, redirects, substitutions, output files
+  and Git state moves keep lane limits.
 - Use literal absolute paths; unresolved home paths refuse.
 - Remove a `mktemp -d` dir in the call that made it: `T=$(mktemp -d); trap 'rm -rf "$T"' EXIT`.
   Name exact `rm` targets; unresolved paths and shared temp-root sweeps refuse.

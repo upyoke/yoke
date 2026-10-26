@@ -144,7 +144,7 @@ def test_refusal_lists_both_project_roots(conn, fake_yoke_root):
 
 @pytest.mark.parametrize(
     ("relative", "outcome"),
-    [("docs/README.md", Outcome.NOOP), (".worktrees/other/src.py", Outcome.DENY)],
+    [("docs/README.md", Outcome.NOOP), (".worktrees/other/src.py", Outcome.NOOP)],
 )
 def test_verdict_is_the_same_locally_and_remotely(
     conn, fake_yoke_root, relative, outcome

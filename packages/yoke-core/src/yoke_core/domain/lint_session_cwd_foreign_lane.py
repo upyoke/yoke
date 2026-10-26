@@ -26,13 +26,12 @@ uncommitted work.
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Sequence
+from typing import List, Sequence
 
 from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_path_authority import (
     outside_worktree_lanes,
-    repo_root_from_worktree_path,
 )
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     GIT_INSPECTION_SUBS,
@@ -109,23 +108,8 @@ def governed_targets(
         tokens = segment.tokens
         if len(tokens) == 2 and tokens[0] == "cd" and not tokens[1].startswith("-"):
             continue
-        # Broader orientation signatures (find, help, adapters) cannot grant
-        # authority over another lane; only the established file readers can.
         label = _match_simple(segment)
-        if label not in {
-            "wc-read",
-            "ls-read",
-            "cat-read",
-            "head-read",
-            "tail-read",
-            "file-read",
-            "stat-read",
-            "sed-read",
-            "grep",
-            "rg",
-            "ag",
-            "ack",
-        }:
+        if not label or label in {"find", "yoke-adapter"}:
             return list(targets)
     return outside_worktree_lanes(targets, repo_roots)
 
@@ -164,30 +148,16 @@ def is_lane_mutation(tool_name: str, command: str) -> bool:
     )
 
 
-def _payload_is_write(payload: Mapping[str, Any] | None) -> bool:
-    if not payload:
-        return True
-    tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
-    from yoke_core.domain.lint_session_cwd_target_extract import (
-        extract_payload_command,
-    )
-
-    return is_lane_mutation(tool_name, extract_payload_command(payload))
-
-
 def build_denial_message(
     *,
     offending_target: str,
     occupant: LaneOccupant,
-    payload: Mapping[str, Any] | None = None,
 ) -> str:
     """Name the lane, its holder, what is still allowed, and the way out."""
     owner = occupant.public_ref or item_ref_for_id(occupant.item_id)
     acquire_ref = occupant.public_ref or "PREFIX-N"
-    is_write = _payload_is_write(payload)
-    verb = "write" if is_write else "read"
     lines = [
-        f"Refusing a {verb} into a worktree lane held by another session.",
+        "Refusing a write into a worktree lane held by another session.",
         "",
         f"  target:  {offending_target}",
         f"  lane:    {occupant.lane_path}",
@@ -195,23 +165,12 @@ def build_denial_message(
         f"  held by: session {occupant.session_id}",
         "",
     ]
-    if is_write:
-        lines += [
-            "That lane has a live work claim. Two agents editing one "
-            "worktree share its git index, so staged changes from either "
-            "land in whichever one commits first.",
-            "",
-        ]
-    else:
-        main = repo_root_from_worktree_path(occupant.lane_path) or ("<main-checkout>")
-        lines += [
-            "That lane has a live work claim, and this read is not a Git "
-            "inspection of it. Read content through the shared object store "
-            "from the main checkout:",
-            "",
-            f"  git -C {main} show <rev>:<path>",
-            "",
-        ]
+    lines += [
+        "That lane has a live work claim. Two agents editing one "
+        "worktree share its git index, so staged changes from either "
+        "land in whichever one commits first.",
+        "",
+    ]
     lines += allowed_inspection_lines()
     lines += [
         "Either coordinate with the holding session, or take the "

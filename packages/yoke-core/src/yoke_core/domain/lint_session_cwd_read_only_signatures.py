@@ -1,8 +1,8 @@
 """Classify a Bash command as a read-only orientation call.
 
 Returns a short signature label, or ``None`` when the command is not a
-known read. The session-cwd lint uses that label to skip the cwd-fallback
-deny for calls that touch no file.
+known read. The session-cwd lint uses it to exempt read-shaped calls from
+path authority checks; mutation analysis still applies.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import List, Mapping, Optional, Tuple
 
+from yoke_contracts.hook_runner.shell_expansion_scan import has_substitution
 from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     REDIRECT_OPERATORS,
@@ -81,8 +82,7 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
 
 
 _GIT_VALUE_FLAGS = frozenset({"-C", "-c", "--config-env", "--git-dir", "--work-tree"})
-# Subcommands that only ever report: no argument turns one of these into a
-# repository mutation.
+# Inspection verbs report unless an output-file flag requests a write.
 GIT_INSPECTION_SUBS = frozenset(
     {
         "status",
@@ -149,7 +149,15 @@ def git_write_targets(
 
 def _classify_git(tokens: List[str]) -> Optional[str]:
     """``git <read-only-sub>`` including ``git -C <path> log`` orientation."""
-    sub = git_subcommand(tokens)
+    index = git_subcommand_index(tokens)
+    if index is None:
+        return None
+    sub = tokens[index]
+    args = tokens[index + 1 :]
+    if any(t == "--output" or t.startswith("--output=") for t in args):
+        return None
+    if sub in GIT_LISTING_SUBS and any(not t.startswith("-") for t in args):
+        return None
     if sub in GIT_READ_ONLY_SUBS:
         return f"git-{sub}"
     return None
@@ -202,20 +210,22 @@ def _classify_grep_like(tokens: List[str]) -> Optional[str]:
     """``grep`` / ``rg`` calls are read-only by default."""
     if not tokens:
         return None
+    if tokens[0] == "rg" and any(
+        t == "--pre" or t.startswith("--pre=") for t in tokens[1:]
+    ):
+        return None
     if tokens[0] in _GREP_LIKE:
         return tokens[0]
     return None
 
 
 def _classify_find(tokens: List[str]) -> Optional[str]:
-    if tokens and tokens[0] == "find":
+    if tokens and tokens[0] == "find" and not any(
+        t in {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint",
+              "-fprint0", "-fprintf", "-fls"}
+        for t in tokens[1:]
+    ):
         return "find"
-    return None
-
-
-def _classify_yoke(tokens: List[str]) -> Optional[str]:
-    if tokens and tokens[0] == "yoke":
-        return "yoke-adapter"
     return None
 
 
@@ -256,7 +266,6 @@ _SIMPLE_CLASSIFIERS = (
     _classify_git,
     _classify_grep_like,
     _classify_find,
-    _classify_yoke,
     _classify_stdout_reporter,
     _classify_sed_read,
     _classify_single_arg_read,
@@ -267,7 +276,7 @@ def _match_simple(segment: str | ShellSegment) -> Optional[str]:
     """Signature label for one simple command; a module-resolution
     override (``PYTHONPATH``, ``PYTHONHOME``) refuses classification."""
     parsed = _single_segment(segment)
-    if parsed is None or not parsed.argv:
+    if parsed is None or not parsed.argv or has_substitution(parsed.text):
         return None
     if any(
         parsed.assignment(name) is not None for name in _MODULE_RESOLUTION_ENV_PREFIXES

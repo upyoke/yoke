@@ -193,7 +193,11 @@ def _extract_segment_targets(
     if _is_yoke_payload_path_segment(command_base, tokens):
         return [], False
     remote_resource_indexes = _remote_resource_indexes(command_base, tokens)
-    is_search = command_base in _SEARCH_COMMANDS
+    from yoke_core.domain.lint_session_cwd_read_only_signatures import _classify_grep_like
+
+    is_search = command_base in _SEARCH_COMMANDS and not (
+        command_base == "rg" and _classify_grep_like(tokens) is None
+    )
     skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
     non_path_indexes = non_path_argument_indexes(command_base, tokens)
 

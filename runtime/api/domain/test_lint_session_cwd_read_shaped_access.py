@@ -66,7 +66,7 @@ def _lane_verdict(tool_name, tool_input, **kwargs):
     )
 
 
-EXCLUDED_READ_TARGETS = (
+DOT_READ_TARGETS = (
     "~/.yoke/secrets/capability-secrets/yoke/aws-admin/credentials",
     "~/.codex/auth.json",
     "~/.codex/config.toml",
@@ -144,8 +144,6 @@ class TestForeignLaneReadsAreAllowed:
             }
         )
         assert verdict.allow is False
-        assert "Refusing a write" in verdict.reason
-        assert "shared object store" not in verdict.reason
 
 
 class TestPrintArgumentsAreNotWrites:
@@ -227,7 +225,7 @@ class TestSanctionedReadPaths:
         )
         assert verdict.allow is True
 
-    def test_machine_secrets_still_denied_with_lane_claim(self, conn, repo):
+    def test_machine_secrets_read_allowed_with_lane_claim(self, conn, repo):
         _seed_lane(conn, repo, session_id="sid-lane")
         target = os.path.join(
             os.path.expanduser("~"),
@@ -243,7 +241,7 @@ class TestSanctionedReadPaths:
                 "tool_input": {"file_path": target},
             }
         )
-        assert verdict.allow is False
+        assert verdict.allow is True
 
     @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
     def test_installed_harness_path_read_allowed_with_lane_claim(
@@ -286,13 +284,13 @@ class TestSanctionedReadPaths:
         path = os.path.expanduser(target)
         assert _lane_verdict("Write", {"file_path": path}).allow is False
 
-    @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
-    def test_sensitive_or_uninstalled_harness_path_read_still_denied(
+    @pytest.mark.parametrize("target", DOT_READ_TARGETS)
+    def test_dot_folder_reads_allowed_with_lane_claim(
         self, conn, repo, target
     ):
         _seed_lane(conn, repo, session_id="sid-lane")
         path = os.path.expanduser(target)
-        assert _lane_verdict("Read", {"file_path": path}).allow is False
+        assert _lane_verdict("Read", {"file_path": path}).allow is True
 
     @pytest.mark.parametrize(
         "runtime",
@@ -341,7 +339,7 @@ class TestSanctionedReadPaths:
         allowed = _lane_verdict("Bash", {"command": command}, machine_home=str(home))
         assert allowed.allow is True
 
-    @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
+    @pytest.mark.parametrize("target", DOT_READ_TARGETS)
     def test_excluded_target_stays_refused_beside_a_redirect(self, conn, repo, target):
         _seed_lane(conn, repo, session_id="sid-lane")
         command = f"cat {target} > /tmp/log"

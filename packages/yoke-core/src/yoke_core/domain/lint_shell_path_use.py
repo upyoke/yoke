@@ -95,12 +95,16 @@ def _git_state_move(tokens: list[str]) -> bool:
     """True when this git invocation changes repository or worktree state."""
     from yoke_core.domain.lint_session_cwd_read_only_signatures import (
         GIT_MUTATING_SUBS,
+        GIT_READ_ONLY_SUBS,
+        _classify_git,
         git_subcommand_index,
     )
 
     index = git_subcommand_index(tokens)
     if index is None:
         return False
+    if tokens[index] in GIT_READ_ONLY_SUBS:
+        return _classify_git(tokens) is None
     if tokens[index] == "stash":
         action = tokens[index + 1] if index + 1 < len(tokens) else ""
         return action not in _GIT_STASH_READS
@@ -151,6 +155,10 @@ def _state_move(tokens: list[str], command: str) -> bool:
         return True
     if base == "git":
         return not is_read_only_git_inspection(command)
+    if base in {"find", "rg"}:
+        from yoke_core.domain.lint_session_cwd_read_only_signatures import _match_simple
+
+        return _match_simple(command) is None
     return base == "sed" and any(
         t.startswith("-i") or t.startswith("--in-place") for t in tokens[1:]
     )

@@ -235,8 +235,8 @@ class TestNonReadOnlyCommands:
             is None
         )
 
-    def test_yoke_help_classifies(self):
-        assert match_read_only_signature("yoke sessions touch --help") == "yoke-adapter"
+    def test_yoke_adapter_does_not_classify(self):
+        assert match_read_only_signature("yoke sessions touch --help") is None
 
     def test_find_classifies(self):
         assert match_read_only_signature("find src -name '*.py'") == "find"
@@ -274,3 +274,20 @@ class TestEdgeCases:
             "PYTHONHOME=/elsewhere python3 -m yoke_core.cli.db_router query 'SELECT 1'"
         )
         assert match_read_only_signature(cmd) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "find /foreign -delete", "find /foreign -exec touch f ;",
+        "find /foreign -execdir touch f ;", "find /foreign -ok touch f ;",
+        "find /foreign -fprint /foreign/out", "find /foreign -fls /foreign/out",
+        "find /foreign -fprint0 /foreign/out", "find /foreign -fprintf /foreign/out x",
+        "git diff --output=/foreign/out", "git diff --output /foreign/out",
+        "git branch topic", "git config user.name somebody", "git remote add x url",
+        "rg --pre cat pattern /foreign", "rg --pre=cat pattern /foreign",
+        "yoke items update ITEM title x", "cat $(touch /foreign/f)",
+    ],
+)
+def test_commands_that_can_write_do_not_classify(command):
+    assert match_read_only_signature(command) is None

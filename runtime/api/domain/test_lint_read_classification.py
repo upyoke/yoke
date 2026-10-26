@@ -53,7 +53,7 @@ def _bash(command, *, cwd, workdir=None):
 
 def test_compound_git_log_on_main_is_not_a_write():
     command = "yoke relay status 2>&1; git -C /Users/beebauman/yoke log --oneline -1"
-    assert match_read_only_signature(command) == "compound-read"
+    assert match_read_only_signature(command) is None
     assert is_write_operation("Bash", {"tool_input": {"command": command}}) is False
     assert extract_payload_write_targets({"tool_input": {"command": command}}) == []
 

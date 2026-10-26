@@ -215,13 +215,6 @@ class TestNeighbourLaneWritesStillRefused:
         assert verdict.allow is False
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
 
-    def test_refusal_names_the_allowed_inspection_set(self, conn, repo):
-        held, _own = _neighbouring_lanes(conn, repo)
-        verdict = _bash_verdict(f"git -C {held} add .")
-        assert "Read-only Git inspection of that lane IS allowed" in verdict.reason
-        assert "git -C <lane> (" in verdict.reason
-        assert "status" in verdict.reason
-        assert "listing form only" in verdict.reason
 
 
 COMPOUND_READS = (

@@ -1,4 +1,4 @@
-"""Relayed session-cwd authority uses the command machine's home."""
+"""Relayed reads pass across roots; write authority uses client-home facts."""
 
 from __future__ import annotations
 
@@ -198,7 +198,7 @@ def test_home_derived_free_paths_expand_client_home(
     )
 
 
-def test_missing_client_home_reproduces_claimed_reference_denial(
+def test_absolute_reference_read_allows_without_client_home(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -211,7 +211,7 @@ def test_missing_client_home_reproduces_claimed_reference_denial(
             {"file_path": str(ICLOUD_DOCUMENT)},
             include_home=False,
         )
-        is Outcome.DENY
+        is Outcome.NOOP
     )
 
 
@@ -223,7 +223,7 @@ def test_missing_client_home_reproduces_claimed_reference_denial(
         str(CLIENT_HOME / ".codex/auth.json"),
     ],
 )
-def test_server_home_and_client_secret_paths_stay_governed(
+def test_server_home_and_client_dot_folder_reads_allow(
     conn,
     claimed_worktree: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -231,7 +231,7 @@ def test_server_home_and_client_secret_paths_stay_governed(
 ) -> None:
     monkeypatch.setenv("HOME", str(SERVER_HOME))
 
-    assert _remote_decision("Read", {"file_path": target}) is Outcome.DENY
+    assert _remote_decision("Read", {"file_path": target}) is Outcome.NOOP
 
 
 def test_external_reference_authority_does_not_extend_to_writes(

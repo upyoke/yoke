@@ -86,12 +86,19 @@ def test_original_capacity_refusal_and_permitted_counterpart(
 @pytest.mark.parametrize(
     "command",
     [
-        f"cat {HOME}/.yoke/config-private.json",
+        f"cat {HOME}/.yoke/config-private.json", f"ls {HOME}/.yoke",
+        f"stat {HOME}/.yoke", f"file {HOME}/.yoke",
+    ],
+)
+def test_read_shapes_need_no_capacity_exemption(isolated_authority, command):
+    assert evaluate(command).outcome is Outcome.NOOP
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         f"df -k {HOME}/.yoke && cat .yoke/config-private.json",
         f"df -k {HOME}/.yoke && cat ~/.yoke/config-private.json",
-        f"ls {HOME}/.yoke",
-        f"stat {HOME}/.yoke",
-        f"file {HOME}/.yoke",
         f"du -sh {HOME}/.yoke",
         f"cd {HOME}/.yoke && df -k .",
         f"touch {HOME}/.yoke/out",
@@ -188,16 +195,16 @@ def test_embedded_python_write_retains_local_authority(isolated_authority):
 
 
 @pytest.mark.parametrize(
-    "command",
+    "command,allowed",
     [
-        "touch ~/.yoke/out",
-        "cd ~/.yoke && touch out",
-        "cat ~/.yoke/private",
-        "df -k ~/.yoke",
-        "touch ~other/private",
+        ("touch ~/.yoke/out", False),
+        ("cd ~/.yoke && touch out", False),
+        ("cat ~/.yoke/private", True),
+        ("df -k ~/.yoke", False),
+        ("touch ~other/private", False),
     ],
 )
-def test_unresolved_home_never_becomes_a_lane_path(isolated_authority, command):
+def test_unresolved_home_retains_mutation_limits(isolated_authority, command, allowed):
     payload = {
         "session_id": SESSION,
         "cwd": LANE,
@@ -205,9 +212,9 @@ def test_unresolved_home_never_becomes_a_lane_path(isolated_authority, command):
         "tool_input": {"command": command},
     }
     verdict = guard.evaluate_pre_tool_use(payload, machine_home="")
-    assert not verdict.allow
-    assert verdict.authority_reason == "unresolved_executing_machine_home"
-    assert "absolute path" in verdict.reason
+    assert verdict.allow is allowed
+    if not allowed:
+        assert verdict.authority_reason == "unresolved_executing_machine_home"
 
 
 def test_unresolved_cwd_home_never_becomes_a_lane_path(isolated_authority):
