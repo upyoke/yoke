@@ -62,9 +62,12 @@ def create_worktree_lane(
             ]
         )
         if recorded.returncode != 0:
-            return (
-                f"could not record item base for '{entry.branch}': "
-                f"{captured_process_detail(recorded)}"
+            # The key is optional: file-line checks fall back to merge-base.
+            print(
+                f"Warning: could not record item base for '{entry.branch}' "
+                f"({captured_process_detail(recorded)}); "
+                "file-line checks will use merge-base",
+                file=sys.stderr,
             )
     add_cmd = (
         ["git", "-C", repo_root, "worktree", "add", entry.path, entry.branch]
