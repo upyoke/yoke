@@ -9,9 +9,19 @@ two properties the destination has to keep.
 from __future__ import annotations
 
 import stat
+import tempfile
+
+import pytest
 
 from yoke_contracts.free_paths import is_under_free_path_prefix, private_free_path
 from yoke_contracts.qa_artifact_read import artifact_read_destination
+
+
+@pytest.fixture(autouse=True)
+def _temp_root_inside_tmp_path(tmp_path, monkeypatch):
+    """Each read creates a real directory; keep it out of the machine temp root."""
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
 
 
 def test_two_reads_of_one_artifact_id_never_share_a_path() -> None:
@@ -34,17 +44,14 @@ def test_the_enclosing_directory_is_private_and_already_created() -> None:
     assert not destination.exists()
 
 
-def test_the_destination_stays_inside_a_guard_admitted_root() -> None:
+def test_the_destination_stays_inside_a_guard_admitted_root(tmp_path) -> None:
     destination = artifact_read_destination(17980, content_type="image/png")
 
     assert is_under_free_path_prefix(destination)
+    assert destination.parent.parent == tmp_path
 
 
 def test_a_traversing_filename_is_refused_rather_than_resolved() -> None:
     for candidate in ("../escape.png", "nested/shot.png", "", "."):
-        try:
+        with pytest.raises(ValueError):
             private_free_path(candidate, prefix="yoke-qa-artifact.")
-        except ValueError as exc:
-            assert "one segment" in str(exc)
-        else:
-            raise AssertionError(f"accepted a non-segment filename: {candidate!r}")

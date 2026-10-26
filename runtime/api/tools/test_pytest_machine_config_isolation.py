@@ -43,3 +43,20 @@ def test_without_embedded_binaries_isolation_preserves_system_path(monkeypatch):
 
     assert isolated["PATH"] == env["PATH"]
     assert Path(isolated["YOKE_MACHINE_HOME"]).is_dir()
+
+
+def test_isolated_machine_home_is_removed_when_the_runner_exits(monkeypatch):
+    registered = []
+    monkeypatch.setattr(
+        _pytest_parallel.atexit,
+        "register",
+        lambda func, *args: registered.append((func, args)),
+    )
+
+    isolated = _pytest_parallel.isolate_from_administering_machine_config({})
+    home = isolated["YOKE_MACHINE_HOME"]
+
+    assert registered == [(shutil.rmtree, (home, True))]
+    for func, args in registered:
+        func(*args)
+    assert not Path(home).exists()
