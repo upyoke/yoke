@@ -8,7 +8,6 @@ from yoke_contracts.skill_registry import SKILLS_BY_ID
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_item_level import DEFAULT_LEVEL_REASON
-from yoke_core.domain.session_launch_mandate_teaching import LEVEL_HANDOFF_TEACHING
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.session_workflow_routing import live_next_step
@@ -50,10 +49,7 @@ def compose_single_item_mandate(
         "and read its phase instructions before verification, merge or delivery. "
         "On re-entry, read the Progress Log and lane status/log; preserve existing "
         "work. Before stopping short of done, append a Progress Log checkpoint "
-        "with stage, committed and dirty work, and next action. Keep its body "
-        "within 4,096 UTF-8 bytes; move evidence to artifacts or field-notes. "
-        "Send steering only failures, blockers, conflicts, outside-scope defects "
-        f"or decisions. Keep progress in your own output. {LEVEL_HANDOFF_TEACHING} {close} "
+        f"with stage, committed and dirty work, and next action. {close} "
         "If your claim is swept, reacquire and continue."
     )
     extra = extras.strip()
@@ -128,23 +124,12 @@ def compose_item_launch_instructions(
             "composed launches require item",
         )
     entrypoint, remaining_legs = _route_for_item(conn, public_ref, project_id)
-    from yoke_core.domain.workflow_execution_instructions import resolve_for_item
-
-    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
-    instructions = resolve_for_item(conn, int(item_id))
-    instruction_text = "\n\n".join(str(row["content"]) for row in instructions)
-    mandate = compose_single_item_mandate(
+    return compose_single_item_mandate(
         public_ref=public_ref,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
         extras=parsed.instructions,
     )
-    return (
-        f"Operator execution instructions (obey these):\n{instruction_text}\n\n{mandate}"
-        if instruction_text
-        else mandate
-    )
-
 
 def _instructions_for_create(
     conn: Any,

@@ -19,13 +19,14 @@ reaping structurally impossible for a worker that is actually working.
 
 Registration is two steps on every surface: the opening hook registers the
 session, then the launch binds to it.  Where the harness names the session
-before it starts (Claude, Codex) both happen in that one hook; where the
-vendor assigns the id (Cursor) the relay binds the launch moments later, by
-machine, surface, and workspace.  A worker that reads the launch inside that
-gap sees an empty ``registered_session_id`` with ``identity_correlation``
-still ``pending`` or ``awaiting_registration``.  That is registration in
+before it starts (Claude, Codex) both happen in that one hook, and the hook
+pastes the launch delivery block, so the worker only acknowledges it.  Where
+the vendor assigns the id (Cursor) the relay binds the launch moments later,
+and hook delivery can fail, so the worker reads the launch itself.  A read
+inside that gap shows no Registered session yet.  That is registration in
 flight, not a mismatch, so the check below waits a bounded number of re-reads
-before it refuses; only a registered id naming another session is a mismatch.
+before it refuses; only a Registered session naming another session is a
+mismatch.
 
 One builder, so the store that persists the prompt and the adapters that
 refuse anything else cannot drift apart into two sentences that no longer
@@ -49,35 +50,28 @@ AUTOMATIC_LAUNCH_REGISTRATION_TEACHING = (
 #: How many fresh ``launch get`` reads a worker spends on a launch whose
 #: registration is still in flight before it refuses as unregistered.
 LAUNCH_REGISTRATION_RECHECK_LIMIT = 10
-#: ``identity_correlation`` values that mean registration is still in flight.
-LAUNCH_REGISTRATION_IN_FLIGHT = ("pending", "awaiting_registration")
 LAUNCH_BOOTSTRAP_MESSAGE_READ = (
-    "Read `yoke sessions identity --json` and "
-    "`yoke session-control launch get LAUNCH-ID --json`. Proceed only when "
-    "the launch's registered_session_id matches your session id. If "
-    "registered_session_id is empty and identity_correlation is "
-    f"{' or '.join(LAUNCH_REGISTRATION_IN_FLIGHT)}, registration is still in "
-    "flight: re-read the launch, at most "
+    "If this launch's YOKE LAUNCH DELIVERY block is already in your context, "
+    "acknowledge its Message ID with `yoke messages acknowledge MESSAGE-ID` "
+    "and skip the rest of this check. Otherwise read `yoke sessions identity` "
+    "and `yoke session-control launch get LAUNCH-ID`. While the launch shows "
+    "no Registered session, re-read it, at most "
     f"{LAUNCH_REGISTRATION_RECHECK_LIMIT} times; if it is still unbound after "
     "that, stop and report launch_registration_pending with the launch id "
-    "to the requester. If "
-    "registered_session_id names a different session, or the launch closed "
-    "without binding you, stop and report launch_registration_mismatch to the "
-    "requester. "
-    "The launch's message_id names your exact mandate. Read that message with "
-    "`yoke messages get MESSAGE-ID`, then acknowledge it with "
-    "`yoke messages acknowledge MESSAGE-ID`. An injected receipt is absent "
-    "from `yoke messages list --state pending`. If the launch has no message_id "
-    "or the message cannot be read, stop and report launch_message_unavailable "
-    "with the launch id; do not infer an assignment."
+    "to the requester. If Registered session names a different session, or "
+    "the launch closed without binding you, stop and report "
+    "launch_registration_mismatch to the requester. When it names your "
+    "session, read its Message ID with `yoke messages get MESSAGE-ID`, then "
+    "acknowledge it with `yoke messages acknowledge MESSAGE-ID`. If the launch "
+    "has no Message ID or the message cannot be read, stop and report "
+    "launch_message_unavailable with the launch id; do not infer an assignment."
 )
 LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     "If your message assigns you a work item, acquire that item's work claim "
     "as your first work action after this handoff, before any item survey or "
     "repository reading: `yoke claims work acquire --item PREFIX-N --reason "
     '"<why you are claiming it>"`, with the assigned ref in place of '
-    "PREFIX-N. That exact command is the claim surface; a spelling built "
-    "from the noun phrase is not registered and the claim does not happen."
+    "PREFIX-N."
 )
 
 
@@ -100,7 +94,6 @@ __all__ = [
     "AUTOMATIC_LAUNCH_REGISTRATION_TEACHING",
     "LAUNCH_BOOTSTRAP_CLAIM_FIRST",
     "LAUNCH_BOOTSTRAP_REFUSAL",
-    "LAUNCH_REGISTRATION_IN_FLIGHT",
     "LAUNCH_REGISTRATION_RECHECK_LIMIT",
     "native_launch_bootstrap",
     "native_launch_bootstrap_sha256",

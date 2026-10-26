@@ -182,10 +182,10 @@ override restores the stage default.
 
 A lifecycle transition into a different effective level from the registered
 worker returns `handoff` with `reason: level_change`, `stage_id`, `level`,
-and the exact successor `next_command`. A merge close-out returns that same
-handoff and stops walking stages. Same level and terminal targets return no
-handoff. This worker rule applies to every harness and takes precedence over
-retaining a release-wait claim:
+the exact successor `next_command`, and `read`, the path of this rule. A
+merge close-out returns that same handoff and stops walking stages. Same level
+and terminal targets return no handoff. This worker rule applies to every
+harness and takes precedence over retaining a release-wait claim:
 
 1. Write a Progress Log checkpoint naming the live stage, committed and
    uncommitted lane work, and the next concrete step:

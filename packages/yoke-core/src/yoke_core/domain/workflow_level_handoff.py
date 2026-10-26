@@ -72,6 +72,7 @@ def level_handoff(
         "stage_id": stage_id,
         "level": resolved["level"],
         "next_command": command,
+        "read": ".yoke/docs/agents/levels.md#stage-level-handoff",
     }
 
 
