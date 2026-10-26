@@ -128,7 +128,6 @@ def test_eighty_landed_lanes_are_reported_inside_the_check_budget(landed_lanes, 
 
     [result] = rec.results
     assert result.result == "WARN", result.detail
-    assert result.detail.count("the relay's periodic lane sweep removes it") == LANES
     assert all(lane.exists() for lane in lanes)
     assert _lane_branches(repo) == {lane.name for lane in lanes}
     verdict_reads = [

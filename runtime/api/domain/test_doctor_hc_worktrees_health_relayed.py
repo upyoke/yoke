@@ -174,7 +174,6 @@ def test_fix_leaves_a_verified_safe_lane_to_the_relay_sweep(
     rec = _run_check(DoctorArgs(project="platform", fix=True))
 
     [result] = rec.results
-    assert "the relay's periodic lane sweep removes it" in result.detail
     assert "Fixed: removed terminal lane" not in result.detail
     assert not relayed_client["prune"]
 

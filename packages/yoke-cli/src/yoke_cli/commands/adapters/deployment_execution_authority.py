@@ -105,6 +105,38 @@ def _run(run_id: str, relay_env: Optional[str] = None) -> Mapping[str, object]:
     return run
 
 
+def run_target(run_id: str) -> tuple[str, str]:
+    run = _run(run_id)
+    return str(run.get("project") or ""), str(run.get("target_environment") or "")
+
+
+def target_host_relationship(
+    target: Callable[[], Optional[tuple[str, str]]],
+) -> tuple[Optional[bool], str, str]:
+    """Return same-host, other-host or unknown, with the host and HTTPS env.
+
+    Resolution failures propagate so execution can explain them and recipe
+    rendering can keep its unresolved connection placeholder.
+    """
+    from yoke_cli.commands.pulumi_stack_config_loader import (
+        load_project_renderer_settings_snapshot,
+    )
+    from yoke_cli.transport.https import resolve_https_connection
+
+    connection = resolve_https_connection()
+    if connection is None:
+        return False, "", ""
+    resolved = target()
+    if resolved is None:
+        return None, "", connection.env
+    project, environment = resolved
+    host = _target_api_host(
+        load_project_renderer_settings_snapshot(project), environment
+    )
+    same_host = _hostname(host) == _hostname(connection.api_url) if host else None
+    return same_host, host, connection.env
+
+
 def _self_deploy_refusal(
     target: Callable[[], Optional[tuple[str, str]]],
     subject: str,
@@ -117,30 +149,13 @@ def _self_deploy_refusal(
     *target* answers the run's project and environment, or ``None`` when
     another surface refuses an unresolvable target by name.
     """
-    from yoke_cli.commands.pulumi_stack_config_loader import (
-        load_project_renderer_settings_snapshot,
-    )
-    from yoke_cli.transport.https import TransportError, resolve_https_connection
-
     try:
-        connection = resolve_https_connection()
-    except TransportError as exc:
-        return f"deployment execution cannot use the selected HTTPS connection: {exc}"
-    if connection is None:
-        return None
-    try:
-        resolved = target()
-        if resolved is None:
-            return None
-        project, environment = resolved
-        target_host = _target_api_host(
-            load_project_renderer_settings_snapshot(project), environment
-        )
+        same_host, target_host, env = target_host_relationship(target)
     except Exception as exc:  # noqa: BLE001 - render a stable CLI refusal
         return str(exc)
-    if not target_host or _hostname(target_host) != _hostname(connection.api_url):
+    if same_host is not True:
         return None
-    admin_env = _same_universe_admin_env(connection.env)
+    admin_env = _same_universe_admin_env(env)
     if admin_env and paired_connection_drives:
         return None
     repair = (
@@ -150,7 +165,7 @@ def _self_deploy_refusal(
     )
     return (
         f"{subject} targets {target_host}, the API serving the "
-        f"selected control plane {connection.env!r}; self-deployment requires "
+        f"selected control plane {env!r}; self-deployment requires "
         f"local database authority so run state remains writable while that "
         f"API is replaced — {repair}"
     )
@@ -159,12 +174,10 @@ def _self_deploy_refusal(
 def execution_connection_error(run_id: str) -> Optional[str]:
     """Refuse only a deploy that would replace its serving control plane."""
 
-    def _target() -> tuple[str, str]:
-        run = _run(run_id)
-        return str(run.get("project") or ""), str(run.get("target_environment") or "")
-
     return _self_deploy_refusal(
-        _target, f"deployment run {run_id}", f"watch deploy -- {run_id}"
+        lambda: run_target(run_id),
+        f"deployment run {run_id}",
+        f"watch deploy -- {run_id}",
     )
 
 

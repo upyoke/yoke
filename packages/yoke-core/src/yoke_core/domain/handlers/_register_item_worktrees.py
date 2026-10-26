@@ -144,6 +144,7 @@ def register(registry) -> None:
         # often has no live claim. Idempotent and internal.
         adapter_status="internal",
         claim_required_kind=None,
+        ambient_session_required=False,
     )
     registry.register(
         "item_worktrees.cancelled_lanes.record",

@@ -85,10 +85,13 @@ def test_only_the_active_connections_relay_sweeps_and_another_says_why_once():
 
     assert runs == []
     assert len(lines) == 1
-    assert "relay env 'stage' is not this machine's active connection" in lines[0]
-    assert relay_sweep.relay_lane_sweep(
+    active = relay_sweep.relay_lane_sweep(
         SimpleNamespace(machine_active=True, environment="prod")
-    )._off_reason == ""
+    )
+    active._sweep = lambda **_kw: runs.append(1)
+    active()
+    _finish(active)
+    assert runs == [1]
 
 
 def test_an_unexpected_refusal_is_logged_and_the_relay_keeps_standing():

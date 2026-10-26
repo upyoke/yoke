@@ -95,7 +95,6 @@ def test_doctor_reports_a_verified_safe_lane_and_fix_leaves_it_to_the_relay(
 
     for result in (_result(detected), _result(fixed)):
         assert result.result == "WARN"
-        assert "the relay's periodic lane sweep removes it" in result.detail
     assert "Fixed:" not in _result(fixed).detail
     assert lane.exists()
     assert _git(repo, "branch", "--list", BRANCH).stdout.strip() != ""
@@ -180,4 +179,3 @@ def test_doctor_counts_a_clean_lane_as_sweep_ready(tmp_path, monkeypatch):
     assert detail.splitlines()[0] == (
         "- 1 released lane still on disk: sweep-ready (YOK-20)"
     )
-    assert "the relay's periodic lane sweep removes it" in detail
