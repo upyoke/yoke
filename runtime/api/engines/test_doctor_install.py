@@ -12,12 +12,15 @@ from yoke_core.engines.doctor_applicability_declarations import local_runtime_sl
 from yoke_core.engines.doctor_https_local_scope import requested_local_machine_slugs
 
 
-@pytest.fixture(autouse=True)
-def known_projects(monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.domain.project_checkout_locations.project_id_for_slug",
-        {"42": 42, "yoke": 42}.get,
-    )
+def answers(refusal="not_found", **identity):
+    def relay(function, payload):
+        if function != "projects.get":
+            return identity
+        if payload["project"] not in {"42", "yoke"}:
+            raise checks.ControlPlaneRefused("projects.get refused", code=refusal)
+        return {"value": 42}
+
+    return relay
 
 
 def run(fn, project="42", **kwargs):
@@ -147,9 +150,7 @@ def test_hook_requires_both_registered_identity_and_observed_delivery(
     monkeypatch.setattr(
         checks, "build_actor", lambda: SimpleNamespace(session_id=session)
     )
-    monkeypatch.setattr(
-        checks, "relay", lambda *a: {"session_id": registered, "project_id": 42}
-    )
+    monkeypatch.setattr(checks, "relay", answers(session_id=registered, project_id=42))
     monkeypatch.setattr(checks, "orientation_delivered", lambda s: delivered)
     assert (
         run(checks.hc_session_hook_registration, only="session-hook-registration")[
@@ -179,7 +180,7 @@ def test_install_skips_only_absent_session_and_session_scope_still_requires_proo
 
     def identity(*args):
         calls.append(args)
-        return {"session_id": session, "project_id": 42}
+        return answers(session_id=session, project_id=42)(*args)
 
     monkeypatch.setattr(checks, "relay", identity)
     monkeypatch.setattr(checks, "orientation_delivered", lambda s: False)
@@ -266,28 +267,28 @@ def test_hook_delivery_from_another_project_cannot_prove_install_readiness(monke
     monkeypatch.setattr(
         checks, "build_actor", lambda: SimpleNamespace(session_id="session")
     )
-    monkeypatch.setattr(
-        checks, "relay", lambda *a: {"session_id": "session", "project_id": 99}
-    )
+    monkeypatch.setattr(checks, "relay", answers(session_id="session", project_id=99))
     monkeypatch.setattr(checks, "orientation_delivered", lambda session: True)
     result = run(checks.hc_session_hook_registration, project="42")[0]
     assert result.result == "FAIL"
     assert "SESSION_HOOK_PROJECT_MISMATCH" in result.detail
 
 
+@pytest.mark.parametrize("refusal", ["not_found", "permission_denied", ""])
 @pytest.mark.parametrize("project", ["missing-slug", "99999"])
-def test_unknown_project_fails_as_project_not_found(monkeypatch, project):
+def test_only_a_not_found_project_read_fails_as_project_not_found(
+    monkeypatch, project, refusal
+):
     monkeypatch.setattr(
         checks, "build_actor", lambda: SimpleNamespace(session_id="session")
     )
-    monkeypatch.setattr(
-        checks, "relay", lambda *a: {"session_id": "session", "project_id": 42}
-    )
+    identity = answers(refusal, session_id="session", project_id=42)
+    monkeypatch.setattr(checks, "relay", identity)
     monkeypatch.setattr(checks, "orientation_delivered", lambda session: True)
     result = run(checks.hc_session_hook_registration, project=project)[0]
     assert result.result == "FAIL"
-    assert result.detail.startswith("project_not_found")
-    assert "SESSION_HOOK" not in result.detail
+    assert result.detail.startswith("project_not_found") == (refusal == "not_found")
+    assert ("SESSION_HOOK_CHECK_FAILED" in result.detail) == (refusal != "not_found")
 
 
 @pytest.mark.parametrize("project_id", [None, 42])
@@ -308,9 +309,8 @@ def test_hook_readiness_reads_delivery_in_the_registered_scope(
     monkeypatch.setattr(
         checks, "build_actor", lambda: SimpleNamespace(session_id="session")
     )
-    monkeypatch.setattr(
-        checks, "relay", lambda *a: {"session_id": "session", "project_id": project_id}
-    )
+    identity = answers(session_id="session", project_id=project_id)
+    monkeypatch.setattr(checks, "relay", identity)
     # The marker in the other scope must never stand in for this session's proof.
     for scope in (None, 42):
         with scratch_project(str(scope)) if scope else nullcontext():
