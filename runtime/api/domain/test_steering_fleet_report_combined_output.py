@@ -229,7 +229,6 @@ def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:
     ]
     assert payload["scopes"][0]["plan_limits"]
     assert payload["digest"] == combined_hook_digest(combined)
-    assert "hook digest" in payload["digest"]
     assert PLAN_LIMIT_HEADING not in payload["digest"]
     assert PLAN_LIMIT_HEADING in payload["body"]
 

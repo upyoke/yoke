@@ -167,7 +167,9 @@ def test_fitting_messages_ship_with_an_oversized_sibling_stub() -> None:
 
 def test_an_under_cap_delivery_is_unchanged() -> None:
     delivery = _delivery("unchanged body")
-    assert compose_hook_context([delivery], [], [], harness_id="codex") == delivery
+    assert compose_hook_context([delivery], [], [], harness_id="codex") == (
+        delivery + f"\n\nAcknowledge: yoke messages acknowledge {MESSAGE_ID}"
+    )
 
 
 def test_non_ascii_stub_previews_fit_the_smallest_harness_budget() -> None:

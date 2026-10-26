@@ -52,7 +52,7 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = (
     "yoke messages get MESSAGE-ID [FIELD ...] [--full] [--session-id S] [--json]"
 )
-MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--session-id S] [--json]"
+MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...] [--session-id S] [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--session-id S] [--json]"
 MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/sessions/inbox.md"
 
@@ -253,7 +253,6 @@ def session_message_list(args: List[str]) -> int:
         human_writer=write_message_result,
     )
 
-
 def _message_by_id(args: List[str], operation: str) -> int:
     usage_by_operation = {
         "get": MESSAGE_GET_USAGE,
@@ -272,7 +271,8 @@ def _message_by_id(args: List[str], operation: str) -> int:
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("message_id", metavar="MESSAGE-ID", help="The message's id.")
+    parser.add_argument("message_id", metavar="MESSAGE-ID", help="Message id(s).",
+                        nargs="+" if operation == "acknowledge" else None)
     if operation == "get":
         parser.add_argument(
             "fields",
@@ -309,23 +309,23 @@ def _message_by_id(args: List[str], operation: str) -> int:
             if requested
             else write_message_detail_result
         )
-    return dispatch_and_emit(
+    ids = parsed.message_id if operation == "acknowledge" else [parsed.message_id]
+    results = [dispatch_and_emit(
         function_id=f"session_control.message.{operation}",
         target=TargetRef(kind="global"),
-        payload=payload,
+        payload={**payload, "message_id": message_id},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=writer,
-    )
+    ) for message_id in ids]
+    return next((result for result in results if result), 0)
 
 
 def session_message_get(args: List[str]) -> int:
     return _message_by_id(args, "get")
 
-
 def session_message_acknowledge(args: List[str]) -> int:
     return _message_by_id(args, "acknowledge")
-
 
 def session_message_cancel(args: List[str]) -> int:
     return _message_by_id(args, "cancel")

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import importlib.util
 import re
-import subprocess
 from pathlib import Path
 from typing import Mapping
 
@@ -21,10 +20,8 @@ from yoke_contracts.watch_capture import capture_state
 
 from yoke_harness.hooks.local_policy_common import (
     command_from_payload,
-    cwd_from_payload,
 )
 
-_GIT_TIMEOUT_S = 5
 #: A command naming more captures than this is not a capture peek.
 _MAX_CAPTURE_FILES = 16
 
@@ -40,34 +37,6 @@ def capture_files_fact(payload: Mapping[str, object]) -> dict:
             if path not in files and len(files) < _MAX_CAPTURE_FILES:
                 files[path] = capture_state(path)
     return cf.client_fact(cf.CAPTURE_FILES_KEY, {"roots": roots, "files": files})
-
-
-def _git(cwd: str, *args: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "-C", cwd, *args],
-            capture_output=True,
-            text=True,
-            timeout=_GIT_TIMEOUT_S,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout if result.returncode == 0 else None
-
-
-def main_head_fact(payload: Mapping[str, object]) -> dict:
-    """Report the newest ``main`` commits of the checkout the session runs in."""
-    log = _git(
-        cwd_from_payload(dict(payload)),
-        "log",
-        "main",
-        f"-{cf.MAIN_HEAD_HISTORY}",
-        "--format=%H%x1f%s",
-    )
-    commits = [
-        line.split("\x1f", 1) for line in (log or "").splitlines() if "\x1f" in line
-    ]
-    return cf.client_fact(cf.MAIN_HEAD_KEY, {"commits": commits}) if commits else {}
 
 
 def yoke_source_root() -> str:
@@ -96,7 +65,6 @@ def yoke_source_root_fact() -> dict:
 
 __all__ = [
     "capture_files_fact",
-    "main_head_fact",
     "yoke_source_root",
     "yoke_source_root_fact",
 ]

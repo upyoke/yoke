@@ -76,7 +76,7 @@ def _render_message(
             *_reminder_lines(message),
             *body_lines,
             *([excerpt_note] if excerpt_note else []),
-            acknowledgement,
+            *([acknowledgement] if acknowledgement else []),
             "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
     )
@@ -109,13 +109,16 @@ def _parent_blocks(
     for message in lease.messages:
         message_id = canonical_fleet_message_id(message.message_id)
         acknowledgement = (
-            f"Acknowledge: `yoke messages acknowledge {message_id}`"
+            ""
             if message_id
             else FLEET_INVALID_MESSAGE_ID_GUIDANCE
         )
         blocks.append(
             _render_message(message, token=token, acknowledgement=acknowledgement)
         )
+    ids = [canonical_fleet_message_id(m.message_id) for m in lease.messages]
+    if valid := [message_id for message_id in ids if message_id]:
+        blocks.append("Acknowledge: yoke messages acknowledge " + " ".join(valid))
     hidden_count = max(0, lease.remaining_count)
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))

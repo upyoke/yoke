@@ -43,7 +43,6 @@ from yoke_core.domain.steering_fleet_report_fingerprint import (
     seat_payload,
 )
 from yoke_core.domain.steering_fleet_report_project_rows import (
-    ProjectRows,
     rows_per_section,
 )
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
@@ -126,22 +125,17 @@ class CombinedFleetReport:
         )
 
     def fingerprint(self) -> str:
-        """Identity of what the digest shows: seat sections, each project once."""
+        """JSON map of age-blind content hashes for each digest scope."""
         reports = [section.report for section in self.sections]
-        material: list[Any] = [
-            (section.descriptor, seat_payload(section.report))
-            for section in self.sections
-        ]
-        material.extend(
-            (report.project_id, project_payload(rows))
-            for report, rows in zip(reports, rows_per_section(reports))
-            if rows != ProjectRows()
-        )
-        if self.unattended:
-            material.append(("unattended", [row.item_id for row in self.unattended]))
-        if self.slow_paths:
-            material.append(("slow_paths", [row.operation for row in self.slow_paths]))
-        return digest(material)
+        material = {
+            f"scope:{section.descriptor}": digest({
+                "seat": seat_payload(section.report),
+                "project": project_payload(rows),
+            })
+            for section, rows in zip(self.sections, rows_per_section(reports))
+        }
+        material["unattended"] = digest([row.item_id for row in self.unattended])
+        return json.dumps(material, sort_keys=True, separators=(",", ":"))
 
 
 def compose_held_reports(
@@ -226,7 +220,8 @@ def compose_held_reports(
         composed_at=now,
         sections=tuple(sections),
         unattended=unattended_linked_items(conn, project_ids),
-        slow_paths=read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now),
+        slow_paths=(read_slow_paths(conn, project_ids=sorted(set(project_ids)), now=now)
+                    if include_inventory else ()),
     )
 
 

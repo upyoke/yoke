@@ -4,7 +4,7 @@ The server skips the orientation policy over https because it cannot see
 the client machine, and the source-repo renderer is absent from a managed
 project. These regressions pin the client-side replacement: it orients each
 harness on its real startup-context event exactly once, stays silent on every
-other event, never raises, and carries the generated main-agent packet.
+other event, never raises, and carries the shared message-trust block.
 """
 
 from __future__ import annotations
@@ -62,6 +62,7 @@ def isolated_markers(tmp_path_factory, monkeypatch) -> None:
         str(tmp_path_factory.mktemp("markers")),
     )
     monkeypatch.setattr(delivery, "_composed_session", None)
+    monkeypatch.setattr("yoke_harness.hooks.identity.detect_executor", lambda: "claude-code")
 
 
 def test_first_prompt_gets_oriented(project: Path) -> None:
@@ -194,7 +195,7 @@ def test_cwd_outside_a_managed_project_gets_global_orientation(tmp_path: Path) -
     # here and that yoke-global leads to a project folder.
     out = so.orientation_for_hook("UserPromptSubmit", _payload(tmp_path))
     assert out is not None and "outside every Yoke project" in out
-    assert "Board available" not in out and "`yoke-global`" in out
+    assert "`yoke-global`" in out
 
 
 @pytest.mark.parametrize(
@@ -249,19 +250,6 @@ def test_startup_block_is_delivered_with_installed_rules(
     assert "Main-session startup block (main_agent)" in out
 
 
-def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:
-    without = so.orientation_for_hook("UserPromptSubmit", _payload(project))
-    assert without is not None
-    assert "BOARD.md" not in without
-
-    so.confirm_orientation_delivery(without)
-    (project / ".yoke" / "BOARD.md").write_text("# board\n", encoding="utf-8")
-    with_board = so.orientation_for_hook(
-        "UserPromptSubmit",
-        _payload(project, session_id="sess-two"),
-    )
-    assert with_board is not None
-    assert "Board available at .yoke/BOARD.md" in with_board
 
 
 def test_orientation_warns_when_installed_teaching_is_behind(

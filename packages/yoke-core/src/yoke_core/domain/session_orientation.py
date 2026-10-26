@@ -157,7 +157,6 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             ORIENTATION_HEADING,
             "",
             f"Your Session: {session_id}",
-            "Do NOT infer your identity from the active sessions table on the board.",
             "",
             f"Root: {root}",
         ]
@@ -171,20 +170,19 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     commits = _git_line(root, ["log", "--oneline", "-1"])
     commit_lines = ["", "Recent commit:", commits] if commits else []
     tail: list[str] = []
-    if (root / ".yoke" / "BOARD.md").is_file():
-        tail.extend(["", "Board available at .yoke/BOARD.md"])
     tail.extend(_startup_block_lines())
     # Queue branches and commit subjects are unbounded. Drop optional Git
     # context before it can crowd the authority/trust instructions out of
     # the smallest harness channel; the checkout identity remains intact.
-    budget = min(INLINE_CONTEXT_BYTES.values())
+    budget = min(1200, min(INLINE_CONTEXT_BYTES.values()))
     from yoke_core.domain.session_orientation_setup import render_with_setup
 
     return render_with_setup(
         lines,
         [branch_lines + commit_lines, branch_lines, []],
         tail,
-        payload.get(SETUP_LINES_KEY) or [],
+        [line for line in payload.get(SETUP_LINES_KEY, [])
+         if "setup_project_unbound" in line],
         budget,
     )
 

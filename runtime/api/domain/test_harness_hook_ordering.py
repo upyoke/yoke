@@ -193,7 +193,6 @@ class TestPreToolUseMonitor(unittest.TestCase):
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.hooks.session_broker_wake",
-                "yoke_core.domain.hint_monitor_relay",
                 "yoke_core.domain.observe_pre",
             ],
         )

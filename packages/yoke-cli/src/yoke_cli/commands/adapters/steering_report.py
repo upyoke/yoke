@@ -44,7 +44,7 @@ claim holder stays quiet before the report presumes it stuck. And
 `steering_report_interval_minutes` (default 2) is the shortest gap between
 reports appended to one session.
 
-A session receives a report only when what its digest shows changed. The
+A session receives only changed digest scope sections plus an unchanged count. The
 hook and the fleet watcher share one delivery record per session, so a report
 one of them delivered is not delivered again by the other. Deployment runs,
 landed items, undelivered messages and launch failures belong to a project,
@@ -53,8 +53,13 @@ landed item already listed as a run member is not repeated, and each waiting
 run member is one line with its blocker count — the per-requirement detail
 is `yoke deployment-runs stages RUN`.
 
-`## slow paths` appears only when a registered function was over budget in the
+`## slow paths` is available with --full only, when a registered function was over budget in the
 last hour (p95 over 5 s or any call over 30 s); relay long-polls do not count.
+
+Waiting chains: keep each edge as narrow as the work needs: staff a ! blocker
+or remove its edge (`yoke items dependency remove`); narrow a heavy one with
+`yoke items dependency update DEPENDENT BLOCKING --match-gate-point GATE
+--gate-point coordination_only` or `--satisfaction fact:merged`.
 
   yoke steering report get
   yoke steering report get --project yoke

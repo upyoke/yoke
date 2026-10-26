@@ -19,6 +19,11 @@ reuses a project's schedule pass for up to 15 seconds, so a claim taken or
 released inside that window shows on a later pull. Waiter, machine-count and candidate-claim
 inputs load in sets before classification.
 
+Hook and watcher delivery share section hashes in the session delivery record.
+They deliver only changed scope sections and an unchanged count; identical
+reports deliver nothing. Slow paths are diagnostics in `--full` and never
+change delivery identity. Removed scope sections are named once.
+
 ## Scope and available work
 
 Document seats follow item_strategy_docs membership, including execution in
@@ -197,8 +202,8 @@ hour: p95 over 5 s, or any call over 30 s. Each row shows the function, its time
 calls, p95 and longest call. It reads `YokeFunctionCalled` timings for the held
 projects and unattributed calls, classified as the Performance page does; relay
 long-polls and watcher wall time are intentional waits and never count. The
-section appears only when a function is over budget, and a newly slow function
-changes the report fingerprint, so the next wake shows it. It is diagnostic and
+section appears only in the full report when a function is over budget. It never
+changes the delivery fingerprint or appears in hook/watcher digests. It is diagnostic and
 never actionable: missing or unreadable events leave it out. File the slow path
 with `/yoke idea`, naming the function and its p95.
 

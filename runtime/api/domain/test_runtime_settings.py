@@ -59,9 +59,9 @@ def test_get_str_strips_inline_comments(tmp_path: Path) -> None:
 
 
 def test_get_str_strips_surrounding_quotes(tmp_path: Path) -> None:
-    cfg = _write_config(tmp_path, 'monitor_relay_hint_text="hello world"\n')
+    cfg = _write_config(tmp_path, 'sample_text="hello world"\n')
     assert (
-        runtime_settings.get_str("monitor_relay_hint_text", "", config_path=cfg)
+        runtime_settings.get_str("sample_text", "", config_path=cfg)
         == "hello world"
     )
 

@@ -34,13 +34,14 @@ def test_project_delivery_contains_one_setup_summary(monkeypatch):
         {
             "session_id": "session",
             orientation.SETUP_LINES_KEY: [
-                "Setup: unknown checkout-binding",
+                "Setup: setup_project_unbound",
                 "Next: yoke setup --agent",
             ],
         },
         Path("/external"),
     )
-    assert body.count("Setup:") == body.count("Next:") == 1
+    assert body.count("Setup:") == 1
+    assert body.count("Next:") == 0
     assert "Required startup" in body
     assert len(body.encode()) <= min(INLINE_CONTEXT_BYTES.values())
 
@@ -97,7 +98,8 @@ def test_source_composers_use_same_summary(monkeypatch, harness):
         body = source._render_claude_orientation(
             "session", "/external", "", "claude-code", SessionModelFacts()
         )
-    assert body.count("Setup:") == body.count("Next:") == 1
+    assert body.count("Setup:") == 1
+    assert body.count("Next:") == 1
     assert "blocked setup-checklist-handoff" in body
     router = "$yoke" if harness == "codex" else "/yoke"
     assert f"Next: {router} onboard (setup_required)" in body
@@ -118,13 +120,13 @@ def test_repeated_hook_does_not_reread_setup(monkeypatch):
 
     def setup(root):
         reads.append(root)
-        return ["Setup: unknown checkout-binding"]
+        return ["Setup: setup_project_unbound"]
 
     monkeypatch.setattr(setup_facts_summary, "orientation_lines", setup)
     payload = json.dumps({"session_id": "session", "cwd": "/external"})
     event = orientation.session_orientation_event(cursor=False)
     first = orientation.orientation_for_hook(event, payload)
-    assert "Setup: unknown checkout-binding" in first
+    assert "Setup: setup_project_unbound" in first
     delivered.append(True)
     assert orientation.orientation_for_hook(event, payload) is None
     assert reads == [Path("/external")]
@@ -154,7 +156,7 @@ def test_hook_scope_distinguishes_machine_state_from_project(
 
     def setup(selected):
         reads.append(selected)
-        scope = "machine" if selected is None else "project"
+        scope = "machine" if selected is None else "setup_project_unbound"
         return [f"Setup: {scope} facts", "Next: yoke setup --agent"]
 
     monkeypatch.setattr(setup_facts_summary, "orientation_lines", setup)
@@ -174,7 +176,8 @@ def test_hook_scope_distinguishes_machine_state_from_project(
             "session", str(cwd), "", "claude-code", SessionModelFacts()
         )
     assert reads == [root if in_project else None]
-    assert body.count("Setup:") == body.count("Next:") == 1
+    assert body.count("Setup:") == 1
+    assert body.count("Next:") == (0 if in_project else 1)
     assert ("outside every Yoke project" in body) is not in_project
     if not in_project:
         assert ".yoke/docs" not in body

@@ -36,8 +36,6 @@ from yoke_contracts.fleet_watcher_observation import FLEET_WATCHER_OBSERVATION_K
 from yoke_contracts.hook_runner.client_facts import (
     CAPTURE_FILES_KEY,
     HEADLESS_LAUNCH_KEY,
-    MACHINE_SETTINGS_KEY,
-    MAIN_HEAD_KEY,
     SOURCE_ROOT_KEY,
     WRITE_TARGETS_KEY,
 )
@@ -97,7 +95,6 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
     # and ``yoke_core.hooks.remote_lifecycle``.
     _H + "session_dispatch": _CLIENT,
     # Server with named client facts.
-    _D + "hint_monitor_relay": _facts(MACHINE_SETTINGS_KEY),
     _D + "lint_headless_watcher_timeout": _facts(HEADLESS_LAUNCH_KEY),
     _D + "lint_lane_main_write": _facts(WRITE_TARGETS_KEY, CLIENT_MACHINE_HOME_KEY),
     _D + "lint_long_command_polling": _facts(CAPTURE_FILES_KEY),
@@ -107,9 +104,8 @@ _POLICY_HOMES: dict[str, PolicyPlacement] = {
         CLIENT_SCRATCH_ROOT_KEY,
         CLIENT_CLAUDE_JOB_TMP_KEY,
         SOURCE_ROOT_KEY,
-        MACHINE_SETTINGS_KEY,
     ),
-    _D + "observe_pre": _facts(MAIN_HEAD_KEY),
+    _D + "observe_pre": _SERVER,
     _D + "path_claim_bash_guard": _facts(
         CLIENT_SCRATCH_ROOT_KEY, CLIENT_MACHINE_HOME_KEY
     ),

@@ -289,3 +289,13 @@ def test_registry_exposes_canonical_functions_and_concise_aliases() -> None:
         SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY[("messages", "acknowledge")][0]
         == "session_control.message.acknowledge"
     )
+
+
+def test_acknowledge_records_each_requested_receipt_and_reports_failures(monkeypatch):
+    calls = []
+    def dispatch(**kwargs):
+        calls.append(kwargs["payload"]["message_id"])
+        return 1 if len(calls) == 1 else 0
+    monkeypatch.setattr(messages, "dispatch_and_emit", dispatch)
+    assert messages.session_message_acknowledge(["first", "second"]) == 1
+    assert calls == ["first", "second"]

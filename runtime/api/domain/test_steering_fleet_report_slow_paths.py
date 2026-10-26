@@ -22,7 +22,6 @@ from yoke_core.domain.steering_fleet_report_compose import (
     compose_held_reports,
 )
 from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
-from yoke_core.domain.steering_fleet_report_watcher import watcher_dict
 
 OVER_BUDGET = "deployment_runs.qa_stage.dispatch"
 IN_BUDGET = "items.get.run"
@@ -66,14 +65,14 @@ def test_section_lists_an_over_budget_function_only(steering_scope) -> None:
     assert [row.operation for row in combined.slow_paths] == [OVER_BUDGET]
     row = combined.slow_paths[0]
     assert (row.count, row.max_ms) == (2, 41_000)
-    for text in (combined_body(combined), combined_hook_digest(combined)):
+    for text in (combined_body(combined),):
         assert "## slow paths" in text
         assert f"{OVER_BUDGET}  2 calls" in text
         assert "max 41.0s" in text
         assert LONG_POLL not in text
         assert IN_BUDGET not in text
     assert combined_dict(combined)["slow_paths"] == [row.to_dict()]
-    assert watcher_dict(combined)["slow_paths"] == [row.to_dict()]
+    assert "## slow paths" not in combined_hook_digest(combined)
 
 
 def test_p95_over_budget_counts_without_a_single_call_over_the_ceiling() -> None:
@@ -91,14 +90,14 @@ def test_p95_over_budget_counts_without_a_single_call_over_the_ceiling() -> None
     ]
 
 
-def test_slow_paths_change_the_report_fingerprint(steering_scope) -> None:
+def test_slow_paths_leave_the_report_fingerprint_unchanged(steering_scope) -> None:
     quiet = compose_held_reports(steering_scope, session_id=STEERING_SESSION, now=NOW)
     _seed_calls(steering_scope)
     slow = compose_held_reports(steering_scope, session_id=STEERING_SESSION, now=NOW)
 
     assert quiet.slow_paths == ()
     assert "## slow paths" not in combined_body(quiet)
-    assert quiet.fingerprint() != slow.fingerprint()
+    assert quiet.fingerprint() == slow.fingerprint()
 
 
 def test_unreadable_events_leave_the_section_out(steering_scope, monkeypatch) -> None:

@@ -1,16 +1,11 @@
-"""Compact fleet-report body for hook context.
-
-The full combined body stays on ``yoke steering report get --full``. Hook injection
-gets the actionable sections and a pull
-command so a harness inline cap cannot hide the delivery behind a live-claims
-dump.
-"""
+"""Shared section delta for hook and watcher fleet deliveries."""
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
 from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
-from yoke_core.domain.steering_fleet_report_slow_paths import slow_path_lines
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
@@ -18,45 +13,42 @@ from yoke_core.domain.steering_fleet_report_render import (
 )
 
 
-#: One line, because it rides every digest. What the digest withholds and
-#: what each section means are answered by the commands it names.
-DIGEST_PREAMBLE = (
-    "Hook digest — machines, surfaces, balances and live claims: "
-    "`yoke steering report get --full`; sections explained: "
-    "`yoke steering report get --help`."
-)
-
-
-def combined_hook_digest(combined: CombinedFleetReport) -> str:
-    """Actionable sections and unattended linked work, without the full dump."""
-    parts = [
-        REPORT_BEGIN,
-        (
-            f"composed {combined.composed_at} · {len(combined.sections)} "
-            "held scopes · hook digest"
-        ),
-        DIGEST_PREAMBLE,
-        "",
-    ]
-    if combined.unattended:
-        parts.extend(
-            [
-                "## unattended linked work",
-                *(f"  {row.finding}" for row in combined.unattended),
-                "",
-            ]
-        )
-    parts.extend(slow_path_lines(combined.slow_paths))
+def combined_hook_digest(
+    combined: CombinedFleetReport, prior_fingerprint: str = ""
+) -> str:
+    """Render changed scopes only; an identical report delivers nothing."""
+    current = json.loads(combined.fingerprint())
+    try:
+        prior = json.loads(prior_fingerprint) if prior_fingerprint else {}
+    except ValueError:
+        prior = {}
+    if not isinstance(prior, dict):
+        prior = {}
+    changed = {key for key, value in current.items() if prior.get(key) != value}
+    parts = [REPORT_BEGIN]
+    if "unattended" in changed and (combined.unattended or "unattended" in prior):
+        parts.extend([
+            "## unattended linked work",
+            *(f"  {row.finding}" for row in combined.unattended),
+            *([] if combined.unattended else ["  none"]),
+            "",
+        ])
     shared = rows_per_section([section.report for section in combined.sections])
     for section, rows in zip(combined.sections, shared):
-        digest = scope_actionable_digest(section.report, rows)
-        if not digest:
+        if f"scope:{section.descriptor}" not in changed:
             continue
-        parts.extend([f"## {section.descriptor}", digest, ""])
-    if parts[-1] != "":
-        parts.append("")
-    parts.append(REPORT_END)
+        body = scope_actionable_digest(section.report, rows)
+        if body or f"scope:{section.descriptor}" in prior:
+            parts.extend([f"## {section.descriptor}", body or "  none", ""])
+    for key in sorted(prior.keys() - current.keys()):
+        if key.startswith("scope:"):
+            parts.extend([f"## {key.removeprefix('scope:')}", "  no longer held", ""])
+    parts.extend([
+        f"{len(current) - len(changed)} section(s) unchanged; "
+        "yoke steering report get --full",
+        REPORT_END,
+    ])
     return "\n".join(parts)
 
 
-__all__ = ["DIGEST_PREAMBLE", "combined_hook_digest"]
+__all__ = ["combined_hook_digest"]

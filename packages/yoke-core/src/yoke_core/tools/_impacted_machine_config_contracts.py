@@ -38,7 +38,6 @@ MACHINE_CONFIG_CONTRACTS = (
             "runtime/api/domain/test_yoke_connected_env_secrets.py",
             "runtime/api/engines/test_resync_local_mode.py",
             "runtime/api/test_advance_path_claim_activation.py",
-            "runtime/api/test_hint_monitor_relay.py",
             "runtime/api/test_merge_worktree_post_runtests.py",
             "runtime/api/test_sessions_lifecycle_actor_id.py",
             "runtime/api/test_worktree_db_resolution.py",
