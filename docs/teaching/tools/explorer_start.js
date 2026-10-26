@@ -8,15 +8,19 @@ function renderGettingStarted() {
     ['Install Yoke', 'setup', [
       'Open your coding agent and say:',
       '>install upyoke.com',
-      'Your agent handles installation and guides you through setup. It asks for the choices and browser steps that need you. You do not need to learn terminal commands to get started.',
+      'Your agent handles installation and guides you through setup. It asks for the choices and browser steps that need you.',
       'Onboarding brings your existing project and work into Yoke, establishes what you want to accomplish, and prepares what is needed to begin.'
     ], 'Installation and onboarding'],
-    ['Your project and its home', 'understand', [
-      'A project brings together your software, its goals, its work and its configuration. A universe is the shared home for those project records; it can hold more than one project.',
+    ['Universes, projects and where Yoke runs', 'understand', [
+      'A universe is the home for your Yoke projects, work records and configuration. Each project brings together its software, goals and work. You can keep several projects in one universe.',
+      'Choose where your universe lives during setup: local runs privately on your computer; self-hosted runs on a server you manage; hosted runs at upyoke.com. Self-hosted and hosted let you connect from multiple computers and work with a team.',
+      'You can move a universe between these options using export and import.',
       'Use your agent to work with Yoke and the dashboard to see what is going on. You remain responsible for direction and the decisions that need your judgment.'
     ], 'How Yoke fits together'],
-    ['Decide what matters next', 'strategy', [
-      'Give your agent the outcome you want and the constraints that matter. Yoke connects individual changes to your project’s broader direction and priorities.',
+    ['Set direction with strategy documents', 'strategy', [
+      'Work with your agent to write and refine your project’s strategy documents. They explain why the project exists, where it is going and what to work on next.',
+      'MISSION states the purpose. LANDSCAPE collects research and outside context. VISION describes the future you want. MASTER-PLAN holds the evolving strategy. CURRENT-PLAN sets the near-term focus. You can also add focused plans for particular areas.',
+      'Link work items to the strategy documents they serve, so individual changes stay connected to the larger goal.',
       'The frontier shows which work is ready, which is blocked and which is already underway. Steering uses that picture to keep work moving toward your goals.'
     ], 'Direction and priorities'],
     ['Track work from idea to completion', 'work', [
@@ -29,7 +33,7 @@ function renderGettingStarted() {
     ], 'Sessions, steering and levels'],
     ['Give agents the guidance they need', 'guidance', [
       'Project instructions, documentation and skills tell agents how to work in your project. Yoke also supplies relevant guidance as they work, through context packets and command responses.',
-      'You do not need to read every instruction an agent receives. You can inspect that guidance when you want to understand or change how work happens.'
+      'You can inspect that guidance when you want to understand or change how work happens.'
     ], 'Agent guidance'],
     ['Connect the tools your project uses', 'configuration', [
       'Capabilities are resources your project can use, such as a service integration or a test machine. Packs provide reusable setup and guidance for a particular technology or capability.',
@@ -48,7 +52,7 @@ function renderGettingStarted() {
     ], 'Databases and migrations'],
     ['Understand problems and recover', 'operations', [
       'When work stops, start with the reason it is blocked and the next action your agent reports. Health checks help diagnose problems with setup and operation.',
-      'Recorded failures and lessons help improve the project’s instructions and workflows, so the same problems do not keep recurring.'
+      'Recorded failures and lessons help improve the project’s instructions and workflows.'
     ], 'Operations and recovery'],
     ['Control access and decisions', 'access', [
       'Access controls determine who can use project resources and perform actions. Approval steps identify decisions that must come back to a person before work proceeds.',
