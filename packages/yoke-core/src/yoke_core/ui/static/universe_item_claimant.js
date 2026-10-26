@@ -82,7 +82,7 @@ function miniSessionCard(documentNode, row, note) {
   appendSessionPrimaryStatus(documentNode, button, row);
   const health = sessionHealthState(row);
   if (sessionPrimaryStatus(row).state === "parked"
-      && ["process-exited", "process-gone", "resuming"].includes(health?.state)) {
+      && ["process-gone", "resuming"].includes(health?.state)) {
     button.appendChild(el(documentNode, "span", "item-claimant-process", health.label));
   }
   // Anything else this session holds reads after its status, inside the same

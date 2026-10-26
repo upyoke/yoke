@@ -42,7 +42,7 @@ const band = (root, key) => byClass(root, `work-band-${key}`)[0];
 const cardsIn = (root, key) => byClass(band(root, key), "work-item-card")
   .map(ownTextContent);
 
-test("a parked holder whose process exited stays active with its chip", async (t) => {
+test("a parked holder whose process exited stays active with no process chip", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountFrontier({
     ...claimingSession(),
@@ -55,7 +55,8 @@ test("a parked holder whose process exited stays active with its chip", async (t
   assert.equal(cardsIn(root, "active").length, 1);
   const chip = byClass(band(root, "active"), "item-claimant-mini")[0];
   assert.ok(chip, "the holding session's chip is drawn");
-  assert.match(descendantText(chip), /process exited/);
+  assert.match(descendantText(chip), /parked/);
+  assert.equal(byClass(chip, "item-claimant-process").length, 0);
   assert.doesNotMatch(descendantText(root), /Owner unavailable/);
   mounted.unmount();
 });
