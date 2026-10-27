@@ -131,7 +131,9 @@ def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="K",
         help="Reuse a caller-generated key to avoid duplicate sends.",
     )
-    parser.add_argument("--confirmation-token", metavar="T", help="Exact preview token.")
+    parser.add_argument(
+        "--confirmation-token", metavar="T", help="Exact preview token."
+    )
 
 
 def session_message_send(args: List[str]) -> int:
