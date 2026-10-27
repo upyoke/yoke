@@ -21,6 +21,7 @@ def _case(key, runner="host_control", baselines=(), state=None, reason=None):
     return {
         "case_key": key,
         "runner_id": runner,
+        "method_config": {"os": "macos"} if runner == "agent_mission" else {},
         "host_baselines": list(baselines),
         "starting_state": state,
         "starting_state_reason": reason,
@@ -31,6 +32,7 @@ def _normalize(case):
     return normalize_starting_state(
         case_key=case["case_key"],
         runner_id=case["runner_id"],
+        method_config=case.get("method_config"),
         host_baselines=case["host_baselines"],
         starting_state=case["starting_state"],
         starting_state_reason=case["starting_state_reason"],

@@ -168,7 +168,6 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     execution_id = str(execution["id"])
     assert execution["roster"][0]["required_capability_kinds"] == [
         "browser-control",
-        "test-machine",
     ]
     begun = handle_plan_case_begin(
         _request(
@@ -316,6 +315,7 @@ def test_mixed_bundle_keeps_all_final_verdicts_with_the_main_owner() -> None:
             {
                 "requirement_id": 1,
                 "capture_runner": "agent_mission",
+                "method_config": {"os": "macos"},
                 "capture_run_id": 10,
                 "executor": "informed_subagent",
                 "instructions": "Explore the onboarding flow.",

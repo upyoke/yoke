@@ -54,6 +54,8 @@ unclaimed scoped item this pass.
 
 For specs:
 
+A post-deploy case names where its evidence lives: Command for controller evidence, a mission with no host to explore on the controller, a test machine with `fresh-host` for clean installs.
+
 - Blocking cases create release preconditions: a throwaway walk to stop,
   a fixture PR to eject, or short traffic.
 - Put real-event or long-wait evidence on the item: "record the next real

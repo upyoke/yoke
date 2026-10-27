@@ -140,6 +140,8 @@ def prepare_starting_state(
         state, reason = normalize_starting_state(
             case_key=f"requirement {int(req_id)}",
             runner_id=row["runner_id"],
+            method_config=row.get("method_config"),
+            capability_requirements=row.get("capability_requirements"),
             host_baselines=[baseline] if baseline else [],
             starting_state=declared.get("starting_state"),
             starting_state_reason=declared.get("starting_state_reason"),

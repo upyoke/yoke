@@ -28,7 +28,6 @@ INHERIT = "inherit"
 AS_IS = "as_is"
 STARTING_STATES = (BASELINE, INHERIT, AS_IS)
 MISSION_RUNNER_ID = "agent_mission"
-MACHINE_RUNNER_IDS = frozenset({"host_control", MISSION_RUNNER_ID})
 STARTING_STATE_RECOVERY = (
     "declare it on the case: `host_baselines` naming a registered baseline "
     f'({", ".join(HOST_BASELINES)}), `starting_state: "inherit"` to start '
@@ -43,8 +42,25 @@ class StartingStateError(ValueError):
     """A machine-run case's starting state is missing or impossible."""
 
 
-def is_machine_runner(runner_id: Any) -> bool:
-    return str(runner_id or "") in MACHINE_RUNNER_IDS
+def needs_test_machine(case: Mapping[str, Any]) -> bool:
+    """Whether the case declares work on a Test Machine, independent of run pins."""
+    runner = case.get("runner_id")
+    if runner == "host_control":
+        return True
+    if runner != MISSION_RUNNER_ID:
+        return False
+    config = case.get("method_config") or {}
+    if isinstance(config, str):
+        config = json.loads(config)
+    required = []
+    for field in ("capability_requirements", "required_capability_kinds"):
+        kinds = case.get(field) or []
+        required.extend(json.loads(kinds) if isinstance(kinds, str) else kinds)
+    return bool(
+        any(config.get(key) for key in ("test_machine", "test_machines", "os"))
+        or any(str(kind).startswith("test-machine:") for kind in required)
+        or case.get("host_baselines") or case.get("host_baseline")
+    )
 
 
 def normalize_starting_state(
@@ -54,12 +70,16 @@ def normalize_starting_state(
     host_baselines: Sequence[str],
     starting_state: Any,
     starting_state_reason: Any,
+    method_config: Any = None,
+    capability_requirements: Any = None,
 ) -> tuple[str | None, str | None]:
     """Return one case's stored ``(starting_state, starting_state_reason)``."""
     declared = None if starting_state in (None, "") else str(starting_state)
     reason = str(starting_state_reason or "").strip() or None
     subject = f"case {case_key!r}"
-    if not is_machine_runner(runner_id):
+    if not needs_test_machine(dict(runner_id=runner_id, host_baselines=host_baselines,
+                                   method_config=method_config,
+                                   capability_requirements=capability_requirements)):
         if declared is not None or reason is not None or host_baselines:
             raise StartingStateError(
                 f"{subject} declares a starting state, but only machine-run "
@@ -129,6 +149,8 @@ def chain_baselines(
         state, _ = normalize_starting_state(
             case_key=key,
             runner_id=case.get("runner_id"),
+            method_config=case.get("method_config"),
+            capability_requirements=case.get("capability_requirements") or case.get("required_capability_kinds"),
             host_baselines=baselines,
             starting_state=case.get("starting_state"),
             starting_state_reason=case.get("starting_state_reason"),
@@ -148,7 +170,7 @@ def chain_baselines(
                     "case may inherit after it on the machine; "
                     "declare host_baselines or starting_state 'as_is' instead"
                 )
-            if not is_machine_runner(previous.get("runner_id")):
+            if not needs_test_machine(previous):
                 raise StartingStateError(
                     f"case {key!r} inherits from case "
                     f"{str(previous['case_key'])!r}, which does not run on a "
@@ -260,12 +282,11 @@ __all__ = [
     "AS_IS",
     "BASELINE",
     "INHERIT",
-    "MACHINE_RUNNER_IDS",
     "STARTING_STATES",
     "STARTING_STATE_RECOVERY",
     "StartingStateError",
     "chain_baselines",
-    "is_machine_runner",
+    "needs_test_machine",
     "normalize_starting_state",
     "require_materialized_starting_state",
     "require_selected_chains",

@@ -1,5 +1,7 @@
 """Recorded walk-end receipts belong to the mission runs, not cancellation time."""
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
@@ -11,7 +13,7 @@ def mission_restores_recorded(conn: Any, execution: dict) -> bool:
     missions = {
         ordinal: case
         for ordinal, case in enumerate(execution.get("roster") or [])
-        if case.get("runner_id") == "agent_mission"
+        if case.get("runner_id") == "agent_mission" and needs_test_machine(case)
     }
     results = {row["ordinal"]: row for row in result_rows(conn, str(execution["id"]))}
     for ordinal, case in missions.items():
@@ -32,7 +34,7 @@ def mission_restores_recorded(conn: Any, execution: dict) -> bool:
 def post_capture_state(conn: Any, execution: dict) -> str:
     """Mission preparation opens the walk; recorded hand-backs open review."""
     missions = any(
-        case.get("runner_id") == "agent_mission"
+        case.get("runner_id") == "agent_mission" and needs_test_machine(case)
         for case in execution.get("roster") or []
     )
     return (

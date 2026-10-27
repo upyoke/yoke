@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any
 from datetime import datetime
 
@@ -173,7 +175,7 @@ def begin_case_host_contract(
                 host_cases=[
                     row
                     for row in execution["roster"]
-                    if row.get("runner_id") in {"host_control", "agent_mission"}
+                    if needs_test_machine(row)
                     and case_platform(row, platforms) == case_platform(case, platforms)
                     and resolve_case_machine(row, None) in {None, driver}
                 ],

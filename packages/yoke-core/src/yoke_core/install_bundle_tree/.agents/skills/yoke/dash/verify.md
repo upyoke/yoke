@@ -1,5 +1,7 @@
 # Dash — verify
 
+A post-deploy case names where its evidence lives: Command for controller evidence, a mission with no host to explore on the controller, a test machine with `fresh-host` for clean installs.
+
 Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case is the one full run. Commit, then re-survey the actual touched files before each SHA-bound case; any tree change reruns the affected cases.
 
 Optional review plan: select it, attach it, then run its cases.

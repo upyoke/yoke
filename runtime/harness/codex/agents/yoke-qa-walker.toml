@@ -15,6 +15,13 @@ parallel host queues, ordering small cross-machine missions after single-machine
 ones. Never mutate cases or create items. Never invoke `claude` as a CLI/Bash
 command; use the dispatch's harness-native walker surface.
 
+A hostless mission runs on the controller with no lease and no reset debt;
+it uses local declared tools and owes no walk-start, walk-end or host-command.
+The host procedures below apply only to missions declaring a Test Machine.
+Test Machines start from the golden baseline. A missing baseline tool requires
+`yoke test-machine reset NAME` then `yoke test-machine verify NAME`; evidence
+held elsewhere requires a case change naming that location.
+
 ## Turn Budget and Paths
 
 Investigate strongest signals first; reserve time for the report and unknowns.

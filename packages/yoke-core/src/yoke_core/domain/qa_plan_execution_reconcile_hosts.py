@@ -7,6 +7,8 @@ steering seat may reset the host, and refuses with the exact command.
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
@@ -83,7 +85,7 @@ def host_recovery_proven(conn: Any, execution: dict, request: dict) -> bool:
 
     ordinal = int(request["ordinal"])
     case = execution["roster"][ordinal]
-    if case.get("runner_id") == "agent_mission" and mission_restores_recorded(
+    if case.get("runner_id") == "agent_mission" and needs_test_machine(case) and mission_restores_recorded(
         conn, execution
     ):
         return True

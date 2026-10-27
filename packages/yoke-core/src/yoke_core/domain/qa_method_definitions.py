@@ -155,11 +155,11 @@ BUILTIN_QA_METHODS = (
         "id": "exploratory-mission",
         "name": "Exploratory mission",
         "description": "Agent-chosen exploration across declared substrates; an "
-        "empty baseline preserves the live host. Do not use it for "
+        "missions without a declared host explore on the controller. Do not use it for "
         "deterministic checks: Command methods are faster, cheaper, "
         "and repeatable.",
         "runner_id": "agent_mission",
-        "required_capability_kinds": ["browser-control", "test-machine"],
+        "required_capability_kinds": ["browser-control"],
         "verdict_path": "agent",
         "verdict_contract": "the mission owner submits pass, fail, or undetermined "
         "with a written rationale; undetermined names what "

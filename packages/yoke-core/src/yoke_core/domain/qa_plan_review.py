@@ -93,6 +93,7 @@ def _review_case(
         "case_position": int(case["case_position"]),
         "baseline_position": int(case["baseline_position"]),
         "host_baseline": case.get("host_baseline"),
+        "required_capability_kinds": case.get("required_capability_kinds"),
         "method_id": str(case["method_id"]),
         "runner_id": str(case["runner_id"]),
         "method_config": dict(case.get("method_config") or {}),

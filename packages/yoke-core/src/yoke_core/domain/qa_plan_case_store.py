@@ -34,6 +34,8 @@ def apply_starting_states(
                 normalize_starting_state(
                     case_key=case["case_key"],
                     runner_id=runner_ids[case["method_id"]],
+                    method_config=case.get("method_config"),
+                    capability_requirements=case.get("capability_requirements"),
                     host_baselines=case["host_baselines"],
                     starting_state=case.get("starting_state"),
                     starting_state_reason=case.get("starting_state_reason"),

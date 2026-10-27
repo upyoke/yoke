@@ -6,6 +6,8 @@ These are derived checks over existing records, never a new stored status.
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 import json
 from typing import Any, Mapping
 
@@ -17,13 +19,12 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     recorded_execution_target_digest,
 )
 
-MACHINE_RUNNERS = frozenset({"host_control", "agent_mission"})
 
 
 def proof_subject(requirement: Mapping[str, Any]) -> str:
     """Use the frozen runner/config contract, never a display label."""
     runner = requirement.get("runner_id")
-    if runner in MACHINE_RUNNERS:
+    if needs_test_machine(requirement):
         return "machine"
     config = executable_method_config(requirement.get("method_config"))
     if runner == "worktree_run" and config.get("requires_base_url") is True:

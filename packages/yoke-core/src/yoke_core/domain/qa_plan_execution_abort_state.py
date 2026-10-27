@@ -1,5 +1,7 @@
 """Cooperative host aborts retain custody until required cleanup is proven."""
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 import json
 
 from yoke_contracts.timestamps import format_instant, utc_now
@@ -58,7 +60,7 @@ def owed_host_abort(conn, execution, *, reason):
         )
     )
     runner = roster[ordinal].get("runner_id")
-    if runner == "agent_mission" and request:
+    if runner == "agent_mission" and needs_test_machine(roster[ordinal]) and request:
         from yoke_core.domain.agent_mission_restore import mission_restores_recorded
 
         return (
@@ -95,7 +97,7 @@ def mission_walk_owed(conn, execution):
         (
             {"ordinal": ordinal}
             for ordinal, case in enumerate(execution.get("roster") or [])
-            if case.get("runner_id") == "agent_mission"
+            if case.get("runner_id") == "agent_mission" and needs_test_machine(case)
         ),
         None,
     )
@@ -190,7 +192,7 @@ def require_host_restored(conn, execution, *, reason, commit):
     if request is None:
         return
     ordinal = int(request["ordinal"])
-    if execution["roster"][ordinal].get("runner_id") == "agent_mission":
+    if execution["roster"][ordinal].get("runner_id") == "agent_mission" and needs_test_machine(execution["roster"][ordinal]):
         raise QaPlanExecutionStateError(
             _MISSION_WALK_END + _ended_owner_recovery(conn, execution)
         )

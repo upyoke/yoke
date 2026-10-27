@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
@@ -154,7 +156,7 @@ def validate_roster_machine(
     projects = {
         int(row["project_id"])
         for row in roster
-        if row.get("runner_id") in {"host_control", "agent_mission"}
+        if needs_test_machine(row)
     }
     from yoke_core.domain.machine_qa_case_hosts import case_machines
 

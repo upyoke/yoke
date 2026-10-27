@@ -5,6 +5,8 @@ The prior execution stays as history; continuation runs supersede its verdict.
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any, Mapping
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
@@ -85,7 +87,7 @@ def _mission_ordinals(execution: Mapping[str, Any]) -> list[int]:
     return [
         index
         for index, case in enumerate(execution.get("roster") or [])
-        if case.get("runner_id") == "agent_mission"
+        if case.get("runner_id") == "agent_mission" and needs_test_machine(case)
     ]
 
 
