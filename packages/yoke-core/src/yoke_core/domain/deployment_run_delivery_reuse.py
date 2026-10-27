@@ -31,7 +31,7 @@ from yoke_core.domain.deployment_run_bound_sources import (
 from yoke_core.domain.deployment_run_project_sources import (
     invalidate_run_source_facts,
 )
-from yoke_core.domain.deployment_runs_lock import bounded_run_write
+from yoke_core.domain.deployment_runs_lock import bounded_run_write, lock_run
 from yoke_core.domain.hosted_promotion_receipt import (
     PROMOTION_RECEIPTS_KEY,
     project_promotion_receipts,
@@ -95,13 +95,15 @@ def reuse_delivery(conn: Any, run_id: str, stage_name: str) -> dict[str, str]:
     empty id with the ``reason`` the stage must dispatch. The caller commits.
     """
     with bounded_run_write(conn, run_id):
+        if lock_run(conn, run_id) is None:
+            raise LookupError(f"deployment run {run_id!r} not found")
         row = conn.execute(
             f"SELECT dr.project_id,COALESCE(dr.release_lineage,''),"
             f"COALESCE(dr.{BOUND_SOURCES_FIELD},''),dr.status,df.stages,"
             "COALESCE(e.name,'') FROM deployment_runs dr "
             "JOIN deployment_flows df ON df.id=dr.flow "
             "LEFT JOIN environments e ON e.id=dr.target_environment_id "
-            "WHERE dr.id=%s FOR UPDATE OF dr",
+            "WHERE dr.id=%s",
             (run_id,),
         ).fetchone()
         if row is None:
