@@ -59,7 +59,8 @@ def needs_test_machine(case: Mapping[str, Any]) -> bool:
     return bool(
         any(config.get(key) for key in ("test_machine", "test_machines", "os"))
         or any(str(kind).startswith("test-machine:") for kind in required)
-        or case.get("host_baselines") or case.get("host_baseline")
+        or case.get("host_baselines")
+        or case.get("host_baseline")
     )
 
 
@@ -77,13 +78,18 @@ def normalize_starting_state(
     declared = None if starting_state in (None, "") else str(starting_state)
     reason = str(starting_state_reason or "").strip() or None
     subject = f"case {case_key!r}"
-    if not needs_test_machine(dict(runner_id=runner_id, host_baselines=host_baselines,
-                                   method_config=method_config,
-                                   capability_requirements=capability_requirements)):
+    if not needs_test_machine(
+        dict(
+            runner_id=runner_id,
+            host_baselines=host_baselines,
+            method_config=method_config,
+            capability_requirements=capability_requirements,
+        )
+    ):
         if declared is not None or reason is not None or host_baselines:
             raise StartingStateError(
                 f"{subject} declares a starting state, but only machine-run "
-                "cases (host_control and agent_mission methods) start on a "
+                "cases (host_control and missions declaring a host) start on a "
                 "Test Machine; remove host_baselines, starting_state and "
                 "starting_state_reason"
             )
@@ -150,7 +156,8 @@ def chain_baselines(
             case_key=key,
             runner_id=case.get("runner_id"),
             method_config=case.get("method_config"),
-            capability_requirements=case.get("capability_requirements") or case.get("required_capability_kinds"),
+            capability_requirements=case.get("capability_requirements")
+            or case.get("required_capability_kinds"),
             host_baselines=baselines,
             starting_state=case.get("starting_state"),
             starting_state_reason=case.get("starting_state_reason"),

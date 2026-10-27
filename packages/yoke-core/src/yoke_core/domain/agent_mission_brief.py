@@ -19,6 +19,7 @@ from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 
 from yoke_contracts.qa_case_starting_state import needs_test_machine
 
+
 def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
     """Name the Screen Recording grant when mission preparation proved it absent."""
     degraded = [
@@ -201,9 +202,12 @@ def _controller_dispatch(case: Mapping[str, Any]) -> dict[str, Any]:
         "--content-file LOCAL_PATH [--filename NAME] [--metadata JSON]"
     )
     return {
-        "executor": case.get("executor"), "dispatch_kind": descriptor.dispatch_kind,
-        "role": descriptor.role, "subagent_type": descriptor.subagent_type,
-        "context_policy": "project-informed", "location": "controller",
+        "executor": case.get("executor"),
+        "dispatch_kind": descriptor.dispatch_kind,
+        "role": descriptor.role,
+        "subagent_type": descriptor.subagent_type,
+        "context_policy": "project-informed",
+        "location": "controller",
         "artifact_add_command": artifact_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": (
@@ -219,8 +223,10 @@ def _controller_dispatch(case: Mapping[str, Any]) -> dict[str, Any]:
             "wait for the operator or send Fleet mail. "
             f"\n\nMission:\n{case['instructions']}\n\nGood outcome:\n{case['expected_outcome']}"
         ),
-        "result_schema": {"walk_status": "COMPLETE|HUMAN_GATE|UNDETERMINED",
-                          "report": "ranked findings and evidence",
-                          "needed_action": "required for HUMAN_GATE",
-                          "resume_state": "required for HUMAN_GATE"},
+        "result_schema": {
+            "walk_status": "COMPLETE|HUMAN_GATE|UNDETERMINED",
+            "report": "ranked findings and evidence",
+            "needed_action": "required for HUMAN_GATE",
+            "resume_state": "required for HUMAN_GATE",
+        },
     }

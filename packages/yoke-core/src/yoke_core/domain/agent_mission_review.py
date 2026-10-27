@@ -22,7 +22,10 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
-from yoke_core.domain.agent_mission_brief import _screen_recording_warning, _walker_dispatch
+from yoke_core.domain.agent_mission_brief import (
+    _screen_recording_warning,
+    _walker_dispatch,
+)
 
 
 def agent_mission_dispatch_contract(
@@ -114,14 +117,17 @@ def agent_mission_dispatch_contract(
             "verify the action, and dispatch a fresh walker with the resume "
             "state. Use the declared continuation when the held host must "
             "keep its state; do not start an ordinary reset run. "
-            "A mission whose sign-in or GUI-opened session must survive declares "
+            "A host mission whose sign-in or GUI-opened session must survive declares "
             "starting state as_is (unrun case: `yoke qa requirement update --field "
             "starting_state`); the walker opens sessions and approves codes itself "
             "and requests human help for real password, 2FA or payment steps. "
             "Keep the fresh target free of a source checkout; the informed "
             "walker uses controller context and installed target guidance. "
-            + stopped_mission_guidance(subject_flag, execution_id,
-                has_host=any(needs_test_machine(case) for case in cases))
+            + stopped_mission_guidance(
+                subject_flag,
+                execution_id,
+                has_host=any(needs_test_machine(case) for case in cases),
+            )
             + "Review every non-mission case yourself from its transcript and "
             "artifact-read commands. Review ranked reports and evidenced workarounds. "
             "Never pass a case whose workaround touched its tested behavior "

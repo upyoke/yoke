@@ -28,11 +28,21 @@ def _changes(conn):
     changes = []
     for row_id, config, required, baseline, state, reason in rows:
         kinds = json.loads(required or "[]")
-        if needs_test_machine({"runner_id": "agent_mission", "method_config": config,
-                               "capability_requirements": kinds, "host_baseline": baseline}):
+        if needs_test_machine(
+            {
+                "runner_id": "agent_mission",
+                "method_config": config,
+                "capability_requirements": kinds,
+                "host_baseline": baseline,
+            }
+        ):
             continue
         kinds = [kind for kind in kinds if kind != "test-machine"]
-        if json.loads(required or "[]") != kinds or state is not None or reason is not None:
+        if (
+            json.loads(required or "[]") != kinds
+            or state is not None
+            or reason is not None
+        ):
             changes.append((json.dumps(kinds), row_id))
     return changes
 
@@ -45,8 +55,13 @@ def _plan_changes(conn):
         "SELECT id,method_config,host_baselines,starting_state,starting_state_reason "
         "FROM qa_plan_cases WHERE method_id='exploratory-mission'"
     ).fetchall():
-        if not needs_test_machine({"runner_id": "agent_mission", "method_config": config,
-                                   "host_baselines": json.loads(baselines or "[]")}):
+        if not needs_test_machine(
+            {
+                "runner_id": "agent_mission",
+                "method_config": config,
+                "host_baselines": json.loads(baselines or "[]"),
+            }
+        ):
             if state is not None or reason is not None:
                 changes.append(row_id)
     return changes
@@ -63,10 +78,13 @@ def apply(conn):
     for row_id in _plan_changes(conn):
         conn.execute(
             "UPDATE qa_plan_cases SET starting_state=NULL,starting_state_reason=NULL "
-            f"WHERE id={marker}", (row_id,),
+            f"WHERE id={marker}",
+            (row_id,),
         )
 
 
 def invariants(conn):
     assert not _changes(conn), "Open controller missions still require a Test Machine"
-    assert not _plan_changes(conn), "Controller plan cases still declare host starting state"
+    assert not _plan_changes(conn), (
+        "Controller plan cases still declare host starting state"
+    )
