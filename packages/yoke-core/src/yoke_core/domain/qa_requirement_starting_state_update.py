@@ -113,7 +113,8 @@ def prepare_starting_state(
         return {}, (), _INVALID, f"{subject}: starting_state value: {exc}"
     row = query_one(
         conn,
-        "SELECT id, runner_id, item_id, plan_id, deployment_run_id "
+        "SELECT id, runner_id, item_id, plan_id, deployment_run_id, "
+        "method_config,capability_requirements "
         f"FROM qa_requirements WHERE id={marker(conn)}",
         (int(req_id),),
     )

@@ -38,6 +38,7 @@ def test_mission_review_lease_is_released_and_review_handed_over():
         roster = execution["roster"]
         for case in roster:
             case["runner_id"] = "agent_mission"
+            case["method_config"]["test_machine"] = "reconcile-mission"
         register_session_actor(conn, "review-session")
         lease = acquire(
             conn, make_qa_admission_target("reconcile-mission"), "review-session"

@@ -215,6 +215,7 @@ OWNER = SimpleNamespace(actor_id="1", session_id="owner")
 def test_machine_case_plan_borrows_its_lease_to_refresh_the_golden(owned_plan, runner):
     conn, execution = owned_plan
     execution["roster"][0]["runner_id"] = runner
+    execution["roster"][0]["method_config"] = {"test_machine": "linux-lab"}
     borrowed = operations.operation_mission(
         conn,
         lease_id=8,

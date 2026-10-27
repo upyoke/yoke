@@ -30,6 +30,7 @@ def _bundle() -> dict:
             {
                 "requirement_id": 18152,
                 "capture_runner": "agent_mission",
+                "method_config": {"os": "macos"},
                 "capture_run_id": 991,
                 "executor": "informed_subagent",
                 "instructions": "Install as a new user.",
@@ -98,3 +99,22 @@ def test_mission_access_reads_the_recorded_capture_run(monkeypatch) -> None:
     )
     assert agent_mission_recording._mission_run_id(None, EXECUTION_ID, 18152) == 991
     assert agent_mission_recording._mission_run_id(None, EXECUTION_ID, 18153) is None
+
+
+def test_controller_commands_keep_connection_without_host_authority():
+    bundle = _bundle()
+    bundle["cases"][0]["method_config"] = {"browser_identities": ["reviewer"]}
+    dispatch = agent_mission_dispatch_contract(bundle)
+    with (
+        mock.patch.object(qa_plan_execution_cli, "_review_connection_env", return_value="prod"),
+        mock.patch.object(qa_plan_execution_cli, "_require_walker_dispatch_capability"),
+    ):
+        qa_plan_execution_cli._qualify_review_dispatch({"review_bundle": {"dispatch": dispatch}})
+    walker = dispatch["walker_dispatches"][0]
+    assert walker["location"] == "controller"
+    assert not {"host_command", "walk_start_command", "walk_end_command"} & walker.keys()
+    for key in ("browser_setup_command", "browser_step_command", "artifact_add_command"):
+        assert walker[key].startswith("yoke --env prod ")
+    assert walker["browser_verify_commands"] == [
+        "yoke --env prod browser verify --project PROJECT --identity reviewer --declarations-json DECLARATIONS_JSON --json"
+    ]

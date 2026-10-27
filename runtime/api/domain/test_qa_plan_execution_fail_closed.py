@@ -169,7 +169,7 @@ def test_busy_checkin_during_mission_setup_preserves_execution() -> None:
         if kwargs["function_id"] == "qa.plan_execution.begin":
             return {
                 **_begin_result(),
-                "requirements": [{**CASE, "runner_id": "agent_mission"}],
+                "requirements": [{**CASE, "runner_id": "agent_mission", "method_config": {"os": "macos"}}],
             }
         return {}
 

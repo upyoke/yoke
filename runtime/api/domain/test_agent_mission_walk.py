@@ -262,6 +262,7 @@ def test_walker_dispatch_names_the_walk_commands_and_sequential_walks() -> None:
             {
                 "requirement_id": 18152,
                 "capture_runner": "agent_mission",
+                "method_config": {"os": "macos"},
                 "capture_run_id": 991,
                 "executor": "informed_subagent",
                 "instructions": "Install as a new user.",

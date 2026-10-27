@@ -240,7 +240,7 @@ def test_selected_as_is_inherit_chain_keeps_held_failed_plan_owed(
                 else None,
                 "method_config": _terminal_recipe()
                 if key == "prepare"
-                else {"executor": "informed_subagent"},
+                else {"executor": "informed_subagent", "os": "macos"},
                 "entry_surface": "printf done" if key == "prepare" else None,
                 "required_completion": "complete" if key == "prepare" else None,
                 "host_baselines": [],

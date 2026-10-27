@@ -45,6 +45,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                 "case_position": 1,
                 "baseline_position": 1,
                 "host_baseline": None,
+                "required_capability_kinds": execution["roster"][0]["required_capability_kinds"],
                 "method_id": "terminal-inspection",
                 "runner_id": "host_control",
                 "method_config": bundle["cases"][0]["method_config"],
