@@ -10,7 +10,9 @@ yoke dev run -- <command>
 
 The command resolves the current session's claimed lane, derives every package
 source directory and the repo root through `yoke_core.tools._source_pythonpath`,
-and makes the lane the child process's working directory. Before execution it
+and makes the lane the child process's working directory. A candidate-bound
+Command case instead selects its bound candidate without a claim or machine
+checkout lookup; an explicit `--lane` pointing elsewhere refuses. Before execution it
 prints the resolved origins for `yoke_contracts`, `yoke_cli`, `yoke_core`,
 `yoke_harness`, and `runtime`; a missing or outside-lane origin refuses the run.
 This makes the recipe independent of the shell's current directory and exposes
@@ -38,8 +40,9 @@ the declaration lookup, so disposable checkouts need no machine checkout
 mapping or manual ambient project export. Select it with `--project P` on
 the QA command; an absent selection and mapping still produce a named refusal.
 
-Inside a candidate-bound Command case, use `yoke watch pytest -- <test paths>`
-even when the case deliberately empties `HOME` and `YOKE_MACHINE_HOME`. The
+Inside a candidate-bound Command case, `yoke dev run -- <command>` uses the
+candidate source and locked environment. Use `yoke watch pytest -- <test paths>`
+for tests, even when the case deliberately empties `HOME` and `YOKE_MACHINE_HOME`. The
 runner passes its verified declaration in `YOKE_QA_SOURCE_ENVIRONMENT`, bound
 to the `YOKE_QA_CANDIDATE_TREE` root, and records that same declaration with
 its environment evidence. Watchers reuse it without a control-plane read;
