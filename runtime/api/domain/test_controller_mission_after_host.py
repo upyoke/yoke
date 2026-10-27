@@ -33,7 +33,7 @@ def test_controller_after_clean_host_leaves_receipts_unchanged(test_db, tmp_path
     finally:
         submission.cleanup_artifacts()
     def receipts():
-        return test_db.execute("SELECT id,operation,receipt_json FROM test_machine_operation_receipts ORDER BY id").fetchall()
+        return test_db.execute("SELECT capability_type,operation,receipt_json FROM test_machine_operation_receipts ORDER BY capability_type,operation").fetchall()
     before = receipts()
     captured = handle_plan_case_begin(request(1))
     assert captured.primary_success, captured.error
