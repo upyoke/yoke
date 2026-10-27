@@ -44,11 +44,11 @@ def test_public_docs_match_the_actual_files_and_category_titles(explorer):
         key = 'doc:' + path.relative_to(repo).as_posix()
         assert key in nodes
         assert nodes[key]['document'].endswith(path.relative_to(repo).as_posix())
-    assert nodes['docs-category:start']['title'] == 'Get started'
+    assert nodes['docs-category:start']['title'] == 'Installation reference'
     assert nodes['doc:docs/public/start/install.md']['parent'] == 'docs-category:start'
     assert nodes['doc:docs/public/index.md']['parent'] == 'branch:doc-content'
     assert 'overview & contents' in nodes['doc:docs/public/index.md']['title']
-    assert 'doc:docs/public/start/index.md' in nodes['doc:docs/public/index.md']['related']
+    assert 'doc:docs/public/guide/setup.install.md' in nodes['doc:docs/public/index.md']['related']
 
 
 def test_single_page_embeds_every_node_document_and_record(explorer):
@@ -56,7 +56,10 @@ def test_single_page_embeds_every_node_document_and_record(explorer):
     assert list(views) == [renderer.PAGE] == ['yokepedia.html']
     data = page_data(views[renderer.PAGE])
     nodes = data['nodes']
-    assert len([node for node in nodes if not node.get('research')]) == len(renderer.map_nodes(model))
+    source_ids = {node['id'] for node in renderer.map_nodes(model)}
+    assert source_ids <= {node['id'] for node in nodes}
+    assert all(node['id'] in source_ids or node['id'].startswith(('view:', 'term:', 'page:'))
+               for node in nodes)
     assert len({node['id'] for node in nodes}) == len(nodes)
     for node in nodes:
         for key, embedded in (('record', data['records']), ('document', data['documents'])):
@@ -83,7 +86,7 @@ def test_agreed_sources_and_shared_documentation(explorer):
     roots = {node['id'] for node in nodes.values() if node['parent'] is None}
     assert roots == {'source:' + name for name in (
         'homepage', 'docs', 'setup', 'global-hooks', 'project-hooks', 'rules',
-        'skills', 'roles', 'help', 'feedback', 'packets', 'instructions', 'project')}
+        'skills', 'roles', 'help', 'feedback', 'packets', 'instructions', 'project', 'packs', 'decisions')}
     assert nodes['branch:web-docs']['related'] == nodes['branch:installed-docs']['related']
     assert {n['id'] for n in nodes.values() if n['parent'] == 'source:docs'} == {
         'branch:web-docs', 'branch:installed-docs', 'branch:doc-content'}

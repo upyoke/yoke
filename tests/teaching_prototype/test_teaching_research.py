@@ -1,4 +1,4 @@
-"""Research survives the unified guide with explicit, reversible source links."""
+"""Sources, curated terms, and public-page maps replace the retired research views."""
 from pathlib import Path
 
 import pytest
@@ -29,47 +29,20 @@ def guide():
     sys.path.remove(str(TOOLS))
 
 
-def test_every_canonical_record_has_one_home_and_all_edges_resolve(guide):
-    from model import all_records
-    from explorer_research import research_id
-    loaded, _, nodes, _ = guide
-    for kind, key, record in all_records(loaded):
-        node = nodes[research_id(kind, key)]
-        assert node['record'].endswith(record['file'].removeprefix('docs/teaching/'))
-        assert node['record_id'] == key
-        assert not node.get('output_size')
-    for node in nodes.values():
-        assert not node['parent'] or node['parent'] in nodes
-        for edges in node.get('research_links', {}).values():
-            assert len({edge['target'] for edge in edges}) == len(edges)
-            assert all(edge['target'] in nodes and edge['reason'] for edge in edges)
-
-
-def test_topic_and_surface_connections_are_bidirectional(guide):
-    _, _, nodes, _ = guide
-    topic = nodes['research:concept:basics/surfaces']
-    teaching = nodes['research:teaching:agent-help/01']
-    assert any(e['target'] == topic['id'] for e in teaching['research_links']['Topics'])
-    assert any(e['target'] == teaching['id'] for e in topic['research_links']['Teaching plans'])
-    assert any(e['target'] == 'source:skills' for e in topic['research_links']['Sources'])
-    assert topic['coverage'] > 0
-    assert any(n.get('coverage') == 0 for n in nodes.values())
-
-
-def test_proposals_and_history_do_not_change_source_output_totals(guide):
+def test_source_nodes_keep_their_output_totals(guide):
     from render_explorer import map_nodes
     loaded, _, nodes, _ = guide
     for source in map_nodes(loaded):
         assert nodes[source['id']].get('output_size') == source.get('output_size')
-    for node in nodes.values():
-        if node.get('status') == 'superseded':
-            assert node['parent'] == 'research-index:history'
-    assert nodes['research:surface:workbench-cues']['parent'] == 'research-index:dashboard'
 
 
-def test_only_unified_guide_is_generated_and_every_node_is_reachable(guide):
+def test_retired_research_views_are_absent_and_all_nodes_are_reachable(guide):
     _, _, nodes, views = guide
     assert list(views) == ['yokepedia.html']
+    assert not any(key.startswith(('research:', 'research-index:', 'inventory:')) for key in nodes)
+    assert {key for key in nodes if key.startswith('view:')} == {
+        'view:index', 'view:docs-map', 'view:getting-started'}
+    assert 'source:packs' in nodes and 'source:decisions' in nodes
     for node in nodes.values():
         seen = set()
         while node['parent']:
@@ -78,32 +51,32 @@ def test_only_unified_guide_is_generated_and_every_node_is_reachable(guide):
             node = nodes[node['parent']]
 
 
-def test_live_inventories_preserve_every_registry_entry_and_document(guide):
-    _, pages, nodes, _ = guide
-    for kind, values in pages.live.items():
-        if kind in ('commands', 'functions', 'skills'):
-            for value in values:
-                assert 'inventory:' + kind + ':coverage:' + value in nodes
-    for path, targets in pages.docs.items():
-        node = nodes['inventory:doc:' + path]
-        links = node.get('research_links', {}).get('Links to', [])
-        assert {e['target'] for e in links} == {
-            'inventory:doc:' + target for target in targets if target in pages.docs and target != path}
+def test_curated_terms_and_aliases_have_sources(guide):
+    import json
+    _, _, nodes, _ = guide
+    for path in (TOOLS.parent / 'model/terms').glob('*.json'):
+        record = json.loads(path.read_text())
+        term = nodes['term:' + record['id']]
+        assert term['title'] == record['term']
+        assert term['aliases'] == record.get('aliases', [])
+        assert term['parent'] == 'view:index'
+        assert {nodes[key]['document'].removeprefix('../../../') for key in term['related']} == set(record['sources'])
 
 
-def test_source_citation_matches_are_exact_and_never_proof():
-    from explorer_research import add_research
-    from model import Model
-    model = Model()
-    model.gaps['missing'] = dict(id='missing', title='A gap', status='observed',
-                                file='docs/teaching/model/gaps/missing.json', sources=['a.md:12'])
-    nodes = [dict(id='doc:a', title='A', parent=None, document='../../../a.md'),
-             dict(id='doc:b', title='A', parent=None, document='../../../b.md')]
-    add_research(nodes, model)
-    by_id = {n['id']: n for n in nodes}
-    assert by_id['doc:a']['research_links']['Gaps'][0]['reason'] == 'Cites this source file'
-    assert 'research_links' not in by_id['doc:b']
-    assert by_id['research:gap:missing']['status_label'].endswith('not live delivery proof')
+def test_map_reads_public_titles_and_topics(guide):
+    _, _, nodes, views = guide
+    repo = TOOLS.parents[2]
+    for node in nodes.values():
+        if not node['id'].startswith('page:'):
+            continue
+        spec = node['page_spec']
+        source = (repo / spec['public_source']).read_text()
+        assert '# ' + node['title'] in source
+        assert all('## ' + heading in source for heading in spec['outline'])
+        assert all(key in nodes for key in spec['terms'] + spec['commands'] + spec['sources'])
+    intro = page_data(views['yokepedia.html'])['public_intro']
+    assert 'install upyoke.com' in intro
+    assert 'Getting started' in intro
 
 
 def test_build_records_source_snapshot_not_delivery_proof(guide):
@@ -135,11 +108,3 @@ def test_source_snapshot_changes_when_source_changes(monkeypatch, tmp_path):
     second = explorer_inventory.source_snapshot([], pages)
     assert first['input_digest'] != second['input_digest']
     assert first['commit'] == second['commit']
-
-
-def test_runtime_excerpt_receives_evidence_without_claiming_exact_proof(guide):
-    _, _, nodes, _ = guide
-    orientation = nodes['hook:global:orientation']
-    evidence = orientation['research_links']['Evidence']
-    assert any(edge['target'] == 'research:evidence:agent-entry-context/global-orientation'
-               and edge['reason'] == 'Cites the containing source file' for edge in evidence)
