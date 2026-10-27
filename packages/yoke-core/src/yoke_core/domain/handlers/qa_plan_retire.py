@@ -61,22 +61,12 @@ def handle_plan_retire(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.qa_plan_management import QaPlanError
     from yoke_core.domain.qa_plan_retire import (
         DEPENDENTS_CODE,
-        resolve_plan,
         retire_plan,
     )
-    from yoke_core.domain.session_steering_authority import require_operator_seat
-    from yoke_core.domain.sessions_analytics import SessionError
 
     actor = request.actor
     try:
         with connect() as conn:
-            plan = resolve_plan(conn, project=payload.project, plan=payload.plan)
-            require_operator_seat(
-                conn,
-                caller_session_id=actor.session_id if actor else None,
-                project_id=int(plan["project_id"]),
-                action="QA plan retirement",
-            )
             result = retire_plan(
                 conn,
                 project=payload.project,
@@ -84,8 +74,6 @@ def handle_plan_retire(request: FunctionCallRequest) -> HandlerOutcome:
                 reason=payload.reason,
                 actor_id=numeric_actor_id(actor.actor_id if actor else None),
             )
-    except SessionError as exc:
-        return _error(exc.code, exc.message, "$.actor")
     except QaPlanError as exc:
         message = str(exc)
         code = message.split(":", 1)[0]

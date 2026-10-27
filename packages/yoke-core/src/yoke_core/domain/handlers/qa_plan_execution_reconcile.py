@@ -1,4 +1,4 @@
-"""Registered steering reconciliation of a stranded QA plan execution."""
+"""Registered reconciliation of a stranded QA plan execution."""
 
 from pydantic import BaseModel, Field
 from psycopg.errors import LockNotAvailable, QueryCanceled
@@ -25,8 +25,28 @@ class PlanExecutionReconcileResponse(BaseModel):
     next_command: str | None = None
 
 
-def _require_operator(conn, request, project_id):
-    """A session needs a covering steering seat; no session needs org admin."""
+def _require_operator(conn, request, project_id, execution):
+    """Allow the owning item's holder, a steering seat, or sessionless admin."""
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.sessions_queries_lookup import get_claim_for_work_unit
+
+    owner_item = (
+        execution.get("item_id")
+        or execution.get("deployment_member_item_id")
+        or execution.get("requesting_member_item_id")
+    )
+    if request.actor.session_id and owner_item is not None:
+        claim = get_claim_for_work_unit(conn, item_id=str(owner_item))
+        if claim and str(claim["session_id"]) == request.actor.session_id:
+            held = query_one(
+                conn, "SELECT * FROM work_claims WHERE id=%s FOR UPDATE", (claim["id"],)
+            )
+            if (
+                held is not None
+                and held["released_at"] is None
+                and str(held["session_id"]) == request.actor.session_id
+            ):
+                return
     if request.actor.session_id:
         from yoke_core.domain.session_steering_authority import require_operator_seat
 
@@ -69,7 +89,10 @@ def handle_execution_reconcile(request):
     conn = connect()
     try:
         project_id = resolve_project_id(conn, str(request.target.project_id))
-        _require_operator(conn, request, project_id)
+        from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
+
+        execution = lock_plan_execution(conn, parsed.execution_id)
+        _require_operator(conn, request, project_id, execution)
         result = reconcile_execution(
             conn,
             parsed.execution_id,
@@ -124,7 +147,7 @@ def register(registry):
             "qa_plan_execution_reconciliation_write",
         ],
         guardrails=[
-            "steering_seat_required",
+            "item_work_holder_or_steering_seat",
             "control_plane_operator_without_session",
             "stale_owner_required",
             "host_recovery_proof_required",

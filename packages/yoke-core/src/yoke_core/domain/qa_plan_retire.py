@@ -98,8 +98,8 @@ def _settle_finished_item_copies(
     """Retract unexecuted copies left on finished items, keeping executed history.
 
     A finished item can no longer be claimed, so its holder can never retract
-    them through ``qa.item_plan.retract``; retirement is the steering seat's
-    route to the same retraction. Executed copies stay as recorded evidence.
+    them through ``qa.item_plan.retract``; retirement provides
+    the same retraction once nothing depends on the plan. Executed copies stay as recorded evidence.
     """
     from yoke_core.domain.qa_plan_attachment_retract import (
         retract_plan_from_item,

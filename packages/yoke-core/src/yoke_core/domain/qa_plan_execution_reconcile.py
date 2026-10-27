@@ -1,11 +1,11 @@
-"""A steering seat settles a QA plan execution its owner can no longer settle.
+"""An item holder or steering seat settles a stranded QA plan execution.
 
 An execution strands when its owning session ended, or its recovery receipt
 was lost, while it still holds review work or host custody. Abort needs the
 owner's runner, adoption needs a live claim on the item, and manual host
 release needs an active lease, so a stranded row can outlive all three.
-Reconciliation is the operator path: a covering steering seat names the
-execution and a reason. A host lease still held is released only after its
+Reconciliation lets the execution item's current work holder or a covering
+steering seat name the execution and a reason. A host lease still held is released only after its
 recovery is proven; a pending review passes to the caller; anything else
 settles as aborted with no verdict. One receipt row records who, why and the
 prior state, committed with the settlement.
