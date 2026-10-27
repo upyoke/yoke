@@ -237,16 +237,31 @@ def _request(session_id: str) -> FunctionCallRequest:
     )
 
 
-def test_handler_requires_a_covering_steering_seat(test_db) -> None:
+@pytest.mark.parametrize("dependent", ["default", "open-item"])
+def test_handler_without_seat_still_refuses_dependents(test_db, dependent):
     from yoke_core.domain.handlers.qa_plan_retire import handle_plan_retire
 
-    create_smoke_plan(test_db, project="yoke", slug="retire-handler")
+    if dependent == "open-item":
+        _attached_item_requirement(test_db, item_id=9864, slug="retire-handler")
+    else:
+        plan_id = create_smoke_plan(test_db, project="yoke", slug="retire-handler")
+        test_db.execute(
+            "INSERT INTO qa_plan_project_defaults(project_id, workflow_id, "
+            "transition_id, plan_id, attached_at) VALUES "
+            "(1, 'dash', 'release', %s, CURRENT_TIMESTAMP)",
+            (plan_id,),
+        )
+        test_db.commit()
     with _handler_uses(test_db):
         outcome = handle_plan_retire(_request("no-seat-session"))
-
     assert outcome.primary_success is False
-    assert outcome.error.code == "steering_seat_required"
-    assert "yoke claims steering acquire --project" in outcome.error.message
+    assert outcome.error.code == DEPENDENTS_CODE
+    assert (
+        test_db.execute(
+            "SELECT retired_at FROM qa_plans WHERE slug='retire-handler'"
+        ).fetchone()["retired_at"]
+        is None
+    )
 
 
 def test_handler_retires_and_list_shows_retirement(test_db) -> None:
@@ -254,17 +269,12 @@ def test_handler_retires_and_list_shows_retirement(test_db) -> None:
     from yoke_core.domain.qa_plan_list_reads import list_plans
 
     create_smoke_plan(test_db, project="yoke", slug="retire-handler")
-    with (
-        _handler_uses(test_db),
-        patch(
-            "yoke_core.domain.session_steering_authority.require_operator_seat"
-        ) as seat,
-    ):
-        outcome = handle_plan_retire(_request("seat-session"))
+    with _handler_uses(test_db):
+        outcome = handle_plan_retire(_request("no-seat-session"))
 
     assert outcome.primary_success is True, outcome.error
     assert outcome.result_payload["retirement_reason"] == REASON
-    assert seat.call_args.kwargs["caller_session_id"] == "seat-session"
+    assert outcome.result_payload["already_retired"] is False
     active = [row["slug"] for row in list_plans(test_db, project="yoke")]
     listed = {
         row["slug"]: row
@@ -275,7 +285,7 @@ def test_handler_retires_and_list_shows_retirement(test_db) -> None:
     assert listed["retire-handler"]["retirement_reason"] == REASON
 
 
-def test_registration_declares_floor_and_seat_guardrail() -> None:
+def test_registration_declares_floor_without_seat_guardrail() -> None:
     from yoke_core.domain.handlers import _register_qa_catalog
 
     class _Registry:
@@ -290,7 +300,7 @@ def test_registration_declares_floor_and_seat_guardrail() -> None:
 
     kwargs = registry.calls["qa.plan.retire"]
     assert kwargs["minimum_serving_version"] == "next-release"
-    assert "steering_seat_required" in kwargs["guardrails"]
+    assert "steering_seat_required" not in kwargs["guardrails"]
 
 
 def test_plan_get_names_a_broken_correction_history(test_db) -> None:

@@ -35,9 +35,8 @@ Worked example:
   yoke qa plan retire hosted-installer-continue-correction --project yoke \\
     --reason "only case is unrunnable; its one requirement was retracted"
 
-PLAN is the plan slug or its numeric id. Run it from a session holding a
-live steering seat covering the plan's project; other callers refuse with
-steering_seat_required and the seat recipe.
+PLAN is the plan slug or its numeric id. Callers with items.write may
+retire an unused plan; no steering seat is required.
 
 Retirement records retired_at with the reason and the acting actor. The
 plan stays readable: `yoke qa plan get PLAN --project P` shows it, and

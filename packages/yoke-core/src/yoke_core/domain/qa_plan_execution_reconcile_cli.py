@@ -10,7 +10,7 @@ from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_
 from yoke_core.domain.qa_plan_execution_abort_reason import ABORT_REASON_MAX_LENGTH
 
 EPILOG = (
-    "A session needs a live steering seat covering the project; other sessions "
+    "A session needs the execution item's work claim or a live steering seat; other sessions "
     "are refused with steering_seat_required (yoke claims steering acquire "
     "--project P --reason TEXT). A call without a session needs the "
     "control-plane organization administrator. Never settles an active walk "

@@ -14,8 +14,8 @@ QA_PLAN_RETIRE_COMMANDS: list[dict] = [
         "purpose": "Retire a project QA plan nothing depends on any more",
         "recipe": 'yoke qa plan retire PLAN --project P --reason "why"',
         "notes": (
-            "Registered write qa.plan.retire, run from a session holding a "
-            "live steering seat covering the plan's project. Records "
+            "Registered write qa.plan.retire, allowed with items.write and "
+            "no steering seat once the plan has no dependents. Records "
             "retired_at with the reason and actor; the plan stays readable "
             "(`yoke qa plan get`, `yoke qa plan list --include-retired`) but "
             "refuses edits and materialization. Refuses with "

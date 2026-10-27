@@ -10,17 +10,10 @@ import argparse
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    call_dispatcher,
-    ensure_handlers_loaded,
     parse_or_usage_error,
 )
 from yoke_cli.commands.adapters.config_write_shared import run
 from yoke_cli.config import writer
-from yoke_contracts.api.function_call import TargetRef
-
-REASSIGN_ACTION = (
-    "Moving a registered project's checkout (yoke project register --reassign)"
-)
 
 PROJECT_REGISTER_USAGE = (
     "yoke project register REPO_ROOT --project-id N "
@@ -86,8 +79,6 @@ def project_register(args: List[str]) -> int:
         return 2
 
     def _register() -> dict:
-        if parsed.reassign:
-            require_reassign_seat(parsed.project_id)
         return writer.register_project(
             parsed.repo_root,
             parsed.project_id,
@@ -125,24 +116,4 @@ def project_register(args: List[str]) -> int:
     return result_code
 
 
-def require_reassign_seat(project_id: int) -> None:
-    """Refuse a checkout move unless the control plane confirms the seat."""
-    ensure_handlers_loaded()
-    response = call_dispatcher(
-        function_id="claims.steering.verify",
-        target=TargetRef(kind="global", project_id=str(project_id)),
-        payload={"action": REASSIGN_ACTION},
-    )
-    if response.success:
-        return
-    error = response.error
-    raise writer.MachineConfigWriteError(
-        f"{error.code}: {error.message}"
-        if error is not None
-        else "steering_verify_failed: the control plane gave no answer; "
-        "run yoke claims steering verify --project "
-        f"{project_id} to diagnose, then retry"
-    )
-
-
-__all__ = ["PROJECT_REGISTER_USAGE", "project_register", "require_reassign_seat"]
+__all__ = ["PROJECT_REGISTER_USAGE", "project_register"]

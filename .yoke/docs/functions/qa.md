@@ -105,8 +105,8 @@ for the complete item/deployment recipe and continuation boundaries.
 
 `qa.plan_execution.reconcile` settles an execution its owner can no longer
 settle: the owner ended or stopped heartbeating, or its recovery receipt is
-invalid. A session needs a live steering seat covering the project; other
-sessions are refused with `steering_seat_required`. A call without a session
+invalid. A session needs the execution item's current work claim or a live
+steering seat covering the project; other sessions are refused with `steering_seat_required`. A call without a session
 needs the control-plane organization administrator.
 
 ```text

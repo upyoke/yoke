@@ -136,7 +136,7 @@ def register(registry) -> None:
         owner_module="yoke_core.domain.handlers.qa_plan_retire",
         target_kinds=["global"],
         side_effects=["qa_plans_retire"],
-        guardrails=["project_scope_required", "steering_seat_required"],
+        guardrails=["project_scope_required"],
         adapter_status="live",
         claim_required_kind=None,
         minimum_serving_version="next-release",
