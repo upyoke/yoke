@@ -19,7 +19,8 @@ _DELIBERATE_CLOSE = (
     "Only at the item's terminal status, send "
     '(printf %s "DONE {ref} <one-line summary>" | yoke say --stdin '
     "--steering) before releasing a claim you still hold, then END your session. "
-    "A release wait retains the claim and park; it owes no DONE or END. "
+    "A release wait that owes QA retains the claim and park; it owes no DONE "
+    "or END. One that owes nothing releases the claim at merge: report and END. "
     "Ending a turn sends no Fleet message."
 )
 

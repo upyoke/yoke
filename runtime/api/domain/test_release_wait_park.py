@@ -12,8 +12,10 @@ from types import SimpleNamespace
 from typing import Any
 
 from yoke_core.domain import release_wait_park as park
+from yoke_core.domain.release_wait_facts import OWES_NOTHING
 from yoke_core.domain.release_wait_ownership import (
     HOLDER_FUNCTION,
+    RELEASE_FUNCTION,
     TOUCH_FUNCTION,
     park_reason,
 )
@@ -189,3 +191,62 @@ def test_the_release_wait_names_the_command_that_starts_delivery(monkeypatch):
     assert envelope["release_wait"]["delivery_start"] == command
     lines = awaiting_delivery_lines(envelope, "PLAT-7")
     assert any(line.startswith(f"delivery starts with: `{command}`") for line in lines)
+
+
+def _owes_nothing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        park, "delivery_obligation", lambda _item: {"kind": OWES_NOTHING}
+    )
+
+
+def test_an_item_owing_nothing_releases_the_claim_instead_of_parking(monkeypatch):
+    """The release closes the item without its owner, so a park would be a
+    wait nothing ends."""
+    calls: list = []
+    _owes_nothing(monkeypatch)
+    block = _retain(monkeypatch, _dispatch(calls, holder_session=SESSION))
+
+    assert block["work_claim"] == "released"
+    assert block["parked"] == "no: the item owes nothing after deploy"
+    assert block["session_mode"] == ""
+    assert block["park_reason"] == ""
+    assert calls == [
+        (HOLDER_FUNCTION, {}),
+        (RELEASE_FUNCTION, {"reason": "merged; the item owes nothing after deploy"}),
+    ]
+
+
+def test_a_refused_release_is_reported_and_never_parks(monkeypatch):
+    calls: list = []
+    _owes_nothing(monkeypatch)
+    block = _retain(
+        monkeypatch,
+        _dispatch(
+            calls,
+            holder_session=SESSION,
+            touch_success=False,
+            touch_error="claim_required",
+        ),
+    )
+
+    assert block["work_claim"] == "release unconfirmed (claim_required)"
+    assert TOUCH_FUNCTION not in [function_id for function_id, _ in calls]
+
+
+def test_an_item_owing_nothing_leaves_another_holders_claim_alone(monkeypatch):
+    calls: list = []
+    _owes_nothing(monkeypatch)
+    block = _retain(monkeypatch, _dispatch(calls, holder_session="another-session"))
+
+    assert block["work_claim"] == "not released"
+    assert [function_id for function_id, _ in calls] == [HOLDER_FUNCTION]
+
+
+def test_an_unreachable_release_is_named_not_swallowed(monkeypatch):
+    def raising(**_kw):
+        raise RuntimeError("transport closed")
+
+    _owes_nothing(monkeypatch)
+    block = _retain(monkeypatch, raising)
+
+    assert block["work_claim"] == "release unconfirmed (transport closed)"

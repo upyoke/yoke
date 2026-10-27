@@ -1,7 +1,9 @@
 """Release-wait classification and teaching for a merged item.
 
 A merge at the pinned release wait retains its work claim until delivery
-and post-deploy validation complete. The same active-work-claim rule protects
+and post-deploy validation complete, unless the item owes nothing after the
+deploy: then the merge releases the claim, because the release closes the
+item without its owner. The same active-work-claim rule protects
 this holder and every other work claimant through idle sweeps and restarts.
 Parking records the pending delivery for wake and recovery routing.
 """
@@ -15,24 +17,27 @@ from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 TOUCH_FUNCTION = "sessions.touch"
 HOLDER_FUNCTION = "claims.work.holder_get"
+RELEASE_FUNCTION = "claims.work.release"
 
 
 RELEASE_WAIT_RETENTION_TEACHING = (
     "A merge that lands your item at its pinned release wait is a completed "
     "merge that is NOT a finished item: the delivery still has to run and "
     "its post-deploy validation still has to be walked before the item "
-    "reaches done. That close-out therefore keeps your work claim and parks "
-    "your session with the wait named, and you keep both. Do NOT release the "
-    "claim and do NOT end your session there — report what landed in your "
-    "own output, say you are waiting on delivery, and stop deliberately. The "
+    "reaches done. When the item owes nothing after the deploy, that "
+    "close-out releases your work claim and does not park you: the release "
+    "closes the item itself, so report what landed and end your session. "
+    "Otherwise it keeps your work claim and parks your session with the wait "
+    "named, and you keep both. Do NOT release the claim and do NOT end your "
+    "session there — report what landed in your own output, say you are "
+    "waiting on delivery, and stop deliberately. The "
     "close-out block names what your item owes delivery and whether your "
     "session can be woken; report what it says. When it owes an item-scoped "
     "QA stage, a deployment wake re-enters you, on a natively wakeable "
     "surface, when that stage needs you or your own item-scoped QA is "
     "accepted. A surface whose wake authority is operator (a desktop app) is "
     "never woken by Yoke: say so, because the operator or a steering seat "
-    "must re-enter you. When it owes nothing, delivery closes the item itself "
-    "and nothing will ask you for anything. A final member whose selected flow has no "
+    "must re-enter you. A final member whose selected flow has no "
     "run QA or run approval closes when its own final production QA is "
     "accepted or explicitly discharged by `post_deploy_no_obligation`, even "
     "while sibling QA holds the run open. A flow with run QA or run approval "
@@ -92,6 +97,7 @@ def item_at_release_wait(row: Any, status: str) -> bool:
 
 __all__ = [
     "HOLDER_FUNCTION",
+    "RELEASE_FUNCTION",
     "RELEASE_WAIT_RETENTION_TEACHING",
     "TOUCH_FUNCTION",
     "item_at_release_wait",

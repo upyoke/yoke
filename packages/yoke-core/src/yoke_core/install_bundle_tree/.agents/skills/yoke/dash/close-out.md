@@ -6,6 +6,8 @@ Close out with the same merge command, even after a queue landing; never write a
 yoke merge item ITEM --result "<result>" --verification "<checks/evidence>" --json
 ```
 
+Delivery owes nothing (the `[close-out]` block says `work claim: released`): send no DONE, report what landed and end; the release closes the item. A claim the block names unreleased is yours to release.
+
 Delivery owed: keep the claim and lane, send no DONE, and park whenever quiet:
 
 ```text

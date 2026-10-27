@@ -10,7 +10,9 @@ Leaving them alone was not enough on its own. The retained claim belonged to
 a session every other path was telling to release it and end, so the redirect
 now also parks that session on the wait it just entered
 (:mod:`release_wait_park`), which is what turns "the claim was not released"
-into "the item still has an owner the deployment wake can reach".
+into "the item still has an owner the deployment wake can reach". An item
+that owes nothing after the deploy has no such wake to wait for, so its
+claim is released there instead and the release closes it.
 
 Every declining path here re-stamps that park too. A re-entry gets here
 because a wake delivered a prompt, and that prompt cleared the park the
@@ -192,7 +194,7 @@ def run_terminal_transition(
         return None
     # The merge stopped at the pinned release wait, which still owes this item
     # a delivery and a done close-out. The session that merged it keeps the
-    # claim and parks on that wait instead of reporting and ending.
+    # claim and parks on that wait, or releases it when nothing is owed.
     announce("release wait")
     retain_for_delivery(
         envelope,

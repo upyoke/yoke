@@ -13,6 +13,10 @@ or the session ended, against four that parked and held. Stamping it means
 the worker's own quiet is a declared wait the sweep can read, whatever the
 worker does next.
 
+An item that owes nothing after the deploy is the exception. The release
+closes it without its owner, so a park there is a wait nothing will end: the
+close-out releases the work claim instead and leaves the session unparked.
+
 Nothing here can fail the merge. By the time it runs the branch is on the
 base branch and the item is at its release wait, so every failure is
 reported inside the envelope's ``release_wait`` block and the outcome the
@@ -36,6 +40,7 @@ from yoke_core.domain.close_out_control_plane_authority import (
 )
 from yoke_core.domain.release_wait_ownership import (
     HOLDER_FUNCTION,
+    RELEASE_FUNCTION,
     TOUCH_FUNCTION,
     park_reason,
 )
@@ -126,6 +131,9 @@ def retain_for_delivery(
 ) -> None:
     """Park the merging session on its own item's declared delivery wait.
 
+    An item that owes nothing after the deploy is released instead of
+    parked (:func:`_release_owed_nothing`): the release closes it.
+
     Mutates ``envelope`` in place with a ``release_wait`` block naming what
     the caller now holds, what the item owes delivery, and whether this
     session can be woken (:mod:`release_wait_facts`); the touch that parks
@@ -145,9 +153,10 @@ def retain_for_delivery(
             obligation = delivery_obligation(item)
     except Exception as exc:  # noqa: BLE001 - reporting never fails a merge
         obligation = {"kind": OWES_UNREAD, "detail": str(exc)}
+    owes_nothing = obligation.get("kind") == OWES_NOTHING
     block: dict[str, Any] = {
-        "work_claim": "retained",
-        "park_reason": reason,
+        "work_claim": "not released" if owes_nothing else "retained",
+        "park_reason": "" if owes_nothing else reason,
         "session_mode": "",
         "obligation": obligation,
         "wake": session_wake(None),
@@ -170,6 +179,9 @@ def retain_for_delivery(
                     "skipped: this session does not hold the item's work claim"
                 )
                 return
+            if owes_nothing:
+                _release_owed_nothing(block, item_id, session_id)
+                return
             response = call_dispatcher(
                 function_id=TOUCH_FUNCTION,
                 target=TargetRef(kind="global"),
@@ -177,7 +189,10 @@ def retain_for_delivery(
                 actor=build_actor(session_id=session_id),
             )
     except Exception as exc:  # noqa: BLE001 - reporting never fails a merge
-        block["parked"] = f"unconfirmed ({exc})"
+        if owes_nothing:
+            block["work_claim"] = f"release unconfirmed ({exc})"
+        else:
+            block["parked"] = f"unconfirmed ({exc})"
         return
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
@@ -192,10 +207,29 @@ def retain_for_delivery(
     )
 
 
+def _release_owed_nothing(
+    block: dict[str, Any], item_id: int, session_id: str
+) -> None:
+    """Release the claim of an item whose release closes it without an owner."""
+    block["parked"] = "no: the item owes nothing after deploy"
+    response = call_dispatcher(
+        function_id=RELEASE_FUNCTION,
+        target=public_item_target(item_id),
+        payload={"reason": "merged; the item owes nothing after deploy"},
+        actor=build_actor(session_id=session_id),
+    )
+    if getattr(response, "success", False):
+        block["work_claim"] = "released"
+        return
+    error = getattr(response, "error", None)
+    detail = getattr(error, "message", None) or f"{RELEASE_FUNCTION} refused"
+    block["work_claim"] = f"release unconfirmed ({detail})"
+
+
 def _next_step(obligation: Mapping[str, Any], public_ref: str) -> str:
     """The one re-entry this item's obligation actually asks for."""
     if obligation.get("kind") == OWES_NOTHING:
-        return "none — delivery closes the item itself"
+        return "none — report what landed and end; the release closes the item"
     if obligation.get("kind") == OWES_QA:
         return f"when the stage opens: {stage_recipe(obligation, public_ref)}"
     return (
