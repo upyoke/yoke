@@ -1,5 +1,8 @@
 """Installed product scenarios share one wheels-only session environment."""
 
+import json
+from zipfile import ZipFile
+
 import pytest
 
 from tests.import_graph import (
@@ -51,3 +54,17 @@ def test_installed_product_scenario(
         product_wheelhouse=product_wheelhouse,
         product_venv=product_venv,
     )
+
+
+def test_machine_qa_assets_ship_without_a_pack(product_wheelhouse):
+    core = next(product_wheelhouse.glob("yoke_core-*.whl"))
+    harness = next(product_wheelhouse.glob("yoke_harness-*.whl"))
+    with ZipFile(core) as wheel:
+        cases = json.loads(wheel.read("yoke_core/domain/installer_exploration_cases.json"))
+        assert [(case["case_key"], case["method_id"]) for case in cases] == [
+            ("installer-exploration", "exploratory-mission")
+        ]
+        assert not any("packs/machine-qa/" in name for name in wheel.namelist())
+    with ZipFile(harness) as wheel:
+        for name in ("provision_linux_desktop", "provision_windows_wsl_desktop"):
+            assert wheel.read(f"yoke_harness/host_provisioning/{name}.py")
