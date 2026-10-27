@@ -74,7 +74,7 @@ def _target_identities(
 
 def walker_identity_dispatch(
     case: Mapping[str, Any],
-    host_command_base: str,
+    host_command_base: str | None,
     *,
     browser_settings: Mapping[str, Any],
     execution_target: Mapping[str, Any],
@@ -83,8 +83,9 @@ def walker_identity_dispatch(
     identities = list((case.get("method_config") or {}).get("browser_identities") or [])
     if not identities:
         identities = _target_identities(browser_settings, execution_target)
+    prefix = f"{host_command_base} -- " if host_command_base else ""
     commands = [
-        f"{host_command_base} -- yoke browser verify --project PROJECT "
+        f"{prefix}yoke browser verify --project PROJECT "
         f"--identity {name} --declarations-json DECLARATIONS_JSON --json"
         for name in identities
     ]
@@ -93,8 +94,13 @@ def walker_identity_dispatch(
     clause = (
         f"Available browser identities for this mission: {', '.join(identities)}. "
         "Use the identity whose account fits the case. "
-        "The Test Machine cannot read the project's declarations, so read them "
-        "here first with `yoke projects capability-settings get --project "
+        + (
+            "The Test Machine cannot read the project's declarations, so read them "
+            "here first with "
+            if host_command_base
+            else "Read the controller project declarations with "
+        )
+        + "`yoke projects capability-settings get --project "
         "PROJECT --cap-type browser-control --json` and pass its "
         "result.settings_json verbatim as DECLARATIONS_JSON. After setup "
         "succeeds and before browsing, check each identity with "
@@ -107,8 +113,7 @@ def walker_identity_dispatch(
         "when re-signing in needs a password or credential the agent may not "
         "type, naming that one entry, the identity, the site and the account "
         "from the report, and resume state. Sign-ins live in the host's "
-        "identity store and survive walk-end; there is nothing to save or "
-        "restore. "
+        "identity store; never save or restore browser profiles. "
     )
     return identities, commands, clause
 

@@ -52,14 +52,14 @@ def _walker_dispatch(
     browser_settings: Mapping[str, Any],
     execution_target: Mapping[str, Any],
 ) -> dict[str, Any]:
-    if not needs_test_machine({**case, "runner_id": "agent_mission"}):
-        return _controller_dispatch(case)
     descriptor = DispatchDescriptor("qa-walker")
     from yoke_core.domain.qa_method_config_validation import validate_method_config
 
     executor = validate_method_config(
         "agent-mission", {"executor": case.get("executor")}
     )["executor"]
+    if not needs_test_machine({**case, "runner_id": "agent_mission"}):
+        return _controller_dispatch(case, browser_settings, execution_target)
     mission_flags = (
         f"{subject_flag} --execution-id {execution_id} "
         f"--requirement-id {int(case['requirement_id'])}"
@@ -194,8 +194,16 @@ def _walker_dispatch(
     }
 
 
-def _controller_dispatch(case: Mapping[str, Any]) -> dict[str, Any]:
+def _controller_dispatch(case, browser_settings, execution_target) -> dict[str, Any]:
     descriptor = DispatchDescriptor("qa-walker")
+    identities, verify_commands, identity_clause = walker_identity_dispatch(
+        case,
+        None,
+        browser_settings=browser_settings,
+        execution_target=execution_target,
+    )
+    setup = "yoke qa browser setup --project PROJECT [--identity NAME]"
+    step = "yoke qa browser step --base-url BASE_URL --step-json STEP_JSON [--identity NAME]"
     artifact_command = (
         f"yoke qa artifact add --requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "
@@ -208,12 +216,17 @@ def _controller_dispatch(case: Mapping[str, Any]) -> dict[str, Any]:
         "subagent_type": descriptor.subagent_type,
         "context_policy": "project-informed",
         "location": "controller",
+        "browser_identities": identities,
+        "browser_verify_commands": verify_commands,
+        "browser_setup_command": setup,
+        "browser_step_command": step,
         "artifact_add_command": artifact_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": (
             "Explore this mission on the controller, the machine running the main "
             "session. It has no Test Machine lease and owes no host reset or restore. "
-            "Use the controller's declared tools and browser. Return ranked findings "
+            f"Use the controller's declared tools and browser; managed setup: `{setup}`, "
+            f"then `{step}`. {identity_clause}Return ranked findings "
             "with evidence to the main owner, who owns the verdict. Clean up fixtures "
             "you create with the product's own commands and report anything left. "
             f"Attach at most {AGENT_MISSION_ARTIFACT_LIMIT} deliberate proof artifacts "

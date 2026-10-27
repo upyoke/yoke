@@ -29,7 +29,7 @@ def _walker(executor: str, identities: list[str] | None = None, conn=None) -> di
                 "capture_runner": "agent_mission",
                 "capture_run_id": 991,
                 "executor": executor,
-                "method_config": {"browser_identities": identities or []},
+                "method_config": {"browser_identities": identities or [], "os": "macos"},
                 "instructions": "Install as a new user.",
                 "expected_outcome": "Ranked findings.",
                 "artifacts": [],

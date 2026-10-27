@@ -90,6 +90,7 @@ def test_controller_mission_records_docket_and_never_owes_reset(test_db, abort):
     raw = test_db.execute(
         "SELECT raw_result FROM qa_runs WHERE id=%s", (result["run_id"],)
     ).fetchone()[0]
+    assert json.loads(raw)["lease_id"] is None
     assert "host_control_submission" not in json.loads(raw)
     if abort:
         finish_plan_execution(
@@ -243,11 +244,62 @@ def test_docket_failure_preserves_callers_transaction(test_db, monkeypatch):
 
     execution = _mission(test_db)
     case = execution["roster"][0]
-    test_db.execute("UPDATE qa_plans SET name='caller write' WHERE id=%s", (case["plan_id"],))
+    test_db.execute(
+        "UPDATE qa_plans SET name='caller write' WHERE id=%s", (case["plan_id"],)
+    )
+
     def fail_advance(*args, **kwargs):
         raise ValueError("injected cursor failure")
+
     monkeypatch.setattr(controller, "advance_plan_execution", fail_advance)
     with pytest.raises(ValueError, match="injected cursor failure"):
         controller.record_controller_mission(test_db, execution, case, ordinal=0)
-    assert test_db.execute("SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s", (case["requirement_id"],)).fetchone()[0] == 0
-    assert test_db.execute("SELECT name FROM qa_plans WHERE id=%s", (case["plan_id"],)).fetchone()[0] == "caller write"
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s",
+            (case["requirement_id"],),
+        ).fetchone()[0]
+        == 0
+    )
+    assert (
+        test_db.execute(
+            "SELECT name FROM qa_plans WHERE id=%s", (case["plan_id"],)
+        ).fetchone()[0]
+        == "caller write"
+    )
+
+
+@pytest.mark.parametrize("executor", [None, "", "naive_target_session"])
+def test_controller_dispatch_refuses_unsupported_executor(executor):
+    from yoke_core.domain.qa_method_config_validation import QaMethodConfigError
+
+    with pytest.raises(QaMethodConfigError):
+        _walker_dispatch(
+            {"executor": executor},
+            execution_id="walk",
+            subject_flag="--project example",
+            browser_settings={},
+            execution_target={},
+        )
+
+
+def test_controller_dispatch_keeps_named_browser_identities():
+    brief = _walker_dispatch(
+        {
+            "requirement_id": 1,
+            "capture_run_id": 2,
+            "executor": "informed_subagent",
+            "instructions": "Explore",
+            "expected_outcome": "Findings",
+            "method_config": {"browser_identities": ["reviewer"]},
+        },
+        execution_id="walk",
+        subject_flag="--project example",
+        browser_settings={},
+        execution_target={},
+    )
+    assert brief["browser_identities"] == ["reviewer"]
+    assert brief["browser_verify_commands"] == [
+        "yoke browser verify --project PROJECT --identity reviewer --declarations-json DECLARATIONS_JSON --json"
+    ]
+    assert not {"host_command", "walk_start_command", "walk_end_command"} & brief.keys()
