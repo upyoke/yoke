@@ -74,7 +74,7 @@ def normalize_starting_state(
     method_config: Any = None,
     capability_requirements: Any = None,
 ) -> tuple[str | None, str | None]:
-    """Return one case's stored ``(starting_state, starting_state_reason)``."""
+    """Normalize machine state; ignore stale declarations on non-machine cases."""
     declared = None if starting_state in (None, "") else str(starting_state)
     reason = str(starting_state_reason or "").strip() or None
     subject = f"case {case_key!r}"
@@ -86,13 +86,6 @@ def normalize_starting_state(
             capability_requirements=capability_requirements,
         )
     ):
-        if declared is not None or reason is not None or host_baselines:
-            raise StartingStateError(
-                f"{subject} declares a starting state, but only machine-run "
-                "cases (host_control and missions declaring a host) start on a "
-                "Test Machine; remove host_baselines, starting_state and "
-                "starting_state_reason"
-            )
         return None, None
     if declared is not None and declared not in STARTING_STATES:
         raise StartingStateError(
