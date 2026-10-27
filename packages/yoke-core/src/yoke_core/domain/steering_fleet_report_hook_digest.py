@@ -27,12 +27,14 @@ def combined_hook_digest(
     changed = {key for key, value in current.items() if prior.get(key) != value}
     parts = [REPORT_BEGIN]
     if "unattended" in changed and (combined.unattended or "unattended" in prior):
-        parts.extend([
-            "## unattended linked work",
-            *(f"  {row.finding}" for row in combined.unattended),
-            *([] if combined.unattended else ["  none"]),
-            "",
-        ])
+        parts.extend(
+            [
+                "## unattended linked work",
+                *(f"  {row.finding}" for row in combined.unattended),
+                *([] if combined.unattended else ["  none"]),
+                "",
+            ]
+        )
     shared = rows_per_section([section.report for section in combined.sections])
     for section, rows in zip(combined.sections, shared):
         if f"scope:{section.descriptor}" not in changed:
@@ -43,11 +45,15 @@ def combined_hook_digest(
     for key in sorted(prior.keys() - current.keys()):
         if key.startswith("scope:"):
             parts.extend([f"## {key.removeprefix('scope:')}", "  no longer held", ""])
-    parts.extend([
-        f"{len(current) - len(changed)} section(s) unchanged; "
-        "yoke steering report get --full",
-        REPORT_END,
-    ])
+    if len(parts) == 1:
+        return ""
+    parts.extend(
+        [
+            f"{len(current) - len(changed)} section(s) unchanged; "
+            "yoke steering report get --full",
+            REPORT_END,
+        ]
+    )
     return "\n".join(parts)
 
 

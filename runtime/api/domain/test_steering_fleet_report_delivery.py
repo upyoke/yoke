@@ -174,8 +174,9 @@ def test_unchanged_quiet_content_is_suppressed_but_still_takes_the_interval(
     first = steering_report_for_delivery(
         steering_scope, session_id=STEERING_SESSION, now=NOW
     )
-    assert first is not None  # the first report is always new to this session
+    assert first is None
     _, fingerprint = _last_report(steering_scope, STEERING_SESSION)
+    assert fingerprint
 
     assert (
         steering_report_for_delivery(

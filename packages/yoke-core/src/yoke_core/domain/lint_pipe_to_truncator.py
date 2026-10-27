@@ -44,6 +44,7 @@ from yoke_core.domain.lint_command_extract import (
     is_unresolved_command_token,
 )
 from yoke_contracts.hook_runner.shell_parse import ShellParse, ShellSegment, parse_shell
+from yoke_core.domain.lint_yoke_adapter_output_truncation import stage_is_help_only
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-pipe-to-truncator"
@@ -71,6 +72,7 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 
 _TRUNCATORS = frozenset({"tail", "head"})
 
+
 def _stage_tokens(stage: ShellSegment) -> List[str]:
     """The stage's command words, with glued subshell parens dropped."""
     return [t for t in (token.lstrip("({") for token in stage.argv) if t]
@@ -79,7 +81,7 @@ def _stage_tokens(stage: ShellSegment) -> List[str]:
 def _stage_is_long_command(stage: ShellSegment) -> Optional[str]:
     """Return a short label when *stage* invokes a known long command."""
     tokens = _stage_tokens(stage)
-    if not tokens:
+    if not tokens or stage_is_help_only(stage):
         return None
     if "--print-streaming-pair" in tokens:
         return None

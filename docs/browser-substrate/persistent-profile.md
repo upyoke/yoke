@@ -206,9 +206,8 @@ log with the command that signs it in. `verify` and `authorize` need the
 identity's sites: on such a host pass the project's browser-control settings
 document with `--declarations-json`, read where the project is reachable.
 A Browser case names its identity with `method_config.browser_identity`.
-Omitting it uses `default` unless `default` declares no sites while another
-identity does: that case refuses `browser_identity_required` before a daemon
-starts. Explicit `default` stays anonymous.
+Omitting it always uses `default`, including anonymous browsing when it has no
+sites. Set a named identity when the case needs its signed-in profile.
 A run whose cases name several starts one daemon per identity. Check what a run
 here would open:
 

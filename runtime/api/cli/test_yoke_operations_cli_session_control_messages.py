@@ -293,9 +293,23 @@ def test_registry_exposes_canonical_functions_and_concise_aliases() -> None:
 
 def test_acknowledge_records_each_requested_receipt_and_reports_failures(monkeypatch):
     calls = []
+
     def dispatch(**kwargs):
         calls.append(kwargs["payload"]["message_id"])
         return 1 if len(calls) == 1 else 0
+
     monkeypatch.setattr(messages, "dispatch_and_emit", dispatch)
     assert messages.session_message_acknowledge(["first", "second"]) == 1
     assert calls == ["first", "second"]
+
+
+def test_json_acknowledge_rejects_multiple_ids_before_dispatch(monkeypatch):
+    import pytest
+    from unittest.mock import Mock
+
+    dispatch = Mock()
+    monkeypatch.setattr(messages, "dispatch_and_emit", dispatch)
+    with pytest.raises(SystemExit) as error:
+        messages.session_message_acknowledge(["first", "second", "--json"])
+    assert error.value.code == 2
+    dispatch.assert_not_called()

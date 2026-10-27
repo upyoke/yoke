@@ -43,6 +43,11 @@ def tool_name(payload: dict) -> str:
 
 
 def cwd_from_payload(payload: dict) -> str:
+    data = tool_input(payload)
+    for key in ("workdir", "working_directory"):
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            return value
     for key in ("cwd", "workspace", "project_dir"):
         value = payload.get(key)
         if isinstance(value, str) and value:

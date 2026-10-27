@@ -55,12 +55,12 @@ def test_different_root_refuses_before_imports(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (lane, None, None))
     imports = Mock()
     monkeypatch.setattr(source_dev_run._source_pythonpath, "import_origins", imports)
-    assert source_dev_run.run(["true"]) == 1
+    assert source_dev_run.run(["true"], lane=lane) == 1
     imports.assert_not_called()
     error = capsys.readouterr().err
     assert "QA-CANDIDATE-SOURCE-REBIND REFUSAL" in error
     assert str(candidate) in error and str(lane) in error and "a" * 40 in error
-    assert "Drop the" in error and "binds its own cwd" in error
+    assert "Omit --lane" in error
 
 
 @pytest.fixture(autouse=True)

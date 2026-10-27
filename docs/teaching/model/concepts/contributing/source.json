@@ -3,6 +3,7 @@
  "title": "Source development",
  "status": "draft-copy",
  "audience": "Maintainers",
+ "summary": "Source commands use the claimed lane. In a candidate-bound Command case, dev run selects the bound candidate without a claim or machine mapping; an explicit different --lane refuses. Locked-environment and import-origin checks still run.",
  "commands": ["yoke dev db-admin exec", "yoke dev db-admin setup", "yoke dev import-check", "yoke dev path-snapshot-prewarm", "yoke dev run", "yoke dev setup", "yoke dev yokepedia", "yoke scratch dispatch-inputs", "yoke source-authority export", "yoke source-authority quiesce"],
  "functions": ["scratch.dispatch_inputs"],
  "page": "contributing",

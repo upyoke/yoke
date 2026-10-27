@@ -152,13 +152,17 @@ def steering_report_candidate(
     fingerprint = combined.fingerprint()
     if fingerprint == last_fingerprint:
         return None
-    return SteeringReportCandidate(
+    candidate = SteeringReportCandidate(
         text=combined_hook_digest(combined, last_fingerprint),
         session_id=session_id,
         fingerprint=fingerprint,
         claimed_at=current,
         not_after=not_after,
     )
+    if not candidate.text:
+        confirm_steering_report_delivery(conn, candidate)
+        return None
+    return candidate
 
 
 def confirm_steering_report_delivery(

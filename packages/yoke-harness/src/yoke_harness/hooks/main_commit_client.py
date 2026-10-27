@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from typing import Optional
 
@@ -15,7 +14,7 @@ from yoke_contracts.hook_runner.main_commit import (
 )
 from yoke_contracts.hook_runner.shell_parse import ShellParse
 
-from yoke_harness.hooks.local_policy_common import cwd_from_payload
+from yoke_harness.hooks.local_policy_common import repo_cwd
 
 
 def _git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
@@ -28,10 +27,6 @@ def _git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-
-
-def _repo_cwd(payload: dict, repo_path: str = "") -> str:
-    return os.path.abspath(repo_path) if repo_path else cwd_from_payload(payload)
 
 
 def _branch(cwd: str) -> Optional[str]:
@@ -75,7 +70,7 @@ def collect_git_commit_facts(payload: dict, shell: ShellParse) -> dict:
         if args[:1] == ["commit"]
     ]
     repo_path = invocations[0][1] if invocations else ""
-    cwd = _repo_cwd(payload, repo_path)
+    cwd = repo_cwd(payload, repo_path)
     staged = _staged(cwd)
     status_paths = _modified_and_untracked(cwd)
     effective = effective_staged_set(

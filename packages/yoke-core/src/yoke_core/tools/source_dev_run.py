@@ -194,15 +194,16 @@ def run(
             file=sys.stderr,
         )
         return 2
-    scanner = source_dev_scanner.scanner_root(args) if lane is None else None
-    if scanner is not None:
-        root, error = scanner
-        fallback_project_id = None
-    else:
-        root, error, fallback_project_id = (
-            _claimed_root() if lane is None else _claimed_root(lane)
-        )
-    error = error or (source_dev_candidate_binding.refusal(root) if root else None)
+    root, error = source_dev_candidate_binding.resolve(lane)
+    fallback_project_id = None
+    if root is None and error is None:
+        scanner = source_dev_scanner.scanner_root(args) if lane is None else None
+        if scanner is not None:
+            root, error = scanner
+        else:
+            root, error, fallback_project_id = (
+                _claimed_root() if lane is None else _claimed_root(lane)
+            )
     if error or root is None:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -294,8 +295,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "nested `yoke` or `python3` command uses the checkout's declared "
             "locked .venv. Missing, stale, or incompatible environments refuse "
             "with lane-local recovery; checks never sync. Candidate-bound Command "
-            "QA runs `yoke watch pytest -- <test paths>` directly: it binds "
-            "its own cwd to source; a different claimed root refuses."
+            "QA uses its bound candidate source by default; an explicit "
+            "--lane pointing elsewhere refuses."
         ),
     )
     parser.add_argument(

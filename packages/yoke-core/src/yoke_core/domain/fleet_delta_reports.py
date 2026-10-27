@@ -119,10 +119,11 @@ def append_steering_reports(
             state.checked_at = observed_at
             return
         fingerprint = str(result.get("fingerprint") or "").strip()
-        payload = (
-            str(result.get("digest") or "").strip()
-            or str(result.get("body") or "").strip()
-        )
+        payload = str(result.get("digest", result.get("body")) or "").strip()
+        if "digest" in result and not payload:
+            state.checked_at = observed_at
+            state.fingerprint = fingerprint
+            return
         if not fingerprint or not payload:
             raise FleetReadError(
                 STEERING_REPORT_FUNCTION,

@@ -263,10 +263,13 @@ def test_unresolved_truncator_substitution_is_denied():
     assert result[1] == "denied"
 
 
-@pytest.mark.parametrize("command", [
-    "yoke say --help 2>/dev/null | tail -1",
-    "yoke messages list --help | head -60",
-    "yoke items get SAMPLE-1 body -h | tail -20",
-])
-def test_compound_help_keeps_shell_guards(command):
-    assert _eval(command) is not None
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke say --help 2>/dev/null | tail -1",
+        "yoke messages list --help | head -60",
+        "yoke items get SAMPLE-1 body -h | tail -20",
+    ],
+)
+def test_filtered_help_is_allowed(command):
+    assert _eval(command) is None

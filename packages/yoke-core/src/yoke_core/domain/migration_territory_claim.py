@@ -24,11 +24,9 @@ nothing about the other.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Collection
 from typing import Any, Optional
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claims import (
     CoordinationClaim,
     CoordinationClaimHeldError,
@@ -43,7 +41,8 @@ from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.work_claim_targets import (
     make_migration_serialization_target,
 )
-from yoke_core.domain import db_mutation_profile as dmp
+from yoke_core.domain.coordination_claims_listing import list_claims
+from yoke_contracts.coordination_claim_keys import TARGET_KIND_MIGRATION_SERIALIZATION
 
 ACQUIRE_REASON = "migration-territory"
 
@@ -98,47 +97,21 @@ def leave(conn: Any, claim_id: int, reason: str) -> CoordinationClaim:
     return get_claim(conn, claim_id)
 
 
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _declared_model(raw: Any) -> str | None:
-    try:
-        payload = raw if isinstance(raw, dict) else json.loads(str(raw))
-        profile = dmp.validate(payload)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None
-    if profile.get("state") != dmp.STATE_DECLARED:
-        return None
-    return str(profile["model_name"])
-
-
 def _release_owned(conn: Any, *, item_id: int, reason: str) -> int | None:
-    """Release the territory this item owns for its declared model, if any."""
-    row = conn.execute(
-        f"SELECT project_id, db_mutation_profile FROM items WHERE id={_p(conn)}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return None
-    model_name = _declared_model(row[1])
-    if model_name is None:
-        return None
-    claim = active_claim(
-        conn,
-        make_migration_serialization_target(int(row[0]), model_name, int(item_id)),
-        for_update=True,
-    )
-    if claim is None or claim.owner_item_id != int(item_id):
-        return None
-    release(
-        conn,
-        claim.id,
-        reason,
-        canonical_reason="completed",
-        commit=False,
-    )
-    return claim.id
+    """Release every active migration claim owned by this item."""
+    released_id = None
+    for claim in list_claims(conn, owner_item_id=item_id, active_only=True):
+        if claim.target.kind != TARGET_KIND_MIGRATION_SERIALIZATION:
+            continue
+        release(
+            conn,
+            claim.id,
+            reason,
+            canonical_reason="completed",
+            commit=False,
+        )
+        released_id = claim.id
+    return released_id
 
 
 def release_for_landed_item(conn: Any, *, item_id: int, merge_sha: str) -> int | None:

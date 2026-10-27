@@ -63,6 +63,15 @@ def yoke_args(stage: ShellSegment) -> list[str]:
     return args
 
 
+def stage_is_help_only(stage: ShellSegment) -> bool:
+    """A direct stage's help flag precedes any forwarded command delimiter."""
+    tokens = stage_tokens(stage)
+    args = tokens[1:]
+    if "--" in args:
+        args = args[: args.index("--")]
+    return any(token in {"--help", "-h"} for token in args)
+
+
 def _adapter_label(args: list[str]) -> str:
     """Name the invocation by its subcommand path, without its arguments."""
     path = [token for token in args if not token.startswith("-")][:2]
@@ -94,7 +103,7 @@ def find_truncation_violation(
     parsed = command if isinstance(command, ShellParse) else parse_shell(command)
     for index, stage in enumerate(parsed.segments):
         args = yoke_args(stage)
-        if not args:
+        if not args or stage_is_help_only(stage):
             continue
         for later in later_stages(parsed, index):
             if _is_truncator(later):
@@ -181,6 +190,7 @@ __all__ = [
     "find_truncation_violation",
     "later_stages",
     "stage_tokens",
+    "stage_is_help_only",
     "truncation_reason",
     "yoke_args",
 ]

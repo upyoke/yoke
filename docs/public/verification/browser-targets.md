@@ -102,11 +102,9 @@ Choose steps that restore a safe state from the page left by a failure.
 
 Optional `browser_identity` names the project identity whose signed-in profile
 the case runs as, declared in the project's `browser-control` capability
-settings. Omit it and the case uses `default` when `default` declares sites,
-or when no identity declares sites. When `default` declares no sites and
-another identity does, omission refuses `browser_identity_required` before any
-daemon or capture, names the choices, and tells you to set
-`method_config.browser_identity`. Explicit `default` stays anonymous browsing.
+settings. Omit it and the case always uses `default`, including anonymous
+browsing when it has no sites. Set `method_config.browser_identity` when the
+case needs a named identity's signed-in profile.
 A named identity must already be declared; each identity keeps its own profile.
 An identity never signed in on the running host gets a clean context and a
 signed-out capture names the `yoke browser authorize --identity NAME` command.

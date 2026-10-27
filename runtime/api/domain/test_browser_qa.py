@@ -41,6 +41,7 @@ def db_path(tmp_path):
 # No requirements / base_url handling
 # ---------------------------------------------------------------------------
 
+
 class TestRequirementsAndBaseUrl:
     def test_no_browser_requirements_returns_note(self, db_path: str) -> None:
         """Shell 'No requirements' case: no browser kinds → note=no_browser_requirements."""
@@ -66,7 +67,9 @@ class TestRequirementsAndBaseUrl:
         """If --base-url is empty AND success_policy has no base_url, note=no_base_url."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "steps": [
                     {"action": "navigate", "route": "/"},
@@ -83,7 +86,9 @@ class TestRequirementsAndBaseUrl:
         """Fall back to success_policy.base_url when the flag is omitted."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": [
@@ -94,7 +99,9 @@ class TestRequirementsAndBaseUrl:
         )
 
         result = _run_scenario(
-            db_path, 100, base_url="",
+            db_path,
+            100,
+            base_url="",
             execute_step_responses=[{"success": True, "artifacts": []}],
         )
         assert result.verdict == "pass"
@@ -106,7 +113,9 @@ class TestReachabilityAndDaemon:
         """Unreachable base_url returns verdict=error, note=unreachable."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "base_url": "http://unreachable.invalid",
                 "steps": [
@@ -124,7 +133,9 @@ class TestReachabilityAndDaemon:
         """Daemon start failure → verdict=error, note=daemon_failure."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser-check",
+            db_path,
+            100,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": [
@@ -192,7 +203,7 @@ def _admin_declarations():
     return parse_identity_declarations({"identities": {"admin": {"sites": [site]}}})
 
 
-def test_omitted_identity_refuses_before_the_daemon_starts(db_path: str) -> None:
+def test_omitted_identity_starts_the_default_daemon(db_path: str) -> None:
     from unittest import mock
 
     _seed_item(db_path, 4553)
@@ -207,11 +218,17 @@ def test_omitted_identity_refuses_before_the_daemon_starts(db_path: str) -> None
             ]
         },
     )
-    patches = _patch_external_deps(db_path, identities=_admin_declarations())
+    patches = _patch_external_deps(
+        db_path,
+        identities=_admin_declarations(),
+        execute_step_responses=[{"success": True, "artifacts": []}],
+    )
     for patcher in patches:
         patcher.start()
     try:
-        with mock.patch.object(browser_qa, "_ensure_daemon_running") as ensure:
+        with mock.patch.object(
+            browser_qa, "_ensure_daemon_running", return_value=None
+        ) as ensure:
             result = browser_qa.execute_scenario(
                 item_id=4553,
                 project="testproj",
@@ -221,9 +238,8 @@ def test_omitted_identity_refuses_before_the_daemon_starts(db_path: str) -> None
     finally:
         for patcher in patches:
             patcher.stop()
-    assert result.verdict == "error"
-    assert result.note == "browser_identity_required"
-    assert ensure.call_count == 0
+    assert result.verdict == "pass"
+    assert [call.kwargs["identity"] for call in ensure.call_args_list] == ["default"]
 
 
 def test_explicit_default_still_starts_the_default_daemon(db_path: str) -> None:
