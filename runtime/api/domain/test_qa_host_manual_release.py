@@ -114,9 +114,13 @@ def test_failed_settlement_rolls_back_manual_release(test_db, removed_mission):
     assert current["test_machine_lease_id"] == original["lease_id"]
 
 
-@pytest.mark.parametrize("baseline", [None, "shell-preconfigured"])
+# An as-is case owes the host's last verified baseline: the fixture's fresh-host reset.
+@pytest.mark.parametrize(
+    "baseline,owed",
+    [(None, "fresh-host"), ("shell-preconfigured", "shell-preconfigured")],
+)
 def test_manual_release_owes_the_settled_case_baseline(
-    test_db, removed_mission, baseline
+    test_db, removed_mission, baseline, owed
 ):
     from yoke_core.domain.qa_plan_execution_store import canonical, roster_digest
 
@@ -141,4 +145,4 @@ def test_manual_release_owes_the_settled_case_baseline(
     test_db.commit()
     release_claim_by_id(test_db, original["lease_id"], "stop host work")
     assert not get_claim(test_db, original["lease_id"]).is_active
-    assert reset_owed(test_db, original["settings"]["resource_name"]) == baseline
+    assert reset_owed(test_db, original["settings"]["resource_name"]) == owed
