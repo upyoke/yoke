@@ -21,7 +21,7 @@ function renderStrategyIntro(section) {
   image.alt = 'Standing strategy forms a pyramid: MISSION, VISION, LANDSCAPE, and MASTER-PLAN. Above it, STEERING claims CURRENT-PLAN and coordinates five active work items across agents and machines.';
   figure.append(image); section.append(figure);
   section.append(text('h3', 'Standing strategy docs'));
-  section.append(text('p', 'MISSION, VISION, LANDSCAPE, and MASTER-PLAN are “standing” docs that give humans and agents a shared understanding of the foundational context in which the project operates.'));
+  section.append(text('p', 'MISSION, VISION, LANDSCAPE, and MASTER-PLAN are “standing” docs that give humans and agents a shared understanding of the foundational context in which a project operates.'));
   section.append(text('h3', 'Working strategy docs'));
   section.append(text('p', 'CURRENT-PLAN and any other strategy docs you create are “working strategy docs” that contain bits and pieces that haven’t been filed or staffed yet, big slices of work, and major initiatives. These live docs are used by you and your agents throughout ideation, implementation, and delivery to keep track of the rolling plan.'));
   const execution = text('p', '');
