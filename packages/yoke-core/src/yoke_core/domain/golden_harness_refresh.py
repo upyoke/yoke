@@ -7,7 +7,8 @@ own host lease: reset to the golden, install the newer CLIs as the test user,
 then capture a new golden through the ordinary golden-capture operation, which
 keeps sign-ins, keychains and browser cookies out of it. The case then begins
 again, so its reset and every later one restore the refreshed golden. A golden
-already current costs one record read and no reset, install or capture.
+already current costs one record read and no reset, install or capture. A hand
+capture that records CLIs behind latest warns, since that refresh replaces it.
 """
 
 from __future__ import annotations
@@ -73,6 +74,60 @@ def latest_harness_cli_versions(fetch: Callable[[str], str]) -> dict[str, str]:
                 "Restore this workstation's HTTPS access to the release channel.",
             ) from error
     return latest
+
+
+def warn_capture_behind_latest(
+    operation: str,
+    result: Mapping[str, Any] | None,
+    payload: Mapping[str, Any],
+    *,
+    fetch: Callable[[str], str] = fetch_release_channel,
+) -> str | None:
+    """Warn when a verified hand capture records harness CLIs behind latest.
+
+    The next QA plan on the host would otherwise replace this golden with a
+    refreshed capture without the operator who captured it ever knowing.
+    """
+    if operation != "golden_capture" or (result or {}).get("status") != "verified":
+        return None
+    recorded = next(
+        (
+            row["harness_cli_versions"]
+            for row in payload.get("checks") or []
+            if row.get("harness_cli_versions")
+        ),
+        None,
+    )
+    if recorded is None:
+        return None
+    from yoke_harness.golden_harness_clis import PROVISIONING_DOC
+
+    try:
+        latest = latest_harness_cli_versions(fetch)
+    except Exception as error:
+        warning = (
+            "warning golden_harness_latest_unavailable: could not compare the "
+            f"captured harness CLIs with their latest releases ({error}); the "
+            "next QA plan on this host compares them and refreshes this golden "
+            "if one is behind."
+        )
+    else:
+        outdated = outdated_harness_clis(recorded, latest)
+        if not outdated:
+            return None
+        behind = ", ".join(
+            f"{harness} {recorded.get(harness) or 'absent'} < {latest[harness]}"
+            for harness in outdated
+        )
+        warning = (
+            f"warning golden_harness_clis_behind_latest: {behind}. The next QA "
+            "plan on this host installs the newer CLIs and captures a "
+            "replacement golden. To control that golden yourself, install "
+            f"{', '.join(outdated)} as the test user following "
+            f"{PROVISIONING_DOC}, then capture again."
+        )
+    print(f"# test-machine golden-capture: {warning}", file=sys.stderr, flush=True)
+    return warning
 
 
 def refreshed_case_contract(
@@ -272,4 +327,5 @@ __all__ = [
     "fetch_release_channel",
     "latest_harness_cli_versions",
     "refreshed_case_contract",
+    "warn_capture_behind_latest",
 ]

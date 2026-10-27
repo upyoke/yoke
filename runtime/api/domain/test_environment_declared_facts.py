@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_flow_policy import validate_release_stage_polic
 from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     HOSTS_APP_PATH,
+    QA_RESTRICT_EXECUTION_PATH,
     admin_connection_for_environment,
     endpoint_declaration_state,
     hosted_endpoints,
@@ -83,6 +84,21 @@ def test_renamed_environment_matches_production_endpoints_and_gates(
             {"environment": {"name": "other"}},
             runtime_settings=facts,
         )
+
+
+def test_production_refusal_of_a_stage_target_names_the_recovery(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
+    with pytest.raises(QaExecutionTargetError) as caught:
+        require_runtime_target(
+            {"environment": {"name": "stage"}},
+            runtime_settings=_prod_facts(),
+        )
+    text = str(caught.value)
+    assert QA_RESTRICT_EXECUTION_PATH in text
+    assert "from the 'stage' control plane" in text
+    assert "deployment QA stage that targets 'stage'" in text
 
 
 def test_renamed_environment_matches_stage_endpoints() -> None:

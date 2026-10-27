@@ -68,9 +68,11 @@ CAPTURE_REFUSAL_RECOVERY = {
         "inspect the named state; do not change its owner or skip other entries."
     ),
     CAPTURE_REFUSAL_KIND_RESIDUE: (
-        "Yoke state is present at {path}; reset the host to its current "
-        "golden baseline before capturing a new one, so the capture does not "
-        "bake Yoke into the baseline every later reset restores."
+        "Yoke state is present at {path}. Remove {path} as the test user, or, "
+        "when this host has a registered golden (`yoke test-machine get` "
+        "shows golden_baseline_path), reset to it with `yoke test-machine "
+        "reset`; then capture again, so Yoke is not baked into the baseline "
+        "every later reset restores."
     ),
     CAPTURE_REFUSAL_KIND_FOREIGN_OWNER: (
         "{path} inside the test home belongs to another account; the test "
