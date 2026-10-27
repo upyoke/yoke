@@ -1,5 +1,9 @@
 # Codex on a dedicated Linux Test Machine
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Codex on Linux
+<!-- /yoke:breadcrumbs -->
+
 Return to [Linux provisioning](linux-host-provisioning.md) after these checks.
 Record each fixture adjustment, its operator approval and observed result in
 the project's operating record. Approval for one machine covers that machine.

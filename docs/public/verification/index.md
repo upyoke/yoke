@@ -14,14 +14,12 @@ Workbench **QA** tabs:
 | **Plans** | Project-scoped ordered cases and attachments |
 | **Activity** | Readable outcomes from requirements, runs, evidence |
 
-Plans put cases needing review and failed outcomes ahead of successful ones,
-show recency for every outcome, and keep complete review reasons expandable.
-Activity shows the latest 500 cases per project, including earlier days,
-with text, outcome and local-date filters and page controls. The loaded
-boundary stays visible; filtering does not search older cases outside it.
-Rows show available item identities immediately; public references appear
-when name lookups finish.
-Failed reads have Retry and stay distinct from a successful empty result.
+Plans prioritize review and failed cases, show recency, and expand full review
+reasons. Activity pages through the latest 500 cases per project, including
+earlier days, with text, outcome and local-date filters. It shows the loaded
+boundary; filters never search older cases. Rows show known item identities
+immediately and add public references after lookup. Failed reads offer Retry
+and remain distinct from a successful empty result.
 
 ## How gates work
 
@@ -304,6 +302,7 @@ project operator to repair the named definition or target if it persists.
 - [Exploratory evidence](exploration-evidence.md) — Use substrates, retain evidence and submit mission decisions.
 - [QA model](model/qa.md) — Read requirement, execution and artifact storage contracts.
 - [QA CLI](qa-cli.md) — Use registered requirement, execution and evidence commands.
+- [Machine QA](test-machines/index.md) — Use built-in machine methods and prepare controlled test hosts.
 - [Test Machine desktop](test-machine-desktop.md) — View remote desktops and recover cleanup or disk-space refusals.
 - [Linux golden home](linux-golden-home.md) — Read Linux baseline capture, restore and timeout recovery.
 - [Linux desktop applications](linux-desktop-apps.md) — Detect installed desktop versions without starting the apps.

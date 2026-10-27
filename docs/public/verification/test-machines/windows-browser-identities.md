@@ -1,5 +1,9 @@
 # WSL browser identities
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > WSL browser identities
+<!-- /yoke:breadcrumbs -->
+
 Return to [Windows host provisioning](windows-host-provisioning.md).
 
 A test machine keeps each project identity signed in live, outside the
@@ -44,4 +48,3 @@ Linux application visibly renders before requesting a personal sign-in. If
 the provisioned WSL display is unavailable, return its named failure; do not
 change system settings or invent native-profile exports. The identity store
 lives in the WSL test user's home, which the Linux reset keeps.
-

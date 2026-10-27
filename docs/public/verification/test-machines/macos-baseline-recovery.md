@@ -1,5 +1,9 @@
 # macOS baseline capture and recovery
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > macOS baseline recovery
+<!-- /yoke:breadcrumbs -->
+
 Complete [macOS host provisioning](macos-host-provisioning.md) first.
 
 ## 9. Save a clean home

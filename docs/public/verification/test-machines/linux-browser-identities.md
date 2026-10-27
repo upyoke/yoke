@@ -1,5 +1,9 @@
 # Linux browser identities
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux browser identities
+<!-- /yoke:breadcrumbs -->
+
 Return to [Linux host provisioning](linux-host-provisioning.md).
 
 Required authorization behavior:
@@ -82,4 +86,3 @@ loopback DevTools port, so keep the host dedicated to the fixture user.
 | `linux_desktop_session_environment_unavailable` | Install bash so a login shell can print `XDG_DATA_DIRS` (`bash -lc`), then rerun |
 | `linux_desktop_chromium_devtools_unavailable` | Close Chromium on the desktop and rerun; use the provisioned Chromium snap |
 | `linux_desktop_chromium_quit_not_proved` | Close every Chromium window, answering its prompts, then rerun; it is never force-killed |
-

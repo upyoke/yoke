@@ -25,40 +25,20 @@ root:
         - {title: "Native discovery", summary: "Load shared instructions, discover skills and inspect installed capabilities.", path: "agents/harness-discovery.md"}
         - {title: "Codex", summary: "Install and verify Yoke\u2019s Codex hooks and agent surfaces.", path: "agents/codex.md"}
         - {title: "Cursor", summary: "Install and verify Yoke\u2019s Cursor hooks and agent surfaces.", path: "agents/cursor.md"}
-        - title: Execution levels
-          summary: Read model thresholds, routing settings and stage-level handoffs.
-          path: agents/levels.md
-        - title: Level launches
-          summary: Launch and label sessions using model thresholds and native selectors.
-          path: agents/level-launches.md
-        - title: Capacity recovery
-          summary: Recover a launched session when its model capacity is exhausted.
-          path: agents/capacity-recovery.md
+        - {title: "Execution levels", summary: "Read model thresholds, routing settings and stage-level handoffs.", path: "agents/levels.md"}
+        - {title: "Level launches", summary: "Launch and label sessions using model thresholds and native selectors.", path: "agents/level-launches.md"}
+        - {title: "Capacity recovery", summary: "Recover a launched session when its model capacity is exhausted.", path: "agents/capacity-recovery.md"}
         - title: Operation homes
           summary: Choose the rule home for the operation before acting.
           path: agents/rules/index.md
           children:
-            - title: Code and teaching
-              summary: Read before code changes, naming decisions or operation teaching.
-              path: agents/rules/code-and-cli.md
-            - title: Shell and CLI
-              summary: Read before shell calls, CLI operations or serving-floor changes.
-              path: agents/rules/shell-and-cli.md
-            - title: Lanes and claims
-              summary: Read before lane preparation, path coordination or destructive operations.
-              path: agents/rules/lanes-and-claims.md
-            - title: Item writes
-              summary: Read before item creation, typed content writes or progress updates.
-              path: agents/rules/item-writes.md
-            - title: Databases
-              summary: Read before schema or bulk-data changes and governed rehearsals.
-              path: agents/rules/databases.md
-            - title: Verification
-              summary: Read before tests, QA, CI, captures or health checks.
-              path: agents/rules/verification.md
-            - title: Delivery
-              summary: Read before deployment runs, binding-based delivery or release-target QA.
-              path: agents/rules/delivery.md
+            - {title: "Code and teaching", summary: "Read before code changes, naming decisions or operation teaching.", path: "agents/rules/code-and-cli.md"}
+            - {title: "Shell and CLI", summary: "Read before shell calls, CLI operations or serving-floor changes.", path: "agents/rules/shell-and-cli.md"}
+            - {title: "Lanes and claims", summary: "Read before lane preparation, path coordination or destructive operations.", path: "agents/rules/lanes-and-claims.md"}
+            - {title: "Item writes", summary: "Read before item creation, typed content writes or progress updates.", path: "agents/rules/item-writes.md"}
+            - {title: "Databases", summary: "Read before schema or bulk-data changes and governed rehearsals.", path: "agents/rules/databases.md"}
+            - {title: "Verification", summary: "Read before tests, QA, CI, captures or health checks.", path: "agents/rules/verification.md"}
+            - {title: "Delivery", summary: "Read before deployment runs, binding-based delivery or release-target QA.", path: "agents/rules/delivery.md"}
             - title: Release roles
               summary: Read before release identity configuration or permission grants.
               path: agents/rules/release-roles.md
@@ -314,6 +294,23 @@ root:
         - {title: "Exploratory evidence", summary: "Use substrates, retain evidence and submit mission decisions.", path: "verification/exploration-evidence.md"}
         - {title: "QA model", summary: "Read requirement, execution and artifact storage contracts.", path: "verification/model/qa.md"}
         - {title: "QA CLI", summary: "Use registered requirement, execution and evidence commands.", path: "verification/qa-cli.md"}
+        - title: Machine QA
+          summary: Use built-in machine methods and prepare controlled test hosts.
+          path: verification/test-machines/index.md
+          children:
+            - {title: "Host provisioning", summary: "Choose an OS procedure and declare the project-owned host inventory.", path: "verification/test-machines/host-provisioning.md"}
+            - {title: "Setup responsibilities", summary: "Separate agent actions from personal credential entry.", path: "verification/test-machines/setup-responsibilities.md"}
+            - {title: "Administrator commands", summary: "Use stored host credentials for bounded administrator commands.", path: "verification/test-machines/administrator-commands.md"}
+            - {title: "macOS host provisioning", summary: "Prepare the test account, privacy permissions and terminal control.", path: "verification/test-machines/macos-host-provisioning.md"}
+            - {title: "macOS baseline recovery", summary: "Save and prove macOS baselines and live browser identities.", path: "verification/test-machines/macos-baseline-recovery.md"}
+            - {title: "Linux host provisioning", summary: "Prepare Linux accounts, harnesses and a durable desktop.", path: "verification/test-machines/linux-host-provisioning.md"}
+            - {title: "Linux browser identities", summary: "Authorize desktop browser identities and approval gates.", path: "verification/test-machines/linux-browser-identities.md"}
+            - {title: "Linux baseline recovery", summary: "Capture and prove Linux baselines and diagnose restore failures.", path: "verification/test-machines/linux-baseline-recovery.md"}
+            - {title: "Linux live state", summary: "Preserve live harness installations and recover reset state.", path: "verification/test-machines/linux-live-state.md"}
+            - {title: "Codex on Linux", summary: "Configure scoped sandbox posture and recover embedded helpers.", path: "verification/test-machines/codex-on-linux.md"}
+            - {title: "Windows host provisioning", summary: "Prepare a Windows test account and the WSL desktop route.", path: "verification/test-machines/windows-host-provisioning.md"}
+            - {title: "WSL browser identities", summary: "Authorize browser identities in the WSL test desktop.", path: "verification/test-machines/windows-browser-identities.md"}
+            - {title: "Machine browser identities", summary: "Follow the browser identity procedure for the declared OS.", path: "verification/test-machines/browser-identities.md"}
         - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
         - {title: "Linux golden home", summary: "Read Linux baseline capture, restore and timeout recovery.", path: "verification/linux-golden-home.md"}
         - {title: "Linux desktop applications", summary: "Detect installed desktop versions without starting the apps.", path: "verification/linux-desktop-apps.md"}

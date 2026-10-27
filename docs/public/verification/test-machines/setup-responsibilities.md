@@ -1,5 +1,9 @@
 # Setup responsibilities
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Setup responsibilities
+<!-- /yoke:breadcrumbs -->
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Agents do every step an agent physically can, including system settings such

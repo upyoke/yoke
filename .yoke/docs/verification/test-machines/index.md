@@ -1,5 +1,9 @@
 # Machine QA
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > Machine QA
+<!-- /yoke:breadcrumbs -->
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Machine QA registers four reusable proof contracts:
@@ -127,3 +131,19 @@ standard probes, the save/reset roundtrip and named sealed-state recovery.
 
 After every mission records walk-end, the execution changes from `walking`
 to `awaiting_walk_review`; both retain the pending verdict bundle and custody.
+
+<!-- yoke:contents -->
+- [Host provisioning](host-provisioning.md) — Choose an OS procedure and declare the project-owned host inventory.
+- [Setup responsibilities](setup-responsibilities.md) — Separate agent actions from personal credential entry.
+- [Administrator commands](administrator-commands.md) — Use stored host credentials for bounded administrator commands.
+- [macOS host provisioning](macos-host-provisioning.md) — Prepare the test account, privacy permissions and terminal control.
+- [macOS baseline recovery](macos-baseline-recovery.md) — Save and prove macOS baselines and live browser identities.
+- [Linux host provisioning](linux-host-provisioning.md) — Prepare Linux accounts, harnesses and a durable desktop.
+- [Linux browser identities](linux-browser-identities.md) — Authorize desktop browser identities and approval gates.
+- [Linux baseline recovery](linux-baseline-recovery.md) — Capture and prove Linux baselines and diagnose restore failures.
+- [Linux live state](linux-live-state.md) — Preserve live harness installations and recover reset state.
+- [Codex on Linux](codex-on-linux.md) — Configure scoped sandbox posture and recover embedded helpers.
+- [Windows host provisioning](windows-host-provisioning.md) — Prepare a Windows test account and the WSL desktop route.
+- [WSL browser identities](windows-browser-identities.md) — Authorize browser identities in the WSL test desktop.
+- [Machine browser identities](browser-identities.md) — Follow the browser identity procedure for the declared OS.
+<!-- /yoke:contents -->

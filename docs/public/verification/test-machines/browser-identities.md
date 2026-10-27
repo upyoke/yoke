@@ -1,5 +1,9 @@
 # Browser identities on test machines
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Machine browser identities
+<!-- /yoke:breadcrumbs -->
+
 A browser identity is one persona's whole browser profile, signed into every
 site that persona uses. A project declares its identities, each with a
 signed-in check per site, in its `browser-control` capability settings; the

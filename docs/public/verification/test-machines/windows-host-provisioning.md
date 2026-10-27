@@ -1,5 +1,9 @@
 # Provisioning and saving a Windows WSL2 Test Machine
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Windows host provisioning
+<!-- /yoke:breadcrumbs -->
+
 Follow [setup responsibilities](setup-responsibilities.md) and the project-owned
 manual preparation inventory in the [provisioning index](host-provisioning.md).
 

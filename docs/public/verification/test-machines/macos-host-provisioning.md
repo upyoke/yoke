@@ -1,5 +1,9 @@
 # Provisioning and saving a macOS Test Machine
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > macOS host provisioning
+<!-- /yoke:breadcrumbs -->
+
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).
 
 Follow [setup responsibilities](setup-responsibilities.md) and the project-owned

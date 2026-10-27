@@ -1,5 +1,9 @@
 # Linux baseline capture and recovery
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux baseline recovery
+<!-- /yoke:breadcrumbs -->
+
 Complete the [Linux host procedure](linux-host-provisioning.md) through desktop
 and identity acceptance before capturing a clean baseline. This procedure owns
 the capture, reset roundtrip and sealed-state recovery that follow.

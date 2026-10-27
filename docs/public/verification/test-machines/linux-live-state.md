@@ -1,5 +1,9 @@
 # Linux live harness installations and reset recovery
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux live state
+<!-- /yoke:breadcrumbs -->
+
 Install Claude, Codex and Cursor as the dedicated test user using the supported
 installers in [Linux provisioning](linux-host-provisioning.md#3-harness-installation-and-sign-in).
 Keep `.local/bin` on both login and SSH PATH. Require a real request from all
