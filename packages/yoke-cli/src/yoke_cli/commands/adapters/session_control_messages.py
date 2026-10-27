@@ -52,7 +52,9 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = (
     "yoke messages get MESSAGE-ID [FIELD ...] [--full] [--session-id S] [--json]"
 )
-MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...] [--session-id S] [--json]"
+MESSAGE_ACKNOWLEDGE_USAGE = (
+    "yoke messages acknowledge MESSAGE-ID [MESSAGE-ID ...] [--session-id S] [--json]"
+)
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--session-id S] [--json]"
 MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/sessions/inbox.md"
 
@@ -126,25 +128,10 @@ def session_message_preview(args: List[str]) -> int:
 def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--idempotency-key",
-        default=None,
         metavar="K",
         help="Reuse a caller-generated key to avoid duplicate sends.",
     )
-    parser.add_argument(
-        "--confirmation-token",
-        default=None,
-        metavar="T",
-        help="Exact token returned by a required universe preview.",
-    )
-
-
-def _add_send_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--stdin",
-        action="store_true",
-        help="Read the message body from stdin so it never appears in argv.",
-    )
-    _add_delivery_arguments(parser)
+    parser.add_argument("--confirmation-token", metavar="T", help="Exact preview token.")
 
 
 def session_message_send(args: List[str]) -> int:
@@ -153,7 +140,10 @@ def session_message_send(args: List[str]) -> int:
         MESSAGE_SEND_USAGE,
         "Send a durable Fleet message, read from stdin, to people and sessions.",
     )
-    _add_send_arguments(parser)
+    parser.add_argument(
+        "--stdin", action="store_true", help="Read the message body from stdin."
+    )
+    _add_delivery_arguments(parser)
     parsed = parse_or_usage_error(parser, args, MESSAGE_SEND_USAGE)
     if parsed is None:
         return 2
@@ -227,12 +217,14 @@ def session_message_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "--recipient-session",
-        default=None,
         metavar="S",
         help="Only show messages addressed to this exact session.",
     )
     parser.add_argument(
-        "--limit", type=int, default=50, metavar="N",
+        "--limit",
+        type=int,
+        default=50,
+        metavar="N",
         help="Settled messages per page (default 50); actionable ones are all listed.",
     )
     add_session_arg(parser)
@@ -253,13 +245,13 @@ def session_message_list(args: List[str]) -> int:
         human_writer=write_message_result,
     )
 
+
 def _message_by_id(args: List[str], operation: str) -> int:
-    usage_by_operation = {
+    usage = {
         "get": MESSAGE_GET_USAGE,
         "acknowledge": MESSAGE_ACKNOWLEDGE_USAGE,
         "cancel": MESSAGE_CANCEL_USAGE,
-    }
-    usage = usage_by_operation[operation]
+    }[operation]
     parser = argparse.ArgumentParser(
         prog=f"yoke messages {operation}",
         usage=usage,
@@ -271,8 +263,12 @@ def _message_by_id(args: List[str], operation: str) -> int:
         epilog=MESSAGE_WORKFLOW_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("message_id", metavar="MESSAGE-ID", help="Message id(s).",
-                        nargs="+" if operation == "acknowledge" else None)
+    parser.add_argument(
+        "message_id",
+        metavar="MESSAGE-ID",
+        help="Message id(s).",
+        nargs="+" if operation == "acknowledge" else None,
+    )
     if operation == "get":
         parser.add_argument(
             "fields",
@@ -285,10 +281,7 @@ def _message_by_id(args: List[str], operation: str) -> int:
                 "key the message carries. Omit them for the routine answer."
             ),
         )
-        add_full_arg(
-            parser,
-            "every delivery attempt the routine read bounded",
-        )
+        add_full_arg(parser, "every delivery attempt the routine read bounded")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -298,34 +291,40 @@ def _message_by_id(args: List[str], operation: str) -> int:
         refused = _refuse_subagent_message_operation(operation)
         if refused is not None:
             return refused
-    payload: dict = {"message_id": parsed.message_id}
+    payload: dict = {}
     writer = write_message_result
     if operation == "get":
         requested = list(parsed.fields)
         payload["fields"] = requested
         payload["detail"] = detail_of(parsed)
-        writer = (
-            projected_message_writer(requested)
-            if requested
-            else write_message_detail_result
-        )
+        if requested:
+            writer = projected_message_writer(requested)
+        else:
+            writer = write_message_detail_result
     ids = parsed.message_id if operation == "acknowledge" else [parsed.message_id]
-    results = [dispatch_and_emit(
-        function_id=f"session_control.message.{operation}",
-        target=TargetRef(kind="global"),
-        payload={**payload, "message_id": message_id},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=writer,
-    ) for message_id in ids]
+    if parsed.json_mode and len(ids) > 1:
+        parser.error("--json requires exactly one message id")
+    results = [
+        dispatch_and_emit(
+            function_id=f"session_control.message.{operation}",
+            target=TargetRef(kind="global"),
+            payload={**payload, "message_id": message_id},
+            session_id=parsed.session_id,
+            json_mode=parsed.json_mode,
+            human_writer=writer,
+        )
+        for message_id in ids
+    ]
     return next((result for result in results if result), 0)
 
 
 def session_message_get(args: List[str]) -> int:
     return _message_by_id(args, "get")
 
+
 def session_message_acknowledge(args: List[str]) -> int:
     return _message_by_id(args, "acknowledge")
+
 
 def session_message_cancel(args: List[str]) -> int:
     return _message_by_id(args, "cancel")

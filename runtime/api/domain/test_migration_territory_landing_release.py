@@ -163,3 +163,32 @@ def test_release_converge_covers_every_merged_unreleased_entry(tmp_path) -> None
     assert outcome.applied == ("0001_first_landed", "0002_second_landed")
     assert marks(conn) == ["0001_first_landed", "0002_second_landed"]
     assert pending_entries(conn, entries) == ()
+
+
+def test_landing_releases_all_models_after_profile_is_removed(apply_env, monkeypatch):
+    from yoke_core.domain.migration_territory_claim import enter
+
+    item_id = 6106
+    _seed_apply_item(apply_env["control_db"], item_id=item_id)
+    conn = connect(apply_env["control_db"])
+    try:
+        claims = [
+            enter(
+                conn,
+                project=1,
+                model_name=model,
+                item_id=item_id,
+                session_id="session-a",
+            )
+            for model in ("primary", "other")
+        ]
+        conn.execute(
+            "UPDATE items SET db_mutation_profile = %s WHERE id = %s",
+            ('{"state":"none"}', item_id),
+        )
+        conn.commit()
+        outcome = _record_landing(monkeypatch, apply_env["control_db"], item_id)
+        assert outcome.primary_success, outcome.error
+        assert all(get_claim(conn, claim.id).released_at for claim in claims)
+    finally:
+        conn.close()

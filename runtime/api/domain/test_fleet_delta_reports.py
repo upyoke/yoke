@@ -171,3 +171,19 @@ def test_a_report_the_session_already_received_is_not_printed_again():
     assert text.count("first") == 1
     assert "second" not in text
     assert text.count("no longer listed:") == 1
+
+
+def test_empty_digest_does_not_fall_back_to_full_body():
+    state = ReportState()
+    output = io.StringIO()
+    append_steering_reports(
+        ["project"],
+        observed_at=NOW,
+        stream=output,
+        state=state,
+        call=lambda *_: SimpleNamespace(success=True, result={"settings_json": "{}"}),
+        report={"fingerprint": "quiet", "digest": "", "body": "full inventory"},
+    )
+    assert output.getvalue() == ""
+    assert state.fingerprint == "quiet"
+    assert state.checked_at == NOW

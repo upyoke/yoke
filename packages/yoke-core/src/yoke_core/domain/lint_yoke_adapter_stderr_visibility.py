@@ -35,6 +35,7 @@ from yoke_core.domain.lint_yoke_adapter_output_truncation import (
     find_truncation_violation,
     later_stages,
     stage_tokens,
+    stage_is_help_only,
     truncation_reason,
     yoke_args,
 )
@@ -55,7 +56,7 @@ _MESSAGE_ACKS = frozenset({"ack", "acknowledge"})
 
 def _mutating_adapter_label(stage: ShellSegment) -> Optional[str]:
     args = yoke_args(stage)
-    if not args:
+    if not args or stage_is_help_only(stage):
         return None
     path: tuple[str, ...] = ()
     if args[0] in {"say", "dash"}:

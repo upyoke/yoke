@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from yoke_contracts.browser_identity import (
     DEFAULT_IDENTITY,
+    case_browser_identity,
     BrowserIdentity,
     BrowserIdentityError,
     parse_identity_declarations,
@@ -80,24 +81,16 @@ def load_project_browser_identities(project: str) -> dict[str, BrowserIdentity]:
     return parse_identity_declarations(settings)
 
 
-def requested_case_identity(method_config: Mapping[str, object] | None) -> str | None:
-    """The case's identity name, or None when ``browser_identity`` is omitted."""
-    if not isinstance(method_config, Mapping) or "browser_identity" not in method_config:
-        return None
-    raw = method_config.get("browser_identity")
-    return None if raw is None else str(raw)
-
-
 def resolve_case_identities(
     declared: Mapping[str, BrowserIdentity], rows: list
 ) -> list[str]:
-    """Select each case identity with the shared omission guard."""
+    """Select each case identity, defaulting omitted identities to default."""
     from yoke_core.domain.browser_qa_case_config import parse_case_config
 
     return [
         select_identity(
             declared,
-            requested_case_identity(parse_case_config(row["method_config"])),
+            case_browser_identity(parse_case_config(row["method_config"])),
         ).name
         for row in rows
     ]
@@ -186,9 +179,7 @@ def observe_authentication_wall(
         payload.get("authenticationWall")
     )
     sign_in_page = (
-        wall
-        or bool(payload.get("signInPage"))
-        or bool(response.get("signInPage"))
+        wall or bool(payload.get("signInPage")) or bool(response.get("signInPage"))
     )
     if sign_in_page:
         sign_in["authenticated"] = False
@@ -212,7 +203,6 @@ __all__ = [
     "load_project_browser_identities",
     "observe_authentication_wall",
     "recorded_google_account",
-    "requested_case_identity",
     "resolve_case_identities",
     "setup_recovery",
 ]

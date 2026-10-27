@@ -2,7 +2,7 @@
  "id": "personas",
  "title": "Personas",
  "status": "observed",
- "summary": "A Browser case sets method_config.browser_identity to a declared persona. Omitting it uses default when default declares sites or no persona declares sites. When default declares no sites and another persona does, the case refuses browser_identity_required before any daemon or capture and names the choices. Explicit default stays anonymous. Authorize and verify use the same omission rule for a missing --identity.",
+ "summary": "A Browser case sets method_config.browser_identity to a declared persona. Omitting it always uses default, including anonymous browsing when default has no sites. Set a named identity for a signed-in case. Authorize and verify refuse an omitted --identity when default has no sites and another persona does.",
  "page": "browser-qa",
  "position": 0
 }

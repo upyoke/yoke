@@ -18,7 +18,8 @@ Repository-only rules; linked owners hold the detail.
   `redundant_full_suite`. Run it once: `yoke qa requirement list --item PREFIX-N`;
   `yoke qa case run --requirement-id <id>`. Owner:
   [full-suite authority](testing-verification/full-suite-authority.md).
-- Post-deploy Command cases run `yoke watch pytest -- <paths>` directly; the runner binds the
+- Command cases can run `yoke dev run -- <command>`: it selects the claimed lane before
+  merge and the bound candidate after merge. `yoke watch pytest -- <paths>` also binds the
   candidate. Keep `YOKE_QA_CANDIDATE_TREE` and the runner's environment when you replace `HOME`.
 - Lint: `yoke dev ruff-changed --base <ref>`. Smoke-import lane modules with
   `yoke dev import-check <module>`. The generic runner is

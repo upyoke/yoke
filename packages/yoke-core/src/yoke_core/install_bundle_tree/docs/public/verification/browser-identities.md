@@ -115,12 +115,10 @@ for a registered Test Machine, authorize from the connected workstation with
 `--declarations-json`, using the browser-control settings document read where
 the project is reachable. `--test-machine` and `--declarations-json` are exclusive. A
 Browser case names its identity with `method_config.browser_identity`. Omitting
-that field uses `default` when `default` declares sites, or when no identity
-declares sites. When `default` declares no sites and another identity does, the
-case refuses `browser_identity_required` before any daemon or capture, names
-the choices, and waits for `method_config.browser_identity`. Explicit `default`
-is anonymous browsing. The same omission rule refuses a missing `--identity` on
-`authorize` and `verify`. A run whose cases name several identities starts
+that field always uses `default`, including anonymous browsing when it has no
+sites. Set a named identity for cases that need its signed-in profile.
+`authorize` and `verify` still refuse a missing `--identity` when `default`
+has no sites and another identity does. A run whose cases name several identities starts
 one daemon per identity. An
 exploratory mission can select personas with `method_config.browser_identities`,
 for example `["operator"]`; this list wins. With no list, dispatch supplies all

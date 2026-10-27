@@ -1,4 +1,4 @@
-"""Prevent lane-source commands from changing a Command case's candidate."""
+"""Resolve and protect a Command case's bound candidate source."""
 
 from __future__ import annotations
 
@@ -9,17 +9,11 @@ from pathlib import Path
 from yoke_contracts.qa_case_environment import COMMAND_CASE_CANDIDATE_TREE_ENV
 
 
-def refusal(root: Path) -> str | None:
-    """Judge the selected source root before any child command is launched."""
+def resolve(lane: Path | str | None) -> tuple[Path | None, str | None]:
+    """Use the candidate by default; refuse a conflicting explicit lane."""
     raw = os.environ.get(COMMAND_CASE_CANDIDATE_TREE_ENV)
     if raw is None:
-        return None
-    recovery = (
-        "Drop the `yoke dev run --` wrapper from the Command case; run "
-        "`yoke watch pytest -- <test paths>` directly because it binds its own "
-        "cwd and locked environment to source. Candidate commands keep the "
-        "candidate's verified interpreter, dependencies, and import origins."
-    )
+        return None, None
     try:
         binding = json.loads(raw)
         candidate_root = binding["root"]
@@ -30,15 +24,15 @@ def refusal(root: Path) -> str | None:
             raise ValueError("head_sha must be a non-empty string")
         candidate = Path(candidate_root).resolve()
     except (ValueError, TypeError, KeyError) as exc:
-        return (
+        return None, (
             f"QA-CANDIDATE-BINDING REFUSAL: {COMMAND_CASE_CANDIDATE_TREE_ENV} "
             f"is invalid ({exc}). Re-run the case through the QA runner to "
-            f"restore its candidate binding. {recovery}"
+            "restore its candidate binding."
         )
-    if root.resolve() == candidate:
-        return None
-    return (
-        "QA-CANDIDATE-SOURCE-REBIND REFUSAL: this Command case is bound to "
-        f"candidate '{candidate}' at {head_sha}, but dev run resolved "
-        f"'{root.resolve()}'. That source cannot prove the candidate. {recovery}"
-    )
+    if lane is not None and Path(lane).expanduser().resolve() != candidate:
+        return None, (
+            "QA-CANDIDATE-SOURCE-REBIND REFUSAL: this Command case is bound to "
+            f"candidate '{candidate}' at {head_sha}, but --lane selected "
+            f"'{lane}'. Omit --lane to use the bound candidate."
+        )
+    return candidate, None

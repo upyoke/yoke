@@ -226,6 +226,15 @@ SOURCE_RECIPE_SOURCE_PREFIXES = (
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     *PACK_PREFIX_CONTRACTS,
     (
+        "harness_rule_context",
+        tuple(
+            f"{mirror}runtime/harness/{harness}/rules/"
+            for mirror in ("", f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/")
+            for harness in ("claude", "codex", "cursor")
+        ),
+        ("runtime/api/test_installed_project_context.py",),
+    ),
+    (
         "core_module_importability",
         ("packages/yoke-core/src/yoke_core/",),
         ("runtime/api/test_engine_wheel_standalone_boot.py",),

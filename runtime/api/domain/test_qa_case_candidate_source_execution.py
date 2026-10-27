@@ -1,4 +1,4 @@
-"""Real shell and subprocess commands cannot record lane evidence for a pin."""
+"""Command cases execute source from their bound candidate checkout."""
 
 import json
 import shlex
@@ -14,9 +14,7 @@ from yoke_core.domain.verification_tree_binding import TreeBindingVerdict, TreeI
 
 
 @pytest.mark.parametrize("nested", [False, True], ids=["direct", "subprocess-argv"])
-def test_candidate_command_records_fail_on_source_rebinding(
-    tmp_path, monkeypatch, nested
-):
+def test_candidate_command_executes_bound_source(tmp_path, monkeypatch, nested):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     candidate = tmp_path / "candidate"
     candidate.mkdir()
@@ -30,6 +28,9 @@ def test_candidate_command_records_fail_on_source_rebinding(
         "import sys\nfrom pathlib import Path\n"
         "from yoke_core.tools import source_dev_run\n"
         f"source_dev_run._claimed_root = lambda: (Path({str(lane)!r}), None, None)\n"
+        "from yoke_core.domain.source_python_environment import SourcePythonEnvironment\n"
+        "source_dev_run.source_python_environment.resolve = lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {})\n"
+        "source_dev_run._source_pythonpath.import_origins = lambda *a, **k: ({}, None)\n"
         "assert sys.argv[1:3] == ['dev', 'run']\n"
         "raise SystemExit(source_dev_run.main(sys.argv[3:]))\n"
     )
@@ -41,7 +42,7 @@ def test_candidate_command_records_fail_on_source_rebinding(
         "--",
         "python3",
         "-c",
-        "print('child-executed')",
+        "import os; print(os.getcwd())",
     ]
     if nested:
         script = f"import subprocess; raise SystemExit(subprocess.call({argv!r}))"
@@ -70,13 +71,13 @@ def test_candidate_command_records_fail_on_source_rebinding(
         ) as record,
     ):
         result = execute_worktree_case(case, checkout_path=candidate)
-    assert result["verdict"] == "fail" and result["exit_code"] == 1
-    assert record.call_args.kwargs["verdict"] == "fail"
+    assert result["verdict"] == "pass" and result["exit_code"] == 0
+    assert record.call_args.kwargs["verdict"] == "pass"
     raw = json.loads(record.call_args.kwargs["raw_result"])
     assert raw["verification_tree"]["head_sha"] == head
-    assert "QA-CANDIDATE-SOURCE-REBIND REFUSAL" in raw["output_tail"]
-    assert "[output]\nchild-executed" not in raw["output_tail"]
-    assert "source checkout:" not in raw["output_tail"]
+    assert f"source checkout: {candidate}" in raw["output_tail"]
+    assert f"[output]\n{candidate}" in raw["output_tail"]
+    assert str(lane) not in raw["output_tail"]
 
 
 @pytest.mark.parametrize("lane_bound", [False, True], ids=["candidate", "lane"])
