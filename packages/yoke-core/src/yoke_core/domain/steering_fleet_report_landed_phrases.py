@@ -153,7 +153,7 @@ def release_wait_phrase(entry: LandedItem) -> str:
     """
     wait = f"awaiting next {entry.delivery_gate.flow} release"
     if entry.custody_state == HELD:
-        wait = f"awaiting {entry.delivery_gate.flow} release — {custody_phrase(entry)}"
+        wait = f"awaiting {entry.custody_run_flow} release — {custody_phrase(entry)}"
     elif entry.custody_state in {REMERGED, CUSTODY_UNDETERMINED}:
         wait = f"{wait} — {custody_phrase(entry)}"
     return f"{wait} ({_holder_context(entry)})"

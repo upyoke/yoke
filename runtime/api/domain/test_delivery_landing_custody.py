@@ -117,6 +117,18 @@ def test_a_member_run_carrying_the_landing_holds_it(
 
     assert verdict.state == HELD
     assert verdict.run_id == "run-holder"
+    assert verdict.run_flow == FLOW
+    from dataclasses import replace
+    from yoke_core.domain.steering_fleet_report_landed_open import landed_without_closeout
+    from yoke_core.domain.steering_fleet_report_landed_gate import AWAITING_RELEASE, LandedGate
+    from yoke_core.domain.steering_fleet_report_landed_phrases import release_wait_phrase
+
+    entry = landed_without_closeout(
+        test_db, project_id=PROJECT_ID, now="2026-09-14T01:00:00Z", holders=(),
+    )[0]
+    assert entry.custody_run_flow == FLOW
+    entry = replace(entry, delivery_gate=LandedGate(AWAITING_RELEASE, flow="own-flow"))
+    assert release_wait_phrase(entry).startswith(f"awaiting {FLOW} release")
     assert verdict.enrollable is False
 
 

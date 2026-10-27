@@ -6,7 +6,7 @@ that went quiet, an in-flight item nobody picked back up, an envelope
 that was never delivered. Each is a *level* condition rather than an
 edge, so each fires when it starts and clears once when it stops —
 re-firing every pass is how a report becomes noise the reader skims.
-An unparked idle holder alone repeats on a slow cadence: work that stays
+An unparked idle holder, or a parked one blocking dependents, repeats: work that stays
 stuck for hours must not scroll out of view after its one line.
 
 The thresholds belong to the steering loop; they are restated here as
@@ -108,7 +108,7 @@ def _raise_repeating(
 ) -> list[str]:
     """Emit *line* when *key* starts alarming and again every *minutes*."""
     last = state.raised_at.get(key)
-    if key in state.active_alarms and (minutes_since(last, now) or 0) < minutes:
+    if last is not None and (minutes_since(last, now) or 0) < minutes:
         return []
     state.active_alarms.add(key)
     state.raised_at[key] = now
@@ -160,7 +160,7 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     whose process exited stays stuck until someone looks. The line carries
     mode, park reason and message delivery state so the reader can judge
     the wait. A parked holder alarms once, since its wait was declared; an
-    unparked one repeats every :data:`IDLE_HOLDER_REPEAT_MINUTES`.
+    unparked one, or a parked one blocking dependents, repeats hourly.
     """
     lines: list[str] = []
     live: set[str] = set()
@@ -170,6 +170,10 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         idle = minutes_since(row.work_activity_at, current.taken_at)
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
+        dependents = sorted(
+            item.ref for item in current.items.values()
+            if set(item.blocked_by).intersection(row.claimed_items)
+        )
         reason = repr(row.quiet_reason) if row.quiet_reason else "none"
         line = (
             f"{LINE_PREFIX} ALARM idle-holder "
@@ -179,7 +183,9 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
             f"delivery={row.message_delivery!r} surface={row.executor_surface} "
             f"reach={address_recipe(row.session_id, current)!r}"
         )
-        if session_is_parked(row.mode):
+        if dependents:
+            line += f" dependents={','.join(dependents)}"
+        if session_is_parked(row.mode) and not dependents:
             lines.extend(_raise_once(state, key, line))
             continue
         lines.extend(

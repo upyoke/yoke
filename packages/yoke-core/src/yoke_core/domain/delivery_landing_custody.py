@@ -76,6 +76,7 @@ class LandingCustody:
     #: run left behind for :data:`REMERGED`, empty otherwise.
     run_id: str = ""
     run_status: str = ""
+    run_flow: str = ""
     #: Why containment could not answer, for :data:`UNDETERMINED` only.
     reason: str = ""
     recovery: str = ""
@@ -142,7 +143,7 @@ def _member_runs(
     other = f"AND dr.id <> {marker} " if exclude_run_id else ""
     rows = conn.execute(
         f"SELECT dri.item_id AS item_id, dr.id AS run_id, dr.status AS status, "
-        f"dr.project_id AS project_id, "
+        f"dr.project_id AS project_id, dr.flow AS flow, "
         f"COALESCE(dr.release_lineage,'') AS release_lineage, "
         f"COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD} "
         f"FROM deployment_run_items dri "
@@ -221,6 +222,7 @@ def _custody_for(
             state=UNDETERMINED,
             run_id=str(newest["run_id"]),
             run_status=str(newest["status"]),
+            run_flow=str(newest["flow"]),
             reason="this item records no landing commit to compare",
             recovery=(
                 "Record the item's merge identity through its close-out, then retry."
@@ -243,6 +245,7 @@ def _custody_for(
                 state=HELD,
                 run_id=str(run["run_id"]),
                 run_status=str(run["status"]),
+                run_flow=str(run["flow"]),
             )
         if verdict.state == CONTAINMENT_UNDETERMINED and undetermined is None:
             # Keep walking: an older member run may still answer, and a
@@ -253,6 +256,7 @@ def _custody_for(
                 state=UNDETERMINED,
                 run_id=str(run["run_id"]),
                 run_status=str(run["status"]),
+                run_flow=str(run["flow"]),
                 reason=verdict.reason,
                 recovery=verdict.recovery,
             )
@@ -265,6 +269,7 @@ def _custody_for(
         state=REMERGED,
         run_id=str(newest["run_id"]),
         run_status=str(newest["status"]),
+        run_flow=str(newest["flow"]),
     )
 
 

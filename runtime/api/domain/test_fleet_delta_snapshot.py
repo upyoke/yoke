@@ -88,7 +88,8 @@ def test_item_rows_union_the_three_scheduler_buckets() -> None:
                 "project": "yoke",
             }
         ],
-        "blocked_steps": [{"item_id": "YOK-2", "status": "idea"}],
+        "blocked_steps": [{"item_id": "YOK-2", "status": "idea",
+                           "blocked_by": ["YOK-1"]}],
         "frozen_steps": [{"item_id": "YOK-3", "status": "planning"}],
         "selected_step": {"item_id": "YOK-99", "status": "implementing"},
     }
@@ -97,6 +98,7 @@ def test_item_rows_union_the_three_scheduler_buckets() -> None:
     assert rows["YOK-1"].unclaimed is False
     assert rows["YOK-1"].runnable is True
     assert rows["YOK-1"].available is False
+    assert rows["YOK-2"].blocked_by == ("YOK-1",)
     assert rows["YOK-2"].runnable is False
     assert rows["YOK-3"].runnable is False
     assert rows["YOK-2"].claim_state == "unknown"
