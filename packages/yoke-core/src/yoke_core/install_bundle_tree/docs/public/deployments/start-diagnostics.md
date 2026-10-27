@@ -206,7 +206,7 @@ the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
 
-[QA dispatch](qa-dispatch.md) closes members in bounded calls and recovers
+[QA dispatch](qa-dispatch.md) closes members within a time budget and recovers
 response timeouts over HTTPS using the existing request reservation and result.
 
 A lost answer leaves the run in

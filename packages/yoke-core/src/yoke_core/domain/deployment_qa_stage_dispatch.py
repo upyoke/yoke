@@ -171,10 +171,30 @@ def _gate_members(
     )
     reported = reported_stage_results(conn, run_id=run_id, stage=stage)
     woken = sent_stage_waits(conn, run_id=run_id, stage=stage)
+
+    def wake_held(member: int | None, label: str, reason: str) -> None:
+        """Wake a member held before its cases could be gated, once per wait."""
+        if project_id is not None and not woken(member, ""):
+            _notify_stage_wait(
+                conn,
+                run_id=run_id,
+                stage_name=str(stage["name"]),
+                member=member,
+                item_scoped=stage.get("scope") == "item",
+                project_id=project_id,
+                reasons=reason,
+                names_cases=False,
+                target_tier=target_tier,
+                revision=revision,
+                target_digest="",
+                label=label,
+            )
+
     waiting: list[str] = []
     accepted: list[int] = []
     failure: tuple[int, str] | None = None
     for member in members:
+        label = f"member {item_refs(member)}" if member is not None else "run"
         try:
             if member in errors:
                 raise errors[member]
@@ -186,23 +206,8 @@ def _gate_members(
                 notify_acceptance=False,
             )
         except QaCasesNotSelectedError as exc:
-            label = f"member {item_refs(member)}" if member is not None else "run"
             waiting.append(f"{label}: {exc}")
-            if project_id is not None and not woken(member, ""):
-                _notify_stage_wait(
-                    conn,
-                    run_id=run_id,
-                    stage_name=str(stage["name"]),
-                    member=member,
-                    item_scoped=stage.get("scope") == "item",
-                    project_id=project_id,
-                    reasons=str(exc),
-                    names_cases=False,
-                    target_tier=target_tier,
-                    revision=revision,
-                    target_digest="",
-                    label=label,
-                )
+            wake_held(member, label, str(exc))
             continue
         except (LookupError, ValueError) as exc:
             if member is not None and member in removed_item_ids(conn, run_id):
@@ -213,16 +218,15 @@ def _gate_members(
                 if attached is None:
                     continue
             held = configuration_blocker(
-                exc, run_id=run_id, stage_name=str(stage["name"]),
-                member=member, item_refs=item_refs,
+                exc, run_id=run_id, stage_name=str(stage["name"]), label=label
             )
             rollback_after_error(conn, exc)
             if held is not None:
                 waiting.append(held)
+                wake_held(member, label, held)
                 continue
             failure = qa_stage_error(exc, run_id=run_id, stage_name=str(stage["name"]))
             break
-        label = f"member {item_refs(member)}" if member is not None else "run"
         outcome = str(status.get("outcome") or "")
         digest = str(status.get("target_digest") or "")
         if project_id is not None and not reported(member, outcome, digest):
@@ -295,11 +299,7 @@ def _gate_members(
                     )
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
     with uncached_presentation():
-        pending_close_out = notify_items_qa_accepted(
-            conn, run_id=run_id, item_ids=tuple(accepted)
-        )
-    if pending_close_out:
-        waiting.append("qa_member_close_out_pending: re-dispatch this QA stage to continue close-outs")
+        notify_items_qa_accepted(conn, run_id=run_id, item_ids=tuple(accepted))
     if failure:
         return failure
     if waiting:
