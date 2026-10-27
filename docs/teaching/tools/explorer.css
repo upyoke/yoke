@@ -101,7 +101,5 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .getting-started-preview h2 { font-size: 25px; margin-bottom: 12px; }
 .getting-started-preview p { line-height: 1.7; }
 .getting-started-preview blockquote { margin: 18px 0; padding: 18px 24px; background: #e5eee5; border-left: 3px solid #76977e; font-size: 22px; font-weight: 600; }
-.intro-variant { padding: 24px 0 32px; border-bottom: 1px solid #d7dfd8; }
-.intro-variant h3 { font-size: 19px; color: #4d4aaf; margin: 0 0 14px; }
 .intro-visual { overflow-x: auto; margin-top: 24px; border-radius: 14px; }
 .intro-visual img { display: block; width: 100%; min-width: 620px; height: auto; }

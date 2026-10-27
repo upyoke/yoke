@@ -25,7 +25,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_intro_variants.js', 'explorer_start.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_intro.js', 'explorer_start.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -207,10 +207,8 @@ def build_explorer(views, pages):
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
                 records=embedded_records(nodes, pages.m),
                 build=source_snapshot(nodes, pages))
-    data['intro_visuals'] = [
-        'data:image/svg+xml;base64,' + base64.b64encode(
-            (HERE / 'intro-visuals' / f'variant-{i}.svg').read_bytes()).decode('ascii')
-        for i in range(1, 4)]
+    data['intro_visual'] = 'data:image/svg+xml;base64,' + base64.b64encode(
+        (HERE / 'intro-visuals' / 'shared-coordination.svg').read_bytes()).decode('ascii')
     if pages.m.problems:
         return {}
     views[PAGE] = page_html(data, pages.m)

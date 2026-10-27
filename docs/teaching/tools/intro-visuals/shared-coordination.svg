@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 550" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" role="img">
 <title>Codebase connected through Yoke to Claude Code, Codex and Cursor</title>
 <defs><radialGradient id="wash"><stop stop-color="#e6e5ff"/><stop offset="1" stop-color="#f8f8fc"/></radialGradient><linearGradient id="stem" x2="0" y2="1"><stop stop-color="#171820"/><stop offset="1" stop-color="#5955e7"/></linearGradient></defs>
-<rect width="1000" height="550" rx="18" fill="url(#wash)"/>
+<rect width="1000" height="440" rx="18" fill="url(#wash)"/>
 <g font-family="Arial, sans-serif">
-<path d="M280 225 L435 240 M580 175 L700 100 M580 185 L700 210 M580 195 L700 320" fill="none" stroke="#9692e1" stroke-width="3"/>
+<path d="M295 226 L420 238 M610 156 L692 105 M610 191 L692 208 M610 226 L692 312" fill="none" stroke="#9692e1" stroke-width="3"/>
 <rect x="60" y="145" width="220" height="145" rx="18" fill="#171820"/>
 <text x="88" y="188" fill="#d6d7e2" font-size="21" letter-spacing="2">CODEBASE</text>
 <rect x="88" y="215" width="90" height="7" rx="3.5" fill="#46485b"/>
@@ -24,16 +24,4 @@
 <circle cx="745" cy="320" r="40" fill="white" stroke="#e8e7f0"/>
 <g transform="translate(722 297) scale(1.92)" color="#171820"><path d="M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z"></path></g>
 <text x="802" y="327" font-size="20" letter-spacing="1.5" fill="#505367">CURSOR</text>
-<path d="M510 327 V420" stroke="#9692e1" stroke-width="2"/>
-<path d="M265 450 h35 m-7 -5 7 5 -7 5" fill="none" stroke="#9692e1" stroke-width="2"/>
-<rect x="100" y="425" width="165" height="50" rx="25" fill="white" stroke="#d6d4ef"/>
-<text x="182.5" y="456" text-anchor="middle" font-size="19" fill="#424257">Strategy</text>
-<path d="M475 450 h35 m-7 -5 7 5 -7 5" fill="none" stroke="#9692e1" stroke-width="2"/>
-<rect x="310" y="425" width="165" height="50" rx="25" fill="white" stroke="#d6d4ef"/>
-<text x="392.5" y="456" text-anchor="middle" font-size="19" fill="#424257">Work</text>
-<path d="M685 450 h35 m-7 -5 7 5 -7 5" fill="none" stroke="#9692e1" stroke-width="2"/>
-<rect x="520" y="425" width="165" height="50" rx="25" fill="white" stroke="#d6d4ef"/>
-<text x="602.5" y="456" text-anchor="middle" font-size="19" fill="#424257">Checks</text>
-<rect x="730" y="425" width="165" height="50" rx="25" fill="white" stroke="#d6d4ef"/>
-<text x="812.5" y="456" text-anchor="middle" font-size="19" fill="#424257">Deployment</text>
 </g></svg>
