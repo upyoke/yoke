@@ -108,8 +108,9 @@ def require_runtime_target(
             f"runtime environment {runtime!r} cannot execute QA target "
             f"{selected!r}: it declares qa.restrict_execution_to_self, so it "
             "runs only QA that targets its own environment. Run the plan from "
-            f"the {selected!r} control plane, or prove the case through a "
-            f"deployment QA stage that targets {selected!r}."
+            f"the {selected!r} control plane (select its connection with "
+            f"`yoke --env NAME`), or prove the case through a deployment QA "
+            f"stage that targets {selected!r}."
         )
 
 

@@ -117,9 +117,12 @@ environment the control plane runs as, that control plane runs only QA that
 targets its own environment; Yoke's hosted Stage and Production declare it. There,
 a standalone `yoke qa plan run` whose case targets another environment refuses
 with `cannot execute QA target`. Run the plan from the target environment's own
-control plane, or prove the case through a deployment QA stage that targets that
-environment. Without the setting, a control plane may run a plan against any
-registered environment.
+control plane (select its connection with `yoke --env NAME`), or prove the case
+through a deployment QA stage that targets that environment. Without the
+setting, a control plane may run a plan against any registered environment.
+`stage_reason` governs a case's `target_envs` only: a plan created with
+`--environment stage` needs none, but still runs only where that environment's
+QA may execute.
 
 Item materialization creates one requirement per environment and host baseline,
 with `target_env` and an immutable execution target on each row. Rematerializing
