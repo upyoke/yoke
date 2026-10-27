@@ -211,6 +211,8 @@ def build_explorer(views, pages):
         (HERE / 'intro-visuals' / 'shared-coordination.svg').read_bytes()).decode('ascii')
     data['steering_icon'] = 'data:image/svg+xml;base64,' + base64.b64encode(
         (HERE / 'intro-visuals' / 'steering.svg').read_bytes()).decode('ascii')
+    data['strategy_visual'] = 'data:image/png;base64,' + base64.b64encode(
+        (HERE / 'intro-visuals' / 'strategy-steering.png').read_bytes()).decode('ascii')
     if pages.m.problems:
         return {}
     views[PAGE] = page_html(data, pages.m)

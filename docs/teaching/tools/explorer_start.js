@@ -13,12 +13,7 @@ function renderGettingStarted() {
       'You can move a universe between these options using export and import.',
       'Use your agent to work with Yoke and the dashboard to see what is going on. You remain responsible for direction and the decisions that need your judgment.'
     ], 'How Yoke fits together'],
-    ['Set direction with strategy documents', 'strategy', [
-      'Work with your agent to write and refine your project’s strategy documents. They explain why the project exists, where it is going and what to work on next.',
-      'MISSION states the purpose. LANDSCAPE collects research and outside context. VISION describes the future you want. MASTER-PLAN holds the evolving strategy. CURRENT-PLAN sets the near-term focus. You can also add focused plans for particular areas.',
-      'Link work items to the strategy documents they serve, so individual changes stay connected to the larger goal.',
-      'The frontier shows which work is ready, which is blocked and which is already underway. Steering uses that picture to keep work moving toward your goals.'
-    ], 'Direction and priorities'],
+    ['Set direction with strategy documents', 'strategy', [], 'Strategy documents'],
     ['Track work from idea to completion', 'work', [
       'An item is a piece of work with a defined outcome. Its workflow sets the steps it must pass through, such as planning, implementation and review.',
       'Different changes need different amounts of planning. Your agent helps choose the workflow, records progress and brings decisions back to you. Dependencies and work claims help agents avoid conflicting work.'
@@ -58,6 +53,7 @@ function renderGettingStarted() {
   for (const [title, page, paragraphs, linkLabel] of sections) {
     const section = text('section', '');
     section.append(text('h2', title));
+    if (page === 'strategy') renderStrategyIntro(section);
     for (const paragraph of paragraphs) {
       section.append(text(paragraph.startsWith('>') ? 'blockquote' : 'p',
         paragraph.startsWith('>') ? paragraph.slice(1) : paragraph));
