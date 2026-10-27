@@ -282,8 +282,26 @@ def test_lost_savepoint_is_not_treated_as_an_artifact_failure(
     assert get_claim(test_db, original["lease_id"]).is_active
 
 
+def verified_reset(conn, test_machine, baseline, project_id=1):
+    from yoke_core.domain.machine_operation_recording import (
+        record_test_machine_operation,
+    )
+
+    record_test_machine_operation(
+        conn,
+        project_id,
+        test_machine=test_machine,
+        operation="reset",
+        status="verified",
+        checks=[{"name": baseline, "ok": True}],
+        error_code=None,
+        lease_id=76,
+        contract_digest="",
+    )
+
+
 @pytest.mark.parametrize("starting_state", ["as_is", "inherit"])
-def test_no_baseline_debt_does_not_authorize_reset_or_erase_real_debt(
+def test_no_baseline_chain_owes_the_hosts_last_verified_baseline(
     test_db, tmp_path, monkeypatch, starting_state
 ):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
@@ -292,7 +310,10 @@ def test_no_baseline_debt_does_not_authorize_reset_or_erase_real_debt(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     case = {"project_id": 1, "host_baseline": None, "starting_state": starting_state}
     record_reset_owed(test_db, case=case, test_machine=MACHINE, lease_id=78)
-    assert reset_owed(test_db, MACHINE) is None
-    _debt(test_db, "shell-preconfigured")
+    assert reset_owed(test_db, MACHINE) is None  # Never verified clean.
+    verified_reset(test_db, MACHINE, "shell-preconfigured")
     record_reset_owed(test_db, case=case, test_machine=MACHINE, lease_id=78)
+    test_db.commit()
     assert reset_owed(test_db, MACHINE) == "shell-preconfigured"
+    verified_reset(test_db, MACHINE, "shell-preconfigured")
+    assert reset_owed(test_db, MACHINE) is None
