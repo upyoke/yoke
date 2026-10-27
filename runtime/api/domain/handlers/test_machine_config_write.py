@@ -99,34 +99,25 @@ def test_no_reassign_needs_no_seat():
     assert outcome.primary_success is True
 
 
-@pytest.mark.parametrize("success", [True, False])
-def test_cli_reassign_asks_the_control_plane_for_the_seat(success):
-    from types import SimpleNamespace
-
+def test_cli_reassign_reports_the_writer_refusal(tmp_path, capsys):
     from yoke_cli.commands.adapters import config_write_project as cli
     from yoke_cli.config import writer
 
-    error = SimpleNamespace(
-        code="steering_seat_required",
-        message="requires a live steering seat for project 1.",
-    )
-    with (
-        patch.object(cli, "ensure_handlers_loaded"),
-        patch.object(
-            cli,
-            "call_dispatcher",
-            return_value=SimpleNamespace(
-                success=success, error=None if success else error
-            ),
-        ) as dispatch,
-    ):
-        if success:
-            cli.require_reassign_seat(1)
-        else:
-            with pytest.raises(
-                writer.MachineConfigWriteError, match="steering_seat_required"
-            ):
-                cli.require_reassign_seat(1)
-    call = dispatch.call_args.kwargs
-    assert call["function_id"] == "claims.steering.verify"
-    assert call["target"].project_id == "1"
+    with patch.object(
+        writer,
+        "register_project",
+        side_effect=writer.MachineConfigWriteError(
+            "steering_seat_required: acquire the project seat"
+        ),
+    ) as register:
+        result = cli.project_register(
+            [
+                str(tmp_path),
+                "--project-id",
+                "1",
+                "--reassign",
+            ]
+        )
+    assert result == 1
+    assert "steering_seat_required" in capsys.readouterr().err
+    assert register.call_args.kwargs["reassign"] is True
