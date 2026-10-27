@@ -3,7 +3,7 @@
 function renderHostingCards(section) {
   const modes = [
     ['local', 'Local', 'Start on your own machine.',
-      'Your core and data stay on your laptop, with no signup. Move to a server or Yoke Cloud whenever your team is ready.',
+      'Your core and data stay on your laptop, with no signup.',
       '<rect x="4" y="3" width="16" height="12" rx="1.5"/><path d="M4 15 1 19h22l-3-4M9 19h6"/>'],
     ['selfhost', 'Self-hosted', 'Run it on your infrastructure.',
       'Host the Yoke core and its database on your own server. Connect your team and the machines you control.',
