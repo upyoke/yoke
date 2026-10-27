@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from psycopg.rows import tuple_row
 from yoke_contracts.timestamps import parse_instant, temporal_wire
 
 from runtime.api.fixtures import pg_testdb
@@ -214,3 +215,22 @@ def test_convergence_removes_unshipped_packs_without_losing_project_receipts(
     assert test_db.execute(
         "SELECT pack_slug,installed_version FROM project_pack_report_entries"
     ).fetchall() == [("current", "1.0.0")]
+
+
+def test_convergence_accepts_tuple_rows_used_by_restored_universes(
+    test_db, monkeypatch
+):
+    monkeypatch.setattr(pack_projection, "catalog_rows", _catalog)
+    pack_projection.converge_pack_catalog(test_db)
+    with test_db.cursor(row_factory=tuple_row) as cursor:
+        # This is the cursor shape a plain restored-universe connection uses.
+        class TupleConnection:
+            def execute(self, query, params=()):
+                return cursor.execute(query, params)
+
+        connection = TupleConnection()
+        monkeypatch.setattr(pack_projection, "catalog_rows", lambda: _catalog()[:1])
+        pack_projection.converge_pack_catalog(connection)
+        assert cursor.execute("SELECT slug FROM pack_catalog").fetchall() == [
+            ("available",)
+        ]

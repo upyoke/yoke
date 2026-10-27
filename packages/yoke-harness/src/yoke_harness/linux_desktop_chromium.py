@@ -23,7 +23,7 @@ TAB_WAIT_SECONDS = 15
 CONTROL_ATTEMPTS = 40
 NAVIGATION_ATTEMPTS = 40
 POLL_SECONDS = 0.25
-PROVISION = "Provision the desktop using .yoke/docs/verification/test-machines/linux-host-provisioning.md section 4; it installs Chromium with Ubuntu's chromium-browser wrapper and selects that as x-www-browser. Then rerun."
+PROVISION = "Provision the desktop with yoke_harness/host_provisioning/provision_linux_desktop.py using .yoke/docs/verification/test-machines/linux-host-provisioning.md section 4; it installs Chromium with Ubuntu's chromium-browser wrapper and selects that as x-www-browser. Then rerun."
 
 
 ChromiumRefusal = native_processes.ChromiumRefusal
