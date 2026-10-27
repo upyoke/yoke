@@ -84,15 +84,47 @@ def test_an_operator_woken_owner_is_told_no_wake_will_arrive():
     assert "--item ITEM-1 --stage item-qa" in body
 
 
-def test_an_item_that_owes_nothing_is_not_told_to_wait():
-    _lines, body = _body(OWES_NOTHING, NATIVE)
+def _owed_nothing_body(work_claim: str) -> str:
+    lines = report.outcome_lines(
+        {
+            "public_ref": "ITEM-1",
+            "status": "release",
+            "release_wait": {
+                "work_claim": work_claim,
+                "parked": "no: the item owes nothing after deploy",
+                "park_reason": "",
+                "obligation": OWES_NOTHING,
+                "wake": NATIVE,
+            },
+        },
+        kind=report.AWAITING_DELIVERY,
+    )
+    return " ".join(lines)
+
+
+def test_an_item_that_owes_nothing_is_released_and_told_to_end():
+    body = _owed_nothing_body("released")
 
     assert "owes delivery: nothing of its own" in body
-    assert "delivery closes the item itself" in body
-    assert "nothing will ask this session for anything" in body
-    assert "nothing is required of this session; report what landed and stop" in body
-    assert "do not end this session" not in body
+    assert "work claim: released by this close-out" in body
+    assert "report what landed and end this session" in body
+    assert "recovery notice to the project's steering seat" in body
+    assert "session parked: no: the item owes nothing after deploy" in body
+    assert "wake:" not in body
+    assert "park unconfirmed" not in body
+    assert "do not release" not in body
     assert "qa-plan" not in body
+
+
+def test_an_unconfirmed_release_names_the_release_recipe():
+    body = _owed_nothing_body("release unconfirmed (relay unavailable)")
+
+    assert "work claim: release unconfirmed (relay unavailable)" in body
+    assert (
+        '`yoke claims work release --item ITEM-1 --reason "merged; owes '
+        'nothing after deploy"`' in body
+    )
+    assert "report what landed and end this session" in body
 
 
 def test_an_unread_obligation_is_named_and_treated_as_owing():

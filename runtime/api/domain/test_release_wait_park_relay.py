@@ -19,12 +19,19 @@ from typing import Any
 
 from runtime.api.test_sessions import (  # noqa: F401
     _connect_with_backend_setup,
+    _insert_claimable_items,
     _register,
     conn,
 )
 from yoke_core.domain import release_wait_park as park
-from yoke_core.domain.handlers import sessions_orchestration
-from yoke_core.domain.release_wait_ownership import HOLDER_FUNCTION, park_reason
+from yoke_core.domain.handlers import claims_work, sessions_orchestration
+from yoke_core.domain.release_wait_facts import OWES_NOTHING
+from yoke_core.domain.release_wait_ownership import (
+    HOLDER_FUNCTION,
+    RELEASE_FUNCTION,
+    park_reason,
+)
+from yoke_core.domain.sessions import claim_work
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 
 SESSION = "sess-1"
@@ -120,4 +127,73 @@ def test_a_non_owner_leaves_the_stored_mode_alone(conn, tmp_path, monkeypatch):
     )
 
     assert envelope["release_wait"]["parked"].startswith("skipped:")
+    assert _stored_mode(conn)[0] == "dash"
+
+
+def _registered_release(tmp_path, monkeypatch, claim_id: int):
+    """Route the release to its real handler, with the claim the dispatcher's
+    self-only check resolves onto an item target already on the target."""
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+
+    monkeypatch.setattr(
+        claims_work, "_connect_rw", lambda: _connect_with_backend_setup(tmp_path)
+    )
+    calls: list[str] = []
+
+    def dispatch(*, function_id, target, payload=None, actor=None, **_kw):
+        calls.append(function_id)
+        if function_id == HOLDER_FUNCTION:
+            found = {"session_id": SESSION}
+            return SimpleNamespace(success=True, result={"holder": found}, error=None)
+        assert function_id == RELEASE_FUNCTION
+        outcome = claims_work.handle_release(
+            FunctionCallRequest(
+                function=function_id,
+                actor=ActorContext(actor_id="2", session_id=SESSION),
+                target=TargetRef(kind="claim", claim_id=claim_id),
+                payload=payload or {},
+            )
+        )
+        return SimpleNamespace(
+            success=outcome.primary_success,
+            result=outcome.result_payload,
+            error=outcome.error,
+        )
+
+    return dispatch, calls
+
+
+def test_an_item_owing_nothing_releases_the_stored_claim_and_stays_unparked(
+    conn, tmp_path, monkeypatch
+):
+    _register(conn, session_id=SESSION, mode="dash")
+    _insert_claimable_items(conn, 7)
+    claim = claim_work(conn, session_id=SESSION, item_id=7)
+    conn.commit()
+    dispatch, calls = _registered_release(tmp_path, monkeypatch, int(claim["id"]))
+    monkeypatch.setattr(park, "connected_control_plane", lambda: _NullAuthority())
+    monkeypatch.setattr(park, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        park, "delivery_obligation", lambda _item: {"kind": OWES_NOTHING}
+    )
+    envelope: dict = {}
+
+    park.retain_for_delivery(
+        envelope, item={}, item_id=7, public_ref="ITEM-7", session_id=SESSION
+    )
+
+    block = envelope["release_wait"]
+    assert block["work_claim"] == "released"
+    assert block["parked"] == "no: the item owes nothing after deploy"
+    assert calls == [HOLDER_FUNCTION, RELEASE_FUNCTION]
+    row = conn.execute(
+        "SELECT released_at, release_reason FROM work_claims WHERE id = %s",
+        (int(claim["id"]),),
+    ).fetchone()
+    assert row["released_at"] is not None
+    assert row["release_reason"] == "released"
     assert _stored_mode(conn)[0] == "dash"

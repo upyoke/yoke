@@ -202,6 +202,26 @@ def _wake_line(wake: Mapping[str, Any], parked: str) -> str:
     return f"wake: not established ({why})"
 
 
+def _owed_nothing_lines(work_claim: str, public_ref: str) -> list[str]:
+    closes = (
+        "the release closes the item and its lane without an owner; "
+        "report what landed and end this session"
+    )
+    if work_claim == "released":
+        claim = f"work claim: released by this close-out — {closes}"
+    else:
+        claim = (
+            f"work claim: {work_claim or 'not released'} — if this session "
+            f"still holds it, release it with `yoke claims work release --item "
+            f'{public_ref} --reason "merged; owes nothing after deploy"`; {closes}'
+        )
+    return [
+        claim,
+        "a close-out the release cannot finish sends its recovery notice to "
+        "the project's steering seat",
+    ]
+
+
 def _claim_and_next_lines(
     obligation: Mapping[str, Any], wake: Mapping[str, Any], public_ref: str
 ) -> list[str]:
@@ -210,13 +230,6 @@ def _claim_and_next_lines(
         f"a delivery wake comes only for a close-out delivery could not finish, "
         f"and names its recovery (usually `{merge}`)"
     )
-    if obligation.get("kind") == OWES_NOTHING:
-        return [
-            "work claim and lane: kept by this close-out and released by "
-            "delivery's own close-out — nothing is required of this session; "
-            "report what landed and stop",
-            recovery,
-        ]
     if obligation.get("kind") == OWES_QA:
         run = f"re-entry runs {stage_recipe(obligation, public_ref)}"
     else:
@@ -241,7 +254,8 @@ def awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list[
     ``delivery_pending`` leads when the close-out knows which delivery is
     outstanding, so a re-entry that found the deploy still unfinished says
     which run it is waiting on instead of reading as a bare "not closed".
-    An unconfirmed park is named rather than softened.
+    An unconfirmed park is named rather than softened. An item that owes
+    nothing names its released claim instead of a wake: nothing re-enters it.
     """
     block = record.get("release_wait")
     block = block if isinstance(block, Mapping) else {}
@@ -251,6 +265,14 @@ def awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list[
     obligation = obligation if isinstance(obligation, Mapping) else {}
     wake = block.get("wake")
     wake = wake if isinstance(wake, Mapping) else {}
+    if obligation.get("kind") == OWES_NOTHING:
+        return [
+            *([f"waiting on: {pending}"] if pending else []),
+            *_start_line(block),
+            _owes_line(obligation, public_ref),
+            *_owed_nothing_lines(str(block.get("work_claim") or ""), public_ref),
+            f"session parked: {parked or 'not attempted'}",
+        ]
     lines = [
         *([f"waiting on: {pending}"] if pending else []),
         *_start_line(block),
