@@ -1,6 +1,6 @@
 {
  "id": "setup.onboard",
- "title": "Onboard a project",
+ "title": "Onboarding",
  "parent": "setup",
  "route": "/docs/setup/onboard",
  "kind": "detail",

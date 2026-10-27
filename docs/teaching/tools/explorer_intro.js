@@ -5,7 +5,13 @@ function renderIntro(article) {
   const image = document.createElement('img');
   image.src = data.intro_visual;
   image.alt = 'Your codebase connected through Yoke to Claude Code, Codex and Cursor.';
-  viewport.append(image); article.append(viewport);
+  viewport.append(image); article.append(viewport, introArticleLinks([['understand', 'What is Yoke?']]));
+}
+function introArticleLinks(links) {
+  const nav = text('nav', '', 'intro-article-links');
+  nav.setAttribute('aria-label', 'Read more');
+  for (const [id, label] of links) nav.append(nodeLink(byId.get('page:' + id), label + ' →'));
+  return nav;
 }
 function renderInstallIntro(article) {
   const section = text('section', '');
@@ -38,6 +44,8 @@ function renderInstallIntro(article) {
   icon.src = data.steering_icon; icon.alt = '';
   label.append(icon, document.createTextNode('STEERING'));
   steering.append(label, document.createTextNode(' session that files work items in Yoke, launches CLI sessions in the background to staff them, orchestrates delivery, and tees up key decisions for you to make along the way.'));
-  section.append(onboarding, steering, nodeLink(byId.get('page:setup'), 'More about installation and onboarding →'));
+  section.append(onboarding, steering, introArticleLinks([
+    ['setup.install', 'Installation and setup'], ['setup.onboard', 'Onboarding']
+  ]));
   article.append(section);
 }

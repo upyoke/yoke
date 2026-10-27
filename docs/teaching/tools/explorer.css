@@ -111,4 +111,8 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .intro-install-command + p:empty { display: none; }
 .intro-steering { display: inline-flex; align-items: center; gap: 6px; font-size: .85em; font-weight: 650; letter-spacing: .05em; white-space: nowrap; }
 .intro-steering img { width: 23px; height: 16px; }
+.intro-article-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.intro-article-links a { display: inline-block; padding: 9px 15px; border: 1px solid #cbd8ce; border-radius: 999px; background: #fff; color: #315b48; font-size: 14px; font-weight: 600; text-decoration: none; }
+.intro-article-links a:hover { background: #e5eee5; border-color: #76977e; }
+.intro-article-links a:focus-visible { outline: 2px solid #315b48; outline-offset: 3px; }
 @media (max-width: 500px) { .intro-install-command { gap: 10px; padding-left: 12px; } .intro-install-command code { font-size: 16px; } .intro-install-command button { padding: 10px; } }
