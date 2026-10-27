@@ -7,3 +7,31 @@ function renderIntro(article) {
   image.alt = 'Your codebase connected through Yoke to Claude Code, Codex and Cursor.';
   viewport.append(image); article.append(viewport);
 }
+function renderInstallIntro(article) {
+  const section = text('section', '');
+  section.append(text('h2', 'Install Yoke'));
+  section.append(text('p', 'Open Claude Code, Codex, or Cursor and say:'));
+  const prompt = text('div', '', 'intro-install-command');
+  const command = text('code', 'install upyoke.com');
+  const copy = text('button', 'Copy');
+  copy.type = 'button'; copy.setAttribute('aria-label', 'Copy install upyoke.com');
+  const status = text('p', '', 'source-size');
+  status.setAttribute('role', 'status');
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(command.textContent);
+      copy.textContent = 'Copied ✓'; status.textContent = 'Copied to clipboard.';
+    } catch {
+      copy.textContent = 'Select text';
+      status.textContent = 'Clipboard unavailable. Select the command to copy it.';
+      const range = document.createRange(); range.selectNodeContents(command);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    }
+  };
+  prompt.append(command, copy); section.append(prompt, status);
+  section.append(text('p', 'Your agent handles installation and guides you through setup, helping you make the right configuration choices.'));
+  const onboarding = text('p', 'Once installation and setup are complete, your agent will launch the ');
+  onboarding.append(text('code', '/yoke onboard'), document.createTextNode(' skill. During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what that work needs. It then hands off to steering to carry out your plan.'));
+  section.append(onboarding, nodeLink(byId.get('page:setup'), 'Installation and onboarding →'));
+  article.append(section);
+}

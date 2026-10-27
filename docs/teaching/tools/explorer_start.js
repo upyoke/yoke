@@ -5,13 +5,8 @@ function renderGettingStarted() {
   article.append(text('h1', 'Getting started'));
   article.append(text('h2', 'What is Yoke?'));
   renderIntro(article);
+  renderInstallIntro(article);
   const sections = [
-    ['Install Yoke', 'setup', [
-      'Open your coding agent and say:',
-      '>install upyoke.com',
-      'Your agent handles installation and guides you through setup. It asks for the choices and browser steps that need you.',
-      'Onboarding brings your existing project and work into Yoke, establishes what you want to accomplish, and prepares what is needed to begin.'
-    ], 'Installation and onboarding'],
     ['Universes, projects and where Yoke runs', 'understand', [
       'A universe is the home for your Yoke projects, work records and configuration. Each project brings together its software, goals and work. You can keep several projects in one universe.',
       'Choose where your universe lives during setup: local runs privately on your computer; self-hosted runs on a server you manage; hosted runs at upyoke.com. Self-hosted and hosted let you connect from multiple computers and work with a team.',
