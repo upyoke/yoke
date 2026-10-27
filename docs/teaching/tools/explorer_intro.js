@@ -38,12 +38,12 @@ function renderInstallIntro(article) {
   section.append(text('p', 'Your agent handles installation and guides you through setup, helping you make the right configuration choices.'));
   const onboarding = text('p', 'Once installation and setup are complete, your agent will launch the ');
   onboarding.append(text('code', '/yoke onboard'), document.createTextNode(' skill. During onboarding, your agent reviews your project and existing work, helps you write your strategy and choose what to tackle first, and configures what that work needs.'));
-  const steering = text('p', 'It then begins an interactive ');
+  const steering = text('p', 'Your agent then begins ');
   const label = text('span', '', 'intro-steering');
   const icon = document.createElement('img');
   icon.src = data.steering_icon; icon.alt = '';
   label.append(icon, document.createTextNode('STEERING'));
-  steering.append(label, document.createTextNode(' session that files work items in Yoke, launches CLI sessions in the background to staff them, orchestrates delivery, and tees up key decisions for you to make along the way.'));
+  steering.append(label, document.createTextNode(', filing work items in Yoke, launching CLI sessions in the background to staff them, orchestrating delivery, and teeing up key decisions for you to make along the way.'));
   section.append(onboarding, steering, introArticleLinks([
     ['setup.install', 'Installation and setup'], ['setup.onboard', 'Onboarding']
   ]));
