@@ -11,7 +11,6 @@ function renderGettingStarted() {
       'A universe is the home for your Yoke projects, work records and configuration. Each project brings together its software, goals and work. You can keep several projects in one universe.',
       'Choose where your universe lives during setup:',
       'You can move a universe between these options using export and import.',
-      'Use your agent to work with Yoke and the dashboard to see what is going on. You remain responsible for direction and the decisions that need your judgment.'
     ], 'Hosting modes'],
     ['Set direction with strategy documents', 'strategy', [], 'Strategy documents'],
     ['Track work from idea to completion', 'work', [
