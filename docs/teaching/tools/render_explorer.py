@@ -24,7 +24,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_start_visuals.js', 'explorer_start.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_start.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)

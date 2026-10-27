@@ -3,6 +3,7 @@ function renderGettingStarted() {
   const article = text('article', '', 'getting-started-preview');
   article.append(text('p', 'Draft page · Links open the planned detailed sections.', 'source-size'));
   article.append(text('h1', 'Getting started'));
+  article.append(text('h2', 'What is Yoke?'));
   article.append(text('p', 'Yoke helps you and your coding agents take software from an idea to a working release. It keeps the project’s direction, work, checks and deployments connected, so you can see what is happening and what needs your attention.', 'summary'));
   const sections = [
     ['Install Yoke', 'setup', [
@@ -66,8 +67,6 @@ function renderGettingStarted() {
       section.append(text(paragraph.startsWith('>') ? 'blockquote' : 'p',
         paragraph.startsWith('>') ? paragraph.slice(1) : paragraph));
     }
-    const visual = startVisual(page);
-    if (visual) section.append(visual);
     section.append(nodeLink(byId.get('page:' + page), linkLabel + ' →'));
     article.append(section);
   }
