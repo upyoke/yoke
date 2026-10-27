@@ -203,7 +203,7 @@ At the host console, sign the declared test browser identity into
 Complete password/2FA now and require the signed-in app page; a Google session
 alone is insufficient. Later approval should need only an existing account pick.
 Start each harness's vendor login flow from the test user's **GUI Terminal**;
-the operator types passwords only where asked. Follow the [browser identity procedure](#11-live-browser-identities)
+the operator types passwords only where asked. Follow the [browser identity procedure](macos-baseline-recovery.md#11-live-browser-identities)
 for password-free native authorization and personal sign-in handoffs. [Codex device auth](https://developers.openai.com/codex/auth)
 requires account/workspace permission. [Cursor auth](https://cursor.com/docs/cli/reference/authentication)
 is separate from app presence. A login-status line or credential file is

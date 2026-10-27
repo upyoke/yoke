@@ -60,7 +60,9 @@ def test_machine_qa_assets_ship_without_a_pack(product_wheelhouse):
     core = next(product_wheelhouse.glob("yoke_core-*.whl"))
     harness = next(product_wheelhouse.glob("yoke_harness-*.whl"))
     with ZipFile(core) as wheel:
-        cases = json.loads(wheel.read("yoke_core/domain/installer_exploration_cases.json"))
+        cases = json.loads(
+            wheel.read("yoke_core/domain/installer_exploration_cases.json")
+        )
         assert [(case["case_key"], case["method_id"]) for case in cases] == [
             ("installer-exploration", "exploratory-mission")
         ]
