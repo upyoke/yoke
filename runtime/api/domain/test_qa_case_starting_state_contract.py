@@ -59,10 +59,6 @@ def test_each_declaration_normalizes_to_its_stored_form() -> None:
         (_case("empty", state="baseline"), "with no host_baselines"),
         (_case("why", state="as_is"), "without a starting_state_reason"),
         (_case("extra", state="inherit", reason="x"), "takes no"),
-        (
-            _case("web", runner="browser_substrate", baselines=["fresh-host"]),
-            "only machine-run cases",
-        ),
     ],
 )
 def test_undeclared_or_impossible_declarations_refuse_with_the_choices(
@@ -213,3 +209,12 @@ def test_a_mission_can_inherit_as_the_chain_tail():
     assert chain_baselines(cases)["walk"] == ["fresh-host"]
     with pytest.raises(StartingStateError, match="no case may inherit after"):
         chain_baselines([*cases, _case("after", state="inherit")])
+
+
+@pytest.mark.parametrize("runner", ["browser_substrate", "worktree_run", "agent_mission"])
+@pytest.mark.parametrize("state", ["as_is", "inherit", "obsolete"])
+def test_non_machine_cases_ignore_stale_starting_state(runner, state):
+    case = _case("controller", runner=runner, state=state, reason="old host")
+    case["method_config"] = {}
+    assert _normalize(case) == (None, None)
+    assert chain_baselines([case]) == {"controller": [None]}

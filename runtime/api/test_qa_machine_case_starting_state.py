@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import qa_requirement_create
-from yoke_core.domain.qa_plan_case_definition import plan_cases
+from yoke_core.domain.qa_plan_case_definition import plan_cases, snapshot_fan_out
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
     create_plan,
@@ -159,3 +159,31 @@ def test_direct_add_stores_the_declared_start(start, stored) -> None:
             (outcome.result_payload["requirement_id"],),
         ).fetchone()
     assert tuple(row) == stored
+
+
+@pytest.mark.parametrize("fields", [
+    {"starting_state": "as_is"},
+    {"starting_state_reason": "old host"},
+    {"host_baselines": ["fresh-host"]},
+])
+def test_plan_authoring_refuses_machine_state_on_a_controller_case(fields):
+    with test_database() as conn:
+        plan = create_plan(conn, project="yoke", slug="controller-state")
+        with pytest.raises(QaPlanError, match="only machine-run cases"):
+            replace_plan_cases(conn, plan_id=plan["id"], cases=[{
+                "case_key": "controller", "position": 1, "method_id": "command",
+                "instructions": "Inspect controller.", "expected_outcome": "Pass.",
+                "method_config": {"command": "true"}, **fields,
+            }])
+        assert plan_cases(conn, plan["id"]) == []
+
+
+def test_frozen_controller_mission_with_stale_machine_state_materializes():
+    snapshot = [{
+        "case_key": "controller", "runner_id": "agent_mission",
+        "method_config": {}, "host_baselines": [],
+        "starting_state": "as_is", "starting_state_reason": "former host",
+    }]
+    assert snapshot_fan_out({"slug": "frozen-controller"}, snapshot) == {
+        "controller": [None],
+    }

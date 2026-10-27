@@ -10,6 +10,7 @@ from yoke_contracts.qa_case_starting_state import (
     StartingStateError,
     chain_baselines,
     normalize_starting_state,
+    needs_test_machine,
 )
 from yoke_contracts.qa_case_wake_path import WakePathError, normalize_wake_path
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
@@ -26,6 +27,20 @@ def apply_starting_states(
     case's method to the runner that decides whether it is machine-run.
     """
     try:
+        for case in cases:
+            if not needs_test_machine(
+                {**case, "runner_id": runner_ids[case["method_id"]]}
+            ) and (
+                case.get("starting_state") not in (None, "")
+                or str(case.get("starting_state_reason") or "").strip()
+                or case["host_baselines"]
+            ):
+                raise StartingStateError(
+                    f"case {case['case_key']!r} declares a starting state, but only "
+                    "machine-run cases (host_control and missions declaring a host) "
+                    "start on a Test Machine; remove host_baselines, starting_state "
+                    "and starting_state_reason"
+                )
         chain_baselines(
             [{**case, "runner_id": runner_ids[case["method_id"]]} for case in cases]
         )
