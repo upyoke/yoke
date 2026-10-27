@@ -3,5 +3,7 @@
  "title": "Pack files and baseline records",
  "status": "draft-copy",
  "page": "installation",
- "position": 4
+ "position": 4,
+ "summary": "When install drift cannot be proven installer-owned, preserve the files. A linked worktree missing .yoke/install-manifest.json can refresh with --manifest-from <main checkout>/.yoke/install-manifest.json; genuine edits still require restoration of the recorded bytes.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/project_install/install_recovery.py"]
 }

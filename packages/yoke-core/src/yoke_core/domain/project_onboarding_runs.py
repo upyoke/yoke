@@ -182,7 +182,7 @@ def get_run(
         if set(ROW_IDS) - {row["row_id"] for row in rows}:
             raise ProjectOnboardingRunError(
                 "setup_checklist_incomplete: restore missing rows with yoke onboard "
-                "checklist init --run-id RUN --project P, then reread current facts."
+                "checklist init --project <project slug>, then reread current facts."
             )
         try:
             row_payloads = [row_payload(row) for row in rows]

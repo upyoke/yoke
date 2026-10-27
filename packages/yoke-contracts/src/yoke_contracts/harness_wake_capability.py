@@ -69,7 +69,9 @@ HARNESS_WAKE_CAPABILITIES: dict[str, HarnessWakeCapability] = {
             "which is what the main-session long-command rule is built on. "
             "A Monitor ends at its timeout_ms deadline (default 5 minutes, "
             "capped at 30) with one expiry notice and its watcher killed; "
-            "re-arming the same tail then continues the watch."
+            "re-arming the same tail then continues the watch. "
+            "Ending the current turn closes the Monitor reader; see "
+            "docs/archive/decisions/monitor-wake-resumes-current-turn.md."
         ),
         idle_wake_subscription_limit_seconds=1800,
         idle_wake_deadline_parameter="timeout_ms",

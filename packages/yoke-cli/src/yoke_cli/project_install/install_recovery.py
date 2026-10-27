@@ -167,7 +167,9 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
             continue
         changed.append(rel)
         installer_digests = {incoming.get(rel), interrupted.get(rel)}
-        matched = next((digest for digest in digests if digest in installer_digests), None)
+        matched = next(
+            (digest for digest in digests if digest in installer_digests), None
+        )
         if matched is not None:
             previous[rel] = matched
             continue
@@ -182,7 +184,10 @@ def plan(root: Path, bundle: dict[str, Any], prior: dict[str, Any]) -> dict[str,
             f"install_drift_local_edits: {rel} differs from the install record "
             "and has no bundle or installer-history proof. Preserved all files. "
             "Save the local edits outside installer-owned paths, restore the "
-            "recorded release bytes, then rerun yoke project refresh."
+            "recorded release bytes, then rerun yoke project refresh. "
+            "If this linked worktree lacks .yoke/install-manifest.json, run "
+            "yoke project refresh --manifest-from "
+            "<main checkout>/.yoke/install-manifest.json."
         )
     return {
         "missing": sorted(missing),

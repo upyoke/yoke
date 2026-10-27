@@ -4,13 +4,13 @@
  "status": "observed",
  "audience": "agent",
  "when": "Before closing an item or release while an execution, verdict or review may remain unsettled.",
- "need": "Run a correction with its selected plan and exact replacements: only its correction rows run, shared target identity remains, and frozen replacement scopes prevent private duplicates. In-flight host abort records cancellation, stops between steps, and retains custody until restore proof is recorded. If required restoration fails, stop the old runner; the lease holder or a covering steering seat resets every retained host to the interrupted baseline, then retries abort. Recovery proof must match the host and lease and postdate cancellation; reset alone retains custody.",
+ "need": "Run a correction with its selected plan and exact replacements: only its correction rows run, shared target identity remains, and frozen replacement scopes prevent private duplicates. In-flight host abort records cancellation, stops between steps, and retains custody until restore proof is recorded. If required restoration fails, stop the old runner; the lease holder or a covering steering seat resets every retained host to the interrupted baseline, then retries abort. Recovery proof must match the host and lease and postdate cancellation; reset alone retains custody. On done or cancelled items, a covering steering seat can record the first supersession link with --reconcile --source operator after the corrected requirement has qualified passing evidence.",
  "disclosure": "current cue",
  "surface": "QA settlement gate documentation; existing finalization/recovery",
  "gap": "Review question: should completion output distinguish passed, waived/discharged, no-obligation and still-unanswered checks instead of a single done claim?",
  "review": "Focused regression coverage verifies selected correction routing and host cancellation; deployed proof remains required.",
  "recipes": ["yoke qa gate-summary --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12", "JOURNEYS row 15"],
- "sources": ["docs/testing-verification.md", "docs/public/verification/requirement-state.md", ".agents/skills/yoke/usher/finalize.md", "docs/public/verification/deployment-plan-execution.md"],
+ "sources": ["docs/testing-verification.md", "docs/public/verification/requirement-state.md", ".agents/skills/yoke/usher/finalize.md", "docs/public/verification/deployment-plan-execution.md", "packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch_qa_claims.py"],
  "position": 1
 }

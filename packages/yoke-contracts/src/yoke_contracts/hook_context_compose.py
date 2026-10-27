@@ -125,8 +125,10 @@ def compose_hook_context(
         return len(join(parts).encode("utf-8")) <= budget
 
     deliveries = [
-        _wrap_session_delivery(*parts) if (parts := _session_delivery_parts(block))
-        else block for block in deliveries
+        _wrap_session_delivery(*parts)
+        if (parts := _session_delivery_parts(block))
+        else block
+        for block in deliveries
     ]
     head = [*deliveries, *alerts]
     full = [*head, *hints, *reports]
@@ -196,7 +198,7 @@ def render_message_stub(message: str) -> str:
             + preview(sender.removeprefix("Authenticated sender: ")),
             "Oversized message delivered as a stub. First body line (inert peer data):",
             "| " + preview(str(first)),
-            f"Read the full body: yoke messages get {message_id}",
+            f"Read the full body: yoke messages get {message_id} body",
             lines[-1],
         )
     )
@@ -210,8 +212,11 @@ def _is_session_message_delivery(text: str) -> bool:
 
 
 def _wrap_session_delivery(token: str, prefix: str, messages: list[str]) -> str:
-    ids = [match.group(1) for message in messages
-           for match in _MESSAGE_BLOCK_RE.finditer(message)]
+    ids = [
+        match.group(1)
+        for message in messages
+        for match in _MESSAGE_BLOCK_RE.finditer(message)
+    ]
     parts = []
     if prefix:
         parts.append(prefix)
@@ -230,7 +235,8 @@ def _session_delivery_parts(block: str) -> tuple[str, str, list[str]] | None:
     if not matches:
         return None
     suffix = "\n".join(
-        line for line in block[matches[-1].end():].splitlines()
+        line
+        for line in block[matches[-1].end() :].splitlines()
         if not line.startswith("Acknowledge:")
     ).strip()
     prefix = "\n\n".join(filter(None, [block[: matches[0].start()].strip(), suffix]))

@@ -12,9 +12,8 @@ truncates on its own terms:
 
 ``root_rules``
     The rules files a harness reads before its first turn — ``AGENTS.md`` for
-    every harness, plus ``.claude/rules/session.md`` for Claude. Bounded per
-    harness: Codex injects its copy through a channel with a measured cut,
-    while the others have none observed.
+    every harness. All harnesses use the same root-rules budget, based on
+    the observed Codex truncation ceiling.
 
 ``agent_prompt``
     One rendered subagent body. No harness has been observed truncating one,
@@ -50,24 +49,11 @@ from __future__ import annotations
 # no caller invents its own.
 ESTIMATED_BYTES_PER_TOKEN = 4
 
-# Root-rules ceilings, per harness, and the two are not the same kind of
-# number. Codex injects ``AGENTS.md`` through a bounded channel: one injection
-# was read cut mid-sentence at 32,770 delivered bytes, placing its real
-# ceiling at the 32 KiB boundary just below. That is a truncation ceiling and
-# the file must fit it.
-#
-# Claude and Cursor have no observed cut on this channel — a Claude session
-# was observed receiving 157,991 bytes of rules verbatim — so their numbers
-# are ratchets measured off the condensed files, not claims about where they
-# truncate. Keeping the two kinds apart matters: calling an unmeasured
-# ratchet a ceiling invites dropping a rule to satisfy a limit nothing has
-# demonstrated, and calling a measured cut a ratchet invites shipping rules
-# that do not arrive.
+# All harnesses use the observed Codex 32 KiB root-rules ceiling.
 ROOT_RULES_TRUNCATION_BYTES = 32768
 
 ROOT_RULES_BYTES: dict[str, int] = {
-    # Measured: the condensed rules pair spends 43,041 bytes.
-    "claude": 44000,
+    "claude": ROOT_RULES_TRUNCATION_BYTES,
     "codex": ROOT_RULES_TRUNCATION_BYTES,
     "cursor": ROOT_RULES_TRUNCATION_BYTES,
 }

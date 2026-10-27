@@ -261,7 +261,13 @@ def qa_subject_claim_verdict(
     return (
         False,
         "claim_required",
-        f"no active claim by session {actor_session!r} on {item_ref_for_id(target_id)}",
+        f"no active claim by session {actor_session!r} on {item_ref_for_id(target_id)}"
+        + (
+            "; for a done or cancelled item, ask its covering steering seat holder "
+            "to run yoke qa requirement supersede with --reconcile --source operator"
+            if request.function == "qa.requirement.supersede"
+            else ""
+        ),
     )
 
 

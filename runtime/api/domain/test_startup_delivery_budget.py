@@ -34,10 +34,8 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.startup_context_budget import (
-    ROOT_RULES_TRUNCATION_BYTES,
     STARTUP_CHANNELS,
     estimated_tokens,
-    root_rules_bytes,
 )
 from yoke_core.domain import startup_delivery_budget as delivery
 from yoke_core.domain.agents_render_conditional import HARNESS_IDS
@@ -97,17 +95,6 @@ def test_inline_ceilings_come_from_the_harness_contract(report: dict) -> None:
             assert row["budget"] == inline_context_bytes_for_harness(
                 canonical_harness_id(row["harness_id"])
             )
-
-
-def test_codex_root_rules_bound_is_the_observed_cut() -> None:
-    """Codex injects AGENTS.md through a channel with a measured cut.
-
-    Claude has no observed cut on this channel — a session was observed
-    receiving 157,991 bytes of rules verbatim — so its number is a ratchet
-    and must not be mistaken for a ceiling.
-    """
-    assert root_rules_bytes("codex") == ROOT_RULES_TRUNCATION_BYTES
-    assert root_rules_bytes("claude") > ROOT_RULES_TRUNCATION_BYTES
 
 
 def test_headroom_and_tokens_derive_from_usage(report: dict) -> None:
