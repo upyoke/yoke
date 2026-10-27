@@ -89,8 +89,16 @@ def test_operation_receipt_status_controls_exit(monkeypatch, operation, status, 
         "yoke_harness.golden_snapshot_retention.retain_after_verified_capture",
         lambda *args: None,
     )
+    warned = []
+    monkeypatch.setattr(
+        "yoke_harness.harness_cli_latest.warn_capture_behind_latest",
+        lambda *args: warned.append(args),
+    )
     assert adapter._execute(
         operation=operation, project="example", test_machine=None, baseline=None,
         destination=None, probes_document=None, session_id=None, json_mode=True,
     ) == expected
     assert emitted[0].result["status"] == status
+    assert [(op, result["status"], payload) for op, result, payload in warned] == [
+        (operation, status, {})
+    ]

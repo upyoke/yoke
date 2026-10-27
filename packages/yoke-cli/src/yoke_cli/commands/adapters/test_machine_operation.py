@@ -233,7 +233,7 @@ def _execute(
                 ),
                 json_mode=json_mode,
             )
-    from yoke_core.domain.golden_harness_refresh import warn_capture_behind_latest
+    from yoke_harness.harness_cli_latest import warn_capture_behind_latest
     from yoke_harness.golden_snapshot_retention import (
         SnapshotRetentionError,
         retain_after_verified_capture,
