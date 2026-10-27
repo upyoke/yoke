@@ -109,4 +109,6 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .intro-install-command button:hover { background: #3a3ec2; }
 .intro-install-command button:focus-visible { outline: 3px solid #888cff; outline-offset: 3px; }
 .intro-install-command + p:empty { display: none; }
+.intro-steering { display: inline-flex; align-items: center; gap: 6px; font-size: .85em; font-weight: 650; letter-spacing: .05em; white-space: nowrap; }
+.intro-steering img { width: 23px; height: 16px; }
 @media (max-width: 500px) { .intro-install-command { gap: 10px; padding-left: 12px; } .intro-install-command code { font-size: 16px; } .intro-install-command button { padding: 10px; } }

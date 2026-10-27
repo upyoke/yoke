@@ -209,6 +209,8 @@ def build_explorer(views, pages):
                 build=source_snapshot(nodes, pages))
     data['intro_visual'] = 'data:image/svg+xml;base64,' + base64.b64encode(
         (HERE / 'intro-visuals' / 'shared-coordination.svg').read_bytes()).decode('ascii')
+    data['steering_icon'] = 'data:image/svg+xml;base64,' + base64.b64encode(
+        (HERE / 'intro-visuals' / 'steering.svg').read_bytes()).decode('ascii')
     if pages.m.problems:
         return {}
     views[PAGE] = page_html(data, pages.m)
