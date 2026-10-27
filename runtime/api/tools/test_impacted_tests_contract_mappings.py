@@ -58,6 +58,7 @@ def test_contract_companions_survive_bounded_deferral(
     tmp_path: Path,
 ) -> None:
     changed = (
+        "docs/contract-notes.md",
         f"{contracts.MIGRATION_HISTORY_SOURCE_PREFIXES[0]}0099_example.py",
         contracts.EPIC_RESOLUTION_SOURCE_PATH,
         sorted(path_claims.PATH_CLAIM_SOURCE_PATHS)[0],

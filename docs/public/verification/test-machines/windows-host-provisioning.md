@@ -194,12 +194,14 @@ Tests use agent captures; human viewing is never a test acceptance check.
 A connected viewer counts as human adoption: baseline reset/capture must wait
 until it closes, even when automation originally started XFCE.
 
-For the selected Server route, reuse this Pack's Linux XFCE/xrdp provisioner
+For the selected Server route, reuse Yoke's Linux XFCE/xrdp provisioner
 inside WSL with a separate loopback port. The executing operation runs its
-stdlib-only helper in the dedicated Linux user's home:
+stdlib-only helper in the dedicated Linux user's home. Copy both
+`provision_linux_desktop.py` and `provision_windows_wsl_desktop.py` from the
+controller's `yoke_harness/host_provisioning/` package directory into that
+working directory first:
 
 ```text
-python3 -c 'from pathlib import Path; import shutil; import yoke_harness; source = Path(yoke_harness.__file__).parent / "host_provisioning"; [shutil.copy2(source / name, name) for name in ("provision_linux_desktop.py", "provision_windows_wsl_desktop.py")]'
 python3 provision_windows_wsl_desktop.py --desktop-password-stdin
 python3 provision_windows_wsl_desktop.py --verify
 ```

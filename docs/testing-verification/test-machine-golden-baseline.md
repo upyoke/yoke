@@ -14,7 +14,7 @@ capture. Neither a package command nor a successful capture establishes readines
 
 Preparation is manual, project-specific work with explicit host custody.
 Generic Yoke/Machine QA registers, captures, restores and verifies declared
-state; it does not install this project's baseline for other projects. Pack
+state; it does not install this project's baseline for other projects. Yoke
 recipes supply reusable OS steps, not a universal Docker or fixture policy.
 Read registered settings and leases before acting; never operate a peer's host.
 Substitute the dedicated account, private endpoint and approved paths from that

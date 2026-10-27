@@ -103,7 +103,7 @@ Register `test-machine:<name>` through `yoke test-machine settings-replace
 --project P --test-machine NAME --settings-file FILE --new`. Read `--help`; updates
 use the as-read settings token. Settings include `resource_name`, `os=linux`,
 `host`, `user` and the absolute home golden path outside the home. A cloud
-host's `cloud_instance_id` and operating notes belong to this record, not Pack
+host's `cloud_instance_id` and operating notes belong to this record, not Yoke
 source; with the id, a lease starts the host and its last release stops it
 when an Elastic IP keeps `host` stable.
 A capacity machine is independent; ordinary agent work must use another home.
@@ -182,11 +182,13 @@ sign-in proof in the [baseline procedure](linux-baseline-recovery.md).
 ## 4. Durable desktop and unattended sessions
 
 For desktop coverage, the executing product operation runs this stdlib-only
-Pack helper as the dedicated test user, with private capability input:
+core helper as the dedicated test user, with private capability input. Copy
+`yoke_harness/host_provisioning/provision_linux_desktop.py` from the controller's
+Yoke package into the target working directory before running:
 
 ```text
-python3 -m yoke_harness.host_provisioning.provision_linux_desktop --desktop-password-stdin
-python3 -m yoke_harness.host_provisioning.provision_linux_desktop --verify
+python3 provision_linux_desktop.py --desktop-password-stdin
+python3 provision_linux_desktop.py --verify
 ```
 
 It requires Ubuntu24.04 and passwordless sudo, installs XFCE, xfce4-terminal,

@@ -44,7 +44,7 @@ protocol, so every harness starts from its own golden restore rather than sharin
 the preceding harness's local universe. Baseline-group lookup also recognizes a
 standalone execution as its unique subject and never mixes evidence from two runs.
 Host restoration, desktop prerequisites and failure recovery are specified
-only in the corresponding Pack procedure linked above.
+only in the corresponding core procedure linked above.
 
 Exploratory mission preparation records failures before any walker dispatch.
 The QA run's `raw_result.preparation.evidence` and the plan capture retain a
@@ -105,4 +105,4 @@ and stops local Postgres on both operating systems. Every cleanup runs even if
 an earlier cleanup fails; any failed cleanup prevents a passing proof.
 Its scratch captures remain for diagnosis until the next golden reset. A native
 authentication or bridge failure is a named prerequisite failure governed by
-the corresponding Pack procedure. Hosted relay supervision and launch are verified separately.
+the corresponding core procedure. Hosted relay supervision and launch are verified separately.
