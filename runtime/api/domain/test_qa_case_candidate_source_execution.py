@@ -76,7 +76,9 @@ def test_candidate_command_executes_bound_source(tmp_path, monkeypatch, nested):
     raw = json.loads(record.call_args.kwargs["raw_result"])
     assert raw["verification_tree"]["head_sha"] == head
     assert f"source checkout: {candidate}" in raw["output_tail"]
-    assert f"[output]\n{candidate}" in raw["output_tail"]
+    output = raw["output_tail"].split("\n[output]\n", 1)[1]
+    output = output.split("\n[exit_code]\n", 1)[0]
+    assert output.rstrip().splitlines()[-1] == str(candidate)
     assert str(lane) not in raw["output_tail"]
 
 
