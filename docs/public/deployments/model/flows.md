@@ -120,6 +120,20 @@ including no-op pins, without re-resolving a branch. Owners:
 `deployment_run_bound_sources`, `deployment_run_project_sources`,
 `deployment_run_release_output`, `deployment_run_release_output_record`.
 
+A bound workflow stage is not dispatched when its target already serves the
+run's commits. Before the CI gate, the driver asks
+`deployment_runs.execution.delivery_reuse`. It reads the newest succeeded run,
+in any flow, on an environment with this run's name, for this run's project or
+a project the stage binds. If that run's promotion receipt for every bound
+project names this run's `release_lineage` as `product_sha` and its bound
+commit as `platform_sha`, the stage completes: the receipts are copied into
+this run, the entries are sealed `consumed_by` the stage, and
+`bound_sources.delivery_reuse[STAGE].run_id` names the reused run. Later stages
+such as warm-up still run. Any difference dispatches, and the driver prints why:
+a changed commit, a newer deploy from another flow, or an earlier run that
+failed or has no receipt. `--fresh` always dispatches, and so does a serving
+build without the function. Owner: `deployment_run_delivery_reuse`.
+
 **`warm-up`:** makes one heavy relayed call against the rolled environment.
 Required `connection_env` names its client connection; `function` defaults to
 read-only `board.data.get`; `timeout_s` defaults to 180. Pass requires an actual

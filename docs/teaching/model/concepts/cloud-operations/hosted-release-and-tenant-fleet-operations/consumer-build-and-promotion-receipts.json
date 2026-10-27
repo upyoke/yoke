@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Yoke maintainers",
  "page": "cloud-operations-services",
- "position": 1
+ "position": 1,
+ "summary": "A hosted promotion records a verified attempt receipt naming the product and consumer commits it deployed. A later run whose bound workflow stage would ship the same pair reuses that delivery instead of dispatching: the newest succeeded run on an environment of the same name, in any flow, must hold a receipt for every bound project naming this run's release lineage and bound commit. The receipt is copied into the reusing run, `bound_sources.delivery_reuse` names the reused run, and warm-up still runs. Any difference, `--fresh`, or an older serving build dispatches as before.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/hosted_promotion_receipt.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_delivery_reuse.py", "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_delivery_reuse.py", "runtime/api/domain/test_deployment_run_delivery_reuse.py", "docs/public/deployments/model/flows.md"]
 }
