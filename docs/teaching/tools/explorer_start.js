@@ -4,7 +4,7 @@ function renderGettingStarted() {
   article.append(text('p', 'Draft page · Links open the planned detailed sections.', 'source-size'));
   article.append(text('h1', 'Getting started'));
   article.append(text('h2', 'What is Yoke?'));
-  article.append(text('p', 'Yoke helps you and your coding agents take software from an idea to a working release. It keeps the project’s direction, work, checks and deployments connected, so you can see what is happening and what needs your attention.', 'summary'));
+  renderIntroVariants(article);
   const sections = [
     ['Install Yoke', 'setup', [
       'Open your coding agent and say:',
