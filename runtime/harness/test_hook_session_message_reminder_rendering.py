@@ -34,9 +34,12 @@ def test_a_reminder_shows_an_excerpt_and_the_acknowledgement() -> None:
     assert "Reminder: shown 2 time(s) and still unacknowledged." in rendered
     assert LONG_BODY.strip() not in rendered
     assert LONG_BODY[:40] in rendered
-    assert f"read the full body with `yoke messages get {MESSAGE_ID}`" in rendered
-    assert [line.split()[4:] for line in rendered.splitlines()
-            if line.startswith("Acknowledge:")] == [[MESSAGE_ID]]
+    assert f"read the full body with `yoke messages get {MESSAGE_ID} body`" in rendered
+    assert [
+        line.split()[4:]
+        for line in rendered.splitlines()
+        if line.startswith("Acknowledge:")
+    ] == [[MESSAGE_ID]]
     assert len(rendered) < REMINDER_EXCERPT_CHARS + 800
     # Settlement still finds the message, so the reminder backs off.
     assert delivered_message_ids(rendered, token) == {MESSAGE_ID}
