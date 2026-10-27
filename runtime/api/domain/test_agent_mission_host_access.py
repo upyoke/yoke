@@ -287,20 +287,26 @@ def test_driver_access_does_not_mark_an_untouched_companion_dirty(test_db, missi
 
 
 @pytest.mark.parametrize("mission", ["as_is"], indirect=True)
-def test_as_is_companion_commands_and_cleanup_never_owe_a_reset(test_db, mission):
+def test_as_is_companion_access_owes_the_hosts_last_verified_baseline(
+    test_db, mission
+):
+    from runtime.api.domain.test_machine_reset_debt import verified_reset
     from yoke_core.domain.machine_reset_debt import reset_owed
     from yoke_core.domain.machine_qa_mission_walk import execute_agent_mission_walk_end
 
     request, _ = mission
-    for _ in range(2):  # The final owned cleanup command uses the same access path.
-        outcome = handle_agent_mission_access(
-            request.model_copy(
-                update={"payload": {**request.payload, "test_machine": COMPANION}}
-            )
-        )
-        assert outcome.primary_success, outcome.error
-        test_db.rollback()
-        assert reset_owed(test_db, COMPANION) is None
+    companion = request.model_copy(
+        update={"payload": {**request.payload, "test_machine": COMPANION}}
+    )
+    outcome = handle_agent_mission_access(companion)
+    assert outcome.primary_success, outcome.error
+    test_db.rollback()
+    assert reset_owed(test_db, COMPANION) is None  # Never verified clean.
+    verified_reset(test_db, COMPANION, "fresh-host")
+    outcome = handle_agent_mission_access(companion)  # Owned cleanup, same path.
+    assert outcome.primary_success, outcome.error
+    test_db.rollback()
+    assert reset_owed(test_db, COMPANION) == "fresh-host"
     driver = handle_agent_mission_access(request)
     assert driver.primary_success, driver.error
     register_host_control_factory(lambda material: FakeHostControl())
@@ -310,6 +316,5 @@ def test_as_is_companion_commands_and_cleanup_never_owe_a_reset(test_db, mission
         clear_host_control_factory()
     assert ended["removed"]
     assert ended["starting_state_restore"]["restored"] is False
-    assert "as found" in ended["starting_state_restore"]["reason"]
     assert "error_code" not in ended["starting_state_restore"]
-    assert reset_owed(test_db, COMPANION) is None
+    assert reset_owed(test_db, COMPANION) == "fresh-host"

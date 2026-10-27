@@ -11,8 +11,6 @@ def record_unproven_restore(conn, *, case, test_machine, lease_id, restore):
     baseline = case.get("host_baseline")
     if baseline and restore_cleanup_proven(restore, baseline):
         return
-    if not baseline and restore and not restore.get("error_code"):
-        return  # An as-is chain proves cleanup with its no-restore receipt.
     record_reset_owed(conn, case=case, test_machine=test_machine, lease_id=lease_id)
 
 

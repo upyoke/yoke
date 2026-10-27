@@ -28,7 +28,7 @@ def reset_command(project, test_machine, baseline):
     )
 
 
-def reset_owed(conn, test_machine):
+def _reset_receipts(conn, test_machine):
     """Physical hosts share debt across projects, just as they share custody."""
     p = _marker(conn)
     rows = conn.execute(
@@ -38,26 +38,44 @@ def reset_owed(conn, test_machine):
         "ORDER BY performed_at DESC",
         (test_machine_capability_type(test_machine), RESET_OWED_OPERATION, "reset"),
     ).fetchall()
-    receipts = [_row_result(row) for row in rows]
+    return [_row_result(row) for row in rows]
+
+
+def _verified_reset(receipt):
+    return (
+        receipt["operation"] == "reset"
+        and receipt["status"] == "verified"
+        and not receipt["error_code"]
+        and receipt["checks"]
+        and all(c.get("ok") is True for c in receipt["checks"])
+    )
+
+
+def reset_owed(conn, test_machine):
+    receipts = _reset_receipts(conn, test_machine)
     owed = next((r for r in receipts if r["operation"] == RESET_OWED_OPERATION), None)
     if owed is None:
         return None
     cleared = any(
-        r["operation"] == "reset"
-        and r["status"] == "verified"
-        and not r["error_code"]
-        and r["checks"]
-        and all(c.get("ok") is True for c in r["checks"])
+        _verified_reset(r)
         and parse_instant(r["performed_at"]) > parse_instant(owed["performed_at"])
         for r in receipts
     )
     return owed["checks"][0]["name"] if not cleared else None
 
 
+def last_verified_baseline(conn, test_machine):
+    """The baseline of the host's latest verified reset, across projects."""
+    verified = next(
+        (r for r in _reset_receipts(conn, test_machine) if _verified_reset(r)), None
+    )
+    return verified["checks"][0]["name"] if verified else None
+
+
 def record_reset_owed(conn, *, case, test_machine, lease_id, contract_digest=""):
-    baseline = case.get("host_baseline")
+    baseline = case.get("host_baseline") or last_verified_baseline(conn, test_machine)
     if not baseline:
-        return  # Preserving an as-is host grants no baseline reset authority.
+        return  # A host never verified clean has no baseline to owe.
     return record_test_machine_operation(
         conn,
         int(case["project_id"]),

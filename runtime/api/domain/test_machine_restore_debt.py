@@ -58,17 +58,20 @@ def test_current_mission_restore_records_debt_only_from_its_holder(
     [
         ("fresh-host", False, None, True, "fresh-host"),
         ("fresh-host", True, None, True, None),
-        (None, False, None, True, None),
-        (None, False, "restore_failed", True, None),
+        (None, False, None, True, "shell-preconfigured"),
+        (None, False, "restore_failed", True, "shell-preconfigured"),
         ("fresh-host", None, None, True, "fresh-host"),
-        (None, None, None, True, None),
+        (None, None, None, True, "shell-preconfigured"),
         ("fresh-host", None, None, False, None),
     ],
 )
 def test_case_capture_persists_unproven_restore_debt(
     test_db, tmp_path, monkeypatch, baseline, restored, error, ends_chain, owed
 ):
+    from runtime.api.domain.test_machine_reset_debt import verified_reset
+
     configure_test_machine(test_db, tmp_path, monkeypatch)
+    verified_reset(test_db, MACHINE, "shell-preconfigured")
     case = (
         case_contract(host_baseline=baseline)
         .model_copy(update={"ends_chain": ends_chain})
@@ -137,9 +140,12 @@ def test_mission_replay_uses_accepted_contract_after_reset_and_new_debt(
     configure_test_machine(test_db, tmp_path, monkeypatch)
     item_id = 7891
     requirement = _materialize_mission(test_db, item_id=item_id)
-    record_reset_owed(
+    from runtime.api.domain.test_machine_reset_debt import verified_reset
+
+    verified_reset(test_db, MACHINE, "shell-preconfigured")
+    record_reset_owed(  # An as-is chain names the host's last verified baseline.
         test_db,
-        case={"project_id": 1, "host_baseline": "shell-preconfigured"},
+        case={"project_id": 1, "host_baseline": None, "starting_state": "as_is"},
         test_machine=MACHINE,
         lease_id=77,
     )
