@@ -5,15 +5,18 @@
 <!-- /yoke:breadcrumbs -->
 
 A scoped-QA stage gates every member and wakes waiting members before closing
-accepted members. Each dispatch attempts at most two close-outs and stops
-starting more work after five seconds. A close-out already running finishes;
-the budget cannot interrupt it. Each member's route is read fresh immediately
-before acting, so an earlier close-out cannot leave later routes stale.
+accepted members. A member held by a QA configuration refusal
+(`qa_configuration_refused`) is woken too, once per wait, with the refusal and
+its recovery.
 
-Remaining work holds the stage with `qa_member_close_out_pending`. The next
-dispatch continues it; acceptance stays recorded, and completed members are
-skipped. A refused close-out still wakes its owner with the existing refusal
-and recovery.
+Each dispatch closes accepted members in order and stops starting more work
+after five seconds. A close-out already running finishes; the budget cannot
+interrupt it. Each member's route is read fresh immediately before acting, so
+an earlier close-out cannot leave later routes stale. A refused close-out
+wakes its owner with the refusal and recovery, and the next member is still
+tried. The refused member retries by itself when its blocking record settles.
+A member the budget skipped closes on a later dispatch or at settlement; the
+skip never holds the stage.
 
 If the idempotent dispatch exceeds its HTTPS response limit, the client waits
 for the server's existing reservation and recorded result using the identical
