@@ -15,6 +15,7 @@ from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.machine_qa_method_contracts import (
     MACHINE_METHODS,
     MachineQaExecutionError,
+    machine_method_definition,
     validate_machine_method_config,
 )
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
@@ -250,3 +251,11 @@ def test_terminal_contract_requires_entry_completion_and_structured_steps() -> N
         entry_surface="public-installer",
         required_completion="project-screen",
     )["capture_checkpoints"] == ["project-screen"]
+
+
+@pytest.mark.parametrize(
+    "method_id", ["command", "command-ci", "browser-check", "browser-inspection"]
+)
+def test_machine_method_reader_refuses_other_builtin_methods(method_id):
+    with pytest.raises(MachineQaExecutionError, match="unknown Machine QA method"):
+        machine_method_definition(method_id)
