@@ -1,4 +1,4 @@
-"""Exploration exports the immutable Pack mission through the QA contract."""
+"""Exploration exports the core mission through the QA contract."""
 
 import json
 from pathlib import Path
@@ -13,7 +13,7 @@ from yoke_core.tools.installer_campaign_plan import compare_plan
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_exploration_export_and_readback_use_the_latest_pack(monkeypatch):
+def test_exploration_export_and_readback_use_core_cases(monkeypatch):
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
     plan = {
         "id": 42,
@@ -25,11 +25,11 @@ def test_exploration_export_and_readback_use_the_latest_pack(monkeypatch):
     assert report["differences"] == [
         {"case_key": "installer-exploration", "change": "added"}
     ]
-    descriptor = pack_catalog.load_pack_descriptor("machine-qa")
-    source = descriptor["versions"][descriptor["latest_version"]]["source"]
     assert cases == json.loads(
-        (ROOT / "packs/machine-qa" / source / "qa/examples/installer-exploration.json")
-        .read_text()
+        (
+            ROOT
+            / "packages/yoke-core/src/yoke_core/domain/installer_exploration_cases.json"
+        ).read_text()
     )
     for case in cases:
         assert validate_method_config("agent-mission", case["method_config"])

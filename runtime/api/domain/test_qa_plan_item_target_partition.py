@@ -10,7 +10,7 @@ from runtime.api.domain.machine_qa_host_test_support import configure_test_machi
 from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.session_holdings import insert_item_claim
-from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
 from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
     materialize_for_item,
@@ -51,7 +51,7 @@ MISSION_CASE = {
 
 def _mixed_roster(conn: Any, tmp_path: Any, monkeypatch: Any) -> dict[str, Any]:
     create_governed_tables(conn)
-    sync_machine_qa_pack_methods(conn)
+    seed_builtin_qa_methods(conn)
     conn.execute(
         "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
         "SELECT id,1,'prod','https://prod.example.test',"

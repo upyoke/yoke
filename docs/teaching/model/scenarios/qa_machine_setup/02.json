@@ -11,6 +11,6 @@
  "review": "Source guidance updated; provisioning evidence distinguishes passing runtime/restores from unresolved Windows desktop proof.",
  "recipes": ["yoke test-machine settings-replace --help", "yoke test-machine list --project P --json", "yoke test-machine get --project P --test-machine NAME --json"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/linux-host-provisioning.md", "packs/machine-qa/versions/1.3.49/files/docs/packs/machine-qa/windows-host-provisioning.md"],
+ "sources": ["docs/testing-verification/test-machine-golden-baseline.md", "docs/public/verification/test-machines/host-provisioning.md", "docs/public/verification/test-machines/macos-host-provisioning.md", "docs/public/verification/test-machines/linux-host-provisioning.md", "docs/public/verification/test-machines/windows-host-provisioning.md"],
  "position": 1
 }

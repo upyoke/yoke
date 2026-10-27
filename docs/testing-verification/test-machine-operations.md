@@ -10,16 +10,16 @@ whose own tools support that OS; upgrade the host or choose a supported Mac
 for local-mode success evidence. No custom PostgreSQL build is supported.
 
 Yoke's [manual baseline inventory](test-machine-golden-baseline.md) owns its
-runtime preparation and proof. Complete it alongside the Machine QA Pack's
+runtime preparation and proof. Complete it alongside the Machine QA
 ordered account, sign-in, permissions, desktop and save/restore procedures:
 
-- [macOS](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../public/verification/test-machines/macos-host-provisioning.md)
+- [Linux](../public/verification/test-machines/linux-host-provisioning.md)
+- [Windows/WSL2](../public/verification/test-machines/windows-host-provisioning.md)
 
-See the [provisioning index](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md)
+See the [provisioning index](../public/verification/test-machines/host-provisioning.md)
 for disk sizing (40 GiB minimum) and online disk growth. These procedures
-install at `docs/packs/machine-qa/`; installed files belong to the project.
+ship at `.yoke/docs/verification/test-machines/`; project records own the host inventory.
 This page describes execution and evidence contracts.
 
 A Test Machine capability owns its settings, credentials, QA leases and
@@ -99,7 +99,7 @@ receipt, and refuses another session's host lease. It streams stdout/stderr and
 keeps bounded failure diagnostics. `exec --admin` on macOS or Linux reads the
 named machine's stored `desktop_password` administrator credential and supplies
 it to sudo on private stdin. It redacts both streams and diagnostic tails; the
-command receives no stdin. Follow the Pack's [administrator-command setup](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/administrator-commands.md).
+command receives no stdin. Follow the [administrator-command setup](../public/verification/test-machines/administrator-commands.md).
 Mission host commands instead run through
 the mission's retained lease; GUI-context commands use its declared GUI route.
 The remote shell interprets command text, so argv quoting remains significant.

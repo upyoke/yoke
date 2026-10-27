@@ -14,6 +14,7 @@ from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
     fixture_runner,
 )
+from yoke_core.domain import qa_catalog_schema
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.ssh_mac_full_reset_contract import (
@@ -309,6 +310,7 @@ def make_conn() -> sqlite3.Connection:
         """
     )
     ensure_test_machine_schema(conn)
+    qa_catalog_schema.ensure_qa_method_metadata_columns(conn)
     return conn
 
 
@@ -319,11 +321,7 @@ def register_test_machine(
     resource_name: str = "mac-mini-lab",
     created_at: str = "2026-08-01T00:00:00Z",
 ) -> None:
-    """Declare that a project operates a named physical host.
-
-    The registrar is whichever project declared the host first, so callers
-    state ``created_at`` rather than relying on wall clock ordering.
-    """
+    """Declare a host; explicit created_at orders which project registered first."""
     conn.execute(
         "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
         "VALUES(?,?,?,?)",

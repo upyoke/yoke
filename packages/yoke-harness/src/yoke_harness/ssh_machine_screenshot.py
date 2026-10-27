@@ -127,7 +127,7 @@ def capture_desktop(control, *, focused_window: bool = False) -> HostActionResul
                 {
                     "exit_code": captured.returncode,
                     "diagnostic": captured.stderr[-1000:],
-                    "recovery": "Unlock the dedicated test desktop and verify its capture tool and permissions; provision Linux XFCE with ops/machine-qa/provision_linux_desktop.py.",
+                    "recovery": "Unlock the dedicated test desktop and verify its capture tool and permissions; provision Linux XFCE using .yoke/docs/verification/test-machines/linux-host-provisioning.md.",
                 },
                 "desktop_screenshot_failed",
             )

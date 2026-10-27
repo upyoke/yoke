@@ -27,7 +27,7 @@ from yoke_core.domain.host_control_runner import (
 from yoke_core.domain.machine_qa_local_execution import (
     prepare_agent_mission_contract,
 )
-from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
 from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
     materialize_for_item,
@@ -72,7 +72,7 @@ def _request(
 def _materialize_mission(conn: Any, *, item_id: int) -> int:
     """One materialized exploratory-mission requirement; returns its id."""
     create_governed_tables(conn)
-    sync_machine_qa_pack_methods(conn)
+    seed_builtin_qa_methods(conn)
     plan = create_plan(
         conn,
         project="yoke",

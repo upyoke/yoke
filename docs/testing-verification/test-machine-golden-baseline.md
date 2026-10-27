@@ -2,11 +2,11 @@
 
 This is Yoke's project-owned manual baseline inventory and preparation policy.
 Follow it with the existing ordered Machine QA procedures for
-[macOS](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md),
-[Linux](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md), or
-[Windows/WSL2](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md).
-The [provisioning index](../../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md)
-installs as `docs/packs/machine-qa/host-provisioning.md`. Complete its account,
+[macOS](../public/verification/test-machines/macos-host-provisioning.md),
+[Linux](../public/verification/test-machines/linux-host-provisioning.md), or
+[Windows/WSL2](../public/verification/test-machines/windows-host-provisioning.md).
+The [provisioning index](../public/verification/test-machines/host-provisioning.md)
+installs as `.yoke/docs/verification/test-machines/host-provisioning.md`. Complete its account,
 network, tools, sign-in and GUI steps; add the runtime preparation below before
 capture. Neither a package command nor a successful capture establishes readiness.
 
@@ -14,7 +14,7 @@ capture. Neither a package command nor a successful capture establishes readines
 
 Preparation is manual, project-specific work with explicit host custody.
 Generic Yoke/Machine QA registers, captures, restores and verifies declared
-state; it does not install this project's baseline for other projects. Pack
+state; it does not install this project's baseline for other projects. Yoke
 recipes supply reusable OS steps, not a universal Docker or fixture policy.
 Read registered settings and leases before acting; never operate a peer's host.
 Substitute the dedicated account, private endpoint and approved paths from that

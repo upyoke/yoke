@@ -6,7 +6,7 @@ Internal: for maintainers of the Yoke source repository.
 cases. It needs persistent Test Machines with signed-in Claude, Codex and Cursor
 captured in their sealed golden baselines. No harness or product credentials
 enter CI or move from the operator's machine. Windows runs the native Linux CLI cases inside its registered WSL2 home.
-Follow the Machine QA Pack's per-OS provisioning guides at `docs/packs/machine-qa/host-provisioning.md` (installed by the Machine QA Pack) for all host preparation and saved-state proof.
+Follow the Machine QA per-OS provisioning guides at `.yoke/docs/verification/test-machines/host-provisioning.md` for all host preparation and saved-state proof.
 
 Build the candidate's five wheels in its claimed checkout and declare the exact
 CLI version for each harness and operating system in a JSON document:
@@ -44,7 +44,7 @@ protocol, so every harness starts from its own golden restore rather than sharin
 the preceding harness's local universe. Baseline-group lookup also recognizes a
 standalone execution as its unique subject and never mixes evidence from two runs.
 Host restoration, desktop prerequisites and failure recovery are specified
-only in the corresponding Pack procedure linked above.
+only in the corresponding core procedure linked above.
 
 Exploratory mission preparation records failures before any walker dispatch.
 The QA run's `raw_result.preparation.evidence` and the plan capture retain a
@@ -105,4 +105,4 @@ and stops local Postgres on both operating systems. Every cleanup runs even if
 an earlier cleanup fails; any failed cleanup prevents a passing proof.
 Its scratch captures remain for diagnosis until the next golden reset. A native
 authentication or bridge failure is a named prerequisite failure governed by
-the corresponding Pack procedure. Hosted relay supervision and launch are verified separately.
+the corresponding core procedure. Hosted relay supervision and launch are verified separately.

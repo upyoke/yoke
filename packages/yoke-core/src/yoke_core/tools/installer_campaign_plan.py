@@ -72,12 +72,11 @@ def _source_cases(
             joining_machine=joining_machine,
         )
     if slug == "installer-exploration":
-        descriptor = pack_catalog.load_pack_descriptor("machine-qa")
-        version = descriptor["versions"][descriptor["latest_version"]]
-        source = pack_catalog.server_tree_root() / "packs" / "machine-qa"
         return json.loads(
             (
-                source / version["source"] / "qa/examples/installer-exploration.json"
+                Path(__file__).resolve().parents[1]
+                / "domain"
+                / "installer_exploration_cases.json"
             ).read_text()
         )
     raise ValueError(

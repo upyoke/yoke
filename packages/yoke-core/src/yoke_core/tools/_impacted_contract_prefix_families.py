@@ -73,7 +73,6 @@ MIGRATION_HISTORY_CONTRACT_TESTS = (
     "runtime/api/engines/test_doctor_schema_drift_expected.py",
 )
 
-MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
 
 PRODUCT_CLI_BOUNDARY_TESTS = (
     # Wheel subprocesses reach project install/refresh/uninstall by CLI words,
@@ -177,10 +176,6 @@ UNIVERSE_UI_SOURCE_PREFIXES = (
     "runtime/api/universe_ui_",
 )
 
-MACHINE_QA_PACK_SOURCE_PREFIXES = (
-    "packs/machine-qa/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/packs/machine-qa/",
-)
 
 INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS = (
     # Prose copied verbatim into every installed project owes neutrality, and
@@ -276,11 +271,6 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         MIGRATION_HISTORY_CONTRACT_TESTS,
     ),
     (
-        "machine_qa_pack_contract",
-        MACHINE_QA_PACK_SOURCE_PREFIXES,
-        MACHINE_QA_PACK_CONTRACT_TESTS,
-    ),
-    (
         "agent_skill_contract",
         AGENT_SKILL_SOURCE_PREFIXES,
         AGENT_SKILL_CONTRACT_TESTS,
@@ -315,8 +305,6 @@ __all__ = [
     "HANDLER_REGISTRATION_SOURCE_PREFIXES",
     "INBOX_COMPOSITION_CONTRACT_TESTS",
     "INBOX_COMPOSITION_SOURCE_PREFIXES",
-    "MACHINE_QA_PACK_CONTRACT_TESTS",
-    "MACHINE_QA_PACK_SOURCE_PREFIXES",
     "MIGRATION_HISTORY_CONTRACT_TESTS",
     "MIGRATION_HISTORY_SOURCE_PREFIXES",
     "PREFIX_CONTRACT_TESTS",

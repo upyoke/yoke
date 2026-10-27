@@ -4,13 +4,13 @@
  "status": "draft-copy",
  "audience": "both",
  "when": "A case needs a browser, OS state, real terminal or fresh install",
- "need": "Local browser capture can use packaged browser setup without a Test Machine. Machine methods require a registered project host; the Machine QA Pack supplies methods and recipes, not infrastructure or credentials.",
+ "need": "Local browser capture can use packaged browser setup without a Test Machine. Machine methods require a registered project host; the Core Yoke supplies methods and recipes, not infrastructure or credentials.",
  "disclosure": "planned cue",
- "surface": "Public QA browser section; Machine QA Pack README; JOURNEYS row 13.",
+ "surface": "Public QA browser section; Machine QA README; JOURNEYS row 13.",
  "gap": "The public QA page lacks a clear from-zero Test Machine entry. Proposed row 13 should select local browser versus dedicated host before recommending setup.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa browser setup --help", "yoke test-machine --help"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["docs/public/verification/index.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/README.md", "docs/public/verification/exploration.md"],
+ "sources": ["docs/public/verification/index.md", "docs/public/verification/test-machines/index.md", "docs/public/verification/exploration.md"],
  "position": 0
 }

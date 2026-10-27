@@ -76,11 +76,11 @@ test("Pack sources and Test Machine capability relations keep their prototype ro
   };
   const source = sourceNode(primitiveContext, {
     source_kind: "pack",
-    source_ref: "machine-qa",
+    source_ref: "sample-methods",
   }, "yoke");
   const cardSource = sourceNode(primitiveContext, {
     source_kind: "pack",
-    source_ref: "machine-qa",
+    source_ref: "sample-methods",
   }, "yoke", false);
 
   assert.equal(byClass(source, "qa-source-link")[0].href, "/packs?project=1");

@@ -1,4 +1,4 @@
-"""Pack desktop routes retain loopback safety and distinguish setup from UI proof."""
+"""Core desktop routes retain loopback safety and distinguish setup from UI proof."""
 
 import importlib.util
 import io
@@ -13,9 +13,7 @@ import pytest
 @pytest.fixture
 def provisioners(monkeypatch):
     root = Path(__file__).resolve().parents[2]
-    manifest = json.loads((root / "packs/machine-qa/pack.json").read_text())
-    version = manifest["versions"][manifest["latest_version"]]
-    scripts = root / "packs/machine-qa" / version["source"] / "ops/machine-qa"
+    scripts = root / "packages/yoke-harness/src/yoke_harness/host_provisioning"
     loaded = []
     for name in ("provision_linux_desktop", "provision_windows_wsl_desktop"):
         spec = importlib.util.spec_from_file_location(name, scripts / f"{name}.py")
@@ -300,7 +298,7 @@ def _browser_alternative(tmp_path, target):
 def test_verify_resolves_x_www_browser_to_the_chromium_wrapper(provisioners, tmp_path):
     linux, _ = provisioners
     wrapper = tmp_path / "chromium-browser"
-    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n")
+    wrapper.write_text('#!/bin/sh\nexec /snap/bin/chromium "$@"\n')
     link = _browser_alternative(tmp_path, wrapper)
     assert linux.resolved_default_browser(link) == str(wrapper)
 

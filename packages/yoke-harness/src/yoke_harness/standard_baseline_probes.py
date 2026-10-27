@@ -20,7 +20,7 @@ from yoke_harness.ssh_mac_host_session_state import (
 )
 from yoke_harness.test_machine_types import HostActionResult
 
-CHECKLIST = "docs/packs/machine-qa/host-provisioning.md"
+CHECKLIST = ".yoke/docs/verification/test-machines/host-provisioning.md"
 #: Saving a sign-in is a recapture: it proves the real requests, quits the apps
 #: holding sign-ins and seals a new baseline, so no later reset rolls it back.
 SAVE_BASELINE_COMMAND = (

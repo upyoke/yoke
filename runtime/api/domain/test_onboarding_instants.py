@@ -10,7 +10,7 @@ from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wi
 from yoke_core.domain import project_onboarding_runs as runs
 from yoke_core.domain import project_onboarding_updates as writes
 from yoke_core.domain import project_onboarding_run_supersede as reconciliation
-from yoke_core.domain import machine_qa_pack as pack
+from yoke_core.domain import qa_catalog_schema as catalog
 from runtime.api.domain.test_project_onboarding_runs import _conn
 
 STAMP = parse_instant("1969-12-31T05:44:59.123456+05:45")
@@ -110,21 +110,20 @@ def test_overtaking_deployment_compares_exact_instants_and_formats_only_new_meta
 
 
 @pytest.mark.parametrize("zone", ZONES)
-def test_pack_projection_binds_native_method_creation_and_update(
+def test_builtin_projection_binds_native_method_creation_and_update(
     test_db, monkeypatch, zone
 ):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
-    version, definitions = pack.load_machine_qa_methods()
-    method = {**definitions[0], "id": "clock-qa-method"}
-    monkeypatch.setattr(pack, "load_machine_qa_methods", lambda: (version, [method]))
+    method = {**catalog.BUILTIN_QA_METHODS[0], "id": "clock-qa-method"}
+    monkeypatch.setattr(catalog, "BUILTIN_QA_METHODS", (method,))
     clock = [STAMP]
-    monkeypatch.setattr(pack, "utc_now", lambda: clock[0])
-    assert pack.sync_machine_qa_pack_methods(test_db) == [method]
+    monkeypatch.setattr(catalog, "utc_now", lambda: clock[0])
+    catalog.seed_builtin_qa_methods(test_db)
     assert test_db.execute(
         "SELECT created_at,updated_at FROM qa_methods WHERE id=%s", (method["id"],)
     ).fetchone() == (STAMP, STAMP)
     clock[0] += timedelta(microseconds=1)
-    pack.sync_machine_qa_pack_methods(test_db)
+    catalog.seed_builtin_qa_methods(test_db)
     assert test_db.execute(
         "SELECT created_at,updated_at FROM qa_methods WHERE id=%s", (method["id"],)
     ).fetchone() == (STAMP, clock[0])

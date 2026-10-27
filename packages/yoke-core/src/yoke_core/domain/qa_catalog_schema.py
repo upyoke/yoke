@@ -263,7 +263,7 @@ def seed_builtin_qa_methods(conn: Any) -> None:
                 method["evidence_contract"],
                 "all-pass",
                 json.dumps({}, sort_keys=True),
-                "parallel",
+                method["concurrency_mode"],
                 method["display_icon"],
                 method["display_order"],
                 method["display_group"],

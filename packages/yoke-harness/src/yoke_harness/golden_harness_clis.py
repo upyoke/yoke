@@ -24,7 +24,7 @@ from yoke_harness.test_machine_types import HostActionResult
 GOLDEN_HARNESS_CLIS_SUFFIX = ".harness-clis"
 VERSION_PROBE_TIMEOUT_SECONDS = 120
 INSTALL_TIMEOUT_SECONDS = 600
-PROVISIONING_DOC = "docs/packs/machine-qa/host-provisioning.md"
+PROVISIONING_DOC = ".yoke/docs/verification/test-machines/host-provisioning.md"
 
 
 def _host_program(control: Any, action: str, payload: Any, timeout: int) -> Any:

@@ -26,7 +26,6 @@ def test_product_catalog_covers_every_pack_with_installed_documentation(
         "domain-cdn-edge",
         "ephemeral-environments",
         "host-maintenance",
-        "machine-qa",
         "managed-database",
         "production-deploy",
         "pulumi-foundation",
