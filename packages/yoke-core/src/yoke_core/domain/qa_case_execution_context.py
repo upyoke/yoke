@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_contracts.qa_case_starting_state import is_machine_runner
+from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
@@ -240,7 +240,7 @@ def get_case_execution_context(
     }
     if context["runner_id"] in {"ci_run", "worktree_run"}:
         context.update(lane_id=None, lane_path=None, lane_commit_sha=None)
-    if is_machine_runner(context["runner_id"]):
+    if needs_test_machine(context):
         context.update(
             (key, row[key]) for key in ("starting_state", "starting_state_reason")
         )

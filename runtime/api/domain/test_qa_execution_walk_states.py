@@ -41,6 +41,7 @@ EARLIER_MIGRATIONS = tuple(importlib.import_module(
 def _mission(conn, item_id):
     execution, requirement_id, run_id = _capture(conn, item_id)
     execution["roster"][0]["runner_id"] = "agent_mission"
+    execution["roster"][0]["method_config"]["os"] = "macos"
     conn.execute(
         "UPDATE qa_plan_executions SET roster_json=%s,roster_digest=%s,state='walking' WHERE id=%s",
         (json.dumps(execution["roster"]), roster_digest(execution["roster"]), execution["id"]),

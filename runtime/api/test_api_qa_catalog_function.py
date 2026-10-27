@@ -292,7 +292,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     machine_methods = [
         row for row in methods if "test-machine" in row["required_capability_kinds"]
     ]
-    assert len(machine_methods) == 4
+    assert len(machine_methods) == 3
     scripted_machine_methods = [
         row for row in machine_methods if row["runner_id"] == "host_control"
     ]
@@ -309,7 +309,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         for row in scripted_machine_methods
     )
     mission = next(
-        row for row in machine_methods if row["runner_id"] == "agent_mission"
+        row for row in methods if row["runner_id"] == "agent_mission"
     )
     assert mission["required_capabilities"] == [
         {
@@ -317,12 +317,6 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "label": "Browser control",
             "state": "not_configured",
             "context": {"state": "not_configured"},
-        },
-        {
-            "kind": "test-machine",
-            "label": "Test Machine",
-            "state": "in_use",
-            "context": expected_context,
         },
     ]
     assert detail["cases"][0]["required_capabilities"] == [

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+from yoke_core.domain.agent_mission_controller import execute_controller_mission
+
 
 from yoke_core.domain.qa_plan_execution_abort_reason import (
     case_failed_reason,
@@ -130,13 +133,10 @@ def execute_begun_plan(
                     execute_plan_agent_mission_case,
                 )
 
-                result = execute_plan_agent_mission_case(
-                    requirement,
-                    execution_id=execution_id,
-                    ordinal=ordinal,
-                    actor=resolved_actor,
-                    **machine_options,
-                )
+                runner = execute_plan_agent_mission_case if needs_test_machine(requirement) else execute_controller_mission
+                options = machine_options if needs_test_machine(requirement) else {"target": target, "call": _call_plan_function}
+                result = runner(requirement, execution_id=execution_id, ordinal=ordinal,
+                                actor=resolved_actor, **options)
                 advance_result = False
             else:
                 result = None

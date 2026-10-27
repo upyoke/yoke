@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from typing import Any
 
 from yoke_core.domain.coordination_claims import heartbeat, release
@@ -39,7 +41,7 @@ STALE_PLAN_EXECUTION_REASON = "stale-heartbeat"
 
 def _mission_needs_retained_lease(execution: dict[str, Any]) -> bool:
     return any(
-        case.get("runner_id") == "agent_mission"
+        case.get("runner_id") == "agent_mission" and needs_test_machine(case)
         for case in execution.get("roster") or []
     )
 

@@ -1,6 +1,20 @@
 """QA plan provenance and retirement for the canonical schema packet."""
 
 QA_PLAN_TABLES = {
+    "test_machine_operation_receipts": {
+        "columns": [
+            ("project_id", "INTEGER"), ("capability_type", "TEXT"),
+            ("operation", "TEXT"), ("status", "TEXT"),
+            ("performed_at", "TIMESTAMPTZ"), ("receipt_json", "TEXT"),
+            ("error_code", "TEXT"), ("lease_id", "INTEGER"),
+            ("contract_digest", "TEXT"), ("updated_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "There is no id column. Machine reset-debt evidence reads the "
+            "composite key project_id, capability_type, operation; each row "
+            "holds that operation's latest receipt, not an append-only history."
+        ),
+    },
     "qa_plan_executions": {
         "columns": [
             ("id", "TEXT"),

@@ -1,5 +1,7 @@
 """One driving host and complete custody set for each machine case chain."""
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -20,7 +22,7 @@ def chain_host_groups(
         hosts.update(case_machines(row))
         if ends_chain(roster, ordinal):
             mission_tail = (
-                row.get("runner_id") == "agent_mission"
+                row.get("runner_id") == "agent_mission" and needs_test_machine(row)
                 and row.get("starting_state") == "inherit"
             )
             group = (

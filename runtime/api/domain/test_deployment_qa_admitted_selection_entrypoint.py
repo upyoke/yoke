@@ -106,7 +106,7 @@ def test_private_selector_conflict_preserves_existing_cursor_and_frozen_rows(
                 "instructions": "Inspect retained state",
                 "expected_outcome": "Report evidence",
                 "starting_state": "inherit",
-                "method_config": {"executor": "informed_subagent"},
+                "method_config": {"executor": "informed_subagent", "os": "macos"},
             },
         ],
     )

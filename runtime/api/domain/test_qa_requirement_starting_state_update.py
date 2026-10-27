@@ -35,9 +35,9 @@ def _mission(conn: Any, *, plan_id: int | None = None, item: bool = False) -> in
         subject = ("deployment_run_id", RUN_ID)
     row = conn.execute(
         f"INSERT INTO qa_requirements({subject[0]},qa_kind,qa_phase,method_id,"
-        "runner_id,plan_id,host_baseline,starting_state,created_at) VALUES "
+        "runner_id,plan_id,host_baseline,starting_state,method_config,created_at) VALUES "
         "(%s,'plan_case','post_deploy','exploratory-mission','agent_mission',"
-        "%s,'fresh-host','baseline',%s) RETURNING id",
+        "%s,'fresh-host','baseline','{\"os\":\"macos\"}',%s) RETURNING id",
         (subject[1], plan_id, NOW),
     ).fetchone()
     conn.commit()

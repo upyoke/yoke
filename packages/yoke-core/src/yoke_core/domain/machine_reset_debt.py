@@ -1,5 +1,6 @@
 """Durable reset debt and its recovery, owned by machine operation receipts."""
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
 from yoke_contracts.machine_qa_host_control import RESET_OWED_OPERATION
 from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_contracts.timestamps import parse_instant
@@ -188,13 +189,15 @@ def record_execution_reset_debt(conn, execution, leases):
         )
     abort = abort_request(execution) or {}
     ordinal = int(abort.get("ordinal", execution["cursor_ordinal"]))
-    case = roster[min(ordinal, len(roster) - 1)]
+    case = None
     for candidate in reversed(roster[: ordinal + 1]):
-        if candidate.get("runner_id") in {"host_control", "agent_mission"} or (
+        if needs_test_machine(candidate) or (
             candidate.get("method_config") or {}
         ).get("test_machine"):
             case = candidate
             break
+    if case is None:
+        return
     for lease in leases:
         record_reset_owed(
             conn,

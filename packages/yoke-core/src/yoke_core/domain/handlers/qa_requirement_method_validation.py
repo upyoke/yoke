@@ -133,12 +133,12 @@ def _validate_starting_state(
     from yoke_contracts.qa_case_starting_state import (
         INHERIT,
         StartingStateError,
-        is_machine_runner,
+        needs_test_machine,
         normalize_starting_state,
     )
 
     baseline = row.get("host_baseline")
-    machine = is_machine_runner(row["runner_id"])
+    machine = needs_test_machine(row)
     if machine and not baseline and not row.get("starting_state"):
         return _error(
             "payload_invalid",
@@ -156,6 +156,8 @@ def _validate_starting_state(
         row["starting_state"], row["starting_state_reason"] = normalize_starting_state(
             case_key=str(row["method_id"]),
             runner_id=row["runner_id"],
+            method_config=row.get("method_config"),
+            capability_requirements=row.get("capability_requirements"),
             host_baselines=[str(baseline)] if baseline else [],
             starting_state=row.get("starting_state"),
             starting_state_reason=row.get("starting_state_reason"),

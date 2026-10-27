@@ -4,6 +4,9 @@
 [Yoke](../index.md) > [Verification](index.md) > Case attachment
 <!-- /yoke:breadcrumbs -->
 
+A post-deploy case names where its evidence lives: Command for controller evidence, a mission with no host to explore on the controller, a test machine with `fresh-host` for clean installs.
+
+
 A `qa_requirements` row attaches to exactly one subject: an item, an epic
 task, or a deployment run (optionally narrowed to one stage inside that run,
 and one member item inside that stage). The polymorphic constraint enforcing

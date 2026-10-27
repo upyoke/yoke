@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import List
 
-from yoke_contracts.qa_case_starting_state import MACHINE_RUNNER_IDS
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_plan_case_definition import plan_cases
@@ -35,7 +34,7 @@ def hc_qa_plan_starting_state(conn, args: DoctorArgs, rec: RecordCollector) -> N
         )
         return
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    runners = sorted(MACHINE_RUNNER_IDS)
+    runners = ["host_control", "agent_mission"]
     plans = query_rows(
         conn,
         "SELECT p.id, p.slug, pr.slug AS project FROM qa_plans p "

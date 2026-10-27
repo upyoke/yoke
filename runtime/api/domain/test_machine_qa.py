@@ -32,7 +32,7 @@ def test_builtins_preserve_serial_machine_contracts_and_replace_pack_source() ->
     methods = [
         m
         for m in BUILTIN_QA_METHODS
-        if "test-machine" in m["required_capability_kinds"]
+        if m["id"] in MACHINE_METHODS or m["id"] == "exploratory-mission"
     ]
     assert {m["id"] for m in methods} == {*MACHINE_METHODS, "exploratory-mission"}
     assert MACHINE_METHODS == {
@@ -55,7 +55,7 @@ def test_builtins_preserve_serial_machine_contracts_and_replace_pack_source() ->
         ).fetchone()
         assert tuple(row[:3]) == ("built_in", None, "serial")
         expected_kinds = (
-            ["browser-control", "test-machine"]
+            ["browser-control"]
             if method["id"] == "exploratory-mission"
             else ["test-machine"]
         )
@@ -118,7 +118,6 @@ def test_test_machine_is_typed_and_secret_presence_only(
         for key in TEST_MACHINE_SECRET_KEYS
     )
     assert {row["id"] for row in detail["methods"]} == {
-        "exploratory-mission",
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",

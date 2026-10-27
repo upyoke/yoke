@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from copy import deepcopy
 from typing import Any
 
@@ -88,14 +90,14 @@ def operation_mission(
             return execution
         if (
             operation == "golden_capture"
-            and runner in {"host_control", "agent_mission"}
+            and needs_test_machine(roster[ordinal])
             and plan_execution_id == str(execution["id"])
         ):
             return execution
     missions = [
         case
         for case in execution["roster"]
-        if case.get("runner_id") == "agent_mission" and case.get("project") == project
+        if case.get("runner_id") == "agent_mission" and needs_test_machine(case) and case.get("project") == project
     ]
     if execution["state"] not in {"walking", "awaiting_walk_review"} or not missions:
         raise MachineQaProtocolError(

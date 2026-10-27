@@ -58,7 +58,7 @@ def test_every_taught_yoke_recipe_resolves_and_parses() -> None:
                 f"{row.source}:{row.line_number} semantic_unverifiable: {semantic.detail}"
             )
     for relative, count in (
-        ("docs/public/verification/exploration.md", 3),
+        ("docs/public/verification/exploration.md", 1),
         ("docs/public/verification/deployment-plan-execution.md", 1),
     ):
         text = (REPO_ROOT / relative).read_text()

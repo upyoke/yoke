@@ -93,11 +93,15 @@ def settle_stopped_mission_dockets(
         )
 
 
-def stopped_mission_guidance(subject_flag: str, execution_id: str) -> str:
+def stopped_mission_guidance(
+    subject_flag: str, execution_id: str, *, has_host: bool = True
+) -> str:
     """Teach the same terminal recovery where mission owners choose a verdict."""
+    cleanup = "finish walk-end " if has_host else "clean up controller fixtures "
     return (
-        "If setup stops a mission before product proof, attach blocker evidence as `diagnostic`, finish walk-end "
-        "and abort this execution with `yoke qa plan abort "
+        "If setup stops a mission before product proof, attach blocker evidence as `diagnostic`, "
+        + cleanup
+        + "and abort this execution with `yoke qa plan abort "
         f"{subject_flag} --execution-id {execution_id} --reason "
         "'blocked_on_precondition: <prerequisite and recovery>'` "
         "(at most 200 characters; cite the Progress Log for detail). "

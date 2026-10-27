@@ -6,6 +6,15 @@
 
 Use the declared substrates, retain evidence and submit a verdict or decision disposition for an exploratory mission.
 
+A mission with no declared host explores on the controller: no Test Machine
+lease, walk-start, walk-end, host command, restore receipt or reset debt.
+The host procedures below apply only when the case names a Test Machine,
+an OS, a specific host capability or a host baseline. Test Machines are clean
+by design: each baseline walk starts from its golden copy. A missing tool
+means the baseline is broken; run `yoke test-machine reset NAME` then
+`yoke test-machine verify NAME`. If required evidence lives off that host,
+change the case to declare its actual evidence location before rerunning.
+
 ## Substrate Access
 
 The review dispatch supplies an exact host command template:

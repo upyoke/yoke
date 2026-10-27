@@ -75,6 +75,10 @@ def case_platform(
     case: Mapping[str, Any], hosts: Mapping[str, str] | None = None
 ) -> str | None:
     """Resolve declared execution inputs and registered machines to an OS."""
+    from yoke_contracts.qa_case_starting_state import needs_test_machine
+
+    if case.get("runner_id") == "agent_mission" and not needs_test_machine(case):
+        return None
     config = case.get("method_config") or {}
     platform_config(config)
     from yoke_core.domain.qa_method_capabilities import capability_kinds

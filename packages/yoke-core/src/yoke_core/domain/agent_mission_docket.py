@@ -13,7 +13,7 @@ def insert_mission_docket(
     execution: dict[str, Any],
     case: dict[str, Any],
     preparation: dict[str, Any],
-    lease_id: int,
+    lease_id: int | None,
     contract_digest: str,
 ) -> tuple[int, dict[str, Any]]:
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -36,12 +36,14 @@ def insert_mission_docket(
         "executor": executor,
         "preparation": preparation,
         "plan_execution_id": str(execution["id"]),
-        "host_control_submission": host_control_submission_receipt(
+        "lease_id": lease_id,
+    }
+    if lease_id is not None:
+        transcript["host_control_submission"] = host_control_submission_receipt(
             lease_id,
             contract_digest,
             reset_owed_baseline=case.get("reset_owed_baseline"),
-        ),
-    }
+        )
     from yoke_core.domain.qa_run_verdict_record import insert_qa_run
 
     failed = not preparation["ok"]

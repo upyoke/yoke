@@ -1,5 +1,7 @@
 """Plan-scoped Machine QA under one uninterrupted server-owned lease."""
 
+from yoke_contracts.qa_case_starting_state import needs_test_machine
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -72,7 +74,7 @@ def _owned_case(
         execution,
         ordinal=parsed.ordinal,
         requirement_id=parsed.requirement_id,
-        allow_replay=replay,
+        allow_replay=replay or expected_runner is None,
     )
     if expected_runner is not None and case.get("runner_id") != expected_runner:
         raise ValueError(f"the ordered plan case is not a {expected_runner} case")
@@ -111,7 +113,18 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             replay=False,
             expected_runner=None,
         )
-        if case.get("runner_id") not in {"host_control", "agent_mission"} and not (
+        if case.get("runner_id") == "agent_mission" and not needs_test_machine(case):
+            from yoke_core.domain.agent_mission_controller import record_controller_mission
+
+            result = record_controller_mission(conn, execution, case, ordinal=parsed.ordinal)
+            conn.commit()
+            return HandlerOutcome(primary_success=True, result_payload={
+                "state": "retained", "execution_id": str(execution["id"]),
+                "cursor_ordinal": int(execution["cursor_ordinal"]), "result": result,
+            })
+        if parsed.ordinal != int(execution["cursor_ordinal"]):
+            raise ValueError("QA plan execution expects its current ordinal")
+        if not needs_test_machine(case) and not (
             case.get("runner_id") == "worktree_run"
             and (case.get("method_config") or {}).get("test_machine")
         ):
