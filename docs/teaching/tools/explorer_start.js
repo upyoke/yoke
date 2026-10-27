@@ -7,22 +7,22 @@ function renderGettingStarted() {
   renderIntro(article);
   renderInstallIntro(article);
   const sections = [
-    ['Universes, projects and where Yoke runs', 'setup.hosting', [
-      'A universe is the home for your Yoke projects, work records and configuration. Each project brings together its software, goals and work. You can keep several projects in one universe.',
+    ['Universes, projects, and where Yoke runs', 'setup.hosting', [
+      'A universe is the home for your Yoke projects, work records, and configuration. Each project brings together its software, goals, and work. You can keep several projects in one universe.',
       'Choose where your universe lives during setup:',
       'You can move a universe between these options using export and import.',
     ], 'Hosting modes'],
     ['Set direction with strategy documents', 'strategy', [], 'Strategy documents'],
     ['Track work from idea to completion', 'work', [
-      'An item is a piece of work with a defined outcome. Its workflow sets the steps it must pass through, such as planning, implementation and review.',
-      'Different changes need different amounts of planning. Your agent helps choose the workflow, records progress and brings decisions back to you. Dependencies and work claims help agents avoid conflicting work.'
+      'An item is a piece of work with a defined outcome. Its workflow sets the steps it must pass through, such as planning, implementation, and review.',
+      'Different changes need different amounts of planning. Your agent helps choose the workflow, records progress, and brings decisions back to you. Dependencies and work claims help agents avoid conflicting work.'
     ], 'Items and workflows'],
     ['Work with agents', 'sessions', [
-      'A harness session is a conversation in an agent app such as Claude Code, Codex or Cursor. Yoke records which sessions are active and what work they own.',
+      'A harness session is a conversation in an agent app such as Claude Code, Codex, or Cursor. Yoke records which sessions are active and what work they own.',
       'Steering coordinates that work. Execution levels describe the model and effort used for agent work, so different jobs can use different amounts of capability and cost.'
-    ], 'Sessions, steering and levels'],
+    ], 'Sessions, steering, and levels'],
     ['Give agents the guidance they need', 'guidance', [
-      'Project instructions, documentation and skills tell agents how to work in your project. Yoke also supplies relevant guidance as they work, through context packets and command responses.',
+      'Project instructions, documentation, and skills tell agents how to work in your project. Yoke also supplies relevant guidance as they work, through context packets and command responses.',
       'You can inspect that guidance when you want to understand or change how work happens.'
     ], 'Agent guidance'],
     ['Connect the tools your project uses', 'configuration', [
@@ -31,11 +31,11 @@ function renderGettingStarted() {
     ], 'Project configuration'],
     ['Know whether the work is good', 'qa', [
       'QA makes the checks for your work explicit. A method defines how to check something; a case defines a particular check; a plan collects the cases.',
-      'A requirement says what must be satisfied. A run records an attempt and its evidence. This lets you see what was checked, what passed and what still needs attention.'
-    ], 'QA methods, plans, cases and runs'],
+      'A requirement says what must be satisfied. A run records an attempt and its evidence. This lets you see what was checked, what passed, and what still needs attention.'
+    ], 'QA methods, plans, cases, and runs'],
     ['Get changes into use', 'delivery', [
       'Merging code and deploying it are separate steps. A deployment flow defines the stages for putting a change into an environment, such as staging or production. A deployment run is one attempt to follow that flow.',
-      'Runs record progress, checks and approvals. You can see where a release is going, what has happened and whether it is waiting for you.'
+      'Runs record progress, checks, and approvals. You can see where a release is going, what has happened, and whether it is waiting for you.'
     ], 'Deployment flows and runs'],
     ['Handle database changes', 'databases', [
       'Database changes need their own care because they affect stored data as well as code. Yoke tracks migrations and their checks as part of delivery, including rehearsals where the project requires them.'

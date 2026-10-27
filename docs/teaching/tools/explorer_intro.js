@@ -4,7 +4,7 @@ function renderIntro(article) {
   const viewport = text('div', '', 'intro-visual');
   const image = document.createElement('img');
   image.src = data.intro_visual;
-  image.alt = 'Your codebase connected through Yoke to Claude Code, Codex and Cursor.';
+  image.alt = 'Your codebase connected through Yoke to Claude Code, Codex, and Cursor.';
   viewport.append(image); article.append(viewport);
 }
 function introArticleLinks(links) {
@@ -18,7 +18,7 @@ function renderStrategyIntro(section) {
   const figure = text('figure', '', 'intro-strategy-visual');
   const image = document.createElement('img');
   image.src = data.strategy_visual;
-  image.alt = 'Standing strategy forms a pyramid: MISSION, VISION, LANDSCAPE and MASTER-PLAN. Above it, STEERING claims CURRENT-PLAN and coordinates five active work items across agents and machines.';
+  image.alt = 'Standing strategy forms a pyramid: MISSION, VISION, LANDSCAPE, and MASTER-PLAN. Above it, STEERING claims CURRENT-PLAN and coordinates five active work items across agents and machines.';
   figure.append(image); section.append(figure);
   section.append(text('h3', 'Standing strategy docs'));
   section.append(text('p', 'MISSION, VISION, LANDSCAPE, and MASTER-PLAN are “standing” docs that give humans and agents a shared understanding of the foundational context in which the project operates.'));
