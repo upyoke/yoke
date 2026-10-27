@@ -1,7 +1,7 @@
 # `migration_model` Capability — Python Migration Modules
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Migration models
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Migration models
 <!-- /yoke:breadcrumbs -->
 
 Per-project declaration of the governed-DB environment. One

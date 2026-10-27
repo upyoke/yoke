@@ -1,0 +1,7 @@
+{
+ "id": "readiness",
+ "term": "Readiness",
+ "definition": "Whether an item meets the workflow and dependency requirements for its next step. Being ready does not mean the work has already been assigned.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/gates.md"]
+}

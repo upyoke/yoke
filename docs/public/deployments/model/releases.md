@@ -1,7 +1,7 @@
 # DB Reference — Release delivery: QA authorities, verdicts, notices
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Release authorities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Release authorities
 <!-- /yoke:breadcrumbs -->
 
 Read release verification across [runs](runs.md), [stage receipts](stage-receipts.md),

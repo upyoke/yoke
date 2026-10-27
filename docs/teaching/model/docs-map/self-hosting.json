@@ -1,0 +1,17 @@
+{
+ "id": "self-hosting",
+ "title": "Self-hosting",
+ "parent": null,
+ "route": "/docs/guide/self-hosting",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain installing and operating a shared Yoke server on your own infrastructure.",
+ "outline": ["Server prerequisites and installation", "Start the Yoke core and database", "Networking, HTTPS, and server access", "Authentication and machine connections", "Updates, restarts, and health checks", "Backup and recovery"],
+ "terms": ["self-hosted-mode", "universe", "connection", "authentication", "machine", "machine-approval", "backup", "restore", "health-check"],
+ "commands": ["command:yoke self-host", "command:yoke connect", "command:yoke status", "command:yoke ui"],
+ "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/cli/machine-authorization.md", "doc:docs/public/verification/health-readiness.md"],
+ "deeper_pages": ["setup.hosting", "access.collaboration", "universe-portability"],
+ "open_questions": [],
+ "position": 6
+}

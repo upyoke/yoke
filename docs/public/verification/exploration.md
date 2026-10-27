@@ -1,7 +1,7 @@
 # Exploratory QA Missions
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Exploratory missions
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Exploratory missions
 <!-- /yoke:breadcrumbs -->
 
 An exploratory mission states territory and a good outcome; its walker chooses

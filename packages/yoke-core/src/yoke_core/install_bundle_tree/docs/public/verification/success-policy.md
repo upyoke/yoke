@@ -1,7 +1,7 @@
 # success_policy JSON Schema
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Success policy
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Success policy
 <!-- /yoke:breadcrumbs -->
 
 The `success_policy` column on `qa_requirements` records all-pass aggregation.

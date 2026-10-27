@@ -1,7 +1,7 @@
 # Items
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Items
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Items
 <!-- /yoke:breadcrumbs -->
 
 Read and update backlog work and its effective completion flow.

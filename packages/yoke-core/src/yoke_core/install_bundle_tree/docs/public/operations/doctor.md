@@ -1,7 +1,7 @@
 # Doctor
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Operations](index.md) > Doctor
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Doctor
 <!-- /yoke:breadcrumbs -->
 
 Run applicable health checks and interpret complete, incomplete and unavailable evidence.

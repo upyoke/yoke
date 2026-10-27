@@ -1,0 +1,7 @@
+{
+ "id": "migration-rehearsal",
+ "term": "Migration rehearsal",
+ "definition": "Running a proposed migration against the required database state before release, recording whether it applies safely and satisfies the project’s checks.",
+ "status": "draft",
+ "sources": ["docs/public/databases/migration-model.md"]
+}

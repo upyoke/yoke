@@ -1,17 +1,23 @@
 {
  "id": "setup.hosting",
  "title": "Hosting modes",
- "parent": "setup",
- "route": "/docs/setup/hosting",
+ "parent": null,
+ "route": "/docs/guide/setup.hosting",
  "kind": "detail",
  "status": "draft",
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Help readers choose where their universe lives and understand how to move it later.",
- "outline": ["Local: your computer", "Self-hosted: your server", "Hosted: upyoke.com", "Universe portability through export and import"],
- "terms": ["universe", "local-mode", "self-hosted-mode", "hosted-mode", "hosting-mode", "yoke-cloud", "portability", "universe-portability", "universe-export", "universe-import", "fair-source"],
- "commands": ["command:yoke universe"],
- "sources": ["doc:docs/public/start/modes.md"],
- "deeper_pages": [],
+ "outline": ["Universes and where they live", "Local", "Self-hosted", "Hosted", "Connections across machines", "Universe portability: export and import"],
+ "terms": ["universe", "local-mode", "self-hosted-mode", "hosted-mode", "hosting-mode", "yoke-cloud", "portability", "universe-portability", "universe-export", "universe-import", "fair-source", "connection", "mode", "project", "control-plane", "dashboard", "workbench", "yoke", "checkout"],
+ "commands": ["command:yoke universe", "command:yoke projects list", "command:yoke projects get", "command:yoke env", "command:yoke connection", "command:yoke status", "command:yoke ui"],
+ "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/projects/index.md", "replies:projects", "replies:env", "source:homepage", "doc:docs/public/index.md", "doc:docs/public/start/concepts.md"],
+ "deeper_pages": ["self-hosting", "universe-portability"],
  "open_questions": [],
- "position": 5
+ "position": 5,
+ "topics": [
+  {
+   "title": "Universes, projects, and connections",
+   "outline": ["Universe versus project versus checkout", "Local, team-server and hosted choices", "Switching connections"]
+  }
+ ]
 }

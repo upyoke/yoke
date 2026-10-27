@@ -1,7 +1,7 @@
 # Hosted org administration from the CLI
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Hosted organization administration
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Hosted organization administration
 <!-- /yoke:breadcrumbs -->
 
 On Yoke Cloud, Platform owns organizations and email invitations. The CLI

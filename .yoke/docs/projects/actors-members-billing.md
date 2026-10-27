@@ -1,7 +1,7 @@
 # Team, Billing, Universe settings
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Actors, members and billing
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Actors, members and billing
 <!-- /yoke:breadcrumbs -->
 
 ## Team

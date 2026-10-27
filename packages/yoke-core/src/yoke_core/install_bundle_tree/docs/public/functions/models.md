@@ -1,7 +1,7 @@
 # Model reference functions
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Functions](index.md) > Models
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Models
 <!-- /yoke:breadcrumbs -->
 
 Model reference reads use the catalog revision effective at the requested UTC time; omitted time means now. Publications are complete, immutable snapshots, so a later price change does not alter the revision selected for an earlier session. The bundled catalog seeds an empty database once; subsequent updates use these functions without a code release.

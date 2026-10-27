@@ -1,7 +1,7 @@
 # Delivery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Deployments
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Deployments
 <!-- /yoke:breadcrumbs -->
 
 Workbench delivery has three destinations, and **Deployments** carries two

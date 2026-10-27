@@ -1,14 +1,9 @@
 # Yoke teaching prototype
 
-The catalog of every kind of context Yoke gives agents and people, up front
-and in each situation, so the right things are taught in the right places.
-It holds only lasting teaching facts: the concept tree, the surfaces that
-carry teaching, the scenarios (situations an agent or person is in), locked
-boundaries, evidence and gaps. It never copies or reconciles against a
-strategy document; plans change outside any item, so a lasting fact a plan
-names belongs in one of these records instead. It is internal contributor
-material: it lives only in the Yoke source repository and never ships in the
-install bundle.
+Yokepedia catalogs the context Yoke gives people and agents. Its model records
+concepts, teaching surfaces, scenarios, boundaries, evidence, and gaps. It
+records lasting teaching facts, not copies of strategy documents or plans.
+This contributor tool lives only in source and never ships in the install bundle.
 
 Read it as Yokepedia: run `yoke dev yokepedia` anywhere inside a Yoke source
 checkout or worktree. It builds `docs/teaching/views/yokepedia.html` from that
@@ -18,7 +13,9 @@ server. Agents and CI run the same build with
 `yoke dev run -- python3 docs/teaching/tools/build.py` (and `--check`) from
 the checkout they mean to build. This registered scanner needs no harness
 session or work claim. It writes only the ignored page; it never rewrites the model.
-Agents read the model JSON directly. Yokepedia displays Sources, a curated Index and a proposed Docs map.
+Public pages, navigation, and visuals belong to `docs/public`. Yokepedia reads
+that corpus for its map and introduction. Public docs never depend on teaching;
+removing `docs/teaching` leaves them working. Agents can read model JSON directly.
 Model JSON files retain their identities and remain the editable source of
 research truth.
 
@@ -266,7 +263,7 @@ they are not additional browsing sections.
 The Index is owned by `model/terms/*.json`, one term per file with an id,
 term, definition, draft status and source paths. `explorer_terms.py` checks
 unique names and source links; Yokepedia renders an alphabetical searchable
-list. Terms link into Sources. The index is internal teaching material and
+list. Optional `aliases` hold alternate or plural names on the same canonical term; search matches them and the index displays them as “Also called.” Term and alias names must be unique across records. Page titles that combine concepts do not create combined index terms. Terms link into Sources. The index is internal teaching material and
 is not published in `docs/public` or the install bundle.
 
 Source freshness shows the build time, checkout commit, dirty state and a digest
@@ -277,17 +274,19 @@ research judgements remain authored; historical evidence is not reverified by a
 build. Rebuild and refresh after source changes; this local preview is a snapshot,
 not a background monitor of main or a released installation.
 
-## Proposed public docs map
+## Public docs map
 
-`model/docs-map/*.json` defines draft pages: parent, proposed route, reader,
-purpose, outline, index terms, command selections, source selections, deeper
-pages and open questions. This spec does not change the public navigation.
-The Docs map tab links every page and subpage to its related material.
+The Docs map reads page titles, routes, headings, and related-page links from
+`docs/public`. The public corpus owns the documentation structure and content.
+`model/docs-map/*.json` adds teaching associations: index terms, commands,
+sources, reader needs, and open questions. It does not own a separate page tree.
+The Getting started preview also reads the public page and its visual assets.
+
 Command groups and source groups expand to their existing descendants.
 Root CLI help is orientation only and never maps every command.
 Coverage compares detailed-page mappings with the current index, command
-leaves and source documents/outputs; overview references do not close gaps.
-It reports unmapped entries, terms on several pages and sizing prompts.
-Mapped means related for review, not written, verified or delivered.
+leaves, and source documents/outputs; overview references do not close gaps.
+It reports unmapped entries, terms on several pages, and sizing prompts.
+Mapped means related for review, not verified or delivered.
 All pages should start with a human summary; detailed agent teaching can
-remain in the linked context chain, skills, packets and command feedback.
+remain in the linked context chain, skills, packets, and command feedback.

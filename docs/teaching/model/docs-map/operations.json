@@ -2,16 +2,42 @@
  "id": "operations",
  "title": "Operations and troubleshooting",
  "parent": null,
- "route": "/docs/operations",
+ "route": "/docs/guide/operations",
  "kind": "detail",
  "status": "draft",
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Explain how to inspect health and recover without losing state.",
- "outline": ["Health versus readiness", "Read the named recovery", "Get useful diagnostics"],
- "terms": ["doctor", "universe-retention", "pruning"],
- "commands": ["command:yoke doctor", "command:yoke status", "command:yoke watch doctor"],
- "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md", "replies:doctor", "replies:watch"],
- "deeper_pages": [],
+ "outline": ["Doctor", "Events and logs", "Performance diagnostics", "Connections and services", "Universe retention", "Ouroboros"],
+ "terms": ["doctor", "universe-retention", "pruning", "backup", "restore", "universe", "authentication", "connection", "hosted-mode", "local-mode", "machine", "self-hosted-mode", "field-note", "ouroboros", "event", "data-repair", "health-check"],
+ "commands": ["command:yoke doctor", "command:yoke status", "command:yoke watch doctor", "command:yoke universe retention", "command:yoke universe prune", "command:yoke connect", "command:yoke env", "command:yoke local-postgres", "command:yoke core", "command:yoke self-host", "command:yoke ouroboros", "command:yoke events", "command:yoke watch tail"],
+ "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md", "replies:doctor", "replies:watch", "doc:docs/public/universe-retention.md", "doc:docs/public/cli/https-connection-diagnostics.md", "doc:docs/public/verification/local-connection-repair.md", "replies:env", "skill:curate", "doc:docs/public/operations/ouroboros.md", "replies:ouroboros", "doc:docs/public/operations/events.md", "doc:docs/public/operations/model/events.md", "doc:docs/public/operations/performance-diagnostics.md", "replies:events"],
+ "deeper_pages": ["universe-portability", "self-hosting"],
  "open_questions": [],
- "position": 50
+ "position": 50,
+ "topics": [
+  {
+   "title": "Doctor",
+   "outline": ["Health checks and results", "Project-specific checks", "Supported repairs"]
+  },
+  {
+   "title": "Events and logs",
+   "outline": ["Events and attribution", "Log capture and watchers"]
+  },
+  {
+   "title": "Performance diagnostics",
+   "outline": ["Operation timing", "Slow operations", "Diagnostic evidence"]
+  },
+  {
+   "title": "Connections and services",
+   "outline": ["Connection selection and authentication", "Local PostgreSQL and Yoke core", "Relay diagnostics", "Service recovery"]
+  },
+  {
+   "title": "Universe retention",
+   "outline": ["Retention policies and protected records", "Previewing and applying pruning"]
+  },
+  {
+   "title": "Ouroboros",
+   "outline": ["Field notes", "Connecting repeated observations", "Curation and follow-up work"]
+  }
+ ]
 }

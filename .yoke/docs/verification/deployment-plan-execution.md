@@ -1,7 +1,7 @@
 # Deployment plan execution
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Deployment plan execution
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment plan execution
 <!-- /yoke:breadcrumbs -->
 
 Use the item and its pinned stage to start its owed cases:
@@ -11,33 +11,29 @@ yoke qa plan run --item PREFIX-N --stage STAGE --project P
 ```
 
 Failure: [item recovery](failed-item-qa.md). Options: `yoke qa plan run --help`.
-[Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member)
-owns the scope and target-binding contract.
+Scope and target binding: [Case attachment](case-attachment.md#binding-a-deployment-case-to-its-stage-and-member).
 
 Admission copies executable requirements; others stay on the source item.
-The selected plan supplies stage cases. Stage targets supply `target_env`,
-including for corrections without `target_envs`, keeping replacement scope.
+The plan supplies cases; stage targets supply `target_env`, preserving scope
+for corrections without `target_envs`.
 
 [QA continuity](deployment-qa-continuity.md): item authority, release takeover,
 cross-build observations and exact-execution recovery.
 
-`--plan ID_OR_SLUG` runs an admitted frozen chain without new obligations.
-Run, stage, subject and target must match before host access. New plans fill
-empty stages; corrections need replacements. `qa_plan_selector_cursor_conflict`
-retains the private cursor and names its owner-resume recovery.
+`--plan ID_OR_SLUG` runs an admitted frozen chain without new obligations;
+run, stage, subject, and target must match before host access. New plans fill empty
+stages; corrections require replacements. `qa_plan_selector_cursor_conflict`
+retains the private cursor and names owner-resume recovery.
 
 ## Shared plan credit
 
-Members attaching the same post-deploy plan share its case rows and ordered
-execution when the plan id, source revision and observed execution target match.
-A plan counts as attached when the member selects it at the stage: a live or
-admission-frozen attachment, or an admitted requirement that plan owns.
-A plan only one run member attaches stays that member's private copy and keeps
-its `deployment_member_item_id`; a formed group stays shared until its last
-attaching member leaves.
-The shared execution records the member that requested it, separately from its
-run-wide subject. Continuation and host-wait commands use its execution ID;
-another attaching member does not change the recorded requester.
+Members share ordered post-deploy case execution when plan id, source revision,
+and observed target match. Stage selection counts as attachment through a live
+or admission-frozen attachment, or an admitted requirement owned by the plan.
+A sole attaching member keeps a private copy and `deployment_member_item_id`;
+a formed group stays shared until its last member leaves.
+The execution retains its original requesting member separately from its
+run-wide subject. Continuation and host-wait commands use its execution ID.
 The shared target omits `deployment.member_item_id` and records
 `deployment.shared_plan`; the run and stage remain explicit. Each member waits
 only for its attached groups. A failing shared case blocks every attaching
@@ -74,11 +70,10 @@ yoke qa plan run --item PREFIX-N --stage STAGE \
     --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 ```
 
-This walk selects only the correction plan's rows, including inside a shared
-group. Other original cases and unrelated groups remain owed independently.
-Replacement scopes stay in the frozen selection, so later materialization
-does not create private copies of shared corrections. A passing independent
-verdict supersedes the failed requirement.
+Only the correction plan's rows are selected, including shared rows; other
+cases and groups remain owed. Frozen replacement scopes prevent later
+materialization from making private copies. A passing independent verdict
+supersedes the failed requirement.
 Removing one member or withdrawing its attachment preserves shared evidence for
 the members still attached. Removing the last attaching member with
 `yoke deployment-runs remove-item` retracts the group's unsettled rows, so an

@@ -1,7 +1,7 @@
 # Lifecycle Runtime — Workflow Registry
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Workflows](index.md) > Lifecycle
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Workflows](index.md) > Lifecycle
 <!-- /yoke:breadcrumbs -->
 
 > **Canonical source:** `workflow_runtime.py` loads an item's immutable

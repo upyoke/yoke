@@ -1,0 +1,53 @@
+# Universe portability, backup, and restore
+
+<!-- yoke:breadcrumbs -->
+[Getting started](../index.md) > Universe portability, backup, and restore
+<!-- /yoke:breadcrumbs -->
+
+A portable Universe archive lets you preserve your Yoke records or move them to another machine or hosting mode. Export creates one archive; import validates it and replaces the destination Universe with the saved data.
+
+## What moves with a Universe
+
+The archive contains the Universe database and a receipt binding that database dump to its exact contents. It preserves records such as projects, strategy documents, and work history.
+
+Repository folders, application databases, running agents, and external services are not part of the Universe database. Shared file and QA evidence bytes may live in external storage, so retain that storage separately. Credentials require destination-specific handling and reconnection; do not treat an archive as a way to copy working machine access unchanged.
+
+## Export a Universe
+
+Use `yoke universe export` for the supported local export path, or the dashboard portability controls for the hosting mode you use. The normal CLI export directory is your machine's Yoke exports folder; choose an explicit output location when you need a backup elsewhere.
+
+The result is one `.tar` file. Keep the archive together: its database dump and receipt are both needed for validation and import. Store backups outside any machine home or server volume you intend to remove.
+
+Production administrative cutovers have a separate attended procedure. Do not substitute a raw database dump for a portable archive or use the ordinary export path to bypass its production restrictions.
+
+## Validate and retain backups
+
+`yoke universe validate` checks a portable archive before it is used. Validation checks the archive and receipt; it does not prove that an application, repository, or external service was also backed up.
+
+For deeper recovery verification, the supported round-trip validation restores into an explicitly disposable PostgreSQL database. That replaces the validation target, so an operator must prepare and identify the scratch database first.
+
+Keep a backup history appropriate to your recovery needs. Universe retention policies govern old records in the active Universe; they are not a substitute for retaining independent backups.
+
+## Import and restore
+
+For a new installation, setup offers **Start from a backup** when creating a local or self-hosted Universe. It validates the archive before Apply, restores the Universe, and then offers its projects so you can identify their checkouts on the new machine.
+
+For an existing destination, import asks for the archive and consent to replace the destination Universe. Local import targets the active local connection; self-host import targets the selected server bundle. Hosted import uses the dashboard portability flow.
+
+Check the destination before approving replacement. Preserve its current data if you may need it later. Import is replacement, not a merge of two backlogs.
+
+## Move between hosting modes
+
+A move combines export, destination setup, import, and reconnection. Choose the new mode based on where people and agents need to work: local is reachable on one computer; self-hosted and hosted modes support connected machines and teammates.
+
+Avoid continuing independent work against both copies after a move. Decide which Universe is the active destination and reconnect clients to it, so new records do not diverge between the old and new installations.
+
+See [Hosting modes](setup.hosting.md) for the choices and [Self-hosting](self-hosting.md) for server responsibilities.
+
+## Reconnect machines and verify the destination
+
+Imported credentials are revoked or rebound as required by the import path. Sign in again, reconnect machines, and confirm the selected Universe before resuming work. Register the appropriate repository folder for each restored project; the archive does not move those folders.
+
+Check that expected projects, strategy documents, and work records are present, then verify the services and credentials those projects use. A successful database import does not establish that every external capability is ready.
+
+The [portability reference](https://github.com/upyoke/yoke/blob/main/docs/universe-portability.md) describes archive validation, import boundaries, and attended production cutovers.

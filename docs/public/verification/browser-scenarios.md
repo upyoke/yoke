@@ -1,7 +1,7 @@
 # Browser Case Configuration
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Browser scenarios
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Browser scenarios
 <!-- /yoke:breadcrumbs -->
 
 Browser verification is a QA method contract. Reusable cases live in

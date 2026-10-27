@@ -1,7 +1,7 @@
 # Standalone Project QA Plans
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Standalone plans
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Standalone plans
 <!-- /yoke:breadcrumbs -->
 
 Run a saved plan immediately without an item or deployment run:

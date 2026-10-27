@@ -1,7 +1,7 @@
 # Recover failed item delivery QA
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Failed item QA
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Failed item QA
 <!-- /yoke:breadcrumbs -->
 
 The item owner keeps responsibility for failed item-scoped delivery QA.

@@ -1,7 +1,7 @@
 # Reviewed operator row repair
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Operator data repair
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Operator data repair
 <!-- /yoke:breadcrumbs -->
 
 Run `yoke operator data-repair --content-file repair.json --reviewed-sha256 SHA --dry-run`.

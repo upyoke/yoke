@@ -1,7 +1,7 @@
 # Machine QA
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > Machine QA
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > Machine QA
 <!-- /yoke:breadcrumbs -->
 
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).

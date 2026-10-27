@@ -1,7 +1,7 @@
 # Server health readiness
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Server health readiness
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Server health readiness
 <!-- /yoke:breadcrumbs -->
 
 `yoke status` checks the active server's public health document with a

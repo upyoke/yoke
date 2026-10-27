@@ -50,6 +50,7 @@ function makeCard(node) {
   return card;
 }
 function render() {
+  document.body.classList.toggle('docs-map-overview', focus?.id === 'view:docs-map');
   world.replaceChildren();
   updateTrail(); updateSourceList(); updateConnections(); renderViewNav();
   if (focus?.id === 'view:getting-started') { renderGettingStarted(); return; }

@@ -1,7 +1,7 @@
 # Provisioning and saving a Windows WSL2 Test Machine
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Windows host provisioning
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Windows host provisioning
 <!-- /yoke:breadcrumbs -->
 
 Follow [setup responsibilities](setup-responsibilities.md) and the project-owned

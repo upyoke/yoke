@@ -22,13 +22,14 @@ function renderTermIndex(node) {
   function update() {
     const query = search.value.trim().toLocaleLowerCase();
     const terms = node.children.filter(term =>
-      (term.title + ' ' + term.summary).toLocaleLowerCase().includes(query));
+      (term.title + ' ' + term.summary + ' ' + (term.aliases || []).join(' ')).toLocaleLowerCase().includes(query));
     list.replaceChildren();
     for (const term of terms) {
       const row = text('article', '', 'term-entry');
       const heading = text('h2', '');
       heading.append(nodeLink(term, term.title));
       row.append(heading, text('p', term.summary));
+      if (term.aliases?.length) row.append(text('p', 'Also called: ' + term.aliases.join(', '), 'source-size'));
       for (const id of term.related || []) {
         const source = byId.get(id);
         if (source) row.append(nodeLink(source, 'Source: ' + source.title, 'term-source'));

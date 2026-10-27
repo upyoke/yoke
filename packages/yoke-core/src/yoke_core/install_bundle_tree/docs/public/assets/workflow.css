@@ -1,0 +1,24 @@
+.intro-workflow { margin: 28px 0; color: #20232b; }
+.workflow-tabs { display: flex; gap: 20px; border-bottom: 1px solid #dfe2eb; padding: 0 12px; }
+.workflow-tabs span { padding: 12px 2px; font-size: 12px; font-weight: 600; color: #737c8f; }
+.workflow-tabs .selected { color: #5063ee; border-bottom: 2px solid #6472ef; }
+.workflow-preview-body { background: #f7f8fb; border: 1px solid #e1e4eb; border-radius: 10px; margin-top: 14px; padding: 18px; }
+.workflow-preview-title { font-weight: 600; font-size: 13px; margin-bottom: 18px; }
+.workflow-preview-stages { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 18px; list-style: none; padding: 0; margin: 0; }
+.workflow-preview-stages li { display: grid; align-content: center; gap: 8px; text-align: center; padding: 14px 4px; background: white; border: 1px solid #e1e4eb; border-radius: 7px; position: relative; min-height: 70px; }
+.workflow-preview-stages li + li::before { content: '→'; position: absolute; left: -16px; top: 50%; transform: translateY(-50%); color: #7d8698; font-size: 13px; }
+.workflow-preview-stages strong { font-size: 11px; overflow-wrap: anywhere; }
+.workflow-preview-stages span { font-size: 10px; color: #727b8e; }
+.workflow-preview-stages .current { border-color: #5365ff; background: #e9ebff; box-shadow: inset 0 0 0 1px #5365ff; }
+.workflow-preview-stages .current span { color: #4859d5; }
+.workflow-preview-check { display: grid; gap: 7px; margin-top: 20px; padding: 15px; border: 1px solid #e1e4eb; border-radius: 7px; background: white; }
+.workflow-preview-check span:first-child { font-size: 9px; letter-spacing: .08em; font-weight: 700; color: #657087; }
+.workflow-preview-check strong { font-size: 13px; }
+.workflow-preview-check span:last-child { font-size: 11px; color: #727b8e; }
+.intro-workflow figcaption { margin-top: 10px; color: #727b8e; font-size: 11px; }
+@media (max-width: 650px) {
+ .workflow-preview-stages { grid-template-columns: 1fr; gap: 18px; }
+ .workflow-preview-stages li { min-height: auto; padding: 12px; display: flex; justify-content: space-between; }
+ .workflow-preview-stages li + li::before { content: '↓'; left: 50%; top: -10px; }
+ .workflow-tabs { justify-content: space-between; gap: 8px; }
+}

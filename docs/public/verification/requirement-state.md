@@ -1,7 +1,7 @@
 # QA requirement state
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Requirement state
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Requirement state
 <!-- /yoke:breadcrumbs -->
 
 QA authorization is a derived answer over existing requirements, executions,

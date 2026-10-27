@@ -1,0 +1,7 @@
+{
+ "id": "agent-guidance",
+ "term": "Agent guidance",
+ "definition": "The rules, skills, documentation, roles, and context supplied to agents so they can follow the project’s way of working.",
+ "status": "draft",
+ "sources": ["docs/public/agents/index.md"]
+}

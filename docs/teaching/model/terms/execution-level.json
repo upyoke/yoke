@@ -3,5 +3,6 @@
  "term": "Execution level",
  "definition": "A model-and-effort classification used to place agent work.",
  "status": "draft",
- "sources": ["docs/public/agents/levels.md"]
+ "sources": ["docs/public/agents/levels.md"],
+ "aliases": ["Level"]
 }

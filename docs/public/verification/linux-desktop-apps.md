@@ -1,7 +1,7 @@
 # Linux desktop version detection
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Linux desktop applications
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Linux desktop applications
 <!-- /yoke:breadcrumbs -->
 
 The machine relay detects Claude Desktop's installed `claude-desktop` Debian

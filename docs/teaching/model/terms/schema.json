@@ -1,0 +1,8 @@
+{
+ "id": "schema",
+ "term": "Database schema",
+ "definition": "The structure of a database, including tables and fields, which migrations change and diagnostic reads inspect.",
+ "status": "draft",
+ "sources": ["docs/public/databases/index.md"],
+ "aliases": ["Schema"]
+}

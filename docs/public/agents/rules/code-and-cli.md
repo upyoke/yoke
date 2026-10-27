@@ -1,7 +1,7 @@
 # Code conventions and the agent CLI surface
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Code and teaching
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Code and teaching
 <!-- /yoke:breadcrumbs -->
 
 Function ids: [function families](../../functions/index.md).
@@ -36,10 +36,9 @@ Verify identifiers with `rg`, a file, packet or `yoke db read` before naming the
 For live state, cite a registered result, refusal, `--help` or manifest; code alone cannot
 prove serving behavior.
 
-## Complete and portable work
+## Portable work
 
-- Finish this item's scope, including newly found required files. Name a blocker's
-  owner and recovery.
+- Finish the item, including newly required files. Name blocker owners and recovery.
 - Build the smallest working path first; retire old paths and callers in the same change.
 - Support local, self-hosted and hosted installs across supported
   environments, databases and tenants. Keep internal concerns out of external projects.
@@ -69,8 +68,8 @@ Idea, Refine, Conduct, Shepherd and Polish apply:
 - Quality: smallest complete diff; remove redundant state, wrappers and WHAT comments.
 - Use modular components with separate concerns and the simplest complete, durable design.
   Avoid speculative abstractions, configuration, indirection and temporary stopgaps.
-- Prefer established, maintained libraries that simplify or improve reliability. Check existing
-  dependencies' docs and types before writing your own implementation.
+- Prefer maintained libraries that simplify or improve reliability. Check dependency docs
+  and types before implementing.
 - Efficiency: cheapest useful path; justify each new table, event, command or setting.
 
 ## Related

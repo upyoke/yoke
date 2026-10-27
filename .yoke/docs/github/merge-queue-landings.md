@@ -1,7 +1,7 @@
 # Merge queue landing notices
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [GitHub](index.md) > Merge queue landings
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [GitHub](index.md) > Merge queue landings
 <!-- /yoke:breadcrumbs -->
 
 `yoke merge item PREFIX-N` verifies the exact candidate and arms its pull

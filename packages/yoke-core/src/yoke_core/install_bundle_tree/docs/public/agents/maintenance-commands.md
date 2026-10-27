@@ -1,7 +1,7 @@
 # Maintenance commands and context
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Maintenance commands
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Maintenance commands
 <!-- /yoke:breadcrumbs -->
 
 Use these operator and internal commands to maintain Yoke, inspect project context and follow the shared operation patterns.

@@ -1,11 +1,14 @@
 # Navigation contract
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Documentation](index.md) > Navigation contract
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Documentation](index.md) > Navigation contract
 <!-- /yoke:breadcrumbs -->
 
-Public source pages live under `docs/public`; installed projects receive the
-same bytes under `.yoke/docs`. The packaged corpus and web publication consume
+Public source pages and their visual assets live under `docs/public`; installed
+projects receive the same bytes under `.yoke/docs`. Getting started is the root
+`index.md`; human-facing pages live under `guide/`, with technical references
+linked beneath Command and technical reference. Yokepedia reads this corpus,
+but publication and installation never import `docs/teaching`. The packaged corpus and web publication consume
 the same recursive `nav.yaml`. Retired docs URLs have no redirects.
 
 ## Tree schema
@@ -166,3 +169,19 @@ Link checks name `LINK_ESCAPES`, `LINK_TARGET_MISSING` or
 `LINK_FRAGMENT_MISSING` and teach the specific correction. `STALE_NAV_BLOCK`
 requires rerunning `documentation_render write`; `LINE_LIMIT` requires a
 coherent topic split. Successful checks print their page count.
+
+## Public visual assets
+
+Getting started uses `<!-- yoke:visual NAME -->` markers for explanatory
+illustrations in `assets/visuals/NAME.html`. The files are passive HTML with
+local SVG images; scripts and event-handler attributes are not part of this
+asset format. Public styles live beside the SVGs under `assets/`. The website
+publishes these assets with the same documentation corpus as the Markdown.
+
+Essential instructions stay in Markdown. The site enhances the installation
+command and dashboard-access text with copy controls, and presents standalone
+`More on Title` links as article tiles. Installed readers retain the complete
+instructions and ordinary links without requiring the visual renderer.
+
+Edit public Markdown and assets at their owning paths. Yokepedia's Getting
+started view reads them; it does not maintain another version of the page.

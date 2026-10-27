@@ -1,0 +1,7 @@
+{
+ "id": "satisfaction-condition",
+ "term": "Satisfaction condition",
+ "definition": "The fact that clears a dependency, such as a blocker reaching a workflow stage, merging, or completing delivery to a named environment.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

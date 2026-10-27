@@ -3,5 +3,6 @@
  "term": "Item",
  "definition": "A recorded unit of work with an intended outcome, workflow and current state.",
  "status": "draft",
- "sources": ["docs/public/items/index.md"]
+ "sources": ["docs/public/items/index.md"],
+ "aliases": ["Work item", "Work items", "Items"]
 }

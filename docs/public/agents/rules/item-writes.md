@@ -1,7 +1,7 @@
 # Writing to items, and the generated board
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Item writes
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Item writes
 <!-- /yoke:breadcrumbs -->
 
 ## Structured item writes

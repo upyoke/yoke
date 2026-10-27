@@ -1,7 +1,7 @@
 # Agent operation homes
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > Operation homes
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > Operation homes
 <!-- /yoke:breadcrumbs -->
 
 Read the home for your next action, then the command's `--help`.

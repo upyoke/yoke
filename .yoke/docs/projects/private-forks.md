@@ -1,7 +1,7 @@
 # Maintaining a private fork
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Private forks
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Private forks
 <!-- /yoke:breadcrumbs -->
 
 Yoke tolerates an operator-maintained fork: you supply the installer,

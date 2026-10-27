@@ -1,7 +1,7 @@
 # Projects and capabilities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Databases](../index.md) > Projects and capabilities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Databases](../index.md) > Projects and capabilities
 <!-- /yoke:breadcrumbs -->
 
 Read schemas for the project registry, Project Structure aggregate, capabilities,

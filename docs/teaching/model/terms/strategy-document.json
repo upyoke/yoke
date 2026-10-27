@@ -3,5 +3,6 @@
  "term": "Strategy document",
  "definition": "Markdown stored in the universe database that records a project’s direction, research or evolving plans.",
  "status": "draft",
- "sources": ["docs/public/strategy/index.md"]
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["Strategy doc", "Strategy docs"]
 }

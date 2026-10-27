@@ -2,12 +2,13 @@
 import json
 from model import MODEL_ROOT
 from explorer_docs_coverage import mapping_coverage
+from explorer_public_pages import apply_public_page
 
 
 def map_node(key, title, parent, summary):
     return dict(id=key, title=title, parent=parent, summary=summary,
-                node_type='page', type_label='Proposed page', type_hint='Draft documentation structure',
-                guidance_scope='repository', scope_label='Teaching model', status_label='Draft')
+                node_type='page', type_label='Public page', type_hint='Public documentation structure',
+                guidance_scope='repository', scope_label='Public docs', status_label='Draft')
 
 
 def add_docs_map(nodes, model):
@@ -15,7 +16,7 @@ def add_docs_map(nodes, model):
     records = {}
     for path in sorted((MODEL_ROOT / 'docs-map').glob('*.json')):
         try:
-            record = json.loads(path.read_text(encoding='utf-8'))
+            record = apply_public_page(json.loads(path.read_text(encoding='utf-8')))
             key = record['id']
             if key != path.stem or key in records:
                 raise ValueError('id must match filename and be unique')
@@ -27,7 +28,7 @@ def add_docs_map(nodes, model):
             for field in ('outline', 'terms', 'commands', 'sources', 'deeper_pages', 'open_questions'):
                 if not isinstance(record[field], list) or any(not isinstance(x, str) for x in record[field]):
                     raise ValueError(field + ' must be a list of strings')
-            if not record['outline'] or not record['route'].startswith('/docs/'):
+            if not record['outline'] or not (record['route'] == '/docs' or record['route'].startswith('/docs/')):
                 raise ValueError('outline and proposed /docs/ route required')
             refs = ['term:' + term for term in record['terms']] + record['commands'] + record['sources']
             missing = [ref for ref in refs if ref not in source_ids]
@@ -56,7 +57,7 @@ def add_docs_map(nodes, model):
     if model.problems:
         return
     root = map_node('view:docs-map', 'Docs map', None,
-                    'Proposed public pages and their related terms, commands and teaching sources. Mapping is not proof of teaching coverage.')
+                    'Public pages and their related terms, commands, and teaching sources. Titles and topics come from the public docs.')
     root.update(view='docs-map', type_label='Documentation plan')
     pages = []
     for key, record in sorted(records.items(), key=lambda pair: (pair[1].get('position', 0), pair[0])):

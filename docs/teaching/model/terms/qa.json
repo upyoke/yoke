@@ -3,5 +3,6 @@
  "term": "QA",
  "definition": "Quality assurance: defining what must be checked, performing checks and evaluating the evidence.",
  "status": "draft",
- "sources": ["docs/public/verification/index.md"]
+ "sources": ["docs/public/verification/index.md"],
+ "aliases": ["Quality assurance"]
 }

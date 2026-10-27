@@ -1,7 +1,7 @@
 # Migration Model Fleet — What a Release Must Rehearse
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Migration fleets
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Migration fleets
 <!-- /yoke:breadcrumbs -->
 
 A history entry that applies cleanly to the model's validation surface proves

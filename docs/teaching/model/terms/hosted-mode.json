@@ -3,5 +3,6 @@
  "term": "Hosted mode",
  "definition": "Using a universe hosted by Yoke at upyoke.com.",
  "status": "draft",
- "sources": ["docs/public/start/modes.md"]
+ "sources": ["docs/public/start/modes.md"],
+ "aliases": ["Hosted"]
 }

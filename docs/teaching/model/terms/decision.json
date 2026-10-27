@@ -1,0 +1,8 @@
+{
+ "id": "decision",
+ "term": "Decision",
+ "definition": "A recorded choice requiring a response, such as a work approval, release approval, or QA review. Its outcome is separate from a message or a test result.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/inbox.md"],
+ "aliases": ["Decisions"]
+}

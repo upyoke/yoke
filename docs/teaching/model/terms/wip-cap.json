@@ -1,0 +1,8 @@
+{
+ "id": "wip-cap",
+ "term": "Work-in-progress cap",
+ "definition": "A limit used by scheduling to constrain additional implementation work. Existing implementation work contributes to the active count.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/charge-frontier.md"],
+ "aliases": ["WIP cap"]
+}

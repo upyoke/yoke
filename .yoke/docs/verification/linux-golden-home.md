@@ -1,7 +1,7 @@
 # Linux golden-home capture and restore
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Linux golden home
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Linux golden home
 <!-- /yoke:breadcrumbs -->
 
 The complete preparation, saving, restoration and timeout-recovery procedure is

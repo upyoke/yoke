@@ -1,7 +1,7 @@
 # HTTPS connection diagnostics
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [CLI and config](index.md) > HTTPS connection diagnostics
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > HTTPS connection diagnostics
 <!-- /yoke:breadcrumbs -->
 
 Yoke keeps TLS certificate verification enabled for local, self-hosted and

@@ -1,7 +1,7 @@
 # Execution-instruction delivery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Execution instructions
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Execution instructions
 <!-- /yoke:breadcrumbs -->
 
 Operator instructions combine workflow/project scope with delivery settings.

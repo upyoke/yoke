@@ -1,7 +1,7 @@
 # Shared Files
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Shared files
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Shared files
 <!-- /yoke:breadcrumbs -->
 
 Upload a file, get a URL that stays valid, and paste it anywhere: an item

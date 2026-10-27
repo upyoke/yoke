@@ -1,7 +1,7 @@
 # Modes
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Modes
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Modes
 <!-- /yoke:breadcrumbs -->
 
 One installer. After install, choose where the Yoke core and its database live.

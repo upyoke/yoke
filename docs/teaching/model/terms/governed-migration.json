@@ -1,0 +1,8 @@
+{
+ "id": "governed-migration",
+ "term": "Governed migration",
+ "definition": "A database change managed through the project’s declared migration model, with rehearsal, recorded migration identity, and controlled release application.",
+ "status": "draft",
+ "sources": ["docs/public/databases/migration-model.md"],
+ "aliases": ["Governed database migration"]
+}

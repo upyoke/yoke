@@ -1,7 +1,7 @@
 # Deployment start diagnostics
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Deployments](index.md) > Start diagnostics
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Deployments](index.md) > Start diagnostics
 <!-- /yoke:breadcrumbs -->
 
 Every Yoke self-release run — the stage run over HTTPS and the serving-API

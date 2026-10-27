@@ -1,7 +1,0 @@
-{
- "id": "attachment-qa",
- "term": "Attachment, QA",
- "definition": "A binding that makes a QA case applicable to an item, task or deployment target.",
- "status": "draft",
- "sources": ["docs/public/verification/case-attachment.md"]
-}

@@ -1,0 +1,7 @@
+{
+ "id": "workflow-version",
+ "term": "Workflow version",
+ "definition": "An immutable published workflow definition. An item’s workflow pin identifies the version governing its stages and requirements.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

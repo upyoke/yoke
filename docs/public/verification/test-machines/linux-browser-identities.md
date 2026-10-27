@@ -1,7 +1,7 @@
 # Linux browser identities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux browser identities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux browser identities
 <!-- /yoke:breadcrumbs -->
 
 Return to [Linux host provisioning](linux-host-provisioning.md).

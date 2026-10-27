@@ -1,0 +1,7 @@
+{
+ "id": "dependency-graph",
+ "term": "Dependency graph",
+ "definition": "Work items and the relationships between them, showing what depends on what across projects.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

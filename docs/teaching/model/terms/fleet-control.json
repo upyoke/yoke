@@ -1,0 +1,7 @@
+{
+ "id": "fleet-control",
+ "term": "Fleet control",
+ "definition": "Coordinating sessions across machines: staffing work, launching or resuming workers, monitoring their state, and recovering interrupted work.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

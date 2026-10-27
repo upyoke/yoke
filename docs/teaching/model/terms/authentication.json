@@ -3,5 +3,6 @@
  "term": "Authentication",
  "definition": "Proving which identity is connecting to Yoke.",
  "status": "draft",
- "sources": ["docs/public/cli/machine-authorization.md"]
+ "sources": ["docs/public/cli/machine-authorization.md"],
+ "aliases": ["Sign-in"]
 }

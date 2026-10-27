@@ -1,7 +1,7 @@
 # Documentation verification
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Documentation](index.md) > Verification
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Documentation](index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
 Validate the complete teaching tree before publishing or refreshing its copies.

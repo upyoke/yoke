@@ -1,7 +1,7 @@
 # Deployment run members and QA
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Run members and QA
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Run members and QA
 <!-- /yoke:breadcrumbs -->
 
 Read [frozen member plans](member-plan-snapshots.md) before changing a release.

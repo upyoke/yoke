@@ -1,7 +1,7 @@
 # Performance diagnostics
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Operations](index.md) > Performance diagnostics
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Performance diagnostics
 <!-- /yoke:breadcrumbs -->
 
 Open **Diagnostics → Performance**. Yoke Events uses the workbench's selected

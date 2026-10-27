@@ -1,0 +1,39 @@
+{
+ "id": "execution-instructions",
+ "title": "Execution instructions",
+ "parent": null,
+ "route": "/docs/guide/execution-instructions",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Define reusable instructions for agents and control which work receives them and when.",
+ "outline": ["Instruction content", "Project and workflow scope", "Delivery points", "Stage buckets", "Creating and editing instructions", "Instruction resolution", "Instruction ownership"],
+ "terms": ["execution-instruction", "project", "workflow", "stage", "agent-guidance"],
+ "commands": ["command:yoke workflow execution-instruction"],
+ "sources": ["source:instructions", "doc:docs/public/projects/execution-instructions.md"],
+ "deeper_pages": ["guidance", "work", "configuration"],
+ "open_questions": [],
+ "position": 26,
+ "topics": [
+  {
+   "title": "Project and workflow scope",
+   "outline": ["Selected projects and workflows", "All-project and all-workflow scope"]
+  },
+  {
+   "title": "Delivery points",
+   "outline": ["Before creation", "On every read", "When entering stage"]
+  },
+  {
+   "title": "Creating and editing instructions",
+   "outline": ["Workflows dashboard panel", "Agent and CLI management", "Scope and delivery changes"]
+  },
+  {
+   "title": "Instruction resolution",
+   "outline": ["Item reads, work claims, and worker launches", "Stage transitions", "Inspecting applicable instructions"]
+  },
+  {
+   "title": "Instruction ownership",
+   "outline": ["Project-specific policy", "Reusable public guidance", "Links to maintained documentation"]
+  }
+ ]
+}

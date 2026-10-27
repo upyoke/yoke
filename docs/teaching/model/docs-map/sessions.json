@@ -1,17 +1,35 @@
 {
  "id": "sessions",
- "title": "Sessions and steering",
+ "title": "Steering and fleet control",
  "parent": null,
- "route": "/docs/sessions",
+ "route": "/docs/guide/sessions",
  "kind": "detail",
  "status": "draft",
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Explain who is working, how work is coordinated and when humans intervene.",
- "outline": ["Harness conversations registered as sessions", "Active, waiting, stale and ended", "Steering versus execution"],
- "terms": ["execution-level", "harness-session", "parked-session", "session", "session-liveness", "session-mode", "stale-session", "steering", "work-claim"],
- "commands": ["command:yoke sessions", "command:yoke steering"],
- "sources": ["doc:docs/public/sessions/index.md", "replies:sessions", "replies:steering"],
+ "outline": ["Steer and coordinate work", "Messages and human decisions", "Levels and staffing", "Sessions"],
+ "terms": ["execution-level", "harness-session", "parked-session", "session", "session-liveness", "session-mode", "stale-session", "steering", "work-claim", "current-plan", "fleet", "frontier", "steering-claim", "steering-report", "capacity", "model", "model-catalog", "machine", "relay", "approval", "inbox", "message", "fleet-control", "fleet-messaging", "session-launch", "scheduler", "wip-cap", "decision", "heartbeat", "effort", "context-window", "session-registration"],
+ "commands": ["command:yoke sessions", "command:yoke steering", "command:yoke steering report", "command:yoke claims steering", "command:yoke strategy coordination", "command:yoke models", "command:yoke session-control launch", "command:yoke universe level-capacity", "command:yoke session-control", "command:yoke relay", "command:yoke harness", "command:yoke inbox", "command:yoke messages", "command:yoke say", "command:yoke decision-requests"],
+ "sources": ["doc:docs/public/sessions/index.md", "replies:sessions", "replies:steering", "skill:steer", "doc:docs/public/sessions/steering-report.md", "doc:docs/public/sessions/steering-report-delivery.md", "doc:docs/public/functions/steering-report-dependencies.md", "replies:claims", "source:roles", "doc:docs/public/agents/levels.md", "doc:docs/public/agents/level-launches.md", "doc:docs/public/agents/capacity-recovery.md", "doc:docs/public/sessions/fleet-policy.md", "doc:docs/public/functions/models.md", "source:global-hooks", "source:project-hooks", "doc:docs/public/sessions/linux-relay.md", "doc:docs/public/sessions/model/sessions.md", "doc:docs/public/sessions/model/coordination.md", "packet:main_agent:claims", "replies:harness", "doc:docs/public/sessions/inbox.md", "replies:decision-requests"],
  "deeper_pages": [],
  "open_questions": [],
- "position": 20
+ "position": 20,
+ "topics": [
+  {
+   "title": "Steer and coordinate work",
+   "outline": ["Who coordinates which scope", "Standing plans and work selection", "Reading waits and decisions", "Resolving contention"]
+  },
+  {
+   "title": "Messages and human decisions",
+   "outline": ["Messages versus decisions", "Delivery and queued messages", "Human approval and follow-up"]
+  },
+  {
+   "title": "Levels and staffing",
+   "outline": ["What levels mean", "How models and effort determine level", "Who assigns work", "Capacity and recovery"]
+  },
+  {
+   "title": "Sessions",
+   "outline": ["Harness sessions and their work ownership", "Harness session versus sign-in session", "Registration and heartbeat", "Parking and resuming", "Relay failure and recovery"]
+  }
+ ]
 }

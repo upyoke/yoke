@@ -1,0 +1,7 @@
+{
+ "id": "qa-review",
+ "term": "QA review",
+ "definition": "A recorded human judgment about QA evidence or an acceptance requirement. It does not replace the underlying run result.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/inbox.md"]
+}

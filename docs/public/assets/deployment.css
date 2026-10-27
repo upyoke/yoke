@@ -1,0 +1,26 @@
+.intro-deployment { margin: 28px 0; padding: 24px; background: #fff; border: 1px solid #e0e3eb; border-radius: 12px; color: #20232b; }
+.public-docs-intro .intro-deployment h3 { margin: 0; font-size: 21px; letter-spacing: -.025em; color: #20232b; }
+.public-docs-intro .deployment-example-summary { margin: 8px 0 20px; font-size: 13px; color: #626c7e; line-height: 1.5; }
+.deployment-example-meta { display: flex; flex-wrap: wrap; gap: 20px 36px; padding: 16px 0; border-top: 1px solid #e3e5ed; border-bottom: 1px solid #e3e5ed; }
+.deployment-example-meta > div { display: grid; gap: 7px; }
+.deployment-example-meta span { color: #737c8d; font-size: 9px; letter-spacing: .08em; font-weight: 700; }
+.deployment-example-meta strong { font-size: 12px; font-weight: 500; }
+.deployment-example-columns { display: grid; grid-template-columns: 1.25fr 1fr; gap: 28px; margin-top: 20px; }
+.deployment-example-columns h4 { margin: 0 0 16px; color: #20232b; font-size: 13px; }
+.deployment-example-pipeline ol { padding: 0; margin: 0; list-style: none; }
+.deployment-example-pipeline li { position: relative; display: flex; gap: 12px; padding-bottom: 20px; }
+.deployment-example-pipeline li:last-child { padding-bottom: 0; }
+.deployment-example-pipeline li:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 31px; bottom: 4px; width: 2px; background: #e3e5ed; }
+.deployment-stage-number { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #eff1f6; color: #535b6a; font-size: 12px; font-weight: 600; }
+.qa-stage .deployment-stage-number { background: #eceeff; color: #5060dd; }
+.deployment-stage-copy { display: grid; gap: 5px; padding-top: 4px; }
+.deployment-stage-copy strong { font-size: 13px; }
+.deployment-stage-copy span { font-size: 11px; color: #737c8d; }
+.deployment-run-receipt { padding: 16px; border: 1px solid #e1e5ec; border-radius: 8px; background: #f7f8fb; display: grid; gap: 12px; }
+.deployment-run-success { justify-self: start; color: #169a45; background: #e4f3e9; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+.deployment-run-receipt > strong { font-size: 15px; }
+.deployment-run-receipt > span:not(.deployment-run-success) { font-size: 11px; color: #737c8d; }
+.deployment-run-result { font-size: 11px; color: #287c4b; }
+@media (max-width: 600px) { .deployment-example-columns { grid-template-columns: 1fr; } .intro-deployment { padding: 18px; } }
+
+.deployment-example-kind { margin-bottom: 10px; color: #737c8d; font-size: 10px; font-weight: 700; letter-spacing: .09em; }

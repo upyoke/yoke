@@ -1,7 +1,7 @@
 # Lifecycle Gates
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Workflows](index.md) > Gates
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Workflows](index.md) > Gates
 <!-- /yoke:breadcrumbs -->
 
 `lifecycle.transition.execute` — what `yoke lifecycle transition PREFIX-N

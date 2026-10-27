@@ -1,7 +1,7 @@
 # Browser targets and methods
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Browser targets
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Browser targets
 <!-- /yoke:breadcrumbs -->
 
 Choose where a Browser case runs, configure its immutable method and viewport, and interpret capture and review outcomes.

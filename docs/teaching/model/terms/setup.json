@@ -3,5 +3,6 @@
  "term": "Setup",
  "definition": "Connecting and configuring the machine, harnesses and project after installation.",
  "status": "draft",
- "sources": ["docs/public/start/agent-setup.md"]
+ "sources": ["docs/public/start/agent-setup.md"],
+ "aliases": ["Agent-guided setup"]
 }

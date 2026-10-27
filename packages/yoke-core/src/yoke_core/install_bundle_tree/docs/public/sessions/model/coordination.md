@@ -1,7 +1,7 @@
 # Shared coordination model
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Sessions](../index.md) > Shared coordination model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Sessions](../index.md) > Shared coordination model
 <!-- /yoke:breadcrumbs -->
 
 Shared-operation leases coordinate test hosts and governed data work; session views show claims, registered identity and measured usage.

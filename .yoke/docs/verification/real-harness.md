@@ -1,7 +1,7 @@
 # Real harness Machine QA
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Real harness QA
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Real harness QA
 <!-- /yoke:breadcrumbs -->
 
 This source-maintainer procedure is documented in the [upstream source guide](https://github.com/upyoke/yoke/blob/main/docs/testing-verification/real-harness.md).

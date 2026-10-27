@@ -1,0 +1,7 @@
+{
+ "id": "data-repair",
+ "term": "Data repair",
+ "definition": "A reviewed, bounded correction to stored records through the sanctioned repair operation, with a preview and an audit trail. It is separate from read-only diagnostics.",
+ "status": "draft",
+ "sources": ["docs/public/databases/operator-data-repair.md"]
+}

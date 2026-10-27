@@ -1,0 +1,8 @@
+{
+ "id": "message",
+ "term": "Message",
+ "definition": "An addressed communication recorded by Yoke, with delivery and acknowledgement state. A message can ask for a decision but does not itself record an approval.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/inbox.md"],
+ "aliases": ["Messages"]
+}

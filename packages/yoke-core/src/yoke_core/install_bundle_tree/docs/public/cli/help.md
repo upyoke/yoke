@@ -1,7 +1,7 @@
 # Terminal help and replies
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [CLI and config](index.md) > Help and replies
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Help and replies
 <!-- /yoke:breadcrumbs -->
 
 ```text

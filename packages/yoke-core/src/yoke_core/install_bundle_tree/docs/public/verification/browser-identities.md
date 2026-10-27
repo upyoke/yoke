@@ -1,7 +1,7 @@
 # Browser sign-in identities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Browser identities
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Browser identities
 <!-- /yoke:breadcrumbs -->
 
 A browser identity is one persona's whole browser profile: every site that

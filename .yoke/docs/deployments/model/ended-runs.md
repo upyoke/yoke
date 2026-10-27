@@ -1,7 +1,7 @@
 # Ended deployment runs
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Ended runs
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Ended runs
 <!-- /yoke:breadcrumbs -->
 
 Read what happens to the GitHub workflows a deployment run dispatched once the run ends.

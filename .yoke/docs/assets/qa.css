@@ -1,0 +1,44 @@
+.intro-qa { margin: 28px 0; padding: 20px; background: #f7f8fb; border: 1px solid #e1e4eb; border-radius: 12px; color: #20232b; }
+.qa-example-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.qa-example-heading strong { font-size: 20px; }
+.qa-example-heading > span { font-size: 11px; color: #8b621f; background: #fff3d9; padding: 5px 9px; border-radius: 20px; }
+.qa-example-request { padding: 20px; background: #fff; border: 1px solid #dedeea; border-left: 3px solid #8357db; border-radius: 8px; }
+.qa-example-kind { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #7950b0; }
+.public-docs-intro .qa-example-request h3 { margin: 10px 0 5px; font-size: 20px; color: #20232b; }
+.qa-example-context { font-size: 11px; color: #747b8c; }
+.qa-example-content { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin: 20px 0; align-items: start; }
+.qa-example-result { display: grid; grid-template-columns: 15px 1fr auto; gap: 8px; align-items: center; padding: 11px 0; border-bottom: 1px solid #eceef3; font-size: 11px; }
+.qa-example-result strong { font-size: 12px; }
+.qa-example-result > span { color: #218347; }
+.public-docs-intro .qa-example-checks p { margin: 14px 0 0; font-size: 12px; line-height: 1.6; color: #636c7e; }
+.qa-example-capture { border: 1px solid #dedfe8; border-radius: 7px; overflow: hidden; }
+.qa-capture-bar { font-size: 9px; color: #737c8e; padding: 9px 12px; background: #f1f3f7; border-bottom: 1px solid #dedfe8; }
+.qa-capture-screen { display: grid; justify-items: center; gap: 10px; padding: 24px 12px; text-align: center; }
+.qa-capture-success { border-radius: 50%; background: #e5f4eb; color: #25864c; padding: 8px 12px; }
+.qa-capture-screen strong { font-size: 14px; }
+.qa-capture-screen > span:not(.qa-capture-success) { font-size: 10px; color: #697284; }
+.qa-example-actions { display: flex; gap: 8px; align-items: center; border-top: 1px solid #eceef3; padding-top: 16px; }
+.qa-example-actions > span:first-child { margin-right: auto; font-size: 11px; color: #737c8e; }
+.qa-example-action { padding: 8px 14px; border: 1px solid #dce0ea; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.qa-example-action.primary { background: #5260dd; border-color: #5260dd; color: white; }
+.intro-qa figcaption { margin-top: 12px; font-size: 11px; color: #737c8e; }
+@media (max-width: 600px) { .qa-example-content { grid-template-columns: 1fr; } .intro-qa { padding: 14px; } .qa-example-request { padding: 14px; } }
+
+.qa-capture-screen { display: block; padding: 0; text-align: left; background: #fcfbf8; }
+.qa-store-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 13px 12px; border-bottom: 1px solid #e6e3dc; }
+.qa-store-nav strong { font-size: 10px; letter-spacing: .12em; }
+.qa-store-nav span { font-size: 7px; color: #68675e; white-space: pre; }
+.qa-store-receipt { padding: 20px 16px; display: flex; flex-direction: column; gap: 9px; }
+.qa-store-success { color: #3b7553; font-size: 7px; letter-spacing: .08em; font-weight: 700; }
+.qa-store-receipt > strong { font-family: Georgia, serif; font-size: 20px; font-weight: 400; }
+.qa-store-receipt > span:not(.qa-store-success):not(.qa-store-continue) { font-size: 7px; color: #77756b; }
+.qa-store-product { display: flex; align-items: center; gap: 9px; padding: 14px 0; margin-top: 5px; border-top: 1px solid #e6e3dc; border-bottom: 1px solid #e6e3dc; }
+.qa-store-thumbnail { width: 43px; height: 49px; background: #f0ece3; padding: 5px; flex-shrink: 0; }
+.qa-store-thumbnail svg { width: 100%; height: 100%; }
+.qa-store-product-text { display: grid; gap: 5px; flex: 1; }
+.qa-store-product strong { font-size: 9px; }
+.qa-store-product-text span { font-size: 7px; color: #77756b; }
+.qa-store-total { display: flex; justify-content: space-between; font-size: 8px; color: #68675e; }
+.qa-store-total strong { font-size: 8px; }
+.qa-store-delivery { border-top: 1px solid #e6e3dc; padding-top: 10px; font-size: 7px; color: #77756b; }
+.qa-store-continue { align-self: flex-start; padding: 7px 10px; background: #293e33; color: #fff; font-size: 8px; margin-top: 3px; }

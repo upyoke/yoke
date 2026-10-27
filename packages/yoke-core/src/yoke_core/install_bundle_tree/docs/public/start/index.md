@@ -1,20 +1,17 @@
-# Get started
+# Installation reference
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Get started
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Installation reference
 <!-- /yoke:breadcrumbs -->
 
-Tell your coding agent:
+For the guided introduction, read [Getting started](../index.md). For the
+complete setup walkthrough, read [Installation and setup](../guide/setup.install.md).
 
-> install upyoke.com
-
-## What happens next
-
-Your agent installs Yoke and guides you through setup. It explains the choices,
-asks for your decisions and shows any browser steps you need to complete.
-Then it helps you get your project ready and begin work.
-
-## Optional details
+These references cover installation commands, supported platforms, project
+wiring, configuration, and recovery. Start by telling Claude Code, Codex, or
+Cursor `install upyoke.com`; your agent uses the relevant instructions as setup
+progresses. Terminal setup is available for people who choose to run the steps
+themselves.
 
 <!-- yoke:contents -->
 - [Agent setup](agent-setup.md) — Recommended setup through your coding agent; commands and replies.

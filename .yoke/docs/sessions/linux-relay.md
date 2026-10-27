@@ -1,7 +1,7 @@
 # Linux relay supervision
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Sessions](index.md) > Linux relay
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Linux relay
 <!-- /yoke:breadcrumbs -->
 
 On the session's machine, onboarding installs and enables a systemd user service

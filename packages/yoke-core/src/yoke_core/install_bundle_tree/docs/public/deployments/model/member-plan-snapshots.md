@@ -1,7 +1,7 @@
 # Frozen member plans
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Frozen member plans
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Frozen member plans
 <!-- /yoke:breadcrumbs -->
 
 When a plan is attached at several workflow boundaries, the frozen snapshot

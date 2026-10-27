@@ -1,7 +1,7 @@
 # Deployment stage receipts
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Stage receipts
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Stage receipts
 <!-- /yoke:breadcrumbs -->
 
 Inspect durable deployment-stage attempt observations and the evidence required before scoped QA.

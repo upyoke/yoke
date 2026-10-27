@@ -3,5 +3,6 @@
  "term": "Standing strategy doc",
  "definition": "A foundational project document: MISSION, VISION, LANDSCAPE or MASTER-PLAN.",
  "status": "draft",
- "sources": ["docs/public/strategy/index.md"]
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["Standing strategy docs"]
 }

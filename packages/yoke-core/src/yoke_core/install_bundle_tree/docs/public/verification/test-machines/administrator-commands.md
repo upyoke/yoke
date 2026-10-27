@@ -1,7 +1,7 @@
 # Administrator commands on Test Machines
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Administrator commands
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Administrator commands
 <!-- /yoke:breadcrumbs -->
 
 Run one setup command on a registered macOS or Linux machine:

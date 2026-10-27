@@ -96,26 +96,3 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
 .docs-map-branch { grid-column: 1 / -1; min-width: 0; margin-bottom: 24px; }
 .docs-map-children { margin: 18px 0 0 20px; padding-left: 20px; border-left: 2px solid #b7cbbb; }
 .docs-map-children > .source-size { margin: 0 0 12px; }
-.getting-started-preview { max-width: 780px; }
-.getting-started-preview section { margin-top: 36px; }
-.getting-started-preview h2 { font-size: 25px; margin-bottom: 12px; }
-.getting-started-preview p { line-height: 1.7; }
-.getting-started-preview blockquote { margin: 18px 0; padding: 18px 24px; background: #e5eee5; border-left: 3px solid #76977e; font-size: 22px; font-weight: 600; }
-.intro-visual { overflow-x: auto; margin-top: 24px; border-radius: 14px; }
-.intro-visual img { display: block; width: 100%; min-width: 620px; height: auto; }
-.intro-strategy-visual { margin: 24px 0 32px; overflow-x: auto; border-radius: 12px; }
-.intro-strategy-visual img { display: block; width: 100%; min-width: 740px; height: auto; }
-.getting-started-preview h3 { font-size: 20px; margin: 28px 0 10px; }
-.intro-install-command { display: inline-flex; align-items: center; gap: 14px; margin: 12px 0; padding: 9px 9px 9px 24px; border: 1px solid #d9dcf5; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px -14px #2c2f9a40; }
-.intro-install-command code { color: #4d52d8; font: 600 20px/1.3 ui-monospace, monospace; user-select: all; white-space: nowrap; }
-.intro-install-command button { padding: 11px 18px; border: 1px solid #4146cb; border-radius: 9px; background: #4d52d8; color: #fff; font: 600 14px/1 sans-serif; cursor: pointer; }
-.intro-install-command button:hover { background: #3a3ec2; }
-.intro-install-command button:focus-visible { outline: 3px solid #888cff; outline-offset: 3px; }
-.intro-install-command + p:empty { display: none; }
-.intro-steering { display: inline-flex; align-items: center; gap: 6px; font-size: .85em; font-weight: 650; letter-spacing: .05em; white-space: nowrap; }
-.intro-steering img { width: 23px; height: 16px; }
-.intro-article-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
-.intro-article-links a { display: inline-block; padding: 9px 15px; border: 1px solid #cbd8ce; border-radius: 999px; background: #fff; color: #315b48; font-size: 14px; font-weight: 600; text-decoration: none; }
-.intro-article-links a:hover { background: #e5eee5; border-color: #76977e; }
-.intro-article-links a:focus-visible { outline: 2px solid #315b48; outline-offset: 3px; }
-@media (max-width: 500px) { .intro-install-command { gap: 10px; padding-left: 12px; } .intro-install-command code { font-size: 16px; } .intro-install-command button { padding: 10px; } }

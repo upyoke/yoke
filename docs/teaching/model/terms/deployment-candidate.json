@@ -1,0 +1,7 @@
+{
+ "id": "deployment-candidate",
+ "term": "Deployment candidate",
+ "definition": "The specific code or artifact revision selected for a deployment attempt, against which its delivery and QA evidence must be interpreted.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/index.md"]
+}

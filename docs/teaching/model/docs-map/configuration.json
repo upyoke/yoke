@@ -1,17 +1,35 @@
 {
  "id": "configuration",
- "title": "Project configuration",
+ "title": "Projects",
  "parent": null,
- "route": "/docs/configuration",
+ "route": "/docs/guide/configuration",
  "kind": "detail",
  "status": "draft",
  "audience": "People using Yoke; agents can follow the linked reference",
- "purpose": "Explain what can be configured and when configuration is needed.",
- "outline": ["Project structure", "Capabilities and providers", "Configure only what work needs"],
- "terms": ["capability", "integration", "project-structure", "provider", "secret"],
- "commands": ["command:yoke projects capabilities", "command:yoke project-structure"],
- "sources": ["doc:docs/public/projects/capabilities.md", "doc:docs/public/databases/model/projects.md", "replies:projects", "replies:project-structure"],
- "deeper_pages": [],
+ "purpose": "Explain projects, their setup, structure, configuration, and integrations.",
+ "outline": ["Project identity and structure", "Setup and checkout connections", "Settings and secrets", "Capabilities and providers", "Shared project files", "GitHub and CI"],
+ "terms": ["capability", "integration", "project-structure", "provider", "secret", "setup", "project-installation", "pack", "shared-file", "machine-configuration", "agents-md", "connection", "harness", "project", "github-integration", "issue-mirroring", "checkout", "project-settings", "ci", "pack-settings"],
+ "commands": ["command:yoke projects capabilities", "command:yoke project-structure", "command:yoke files", "command:yoke settings", "command:yoke config", "command:yoke projects capability-settings", "command:yoke projects capability-secret", "command:yoke project", "command:yoke projects checkout-context", "command:yoke github", "command:yoke github-actions", "command:yoke resync", "command:yoke runner-fleet"],
+ "sources": ["doc:docs/public/projects/capabilities.md", "doc:docs/public/databases/model/projects.md", "replies:projects", "replies:project-structure", "doc:docs/public/projects/shared-files.md", "replies:files", "doc:docs/public/cli/machine-config.md", "replies:config", "source:rules", "doc:docs/public/start/project-install.md", "replies:project", "doc:docs/public/github/index.md", "doc:docs/public/github/sync.md"],
+ "deeper_pages": ["configuration.packs"],
  "open_questions": [],
- "position": 29
+ "position": 29,
+ "topics": [
+  {
+   "title": "Setup and checkout connections",
+   "outline": ["Project identity versus checkout", "Existing project versus new project", "Install and refresh agent guidance"]
+  },
+  {
+   "title": "Settings and secrets",
+   "outline": ["Machine versus universe versus project settings", "Non-secret settings", "Secret ownership", "Changing settings safely"]
+  },
+  {
+   "title": "Shared project files",
+   "outline": ["When to use shared files", "Upload and reference material", "Relationship to repository files"]
+  },
+  {
+   "title": "GitHub and CI",
+   "outline": ["Connect repository access", "Opt into issue mirroring", "CI execution and evidence", "Troubleshooting sync"]
+  }
+ ]
 }

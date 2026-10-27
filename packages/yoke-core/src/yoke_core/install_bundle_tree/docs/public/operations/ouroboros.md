@@ -1,7 +1,7 @@
 # Ouroboros
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Operations](index.md) > Ouroboros
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Ouroboros
 <!-- /yoke:breadcrumbs -->
 
 Record observations and use the learning loop to improve delivery.

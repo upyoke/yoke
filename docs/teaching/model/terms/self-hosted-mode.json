@@ -3,5 +3,6 @@
  "term": "Self-hosted mode",
  "definition": "Running a Yoke server on infrastructure you control.",
  "status": "draft",
- "sources": ["docs/public/start/modes.md"]
+ "sources": ["docs/public/start/modes.md"],
+ "aliases": ["Self-hosting", "Self-hosted"]
 }

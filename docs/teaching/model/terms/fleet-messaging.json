@@ -1,0 +1,7 @@
+{
+ "id": "fleet-messaging",
+ "term": "Fleet messaging",
+ "definition": "Communication between registered sessions and people through Yoke, with recipients, delivery receipts, and acknowledgement.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/inbox.md"]
+}

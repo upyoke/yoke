@@ -1,0 +1,7 @@
+{
+ "id": "context-window",
+ "term": "Context window",
+ "definition": "The amount of context a model can use in a session. Yoke distinguishes provider-attested values from requested or unknown values.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/model/coordination.md"]
+}

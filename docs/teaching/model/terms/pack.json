@@ -3,5 +3,6 @@
  "term": "Pack",
  "definition": "Reusable project setup and guidance for a capability or stack.",
  "status": "draft",
- "sources": ["docs/public/agents/rules/packs.md"]
+ "sources": ["docs/public/agents/rules/packs.md"],
+ "aliases": ["Packs"]
 }

@@ -1,7 +1,7 @@
 # Machine authorization
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [CLI and config](index.md) > Machine authorization
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Machine authorization
 <!-- /yoke:breadcrumbs -->
 
 Cloud and self-hosted servers share the device-code wire contract in
@@ -19,11 +19,9 @@ private code from their administrator. For bootstrap or recovery, use
 `yoke connect https://<server> --token-stdin` or `--token-file PATH`;
 the first-boot admin token connects the first machine.
 
-A person running `yoke connect` in a terminal sees an opening notice before
-Yoke opens the approval link in the default browser. Approve there, then return
-to the terminal. Agent, non-TTY and `--json` runs print the link for the person
-to open; `--json` sends approval instructions on stderr. If the browser cannot
-open, use the printed link yourself.
+Interactive `yoke connect` announces and opens browser approval; approve, then
+return to the terminal. Agent, non-TTY, and `--json` runs print the link instead;
+`--json` sends instructions to stderr. Use the printed link if opening fails.
 
 ## Wire
 
@@ -181,11 +179,9 @@ in your org**. If that was not you, ask them or an admin to retire the machine,
 then run `yoke connect` again. The refusal never discloses a new identity.
 The installer and connect wait stop on expiry; neither rotates codes silently.
 
-In a local universe the page makes no approval reads. It explains that other
-people and computers cannot reach this universe, gives `yoke self-host init`,
-and links to the [Self-host guide](https://github.com/upyoke/yoke/blob/main/docs/self-host.md).
-The shared notice also has a token variant: a token does not make a local
-universe reachable from another computer.
+For a local universe, the page skips approval reads and explains its local-only
+reach, even with a token. It gives `yoke self-host init` and the
+[Self-host guide](https://github.com/upyoke/yoke/blob/main/docs/self-host.md).
 
 Inspection may read an expired or consumed record to display its outcome,
 but resolve refuses expired codes and poll refuses consumed or unapproved
@@ -195,11 +191,10 @@ protect reads. Light and dark themes share the same card and narrow layouts.
 
 ## Decide as the signed-in actor
 
-Run `yoke machines pending` to see waiting requests, then
-`yoke machines approve CODE` or `yoke machines deny CODE` to record your personal
-decision. Read the returned decision and approver, and finish polling
-from the original machine. These operations never accept a caller-supplied
-owner, org, or credential.
+Use `yoke machines pending`, then `yoke machines approve CODE` or
+`yoke machines deny CODE`. Check the returned decision and approver; finish
+polling on the original machine. Caller-supplied owner, org, or credential
+is never accepted.
 
 On a hosted connection (`https://app.upyoke.com/api/orgs/<slug>`), the selected
 organization scopes the request. See [Hosted org administration](../projects/hosted-org-admin.md).

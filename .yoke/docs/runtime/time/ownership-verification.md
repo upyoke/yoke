@@ -1,7 +1,7 @@
 # Timestamp verification owners
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Runtime](../index.md) > Verification owners
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Runtime](../index.md) > Verification owners
 <!-- /yoke:breadcrumbs -->
 
 Read the native clock writers and explicit wire boundaries for artifacts, clock readers, QA and diagnostic evidence.

@@ -1,0 +1,23 @@
+{
+ "id": "dashboard",
+ "title": "Yoke web dashboard",
+ "parent": null,
+ "route": "/docs/guide/dashboard",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Help people use the web dashboard to follow and coordinate their Yoke work.",
+ "outline": ["Open the dashboard and connect to your Universe", "Navigate projects, strategy, and work", "See active sessions and work ownership", "Review QA evidence and deployment progress", "Respond to messages, questions, and approvals", "Find settings and access controls"],
+ "terms": ["dashboard", "workbench", "universe", "project", "strategy", "item", "harness-session", "inbox", "approval", "evidence", "deployment-run", "message", "fleet-messaging", "decision"],
+ "commands": ["command:yoke ui"],
+ "sources": ["source:homepage", "doc:docs/public/start/modes.md", "doc:docs/public/sessions/inbox.md"],
+ "deeper_pages": ["strategy", "work", "sessions", "qa", "delivery", "access.collaboration", "frontier"],
+ "open_questions": [],
+ "position": 12,
+ "topics": [
+  {
+   "title": "Open the dashboard and connect to your Universe",
+   "outline": ["Local & self-hosted: run yoke ui up in your Terminal", "Hosted: log in at app.upyoke.com (private beta)"]
+  }
+ ]
+}

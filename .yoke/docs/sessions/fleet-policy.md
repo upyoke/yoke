@@ -1,7 +1,7 @@
 # Fleet policy and native launch admission
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Sessions](index.md) > Fleet policy
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Fleet policy
 <!-- /yoke:breadcrumbs -->
 
 `yoke_contracts.fleet_policy` owns timing, message limits, retries, broadcast

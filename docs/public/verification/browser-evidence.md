@@ -1,7 +1,7 @@
 # Browser Evidence
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Browser evidence
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Browser evidence
 <!-- /yoke:breadcrumbs -->
 
 How to read the evidence a [Browser case](browser-scenarios.md) captured, and

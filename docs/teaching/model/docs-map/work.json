@@ -1,17 +1,43 @@
 {
  "id": "work",
- "title": "Items and workflows",
+ "title": "Workflows and work items",
  "parent": null,
- "route": "/docs/work",
+ "route": "/docs/guide/work",
  "kind": "detail",
  "status": "draft",
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Explain how work is recorded and carried to completion.",
- "outline": ["What an item records", "Choosing Dash, Issue, Epic or Blitz", "What done means"],
- "terms": ["acceptance-criteria", "backlog", "blitz", "dash", "epic", "issue", "item", "item-reference", "workflow", "workflow-pin"],
- "commands": ["command:yoke items", "command:yoke workflows"],
- "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/index.md", "doc:docs/public/workflows/index.md", "replies:items", "replies:workflows"],
+ "outline": ["Describe and manage an item", "Dependencies and blocked work", "Stages, gates and workflow configuration", "Epics and generated tasks", "Worktrees and work ownership", "Review and merge"],
+ "terms": ["acceptance-criteria", "backlog", "blitz", "dash", "epic", "issue", "item", "item-reference", "workflow", "workflow-pin", "delivery", "landing", "merge-queue", "review", "claim", "file-budget", "lane", "path-claim", "work-claim", "worktree", "done", "gate", "stage", "transition", "workflow-binding", "dependency", "task", "blocked", "item-body", "dependency-graph", "dependency-edge", "gate-point", "satisfaction-condition", "coordination-only-edge", "dependency-cycle", "readiness", "frozen", "priority", "execution-posture", "effort", "ci", "workflow-version"],
+ "commands": ["command:yoke items", "command:yoke workflows", "command:yoke item-landings", "command:yoke merge-receipt", "command:yoke github merge-queue", "command:yoke usher", "command:yoke worktree", "command:yoke item-worktrees", "command:yoke claims work", "command:yoke claims path", "command:yoke lifecycle", "command:yoke advance", "command:yoke readiness", "command:yoke workflows version", "command:yoke workflows item", "command:yoke epic-tasks", "command:yoke task", "command:yoke conduct", "command:yoke shepherd", "command:yoke workflow-item", "command:yoke items dependency", "command:yoke items block", "command:yoke items unblock", "command:yoke items freeze", "command:yoke items thaw", "command:yoke items create", "command:yoke items get", "command:yoke items structured-field", "command:yoke items progress-log"],
+ "sources": ["skill:idea", "skill:refine", "doc:docs/public/items/index.md", "doc:docs/public/workflows/index.md", "replies:items", "replies:workflows", "skill:polish", "skill:usher", "doc:docs/public/github/merge-queue-landings.md", "doc:docs/public/items/model/landings.md", "doc:docs/public/functions/merge-queue-landing-attempts.md", "replies:item-landings", "replies:merge-receipt", "doc:docs/public/agents/rules/lanes-and-claims.md", "doc:docs/public/sessions/model/path-claims.md", "doc:docs/public/functions/claims.md", "doc:docs/public/functions/worktrees.md", "packet:main_agent:claims", "replies:worktree", "replies:item-worktrees", "replies:claims", "doc:docs/public/workflows/lifecycle.md", "doc:docs/public/workflows/transitions.md", "doc:docs/public/workflows/gates.md", "doc:docs/public/workflows/model/statuses.md", "role:boss", "packet:boss_agent", "replies:advance", "replies:readiness", "skill:shepherd", "skill:conduct", "skill:amend", "doc:docs/public/items/model/tasks.md", "role:architect", "role:engineer", "role:simulator", "packet:architect_agent", "packet:engineer_agent", "packet:simulator_agent", "replies:epic-tasks", "replies:shepherd", "doc:docs/public/items/model/dependencies.md", "doc:docs/public/items/model/items.md", "doc:docs/public/items/model/body-writes.md", "role:product-manager"],
  "deeper_pages": [],
  "open_questions": ["Introduce only the workflow differences humans need; put stage contracts in reference."],
- "position": 13
+ "position": 13,
+ "topics": [
+  {
+   "title": "Describe and manage an item",
+   "outline": ["Outcome and acceptance criteria", "Priority and scope", "Readable body versus stored fields", "Updating or cancelling work"]
+  },
+  {
+   "title": "Dependencies and blocked work",
+   "outline": ["Why work must wait", "Blocked versus frozen", "Who resolves a blocker"]
+  },
+  {
+   "title": "Stages, gates and workflow configuration",
+   "outline": ["Stage and transition", "Required gates", "Pinned workflow versions", "Defaults and per-item policy", "Built-in workflows: Dash, Issue, Epic, and Blitz", "Execution posture settings", "Configurable human approvals", "Default execution levels by stage"]
+  },
+  {
+   "title": "Epics and generated tasks",
+   "outline": ["Parent item and task responsibilities", "Dependencies between tasks", "Planning, implementation and integration"]
+  },
+  {
+   "title": "Worktrees and work ownership",
+   "outline": ["Worktree and lane", "Work claims and path claims", "Overlaps and handoffs", "Cleanup"]
+  },
+  {
+   "title": "Review and merge",
+   "outline": ["Review before landing", "Merge queue", "Landing evidence", "Merge versus deployment"]
+  }
+ ]
 }

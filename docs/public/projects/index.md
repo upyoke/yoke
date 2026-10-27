@@ -1,7 +1,7 @@
 # Projects
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Projects
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Projects
 <!-- /yoke:breadcrumbs -->
 
 Add a project through your harness agent, then manage its capabilities,

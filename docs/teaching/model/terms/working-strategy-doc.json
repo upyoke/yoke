@@ -3,5 +3,6 @@
  "term": "Working strategy doc",
  "definition": "CURRENT-PLAN or another evolving strategy document used to organize work and steer an initiative.",
  "status": "draft",
- "sources": ["docs/public/strategy/index.md"]
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["Working strategy docs"]
 }

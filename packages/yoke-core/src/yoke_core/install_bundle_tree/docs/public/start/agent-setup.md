@@ -1,7 +1,7 @@
 # Agent setup
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Agent setup
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Agent setup
 <!-- /yoke:breadcrumbs -->
 
 Agent setup is the recommended way to get started. Ask your coding agent to

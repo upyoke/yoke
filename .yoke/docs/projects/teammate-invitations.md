@@ -1,7 +1,7 @@
 # Invite a teammate
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Invite a teammate
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Invite a teammate
 <!-- /yoke:breadcrumbs -->
 
 From your connected terminal, an organization admin invites a person with

@@ -3,5 +3,6 @@
  "term": "Steering claim",
  "definition": "Recorded ownership of a steering scope and, when specified, its planning document.",
  "status": "draft",
- "sources": ["docs/public/strategy/index.md"]
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["Steering seat", "Steering seat claim"]
 }

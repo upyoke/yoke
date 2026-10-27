@@ -1,7 +1,7 @@
 # Concepts
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Concepts
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Concepts
 <!-- /yoke:breadcrumbs -->
 
 ## Universe

@@ -1,0 +1,38 @@
+/* Platform homepage's hosting treatment, sized for the document column. */
+.intro-hosting-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin: 24px 0; }
+.intro-hosting-card { padding: 24px 20px; border: 1px solid #e0e4ef; border-radius: 12px; background: #fff; color: #20232d; }
+.intro-hosting-card.hosted { border-color: #c7cef6; background: #f8f9ff; }
+.intro-hosting-card > svg { width: 40px; height: 40px; margin-bottom: 24px; fill: none; stroke: #6270a5; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.intro-hosting-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.public-docs-intro .intro-hosting-title h3 { font-size: 25px; font-weight: 600; letter-spacing: -.035em; margin: 0; }
+.intro-hosting-title > span { font-size: 10px; padding: 4px 7px; border: 1px solid #d8def4; border-radius: 12px; color: #586589; }
+.intro-hosting-card > strong { font-size: 14px; line-height: 1.5; }
+.public-docs-intro .intro-hosting-card > p { font-size: 14px; line-height: 1.7; color: #636c81; margin: 12px 0 0; }
+@media (max-width: 720px) {
+  .intro-hosting-grid { grid-template-columns: 1fr; }
+  .intro-hosting-card { display: grid; grid-template-columns: 40px 1fr; gap: 10px 14px; }
+  .intro-hosting-card > svg { margin: 0; }
+  .intro-hosting-title { margin: 0; }
+  .intro-hosting-card > strong, .intro-hosting-card > p { grid-column: 1 / -1; }
+}
+
+.dashboard-access { margin: 24px 0; border: 1px solid #dce1eb; border-radius: 12px; background: #fff; overflow: hidden; }
+.dashboard-access-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; }
+.dashboard-access-row + .dashboard-access-row { border-top: 1px solid #e7eaf1; }
+.dashboard-access-label { display: grid; gap: 5px; }
+.dashboard-access-label strong { color: #20232d; font-size: 15px; }
+.dashboard-access-label span { color: #636c81; font-size: 13px; }
+.dashboard-access-command { display: inline-flex; align-items: stretch; gap: 14px; padding: 0; background: transparent; border: 0; }
+.public-docs-intro .dashboard-access-command code { display: flex; align-items: center; box-sizing: border-box; padding: 8px 14px; color: #20232d; font-size: 15px; white-space: nowrap; background: #eef0f4; }
+.dashboard-access-command button { border: 0; border-radius: 6px; padding: 8px 12px; background: #5753db; color: #fff; cursor: pointer; font: inherit; font-size: 13px; }
+.public-docs-intro .dashboard-access-link { color: #514dd0; font-size: 14px; text-decoration: none; font-weight: 600; }
+.dashboard-access-link:hover { text-decoration: underline; }
+.dashboard-access button:focus-visible, .dashboard-access a:focus-visible { outline: 2px solid #5753db; outline-offset: 3px; }
+.dashboard-access-status:empty { display: none; }
+.dashboard-access-status { display: block; padding: 0 24px 12px; font-size: 13px; }
+@media (max-width: 600px) {
+  .dashboard-access-row { align-items: flex-start; flex-direction: column; gap: 14px; padding: 18px; }
+}
+
+.dashboard-hosted-access { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 16px 0; }
+.dashboard-beta-pill { display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid #d5dafa; border-radius: 999px; background: #f7f8ff; color: #59658b; font-size: 12px; line-height: 1.4; white-space: nowrap; }

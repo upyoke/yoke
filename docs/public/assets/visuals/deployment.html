@@ -1,0 +1,71 @@
+<figure class="intro-deployment">
+<div class="deployment-example-kind">DEPLOYMENT FLOW</div>
+<h3 class="">Storefront production release</h3>
+<p class="deployment-example-summary">Deploy checkout changes, verify Production, and complete delivery.</p>
+<div class="deployment-example-meta">
+<div class="">
+<span class="">PROJECT</span>
+<strong class="">Storefront</strong>
+</div>
+<div class="">
+<span class="">ENVIRONMENT</span>
+<strong class="">Production</strong>
+</div>
+<div class="">
+<span class="">ON FAILURE</span>
+<strong class="">Halt</strong>
+</div>
+</div>
+<div class="deployment-example-columns">
+<div class="deployment-example-pipeline">
+<h4 class="">Pipeline</h4>
+<ol>
+<li class="">
+<span class="deployment-stage-number">1</span>
+<div class="deployment-stage-copy">
+<strong class="">merged</strong>
+<span class="">Confirm the changes are merged</span>
+</div>
+</li>
+<li class="">
+<span class="deployment-stage-number">2</span>
+<div class="deployment-stage-copy">
+<strong class="">deploy</strong>
+<span class="">Deploy the storefront</span>
+</div>
+</li>
+<li class="">
+<span class="deployment-stage-number">3</span>
+<div class="deployment-stage-copy">
+<strong class="">warm-up</strong>
+<span class="">Check Production is ready</span>
+</div>
+</li>
+<li class="qa-stage">
+<span class="deployment-stage-number">4</span>
+<div class="deployment-stage-copy">
+<strong class="">item-qa</strong>
+<span class="">Verify each item in Production</span>
+</div>
+</li>
+<li class="">
+<span class="deployment-stage-number">5</span>
+<div class="deployment-stage-copy">
+<strong class="">complete</strong>
+<span class="">Record delivery</span>
+</div>
+</li>
+</ol>
+</div>
+<div class="deployment-example-run">
+<h4 class="">Recent run</h4>
+<div class="deployment-run-receipt">
+<span class="deployment-run-success">● Succeeded</span>
+<strong class="">Checkout release</strong>
+<span class="">WEB-142 · Checkout</span>
+<div class="deployment-run-result">✓ Deployed to Production</div>
+<div class="deployment-run-result">✓ Item QA passed</div>
+</div>
+</div>
+</div>
+</figure>

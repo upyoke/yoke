@@ -1,7 +1,7 @@
 # Worktrees Function Catalog
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Functions](index.md) > Worktrees
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Worktrees
 <!-- /yoke:breadcrumbs -->
 
 Read [envelope and authority](index.md) first. `none` means no dispatcher work-claim check; handler permissions still apply. Read command help for the live payload and serving floor.

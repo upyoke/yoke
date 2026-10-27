@@ -1,7 +1,7 @@
 # Exploratory access and evidence
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Exploratory evidence
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Exploratory evidence
 <!-- /yoke:breadcrumbs -->
 
 Use the declared substrates, retain evidence and submit a verdict or decision disposition for an exploratory mission.

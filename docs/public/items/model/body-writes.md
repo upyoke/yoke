@@ -1,7 +1,7 @@
 # Body write path
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Items](../index.md) > Body writes
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Body writes
 <!-- /yoke:breadcrumbs -->
 
 Read the canonical structured-field write and body-rendering pipeline. The [database reference](../../databases/reference.md) owns shared payload conventions.

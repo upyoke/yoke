@@ -1,7 +1,7 @@
 # Strategy
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Strategy
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Strategy
 <!-- /yoke:breadcrumbs -->
 
 The workbench **Strategy** tab shows the project's planning corpus. Authority

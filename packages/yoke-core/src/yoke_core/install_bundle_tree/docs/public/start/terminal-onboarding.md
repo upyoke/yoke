@@ -1,7 +1,7 @@
 # Terminal setup (optional)
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Terminal setup (optional)
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Terminal setup (optional)
 <!-- /yoke:breadcrumbs -->
 
 Use this path if you prefer to install and configure Yoke yourself in a terminal.

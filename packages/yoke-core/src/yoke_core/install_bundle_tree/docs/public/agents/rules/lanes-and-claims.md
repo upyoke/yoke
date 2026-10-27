@@ -1,15 +1,15 @@
 # Worktree lanes, path claims, and scoping
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Lanes and claims
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Lanes and claims
 <!-- /yoke:breadcrumbs -->
 
 ## Worktree discipline
 
 - Never use `--no-worktree` unless the user asks. Never implement on main.
 - The work claim authorizes each lane; launcher `cd` and level labels grant nothing.
-  Stage-level changes follow the [worker rule](../levels.md#stage-level-handoff).
-- Prepare the registered lane right after claim, read and minimal survey, before edits.
+  Stage changes follow the [worker rule](../levels.md#stage-level-handoff).
+- Prepare the registered lane after claim, read and survey, before edits.
 - `upstream-unverified` and `upstream-stale` refusals block preparation and preserve local
   commits. Follow their recovery; never reset, rebase or force-update past them.
 
@@ -24,9 +24,8 @@ See [cleanup](../harness-discovery.md).
   when both effective axes are enabled. Budget off, claims on: derive claim paths from the
   execution document. Budget on, claims off: register no claim. Both off: neither is required.
 - Claimed paths never narrow scope: a required file stays in the item, its File Budget and its
-  claim attempt. "Avoid the overlap" never means omit the file.
-- Claims and `item_dependencies` are coordination/dependency/blocking facts. Edges are
-  directional: only the dependent waits (`yoke items dependency list PREFIX-N`).
+  claim attempt. Overlap never permits omitting files.
+- Claims and `item_dependencies` record coordination and blockers. Only the dependent waits (`yoke items dependency list PREFIX-N`).
 - Remediations: classify the overlap (independent → `coordination_only`; ordered →
   `--gate-point activation` with directional evidence; ambiguous → escalate); keep
   `state="blocked"` only on the dependent side; wait for the holder to release;

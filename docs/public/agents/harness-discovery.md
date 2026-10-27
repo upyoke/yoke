@@ -1,7 +1,7 @@
 # Native project instructions and skill discovery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Native discovery
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Native discovery
 <!-- /yoke:breadcrumbs -->
 
 Shared project instructions live in one `AGENTS.md`. Skills live once in

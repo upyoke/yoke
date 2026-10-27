@@ -1,0 +1,8 @@
+{
+ "id": "effort",
+ "term": "Effort",
+ "definition": "The model reasoning setting used alongside model identity to determine an execution level; supported settings depend on the model and harness.",
+ "status": "draft",
+ "sources": ["docs/public/agents/levels.md"],
+ "aliases": ["Reasoning effort"]
+}

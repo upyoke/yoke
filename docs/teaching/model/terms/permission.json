@@ -1,0 +1,8 @@
+{
+ "id": "permission",
+ "term": "Permission",
+ "definition": "Authority to perform an operation at a defined scope, granted through access roles and checked independently of work ownership.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"],
+ "aliases": ["Permissions"]
+}

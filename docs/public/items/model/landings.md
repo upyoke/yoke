@@ -1,7 +1,7 @@
 # Table: item_landings
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Items](../index.md) > Landing model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Landing model
 <!-- /yoke:breadcrumbs -->
 
 Every landing an item has made, appended and never replaced. The item's own

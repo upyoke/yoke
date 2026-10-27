@@ -1,7 +1,7 @@
 # Install
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Install
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Install
 <!-- /yoke:breadcrumbs -->
 
 For the recommended setup, ask your coding agent to install Yoke and guide you
@@ -27,8 +27,8 @@ Review names the files and permission settings before applying them.
 Prerequisites: a shell and `curl`. The installer installs `uv` automatically
 when it is missing. Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and
-`yoke update`, without changing your system Python. Native Windows is a best-effort
-compatibility path requiring Python 3.12 or newer; WSL follows the Linux path.
+`yoke update`, without changing your system Python. On Windows, use WSL2 with Ubuntu and follow the Linux path; native Windows
+execution is unsupported.
 Run installation, onboarding and harness CLIs inside the WSL Linux filesystem
 with systemd enabled. To open a URL in the Windows browser, Yoke tries
 `wslview`, then `explorer.exe` if Python's browser opener fails. Install `wslu`
