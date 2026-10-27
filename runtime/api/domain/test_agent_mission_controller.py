@@ -236,3 +236,18 @@ def test_plan_routes_controller_mission_without_selected_machine():
         "test_machine.plan_case.begin",
         "qa.plan_review.begin",
     ]
+
+
+def test_docket_failure_preserves_callers_transaction(test_db, monkeypatch):
+    from yoke_core.domain import agent_mission_controller as controller
+
+    execution = _mission(test_db)
+    case = execution["roster"][0]
+    test_db.execute("UPDATE qa_plans SET name='caller write' WHERE id=%s", (case["plan_id"],))
+    def fail_advance(*args, **kwargs):
+        raise ValueError("injected cursor failure")
+    monkeypatch.setattr(controller, "advance_plan_execution", fail_advance)
+    with pytest.raises(ValueError, match="injected cursor failure"):
+        controller.record_controller_mission(test_db, execution, case, ordinal=0)
+    assert test_db.execute("SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s", (case["requirement_id"],)).fetchone()[0] == 0
+    assert test_db.execute("SELECT name FROM qa_plans WHERE id=%s", (case["plan_id"],)).fetchone()[0] == "caller write"

@@ -9,7 +9,7 @@ from yoke_core.domain.qa_plan_execution_store import result_rows
 
 def record_controller_mission(conn, execution, case, *, ordinal):
     """Record one replayable docket without acquiring or changing any host lease."""
-    with savepoint(conn):
+    with savepoint(conn, "controller_mission_capture", owns=False):
         for row in result_rows(conn, str(execution["id"])):
             if row["ordinal"] == ordinal:
                 return dict(row["result"])
