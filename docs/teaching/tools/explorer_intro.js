@@ -5,7 +5,7 @@ function renderIntro(article) {
   const image = document.createElement('img');
   image.src = data.intro_visual;
   image.alt = 'Your codebase connected through Yoke to Claude Code, Codex and Cursor.';
-  viewport.append(image); article.append(viewport, introArticleLinks([['understand', 'What is Yoke?']]));
+  viewport.append(image); article.append(viewport);
 }
 function introArticleLinks(links) {
   const nav = text('nav', '', 'intro-article-links');
