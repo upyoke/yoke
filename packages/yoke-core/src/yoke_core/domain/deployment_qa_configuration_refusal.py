@@ -9,9 +9,6 @@ the stage.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
 from yoke_contracts.refusal_recovery import compose_refusal
 
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -22,15 +19,11 @@ def configuration_blocker(
     *,
     run_id: str,
     stage_name: str,
-    member: int | None = None,
-    item_refs: Callable[[Any], str] | None = None,
-    label: str | None = None,
+    label: str,
 ) -> str | None:
     """The waiting line for one subject's configuration refusal, or None."""
     if not isinstance(exc, QaPlanError):
         return None
-    if label is None:
-        label = f"member {item_refs(member)}" if member is not None else "run"
     return compose_refusal(
         f"{label}: qa_configuration_refused: {exc} {label} stays held at stage {stage_name!r} while other members keep settling. Run {run_id} stays executing and its recorded QA results are kept.",
         recovery=f"fix the named QA configuration, then re-drive the same run with `yoke watch deploy -- {run_id}`.",

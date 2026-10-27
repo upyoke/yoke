@@ -51,7 +51,6 @@ from yoke_contracts.public_ref import format_item_ref
 #: One notice per item and the run whose item-scoped QA it accepted.
 ITEM_QA_ACCEPTED_KEY_PREFIX = "release-wait-item-qa-accepted:"
 
-MEMBER_CLOSE_OUT_LIMIT = 2
 MEMBER_CLOSE_OUT_BUDGET_SECONDS = 5.0
 
 _SEND_SAVEPOINT = "_yoke_item_qa_accepted_notice"
@@ -207,24 +206,24 @@ def notify_items_qa_accepted(
     run_id: str,
     item_ids: tuple[int, ...],
     now: Optional[datetime] = None,
-) -> tuple[int, ...]:
-    """Close a bounded number of members, returning work for the next dispatch.
+) -> None:
+    """Close or notify each accepted member until the time budget runs out.
 
     Read only the next member's route, outside the previous close-out's QA
-    snapshot. Each close-out or notice commits independently. The time budget
-    stops starting another operation; it cannot interrupt one already running.
+    snapshot. Each close-out or notice commits independently, and a refused
+    close-out never stops the members after it. The time budget stops
+    starting another operation; it cannot interrupt one already running. A
+    member left past the budget closes on a later dispatch or at settlement.
     """
     now = parse_instant(utc_now() if now is None else now)
     if not run_id or not item_ids:
-        return ()
+        return
     _withdraw_waits(conn, run_id=str(run_id), item_ids=item_ids, now=now)
     conn.commit()
-    pending = tuple(dict.fromkeys(int(item_id) for item_id in item_ids))
     deadline = time.monotonic() + MEMBER_CLOSE_OUT_BUDGET_SECONDS
-    attempted = 0
-    for index, item_id in enumerate(pending):
-        if attempted >= MEMBER_CLOSE_OUT_LIMIT or time.monotonic() >= deadline:
-            return pending[index:]
+    for item_id in dict.fromkeys(int(item_id) for item_id in item_ids):
+        if time.monotonic() >= deadline:
+            return
         route = _member_close_out_route(conn, run_id=str(run_id), item_id=item_id)
         if route is None:
             continue
@@ -232,8 +231,6 @@ def notify_items_qa_accepted(
             conn, run_id=str(run_id), item_id=item_id, route=route, now=now
         )
         conn.commit()
-        attempted += 1
-    return ()
 
 
 def _close_or_notify(

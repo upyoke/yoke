@@ -101,6 +101,40 @@ def test_member_configuration_refusal_holds_that_member_while_others_settle() ->
     assert closed == [WAITING_MEMBER]
 
 
+def test_configuration_refusal_wakes_each_held_member_once() -> None:
+    wakes: list[tuple[int, str, bool, str]] = []
+    with (
+        patch.object(
+            gate,
+            "deployment_qa_stage_status",
+            side_effect=QaPlanError(SNAPSHOT_MISSING),
+        ),
+        patch.object(dispatch, "removed_item_ids", return_value=set()),
+        patch.object(
+            dispatch,
+            "notify_item_scoped_qa_wait",
+            side_effect=lambda conn, **kw: wakes.append(
+                (kw["item_id"], kw["reasons"], kw["names_cases"], kw["target_digest"])
+            )
+            or "delivered",
+        ),
+        patch(
+            "yoke_core.domain.deployment_qa_member_acceptance_notice."
+            "notify_items_qa_accepted"
+        ),
+    ):
+        code, message = dispatch.materialize_and_gate_deployment_qa_stage(
+            _Conn(), STAGE, run_id=RUN_ID
+        )
+
+    assert code == AWAITING_SCOPED_QA
+    assert [(item, names, digest) for item, _, names, digest in wakes] == [
+        (SETTLED_MEMBER, False, ""),
+        (WAITING_MEMBER, False, ""),
+    ]
+    assert "; ".join(reasons for _, reasons, _, _ in wakes) == message
+
+
 def test_other_gate_errors_still_fail_the_stage() -> None:
     code, message, _ = _gate_with(LookupError("member snapshot is unreadable"))
 
