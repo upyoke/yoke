@@ -1,7 +1,7 @@
 # Codex on a dedicated Linux Test Machine
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Codex on Linux
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Codex on Linux
 <!-- /yoke:breadcrumbs -->
 
 Return to [Linux provisioning](linux-host-provisioning.md) after these checks.

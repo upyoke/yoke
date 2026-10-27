@@ -1,7 +1,7 @@
 # Sessions
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Sessions
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Sessions
 <!-- /yoke:breadcrumbs -->
 
 Inspect session liveness, work ownership and steering communication.

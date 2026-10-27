@@ -1,0 +1,7 @@
+{
+ "id": "portability",
+ "term": "Portability",
+ "definition": "The ability to move Yoke data between installations or hosting modes. See Universe portability for moving a universe.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

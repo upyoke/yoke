@@ -1,0 +1,7 @@
+{
+ "id": "run",
+ "term": "Run",
+ "definition": "An execution record; distinguish QA run, deployment run and setup/onboarding run.",
+ "status": "draft",
+ "sources": ["docs/public/verification/model/qa.md"]
+}

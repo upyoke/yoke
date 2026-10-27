@@ -1,0 +1,8 @@
+{
+ "id": "execution-posture",
+ "term": "Execution posture",
+ "definition": "Workflow policy settings that govern how work is performed, including verification, file budgets, path claims, approvals, and delivery. Allowed adjustments do not remove core gates.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"],
+ "aliases": ["Posture"]
+}

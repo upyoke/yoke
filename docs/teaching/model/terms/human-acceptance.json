@@ -1,0 +1,7 @@
+{
+ "id": "human-acceptance",
+ "term": "Human acceptance",
+ "definition": "A person's sign-off required to accept an outcome.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "requirement",
+ "term": "Requirement",
+ "definition": "Usually a QA requirement: an obligation that must be satisfied, not the attempt to satisfy it.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

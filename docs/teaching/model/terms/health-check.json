@@ -1,0 +1,8 @@
+{
+ "id": "health-check",
+ "term": "Health check",
+ "definition": "A check of whether an installation, service, connection, or project prerequisite is available and ready, with findings and recovery guidance.",
+ "status": "draft",
+ "sources": ["docs/public/verification/health-readiness.md"],
+ "aliases": ["Health checks"]
+}

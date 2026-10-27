@@ -1,7 +1,7 @@
 # Case starting state and activity
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Starting state and activity
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Starting state and activity
 <!-- /yoke:breadcrumbs -->
 
 Declare a Machine case's starting state and read its subject, execution and evidence through the shared activity projection.

@@ -1,18 +1,18 @@
 # Database authority and governed mutation
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Databases
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Databases
 <!-- /yoke:breadcrumbs -->
 
 ## Control-plane authority
 
-- The control plane is Postgres. Use `yoke <subcommand>` and `yoke db read "SELECT ..."`;
-  never construct a DB file path or treat a worktree as a control plane. `yoke env list`
-  names your connections. A missing mutation escalates to the control-plane operator.
+- The control plane uses Postgres. Use `yoke <subcommand>` and `yoke db read "SELECT ..."`;
+  never invent DB paths or use worktrees as control planes. `yoke env list` lists connections.
+  Missing mutations: ask the control-plane operator.
 - Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`.
-- Read settings one scalar leaf at a time:
+- Read one scalar setting at a time:
   `yoke projects environment-settings get --project P --environment E --path KEY.PATH`.
-- Code and tests use the model's validation surface (`model.runner.connection_env_var`,
+- Code and tests use model validation (`model.runner.connection_env_var`,
   default `YOKE_DB`); control-plane commands use `CANONICAL_YOKE_DB`. Client code relays to the
   control plane and never connects; code that truly owns a local database declares
   `local_authority_exempt()` at the call site. Converge and apply refuse on a prod-flagged

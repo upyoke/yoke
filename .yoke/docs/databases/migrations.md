@@ -1,7 +1,7 @@
 # Database migration conventions
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Migration conventions
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Migration conventions
 <!-- /yoke:breadcrumbs -->
 
 Use the timestamp, query-clock and migration-audit conventions when authoring or applying governed migrations.

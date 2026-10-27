@@ -1,0 +1,7 @@
+{
+ "id": "release",
+ "term": "Release",
+ "definition": "A delivered version whose identity and required evidence are recorded.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/releases.md"]
+}

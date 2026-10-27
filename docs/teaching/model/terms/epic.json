@@ -1,0 +1,7 @@
+{
+ "id": "epic",
+ "term": "Epic",
+ "definition": "A workflow for work divided into coordinated tasks.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"]
+}

@@ -1,7 +1,7 @@
 # Inbox and messaging
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Sessions](index.md) > Inbox and messaging
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Inbox and messaging
 <!-- /yoke:breadcrumbs -->
 
 Read decisions and delivery notices, then address messages to their intended recipients.

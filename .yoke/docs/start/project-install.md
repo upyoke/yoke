@@ -1,7 +1,7 @@
 # Project installation
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Project installation
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Project installation
 <!-- /yoke:breadcrumbs -->
 
 Install the operating layer in an existing project, and keep source-maintainer

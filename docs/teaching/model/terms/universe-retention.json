@@ -1,0 +1,7 @@
+{
+ "id": "universe-retention",
+ "term": "Universe retention",
+ "definition": "The policy governing how long disposable universe records are kept, with protection for durable work and evidence.",
+ "status": "draft",
+ "sources": ["docs/public/universe-retention.md"]
+}

@@ -1,0 +1,8 @@
+{
+ "id": "dependency-edge",
+ "term": "Dependency edge",
+ "definition": "A directed relationship from a dependent item to a blocker, recording when the wait applies, what satisfies it, and why it exists. Coordination-only edges record a relationship without imposing a wait.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"],
+ "aliases": ["Dependency edges"]
+}

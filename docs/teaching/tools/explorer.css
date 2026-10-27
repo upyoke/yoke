@@ -73,13 +73,26 @@ summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
   .connection-card { max-width: 100%; }
 }
 
-#view-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 28px; border-bottom: 1px solid #dfe5df; background: white; }
-#view-nav button { border: 0; background: transparent; }
-#view-nav .active { background: #e5eee5; font-weight: 650; }
 .research-status { font-size: 12px; line-height: 1.5; color: #876539; }
-.research-links { margin-top: 32px; border-top: 1px solid #dce4dc; padding-top: 16px; }
-.reference-list { padding-left: 22px; }
-.reference-list li { margin: 14px 0; overflow-wrap: anywhere; }
-.reference-list small { display: block; color: #6c7b70; font-size: 12px; margin-top: 3px; }
 .detail { overflow-wrap: anywhere; }
 .detail h3 { font-size: 16px; margin-bottom: 6px; }
+
+#view-nav { display: flex; gap: 8px; padding: 14px 28px; border-bottom: 1px solid #dfe5df; background: white; }
+#view-nav .active { background: #e5eee5; font-weight: 650; }
+.term-search { width: min(100%, 460px); padding: 12px; margin: 8px 0 24px; border: 1px solid #c9d5cc; border-radius: 6px; font: inherit; }
+.term-entry { padding: 18px 0; border-bottom: 1px solid #dfe5df; }
+.term-entry h2 { margin: 0 0 8px; font-size: 18px; }
+.term-entry p { margin: 0 0 8px; line-height: 1.6; }
+.term-source { display: inline-block; margin-right: 16px; font-size: 13px; }
+
+.map-disclosure { margin: 20px 0; }
+.map-disclosure > summary { cursor: pointer; font-weight: 600; }
+.map-links { padding-left: 22px; max-height: 420px; overflow: auto; }
+.map-links li { margin: 10px 0; }
+.map-coverage { border-top: 1px solid #dce4dc; margin-top: 36px; padding-top: 18px; }
+.map-table { border-collapse: collapse; width: 100%; }
+.map-table th, .map-table td { text-align: left; padding: 10px; border-bottom: 1px solid #dce4dc; }
+.map-chip { display: inline-block; margin: 4px 12px 4px 0; }
+.docs-map-branch { grid-column: 1 / -1; min-width: 0; margin-bottom: 24px; }
+.docs-map-children { margin: 18px 0 0 20px; padding-left: 20px; border-left: 2px solid #b7cbbb; }
+.docs-map-children > .source-size { margin: 0 0 12px; }

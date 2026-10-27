@@ -1,0 +1,7 @@
+{
+ "id": "post-deploy-qa",
+ "term": "Post-deploy QA",
+ "definition": "Checks that prove the required behavior after deployment.",
+ "status": "draft",
+ "sources": ["docs/public/verification/deployment-plan-execution.md"]
+}

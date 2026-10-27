@@ -1,0 +1,7 @@
+{
+ "id": "exploratory-mission",
+ "term": "Exploratory mission",
+ "definition": "A QA assignment to investigate an area and report findings rather than follow only fixed assertions.",
+ "status": "draft",
+ "sources": ["docs/public/verification/exploration.md"]
+}

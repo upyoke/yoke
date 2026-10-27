@@ -1,0 +1,7 @@
+{
+ "id": "qa-requirement",
+ "term": "QA requirement",
+ "definition": "A concrete obligation to provide qualifying evidence for a subject.",
+ "status": "draft",
+ "sources": ["docs/public/verification/platform.md"]
+}

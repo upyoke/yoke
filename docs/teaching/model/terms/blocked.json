@@ -1,0 +1,7 @@
+{
+ "id": "blocked",
+ "term": "Blocked",
+ "definition": "Work that cannot proceed because a required condition or dependency is unmet.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

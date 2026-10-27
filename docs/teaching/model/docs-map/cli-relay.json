@@ -1,0 +1,18 @@
+{
+ "id": "cli-relay",
+ "title": "Yoke CLI and relay",
+ "parent": null,
+ "route": "/docs/guide/cli-relay",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain the command-line interface and the machine relay that connects agent sessions to Yoke.",
+ "outline": ["What the Yoke CLI does", "How agents use the CLI", "What runs on your machine and what runs in the universe", "The relay: launching sessions and reporting liveness", "Connection and relay troubleshooting"],
+ "terms": ["cli", "relay", "machine", "connection", "harness-session", "session-liveness", "fleet-control", "session-launch"],
+ "commands": ["command:yoke", "command:yoke relay", "command:yoke session-control"],
+ "sources": ["doc:docs/public/cli/index.md", "doc:docs/public/sessions/linux-relay.md", "doc:docs/public/sessions/model/sessions.md"],
+ "deeper_pages": ["reference", "sessions"],
+ "open_questions": [],
+ "position": 25,
+ "topics": []
+}

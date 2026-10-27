@@ -1,7 +1,7 @@
 # Frontier
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Strategy](index.md) > Frontier
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Strategy](index.md) > Frontier
 <!-- /yoke:breadcrumbs -->
 
 The **Frontier** is what can run now, ranked with reasons. You steer; a

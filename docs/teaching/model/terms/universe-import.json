@@ -1,0 +1,7 @@
+{
+ "id": "universe-import",
+ "term": "Universe import",
+ "definition": "Loading an exported universe archive into a destination Yoke installation.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

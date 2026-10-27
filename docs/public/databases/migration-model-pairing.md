@@ -1,7 +1,7 @@
 # Migration model audit and pairing
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Migration pairing
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Migration pairing
 <!-- /yoke:breadcrumbs -->
 
 Configure migration audit bootstrap, environment pairing and the Webapp Pack against the migration model contract.

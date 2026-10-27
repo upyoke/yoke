@@ -1,0 +1,7 @@
+{
+ "id": "yoke-cloud",
+ "term": "Yoke Cloud",
+ "definition": "The hosted Yoke service at upyoke.com. See Hosted mode.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

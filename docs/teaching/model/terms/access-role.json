@@ -1,0 +1,8 @@
+{
+ "id": "access-role",
+ "term": "Access role",
+ "definition": "A named set of permissions assigned to an actor at an organization or project scope. It is distinct from an agent role used to perform work.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"],
+ "aliases": ["Organization role", "Project role"]
+}

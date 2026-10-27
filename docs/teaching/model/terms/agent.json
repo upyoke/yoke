@@ -1,0 +1,7 @@
+{
+ "id": "agent",
+ "term": "Agent",
+ "definition": "A coding assistant that uses Yoke to carry out work with you.",
+ "status": "draft",
+ "sources": ["docs/public/agents/index.md"]
+}

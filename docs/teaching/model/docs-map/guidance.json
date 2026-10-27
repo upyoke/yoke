@@ -1,0 +1,27 @@
+{
+ "id": "guidance",
+ "title": "Agent guidance",
+ "parent": null,
+ "route": "/docs/guide/guidance",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain where instructions come from and when agents receive them.",
+ "outline": ["Skills and agent roles", "Hooks, packets and repository rules"],
+ "terms": ["agent", "agent-role", "agents-md", "harness", "hook", "skill", "context-packet", "harness-session", "watcher", "agent-guidance", "context-chain"],
+ "commands": ["command:yoke packets", "command:yoke agents", "command:yoke hook", "command:yoke codex"],
+ "sources": ["source:rules", "source:skills", "source:roles", "source:packets", "source:global-hooks", "source:project-hooks", "doc:docs/public/agents/index.md", "doc:docs/public/agents/harness-discovery.md", "replies:packets", "replies:agents", "doc:docs/public/agents/commands.md", "doc:docs/public/agents/maintenance-commands.md", "doc:docs/public/agents/codex.md", "doc:docs/public/agents/cursor.md", "doc:docs/public/agents/rules/claude-sessions.md", "doc:docs/public/agents/rules/claude-long-commands.md", "packet:main_agent", "replies:hook"],
+ "deeper_pages": ["execution-instructions"],
+ "open_questions": ["This is a source map, not a request to duplicate every instruction into public docs."],
+ "position": 25,
+ "topics": [
+  {
+   "title": "Skills and agent roles",
+   "outline": ["Choosing a skill", "Roles in planning, implementation and review", "Skill references versus CLI commands"]
+  },
+  {
+   "title": "Hooks, packets and repository rules",
+   "outline": ["Harness-specific discovery", "Session events", "Focused packets", "AGENTS.md and project rules"]
+  }
+ ]
+}

@@ -1,10 +1,11 @@
-"""Build the unified responsive teaching guide from sources and research."""
+"""Build the responsive Sources guide."""
 
 import json
 from pathlib import Path
 from functools import lru_cache
 
 from inventory import live_registries
+from explorer_public_intro import public_intro_html, public_intro_css
 from explorer_types import describe_nodes, describe_scope, describe_sizes, rollup_output_sizes
 from explorer_documents import add_documents, add_sections, connect_document_links, document, expand_prose_topics, describe_message_estimates
 from explorer_sources import order_nodes
@@ -24,7 +25,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_research.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_start.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -190,19 +191,23 @@ def build_explorer(views, pages):
     Embedded documents and records are verbatim copies of tracked files whose
     owners scan them, so the scan covers the shell, each node and build data.
     """
-    from explorer_research import add_research
-    from explorer_inventory import add_inventories, source_snapshot
+    from explorer_inventory import source_snapshot
+
+    from explorer_terms import add_terms
+    from explorer_docs_map import add_docs_map
 
     nodes = map_nodes(pages.m)
-    if pages.m.problems:
-        return {}
-    add_research(nodes, pages.m)
-    add_inventories(nodes, pages)
+    add_terms(nodes, pages.m)
+    add_docs_map(nodes, pages.m)
+    nodes.append(dict(id='view:getting-started', title='Getting started', parent=None,
+                      summary='', view='getting-started', node_type='page',
+                      type_label='Page preview', guidance_scope='repository'))
     if pages.m.problems:
         return {}
     data = dict(nodes=nodes, documents=embedded_documents(nodes, pages.m),
                 records=embedded_records(nodes, pages.m),
                 build=source_snapshot(nodes, pages))
+    data['public_intro'] = public_intro_html()
     if pages.m.problems:
         return {}
     views[PAGE] = page_html(data, pages.m)
@@ -239,13 +244,14 @@ def embedded_records(nodes, model):
 
 
 def embed_json(value):
-    """JSON safe inside a script element: no less-than character survives."""
     return json.dumps(value, ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c')
 
 
 def page_html(data, model):
     """One self-contained page: inline style, scripts and embedded data."""
-    css = HERE.joinpath('explorer.css').read_text(encoding='utf-8')
+    css = '\n'.join(HERE.joinpath(name).read_text(encoding='utf-8')
+                    for name in ('explorer.css', 'explorer_outline.css'))
+    css += '\n' + public_intro_css()
     scripts = [HERE.joinpath(name).read_text(encoding='utf-8') for name in SCRIPTS]
     for name, text in [('explorer.css', css), *zip(SCRIPTS, scripts)]:
         for unsafe in ('</style', '</script', '<!--'):
@@ -266,7 +272,7 @@ def page_html(data, model):
 </head>
 <body>
 <header class="site-header"><a class="brand" href="{PAGE}">yoke <span>Yokepedia</span></a><span class="review">Design preview</span></header>
-<nav id="view-nav" aria-label="Browse teaching"></nav>
+<nav id="view-nav" aria-label="Browse Yokepedia"></nav>
 <div class="page-layout">
 <aside id="sources" aria-label="Teaching sources"><div class="rail-title">Sources</div><nav id="source-list"></nav></aside>
 <main id="main"><nav id="trail" aria-label="Breadcrumbs"></nav><div id="world"></div>

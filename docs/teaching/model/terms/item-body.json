@@ -1,0 +1,7 @@
+{
+ "id": "item-body",
+ "term": "Item body",
+ "definition": "The readable view assembled from an item's structured fields.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/body-writes.md"]
+}

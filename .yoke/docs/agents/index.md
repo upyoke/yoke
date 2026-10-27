@@ -1,7 +1,7 @@
 # Operating with agents
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Agents
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Agents
 <!-- /yoke:breadcrumbs -->
 
 Yoke attaches to agent hosts (Claude Code, Codex, Cursor, …). The harness

@@ -1,0 +1,7 @@
+{
+ "id": "task",
+ "term": "Task",
+ "definition": "A unit of work within a larger item; in an agent app, task can also mean the conversation itself.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/tasks.md"]
+}

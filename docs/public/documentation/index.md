@@ -1,7 +1,7 @@
 # Documentation
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Documentation
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Documentation
 <!-- /yoke:breadcrumbs -->
 
 Teach the next supported action with its prerequisites, a complete example and

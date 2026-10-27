@@ -1,0 +1,23 @@
+{
+ "id": "access.collaboration",
+ "title": "Team collaboration",
+ "parent": null,
+ "route": "/docs/guide/access.collaboration",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain solo and team collaboration across machines and harness sessions in a shared Universe.",
+ "outline": ["Control access and decisions"],
+ "terms": ["universe", "actor", "member", "invitation", "machine", "machine-approval", "harness-session", "steering", "work-claim", "authentication", "authorization", "organization", "message", "decision", "access-role", "permission", "billing", "qa-review"],
+ "commands": ["command:yoke invites", "command:yoke invite", "command:yoke machine", "command:yoke sessions", "command:yoke claims steering", "command:yoke actors", "command:yoke auth", "command:yoke identity", "command:yoke tokens"],
+ "sources": ["doc:docs/public/start/modes.md", "doc:docs/public/projects/teammate-invitations.md", "doc:docs/public/cli/machine-authorization.md", "doc:docs/public/sessions/model/coordination.md", "doc:docs/public/projects/actors-members-billing.md", "doc:docs/public/projects/hosted-org-admin.md", "packet:main_agent:auth", "replies:actors", "replies:identity", "replies:tokens"],
+ "deeper_pages": ["sessions"],
+ "open_questions": ["Split billing from access when the human explanation is written."],
+ "position": 11,
+ "topics": [
+  {
+   "title": "Control access and decisions",
+   "outline": ["Actor and organization", "Invite and authorize people", "Approve machines", "Roles and billing boundaries"]
+  }
+ ]
+}

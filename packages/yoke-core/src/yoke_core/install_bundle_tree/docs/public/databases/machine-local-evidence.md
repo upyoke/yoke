@@ -1,7 +1,7 @@
 # Machine-local evidence
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Machine-local evidence
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Machine-local evidence
 <!-- /yoke:breadcrumbs -->
 
 A relay diagnostic, a watcher capture, and the relay's own service log are written to the machine that produced them and to nowhere else. That is right — they can hold native output, and shipping every machine's logs into the control plane would be both a privacy problem and a storage one. It also means a seat on another machine could see *that* a launch or a wake failed and never see *why*, which is the half an operator actually needs. Four steering waits were abandoned by hand in one night over failures whose whole diagnosis sat unread on the machine that produced it.

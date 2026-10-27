@@ -1,7 +1,7 @@
 # Browser action budgets and failure evidence
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Browser action evidence
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Browser action evidence
 <!-- /yoke:breadcrumbs -->
 
 Arm the monotonic timer and required creating-state captures before the

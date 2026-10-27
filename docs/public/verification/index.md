@@ -1,7 +1,7 @@
 # Verification
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Verification
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
 Define cases and inspect evidence for workflow and deployment gates.
@@ -38,12 +38,10 @@ Bind a source-level command with no deployment environment flags:
 yoke qa registered-command set --project <p> --scope quick --command "<argv>"
 ```
 
-That converges the whole binding: the `registered-command-quick` plan, its
-case, the runner the case uses, and the project-default attachments at the
-gating transitions. The command is arbitrary shell argv: Maven, PHPUnit,
-`xcodebuild`, and `docker compose run --rm tests` are as valid as pytest.
-Register a reliable documented slice as `quick`; add `--scope full` with the
-broader argv only when the two commands genuinely differ.
+This converges the `registered-command-quick` plan, case, runner, and default
+gate attachments. Any shell argv works, including Maven, PHPUnit, `xcodebuild`,
+`docker compose run --rm tests`, or pytest. Use a reliable documented slice
+for `quick`; add `--scope full` only for a genuinely broader command.
 
 Read a binding through its project-local plan slug:
 

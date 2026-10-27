@@ -1,0 +1,8 @@
+{
+ "id": "execution-instruction",
+ "term": "Execution instruction",
+ "definition": "A project or workflow rule supplied when its declared scope applies to work.",
+ "status": "draft",
+ "sources": ["docs/public/projects/execution-instructions.md"],
+ "aliases": ["Execution instructions"]
+}

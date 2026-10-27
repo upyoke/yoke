@@ -1,0 +1,8 @@
+{
+ "id": "workflow",
+ "term": "Workflow",
+ "definition": "The versioned lifecycle an item follows, including stages, gates and execution rules.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/index.md"],
+ "aliases": ["Workflows"]
+}

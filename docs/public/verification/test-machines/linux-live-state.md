@@ -1,7 +1,7 @@
 # Linux live harness installations and reset recovery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux live state
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux live state
 <!-- /yoke:breadcrumbs -->
 
 Install Claude, Codex and Cursor as the dedicated test user using the supported

@@ -1,0 +1,7 @@
+{
+ "id": "feed",
+ "term": "Feed",
+ "definition": "The /yoke feed skill refreshes stale work items and dependency facts and can file new work from strategy. It is distinct from Steering’s ongoing coordination.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/frontier.md"]
+}

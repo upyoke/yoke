@@ -1,7 +1,7 @@
 # Path claims — render-relationship classifier reference
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Sessions](../index.md) > Path claim model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Sessions](../index.md) > Path claim model
 <!-- /yoke:breadcrumbs -->
 
 Quick reference for the render-target / render-source classifier

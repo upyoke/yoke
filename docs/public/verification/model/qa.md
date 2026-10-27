@@ -1,7 +1,7 @@
 # QA data model
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > QA model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > QA model
 <!-- /yoke:breadcrumbs -->
 
 Schemas for QA requirements, actual executions and artifact handles. Read [database reference](../../databases/reference.md) for entry points and JSON conventions, and [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions.

@@ -1,0 +1,7 @@
+{
+ "id": "context-chain",
+ "term": "Context chain",
+ "definition": "The layers of guidance an agent receives or follows as it works, from installed instructions and hooks to skills, scoped instructions, and focused packets.",
+ "status": "draft",
+ "sources": ["docs/public/agents/harness-discovery.md"]
+}

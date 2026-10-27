@@ -1,0 +1,8 @@
+{
+ "id": "current-plan",
+ "term": "Current plan",
+ "definition": "The strategy document describing the project's near-term focus.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["CURRENT-PLAN"]
+}

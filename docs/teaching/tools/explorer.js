@@ -43,15 +43,17 @@ function makeCard(node) {
   card.append(title);
   if (node.summary) card.append(text('p', node.summary, 'summary'));
   appendSizes(card, node);
-  if (node.status_label && node.record_kind !== 'concept') card.append(text('p', node.status_label, 'research-status'));
+  if (node.status_label) card.append(text('p', node.status_label, 'research-status'));
   card.append(nodeLink(node, node.children.length
     ? `Explore ${node.children.length} ${node.children.length === 1 ? 'entry' : 'entries'} →`
     : 'Read details →', 'card-link'));
   return card;
 }
 function render() {
+  document.body.classList.toggle('docs-map-overview', focus?.id === 'view:docs-map');
   world.replaceChildren();
   updateTrail(); updateSourceList(); updateConnections(); renderViewNav();
+  if (focus?.id === 'view:getting-started') { renderGettingStarted(); return; }
   const heading = text('section', '', 'page-heading');
   if (focus) heading.append(typeBadge(focus));
   heading.append(text('h1', focus ? focus.title : 'What teaches Yoke'));
@@ -63,6 +65,8 @@ function render() {
       `${focus.coverage} direct teaching mappings. A mapping does not prove delivery.`, 'summary'));
   }
   world.append(heading);
+  if (focus?.id === 'view:docs-map' || focus?.page_spec) { renderDocsMap(focus); return; }
+  if (focus?.id === 'view:index') { renderTermIndex(focus); return; }
   const children = focus ? focus.children : roots.filter(node => !node.view);
   if (children.length) {
     const grid = text('div', '', 'card-grid');
@@ -78,7 +82,7 @@ function render() {
     if (children.length) section.ontoggle = () => { if (section.open) fillDetail(focus, section); };
     else fillDetail(focus, section);
   }
-  if (focus) researchLinks(focus, world);
+  if (focus) renderProposedPages(focus);
   notice.textContent = `${children.length} ${children.length === 1 ? 'entry' : 'entries'}`;
 }
 const MISSING = ' is missing from this build. Rebuild Yokepedia: yoke dev yokepedia';
@@ -87,8 +91,8 @@ function fillDetail(node, el) {
   el.dataset.loaded = 'yes';
   const body = el.querySelector('.detail');
   if (node.record) {
-    if (node.record in data.records) fillResearch(node, data.records[node.record], body);
-    else body.append(text('p', 'Research record' + MISSING, 'error'));
+    if (node.record in data.records) fillRecord(node, data.records[node.record], body);
+    else body.append(text('p', 'Decision record' + MISSING, 'error'));
   }
   if (node.body) body.append(text('div', node.body, 'document'));
   if (node.document) {

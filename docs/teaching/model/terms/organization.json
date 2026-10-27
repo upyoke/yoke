@@ -1,0 +1,7 @@
+{
+ "id": "organization",
+ "term": "Organization",
+ "definition": "The shared identity and membership boundary for people using Yoke together.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"]
+}

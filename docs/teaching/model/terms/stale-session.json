@@ -1,0 +1,7 @@
+{
+ "id": "stale-session",
+ "term": "Stale session",
+ "definition": "A session eligible for reclaim under Yoke's ownership and liveness rules.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

@@ -1,0 +1,8 @@
+{
+ "id": "migration",
+ "term": "Migration",
+ "definition": "A controlled change to a database's schema or data.",
+ "status": "draft",
+ "sources": ["docs/public/databases/migrations.md"],
+ "aliases": ["Migrations", "Database migration", "Database migrations"]
+}

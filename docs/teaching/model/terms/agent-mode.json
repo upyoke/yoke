@@ -1,0 +1,7 @@
+{
+ "id": "agent-mode",
+ "term": "Agent mode",
+ "definition": "Setup conducted through questions your agent relays to you.",
+ "status": "draft",
+ "sources": ["docs/public/start/agent-setup.md"]
+}

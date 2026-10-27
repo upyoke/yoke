@@ -1,7 +1,7 @@
 # Setup responsibilities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Setup responsibilities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Setup responsibilities
 <!-- /yoke:breadcrumbs -->
 
 For stored-password setup commands on macOS and Linux, follow [administrator commands](administrator-commands.md).

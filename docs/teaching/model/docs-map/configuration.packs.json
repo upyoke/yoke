@@ -1,0 +1,17 @@
+{
+ "id": "configuration.packs",
+ "title": "Packs",
+ "parent": null,
+ "route": "/docs/guide/configuration.packs",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain reusable setup and guidance and how projects adopt updates.",
+ "outline": ["What a Pack supplies", "Install settings versus runtime settings", "Versions and updates", "Pack-owned documentation"],
+ "terms": ["pack", "pack-settings"],
+ "commands": ["command:yoke packs"],
+ "sources": ["source:packs", "doc:docs/public/agents/rules/packs.md", "packet:main_agent:packs"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 30
+}

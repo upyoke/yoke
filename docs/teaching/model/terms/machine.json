@@ -1,0 +1,7 @@
+{
+ "id": "machine",
+ "term": "Machine",
+ "definition": "A computer registered or configured to connect to Yoke and perform work.",
+ "status": "draft",
+ "sources": ["docs/public/cli/machine-authorization.md"]
+}

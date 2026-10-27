@@ -1,7 +1,7 @@
 # Events
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Operations](index.md) > Events
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Operations](index.md) > Events
 <!-- /yoke:breadcrumbs -->
 
 Read workbench telemetry, collector admission and durable visitor attribution.

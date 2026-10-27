@@ -1,0 +1,7 @@
+{
+ "id": "doctor",
+ "term": "Doctor",
+ "definition": "Yoke's health checks and their findings and recovery guidance.",
+ "status": "draft",
+ "sources": ["docs/public/operations/doctor.md"]
+}

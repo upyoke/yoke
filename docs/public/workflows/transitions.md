@@ -1,7 +1,7 @@
 # Workflow transitions and routing
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Workflows](index.md) > Transitions and routing
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Workflows](index.md) > Transitions and routing
 <!-- /yoke:breadcrumbs -->
 
 Follow post-merge transitions, registered skill boundaries and explicit staffing.

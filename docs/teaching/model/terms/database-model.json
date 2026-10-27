@@ -1,0 +1,7 @@
+{
+ "id": "database-model",
+ "term": "Database model",
+ "definition": "The declaration used to describe and manage a database's migration behavior.",
+ "status": "draft",
+ "sources": ["docs/public/databases/migration-model.md"]
+}

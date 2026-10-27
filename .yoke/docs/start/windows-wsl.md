@@ -1,7 +1,7 @@
 # Yoke on Windows (WSL)
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Windows and WSL
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Windows and WSL
 <!-- /yoke:breadcrumbs -->
 
 On Windows, everything Yoke runs belongs inside Linux: use WSL2 with Ubuntu.

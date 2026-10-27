@@ -1,0 +1,7 @@
+{
+ "id": "done",
+ "term": "Done",
+ "definition": "The terminal outcome reached after a work item's required completion gates are satisfied.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/lifecycle.md"]
+}

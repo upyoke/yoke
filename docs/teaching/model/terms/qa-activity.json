@@ -1,0 +1,7 @@
+{
+ "id": "qa-activity",
+ "term": "QA activity",
+ "definition": "The view of case outcomes, requirements, runs and supporting evidence.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"]
+}

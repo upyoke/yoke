@@ -1,7 +1,7 @@
 # Workflows
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Workflows
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Workflows
 <!-- /yoke:breadcrumbs -->
 
 Workbench **Workflows** shows versioned definitions: stages, gates, posture,

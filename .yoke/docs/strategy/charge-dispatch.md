@@ -1,7 +1,7 @@
 # Charge dispatch
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Strategy](index.md) > Charge dispatch
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Strategy](index.md) > Charge dispatch
 <!-- /yoke:breadcrumbs -->
 
 Read the frontier API and dispatch ranked work through its registered entrypoint.

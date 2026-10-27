@@ -1,7 +1,7 @@
 # Operations
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Operations
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Operations
 <!-- /yoke:breadcrumbs -->
 
 Inspect events, run health checks, record learning and diagnose performance using the evidence each operation owns.

@@ -1,7 +1,7 @@
 # DB Reference — Items and Epic Tables
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Items](../index.md) > Item model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Item model
 <!-- /yoke:breadcrumbs -->
 
 Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.

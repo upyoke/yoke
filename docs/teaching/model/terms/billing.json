@@ -1,0 +1,7 @@
+{
+ "id": "billing",
+ "term": "Billing",
+ "definition": "The organization’s subscription and payment administration, separate from agent staffing and project work ownership.",
+ "status": "draft",
+ "sources": ["docs/public/projects/actors-members-billing.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "github-integration",
+ "term": "GitHub integration",
+ "definition": "The connection used for repository operations, issue mirroring and delivery evidence.",
+ "status": "draft",
+ "sources": ["docs/public/github/index.md"]
+}

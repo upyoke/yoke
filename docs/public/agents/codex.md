@@ -1,7 +1,7 @@
 # Codex harness operations
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Codex
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Codex
 <!-- /yoke:breadcrumbs -->
 
 This file is the Codex-facing entry point for Yoke. It references the shared bootstrap contract and lists the narrow safe command surface for Codex sessions.

@@ -1,0 +1,7 @@
+{
+ "id": "machine-approval",
+ "term": "Machine approval",
+ "definition": "The human authorization step that allows a machine to connect.",
+ "status": "draft",
+ "sources": ["docs/public/cli/machine-authorization.md"]
+}

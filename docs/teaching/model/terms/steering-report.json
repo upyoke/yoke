@@ -1,0 +1,7 @@
+{
+ "id": "steering-report",
+ "term": "Steering report",
+ "definition": "The report of work, holders, waits and problems that need coordination.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/steering-report.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "installation",
+ "term": "Installation",
+ "definition": "Putting the Yoke software and command on a machine.",
+ "status": "draft",
+ "sources": ["docs/public/start/install.md"]
+}

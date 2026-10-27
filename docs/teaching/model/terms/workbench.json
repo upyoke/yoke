@@ -1,0 +1,7 @@
+{
+ "id": "workbench",
+ "term": "Workbench",
+ "definition": "Yoke's web interface for project work, coordination and configuration.",
+ "status": "draft",
+ "sources": ["docs/public/start/concepts.md"]
+}

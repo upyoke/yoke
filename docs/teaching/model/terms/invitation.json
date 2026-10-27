@@ -1,0 +1,7 @@
+{
+ "id": "invitation",
+ "term": "Invitation",
+ "definition": "A way to give another person access to an organization.",
+ "status": "draft",
+ "sources": ["docs/public/projects/teammate-invitations.md"]
+}

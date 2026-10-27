@@ -1,0 +1,7 @@
+{
+ "id": "restore",
+ "term": "Restore",
+ "definition": "Recovering a universe from a backup into a chosen destination.",
+ "status": "draft",
+ "sources": ["docs/public/start/install.md"]
+}

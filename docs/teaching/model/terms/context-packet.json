@@ -1,0 +1,7 @@
+{
+ "id": "context-packet",
+ "term": "Context packet",
+ "definition": "Focused operational guidance an agent requests when it needs it.",
+ "status": "draft",
+ "sources": ["docs/public/cli/help.md"]
+}

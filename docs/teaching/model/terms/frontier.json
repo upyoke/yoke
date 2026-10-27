@@ -1,0 +1,8 @@
+{
+ "id": "frontier",
+ "term": "Frontier",
+ "definition": "The evolving set of filed, non-terminal work items Yoke can advance through their workflows. It includes work that is ready, underway, or waiting; the dashboard is a view of that state.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/frontier.md"],
+ "aliases": ["The Frontier"]
+}

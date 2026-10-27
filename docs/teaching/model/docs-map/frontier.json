@@ -1,0 +1,43 @@
+{
+ "id": "frontier",
+ "title": "The Frontier",
+ "parent": null,
+ "route": "/docs/guide/frontier",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain the Frontier as the boundary between strategy and filed work, how Yoke advances it, and how the dashboard presents it.",
+ "outline": ["From strategy to the Frontier", "Dependency graph and edges", "Readiness and waiting", "Scheduler and ranking", "Advancing the Frontier", "The Frontier dashboard"],
+ "terms": ["frontier", "charge", "item", "work-claim", "dependency", "stage", "gate", "workflow", "steering", "blocked", "scheduler", "dependency-graph", "dependency-edge", "gate-point", "satisfaction-condition", "coordination-only-edge", "dependency-cycle", "readiness", "frozen", "priority", "wip-cap", "feed"],
+ "commands": ["command:yoke frontier", "command:yoke charge", "command:yoke items dependency", "command:yoke steering"],
+ "sources": ["skill:feed", "skill:charge", "doc:docs/public/strategy/frontier.md", "doc:docs/public/strategy/charge-frontier.md", "doc:docs/public/strategy/charge-dispatch.md", "replies:frontier", "replies:charge", "skill:steer", "doc:docs/public/items/model/dependencies.md", "doc:docs/public/workflows/gates.md"],
+ "deeper_pages": ["strategy", "work", "sessions"],
+ "open_questions": [],
+ "position": 13,
+ "topics": [
+  {
+   "title": "From strategy to the Frontier",
+   "outline": ["Filed work versus the rolling strategy plan", "Non-terminal work and completion"]
+  },
+  {
+   "title": "Dependency graph and edges",
+   "outline": ["Blockers and dependents across projects", "Start, merge, and finish conditions", "Edge rationale and coordination-only relationships", "Unblocking value, long chains, and dependency cycles"]
+  },
+  {
+   "title": "Readiness and waiting",
+   "outline": ["Workflow stages and gates", "Dependencies, approvals, blocks, and freezes", "Work claims and ownership conflicts"]
+  },
+  {
+   "title": "Scheduler and ranking",
+   "outline": ["Priority and dependency depth", "Prefer finishing work and avoid conflicting assignments", "Capacity limits", "Resolve the next step from the pinned workflow"]
+  },
+  {
+   "title": "Advancing the Frontier",
+   "outline": ["Steering maintains the plan and coordinates workers", "Charge selects and dispatches assignable work", "Feed refreshes items and dependencies and files strategy work"]
+  },
+  {
+   "title": "The Frontier dashboard",
+   "outline": ["Waiting dependency graph", "On hold, Ready, Active, Release, and recent Done", "Project filters and cross-project dependencies", "Read why an item is waiting"]
+  }
+ ]
+}

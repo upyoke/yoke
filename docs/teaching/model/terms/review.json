@@ -1,0 +1,7 @@
+{
+ "id": "review",
+ "term": "Review",
+ "definition": "Inspection of work or evidence before accepting a result or allowing advancement.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/gates.md"]
+}

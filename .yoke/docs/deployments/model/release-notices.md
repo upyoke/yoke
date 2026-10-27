@@ -1,7 +1,7 @@
 # Release QA and delivery notices
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Release notices
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Release notices
 <!-- /yoke:breadcrumbs -->
 
 Read how caseless stages, failed cases, settled QA results and completed deliveries are reported.

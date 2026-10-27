@@ -1,0 +1,8 @@
+{
+ "id": "frozen",
+ "term": "Frozen",
+ "definition": "An explicit hold that removes an item from active scheduling until it is thawed; its lifecycle stage is retained.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/charge-frontier.md"],
+ "aliases": ["Freeze"]
+}

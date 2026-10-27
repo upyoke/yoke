@@ -1,7 +1,7 @@
 # Claude session rules — the deep home
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Claude sessions
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Claude sessions
 <!-- /yoke:breadcrumbs -->
 
 ## Hook schema

@@ -1,0 +1,7 @@
+{
+ "id": "integration",
+ "term": "Integration",
+ "definition": "An external service or tool connected to a project's work.",
+ "status": "draft",
+ "sources": ["docs/public/projects/capabilities.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "gate-point",
+ "term": "Gate point",
+ "definition": "The point where a dependency is enforced: activation before starting, integration before merging, or closure before finishing.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

@@ -1,7 +1,7 @@
 # Generated task model
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Items](../index.md) > Generated task model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Generated task model
 <!-- /yoke:breadcrumbs -->
 
 Read the generated task graph, dispatch chains and durable progress records.

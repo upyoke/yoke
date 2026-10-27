@@ -1,0 +1,7 @@
+{
+ "id": "qa-run",
+ "term": "QA run",
+ "definition": "One recorded attempt to satisfy a QA requirement.",
+ "status": "draft",
+ "sources": ["docs/public/verification/model/qa.md"]
+}

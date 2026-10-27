@@ -1,7 +1,7 @@
 # Capabilities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Projects](index.md) > Capabilities
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Projects](index.md) > Capabilities
 <!-- /yoke:breadcrumbs -->
 
 Workbench **Capabilities** lists providers, models, and test resources Yoke

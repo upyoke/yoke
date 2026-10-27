@@ -1,0 +1,7 @@
+{
+ "id": "merge-queue",
+ "term": "Merge queue",
+ "definition": "The ordered process that checks and lands changes in an integration branch.",
+ "status": "draft",
+ "sources": ["docs/public/github/merge-queue-landings.md"]
+}

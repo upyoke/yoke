@@ -1,0 +1,7 @@
+{
+ "id": "stage",
+ "term": "Stage",
+ "definition": "A step in an item workflow or a deployment flow; specify which.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/lifecycle.md"]
+}

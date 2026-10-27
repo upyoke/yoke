@@ -1,0 +1,7 @@
+{
+ "id": "session",
+ "term": "Session",
+ "definition": "Usually a harness session here; a website sign-in session or browser QA session has a different purpose.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

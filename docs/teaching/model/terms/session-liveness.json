@@ -1,0 +1,7 @@
+{
+ "id": "session-liveness",
+ "term": "Session liveness",
+ "definition": "Whether a registered session is active, waiting, stale or ended.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

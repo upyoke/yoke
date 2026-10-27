@@ -1,0 +1,8 @@
+{
+ "id": "master-plan",
+ "term": "Master plan",
+ "definition": "The evolving strategy document describing how the project will reach its goals.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"],
+ "aliases": ["MASTER-PLAN"]
+}

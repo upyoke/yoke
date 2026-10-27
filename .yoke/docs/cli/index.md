@@ -1,7 +1,7 @@
 # CLI and config
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > CLI and config
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > CLI and config
 <!-- /yoke:breadcrumbs -->
 
 Read command help, select connections and open the workbench from your machine.

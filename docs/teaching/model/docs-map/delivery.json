@@ -1,0 +1,43 @@
+{
+ "id": "delivery",
+ "title": "Deployments and releases",
+ "parent": null,
+ "route": "/docs/guide/delivery",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how code becomes a delivered change.",
+ "outline": ["Sites and environments", "Deployment flows", "Deployment runs", "Deployment QA and approvals", "Releases", "Run recovery"],
+ "terms": ["delivery", "deployment", "deployment-flow", "deployment-run", "deployment-target", "environment", "release", "deployment-stage", "qa-requirement", "run-member", "stage-receipt", "approval", "flow", "site", "evidence", "release-authority", "decision", "migration-rehearsal", "governed-migration", "carried-work", "deployment-candidate"],
+ "commands": ["command:yoke deployment-flows", "command:yoke deployment-runs", "command:yoke watch deploy", "command:yoke projects site", "command:yoke projects environment", "command:yoke projects environment-settings", "command:yoke deployment-runs failure-trace", "command:yoke deployment-runs terminalize", "command:yoke release-pin"],
+ "sources": ["skill:usher", "skill:approve", "doc:docs/public/deployments/index.md", "replies:deployment-flows", "replies:deployment-runs", "doc:docs/public/deployments/model/runs.md", "doc:docs/public/deployments/model/stage-receipts.md", "doc:docs/public/deployments/model/run-members.md", "doc:docs/public/deployments/model/member-plan-snapshots.md", "replies:watch", "doc:docs/public/deployments/model/flows.md", "replies:projects", "doc:docs/public/deployments/start-diagnostics.md", "doc:docs/public/deployments/qa-dispatch.md", "doc:docs/public/deployments/model/ended-runs.md", "doc:docs/public/deployments/model/releases.md", "doc:docs/public/deployments/model/release-notices.md", "replies:release-pin"],
+ "deeper_pages": ["qa"],
+ "open_questions": ["Split run membership into reference if it crowds out the normal run walkthrough."],
+ "position": 42,
+ "topics": [
+  {
+   "title": "Sites and environments",
+   "outline": ["Sites", "Environments", "Preview, ephemeral, staging, and Production", "Environment settings"]
+  },
+  {
+   "title": "Deployment flows",
+   "outline": ["Item flow assignment", "Stages", "CI checks", "GitHub Actions", "Deployment commands", "Readiness checks", "QA", "Approvals", "Flow versions"]
+  },
+  {
+   "title": "Deployment runs",
+   "outline": ["Starting and monitoring runs", "Candidates", "Members", "Carried work", "Stage receipts"]
+  },
+  {
+   "title": "Deployment QA and approvals",
+   "outline": ["Item and run QA", "Shared plans", "Evidence", "Human decisions", "Quality assurance reference"]
+  },
+  {
+   "title": "Releases",
+   "outline": ["Release identity", "Deployed versions", "Delivery evidence", "Item completion", "Notifications"]
+  },
+  {
+   "title": "Run recovery",
+   "outline": ["Failed stages", "Retries and resumption", "Cancellation", "Interrupted runs"]
+  }
+ ]
+}

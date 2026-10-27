@@ -1,0 +1,7 @@
+{
+ "id": "watcher",
+ "term": "Watcher",
+ "definition": "A long-running command that observes work and reports progress or completion.",
+ "status": "draft",
+ "sources": ["docs/public/agents/rules/claude-long-commands.md"]
+}

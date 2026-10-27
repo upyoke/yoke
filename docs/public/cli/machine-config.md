@@ -1,7 +1,7 @@
 # Machine config and native models
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [CLI and config](index.md) > Machine config and native models
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [CLI and config](index.md) > Machine config and native models
 <!-- /yoke:breadcrumbs -->
 
 Select machine-local configuration, inspect native model availability and read

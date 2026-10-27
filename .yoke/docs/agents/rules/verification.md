@@ -1,10 +1,10 @@
 # Verification, test execution, and command output
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Verification
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Verification
 <!-- /yoke:breadcrumbs -->
 
-Before running a verification command, read [command output](shell-and-cli.md#command-output).
+First read [command output](shell-and-cli.md#command-output).
 Model: [verification](../../verification/index.md).
 
 ## Testing
@@ -19,8 +19,7 @@ Model: [verification](../../verification/index.md).
   commit and refuses a near-full selection, naming the QA case command.
 - Run the full suite once, through the attached case: `yoke qa requirement list --item PREFIX-N`,
   then `yoke qa case run --requirement-id <id>`. Commit before it; workers never push by hand.
-  Never hand-run the full suite
-  and then gate the same tree; rerun only after the tree changes.
+  Never run the full suite twice on the same tree; rerun only after changes.
 - A quiet or backgrounded gate is still running: continue it. If its watcher was killed, rerun
   `yoke qa case run`; it rejoins or adopts the CI run for that commit.
 - A requirement bound to an item-scoped deployment stage runs with

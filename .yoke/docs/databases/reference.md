@@ -1,7 +1,7 @@
 # Yoke DB Reference
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Databases](index.md) > Database reference
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Databases](index.md) > Database reference
 <!-- /yoke:breadcrumbs -->
 
 Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when a query reads item ids (`items.id` or any `*item_id` column) without joining `item_refs`, and when a returned `project_sequence` lacks both `public_ref` and `public_item_prefix`.

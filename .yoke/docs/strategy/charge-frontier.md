@@ -1,7 +1,7 @@
 # Charge Frontier
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Strategy](index.md) > Charge frontier
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Strategy](index.md) > Charge frontier
 <!-- /yoke:breadcrumbs -->
 
 The charge frontier is the computation that determines which backlog items are eligible for work right now, ranks them by priority, and classifies each into a downstream delivery adapter. It powers `/yoke charge` and steering frontier reads.

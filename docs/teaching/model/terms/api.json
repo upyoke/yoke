@@ -1,0 +1,7 @@
+{
+ "id": "api",
+ "term": "API",
+ "definition": "The interface clients use to read and change Yoke state through registered operations.",
+ "status": "draft",
+ "sources": ["docs/public/functions/index.md"]
+}

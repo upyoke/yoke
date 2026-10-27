@@ -1,7 +1,7 @@
 # Linux baseline capture and recovery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux baseline recovery
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Linux baseline recovery
 <!-- /yoke:breadcrumbs -->
 
 Complete the [Linux host procedure](linux-host-provisioning.md) through desktop

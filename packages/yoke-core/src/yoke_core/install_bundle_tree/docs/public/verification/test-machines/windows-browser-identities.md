@@ -1,7 +1,7 @@
 # WSL browser identities
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > WSL browser identities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > WSL browser identities
 <!-- /yoke:breadcrumbs -->
 
 Return to [Windows host provisioning](windows-host-provisioning.md).

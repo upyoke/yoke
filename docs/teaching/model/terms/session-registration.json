@@ -1,0 +1,7 @@
+{
+ "id": "session-registration",
+ "term": "Session registration",
+ "definition": "Recording a harness conversation’s identity, machine, and execution facts in Yoke so its activity and work ownership can be tracked.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/model/sessions.md"]
+}

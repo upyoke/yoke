@@ -1,7 +1,7 @@
 # Slash Commands Reference
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Commands
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Commands
 <!-- /yoke:breadcrumbs -->
 
 Skills live at `.agents/skills/yoke/{name}/SKILL.md`; native discovery or the

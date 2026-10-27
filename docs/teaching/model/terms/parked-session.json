@@ -1,0 +1,7 @@
+{
+ "id": "parked-session",
+ "term": "Parked session",
+ "definition": "A session deliberately waiting, with a recorded reason, while retaining its work.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

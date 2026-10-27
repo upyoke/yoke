@@ -1,7 +1,7 @@
 # Event records
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Operations](../index.md) > Event model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Operations](../index.md) > Event model
 <!-- /yoke:breadcrumbs -->
 
 Read the event log, write-side severity configuration and event registry. [Database reference](../../databases/reference.md) owns JSON conventions; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) owns clock conventions.

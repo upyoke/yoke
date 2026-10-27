@@ -1,0 +1,7 @@
+{
+ "id": "file-budget",
+ "term": "File budget",
+ "definition": "The declared files an item needs to change when its workflow requires a budget.",
+ "status": "draft",
+ "sources": ["docs/public/agents/rules/lanes-and-claims.md"]
+}

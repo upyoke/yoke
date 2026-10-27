@@ -1,0 +1,7 @@
+{
+ "id": "persona",
+ "term": "Persona",
+ "definition": "A named browser identity used for a role or account during QA.",
+ "status": "draft",
+ "sources": ["docs/public/verification/browser-identities.md"]
+}

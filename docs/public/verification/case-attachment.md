@@ -1,7 +1,7 @@
 # Case attachment — which subject a QA case answers for
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Case attachment
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Case attachment
 <!-- /yoke:breadcrumbs -->
 
 A post-deploy case names where its evidence lives: Command for controller evidence, a mission with no host to explore on the controller, a test machine with `fresh-host` for clean installs.

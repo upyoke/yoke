@@ -1,0 +1,7 @@
+{
+ "id": "manual-setup",
+ "term": "Manual setup",
+ "definition": "The optional path where a person runs the terminal setup wizard directly.",
+ "status": "draft",
+ "sources": ["docs/public/start/terminal-onboarding.md"]
+}

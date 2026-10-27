@@ -1,0 +1,7 @@
+{
+ "id": "browser-qa",
+ "term": "Browser QA",
+ "definition": "Checks performed through a browser against a specified target.",
+ "status": "draft",
+ "sources": ["docs/public/verification/browser-targets.md"]
+}

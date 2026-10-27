@@ -1,12 +1,10 @@
 # Runtime Function Catalog
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Functions](index.md) > Runtime
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Runtime
 <!-- /yoke:breadcrumbs -->
 
 Read [envelope and authority](index.md). `none` skips only the claim check.
-
-## Registered functions
 
 | Function id | Claim policy |
 |---|---|

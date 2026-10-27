@@ -1,7 +1,7 @@
 # Steering fleet report
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Sessions](index.md) > Steering report
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Steering report
 <!-- /yoke:breadcrumbs -->
 
 The server composes reports for the calling session's held steering scopes;

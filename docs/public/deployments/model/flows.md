@@ -1,7 +1,7 @@
 # Sites, environments and deployment flows
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Deployments](../index.md) > Sites, environments and flows
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Deployments](../index.md) > Sites, environments and flows
 <!-- /yoke:breadcrumbs -->
 
 Read the site, environment and flow records that define deployment targets and pipeline execution.

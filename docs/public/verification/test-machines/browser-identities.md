@@ -1,7 +1,7 @@
 # Browser identities on test machines
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Verification](../index.md) > [Machine QA](index.md) > Machine browser identities
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Verification](../index.md) > [Machine QA](index.md) > Machine browser identities
 <!-- /yoke:breadcrumbs -->
 
 A browser identity is one persona's whole browser profile, signed into every

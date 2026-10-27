@@ -1,0 +1,7 @@
+{
+ "id": "universe-portability",
+ "term": "Universe portability",
+ "definition": "Moving a universe between local, self-hosted and hosted installations using export and import, retaining its project and work records.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

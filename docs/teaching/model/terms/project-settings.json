@@ -1,0 +1,7 @@
+{
+ "id": "project-settings",
+ "term": "Project settings",
+ "definition": "Configuration stored for a project, including capability settings. Secret values are handled separately through their declared owners.",
+ "status": "draft",
+ "sources": ["docs/public/projects/capabilities.md"]
+}

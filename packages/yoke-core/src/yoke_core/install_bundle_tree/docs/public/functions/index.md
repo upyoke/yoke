@@ -1,7 +1,7 @@
 # Yoke Function Call Reference
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Functions
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Functions
 <!-- /yoke:breadcrumbs -->
 
 Registered function ids are the typed control-plane interface. Use their

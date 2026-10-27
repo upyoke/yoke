@@ -1,0 +1,7 @@
+{
+ "id": "machine-configuration",
+ "term": "Machine configuration",
+ "definition": "Settings and connection choices stored for a particular machine.",
+ "status": "draft",
+ "sources": ["docs/public/cli/machine-config.md"]
+}

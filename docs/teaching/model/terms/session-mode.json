@@ -1,0 +1,7 @@
+{
+ "id": "session-mode",
+ "term": "Session mode",
+ "definition": "The work a session declares it is doing, such as steering, execution or waiting.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/index.md"]
+}

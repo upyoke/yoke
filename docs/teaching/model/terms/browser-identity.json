@@ -1,0 +1,7 @@
+{
+ "id": "browser-identity",
+ "term": "Browser identity",
+ "definition": "A configured identity used to sign in during browser QA.",
+ "status": "draft",
+ "sources": ["docs/public/verification/browser-identities.md"]
+}

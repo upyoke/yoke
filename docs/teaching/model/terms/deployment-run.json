@@ -1,0 +1,7 @@
+{
+ "id": "deployment-run",
+ "term": "Deployment run",
+ "definition": "One execution of a deployment flow against an environment.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/runs.md"]
+}

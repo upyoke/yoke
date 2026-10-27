@@ -1,0 +1,7 @@
+{
+ "id": "function-family",
+ "term": "Function family",
+ "definition": "A group of related registered operations, such as claims, items or QA.",
+ "status": "draft",
+ "sources": ["docs/public/functions/index.md"]
+}

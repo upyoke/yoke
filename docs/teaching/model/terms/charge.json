@@ -1,0 +1,7 @@
+{
+ "id": "charge",
+ "term": "Charge",
+ "definition": "The agent entry point for selecting and dispatching available work from the frontier.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/charge-dispatch.md"]
+}

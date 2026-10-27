@@ -1,0 +1,7 @@
+{
+ "id": "workflow-binding",
+ "term": "Workflow binding",
+ "definition": "The connection between a workflow segment and the skill responsible for executing it.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/transitions.md"]
+}

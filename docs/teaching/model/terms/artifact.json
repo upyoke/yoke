@@ -1,0 +1,7 @@
+{
+ "id": "artifact",
+ "term": "Artifact",
+ "definition": "Stored supporting material, such as a screenshot, log or trace from QA.",
+ "status": "draft",
+ "sources": ["docs/public/verification/model/qa.md"]
+}

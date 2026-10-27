@@ -1,0 +1,7 @@
+{
+ "id": "release-authority",
+ "term": "Release authority",
+ "definition": "The rule and evidence source used to establish what version is deployed.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/releases.md"]
+}

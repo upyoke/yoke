@@ -1,0 +1,7 @@
+{
+ "id": "shared-file",
+ "term": "Shared file",
+ "definition": "Project material stored for access across sessions and machines.",
+ "status": "draft",
+ "sources": ["docs/public/projects/shared-files.md"]
+}

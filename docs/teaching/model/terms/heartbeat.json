@@ -1,0 +1,7 @@
+{
+ "id": "heartbeat",
+ "term": "Heartbeat",
+ "definition": "A session activity update used to track whether its registered presence and held claims remain live.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/model/sessions.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "case",
+ "term": "Case",
+ "definition": "Usually a QA case: one check in a QA plan.",
+ "status": "draft",
+ "sources": ["docs/public/verification/case-attachment.md"]
+}

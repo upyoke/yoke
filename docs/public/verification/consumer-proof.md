@@ -1,7 +1,7 @@
 # Consumer proof
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Consumer proof
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Consumer proof
 <!-- /yoke:breadcrumbs -->
 
 Consumer compatibility belongs to the configured release-time exact-pair gate.

@@ -1,0 +1,35 @@
+{
+ "id": "reference",
+ "title": "Command and technical reference",
+ "parent": null,
+ "route": "/docs/guide/reference",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Give agents and advanced readers precise contracts without crowding human overviews.",
+ "outline": ["Function contracts", "Agent operation rules", "Time and runtime contracts", "Documentation contracts"],
+ "terms": ["cli", "command-group", "context-packet", "agents-md", "yoke", "architecture-model", "file-budget", "lane", "pack", "watcher", "api", "claim", "function", "function-family", "model", "model-catalog", "work-claim", "worktree", "event", "evidence", "context-chain"],
+ "commands": ["command:yoke"],
+ "sources": ["source:help", "source:feedback", "doc:docs/public/cli/index.md", "doc:docs/public/cli/help.md", "source:decisions", "doc:docs/public/documentation/index.md", "doc:docs/public/documentation/verification.md", "doc:docs/public/documentation/navigation.md", "source:rules", "source:instructions", "doc:docs/public/agents/rules/index.md", "doc:docs/public/agents/rules/code-and-cli.md", "doc:docs/public/agents/rules/shell-and-cli.md", "doc:docs/public/agents/rules/lanes-and-claims.md", "doc:docs/public/agents/rules/item-writes.md", "doc:docs/public/agents/rules/databases.md", "doc:docs/public/agents/rules/verification.md", "doc:docs/public/agents/rules/delivery.md", "doc:docs/public/agents/rules/release-roles.md", "doc:docs/public/agents/rules/packs.md", "doc:docs/public/agents/rules/architecture-model.md", "doc:docs/public/agents/rules/claude-sessions.md", "doc:docs/public/agents/rules/claude-long-commands.md", "doc:docs/public/functions/index.md", "doc:docs/public/functions/claims.md", "doc:docs/public/functions/items.md", "doc:docs/public/functions/project-configuration.md", "doc:docs/public/functions/qa.md", "doc:docs/public/functions/runtime.md", "doc:docs/public/functions/tasks.md", "doc:docs/public/functions/workflows.md", "doc:docs/public/functions/worktrees.md", "doc:docs/public/functions/models.md", "doc:docs/public/functions/merge-queue-landing-attempts.md", "doc:docs/public/functions/steering-report-dependencies.md", "doc:docs/public/runtime/index.md", "doc:docs/public/runtime/time/encoding.md", "doc:docs/public/runtime/time/verification.md", "doc:docs/public/runtime/time/ownership.md", "doc:docs/public/runtime/time/ownership-integrations.md", "doc:docs/public/runtime/time/ownership-verification.md"],
+ "deeper_pages": [],
+ "open_questions": ["The root help link is orientation only; do not count every command as covered by this page.", "Keep family pages; do not duplicate their full catalogs into the human overview."],
+ "position": 56,
+ "topics": [
+  {
+   "title": "Function contracts",
+   "outline": ["How functions relate to CLI commands", "Input and output contracts", "Where each operation is defined"]
+  },
+  {
+   "title": "Agent operation rules",
+   "outline": ["Rules by operation", "Shared versus project-specific authority", "Where the context chain supplies these details"]
+  },
+  {
+   "title": "Time and runtime contracts",
+   "outline": ["Timestamp encoding", "Clock verification", "Writer ownership"]
+  },
+  {
+   "title": "Documentation contracts",
+   "outline": ["Human summaries and detailed homes", "Navigation and link rules", "Published and installed copies"]
+  }
+ ]
+}

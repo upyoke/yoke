@@ -1,0 +1,7 @@
+{
+ "id": "gate",
+ "term": "Gate",
+ "definition": "A condition that must be satisfied before work can advance.",
+ "status": "draft",
+ "sources": ["docs/public/workflows/gates.md"]
+}

@@ -1,0 +1,7 @@
+{
+ "id": "delivery",
+ "term": "Delivery",
+ "definition": "Getting a change to its intended destination with the required evidence.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/index.md"]
+}

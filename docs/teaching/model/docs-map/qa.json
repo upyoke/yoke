@@ -1,0 +1,51 @@
+{
+ "id": "qa",
+ "title": "Quality assurance",
+ "parent": null,
+ "route": "/docs/guide/qa",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain how checks become trustworthy evidence and gate work.",
+ "outline": ["Types of QA", "Methods, cases, and plans", "Requirements and gates", "Environments and test machines", "Browser and exploratory QA", "Execution and results"],
+ "terms": ["evidence", "human-acceptance", "qa", "qa-activity", "qa-kind", "qa-method", "qa-plan", "qa-requirement", "qa-subject", "registered-command", "requirement", "verification", "consumer-proof", "deployment-run", "post-deploy-qa", "release", "run-member", "gate", "qa-attachment", "qa-verdict", "success-policy", "waiver", "smoke-check", "test-machine", "browser-identity", "browser-qa", "browser-scenario", "persona", "exploratory-mission", "artifact", "qa-artifact", "qa-run", "run", "standalone-qa", "case", "qa-case", "decision", "ci", "deployment-candidate", "qa-review"],
+ "commands": ["command:yoke qa", "command:yoke qa post-deploy", "command:yoke qa requirement", "command:yoke qa gate-summary", "command:yoke qa project-default", "command:yoke qa item-plan", "command:yoke test-machine", "command:yoke browser", "command:yoke qa browser", "command:yoke qa browser-context", "command:yoke qa mission", "command:yoke qa run", "command:yoke qa artifact", "command:yoke qa activity", "command:yoke watch qa-case", "command:yoke watch qa-plan", "command:yoke qa method", "command:yoke qa methods", "command:yoke qa plan", "command:yoke qa case", "command:yoke qa plan-cases", "command:yoke qa registered-command"],
+ "sources": ["doc:docs/public/verification/index.md", "doc:docs/public/verification/platform.md", "packet:main_agent:qa", "role:tester", "packet:tester_agent", "replies:qa", "doc:docs/public/verification/consumer-proof.md", "doc:docs/public/verification/deployment-plan-execution.md", "doc:docs/public/verification/deployment-qa-continuity.md", "doc:docs/public/verification/failed-item-qa.md", "doc:docs/public/verification/requirement-discharges.md", "doc:docs/public/verification/requirement-state.md", "doc:docs/public/verification/success-policy.md", "doc:docs/public/verification/test-machine-desktop.md", "doc:docs/public/verification/linux-golden-home.md", "doc:docs/public/verification/linux-desktop-apps.md", "doc:docs/public/verification/product-smoke.md", "doc:docs/public/verification/real-harness.md", "replies:test-machine", "doc:docs/public/verification/browser-action-evidence.md", "doc:docs/public/verification/browser-targets.md", "doc:docs/public/verification/browser-scenarios.md", "doc:docs/public/verification/browser-evidence.md", "doc:docs/public/verification/browser-identities.md", "role:tester-browser", "doc:docs/public/verification/exploration.md", "doc:docs/public/verification/exploration-evidence.md", "role:qa-walker", "packet:qa_walker_agent", "role:boss", "doc:docs/public/verification/standalone-plans.md", "doc:docs/public/verification/model/qa.md", "doc:docs/public/verification/qa-cli.md", "replies:watch", "doc:docs/public/verification/case-attachment.md", "doc:docs/public/verification/case-attachment-rules.md"],
+ "deeper_pages": [],
+ "open_questions": ["Keep one diagram of the relationships here; leave schemas to reference.", "Likely split identities from scenario authoring after content review."],
+ "position": 34,
+ "topics": [
+  {
+   "title": "Types of QA",
+   "outline": ["Item QA", "Deployment run QA", "Shared item QA", "Standalone QA"]
+  },
+  {
+   "title": "Methods, cases, and plans",
+   "outline": ["QA methods", "QA cases", "QA plans", "Registered commands", "Project QA defaults"]
+  },
+  {
+   "title": "Requirements and gates",
+   "outline": ["Case attachments", "QA requirements", "QA phases", "Blocking modes", "Success policies", "Requirement materialization", "Waivers", "Supersession", "Retraction"]
+  },
+  {
+   "title": "Environments and test machines",
+   "outline": ["Target environments", "Execution targets", "Test machines", "Capabilities", "Machine leases", "Machine starting state"]
+  },
+  {
+   "title": "Browser and exploratory QA",
+   "outline": ["Browser scenarios", "Browser identities", "Exploratory QA missions", "Real-harness QA"]
+  },
+  {
+   "title": "Execution and results",
+   "outline": ["QA runs", "Plan executions", "QA artifacts", "QA review", "Verdicts", "Retries", "Recovery", "QA activity"]
+  },
+  {
+   "title": "Deployment run QA",
+   "outline": ["Deployment candidates", "Deployment stages", "Deployment members", "Consumer proof"]
+  },
+  {
+   "title": "Shared item QA",
+   "outline": ["Shared plan execution and credit"]
+  }
+ ]
+}

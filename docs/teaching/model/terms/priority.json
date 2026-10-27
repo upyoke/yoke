@@ -1,0 +1,7 @@
+{
+ "id": "priority",
+ "term": "Priority",
+ "definition": "The importance assigned to an item, used to rank work alongside dependency impact, lifecycle stage, and age.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/charge-frontier.md"]
+}

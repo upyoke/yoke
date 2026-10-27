@@ -1,0 +1,7 @@
+{
+ "id": "function",
+ "term": "Function",
+ "definition": "A registered Yoke operation with a defined input and output contract.",
+ "status": "draft",
+ "sources": ["docs/public/functions/index.md"]
+}

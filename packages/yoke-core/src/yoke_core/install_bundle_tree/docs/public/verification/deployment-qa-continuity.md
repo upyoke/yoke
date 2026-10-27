@@ -1,7 +1,7 @@
 # Deployment QA continuity
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Deployment QA continuity
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Deployment QA continuity
 <!-- /yoke:breadcrumbs -->
 
 Fresh item QA resolves the current completion-flow membership, including a

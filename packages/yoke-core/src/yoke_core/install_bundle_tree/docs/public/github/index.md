@@ -1,7 +1,7 @@
 # GitHub
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > GitHub
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > GitHub
 <!-- /yoke:breadcrumbs -->
 
 Connect repository access, choose issue mirroring and inspect merge and CI

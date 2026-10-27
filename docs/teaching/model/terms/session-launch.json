@@ -1,0 +1,8 @@
+{
+ "id": "session-launch",
+ "term": "Session launch",
+ "definition": "A recorded request to start a coding-agent session on a selected machine and harness, using the requested work and execution level.",
+ "status": "draft",
+ "sources": ["docs/public/agents/level-launches.md"],
+ "aliases": ["Launch"]
+}

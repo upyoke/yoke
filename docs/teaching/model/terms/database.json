@@ -1,0 +1,8 @@
+{
+ "id": "database",
+ "term": "Database",
+ "definition": "A declared data store whose configuration and migrations Yoke can track.",
+ "status": "draft",
+ "sources": ["docs/public/databases/index.md"],
+ "aliases": ["Databases"]
+}

@@ -1,10 +1,10 @@
 # Release-time roles
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Release roles
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Release roles
 <!-- /yoke:breadcrumbs -->
 
-A run with members has two roles. Each `--help` carries the matrix:
+Member runs have two roles. Matrix:
 `yoke deployment-runs --help`, `yoke qa plan run --help`, `yoke qa case run --help`,
 `yoke merge item --help`. Model: [run members](../../deployments/model/run-members.md).
 
@@ -16,9 +16,9 @@ A run with members has two roles. Each `--help` carries the matrix:
   run on exactly that commit from any branch, dispatch only when it has none,
   or refuse failed/cancelled CI (`release_source_ci_failed`; fix the branch
   or rerun that commit's CI). Give stage that `release_lineage` via `--source-ref`.
-- Before a pair, check the members' completion flows. Use a run of that flow or
-  reconcile item flows; never change an item's flow silently.
-- Creation enrolls carried delivery-ready items. `release_member_not_in_source`: merge the item
+- Before paired runs, check member flows. Use their flow or reconcile explicitly; never
+  change an item's flow silently.
+- Creation enrolls carried ready items. `release_member_not_in_source`: merge the item
   and compose a new run. `add-item` attaches an item the candidate does not carry;
   `validate-composition` composes now and reports what it enrolled or skipped.
 - Remove a wrong member with `yoke deployment-runs remove-item RUN-ID PREFIX-N --reason R`. After

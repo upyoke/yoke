@@ -1,7 +1,7 @@
 # Remove Yoke
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Get started](index.md) > Uninstall
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Installation reference](index.md) > Uninstall
 <!-- /yoke:breadcrumbs -->
 
 Choose what to preserve before removing Yoke from this machine or its projects.

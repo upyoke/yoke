@@ -1,15 +1,16 @@
 # Databases and migrations
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > Databases
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > Databases
 <!-- /yoke:breadcrumbs -->
 
 Workbench path: **Delivery → Databases**.
 
 ## What you see
 
-Declared database / migration models, compatibility posture, and apply
-records for the project's governed mutation story.
+Registered database models and their configuration readiness. Migration
+history and current apply status are not shown on this dashboard page; use
+the database and migration commands for those details.
 
 ## Operator model
 

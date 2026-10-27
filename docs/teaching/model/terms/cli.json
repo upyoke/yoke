@@ -1,0 +1,8 @@
+{
+ "id": "cli",
+ "term": "CLI",
+ "definition": "The yoke command-line interface, used by agents and available to people.",
+ "status": "draft",
+ "sources": ["docs/public/cli/index.md"],
+ "aliases": ["Yoke CLI"]
+}

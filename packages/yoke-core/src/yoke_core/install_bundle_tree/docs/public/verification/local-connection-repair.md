@@ -1,7 +1,7 @@
 # Repair the local connection
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Local connection repair
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Local connection repair
 <!-- /yoke:breadcrumbs -->
 
 ```bash

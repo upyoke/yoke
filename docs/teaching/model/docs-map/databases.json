@@ -1,0 +1,47 @@
+{
+ "id": "databases",
+ "title": "Databases and migrations",
+ "parent": null,
+ "route": "/docs/guide/databases",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Explain declared databases and safe changes to them.",
+ "outline": ["Database configuration", "Database access", "Migration models", "Governed migrations", "Migration rehearsal", "Migration fleets", "Diagnostics and data repair"],
+ "terms": ["database", "database-model", "evidence", "migration", "migration-fleet", "migration-rehearsal", "governed-migration", "data-repair", "schema"],
+ "commands": ["command:yoke migration", "command:yoke schema", "command:yoke db", "command:yoke operator", "command:yoke watch preflight"],
+ "sources": ["doc:docs/public/databases/index.md", "doc:docs/public/databases/migration-model.md", "doc:docs/public/databases/migration-model-pairing.md", "doc:docs/public/databases/reference.md", "doc:docs/public/databases/operator-data-repair.md", "doc:docs/public/databases/machine-local-evidence.md", "replies:operator", "doc:docs/public/databases/migrations.md", "doc:docs/public/databases/migration-fleet.md", "replies:watch"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 47,
+ "topics": [
+  {
+   "title": "Database configuration",
+   "outline": ["Project databases and the Yoke Universe database", "Database models", "SQLite and PostgreSQL", "Onboarding: declare now, attach later, or none", "Project-specific integration"]
+  },
+  {
+   "title": "Database access",
+   "outline": ["Connections and credentials", "Environment-specific admin connections", "Agent diagnostic access", "Read-only queries and database permissions", "Supported connection types and limits"]
+  },
+  {
+   "title": "Migration models",
+   "outline": ["Migration directories and modules", "Connection variables", "Migration ledgers", "Validation database configuration", "Boot and deployment integration"]
+  },
+  {
+   "title": "Governed migrations",
+   "outline": ["DB claims", "Permanent ordered migration history", "Additive schema changes", "Data-transforming changes", "Compatibility attestations", "Migration invariants", "Restore points", "Apply records and rollback compatibility"]
+  },
+  {
+   "title": "Migration rehearsal",
+   "outline": ["Preparing a separate validation database", "Project-owned provisioning", "Running item rehearsals", "Rehearsal evidence", "Migration leases"]
+  },
+  {
+   "title": "Migration fleets",
+   "outline": ["Fleet declarations", "PostgreSQL admin connections", "Named databases and engine tenants", "Temporary copies of live databases", "Convergence and verification commands", "Fleet preflight and release receipts", "Unsupported targets and explicit exclusions"]
+  },
+  {
+   "title": "Diagnostics and data repair",
+   "outline": ["Read-only diagnostics", "Yoke record repairs versus application data repairs", "Repair permissions and approvals", "Simulated changes and before/after evidence", "Machine-local evidence"]
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 # Timestamp owners
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Runtime](../index.md) > Timestamp owners
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Runtime](../index.md) > Timestamp owners
 <!-- /yoke:breadcrumbs -->
 
 This records native clock writers and their explicit wire boundaries.

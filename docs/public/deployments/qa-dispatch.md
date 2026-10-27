@@ -1,7 +1,7 @@
 # Scoped-QA dispatch and member close-out
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Deployments](index.md) > QA dispatch
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Deployments](index.md) > QA dispatch
 <!-- /yoke:breadcrumbs -->
 
 A scoped-QA stage gates every member and wakes waiting members before closing

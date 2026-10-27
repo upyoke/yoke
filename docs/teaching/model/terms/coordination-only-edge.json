@@ -1,0 +1,7 @@
+{
+ "id": "coordination-only-edge",
+ "term": "Coordination-only edge",
+ "definition": "A recorded, evidenced decision that overlapping work may proceed independently; it does not block lifecycle progress.",
+ "status": "draft",
+ "sources": ["docs/public/items/model/dependencies.md"]
+}

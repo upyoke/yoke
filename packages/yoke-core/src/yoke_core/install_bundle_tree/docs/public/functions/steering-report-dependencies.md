@@ -1,7 +1,7 @@
 # Steering report dependency sections
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Functions](index.md) > Steering dependencies
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Steering dependencies
 <!-- /yoke:breadcrumbs -->
 
 Two sections of the [steering fleet report](../sessions/steering-report.md) read the

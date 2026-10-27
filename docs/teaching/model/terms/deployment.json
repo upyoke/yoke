@@ -1,0 +1,7 @@
+{
+ "id": "deployment",
+ "term": "Deployment",
+ "definition": "Putting a change into an environment through a defined delivery process.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/index.md"]
+}

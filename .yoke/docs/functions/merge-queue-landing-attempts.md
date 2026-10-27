@@ -1,7 +1,7 @@
 # Table: merge_queue_landing_attempts
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Functions](index.md) > Landing attempts
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Functions](index.md) > Landing attempts
 <!-- /yoke:breadcrumbs -->
 
 A pull request opened for an item that already landed. The item's

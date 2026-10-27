@@ -1,0 +1,7 @@
+{
+ "id": "connection",
+ "term": "Connection",
+ "definition": "A saved route from a machine to a Yoke universe.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

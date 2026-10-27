@@ -1,0 +1,7 @@
+{
+ "id": "inbox",
+ "term": "Inbox",
+ "definition": "Decisions and messages waiting for attention.",
+ "status": "draft",
+ "sources": ["docs/public/sessions/inbox.md"]
+}

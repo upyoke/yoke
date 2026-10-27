@@ -1,0 +1,7 @@
+{
+ "id": "success-policy",
+ "term": "Success policy",
+ "definition": "The rules used to decide whether QA results satisfy an obligation.",
+ "status": "draft",
+ "sources": ["docs/public/verification/success-policy.md"]
+}

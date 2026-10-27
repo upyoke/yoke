@@ -1,7 +1,7 @@
 # Cursor harness operations
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Cursor
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Cursor
 <!-- /yoke:breadcrumbs -->
 
 This file is the Cursor-facing entry point for Yoke. It references the shared bootstrap contract and lists the safe command surface for Cursor sessions.

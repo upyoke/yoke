@@ -1,0 +1,8 @@
+{
+ "id": "qa-attachment",
+ "term": "QA attachment",
+ "definition": "The binding that applies a plan or case to the work and gate it must check.",
+ "status": "draft",
+ "sources": ["docs/public/verification/case-attachment.md"],
+ "aliases": ["Attachment, QA"]
+}

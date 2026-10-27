@@ -1,0 +1,7 @@
+{
+ "id": "scheduler",
+ "term": "Scheduler",
+ "definition": "The shared computation that ranks frontier work and resolves its next workflow step while accounting for dependencies, ownership, and capacity.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/charge-frontier.md"]
+}

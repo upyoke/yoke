@@ -1,7 +1,7 @@
 # Prune disposable universe records
 
 <!-- yoke:breadcrumbs -->
-[Yoke](index.md) > [Operations](operations/index.md) > Universe retention
+[Getting started](index.md) > [Command and technical reference](guide/reference/index.md) > [Operations](operations/index.md) > Universe retention
 <!-- /yoke:breadcrumbs -->
 
 ```text

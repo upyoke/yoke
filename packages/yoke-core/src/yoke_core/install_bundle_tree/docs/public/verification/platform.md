@@ -1,7 +1,7 @@
 # QA Platform
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > QA platform
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > QA platform
 <!-- /yoke:breadcrumbs -->
 
 QA requirements declare an obligation; typed runs, artifacts and success policies

@@ -1,7 +1,7 @@
 # Timestamp integration owners
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Runtime](../index.md) > Integration owners
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Runtime](../index.md) > Integration owners
 <!-- /yoke:breadcrumbs -->
 
 Read the native clock writers and explicit wire boundaries for identity and external integrations.

@@ -1,0 +1,8 @@
+{
+ "id": "ci",
+ "term": "Continuous integration",
+ "definition": "Automated checks run for code changes, with their results and evidence used in review and delivery.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"],
+ "aliases": ["CI"]
+}

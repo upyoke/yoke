@@ -1,0 +1,7 @@
+{
+ "id": "qa-method",
+ "term": "QA method",
+ "definition": "The registered contract describing how a case performs and proves a check.",
+ "status": "draft",
+ "sources": ["docs/public/verification/index.md"]
+}

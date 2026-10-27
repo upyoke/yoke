@@ -1,0 +1,7 @@
+{
+ "id": "flow",
+ "term": "Flow",
+ "definition": "Usually a deployment flow; a work item's lifecycle is called a workflow.",
+ "status": "draft",
+ "sources": ["docs/public/deployments/model/flows.md"]
+}

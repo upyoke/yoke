@@ -1,7 +1,7 @@
 # Item dependency model
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Items](../index.md) > Item dependency model
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Items](../index.md) > Item dependency model
 <!-- /yoke:breadcrumbs -->
 
 Read dependency edges, gate satisfaction and the canonical blocker model.

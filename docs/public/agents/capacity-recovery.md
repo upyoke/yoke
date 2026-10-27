@@ -1,7 +1,7 @@
 # Worker recovery when a model is at capacity
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Agents](index.md) > Capacity recovery
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Agents](index.md) > Capacity recovery
 <!-- /yoke:breadcrumbs -->
 
 The relay's ordinary poll recovers vendor-stopped item workers. Model-capacity

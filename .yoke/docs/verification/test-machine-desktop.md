@@ -1,7 +1,7 @@
 # Viewing a Test Machine desktop
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Test Machine desktop
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Test Machine desktop
 <!-- /yoke:breadcrumbs -->
 
 Baseline reset and verification clear test-account-owned Yoke, Playwright,

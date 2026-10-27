@@ -1,7 +1,7 @@
 # GitHub Sync — Backlog ↔ Issues
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [GitHub](index.md) > Issue sync
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [GitHub](index.md) > Issue sync
 <!-- /yoke:breadcrumbs -->
 
 How the Yoke backlog mirrors to GitHub issues, and the per-project switch

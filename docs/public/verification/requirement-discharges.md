@@ -1,7 +1,7 @@
 # Requirement discharges
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Verification](index.md) > Requirement discharges
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Verification](index.md) > Requirement discharges
 <!-- /yoke:breadcrumbs -->
 
 Derive requirements from acceptance criteria and settle obligations through explicit waiver, supersession or retraction.

@@ -1,0 +1,7 @@
+{
+ "id": "model",
+ "term": "Model",
+ "definition": "An AI model used by an agent, or a declared database/architecture model; qualify the term.",
+ "status": "draft",
+ "sources": ["docs/public/functions/models.md"]
+}

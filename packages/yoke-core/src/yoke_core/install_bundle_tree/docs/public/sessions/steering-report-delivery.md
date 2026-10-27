@@ -1,7 +1,7 @@
 # Steering report delivery
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../index.md) > [Sessions](index.md) > Steering report delivery
+[Getting started](../index.md) > [Command and technical reference](../guide/reference/index.md) > [Sessions](index.md) > Steering report delivery
 <!-- /yoke:breadcrumbs -->
 
 Inspect delivery waits, deployment runs, shared capacity and report deltas.

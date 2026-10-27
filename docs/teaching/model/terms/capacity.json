@@ -1,0 +1,7 @@
+{
+ "id": "capacity",
+ "term": "Capacity",
+ "definition": "The available ability to launch or continue agent work within configured limits.",
+ "status": "draft",
+ "sources": ["docs/public/agents/capacity-recovery.md"]
+}

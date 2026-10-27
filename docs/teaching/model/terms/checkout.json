@@ -1,0 +1,7 @@
+{
+ "id": "checkout",
+ "term": "Checkout",
+ "definition": "A local copy of a repository where a project’s files are read and changed. It is distinct from the project record and the Universe holding that record.",
+ "status": "draft",
+ "sources": ["docs/public/start/concepts.md"]
+}

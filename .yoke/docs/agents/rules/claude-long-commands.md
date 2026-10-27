@@ -1,10 +1,10 @@
-# Claude long commands and watcher waits
+# Claude commands and waits
 
 <!-- yoke:breadcrumbs -->
-[Yoke](../../index.md) > [Agents](../index.md) > [Operation homes](index.md) > Claude long commands
+[Getting started](../../index.md) > [Command and technical reference](../../guide/reference/index.md) > [Agents](../index.md) > [Operation homes](index.md) > Claude long commands
 <!-- /yoke:breadcrumbs -->
 
-Apply your tier; unsure means subagent.
+Use your tier; unsure means subagent.
 
 ## Main sessions
 
@@ -16,9 +16,8 @@ Apply your tier; unsure means subagent.
   Without it, text-prompt `claude -p` kills moved calls ten minutes after the move. Have the
   launcher relaunch with the setting before a long wait; exporting inside Bash is too late.
 - Explicit background Bash uses `run_in_background: true, timeout: 3600000`.
-- Preserve handed-back calls and captures without duplicates. Continue until exit within
-  the configured lifetime; a background-time-limit notice means
-  incomplete work. Never end the turn holding an in-turn wait or poll a capture.
+- Preserve calls and captures without duplication; continue until exit. A background time
+  limit means incomplete work. Never end an in-turn wait or poll a capture.
 - Only interrupt a local check past about one minute: stop cleanly, retain its incomplete
   capture, commit and continue on CI. Never interrupt a CI watcher.
 - Hold a claim: run `yoke sessions touch --mode parked --reason claim` before Stop after arming Monitor.

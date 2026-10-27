@@ -1,0 +1,8 @@
+{
+ "id": "project",
+ "term": "Project",
+ "definition": "A named body of work with its own goals, backlog, configuration and guidance.",
+ "status": "draft",
+ "sources": ["docs/public/projects/index.md"],
+ "aliases": ["Projects"]
+}
