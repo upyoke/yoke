@@ -37,6 +37,7 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 NOW = "2026-10-01T18:20:00.000000Z"
 IDLE_SECONDS = 20 * 60
 FLOW = "hosted-release"
+RUN_FLOW = "shipping-release"
 WAITING = LandedGate(AWAITING_RELEASE, flow=FLOW)
 OWED = LandedGate(DELIVERED, flow=FLOW)
 
@@ -96,7 +97,7 @@ def report(*entries):
     "custody, run, expected",
     [
         ("unheld", "", f"awaiting next {FLOW} release (parked)"),
-        (HELD, str(uuid4()), f"awaiting {FLOW} release — delivering in"),
+        (HELD, str(uuid4()), f"awaiting {RUN_FLOW} release — delivering in"),
         (REMERGED, str(uuid4()), f"awaiting next {FLOW} release — merged again"),
         (UNDETERMINED, "", "release custody unreadable"),
     ],
@@ -105,7 +106,7 @@ def report(*entries):
 def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     custody, run, expected
 ):
-    entry = landing(custody_state=custody, custody_run_id=run)
+    entry = landing(custody_state=custody, custody_run_id=run, custody_run_flow=RUN_FLOW)
     body = report_body(report(entry))
     lines = [line for line in body.splitlines() if entry.public_ref in line]
     assert len(lines) == 1

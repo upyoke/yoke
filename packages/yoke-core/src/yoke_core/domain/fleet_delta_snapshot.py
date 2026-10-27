@@ -103,6 +103,7 @@ class ItemRow:
     launch_state: str = ""
     pickable_since: datetime | None = None
     staffing_after_seconds: int = 0
+    blocked_by: tuple[str, ...] = ()
 
     @property
     def unclaimed(self) -> bool:
@@ -222,6 +223,7 @@ def item_rows(result: Mapping[str, Any]) -> dict[str, ItemRow]:
                 launch_state=str(raw.get("launch_state") or ""),
                 pickable_since=parse_timestamp(raw.get("pickable_since")),
                 staffing_after_seconds=int(raw.get("staffing_after_seconds") or 0),
+                blocked_by=tuple(str(ref) for ref in raw.get("blocked_by") or []),
             )
     return rows
 

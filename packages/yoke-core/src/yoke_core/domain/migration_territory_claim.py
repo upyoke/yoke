@@ -37,6 +37,9 @@ from yoke_core.domain.coordination_claims import (
     held_error,
     release,
 )
+from yoke_core.domain import db_backend
+from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.db_savepoint import savepoint
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.work_claim_targets import (
     make_migration_serialization_target,
@@ -59,24 +62,33 @@ def enter(
     """Claim migration territory for *model_name*, or reuse an owned claim.
 
     Authority is item-owned so the hold survives session end. Re-entering
-    from the same item heartbeats; any other holder raises
+    from the same item heartbeats. A terminal owner releases its hold;
+    any other holder raises
     :class:`CoordinationClaimHeldError`.
     """
     target = make_migration_serialization_target(
         resolve_project_id(conn, project), model_name, int(item_id)
     )
-    held = active_claim(conn, target, for_update=True)
-    if held is not None:
-        if held.owner_item_id == int(item_id):
-            return heartbeat(conn, held.id, commit=commit)
-        raise _held_as_error(conn, held)
-    return acquire(
-        conn,
-        target,
-        session_id or "",
-        reason=ACQUIRE_REASON,
-        commit=commit,
-    )
+    with savepoint(conn, "migration_territory_enter", owns=commit):
+        held = active_claim(conn, target, for_update=True)
+        if held is not None:
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            owner = conn.execute(
+                f"SELECT status FROM items WHERE id = {marker}",
+                (held.owner_item_id,),
+            ).fetchone()
+            if owner is not None and str(owner[0]) in TERMINAL_STATUSES:
+                release(
+                    conn, held.id, f"item-terminal:{owner[0]}",
+                    canonical_reason="completed", commit=False,
+                )
+            elif held.owner_item_id == int(item_id):
+                return heartbeat(conn, held.id, commit=commit)
+            else:
+                raise _held_as_error(conn, held)
+        return acquire(
+            conn, target, session_id or "", reason=ACQUIRE_REASON, commit=commit,
+        )
 
 
 def _held_as_error(conn: Any, held: CoordinationClaim) -> CoordinationClaimHeldError:

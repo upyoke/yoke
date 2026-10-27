@@ -193,3 +193,28 @@ def test_terminal_release_rolls_back_with_status_transition(test_db):
         (item_id,),
     ).fetchone()
     assert str(status[0]) == "implementing"
+
+
+@pytest.mark.parametrize("owner_status", ["done", "cancelled", "stopped"])
+def test_enter_replaces_a_terminal_items_orphaned_territory(test_db, owner_status):
+    owner_id, next_id = 4210, 4211
+    old_id = _seed_owner(test_db, item_id=owner_id, session_id="orphan-owner")
+    test_db.execute("UPDATE items SET status=%s WHERE id=%s", (owner_status, owner_id))
+    seed_blitz_item(test_db, next_id, next_id)
+    seed_session_claim(test_db, next_id, "next-owner")
+    test_db.commit()
+
+    held = enter(
+        test_db, project=1, model_name=MODEL, item_id=next_id,
+        session_id="next-owner", commit=False,
+    )
+    assert held.owner_item_id == next_id
+    assert get_claim(test_db, old_id).release_reason_intent == f"item-terminal:{owner_status}"
+    test_db.rollback()
+    assert get_claim(test_db, old_id).released_at is None
+    held = enter(
+        test_db, project=1, model_name=MODEL, item_id=next_id,
+        session_id="next-owner",
+    )
+    assert active_claim(test_db, held.target).id == held.id
+    assert held.id != old_id

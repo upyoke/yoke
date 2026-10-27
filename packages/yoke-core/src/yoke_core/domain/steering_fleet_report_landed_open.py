@@ -92,6 +92,7 @@ class LandedItem:
     #: The run the state is about: the holder, or the run a re-merge left
     #: behind. Empty when no release names the item at all.
     custody_run_id: str = ""
+    custody_run_flow: str = ""
     #: The resolved closing flow is active; an absent/disabled flow cannot deliver.
     completion_flow_available: bool = False
     holder_native_process_gone: bool = False
@@ -215,6 +216,7 @@ def landed_without_closeout(
                 workflow_id=str(record.get("workflow_id") or ""),
                 custody_state=held.state,
                 custody_run_id=held.run_id,
+                custody_run_flow=held.run_flow,
                 completion_flow_available=bool(
                     item_id in flows and flows[item_id].flow in active_flows
                 ),

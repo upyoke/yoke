@@ -1,4 +1,4 @@
-"""Idle-holder alarms: parked holders alarm once, unparked repeat, then clear."""
+"""Idle-holder alarms: declared waits, blocked dependents, repeat and clear."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from yoke_core.domain.fleet_delta_alarms import (
 from yoke_core.domain.fleet_delta_snapshot import (
     SESSIONS_FUNCTION,
     FleetSnapshot,
+    item_rows,
     SessionRow,
     read_snapshot,
     session_rows,
@@ -152,3 +153,22 @@ def test_probe_reads_the_full_live_roster_rather_than_the_summary_page() -> None
         "open": True,
         "detail": "full",
     }
+
+
+def test_parked_holder_repeats_while_named_dependents_wait() -> None:
+    from dataclasses import replace
+
+    blocker, dependent = (f"WORK-{number}" for number in (1, 2))
+    parked = _session("p", mode="parked", parked=True, claimed_items=(blocker,))
+    items = item_rows({"blocked_steps": [
+        {"item_id": dependent, "blocked_by": [blocker]},
+    ]})
+    state = DeltaState()
+    snapshot = _snapshot(parked, items=items)
+    assert f"dependents={dependent}" in idle_holder_alarms(snapshot, state)[0]
+    inside = replace(snapshot, taken_at=NOW + timedelta(minutes=59))
+    assert idle_holder_alarms(inside, state) == []
+    later = replace(snapshot, taken_at=NOW + timedelta(minutes=60))
+    assert f"dependents={dependent}" in idle_holder_alarms(later, state)[0]
+    cleared = replace(later, taken_at=NOW + timedelta(minutes=120), items={})
+    assert idle_holder_alarms(cleared, state) == []
