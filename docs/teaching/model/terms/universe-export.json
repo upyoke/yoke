@@ -1,0 +1,7 @@
+{
+ "id": "universe-export",
+ "term": "Universe export",
+ "definition": "Saving a universe to an archive that can be imported elsewhere or retained as a backup.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

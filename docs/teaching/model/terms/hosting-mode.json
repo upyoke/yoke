@@ -1,0 +1,7 @@
+{
+ "id": "hosting-mode",
+ "term": "Hosting mode",
+ "definition": "Where the Yoke core and its database run: locally, on your own server, or hosted at upyoke.com.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

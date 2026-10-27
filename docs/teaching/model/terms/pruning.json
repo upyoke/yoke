@@ -1,0 +1,7 @@
+{
+ "id": "pruning",
+ "term": "Pruning",
+ "definition": "Removing eligible disposable universe records under the retention policy; a preview shows what would be removed.",
+ "status": "draft",
+ "sources": ["docs/public/universe-retention.md"]
+}

@@ -8,7 +8,7 @@
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Explain how direction becomes a plan and actionable work.",
  "outline": ["Mission, landscape and vision", "Master plan and current plan", "How agents maintain the plan with you"],
- "terms": ["current-plan", "landscape", "master-plan", "mission", "plan", "steering-claim", "strategy", "vision"],
+ "terms": ["current-plan", "landscape", "master-plan", "mission", "plan", "steering-claim", "strategy", "vision", "strategy-document", "standing-strategy-doc", "working-strategy-doc"],
  "commands": ["command:yoke strategy"],
  "sources": ["skill:strategize", "skill:steer", "skill:feed", "doc:docs/public/strategy/index.md"],
  "deeper_pages": [],

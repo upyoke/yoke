@@ -1,0 +1,17 @@
+{
+ "id": "setup.hosting",
+ "title": "Hosting modes",
+ "parent": "setup",
+ "route": "/docs/setup/hosting",
+ "kind": "detail",
+ "status": "draft",
+ "audience": "People using Yoke; agents can follow the linked reference",
+ "purpose": "Help readers choose where their universe lives and understand how to move it later.",
+ "outline": ["Local: your computer", "Self-hosted: your server", "Hosted: upyoke.com", "Universe portability through export and import"],
+ "terms": ["universe", "local-mode", "self-hosted-mode", "hosted-mode", "hosting-mode", "yoke-cloud", "portability", "universe-portability", "universe-export", "universe-import", "fair-source"],
+ "commands": ["command:yoke universe"],
+ "sources": ["doc:docs/public/start/modes.md"],
+ "deeper_pages": [],
+ "open_questions": [],
+ "position": 5
+}

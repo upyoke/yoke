@@ -1,0 +1,7 @@
+{
+ "id": "fair-source",
+ "term": "Fair Source",
+ "definition": "Yoke’s source-available licensing model: FSL-1.1-ALv2, with conversion to Apache 2.0 after its fixed window.",
+ "status": "draft",
+ "sources": ["docs/public/start/modes.md"]
+}

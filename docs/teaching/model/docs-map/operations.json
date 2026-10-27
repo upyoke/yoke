@@ -8,7 +8,7 @@
  "audience": "People using Yoke; agents can follow the linked reference",
  "purpose": "Explain how to inspect health and recover without losing state.",
  "outline": ["Health versus readiness", "Read the named recovery", "Get useful diagnostics"],
- "terms": ["doctor"],
+ "terms": ["doctor", "universe-retention", "pruning"],
  "commands": ["command:yoke doctor", "command:yoke status", "command:yoke watch doctor"],
  "sources": ["skill:doctor", "doc:docs/public/verification/health-readiness.md", "doc:docs/public/operations/doctor.md", "replies:doctor", "replies:watch"],
  "deeper_pages": [],

@@ -25,7 +25,7 @@ PAGE = 'yokepedia.html'
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 VIEWS = HERE.parent / 'views'
-SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_intro.js', 'explorer_start.js', 'explorer.js')
+SCRIPTS = ('explorer_graph.js', 'explorer_records.js', 'explorer_terms.js', 'explorer_docs_coverage.js', 'explorer_docs_map.js', 'explorer_intro.js', 'explorer_hosting.js', 'explorer_start.js', 'explorer.js')
 
 
 @lru_cache(maxsize=1)
@@ -255,7 +255,8 @@ def embed_json(value):
 
 def page_html(data, model):
     """One self-contained page: inline style, scripts and embedded data."""
-    css = HERE.joinpath('explorer.css').read_text(encoding='utf-8')
+    css = '\n'.join(HERE.joinpath(name).read_text(encoding='utf-8')
+                    for name in ('explorer.css', 'explorer_hosting.css'))
     scripts = [HERE.joinpath(name).read_text(encoding='utf-8') for name in SCRIPTS]
     for name, text in [('explorer.css', css), *zip(SCRIPTS, scripts)]:
         for unsafe in ('</style', '</script', '<!--'):

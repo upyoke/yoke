@@ -7,12 +7,12 @@ function renderGettingStarted() {
   renderIntro(article);
   renderInstallIntro(article);
   const sections = [
-    ['Universes, projects and where Yoke runs', 'understand', [
+    ['Universes, projects and where Yoke runs', 'setup.hosting', [
       'A universe is the home for your Yoke projects, work records and configuration. Each project brings together its software, goals and work. You can keep several projects in one universe.',
-      'Choose where your universe lives during setup: local runs privately on your computer; self-hosted runs on a server you manage; hosted runs at upyoke.com. Self-hosted and hosted let you connect from multiple computers and work with a team.',
+      'Choose where your universe lives during setup:',
       'You can move a universe between these options using export and import.',
       'Use your agent to work with Yoke and the dashboard to see what is going on. You remain responsible for direction and the decisions that need your judgment.'
-    ], 'How Yoke fits together'],
+    ], 'Hosting modes'],
     ['Set direction with strategy documents', 'strategy', [], 'Strategy documents'],
     ['Track work from idea to completion', 'work', [
       'An item is a piece of work with a defined outcome. Its workflow sets the steps it must pass through, such as planning, implementation and review.',
@@ -57,6 +57,7 @@ function renderGettingStarted() {
     for (const paragraph of paragraphs) {
       section.append(text(paragraph.startsWith('>') ? 'blockquote' : 'p',
         paragraph.startsWith('>') ? paragraph.slice(1) : paragraph));
+      if (page === 'setup.hosting' && paragraph.endsWith('during setup:')) renderHostingCards(section);
     }
     section.append(introArticleLinks([[page, linkLabel]]));
     article.append(section);

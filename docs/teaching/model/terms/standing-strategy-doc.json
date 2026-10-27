@@ -1,0 +1,7 @@
+{
+ "id": "standing-strategy-doc",
+ "term": "Standing strategy doc",
+ "definition": "A foundational project document: MISSION, VISION, LANDSCAPE or MASTER-PLAN.",
+ "status": "draft",
+ "sources": ["docs/public/strategy/index.md"]
+}
