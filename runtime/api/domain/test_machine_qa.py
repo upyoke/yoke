@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -16,12 +17,8 @@ from yoke_core.domain.machine_qa_method_contracts import (
     MachineQaExecutionError,
     validate_machine_method_config,
 )
-from yoke_core.domain.machine_qa_pack import (
-    MACHINE_QA_PACK,
-    load_machine_qa_methods,
-    sync_machine_qa_pack_methods,
-)
-from yoke_core.domain.pack_catalog import load_pack_descriptor
+from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
+from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
 from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as read_test_machine_detail,
@@ -30,69 +27,48 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 
-def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
-    version, methods = load_machine_qa_methods()
-    assert version == load_pack_descriptor(MACHINE_QA_PACK)["latest_version"]
-    assert {row["id"] for row in methods} == {
+def test_builtins_preserve_serial_machine_contracts_and_replace_pack_source() -> None:
+    methods = [
+        m
+        for m in BUILTIN_QA_METHODS
+        if "test-machine" in m["required_capability_kinds"]
+    ]
+    assert {m["id"] for m in methods} == {*MACHINE_METHODS, "exploratory-mission"}
+    assert MACHINE_METHODS == {
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",
-        "exploratory-mission",
     }
-    assert MACHINE_METHODS == frozenset(
-        {"terminal-check", "terminal-inspection", "machine-state-check"}
-    )
-    assert {row["runner_id"] for row in methods} == {
-        "agent_mission",
-        "host_control",
-    }
-    assert {tuple(row["required_capability_kinds"]) for row in methods} == {
-        ("browser-control", "test-machine"),
-        ("test-machine",),
-    }
-    assert {row["concurrency_mode"] for row in methods} == {"serial"}
-    assert all(
-        row["display_icon"]
-        and row["display_group"]
-        and row["config_contract_id"]
-        and row["proof_kind"]
-        and row["runner_gloss"]
-        for row in methods
-    )
-    assert {row["id"]: row["description"] for row in methods} == {
-        "terminal-check": (
-            "Scripted PTY interaction with any terminal program; "
-            "transcript + checkpoint expectations."
-        ),
-        "terminal-inspection": (
-            "Real Terminal screenshots at checkpoints; an agent judges "
-            "them against the expected outcome."
-        ),
-        "machine-state-check": (
-            "Shell assertions on the controlled host, including declared "
-            "macOS GUI-session commands."
-        ),
-        "exploratory-mission": (
-            "Agent-chosen exploration across declared substrates; an empty baseline "
-            "preserves the live host. Do not use it for deterministic checks: "
-            "Command methods are faster, "
-            "cheaper, and repeatable."
-        ),
-    }
-
     conn = make_conn()
-    sync_machine_qa_pack_methods(conn)
-    rows = conn.execute(
-        "SELECT id,source_kind,source_ref,display_icon,proof_kind "
-        "FROM qa_methods ORDER BY id"
-    ).fetchall()
-    assert [(row[0], row[1], row[2]) for row in rows] == [
-        ("exploratory-mission", "pack", "machine-qa"),
-        ("machine-state-check", "pack", "machine-qa"),
-        ("terminal-check", "pack", "machine-qa"),
-        ("terminal-inspection", "pack", "machine-qa"),
-    ]
-    assert all(row[3] and row[4] for row in rows)
+    seed_builtin_qa_methods(conn)
+    conn.execute(
+        "UPDATE qa_methods SET source_kind='pack', source_ref='machine-qa' "
+        "WHERE id='terminal-check'"
+    )
+    seed_builtin_qa_methods(conn)
+    for method in methods:
+        row = conn.execute(
+            "SELECT source_kind,source_ref,concurrency_mode,required_capability_kinds,"
+            "runner_id,verdict_path,config_contract_id,proof_kind FROM qa_methods WHERE id=?",
+            (method["id"],),
+        ).fetchone()
+        assert tuple(row[:3]) == ("built_in", None, "serial")
+        expected_kinds = (
+            ["browser-control", "test-machine"]
+            if method["id"] == "exploratory-mission"
+            else ["test-machine"]
+        )
+        assert json.loads(row[3]) == expected_kinds
+        assert tuple(row[4:]) == tuple(
+            method[k]
+            for k in ("runner_id", "verdict_path", "config_contract_id", "proof_kind")
+        )
+    assert (
+        conn.execute(
+            "SELECT concurrency_mode FROM qa_methods WHERE id='command'"
+        ).fetchone()[0]
+        == "parallel"
+    )
 
 
 def test_test_machine_is_typed_and_secret_presence_only(
@@ -114,7 +90,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
         base_settings=None,
     )
     assert result["verification_status"] == "configured_unverified"
-    sync_machine_qa_pack_methods(conn)
+    seed_builtin_qa_methods(conn)
     detail = read_test_machine_detail(conn, project="yoke")
     assert detail["features"] == [
         "Terminal.app",
@@ -162,7 +138,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
         },
         base_settings=None,
     )
-    sync_machine_qa_pack_methods(conn)
+    seed_builtin_qa_methods(conn)
     conn.executescript(
         """
         CREATE TABLE items (

@@ -78,8 +78,8 @@ test("all method details retain the prototype contract anatomy", async () => {
     const subtitle = byClass(host, "subtitle")[0].textContent;
     if (method.source_kind === "built_in") {
       assert.equal(subtitle, "Built-in method");
-    } else {
-      assert.equal(subtitle, "Pack-registered method · machine-qa");
+    }
+    if (method.required_capability_kinds.includes("test-machine")) {
       assert.match(text, /serial · one lease/);
       assert.match(
         byClass(host, "pill").find((node) => node.textContent === "in use")

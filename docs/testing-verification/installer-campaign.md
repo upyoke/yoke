@@ -173,8 +173,8 @@ On Linux the gate first starts the fixture desktop and its Chromium with a
 loopback DevTools port and runs the installer's tmux session on that desktop,
 so the wizard's link opens in the browser the operator signed in to. The step
 always attaches a desktop screenshot. A host without a desktop refuses
-`headless_linux_browser_approval_unavailable`; the Machine QA Pack's
-[Linux browser approval gates](../../packs/machine-qa/versions/1.3.25/files/docs/packs/machine-qa/linux-host-provisioning.md#browser-approval-gates)
+`headless_linux_browser_approval_unavailable`; the Machine QA
+[Linux browser approval gates](../public/verification/test-machines/linux-host-provisioning.md#browser-approval-gates)
 list every refusal and its recovery.
 
 ## Real machine admission fixture
@@ -260,7 +260,7 @@ yoke qa plan-cases sync --project P --plan-id {plan_id} --cases-file /tmp/explor
 ```
 
 Read `plan_id` from the plan receipt. The exporter reads the latest immutable
-Machine QA Pack example, so there is one mission source. Check a fresh plan
+Machine QA example, so there is one mission source. Check a fresh plan
 receipt with the same source checker before running it:
 
 ```text

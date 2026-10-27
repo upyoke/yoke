@@ -269,7 +269,7 @@ export function methodsPanel(documentNode, detail) {
       documentNode,
       "small",
       "dl-sub",
-      `Pack-registered · ${method.source_ref || "machine-qa"}`,
+      method.source_kind === "built_in" ? "Built-in" : method.source_ref,
     ));
     link.appendChild(copy);
     const ready = statePill(documentNode, methodAvailabilityState(detail));

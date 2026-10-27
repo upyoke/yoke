@@ -10,7 +10,7 @@ use Command, Browser check or Machine check for deterministic assertions.
 
 ## Contract
 
-The Machine QA Pack method has these immutable properties:
+The Machine QA method has these immutable properties:
 
 | Field | Value |
 |---|---|
@@ -79,7 +79,7 @@ Standalone execution needs the chain in its own plan; see
 [Machine partitions](deployment-plan-execution.md#machine-partitions).
 Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals. A mission that can only be judged after real production traffic, such as a real failed wake that a relay then claimed, sets `wake_path: manual` with a one-line `wake_evidence`; its owner is woken to confirm that evidence before running it ([cases that wait for real traffic](standalone-plans.md#cases-that-wait-for-real-traffic)).
 
-Do not turn likely landmarks into steps. The worked Machine QA Pack case
+Do not turn likely landmarks into steps. The worked Machine QA case
 `installer-exploration` deliberately replaces the territory of the
 installer campaign with one agent-chosen mission.
 

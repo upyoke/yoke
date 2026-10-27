@@ -17,7 +17,7 @@ built-in roster is:
 - **Browser check** — browser assertions with an automatic verdict.
 - **Browser inspection** — screenshots judged against the expected outcome.
 
-The `machine-qa` Pack adds **Terminal check**, **Terminal inspection**, and
+Core Yoke includes **Terminal check**, **Terminal inspection**, and
 **Machine state check** through serial `host_control`, plus **Exploratory
 mission** through the Main-owned `agent_mission` runner. A mission uses its
 declared browser/machine substrates and an informed subagent walker;
@@ -172,16 +172,16 @@ project records. Capacity-machine registration grants launch capacity and
 relay identity separately; it does not grant Test Machine readiness.
 
 Yoke's [manual baseline inventory](testing-verification/test-machine-golden-baseline.md)
-owns its runtime preparation and proof. Follow it with the Machine QA Pack's
+owns its runtime preparation and proof. Follow it with the Machine QA
 ordered account, sign-in, permissions, desktop and save/restore procedures:
 
-- [macOS](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](public/verification/test-machines/macos-host-provisioning.md)
+- [Linux](public/verification/test-machines/linux-host-provisioning.md)
+- [Windows/WSL2](public/verification/test-machines/windows-host-provisioning.md)
 
-The [provisioning index](../packs/machine-qa/versions/1.3.48/files/docs/packs/machine-qa/host-provisioning.md) also installs
-as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
-customized project. [Operation contracts](testing-verification/test-machine-operations.md)
+The [provisioning index](public/verification/test-machines/host-provisioning.md) ships
+as `.yoke/docs/verification/test-machines/host-provisioning.md`. Use that installed copy for a
+project. [Operation contracts](testing-verification/test-machine-operations.md)
 explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
 explain what the evidence establishes. For a case that needs a real
 self-hosted server, use the [temporary self-hosted server fixture](testing-verification/self-host-fixture.md).

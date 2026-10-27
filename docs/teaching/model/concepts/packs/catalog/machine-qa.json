@@ -2,8 +2,11 @@
  "id": "machine-qa",
  "title": "Machine QA",
  "status": "draft-copy",
- "sources": ["packs/machine-qa/pack.json", "packs/machine-qa/versions/1.3.40/files/docs/packs/machine-qa/README.md"],
- "page": "packs",
+ "sources": [
+  "packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py",
+  "docs/public/verification/test-machines/README.md"
+ ],
+ "page": "test-machines",
  "position": 5,
- "summary": "Machine QA declares a starting state for every machine case. An exploratory mission can inherit only as a same-driver chain tail; the entire chain runs alone and reserves every declared host before preparation through mission review. Item and deployment runs isolate the chain automatically. A standalone plan must contain only that chain or use a separate plan or scoped attachment. Nothing inherits after a mission. Older serving releases must be upgraded before retrying mission inheritance."
+ "summary": "Machine QA ships in core Yoke; no pack installation is required. Machine QA declares a starting state for every machine case. An exploratory mission can inherit only as a same-driver chain tail; the entire chain runs alone and reserves every declared host before preparation through mission review. Item and deployment runs isolate the chain automatically. A standalone plan must contain only that chain or use a separate plan or scoped attachment. Nothing inherits after a mission. Older serving releases must be upgraded before retrying mission inheritance."
 }

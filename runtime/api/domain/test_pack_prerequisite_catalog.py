@@ -16,7 +16,6 @@ EXPECTED_TOOLS = {
     "domain-cdn-edge": {"pulumi"},
     "ephemeral-environments": set(),
     "host-maintenance": {"docker"},
-    "machine-qa": {"ssh"},
     "managed-database": {"pulumi"},
     "production-deploy": {"docker", "ssh"},
     "pulumi-foundation": {"pulumi"},

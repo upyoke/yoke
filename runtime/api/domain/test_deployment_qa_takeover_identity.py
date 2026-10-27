@@ -251,7 +251,7 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
     test_db, monkeypatch, tmp_path, admission_changed
 ):
     from runtime.api.domain.machine_qa_host_test_support import configure_test_machine
-    from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+    from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
     from yoke_core.domain.qa_plan_management import replace_plan_cases
     from yoke_core.domain.qa_plan_execution_lifecycle import (
         finish_plan_execution,
@@ -267,7 +267,7 @@ def test_stale_inherited_mission_continues_by_execution_before_deployment(
     )
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    sync_machine_qa_pack_methods(test_db)
+    seed_builtin_qa_methods(test_db)
     plan = create_smoke_plan(test_db, project="yoke", slug="inherited-mission")
     replace_plan_cases(
         test_db,

@@ -40,7 +40,7 @@ NO_DESKTOP = "headless_linux_browser_approval_unavailable"
 NO_DESKTOP_RECOVERY = (
     "Browser approval on Linux runs in the test user's XFCE desktop Chromium. "
     "Provision the desktop and store desktop_password as "
-    "docs/packs/machine-qa/linux-host-provisioning.md describes, then rerun."
+    ".yoke/docs/verification/test-machines/linux-host-provisioning.md describes, then rerun."
 )
 HELPER_UNREADABLE = "linux_desktop_chromium_unreadable"
 _HOST_TIMEOUT_SECONDS = 90

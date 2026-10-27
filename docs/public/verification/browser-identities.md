@@ -149,8 +149,8 @@ and refreshes the live sessions in place and nothing is saved or restored.
 Create the store once during host provisioning, owner-only (`mkdir -m 700
 ~/.yoke-browser-identities`). A profile already signed in at its
 capability-secrets path is moved into the store the first time it is resolved.
-The Machine QA Pack per-OS procedures at `docs/packs/machine-qa/browser-identities.md`
-(installed by the Machine QA Pack) cover desktop preparation and the first sign-in.
+The Machine QA per-OS procedures at `.yoke/docs/verification/test-machines/browser-identities.md`
+(installed by the Machine QA) cover desktop preparation and the first sign-in.
 
 ## Related
 

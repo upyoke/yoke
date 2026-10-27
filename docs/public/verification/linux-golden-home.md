@@ -5,9 +5,8 @@
 <!-- /yoke:breadcrumbs -->
 
 The complete preparation, saving, restoration and timeout-recovery procedure is
-Linux provisioning at `docs/packs/machine-qa/linux-host-provisioning.md` (installed by the Machine QA Pack).
-It installs at `docs/packs/machine-qa/linux-host-provisioning.md` with the
-Machine QA Pack. Its audit distinguishes live evidence from unverified steps.
+Linux provisioning at `.yoke/docs/verification/test-machines/linux-host-provisioning.md`.
+Its audit distinguishes live evidence from unverified steps.
 
 Omitting `--destination` captures beside the current golden in
 `<user>-home-YYYYMMDDTHHMMSSZ`, using UTC, just like automatic harness refresh.

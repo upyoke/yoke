@@ -54,14 +54,12 @@ def test_informed_dispatch_drives_target_and_uploads_bytes_from_controller() -> 
     assert walker["walk_end_command"] in walker["prompt"]
 
 
-def test_latest_machine_pack_example_is_an_executable_informed_mission() -> None:
+def test_core_example_is_an_executable_informed_mission() -> None:
     root = Path(__file__).resolve().parents[3]
-    pack_root = root / "packs/machine-qa"
-    catalog = json.loads((pack_root / "pack.json").read_text())
-    version = catalog["versions"][catalog["latest_version"]]
     cases = json.loads(
         (
-            pack_root / version["source"] / "qa/examples/installer-exploration.json"
+            root
+            / "packages/yoke-core/src/yoke_core/domain/installer_exploration_cases.json"
         ).read_text()
     )
     for case in cases:

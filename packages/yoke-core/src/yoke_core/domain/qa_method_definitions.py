@@ -13,6 +13,7 @@ BUILTIN_QA_METHODS = (
             "Run the project's deterministic commands in a worktree — "
             "exit 0 is the verdict, captured output is the evidence."
         ),
+        "concurrency_mode": "parallel",
         "runner_id": "worktree_run",
         "required_capability_kinds": [],
         "verdict_path": "automatic",
@@ -33,6 +34,7 @@ BUILTIN_QA_METHODS = (
             "the run's conclusion is the verdict, its URL and head sha are "
             "the evidence."
         ),
+        "concurrency_mode": "parallel",
         "runner_id": "ci_run",
         "required_capability_kinds": [],
         "verdict_path": "automatic",
@@ -51,6 +53,7 @@ BUILTIN_QA_METHODS = (
         "description": (
             "Playwright-style assertions against declared routes; automatic verdict."
         ),
+        "concurrency_mode": "parallel",
         "runner_id": "browser_substrate",
         "required_capability_kinds": ["browser-control"],
         "verdict_path": "automatic",
@@ -70,6 +73,7 @@ BUILTIN_QA_METHODS = (
             "Captures screenshots; an agent judges whether they show the "
             "case's expected outcome."
         ),
+        "concurrency_mode": "parallel",
         "runner_id": "browser_substrate",
         "required_capability_kinds": ["browser-control"],
         "verdict_path": "agent",
@@ -85,6 +89,91 @@ BUILTIN_QA_METHODS = (
         "config_contract_id": "browser-inspection",
         "proof_kind": "browser-inspection",
         "runner_gloss": "the registered browser-control substrate",
+    },
+    {
+        "id": "terminal-check",
+        "name": "Terminal check",
+        "description": "Scripted PTY interaction with any terminal program; "
+        "transcript + checkpoint expectations.",
+        "runner_id": "host_control",
+        "required_capability_kinds": ["test-machine"],
+        "verdict_path": "automatic",
+        "verdict_contract": "transcript checkpoints met",
+        "evidence_contract": "step transcript · checkpoint expectations",
+        "concurrency_mode": "serial",
+        "display_icon": "⌨",
+        "display_order": 50,
+        "display_group": "Machine",
+        "config_contract_id": "terminal-check",
+        "proof_kind": "terminal-check",
+        "runner_gloss": "SSH + PTY on the capability-named machine",
+    },
+    {
+        "id": "terminal-inspection",
+        "name": "Terminal inspection",
+        "description": "Real Terminal screenshots at checkpoints; an agent judges "
+        "them against the expected outcome.",
+        "runner_id": "host_control",
+        "required_capability_kinds": ["test-machine"],
+        "verdict_path": "agent",
+        "verdict_contract": "agent verdict is pass, fail, or undetermined; "
+        "undetermined requires a reason naming what could not "
+        "be established and why",
+        "evidence_contract": "paired text + Terminal screenshots · inspection "
+        "verdict — blocked image capture reports the text plus "
+        "the reason as a degraded outcome, never a silent pass",
+        "concurrency_mode": "serial",
+        "display_icon": "⌘",
+        "display_order": 60,
+        "display_group": "Machine",
+        "config_contract_id": "terminal-inspection",
+        "proof_kind": "terminal-inspection",
+        "runner_gloss": "SSH + PTY on the capability-named machine",
+    },
+    {
+        "id": "machine-state-check",
+        "name": "Machine state check",
+        "description": "Shell assertions on the controlled host, including declared "
+        "macOS GUI-session commands.",
+        "runner_id": "host_control",
+        "required_capability_kinds": ["test-machine"],
+        "verdict_path": "automatic",
+        "verdict_contract": "expected exit on the host with every required session "
+        "context available",
+        "evidence_contract": "assertion commands · outputs · execution context or "
+        "degraded reason · secret scan",
+        "concurrency_mode": "serial",
+        "display_icon": "≡",
+        "display_order": 70,
+        "display_group": "Machine",
+        "config_contract_id": "machine-state-check",
+        "proof_kind": "machine-state-check",
+        "runner_gloss": "SSH or declared macOS GUI-session assertions on the "
+        "controlled host",
+    },
+    {
+        "id": "exploratory-mission",
+        "name": "Exploratory mission",
+        "description": "Agent-chosen exploration across declared substrates; an "
+        "empty baseline preserves the live host. Do not use it for "
+        "deterministic checks: Command methods are faster, cheaper, "
+        "and repeatable.",
+        "runner_id": "agent_mission",
+        "required_capability_kinds": ["browser-control", "test-machine"],
+        "verdict_path": "agent",
+        "verdict_contract": "the mission owner submits pass, fail, or undetermined "
+        "with a written rationale; undetermined names what "
+        "could not be established and why",
+        "evidence_contract": "ranked written findings are primary; deliberate proof "
+        "artifacts stay within the runtime-supplied limit, "
+        "while routine perception is discarded",
+        "concurrency_mode": "serial",
+        "display_icon": "⌁",
+        "display_order": 80,
+        "display_group": "Machine",
+        "config_contract_id": "agent-mission",
+        "proof_kind": "exploratory-mission",
+        "runner_gloss": "Main-owned mission with an informed subagent walker",
     },
 )
 

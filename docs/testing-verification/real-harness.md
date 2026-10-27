@@ -6,7 +6,7 @@ Internal: for maintainers of the Yoke source repository.
 cases. It needs persistent Test Machines with signed-in Claude, Codex and Cursor
 captured in their sealed golden baselines. No harness or product credentials
 enter CI or move from the operator's machine. Windows runs the native Linux CLI cases inside its registered WSL2 home.
-Follow the Machine QA Pack's per-OS provisioning guides at `docs/packs/machine-qa/host-provisioning.md` (installed by the Machine QA Pack) for all host preparation and saved-state proof.
+Follow the Machine QA per-OS provisioning guides at `.yoke/docs/verification/test-machines/host-provisioning.md` for all host preparation and saved-state proof.
 
 Build the candidate's five wheels in its claimed checkout and declare the exact
 CLI version for each harness and operating system in a JSON document:

@@ -9,7 +9,6 @@ from yoke_core.domain.event_registry_converge import converge_event_registry
 from yoke_core.domain.flow_init import (
     create_or_replace_item_progress_view,
 )
-from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
 from yoke_core.domain.model_reference_store import (
     seed_initial_catalog,
 )
@@ -52,7 +51,6 @@ def project_code_owned_rows(conn) -> None:
     converge_builtin_workflows(conn)
     seed_initial_catalog(conn)
     seed_builtin_qa_methods(conn)
-    sync_machine_qa_pack_methods(conn)
     converge_pack_catalog(conn)
     converge_event_registry(conn)
     # Where a registered verification command runs is executable configuration

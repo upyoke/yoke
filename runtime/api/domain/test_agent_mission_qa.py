@@ -36,7 +36,7 @@ from yoke_core.domain.machine_qa_local_execution import (
     execute_agent_mission_host_command,
     prepare_agent_mission_contract,
 )
-from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+from yoke_core.domain.qa_catalog_schema import seed_builtin_qa_methods
 from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
     materialize_for_item,
@@ -101,7 +101,7 @@ def _request(
 
 def _materialize_mission(conn: Any, *, item_id: int) -> int:
     create_governed_tables(conn)
-    sync_machine_qa_pack_methods(conn)
+    seed_builtin_qa_methods(conn)
     plan = create_plan(
         conn,
         project="yoke",
@@ -270,7 +270,9 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert resumed.primary_success, resumed.error
     assert int(resumed.result_payload["execution"]["lease_id"]) == lease_id
 
-    walk_states.record_handback(ACTOR, requirement_id, ready.result_payload["result"]["run_id"])
+    walk_states.record_handback(
+        ACTOR, requirement_id, ready.result_payload["result"]["run_id"]
+    )
     current = lock_plan_execution(test_db, execution_id)
     assert current["state"] == "awaiting_walk_review"
     rationale = (

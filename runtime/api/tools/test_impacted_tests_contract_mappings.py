@@ -62,14 +62,12 @@ def test_contract_companions_survive_bounded_deferral(
         contracts.EPIC_RESOLUTION_SOURCE_PATH,
         sorted(path_claims.PATH_CLAIM_SOURCE_PATHS)[0],
         *path_claims.SURVEY_ADVISORY_SOURCE_PATHS,
-        *(f"{prefix}pack.json" for prefix in contracts.MACHINE_QA_PACK_SOURCE_PREFIXES),
     )
     for path in changed:
         _write(tmp_path, path, "{}\n" if path.endswith(".json") else "VALUE = 1\n")
 
     expected = {
         *contracts.MIGRATION_HISTORY_CONTRACT_TESTS,
-        *contracts.MACHINE_QA_PACK_CONTRACT_TESTS,
         *contracts.EPIC_QA_READ_CONTRACT_TESTS,
         *path_claims.PATH_CLAIM_FEASIBILITY_TESTS,
         *path_claims.SURVEY_ADVISORY_TESTS,
@@ -83,10 +81,6 @@ def test_contract_companions_survive_bounded_deferral(
     assert expected <= set(selection.files)
     assert any(
         token.startswith("migration_history_contract:")
-        for token in selection.widening_triggers
-    )
-    assert any(
-        token.startswith("machine_qa_pack_contract:")
         for token in selection.widening_triggers
     )
     assert any(

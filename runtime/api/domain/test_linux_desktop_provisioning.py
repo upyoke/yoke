@@ -11,7 +11,7 @@ import pytest
 def provisioner():
     path = (
         Path(__file__).resolve().parents[3]
-        / "packs/machine-qa/versions/1.3.0/files/ops/machine-qa/provision_linux_desktop.py"
+        / "packages/yoke-harness/src/yoke_harness/host_provisioning/provision_linux_desktop.py"
     )
     spec = importlib.util.spec_from_file_location("desktop_provisioner", path)
     module = importlib.util.module_from_spec(spec)

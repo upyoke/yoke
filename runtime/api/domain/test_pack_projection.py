@@ -190,3 +190,27 @@ def test_pack_projection_writes_and_receipts_retain_native_clock(
         row[0] == stamp
         for row in test_db.execute("SELECT observed_at FROM pack_catalog").fetchall()
     )
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_convergence_removes_unshipped_packs_without_losing_project_receipts(
+    test_db, monkeypatch, empty
+):
+    monkeypatch.setattr(pack_projection, "catalog_rows", _catalog)
+    pack_projection.converge_pack_catalog(test_db)
+    pack_projection.report_project_packs(
+        test_db,
+        project="yoke",
+        receipt_digest="a" * 64,
+        packs=[{"slug": "current", "version": "1.0.0", "file_count": 2}],
+    )
+    shipped = [] if empty else [dict(_catalog()[1], name="Updated")]
+    monkeypatch.setattr(pack_projection, "catalog_rows", lambda: shipped)
+    pack_projection.converge_pack_catalog(test_db)
+    pack_projection.converge_pack_catalog(test_db)
+    assert test_db.execute(
+        "SELECT slug,name FROM pack_catalog ORDER BY slug"
+    ).fetchall() == [(row["slug"], row["name"]) for row in shipped]
+    assert test_db.execute(
+        "SELECT pack_slug,installed_version FROM project_pack_report_entries"
+    ).fetchall() == [("current", "1.0.0")]

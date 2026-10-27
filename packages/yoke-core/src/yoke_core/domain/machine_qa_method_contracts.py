@@ -18,9 +18,9 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
     validate_fixture_operation_refs,
     validate_terminal_recipe,
 )
-from yoke_core.domain.machine_qa_pack import load_machine_qa_methods
+from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
-_MACHINE_METHOD_DEFINITIONS = {row["id"]: row for row in load_machine_qa_methods()[1]}
+_MACHINE_METHOD_DEFINITIONS = {row["id"]: row for row in BUILTIN_QA_METHODS}
 MACHINE_METHODS = frozenset(
     method_id
     for method_id, definition in _MACHINE_METHOD_DEFINITIONS.items()
@@ -38,7 +38,7 @@ class MachineQaExecutionError(ValueError):
 
 
 def machine_method_definition(method_id: str) -> Mapping[str, Any]:
-    """Resolve one Pack-owned Machine QA definition or fail closed."""
+    """Resolve one built-in Machine QA definition or fail closed."""
     definition = _MACHINE_METHOD_DEFINITIONS.get(method_id)
     if definition is None:
         raise MachineQaExecutionError(f"unknown Machine QA method {method_id!r}")

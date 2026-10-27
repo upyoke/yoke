@@ -2,9 +2,9 @@
  "id": "disk-sizing",
  "title": "Disk sizing and online resize",
  "status": "draft-copy",
- "sources": ["packs/machine-qa/versions/1.3.35/files/docs/packs/machine-qa/host-provisioning.md", "packages/yoke-harness/src/yoke_harness/test_machine_temp_state.py"],
+ "sources": ["docs/public/verification/test-machines/host-provisioning.md", "packages/yoke-harness/src/yoke_harness/test_machine_temp_state.py"],
  "commands": ["yoke test-machine exec", "yoke test-machine reset"],
  "page": "test-machine-setup",
  "position": 6,
- "summary": "macOS and Linux test machines need at least 40 GiB on the volume holding the test home and temporary directories: OS, desktop and Chromium, a 3-4 GiB home, one golden plus a second home-sized copy during capture, harness installs, mission scratch and the 1 GiB mission admission floor. test_machine_disk_space_low recovery points at the Machine QA Pack's disk sizing section, which grows a disk online without a reboot: AWS modify-volume, then growpart and resize2fs or xfs_growfs on Linux, or diskutil repairDisk and apfs resizeContainer on an EC2 Mac, each through yoke test-machine exec --admin. A physical Mac cannot grow and frees space or moves."
+ "summary": "macOS and Linux test machines need at least 40 GiB on the volume holding the test home and temporary directories: OS, desktop and Chromium, a 3-4 GiB home, one golden plus a second home-sized copy during capture, harness installs, mission scratch and the 1 GiB mission admission floor. test_machine_disk_space_low recovery points at the Machine QA disk sizing section, which grows a disk online without a reboot: AWS modify-volume, then growpart and resize2fs or xfs_growfs on Linux, or diskutil repairDisk and apfs resizeContainer on an EC2 Mac, each through yoke test-machine exec --admin. A physical Mac cannot grow and frees space or moves."
 }

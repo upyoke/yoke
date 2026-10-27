@@ -48,8 +48,8 @@ Mission preparation requires at least 1 GiB free on the home and temporary
 filesystems before package setup or scratch creation. A
 `test_machine_disk_space_low` refusal records the observed space and minimum;
 finish or abort the owning mission, reset the host, and, if reset cannot
-recover that space, grow its disk online as the installed Machine QA Pack's
-`docs/packs/machine-qa/host-provisioning.md` "Disk sizing and online resize"
+recover that space, grow its disk online as the installed Machine QA
+`.yoke/docs/verification/test-machines/host-provisioning.md` "Disk sizing and online resize"
 section describes before retrying QA. Test Machines need at least 40 GiB.
 
 The named machine's `desktop_password` secret is its administrator password,

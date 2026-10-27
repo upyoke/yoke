@@ -109,7 +109,13 @@ def converge_pack_catalog(conn: Any) -> None:
 
     create_pack_projection_tables(conn)
     now = db_helpers.utc_now()
-    for row in catalog_rows():
+    rows = catalog_rows()
+    shipped = {row["slug"] for row in rows}
+    for stored in conn.execute("SELECT slug FROM pack_catalog").fetchall():
+        slug = _row(stored, "slug")
+        if slug not in shipped:
+            conn.execute("DELETE FROM pack_catalog WHERE slug=%s", (slug,))
+    for row in rows:
         conn.execute(
             "INSERT INTO pack_catalog("
             "slug,name,description,latest_version,dependencies_json,documentation,"

@@ -22,7 +22,7 @@ _SCREENSHOT_DESCRIPTION = (
     "A reused blank desktop restarts once unless an RDP client or another login owns it; "
     "desktop_session reports started/reused/restarted. Persistent blank frames report "
     "~/.xsession-errors and /var/log/xrdp-sesman.log evidence. "
-    "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; "
+    "Provision XFCE with python3 -m yoke_harness.host_provisioning.provision_linux_desktop; "
     "repair the registered fixture secret or xrdp/XFCE and rerun if startup refuses. "
     "Windows captures that same XFCE browser display inside the SSH user's default WSL2 distro. "
     "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
