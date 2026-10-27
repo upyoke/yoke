@@ -227,6 +227,22 @@ def test_a_refusal_names_the_path_and_what_to_change(
     assert transport.uploads.get(DESTINATION + GOLDEN_PROBES_SUFFIX) is None
 
 
+def test_a_residue_refusal_recovers_without_a_registered_golden() -> None:
+    path = f"{HOME}/.yoke"
+    transport = FakeCaptureTransport(
+        refusal_stdout("assert_no_yoke_residue", CAPTURE_REFUSAL_KIND_RESIDUE, path),
+        capture_returncode=1,
+    )
+
+    recovery = _capture(transport).evidence["refusal"]["recovery"]
+
+    # Removing the named path works when no golden exists to reset to.
+    assert f"Remove {path} as the test user" in recovery
+    assert "golden_baseline_path" in recovery
+    assert "`yoke test-machine reset`" in recovery
+    assert "current golden" not in recovery
+
+
 def test_a_capture_whose_probes_never_seal_reports_the_unsealed_sidecar() -> None:
     transport = FakeCaptureTransport(closed_capture_stdout())
     transport.seal_returncode = 1

@@ -105,7 +105,12 @@ def require_runtime_target(
         raise QaExecutionTargetError("QA execution target has no environment name")
     if restricts_qa_to_self(runtime_settings) and selected != runtime:
         raise QaExecutionTargetError(
-            f"runtime environment {runtime!r} cannot execute QA target {selected!r}"
+            f"runtime environment {runtime!r} cannot execute QA target "
+            f"{selected!r}: it declares qa.restrict_execution_to_self, so it "
+            "runs only QA that targets its own environment. Run the plan from "
+            f"the {selected!r} control plane (select its connection with "
+            f"`yoke --env NAME`), or prove the case through a deployment QA "
+            f"stage that targets {selected!r}."
         )
 
 

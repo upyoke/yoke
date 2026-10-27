@@ -1,9 +1,7 @@
 """Drive one operator-run test-machine operation from the machine that can.
 
-Every one of these operations reaches a real host over a credential that lives
-on one workstation, so the control plane issues the contract and this executes
-it locally: begin, run, submit, and -- when the local run fails -- abort, so a
-machine is never left leased by an execution that has already stopped.
+The host credential lives on one workstation, so the control plane issues the
+contract and this runs it: begin, run, submit, and abort when the run fails.
 """
 
 from __future__ import annotations
@@ -235,6 +233,7 @@ def _execute(
                 ),
                 json_mode=json_mode,
             )
+    from yoke_harness.harness_cli_latest import warn_capture_behind_latest
     from yoke_harness.golden_snapshot_retention import (
         SnapshotRetentionError,
         retain_after_verified_capture,
@@ -259,6 +258,7 @@ def _execute(
         submit = submit.model_copy(
             update={"result": {**submit.result, "removed_snapshots": removed}}
         )
+    warn_capture_behind_latest(operation, submit.result, submission.payload)
     exit_code = emit_response(_as_public(submit, operation), json_mode=json_mode)
     if submit.success and (submit.result or {}).get("status") == "error":
         return 1

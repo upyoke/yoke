@@ -284,3 +284,4 @@ def test_refresh_error_keeps_the_harness_diagnostic_before_large_evidence(monkey
         world.run(contract())
     assert detail in str(caught.value)[:200]
     assert "x" * 1000 in str(caught.value)
+

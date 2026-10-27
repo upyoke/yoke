@@ -15,21 +15,18 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import PurePosixPath
-import urllib.request
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
-from yoke_contracts.harness_cli_releases import (
-    HARNESS_CLI_RELEASES,
-    outdated_harness_clis,
-)
+from yoke_contracts.harness_cli_releases import outdated_harness_clis
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.machine_qa_golden_destination import (
     timestamped_golden_directory_name,
 )
+from yoke_harness import harness_cli_latest
+from yoke_harness.harness_cli_latest import fetch_release_channel
 
-LATEST_FETCH_TIMEOUT_SECONDS = 30
 REFRESH_RECOVERY_SUFFIX = (
     " The plan stopped before its case reset so no QA ran on stale CLIs; "
     "repair the named step and rerun the QA plan."
@@ -37,12 +34,6 @@ REFRESH_RECOVERY_SUFFIX = (
 
 # (plan execution id, machine) pairs already checked by this process.
 _checked: set[tuple[str, str]] = set()
-
-
-def fetch_release_channel(url: str) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": "yoke-golden-refresh"})
-    with urllib.request.urlopen(request, timeout=LATEST_FETCH_TIMEOUT_SECONDS) as reply:
-        return reply.read().decode("utf-8")
 
 
 def _refused(code: str, detail: str, recovery: str) -> Exception:
@@ -59,20 +50,14 @@ def _refused(code: str, detail: str, recovery: str) -> Exception:
 
 def latest_harness_cli_versions(fetch: Callable[[str], str]) -> dict[str, str]:
     """Return each harness id's latest published CLI version, or refuse."""
-    latest = {}
-    for release in HARNESS_CLI_RELEASES:
-        try:
-            latest[release.harness_id] = release.latest_version(
-                fetch(release.latest_url)
-            )
-        except Exception as error:
-            raise _refused(
-                "golden_refresh_latest_unavailable",
-                f"{release.latest_url} did not answer with a {release.harness_id} "
-                f"release ({type(error).__name__}: {error})",
-                "Restore this workstation's HTTPS access to the release channel.",
-            ) from error
-    return latest
+    try:
+        return harness_cli_latest.latest_harness_cli_versions(fetch)
+    except harness_cli_latest.LatestReleaseUnavailable as error:
+        raise _refused(
+            "golden_refresh_latest_unavailable",
+            str(error),
+            "Restore this workstation's HTTPS access to the release channel.",
+        ) from error
 
 
 def refreshed_case_contract(
@@ -269,7 +254,6 @@ def _capture_golden(
 
 
 __all__ = [
-    "fetch_release_channel",
     "latest_harness_cli_versions",
     "refreshed_case_contract",
 ]

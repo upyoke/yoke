@@ -35,7 +35,9 @@ Golden capture records each CLI's version beside the golden in
 compares those versions with each vendor's latest release; when one is newer
 it resets, installs the newer CLIs with each vendor's installer as the test user and
 captures a new golden under the plan's own host lease. Do not hand-update
-CLIs for QA; a failed refresh stops the plan with the step to repair.
+CLIs for QA; a failed refresh stops the plan with the step to repair. A hand
+capture whose CLIs are behind warns `golden_harness_clis_behind_latest` and names
+each one, because the next QA plan replaces that golden with a refreshed one.
 Their seal records identity, size and probe digest; captured files retain modes
 and ACLs. Sockets/FIFOs are omitted by type, regular `.sock` files are retained.
 The exact OS-managed audiovisual preference at
@@ -54,7 +56,7 @@ Only the dedicated test home is captured; system settings/other homes are not.
 
 | Named refusal | Recovery |
 | --- | --- |
-| `golden_capture_yoke_residue` | Return to the existing baseline, then prepare and save again |
+| `golden_capture_yoke_residue` | Remove the named path as the test user, or reset to the registered golden when `yoke test-machine get` shows `golden_baseline_path`; then capture again |
 | `golden_capture_foreign_owner` | Diagnose the unexpected owner's writer; prove a product-owned restoration path before capture |
 | `golden_capture_preserved_state_invalid` | Inspect the named OS entry's owner/type or symlink ancestor; preserve content and do not change its owner |
 | `golden_capture_destination_occupied` | Choose a new destination |
