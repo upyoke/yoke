@@ -10,21 +10,27 @@ use Command, Browser check or Machine check for deterministic assertions.
 
 ## Contract
 
-The Machine QA method has these immutable properties:
+The exploratory QA method has these immutable properties:
 
 | Field | Value |
 |---|---|
 | `runner_id` | `agent_mission` |
 | `verdict_path` | `agent` |
 | `concurrency_mode` | `serial` |
-| required capabilities | `browser-control`, <!-- qa:test-machine-capability -->`test-machine` |
+| required capabilities | `browser-control` |
 | case config | `{"executor":"informed_subagent"}` |
 
-<!-- qa:test-machine-capability -->`test-machine` resolves against project
-registrations; admission refuses without one. The runner supplies
-`browser-control` without a project capability row. Walkers use managed browsers
-for named identities or when the walk installed Yoke; otherwise the host browser.
-The connection comes from the `QA_HOST:` lease recorded on
+A mission without a declared host explores on the controller, the machine
+running the main session. It records a mission docket without a lease and
+reaches `awaiting_walk_review` without a restore artifact or reset debt.
+It ignores a run's `--test-machine` pin. Declare `method_config.test_machine`,
+`test_machines`, `os`, a specific `test-machine:<name>` capability or
+`host_baselines` to use a Test Machine; that host mission requires starting
+state and retains the lease/reset/restore protocol described below.
+The runner supplies `browser-control` without a project capability row.
+Controller walkers use local tools and browsers. Host walkers use managed
+browsers for named identities or when the walk installed Yoke; otherwise the
+host browser. Host access comes from the `QA_HOST:` lease recorded on
 `qa_plan_executions.test_machine_lease_id`, never an undeclared access path.
 
 ## Authoring Shape
@@ -44,7 +50,8 @@ single-machine missions; declare its host set below.
 }
 ```
 
-Omit `test_machine` to select a registered host matching the case OS. Execution
+For a host mission, omit `test_machine` to select a registered host matching
+the declared case OS. Execution
 checks `method_config.os` / `platform`, capability requirements and executable
 steps before leasing a host. A declared machine supplies its registered `os`
 when those fields do not choose one. Instructions never choose an OS. Without
@@ -68,7 +75,7 @@ held and heartbeated through the walk and independent review. Mission access
 refuses if either lease has been lost; completion or abort releases both.
 
 Every machine-run case declares the state it starts from, and authoring and
-materialization refuse one that does not. A mission names `host_baselines`
+materialization refuse one that does not. A host mission names `host_baselines`
 (`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
 with a `starting_state_reason` to walk the machine as found — that mission must
 also tell its walker to leave the home untouched. A mission may `inherit` from
@@ -90,7 +97,7 @@ from the plan's bound environment through `{{app_url}}`, `{{installer_base_url}}
 testing another requires a separate plan bound to it, using the same template.
 
 Use `informed_subagent` for each case. It isolates the walk and supplies the
-relevant project and Progress Log context on the controller. Drive the target
+relevant project and Progress Log context on the controller. For a host mission, drive the target
 with the printed host commands; a fresh target needs no Yoke or source checkout.
 Do not add a checkout or project internals to bypass missing installed guidance.
 The harness adapter must permit the mission's host, browser and artifact writes.
@@ -103,13 +110,13 @@ saved case to `informed_subagent` and rematerialize affected requirements.
 
 A mission cleans up everything it creates, such as repositories, accounts and
 records the product registered, using the product's own commands, and reports
-anything it could not remove. Walk-end removes only the mission's staging and
+anything it could not remove. A host mission's walk-end removes only its staging and
 restores the Test Machine; it never removes what the walk created elsewhere.
 
 Host cleanup, such as uninstalling a checkout on the Test Machine, needs the
 mission's lease and runs through `yoke qa mission host-command`. Server
 cleanup, such as `yoke --env ENV projects retire`, `yoke --env ENV machine
-retire` and deleting fixture repositories, needs no lease. An aborted walk keeps its lease
+retire` and deleting fixture repositories, needs no lease. An aborted host walk keeps its lease
 until walk-end, so it finishes both; if access is gone anyway, the walker still
 does the server cleanup the refusal names.
 
@@ -131,7 +138,7 @@ Run just one materialized mission without starting its sibling requirements:
 yoke qa case run --requirement-id N
 ```
 
-This creates a one-requirement plan execution using the same lease, walk,
+This creates a one-requirement plan execution using the same controller or host walk,
 review bundle and main-agent verdict path below, including deployment-member
 missions. Exit code `12` carries the typed review continuation. Repeating the
 case command reprints pending review without recapturing. An `inherit` mission
