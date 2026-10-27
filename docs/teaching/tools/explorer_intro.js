@@ -14,21 +14,21 @@ function introArticleLinks(links) {
   return nav;
 }
 function renderStrategyIntro(section) {
-  section.append(text('p', "Strategy documents are text documents stored in your Yoke Universe’s database."));
+  section.append(text('p', "Strategy documents are markdown text stored in your Yoke Universe’s database that you and your agents can create, edit, and archive."));
   const figure = text('figure', '', 'intro-strategy-visual');
   const image = document.createElement('img');
   image.src = data.strategy_visual;
   image.alt = 'Standing strategy forms a pyramid: MISSION, VISION, LANDSCAPE and MASTER-PLAN. Above it, STEERING claims CURRENT-PLAN and coordinates five active work items across agents and machines.';
   figure.append(image); section.append(figure);
   section.append(text('h3', 'Standing strategy docs'));
-  section.append(text('p', 'MISSION, VISION, LANDSCAPE, and MASTER-PLAN are “standing strategy docs” that give humans and agents a shared understanding of the foundational context in which the project operates.'));
+  section.append(text('p', 'MISSION, VISION, LANDSCAPE, and MASTER-PLAN are “standing” docs that give humans and agents a shared understanding of the foundational context in which the project operates.'));
   section.append(text('h3', 'Working strategy docs'));
-  section.append(text('p', 'CURRENT-PLAN and any other strategy docs you create are “working strategy docs” that contain slices of work or major initiatives. These live docs are used by you and your agents throughout ideation, planning, implementation, and delivery.'));
-  const execution = text('p', 'To execute, ');
+  section.append(text('p', 'CURRENT-PLAN and any other strategy docs you create are “working strategy docs” that contain bits and pieces that haven’t been filed or staffed yet, big slices of work, and major initiatives. These live docs are used by you and your agents throughout ideation, implementation, and delivery to keep track of the rolling plan.'));
+  const execution = text('p', '');
   const label = text('span', '', 'intro-steering');
   const icon = document.createElement('img'); icon.src = data.steering_icon; icon.alt = '';
   label.append(icon, document.createTextNode('STEERING'));
-  execution.append(label, document.createTextNode(' claims a working strategy doc and begins filing work items, orchestrating delivery, and managing iteration until completion. The strategy doc is kept updated with current state, and work can be safely stopped and resumed anytime, from anywhere.'));
+  execution.append(label, document.createTextNode(' claims a working strategy doc, and begins filing work items, orchestrating delivery, and managing iteration. The strategy doc is kept updated with current state, and work can be safely stopped and resumed anytime, from anywhere, with no context loss.'));
   section.append(execution);
 }
 function renderInstallIntro(article) {
