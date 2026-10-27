@@ -43,6 +43,7 @@ Read [envelope and authority](index.md). `none` skips only the claim check.
 | `deployment_runs.execution.bound_sources_prepare` | `none` |
 | `deployment_runs.execution.containment_basis` | `none` |
 | `deployment_runs.execution.context` | `none` |
+| `deployment_runs.execution.delivery_reuse` | `none` |
 | `deployment_runs.execution.ephemeral_qa_ready` | `none` |
 | `deployment_runs.execution.qa_pending` | `none` |
 | `deployment_runs.execution.release_driver` | `none` |

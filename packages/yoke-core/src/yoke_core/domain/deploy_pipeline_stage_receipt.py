@@ -49,6 +49,7 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     StageObservation,  # noqa: F401 — re-exported so producers import one name
 )
 from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
+from yoke_core.domain.deploy_pipeline_delivery_reuse import reused_delivery
 from yoke_core.domain.deployment_target_identity_config import (
     identity_origin_for,
     identity_path_for,
@@ -124,7 +125,8 @@ def dispatch_step_runner_with_receipt(
 ) -> tuple[int, str]:
     """Dispatch a stage, recording a durable receipt when a later QA stage
     consumes it as its ``source_stage``. Every other stage dispatches
-    unchanged.
+    unchanged. A workflow stage whose delivery the target already serves
+    completes without dispatching (:func:`reused_delivery`).
     """
     stage_name = str(stage.get("name") or "")
     step_runner = str(stage.get("step_runner") or "")
@@ -133,6 +135,9 @@ def dispatch_step_runner_with_receipt(
         return EXIT_DRIVER_SOURCE_DRIFT, drift
 
     def _dispatch(*, dispatch_environment: str) -> tuple[int, str]:
+        reused = reused_delivery(stage, run_id=run_id, fresh=fresh)
+        if reused:
+            return 0, f"stage {stage_name!r} reused the delivery of run {reused}"
         return _dispatch_step_runner(
             stage,
             run_id=run_id,

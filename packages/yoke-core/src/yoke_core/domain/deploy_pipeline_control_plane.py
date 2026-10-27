@@ -287,6 +287,15 @@ def latest_stage_receipt(run_id: str, *, stage_name: str) -> Optional[Dict[str, 
     return dict(receipt) if isinstance(receipt, dict) else None
 
 
+def reuse_delivery(run_id: str, *, stage_name: str) -> Dict[str, Any]:
+    """Reuse the target's served delivery for a stage, or say why not."""
+    return _call(
+        "deployment_runs.execution.delivery_reuse",
+        run_id,
+        {"stage_name": stage_name},
+    )
+
+
 def project_field(project: str, field: str) -> str:
     """Read one project field through the selected transport."""
     response = call_dispatcher(
@@ -311,6 +320,7 @@ __all__ = [
     "ephemeral_qa_ready",
     "latest_stage_receipt",
     "project_field",
+    "reuse_delivery",
     "run_pin",
     "unresolved_qa",
     "update_run_field",

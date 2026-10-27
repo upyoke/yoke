@@ -203,6 +203,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.execution.containment_basis": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),
+    "deployment_runs.execution.delivery_reuse": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
     "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.attach_driver": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

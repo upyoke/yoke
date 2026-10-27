@@ -45,6 +45,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.execution.bound_sources_prepare": "next-release",
     "deployment_runs.execution.bound_sources_current": "next-release",
     "deployment_runs.execution.containment_basis": "next-release",
+    "deployment_runs.execution.delivery_reuse": "next-release",
     "deployment_runs.execution.release_driver": "next-release",
     "deployment_runs.remove_item": "next-release",
     "deployment_runs.timings": "next-release",
