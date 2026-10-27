@@ -36,7 +36,7 @@ def _body_text(message: LeasedSessionMessage, message_id: str) -> tuple[str, str
         return body, ""
     return (
         body[:REMINDER_EXCERPT_CHARS].rstrip() + " …",
-        f"Excerpt only; read the full body with `yoke messages get {message_id}`.",
+        f"Excerpt only; read the full body with `yoke messages get {message_id} body`.",
     )
 
 
@@ -93,7 +93,7 @@ def _parent_overflow_notice(hidden_count: int, session_id: str) -> str:
             "List the backlog with "
             f"`yoke messages list --recipient-session {recipient} "
             "--state unacknowledged`.",
-            "Read a full body with `yoke messages get MESSAGE-ID`.",
+            "Read a full body with `yoke messages get MESSAGE-ID body`.",
         )
     )
 
@@ -108,11 +108,7 @@ def _parent_blocks(
     blocks = []
     for message in lease.messages:
         message_id = canonical_fleet_message_id(message.message_id)
-        acknowledgement = (
-            ""
-            if message_id
-            else FLEET_INVALID_MESSAGE_ID_GUIDANCE
-        )
+        acknowledgement = "" if message_id else FLEET_INVALID_MESSAGE_ID_GUIDANCE
         blocks.append(
             _render_message(message, token=token, acknowledgement=acknowledgement)
         )

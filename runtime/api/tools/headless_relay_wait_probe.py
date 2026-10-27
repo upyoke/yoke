@@ -56,7 +56,7 @@ def instructions(nonce: str, recipient: str) -> str:
         "Only after its exit 0, send its exact JSON stdout unchanged using "
         f"yoke say --stdin --session {recipient}. On failure send the actual "
         "diagnostic instead. Never synthesize a success result. Then end "
-        "this probe session with yoke sessions end if empty --triggered-by wait-probe."
+        "this probe session with yoke sessions end-if-empty --triggered-by wait-probe."
     )
 
 

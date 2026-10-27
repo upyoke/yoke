@@ -212,8 +212,7 @@ class RepositoryProviderSource:
                     "recovery": (
                         f"{self._unresolvable_refs} lane ref(s) named no commit "
                         f"the provider could resolve within {COMMIT_LOOKUP_BUDGET} "
-                        "lookups; attribution used recorded evidence and commit "
-                        "messages instead."
+                        "lookups; attribution used recorded evidence instead."
                     ),
                     "error_type": "",
                 }

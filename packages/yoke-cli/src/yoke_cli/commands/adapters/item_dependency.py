@@ -100,6 +100,10 @@ unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk,
 including a fix that ships in the dependent's release or shared QA case.
+A blocker at done always satisfies it. Otherwise, its landing must occur after
+the edge was created; a landing that predates the edge does not count. For an
+already-merged blocker, use coordination_only or no edge when no new landing
+is needed.
 Reserve fact:deployed:<environment-name> for a dependent that needs that code running
 in a registered environment before its own release; a blocker shipping in that
 same release cannot be delivered first, so composition skips the dependent. It requires the blocker at done with durable
