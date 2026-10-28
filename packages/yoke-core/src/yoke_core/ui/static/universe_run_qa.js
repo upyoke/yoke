@@ -16,7 +16,7 @@ import { groupRunChecks } from "./run_qa_sharing.js";
 // Returns the Run QA section, or — for a run with no checks and no decision —
 // only the finalization note when the run is settling, or nothing at all.
 // ``options.drawnRequestIds`` names the decisions a carried item already drew;
-// ``options.sharing`` is the run's shared plans, whose checks are drawn here
+// ``options.sharing`` is the run's plan groups, whose checks are drawn here
 // once under their sharing items' label.
 export function runQaSection(context, row, rawChecks, onAct, options = {}) {
   const runRows = (rawChecks || []).filter((check) => check.deployment_member_public_ref == null);
