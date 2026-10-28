@@ -293,8 +293,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "a session; claimed-target maintenance may use the mapped main "
             "checkout when no Yoke lane exists. A "
             "nested `yoke` or `python3` command uses the checkout's declared "
-            "locked .venv. Missing, stale, or incompatible environments refuse "
-            "with lane-local recovery; checks never sync. Candidate-bound Command "
+            "locked .venv; a drifted .venv first syncs to its unchanged lock. "
+            "A missing environment, stale lock, failed sync, or incompatible "
+            "Python refuses with lane-local recovery. Candidate-bound Command "
             "QA uses its bound candidate source by default; an explicit "
             "--lane pointing elsewhere refuses."
         ),

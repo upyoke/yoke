@@ -54,7 +54,7 @@ def test_qa_environment_preserves_cluster_when_home_is_replaced(tmp_path, monkey
     monkeypatch.setattr(
         candidate.source_python_environment,
         "resolve",
-        lambda root, env: SourcePythonEnvironment(
+        lambda root, env, *, repair: SourcePythonEnvironment(
             sys.executable, dict(env), {"declaration": {}}
         ),
     )

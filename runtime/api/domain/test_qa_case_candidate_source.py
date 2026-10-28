@@ -178,3 +178,25 @@ def test_other_command_scopes_preserve_inherited_import_resolution(
     output = Path(result["output_capture"]).read_text()
     assert output == baseline
     assert json.loads(record["raw_result"])["candidate_source"] is None
+
+
+def test_candidate_check_after_the_case_refuses_drift_without_repairing(tmp_path):
+    from yoke_core.domain.qa_case_candidate_source import CandidateSource
+
+    provision_stub_environment(tmp_path)
+    site = next((tmp_path / ".venv/lib").glob("python*/site-packages"))
+    metadata = site / "main_only-1.0.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: main-only\nVersion: 1.0\n"
+    )
+    source = CandidateSource(tmp_path, dict(os.environ), python=sys.executable)
+    with patch(
+        "yoke_core.domain.source_python_environment.load_declaration",
+        return_value=TestEnvironmentDeclaration(project="fixture"),
+    ):
+        source.inspect("after")
+    assert "SOURCE-ENVIRONMENT-OUT-OF-DATE" in source.refusal
+    assert source.evidence["refusal"] == source.refusal
+    assert "environment_after" not in source.evidence
+    assert metadata.exists()
