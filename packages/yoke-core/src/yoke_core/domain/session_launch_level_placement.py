@@ -85,7 +85,7 @@ def _level(levels: Sequence[Level], name: str, source: str) -> Level:
 
 
 def _percent(value: float | None) -> str:
-    return "unreadable" if value is None else f"{int(round(value))}%"
+    return "unreadable" if value is None else f"{int(round(value))}% of even pace"
 
 
 def _weigh(
@@ -259,7 +259,7 @@ def _reason(chosen: LevelCandidate, rule: str, open_: list[LevelCandidate]) -> s
     if len(open_) == 1:
         return f"only option with capacity: {chosen.label}, headroom {headroom}{window}"
     if rule == RULE_SPREAD:
-        return f"spread rule: no live worker draws on this pool; {chosen.label}, headroom {headroom}{window} above {int(SPREAD_HEADROOM_PERCENT)}%"
+        return f"spread rule: no live worker draws on this pool; {chosen.label}, headroom {headroom}{window}"
     return f"most headroom per worker: {chosen.label} at {headroom}{window}"
 
 

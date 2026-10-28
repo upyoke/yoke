@@ -169,6 +169,8 @@ def test_an_idle_surface_above_full_headroom_is_spread_to_first(monkeypatch) -> 
     assert placement.chosen.surface == "claude-cli"
     assert placement.chosen.headroom_percent == pytest.approx(120.0)
     assert "spread rule" in placement.reason
+    assert "headroom 120% of even pace (weekly · " in placement.reason
+    assert placement.reason.endswith(")")
 
 
 def test_a_busy_pool_splits_its_headroom_among_its_workers(monkeypatch) -> None:

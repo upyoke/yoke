@@ -114,7 +114,7 @@ def test_launch_preview_names_where_each_carried_knob_came_from() -> None:
     assert "1000000" in rendered
     assert "at session registration" in rendered
     assert "MACHINES WEIGHED" in rendered
-    assert "240% (rolling 5h · all models)" in rendered
+    assert "240% of even pace (rolling 5h · all models)" in rendered
     assert "most codex-cli headroom; chose machine-roomy" in rendered
 
 

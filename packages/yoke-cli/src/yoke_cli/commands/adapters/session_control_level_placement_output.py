@@ -22,6 +22,11 @@ def _percent(value: Any) -> str:
     return "unreadable" if value is None else f"{int(round(float(value)))}%"
 
 
+def _pace(value: Any) -> str:
+    """A headroom percent, named against the even pace it is measured by."""
+    return "unreadable" if value is None else f"{_percent(value)} of even pace"
+
+
 def level_rows(placement: Any) -> list[tuple[str, Any]]:
     """Summary rows for a level launch, or nothing for an explicit one."""
     if not isinstance(placement, Mapping):
@@ -38,11 +43,11 @@ def level_rows(placement: Any) -> list[tuple[str, Any]]:
 def _pool(pool: Mapping[str, Any]) -> str:
     text = (
         f"{pool.get('window')} {_percent(pool.get('remaining_percent'))} left, "
-        f"headroom {_percent(pool.get('headroom_percent'))}"
+        f"headroom {_pace(pool.get('headroom_percent'))}"
     )
     workers = pool.get("workers")
     if workers and pool.get("share_percent") is not None:
-        text += f" split {int(workers) + 1} ways = {_percent(pool['share_percent'])}"
+        text += f" split {int(workers) + 1} ways = {_pace(pool['share_percent'])}"
     resets = pool.get("resets_utc")
     if resets:
         text += f", resets {resets} UTC"
@@ -74,7 +79,7 @@ def _lanes_cell(row: Mapping[str, Any]) -> str:
 _COLUMNS: tuple[Column, ...] = (
     ("OPTION", lambda row: row.get("label"), None),
     ("POOLS CHECKED", _pools_cell, None),
-    ("HEADROOM", lambda row: _percent(row.get("headroom_percent")), 10),
+    ("HEADROOM", lambda row: _pace(row.get("headroom_percent")), 20),
     (
         "LIVE",
         lambda row: (

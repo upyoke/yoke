@@ -70,7 +70,7 @@ def _readout() -> LevelReadout:
         (chosen, blocked),
         chosen,
         RULE_SPREAD,
-        "spread rule: no live worker on claude-cli and headroom 140% above 100%",
+        "spread rule: no live worker on claude-cli and headroom 140% of even pace",
     )
     principal = LevelPlacement(
         "PRINCIPAL",
@@ -104,7 +104,7 @@ def test_readout_names_each_option_machine_pool_and_next_launch() -> None:
     assert "SENIOR 🦉 next → spread rule: no live worker on claude-cli" in text
     assert (
         "→ claude-cli claude-opus-5-5 medium on mini · Claude 5h 62% left, "
-        "headroom 140%, resets Oct 8 17:05"
+        "headroom 140% of even pace, resets Oct 8 17:05"
     ) in text
     assert (
         "✗ codex-cli gpt-6.1-sol medium on mini · Codex weekly pool exhausted"
@@ -142,7 +142,7 @@ def test_blocked_option_still_shows_every_pool() -> None:
         )
     )
     assert "weekly pool exhausted · Claude 5h 62% left" in text
-    assert "Claude weekly 0% left, headroom 140%, resets Oct 8 17:05" in text
+    assert "Claude weekly 0% left, headroom 140% of even pace, resets Oct 8 17:05" in text
 
 
 def test_unavailable_readout_says_why_and_how_to_check() -> None:

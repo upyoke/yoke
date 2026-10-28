@@ -143,9 +143,9 @@ def _pool(pool: PoolCheck) -> str:
         return f"{pool.window} unreadable"
     text = f"{pool.window} {int(round(pool.remaining_percent))}% left"
     if pool.headroom_percent is not None:
-        text += f", headroom {int(round(pool.headroom_percent))}%"
+        text += f", headroom {int(round(pool.headroom_percent))}% of even pace"
     if pool.workers and pool.share_percent is not None:
-        text += f" split {pool.workers + 1} ways = {int(round(pool.share_percent))}%"
+        text += f" split {pool.workers + 1} ways = {int(round(pool.share_percent))}% of even pace"
     if pool.resets_at:
         text += f", resets {format_reset_utc(pool.resets_at)}"
     if pool.remaining_percent <= 0 and pool.extra_label:

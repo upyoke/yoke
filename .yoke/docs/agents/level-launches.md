@@ -32,7 +32,9 @@ non-terminal item pinned to a version with a level-less stage, with its exact
 
 Placement expands each model row through its manifest's selection source at its minimum
 effort. Machine access, lane capacity and quota rules remain authoritative.
-Empty/blocked candidates are skipped. Among available Cursor candidates,
+Empty/blocked candidates are skipped. Headroom: usage left vs. an even pace
+to the reset; output prints it as `N% of even pace`, and 100% is exactly an
+even pace. Among available Cursor candidates,
 the earlier monthly pool is preferred before headroom; other vendors have
 no pool order. Headroom is per worker: a pool's headroom divided by the live
 workers and unregistered launches on the same machine whose model that pool
