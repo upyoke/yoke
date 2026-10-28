@@ -74,6 +74,9 @@ def test_grant_access_from_populated_picker_then_refresh(monkeypatch):
 def test_url_entry_uses_connected_probe_and_private_access_recovery(monkeypatch):
     app = prepare(monkeypatch)
     probes = []
+    monkeypatch.setattr(
+        clone_flow.github_state, "user_access_token", lambda _result: "ghu_connected",
+    )
 
     def probe(url, **kwargs):
         probes.append((url, kwargs.get("token")))
@@ -98,7 +101,8 @@ def test_url_entry_uses_connected_probe_and_private_access_recovery(monkeypatch)
             assert "GitHub" in text
             assert "access" in text.lower()
             assert probes[0][0] == MISSING.clone_url
-            assert probes[0][1]  # Connected credential, before anonymous probing.
+            assert probes == [(MISSING.clone_url, "ghu_connected"), (MISSING.clone_url, None)]
+            assert "GitHub App has access to that repository" in text
             recovery = await wait_for_selection(app, pilot)
             assert [row.value for row in recovery.rows] == [
                 "repositories", "retry", "back",
