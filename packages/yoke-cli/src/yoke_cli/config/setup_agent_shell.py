@@ -60,6 +60,7 @@ class AgentShell(AgentApprovals, AnswerFlow):
         self._render_current()
 
     def _replace_current(self, view: _View) -> None:
+        self._attach_carried_details(view)
         if self._history:
             self._history[-1] = view
         else:

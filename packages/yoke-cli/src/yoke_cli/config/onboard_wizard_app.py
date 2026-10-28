@@ -110,6 +110,7 @@ class OnboardWizardApp(
     def _replace_current(self, view: _View) -> None:
         """Swap the current view in place without growing history (Applying ->
         success/failure), so a later Esc never lands on a non-interactive screen."""
+        self._attach_carried_details(view)
         if self._history:
             self._history[-1] = view
         else:

@@ -67,7 +67,8 @@ def test_github_connection_reaches_next_question_with_repository_advice(shell):
     assert shell._carried_detail_lines == []
 
 
-def test_carryover_accumulates_until_the_next_answerable_screen(shell):
+@pytest.mark.parametrize("present", ["_goto", "_replace_current"])
+def test_carryover_accumulates_until_the_next_answerable_screen(shell, present):
     shell._carry_detail_lines(["Connection ready."])
     shell._goto(_View(SetupPrompt(key="checking", step="project", title="Checking.")))
     shell._carry_detail_lines(["Folder already exists."])
@@ -79,7 +80,7 @@ def test_carryover_accumulates_until_the_next_answerable_screen(shell):
         builder=lambda: [custom],
     )
 
-    shell._goto(view)
+    getattr(shell, present)(view)
 
     assert view.prompt.detail_lines == ("Connection ready.", "Folder already exists.", "Question detail.")
     assert [widget.content for widget in view.builder()] == ["Connection ready.", "Folder already exists.", "Custom body"]
