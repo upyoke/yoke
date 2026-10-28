@@ -97,7 +97,7 @@ def test_cached_reading_refreshes_before_the_display_deadline(
     assert observed == [FIRST_OBSERVED_AT, REFRESHED_AT]
 
 
-def test_failed_refresh_replaces_old_quota_with_a_named_unknown(
+def test_rejected_sign_in_replaces_old_quota_with_a_named_unknown(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -113,7 +113,7 @@ def test_failed_refresh_replaces_old_quota_with_a_named_unknown(
         session_relay_plan_limits._PROBES,
         QUOTA_SOURCE,
         lambda *, observed_at: unknown_reading(
-            SURFACE, "http_503", observed_at=observed_at
+            SURFACE, "stale_credential", observed_at=observed_at
         ),
     )
 
@@ -134,6 +134,6 @@ def test_failed_refresh_replaces_old_quota_with_a_named_unknown(
             "remaining_percent": None,
             "resets_at": None,
             "status": "unknown",
-            "reason": "http_503",
+            "reason": "stale_credential",
         }
     ]
