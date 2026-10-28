@@ -71,16 +71,8 @@ def test_project_step_renders() -> None:
 
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.pause()
-            # Wait for automatic Install checks, then clear the machine
-            # GitHub step (skip), then land on the project-source step and
-            # select "Create a new project".
+            # Install opens project intent before sign-in and GitHub.
             await app.workers.wait_for_complete()
-            await pilot.pause()
-            await pilot.press("down")  # machine github: Skip for now
-            await pilot.press("enter")
-            await pilot.pause()
-            await pilot.press("down")  # project: move to "Create a new project"
-            await pilot.press("down")
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
