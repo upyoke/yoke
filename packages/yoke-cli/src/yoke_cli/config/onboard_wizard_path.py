@@ -48,7 +48,19 @@ class PathFlow:
         if error:
             self._goto_path_apply_error(error)
         else:
-            self._start_connect()
+            if (
+                not self._project_mode_preset
+                and not self._stored_project_checkouts
+                and not getattr(self, "_restored_projects", None)
+            ):
+                self._goto_project_mode(on_selected=self._remember_project_mode)
+            else:
+                self._start_connect()
+
+    def _remember_project_mode(self, mode: str) -> None:
+        self.result.project_mode = mode
+        self._project_mode_preset = True
+        self._start_connect()
 
     def _check_install(self) -> tuple[dict[str, Any], str]:
         plan: dict[str, Any] = {}

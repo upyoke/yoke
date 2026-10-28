@@ -65,7 +65,7 @@ class WizardFlow(
 ):
     # ── Project step ────────────────────────────────────────
 
-    def _goto_project_mode(self: _Shell) -> None:
+    def _goto_project_mode(self: _Shell, *, on_selected=None) -> None:
         if getattr(self, "_restored_projects", None) and not getattr(
             self, "_restored_projects_offered", False
         ):
@@ -89,7 +89,7 @@ class WizardFlow(
                 "Set up a project.",
                 "Where's the code? You can change this later.",
                 steps.MODE_ROWS,
-                self._on_project_mode,
+                on_selected or self._on_project_mode,
                 guidance=onboard_github_copy.PROJECT_MODE_AGENT_GUIDANCE,
             )
         )

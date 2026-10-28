@@ -43,8 +43,8 @@ def test_clone_from_github_copy_does_not_imply_other_forges() -> None:
         onboard_github_copy.CLONE_FROM_GITHUB_TITLE,
         onboard_github_copy.CLONE_FROM_GITHUB_SUBTITLE,
         onboard_github_copy.CLONE_VISIBILITY_PUBLIC_DESC,
-        steps.MODE_ROWS[1].label,
-        steps.MODE_ROWS[1].hint,
+        steps.MODE_ROWS[2].label,
+        steps.MODE_ROWS[2].hint,
         project_screens.CLONE_VISIBILITY_ROWS[0].hint,
     )).casefold()
     assert "github" in clone

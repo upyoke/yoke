@@ -22,11 +22,11 @@ from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow
 from yoke_cli.config.onboard_wizard_path import PathFlow
 
 MACHINE_ONLY_ANSWERS = (
+    "project.mode=machine-only",
     "connect.destination=local",
     "connect.local_universe=fresh",
     "connect.admin_name=Test Person",
     "github.machine=skip",
-    "project.mode=machine-only",
 )
 
 

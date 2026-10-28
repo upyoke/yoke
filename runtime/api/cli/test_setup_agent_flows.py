@@ -67,14 +67,14 @@ def test_every_line_is_one_json_object_and_progress_goes_to_stderr(agent):
     assert code == 0
     assert len(lines) == 1
     assert lines[0]["answer_command"].endswith(
-        "setup --agent --answer connect.destination=<value>"
+        "setup --agent --answer project.mode=<value>"
     )
     assert "{" not in drive.stderr
 
 
 def test_a_fresh_invocation_resumes_at_the_next_question(agent):
     drive, _ = agent
-    drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
     first = _last(drive())
     second = _last(drive())
@@ -86,9 +86,9 @@ def test_a_fresh_invocation_resumes_at_the_next_question(agent):
 def test_the_first_call_may_answer_the_first_question(agent):
     drive, _ = agent
 
-    code, line = _last(drive("connect.destination=local"))
+    code, line = _last(drive("project.mode=machine-only"))
 
-    assert (code, line["key"]) == (0, "connect.local_universe")
+    assert (code, line["key"]) == (0, "connect.destination")
 
 
 def test_yes_preset_answers_review_and_later_calls_may_omit_it(agent):
@@ -106,8 +106,8 @@ def test_local_checkout_setup_answers_the_details_form_by_field(agent, tmp_path:
     drive, fake = agent
     checkout = git_checkout(tmp_path / "demo")
     answers = (
-        *MACHINE_ONLY_ANSWERS[:4],
         "project.mode=local-checkout",
+        *MACHINE_ONLY_ANSWERS[1:],
         f"project.folder={checkout}",
     )
     code, line = _last(drive.walk(answers))
@@ -170,7 +170,7 @@ def test_saved_github_authorization_skips_the_github_question(agent, monkeypatch
         },
     )
 
-    code, lines = drive.walk(MACHINE_ONLY_ANSWERS[:3])
+    code, lines = drive.walk(MACHINE_ONLY_ANSWERS[:4])
 
     assert (code, lines[-1]["key"]) == (0, "github.connected")
 
@@ -187,7 +187,7 @@ def test_saved_yoke_sign_in_is_reused_without_a_browser_step(agent, monkeypatch)
     )
     monkeypatch.setattr(yoke_token_verify, "verify", lambda *_a, **_k: VERIFIED)
 
-    code, first = drive()
+    code, first = drive("project.mode=machine-only")
     assert first[-1]["key"] == "connect.saved_destination"
     code, lines = drive("connect.saved_destination=stored")
 

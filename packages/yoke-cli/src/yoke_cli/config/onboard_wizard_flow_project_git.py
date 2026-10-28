@@ -169,7 +169,8 @@ class ProjectGitFlow:
                     key="project.project_git_install_handoff",
                     step=STEP_PROJECT,
                     title="Finish Apple's installer.",
-                    message="The Command Line Tools installer should be open.",
+                    message="If Apple's installer did not open, run `xcode-select --install`, "
+                    "finish it, then continue.",
                     detail_lines=tuple(
                         project_git_prerequisite.install_handoff_detail_lines(advice)
                     ),

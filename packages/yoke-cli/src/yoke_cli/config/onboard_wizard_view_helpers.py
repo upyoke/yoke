@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from typing import Protocol
+from dataclasses import replace
+
+from yoke_cli.config.onboard_permission_review import SETUP_PERMISSION_DISCLOSURE
 
 from textual.widgets import Static
 
@@ -18,6 +21,24 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
 
 class ViewHelpers:
+    def _disclose_permissions(self, view: _View) -> None:
+        if getattr(self, "_permission_disclosed", False) or not view.prompt.answerable:
+            return
+        self._permission_disclosed = True
+        view.prompt = replace(
+            view.prompt,
+            detail_lines=(*SETUP_PERMISSION_DISCLOSURE, *view.prompt.detail_lines),
+        )
+        original_builder = view.builder
+
+        def builder():
+            return [
+                *(Static(line, markup=False) for line in SETUP_PERMISSION_DISCLOSURE),
+                *original_builder(),
+            ]
+
+        view.builder = builder
+
     def _selection_view(self: _Shell, key, step, title, subtitle, rows, on_select,
                         *, initial: int = 0, guidance: str = "") -> _View:
         return _View(

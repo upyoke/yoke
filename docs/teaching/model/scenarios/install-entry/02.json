@@ -4,7 +4,7 @@
  "status": "observed",
  "audience": "both",
  "when": "At each setup step",
- "need": "The TUI teaches the human directly. Agent mode provides a structured question, allowed answers, links and guidance, which the agent translates for the human.",
+ "need": "The TUI teaches the human directly. Agent mode provides a structured question, allowed answers, links and guidance, which the agent translates for the human. The first question discloses machine-wide unattended approval and sandbox settings and worker bypass. Without a preset or saved checkout, project.mode precedes sign-in and GitHub; its saved answer selects the project path after connection. Git installer handoffs include xcode-select --install and recheck Git before proceeding.",
  "disclosure": "current cue",
  "surface": "TUI setup; yoke setup --agent JSON questions answered with --answer KEY=VALUE",
  "gap": "Live harness proof that an agent relays each question to a person through install and first-work remains pending.",

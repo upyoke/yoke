@@ -50,7 +50,7 @@ def test_no_terminal_enters_agent_mode_and_asks_one_question(monkeypatch, capsys
 
     assert code == 0
     assert [line["state"] for line in lines] == ["question"]
-    assert lines[0]["key"] == "connect.destination"
+    assert lines[0]["key"] == "project.mode"
     assert setup_agent_answers.store_path().exists()
 
 

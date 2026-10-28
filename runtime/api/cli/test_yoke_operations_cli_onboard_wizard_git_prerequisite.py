@@ -254,7 +254,7 @@ def test_missing_git_macos_handoff_keeps_wizard_open(monkeypatch) -> None:
             await app.workers.wait_for_complete()
             await pilot.pause()
             body = _body_text(app).lower()
-            assert "command line tools installer should be open" in body
+            assert "xcode-select --install" in body
             assert "check again" in body
             await pilot.press("enter")
             await app.workers.wait_for_complete()
