@@ -1,6 +1,7 @@
 """Install readiness distinguishes observed facts from configuration."""
 
 from types import SimpleNamespace
+from unittest import mock
 import subprocess
 
 import pytest
@@ -105,30 +106,29 @@ def test_dashboard_requires_matching_source_or_packaged_identity(
         assert "yoke ui down" in result.detail
 
 
-def test_stopped_dashboard_fails_with_restart(monkeypatch):
-    def stopped():
-        raise ValueError("DASHBOARD_NOT_RUNNING")
-
+@pytest.mark.parametrize(
+    "error,verdict,code,advice",
+    [
+        (checks._DashboardNotRunning(), "N/A", "DASHBOARD_NOT_RUNNING", "yoke ui up"),
+        (OSError(), "FAIL", "DASHBOARD_BUILD_UNVERIFIED", "yoke ui down"),
+    ],
+)
+def test_dashboard_probe_error_verdict(monkeypatch, error, verdict, code, advice):
     monkeypatch.setattr(checks, "active_https_connection", lambda: None)
-    monkeypatch.setattr(checks, "dashboard_identity", stopped)
-    assert run(checks.hc_dashboard_current_build)[0].result == "FAIL"
+    monkeypatch.setattr(checks, "dashboard_identity", mock.Mock(side_effect=error))
+    result = run(checks.hc_dashboard_current_build)[0]
+    assert (result.result, code in result.detail, advice in result.detail) == (verdict, True, True)
+    assert ("yoke ui down" in result.detail) == (verdict == "FAIL")
 
 
 def test_https_connection_dashboard_is_not_applicable_without_ui_advice(monkeypatch):
     monkeypatch.setattr(
         checks.machine_config,
         "active_connection",
-        lambda: {
-            "env": "prod",
-            "transport": "https",
-            "api_url": "https://acme.upyoke.com/api",
-        },
+        lambda: {"env": "prod", "transport": "https", "api_url": "https://acme.upyoke.com/api"},
     )
-
-    def unreachable():
-        raise AssertionError("an https connection has no local dashboard to probe")
-
-    monkeypatch.setattr(checks, "dashboard_identity", unreachable)
+    unreachable = AssertionError("an https connection has no local dashboard to probe")
+    monkeypatch.setattr(checks, "dashboard_identity", mock.Mock(side_effect=unreachable))
     result = run(checks.hc_dashboard_current_build)[0]
     assert result.result == "N/A"
     assert "https://acme.upyoke.com/" in result.detail

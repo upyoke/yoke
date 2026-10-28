@@ -149,6 +149,7 @@ still run normally. Full-corpus audits remain in the full Doctor selection.
 For a packaged local dashboard, the served build comes from source-commit metadata
 owned by the package serving its assets. Missing or inconsistent metadata leaves
 the build unverified; restart advice never certifies an unidentified package.
+A stopped local dashboard reports N/A.
 
 Outside an agent session, ordinary Doctor runs (including `--quick`) report
 session hook registration, harness sign-in and unattended posture as N/A with
